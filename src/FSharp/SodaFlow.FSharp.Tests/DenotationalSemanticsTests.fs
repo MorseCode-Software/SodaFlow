@@ -8,7 +8,7 @@ open TUnit.Core
 
 type ``Denotational Semantics Tests``() =
 
-    let runSimulationWithSimultaneousFirings listenStrong firings =
+    let runSimulationWithSimultaneousFirings listen firings =
         let maxKey =
             match firings with
             | [] -> -1
@@ -27,12 +27,12 @@ type ``Denotational Semantics Tests``() =
 
         match maxKey with
         | -1 ->
-            use _l = listenStrong out.Add
+            use _l = listen out.Add
             ()
         | _ ->
             use _l =
                 runT (fun () ->
-                    let l = listenStrong out.Add
+                    let l = listen out.Add
                     run 0
                     l)
 
@@ -41,11 +41,11 @@ type ``Denotational Semantics Tests``() =
 
         out
 
-    let runSimulationWithNoFirings listenStrong =
-        runSimulationWithSimultaneousFirings listenStrong List.empty
+    let runSimulationWithNoFirings listen =
+        runSimulationWithSimultaneousFirings listen List.empty
 
-    let runSimulation listenStrong firings =
-        runSimulationWithSimultaneousFirings listenStrong (firings |> List.map (Map.map (fun _ a -> [ a ])))
+    let runSimulation listen firings =
+        runSimulationWithSimultaneousFirings listen (firings |> List.map (Map.map (fun _ a -> [ a ])))
 
     let mkStream firings =
         let s = sinkS ()
@@ -108,7 +108,7 @@ type ``Denotational Semantics Tests``() =
     [<Test>]
     member _.``Never: Test Case``() =
         task {
-            let out = runSimulationWithNoFirings (flip listenStrongS (neverS<int> ()))
+            let out = runSimulationWithNoFirings (flip listenS (neverS<int> ()))
             do! Expect.Sequence([], out)
         }
 
@@ -116,7 +116,7 @@ type ``Denotational Semantics Tests``() =
     member _.``MapS: Test Case``() =
         task {
             let s, sf = mkStream ([ (0, 5); (1, 10); (2, 12) ] |> Map.ofList)
-            let out = runSimulation (flip listenStrongS (s |> mapS ((+) 1))) [ sf ]
+            let out = runSimulation (flip listenS (s |> mapS ((+) 1))) [ sf ]
             do! Expect.Sequence([ 6; 11; 13 ], out)
         }
 
@@ -126,7 +126,7 @@ type ``Denotational Semantics Tests``() =
             let s1, s1f = mkStream ([ (0, 'a'); (3, 'b'); (5, 'c') ] |> Map.ofList)
             let s2, s2f = mkStream ([ (1, 4); (5, 7) ] |> Map.ofList)
             let c = s2 |> holdS 3
-            let out = runSimulation (flip listenStrongS (s1 |> snapshotAndTakeC c)) [ s1f; s2f ]
+            let out = runSimulation (flip listenS (s1 |> snapshotAndTakeC c)) [ s1f; s2f ]
             do! Expect.Sequence([ 3; 4; 4 ], out)
         }
 
@@ -135,7 +135,7 @@ type ``Denotational Semantics Tests``() =
         task {
             let s1, s1f = mkStream ([ (0, 0); (2, 2) ] |> Map.ofList)
             let s2, s2f = mkStream ([ (1, 10); (2, 20); (3, 30) ] |> Map.ofList)
-            let out = runSimulation (flip listenStrongS ((s1, s2) |> mergeS (+))) [ s1f; s2f ]
+            let out = runSimulation (flip listenS ((s1, s2) |> mergeS (+))) [ s1f; s2f ]
             do! Expect.Sequence([ 0; 10; 22; 30 ], out)
         }
 
@@ -145,7 +145,7 @@ type ``Denotational Semantics Tests``() =
             let s, sf = mkStream ([ (0, 5); (1, 6); (2, 7) ] |> Map.ofList)
 
             let out =
-                runSimulation (flip listenStrongS (s |> filterS ((flip (%) 2) >> ((<>) 0)))) [ sf ]
+                runSimulation (flip listenS (s |> filterS ((flip (%) 2) >> ((<>) 0)))) [ sf ]
 
             do! Expect.Sequence([ 5; 7 ], out)
         }
@@ -161,7 +161,7 @@ type ``Denotational Semantics Tests``() =
                         let switcher, switcherF = mkStream ([ 1, s2 ] |> Map.ofList)
                         let c = switcher |> holdS s1
                         let firings = [ ("s1", s1f); ("s2", s2f); ("switcher", switcherF) ]
-                        (firings, flip listenStrongS (c |> switchS)))
+                        (firings, flip listenS (c |> switchS)))
                     (fun out -> Expect.Sequence([ 'a'; 'b'; 'Y'; 'Z' ], out))
         }
 
@@ -170,7 +170,7 @@ type ``Denotational Semantics Tests``() =
         task {
             let s, sf = mkStream ([ (1, 'b'); (3, 'c') ] |> Map.ofList)
             let c = s |> holdS 'a'
-            let out = runSimulation (flip listenStrongS (c |> updatesC)) [ sf ]
+            let out = runSimulation (flip listenS (c |> updatesC)) [ sf ]
             do! Expect.Sequence([ 'b'; 'c' ], out)
         }
 
@@ -181,7 +181,7 @@ type ``Denotational Semantics Tests``() =
             let c = s |> holdS 'a'
 
             let out =
-                runSimulation (fun h -> runT (fun () -> c |> valuesC |> listenStrongS h)) [ sf ]
+                runSimulation (fun h -> runT (fun () -> c |> valuesC |> listenS h)) [ sf ]
 
             do! Expect.Sequence([ 'a'; 'b'; 'c' ], out)
         }
@@ -193,7 +193,7 @@ type ``Denotational Semantics Tests``() =
             let c = s |> holdS 'a'
 
             let out =
-                runSimulation (fun h -> runT (fun () -> c |> valuesC |> listenStrongS h)) [ sf ]
+                runSimulation (fun h -> runT (fun () -> c |> valuesC |> listenS h)) [ sf ]
 
             do! Expect.Sequence([ 'b'; 'c'; 'd' ], out)
         }
@@ -203,7 +203,7 @@ type ``Denotational Semantics Tests``() =
         task {
             let s, sf = mkStream ([ (1, 'b'); (3, 'c') ] |> Map.ofList)
             let c = s |> holdS 'a'
-            let out = runSimulation (flip listenStrongC c) [ sf ]
+            let out = runSimulation (flip listenC c) [ sf ]
             do! Expect.Sequence([ 'a'; 'b'; 'c' ], out)
         }
 
@@ -212,7 +212,7 @@ type ``Denotational Semantics Tests``() =
         task {
             let s, sf = mkStream ([ (0, 'b'); (1, 'c'); (3, 'd') ] |> Map.ofList)
             let c = s |> holdS 'a'
-            let out = runSimulation (flip listenStrongC c) [ sf ]
+            let out = runSimulation (flip listenC c) [ sf ]
             do! Expect.Sequence([ 'b'; 'c'; 'd' ], out)
         }
 
@@ -223,7 +223,7 @@ type ``Denotational Semantics Tests``() =
                 mkStreamWithCoalesce [ (0, [ 'a'; 'b' ]); (1, [ 'c' ]); (1, [ 'd'; 'e' ]) ] List.append
 
             let out =
-                runSimulationWithSimultaneousFirings (flip listenStrongS (s |> Operational.split)) [ sf ]
+                runSimulationWithSimultaneousFirings (flip listenS (s |> Operational.split)) [ sf ]
 
             do! Expect.Sequence([ 'a'; 'b'; 'c'; 'd'; 'e' ], out)
         }
@@ -232,7 +232,7 @@ type ``Denotational Semantics Tests``() =
     member _.``Constant: Test Case``() =
         task {
             let c = constantC 'a'
-            let out = runSimulationWithNoFirings (flip listenStrongC c)
+            let out = runSimulationWithNoFirings (flip listenC c)
             do! Expect.Sequence([ 'a' ], out)
         }
 
@@ -240,7 +240,7 @@ type ``Denotational Semantics Tests``() =
     member _.``ConstantLazy: Test Case``() =
         task {
             let c = constantLazyC (lazySample (fun () -> 'a'))
-            let out = runSimulationWithNoFirings (flip listenStrongC c)
+            let out = runSimulationWithNoFirings (flip listenC c)
             do! Expect.Sequence([ 'a' ], out)
         }
 
@@ -249,7 +249,7 @@ type ``Denotational Semantics Tests``() =
         task {
             let s, sf = mkStream ([ (1, 'b'); (3, 'c') ] |> Map.ofList)
             let c = s |> holdS 'a'
-            let out = runSimulation (flip listenStrongC c) [ sf ]
+            let out = runSimulation (flip listenC c) [ sf ]
             do! Expect.Sequence([ 'a'; 'b'; 'c' ], out)
         }
 
@@ -258,7 +258,7 @@ type ``Denotational Semantics Tests``() =
         task {
             let s, sf = mkStream ([ (2, 3); (3, 5) ] |> Map.ofList)
             let c = s |> holdS 0
-            let out = runSimulation (flip listenStrongC (c |> mapC ((+) 1))) [ sf ]
+            let out = runSimulation (flip listenC (c |> mapC ((+) 1))) [ sf ]
             do! Expect.Sequence([ 1; 4; 6 ], out)
         }
 
@@ -269,7 +269,7 @@ type ``Denotational Semantics Tests``() =
             let ca = s1 |> holdS 100
             let s2, s2f = mkStream ([ (1, (+) 5); (3, (+) 6) ] |> Map.ofList)
             let cf = s2 |> holdS ((+) 0)
-            let out = runSimulation (flip listenStrongC (ca |> applyC cf)) [ s1f; s2f ]
+            let out = runSimulation (flip listenC (ca |> applyC cf)) [ s1f; s2f ]
             do! Expect.Sequence([ 100; 205; 305; 306; 406 ], out)
         }
 
@@ -286,7 +286,7 @@ type ``Denotational Semantics Tests``() =
                         let switcher, switcherF = mkStream ([ 1, c2 ] |> Map.ofList)
                         let c = switcher |> holdS c1
                         let firings = [ ("s1", s1f); ("s2", s2f); ("switcher", switcherF) ]
-                        (firings, flip listenStrongC (c |> switchC)))
+                        (firings, flip listenC (c |> switchC)))
                     (fun out -> Expect.Sequence([ 'b'; 'X'; 'Y'; 'Z' ], out))
         }
 
@@ -303,7 +303,7 @@ type ``Denotational Semantics Tests``() =
                         let switcher, switcherF = mkStream ([ 1, c2 ] |> Map.ofList)
                         let c = switcher |> holdS c1
                         let firings = [ ("s1", s1f); ("s2", s2f); ("switcher", switcherF) ]
-                        (firings, flip listenStrongC (c |> switchC)))
+                        (firings, flip listenC (c |> switchC)))
                     (fun out -> Expect.Sequence([ 'b'; 'X'; 'Y'; 'Z' ], out))
         }
 
@@ -320,7 +320,7 @@ type ``Denotational Semantics Tests``() =
                         let switcher, switcherF = mkStream ([ 1, c2 ] |> Map.ofList)
                         let c = switcher |> holdS c1
                         let firings = [ ("s1", s1f); ("s2", s2f); ("switcher", switcherF) ]
-                        (firings, flip listenStrongC (c |> switchC)))
+                        (firings, flip listenC (c |> switchC)))
                     (fun out -> Expect.Sequence([ 'b'; 'X'; 'Y'; 'Z' ], out))
         }
 
@@ -339,7 +339,7 @@ type ``Denotational Semantics Tests``() =
                         let switcher, switcherF = mkStream ([ (1, c2); (3, c3) ] |> Map.ofList)
                         let c = switcher |> holdS c1
                         let firings = [ ("s1", s1f); ("s2", s2f); ("s3", s3f); ("switcher", switcherF) ]
-                        (firings, flip listenStrongC (c |> switchC)))
+                        (firings, flip listenC (c |> switchC)))
                     (fun out -> Expect.Sequence([ 'b'; 'X'; 'Y'; '5' ], out))
         }
 

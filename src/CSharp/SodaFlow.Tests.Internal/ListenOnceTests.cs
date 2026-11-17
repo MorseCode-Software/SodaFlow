@@ -9,8 +9,8 @@ using TUnit.Core;
 namespace SodaFlow.Tests.Internal;
 
 /// <summary>
-///     Covers ListenOnce and ListenOnceStrong for a stream that fires two times in
-///     one transaction. A sink cannot do that, because it combines its sends, thus
+///     Covers ListenOnce, and the rooted one-shot listener of ListenOnceAsync,
+///     for a stream that fires two times in one transaction. A sink cannot do that, because it combines its sends, thus
 ///     these tests send on the stream directly.
 /// </summary>
 public sealed class ListenOnceTests
@@ -24,9 +24,9 @@ public sealed class ListenOnceTests
     }
 
     [Test]
-    public async Task ListenOnceStrongCallsTheHandlerOnlyForTheFirstOfTwoFiringsInOneTransaction()
+    public async Task ARootedListenOnceCallsTheHandlerOnlyForTheFirstOfTwoFiringsInOneTransaction()
     {
-        List<int> @out = ListenThenFireTwice(static (s, handler) => s.ListenOnceStrong(handler));
+        List<int> @out = ListenThenFireTwice(Rooted);
 
         await Assert.That(@out).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
     }
@@ -40,9 +40,9 @@ public sealed class ListenOnceTests
     }
 
     [Test]
-    public async Task ListenOnceStrongAfterTwoFiringsInItsTransactionCallsTheHandlerOnlyForTheFirst()
+    public async Task ARootedListenOnceAfterTwoFiringsInItsTransactionCallsTheHandlerOnlyForTheFirst()
     {
-        List<int> @out = FireTwiceThenListen(static (s, handler) => s.ListenOnceStrong(handler));
+        List<int> @out = FireTwiceThenListen(Rooted);
 
         await Assert.That(@out).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
     }
@@ -55,7 +55,7 @@ public sealed class ListenOnceTests
         Stream<int> s = new();
         List<int> committed = [];
         List<Exception> failed = [];
-        IListener l = s.ListenOnceWithOutcomeStrongImpl(onCommitted: committed.Add, onFailed: failed.Add);
+        IListener l = RootedWithOutcome(s: s, onCommitted: committed.Add, onFailed: failed.Add);
 
         TransactionInternal.Apply((trans, _) =>
         {
@@ -82,7 +82,7 @@ public sealed class ListenOnceTests
             {
                 s.Send(trans: trans, a: 1);
                 s.Send(trans: trans, a: 2);
-                return s.ListenOnceWithOutcomeStrongImpl(onCommitted: committed.Add, onFailed: failed.Add);
+                return RootedWithOutcome(s: s, onCommitted: committed.Add, onFailed: failed.Add);
             });
 
         l.Unlisten();
@@ -98,7 +98,7 @@ public sealed class ListenOnceTests
     {
         Stream<int> s = new();
         List<int> committed = [];
-        IStrongListener l = s.ListenOnceWithOutcomeStrongImpl(onCommitted: committed.Add, onFailed: static _ => { });
+        IListener l = RootedWithOutcome(s: s, onCommitted: committed.Add, onFailed: static _ => { });
         int before = CountListeners(s);
 
         TransactionInternal.Apply((trans, _) =>
@@ -123,7 +123,7 @@ public sealed class ListenOnceTests
         List<int> committed = [];
         List<Exception> failed = [];
         InvalidOperationException fromBody = new("The test fails this transaction.");
-        IStrongListener l = s.ListenOnceWithOutcomeStrongImpl(onCommitted: committed.Add, onFailed: failed.Add);
+        IListener l = RootedWithOutcome(s: s, onCommitted: committed.Add, onFailed: failed.Add);
 
         await Assert.That(() =>
                 TransactionInternal.Apply<UnitInternal>((trans, _) =>
@@ -152,6 +152,23 @@ public sealed class ListenOnceTests
         }
 
         return count;
+    }
+
+    // The one-shot listener with an outcome that ListenOnceAsync makes. A root holds it from the
+    // start.
+    private static IListener RootedWithOutcome(Stream<int> s, Action<int> onCommitted, Action<Exception> onFailed)
+    {
+        IRootableListener listener = s.ListenOnceWithOutcomeRootableImpl(onCommitted: onCommitted, onFailed: onFailed);
+        listener.Root();
+        return listener;
+    }
+
+    // The one-shot listener that ListenOnceAsync makes. A root holds it from the start.
+    private static IListener Rooted(Stream<int> s, Action<int> handler)
+    {
+        IRootableListener listener = s.ListenOnceRootableImpl(handler);
+        listener.Root();
+        return listener;
     }
 
     // Each firing queues an entry for the listener, and the Unlisten after the first firing does

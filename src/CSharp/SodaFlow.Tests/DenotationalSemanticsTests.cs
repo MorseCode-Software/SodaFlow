@@ -14,7 +14,7 @@ public sealed class DenotationalSemanticsTests
     [Test]
     public async Task Test_Never_TestCase()
     {
-        List<int> @out = RunSimulation<int>(Stream.Never<int>().ListenStrong);
+        List<int> @out = RunSimulation<int>(Stream.Never<int>().Listen);
         await Assert.That(@out).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
@@ -26,7 +26,7 @@ public sealed class DenotationalSemanticsTests
 
         List<int> @out =
             RunSimulation<int>(
-                listenStrong: s.Map(static x => x + 1).ListenStrong,
+                listen: s.Map(static x => x + 1).Listen,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
         await Assert.That(@out).IsEquivalentTo(expected: [6, 11, 13], ordering: CollectionOrdering.Matching);
@@ -43,7 +43,7 @@ public sealed class DenotationalSemanticsTests
 
         List<int> @out =
             RunSimulation<int>(
-                listenStrong: s1.Snapshot(c).ListenStrong,
+                listen: s1.Snapshot(c).Listen,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[s1F, s2F]);
 
         await Assert.That(@out).IsEquivalentTo(expected: [3, 4, 4], ordering: CollectionOrdering.Matching);
@@ -59,7 +59,7 @@ public sealed class DenotationalSemanticsTests
 
         List<int> @out =
             RunSimulation<int>(
-                listenStrong: s1.Merge(s2: s2, f: static (x, y) => x + y).ListenStrong,
+                listen: s1.Merge(s2: s2, f: static (x, y) => x + y).Listen,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[s1F, s2F]);
 
         await Assert.That(@out).IsEquivalentTo(expected: [0, 10, 22, 30], ordering: CollectionOrdering.Matching);
@@ -73,7 +73,7 @@ public sealed class DenotationalSemanticsTests
 
         List<int> @out =
             RunSimulation<int>(
-                listenStrong: s.Filter(static x => x % 2 != 0).ListenStrong,
+                listen: s.Filter(static x => x % 2 != 0).Listen,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
         await Assert.That(@out).IsEquivalentTo(expected: [5, 7], ordering: CollectionOrdering.Matching);
@@ -100,7 +100,7 @@ public sealed class DenotationalSemanticsTests
                     (Name: "s1", Firings: s1F), (Name: "s2", Firings: s2F), (Name: "switcher", Firings: switcherF)
                 ];
 
-                return createFiringsListAndListener(arg1: firings, arg2: c.SwitchS().ListenStrong);
+                return createFiringsListAndListener(arg1: firings, arg2: c.SwitchS().Listen);
             },
             assert: static async @out =>
                 await Assert.That(@out)
@@ -116,7 +116,7 @@ public sealed class DenotationalSemanticsTests
 
         List<char> @out =
             RunSimulation<char>(
-                listenStrong: c.Updates().ListenStrong,
+                listen: c.Updates().Listen,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
         await Assert.That(@out).IsEquivalentTo(expected: ['b', 'c'], ordering: CollectionOrdering.Matching);
@@ -132,7 +132,7 @@ public sealed class DenotationalSemanticsTests
 
         List<char> @out =
             RunSimulation<char>(
-                listenStrong: h => Transaction.Run(() => c.Values().ListenStrong(h)),
+                listen: h => Transaction.Run(() => c.Values().Listen(h)),
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
         await Assert.That(@out).IsEquivalentTo(expected: ['a', 'b', 'c'], ordering: CollectionOrdering.Matching);
@@ -148,7 +148,7 @@ public sealed class DenotationalSemanticsTests
 
         List<char> @out =
             RunSimulation<char>(
-                listenStrong: h => Transaction.Run(() => c.Values().ListenStrong(h)),
+                listen: h => Transaction.Run(() => c.Values().Listen(h)),
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
         await Assert.That(@out).IsEquivalentTo(expected: ['b', 'c', 'd'], ordering: CollectionOrdering.Matching);
@@ -163,7 +163,7 @@ public sealed class DenotationalSemanticsTests
         Cell<char> c = s.Hold('a');
 
         List<char> @out =
-            RunSimulation<char>(listenStrong: c.ListenStrong, firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
+            RunSimulation<char>(listen: c.Listen, firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
         await Assert.That(@out).IsEquivalentTo(expected: ['a', 'b', 'c'], ordering: CollectionOrdering.Matching);
     }
@@ -177,7 +177,7 @@ public sealed class DenotationalSemanticsTests
         Cell<char> c = s.Hold('a');
 
         List<char> @out =
-            RunSimulation<char>(listenStrong: c.ListenStrong, firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
+            RunSimulation<char>(listen: c.Listen, firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
         await Assert.That(@out).IsEquivalentTo(expected: ['b', 'c', 'd'], ordering: CollectionOrdering.Matching);
     }
@@ -195,7 +195,7 @@ public sealed class DenotationalSemanticsTests
 
         List<char> @out =
             RunSimulation<char>(
-                listenStrong: Operational.Split<char, IReadOnlyList<char>>(s).ListenStrong,
+                listen: Operational.Split<char, IReadOnlyList<char>>(s).Listen,
                 firings: [sf]);
 
         await Assert.That(@out)
@@ -206,7 +206,7 @@ public sealed class DenotationalSemanticsTests
     public async Task Test_Constant_TestCase()
     {
         Cell<char> c = Cell.Constant('a');
-        List<char> @out = RunSimulation<char>(c.ListenStrong);
+        List<char> @out = RunSimulation<char>(c.Listen);
         await Assert.That(@out).IsEquivalentTo(expected: ['a'], ordering: CollectionOrdering.Matching);
     }
 
@@ -214,7 +214,7 @@ public sealed class DenotationalSemanticsTests
     public async Task Test_ConstantLazy_TestCase()
     {
         Cell<char> c = Cell.ConstantLazy(LazySample.Defer(static () => 'a'));
-        List<char> @out = RunSimulation<char>(c.ListenStrong);
+        List<char> @out = RunSimulation<char>(c.Listen);
         await Assert.That(@out).IsEquivalentTo(expected: ['a'], ordering: CollectionOrdering.Matching);
     }
 
@@ -227,7 +227,7 @@ public sealed class DenotationalSemanticsTests
         Cell<char> c = s.Hold('a');
 
         List<char> @out =
-            RunSimulation<char>(listenStrong: c.ListenStrong, firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
+            RunSimulation<char>(listen: c.Listen, firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
         await Assert.That(@out).IsEquivalentTo(expected: ['a', 'b', 'c'], ordering: CollectionOrdering.Matching);
     }
@@ -240,7 +240,7 @@ public sealed class DenotationalSemanticsTests
 
         List<int> @out =
             RunSimulation<int>(
-                listenStrong: c.Map(static x => x + 1).ListenStrong,
+                listen: c.Map(static x => x + 1).Listen,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[sf]);
 
         await Assert.That(@out).IsEquivalentTo(expected: [1, 4, 6], ordering: CollectionOrdering.Matching);
@@ -261,7 +261,7 @@ public sealed class DenotationalSemanticsTests
 
         List<int> @out =
             RunSimulation<int>(
-                listenStrong: ca.Apply(cf).ListenStrong,
+                listen: ca.Apply(cf).Listen,
                 firings: (IReadOnlyList<Dictionary<int, Action>>)[s1F, s2F]);
 
         await Assert.That(@out)
@@ -293,7 +293,7 @@ public sealed class DenotationalSemanticsTests
                     (Name: "s1", Firings: s1F), (Name: "s2", Firings: s2F), (Name: "switcher", Firings: switcherF)
                 ];
 
-                return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
+                return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().Listen);
             },
             assert: static async @out =>
                 await Assert.That(@out)
@@ -324,7 +324,7 @@ public sealed class DenotationalSemanticsTests
                     (Name: "s1", Firings: s1F), (Name: "s2", Firings: s2F), (Name: "switcher", Firings: switcherF)
                 ];
 
-                return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
+                return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().Listen);
             },
             assert: static async @out =>
                 await Assert.That(@out)
@@ -355,7 +355,7 @@ public sealed class DenotationalSemanticsTests
                     (Name: "s1", Firings: s1F), (Name: "s2", Firings: s2F), (Name: "switcher", Firings: switcherF)
                 ];
 
-                return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
+                return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().Listen);
             },
             assert: static async @out =>
                 await Assert.That(@out)
@@ -394,7 +394,7 @@ public sealed class DenotationalSemanticsTests
                     (Name: "switcher", Firings: switcherF)
                 ];
 
-                return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().ListenStrong);
+                return createFiringsListAndListener(arg1: firings, arg2: c.SwitchC().Listen);
             },
             assert: static async @out =>
                 await Assert.That(@out)
@@ -465,10 +465,10 @@ public sealed class DenotationalSemanticsTests
     }
 
     private static List<T> RunSimulation<T>(
-        Func<Action<T>, IListener> listenStrong,
+        Func<Action<T>, IListener> listen,
         IEnumerable<Dictionary<int, Action>> firings) =>
         RunSimulation(
-            listenStrong: listenStrong,
+            listen: listen,
             firings:
             [
                 .. firings.Select(static f =>
@@ -476,7 +476,7 @@ public sealed class DenotationalSemanticsTests
             ]);
 
     private static List<T> RunSimulation<T>(
-        Func<Action<T>, IListener> listenStrong,
+        Func<Action<T>, IListener> listen,
         IReadOnlyList<ILookup<int, Action>>? firings = null)
     {
         int maxKey = firings?.SelectMany(static d => d.Select(static g => g.Key)).DefaultIfEmpty(-1).Max() ?? -1;
@@ -501,7 +501,7 @@ public sealed class DenotationalSemanticsTests
                 l =
                     Transaction.Run(() =>
                     {
-                        IListener lLocal = listenStrong(@out.Add);
+                        IListener lLocal = listen(@out.Add);
                         Run(0);
                         return lLocal;
                     });
@@ -518,7 +518,7 @@ public sealed class DenotationalSemanticsTests
             }
             else
             {
-                l = listenStrong(@out.Add);
+                l = listen(@out.Add);
             }
         }
         finally
@@ -533,15 +533,15 @@ public sealed class DenotationalSemanticsTests
         Func<Func<IReadOnlyList<(string Name, Dictionary<int, Action> Firings)>, Func<Action<T>, IListener>, (
                 IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> FiringsList,
                 Func<Action<T>, IListener>
-                ListenStrong)>, (IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> FiringsList,
-            Func<Action<T>, IListener> ListenStrong)> createListAndListener,
+                Listen)>, (IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> FiringsList,
+            Func<Action<T>, IListener> Listen)> createListAndListener,
         Func<IReadOnlyList<T>, Task> assert)
     {
         IReadOnlyList<int> indexes =
         [
             .. Enumerable.Range(
                 start: 0,
-                count: createListAndListener(static (fl, l) => (FiringsList: fl, ListenStrong: l)).FiringsList.Count)
+                count: createListAndListener(static (fl, l) => (FiringsList: fl, Listen: l)).FiringsList.Count)
         ];
 
         foreach ((IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> firingsList,
@@ -550,17 +550,17 @@ public sealed class DenotationalSemanticsTests
                      .Select(ii =>
                      {
                          (IReadOnlyList<(string Name, Dictionary<int, Action> Firings)> firingsList,
-                                 Func<Action<T>, IListener> listenStrong) =
-                             createListAndListener(static (fl, l) => (FiringsList: fl, ListenStrong: l));
+                                 Func<Action<T>, IListener> listen) =
+                             createListAndListener(static (fl, l) => (FiringsList: fl, Listen: l));
 
-                         return (FiringsList: ii.Select(i => firingsList[i]).ToArray(), ListenStrong: listenStrong);
+                         return (FiringsList: ii.Select(i => firingsList[i]).ToArray(), Listen: listen);
                      }))
         {
             try
             {
                 List<T> @out =
                     RunSimulation(
-                        listenStrong: listener,
+                        listen: listener,
                         firings: (IReadOnlyList<Dictionary<int, Action>>)
                         [
                             .. firingsList.Select(static o => o.Firings)

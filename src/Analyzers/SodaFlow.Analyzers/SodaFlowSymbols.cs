@@ -919,5 +919,5 @@ internal sealed class SodaFlowSymbols
             or "BehaviorSink"
             or "LoopedBehavior";
 
-    private static bool IsListenerName(string name) => name is "IListener" or "IStrongListener" or "IWeakListener";
+    private static bool IsListenerName(string name) => name is "IListener";
 }

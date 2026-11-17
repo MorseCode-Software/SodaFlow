@@ -21,7 +21,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -48,8 +48,8 @@ public sealed class MapAsyncExtensionsTests
         InvalidOperationException listenerError = new("results listener");
         List<Exception> failures = [];
 
-        using IStrongListener r = results.ListenStrong(_ => throw listenerError);
-        using IStrongListener e = errors.ListenStrong(failures.Add);
+        using IListener r = results.Listen(_ => throw listenerError);
+        using IListener e = errors.Listen(failures.Add);
 
         AsyncMapStatus<int> status =
             source.MapAsync(
@@ -81,7 +81,7 @@ public sealed class MapAsyncExtensionsTests
         InvalidOperationException listenerError = new("errors listener");
         List<Exception> reported = [];
 
-        using IStrongListener e = errors.ListenStrong(error =>
+        using IListener e = errors.Listen(error =>
         {
             if (ReferenceEquals(objA: error, objB: operationError))
             {
@@ -118,7 +118,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
         Dog dog = new();
         AlwaysStartStrategy<Animal> strategy = new();
 
@@ -147,7 +147,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
         AlwaysStartStrategy<int> strategy = new();
 
         AsyncMapStatus<string> status =
@@ -178,7 +178,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -212,7 +212,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -335,7 +335,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -374,7 +374,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -416,7 +416,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -458,7 +458,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -507,8 +507,8 @@ public sealed class MapAsyncExtensionsTests
         ControlledOperation<string, string> op = new();
         List<string> received = [];
         List<Exception> reported = [];
-        IListener l = results.ListenStrong(received.Add);
-        IListener errorListener = errors.ListenStrong(reported.Add);
+        IListener l = results.Listen(received.Add);
+        IListener errorListener = errors.Listen(reported.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -662,7 +662,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -718,7 +718,7 @@ public sealed class MapAsyncExtensionsTests
         TestUtil.WaitUntil(() => Transaction.Run(tracked.Sample).Count == 4);
 
         List<int> counts = [];
-        IListener l = tracked.Updates().ListenStrong(items => counts.Add(items.Count));
+        IListener l = tracked.Updates().Listen(items => counts.Add(items.Count));
 
         // One transaction ends "b", "c", and "d". One end for each of those gives the strategy
         // three decisions, and the queue takes three edits that an observer can see.
@@ -894,7 +894,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -924,7 +924,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -958,7 +958,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -1056,8 +1056,8 @@ public sealed class MapAsyncExtensionsTests
         // is one node below its sink.
         Stream<int> throwsHere = throwAfterTheTrigger ? other.Map(static v => v).Map(static v => v) : other;
 
-        using IStrongListener throws =
-            throwsHere.ListenStrong(_ =>
+        using IListener throws =
+            throwsHere.Listen(_ =>
             {
                 canceledAtTheThrow.Add(op.IsCanceled("a"));
 
@@ -1170,7 +1170,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<int> other = Stream.CreateSink<int>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -1183,7 +1183,7 @@ public sealed class MapAsyncExtensionsTests
 
         Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
 
-        using IStrongListener disposes = other.ListenStrong(_ => status.Dispose());
+        using IListener disposes = other.Listen(_ => status.Dispose());
 
         source.Send("a");
         source.Send("b");
@@ -1225,12 +1225,12 @@ public sealed class MapAsyncExtensionsTests
 
         // The listener on the sink runs before the listener below the two maps. See
         // Dispose_InsideATransactionThatAListenerFails_StillCancels.
-        using IStrongListener disposes = other.ListenStrong(_ => status.Dispose());
+        using IListener disposes = other.Listen(_ => status.Dispose());
 
-        using IStrongListener throws =
+        using IListener throws =
             other.Map(static v => v)
                 .Map(static v => v)
-                .ListenStrong(static _ => throw new InvalidOperationException("The test fails this transaction."));
+                .Listen(static _ => throw new InvalidOperationException("The test fails this transaction."));
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -1253,7 +1253,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<int> other = Stream.CreateSink<int>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -1264,7 +1264,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelOnDispose: false);
 
-        using IStrongListener disposes = other.ListenStrong(_ => status.Dispose());
+        using IListener disposes = other.Listen(_ => status.Dispose());
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -1288,7 +1288,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         InvalidOperationException thrown = new("boom");
         List<Exception> received = [];
-        IListener l = errors.ListenStrong(received.Add);
+        IListener l = errors.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -1384,7 +1384,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
         bool? inTransaction = null;
 
         AsyncMapStatus status =
@@ -1421,7 +1421,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
         DropEverythingStrategy strategy = new();
         List<string> constructions = [];
 
@@ -1462,8 +1462,8 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Unit> cancelAll = Stream.CreateSink<Unit>();
         List<string> received = [];
         List<Exception> failures = [];
-        IListener lr = results.ListenStrong(received.Add);
-        IListener le = errors.ListenStrong(failures.Add);
+        IListener lr = results.Listen(received.Add);
+        IListener le = errors.Listen(failures.Add);
         AlwaysStartStrategy<Unit> strategy = new();
         ManualResetEventSlim release = new(false);
         List<string> constructions = [];
@@ -1521,8 +1521,8 @@ public sealed class MapAsyncExtensionsTests
         InvalidOperationException thrown = new("boom");
         List<string> received = [];
         List<Exception> failures = [];
-        IListener lr = results.ListenStrong(received.Add);
-        IListener le = errors.ListenStrong(failures.Add);
+        IListener lr = results.Listen(received.Add);
+        IListener le = errors.Listen(failures.Add);
 
         AsyncMapStatus status =
             source.MapAsync(
@@ -1620,7 +1620,7 @@ public sealed class MapAsyncExtensionsTests
         ControlledOperation<string, string> op = new();
         QueueFromTrackedStrategy strategy = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus status =
             source.MapAsync(
@@ -1688,7 +1688,7 @@ public sealed class MapAsyncExtensionsTests
                     .Snapshot(
                         c: tracked,
                         f: static (r, items) => r + " with queue of " + items.Count)
-                    .ListenStrong(seen.Add));
+                    .Listen(seen.Add));
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -1713,7 +1713,7 @@ public sealed class MapAsyncExtensionsTests
         ControlledOperation<string, string> op = new();
         AlwaysStartStrategy<string> strategy = new();
         List<string> published = [];
-        IListener l = results.ListenStrong(published.Add);
+        IListener l = results.Listen(published.Add);
 
         // One send releases the gate of each operation. A TaskCompletionSource runs its
         // continuations on the thread that completes it. Thus, the two operations end in the
@@ -1721,7 +1721,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Unit> batchAnswered = Stream.CreateSink<Unit>();
 
         IListener batch =
-            batchAnswered.ListenStrong(_ =>
+            batchAnswered.Listen(_ =>
             {
                 op.Release(input: "a", result: "A");
                 op.Release(input: "b", result: "B");
@@ -1779,7 +1779,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> published = [];
-        IListener l = results.ListenStrong(published.Add);
+        IListener l = results.Listen(published.Add);
 
         AsyncMapStatus<string, string> status =
             source.MapAsync(
@@ -1815,7 +1815,7 @@ public sealed class MapAsyncExtensionsTests
         ControlledOperation<string, string> op = new();
         InvalidOperationException thrown = new("boom");
         List<Exception> reported = [];
-        IListener l = errors.ListenStrong(reported.Add);
+        IListener l = errors.Listen(reported.Add);
 
         AsyncMapStatus<string, string> status =
             source.MapAsync(
@@ -1961,7 +1961,7 @@ public sealed class MapAsyncExtensionsTests
         // transaction of the admission, and this listener runs in it.
         IListener probe =
             Transaction.Run(() =>
-                tracked.Updates().ListenStrong(_ => completedInTheAdmission.Add(task is { IsCompleted: true })));
+                tracked.Updates().Listen(_ => completedInTheAdmission.Add(task is { IsCompleted: true })));
 
         // Execute in a transaction, thus the Task exists before its admission runs.
         Transaction.RunVoid(() => task = execute("a"));
@@ -2009,7 +2009,7 @@ public sealed class MapAsyncExtensionsTests
             IListener thrower =
                 Transaction.Run(() =>
                     tracked.Updates()
-                        .ListenStrong(static _ =>
+                        .Listen(static _ =>
                             throw new InvalidOperationException("The test fails this transaction.")));
 
             await Assert.That(() => Transaction.RunVoid(() => task = execute("a")))
@@ -2178,7 +2178,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> published = [];
-        IListener l = results.ListenStrong(published.Add);
+        IListener l = results.Listen(published.Add);
 
         AsyncMapStatus<string, string> status =
             source.MapAsync(
@@ -2410,7 +2410,7 @@ public sealed class MapAsyncExtensionsTests
         CellSink<Maybe<string>> input = Cell.CreateSink(Maybe.Some("a"));
         ControlledOperation<string, string> op = new();
         List<string> published = [];
-        IListener l = results.ListenStrong(published.Add);
+        IListener l = results.Listen(published.Add);
 
         AsyncMapStatus<string, string> status =
             source.MapAsync(
@@ -2446,7 +2446,7 @@ public sealed class MapAsyncExtensionsTests
         ConcurrentQueue<string> started = new();
         List<string> published = [];
         List<IReadOnlyList<AsyncItem<string>>> itemUpdates = [];
-        IListener publishedListener = results.ListenStrong(published.Add);
+        IListener publishedListener = results.Listen(published.Add);
 
         AsyncMapStatus<string, string> status =
             source.MapAsync(
@@ -2461,7 +2461,7 @@ public sealed class MapAsyncExtensionsTests
                 },
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
-        IListener itemsListener = status.Items.Updates().ListenStrong(itemUpdates.Add);
+        IListener itemsListener = status.Items.Updates().Listen(itemUpdates.Add);
 
         Task<Maybe<string>> task = status.Execute(input);
 
@@ -2785,7 +2785,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Exception> innerErrors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> innerOp = new();
         List<string> outerPublished = [];
-        IListener l = outerResults.ListenStrong(outerPublished.Add);
+        IListener l = outerResults.Listen(outerPublished.Add);
 
         // The inner pipeline runs one item at a time.
         AsyncMapStatus<string, string> inner =
@@ -2889,7 +2889,7 @@ public sealed class MapAsyncExtensionsTests
             // A listener that throws while this transaction propagates. That throw reaches the
             // catch in Close, which is the path that discards the post queue.
             StreamSink<int> other = Stream.CreateSink<int>();
-            IListener bad = other.ListenStrong(static _ => throw new InvalidOperationException("listener"));
+            IListener bad = other.Listen(static _ => throw new InvalidOperationException("listener"));
 
             try
             {
@@ -3060,7 +3060,7 @@ public sealed class MapAsyncExtensionsTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         // The input depends on the result. Thus Flush publishes, the input fires, and Admit
         // runs in the transaction that Flush opened. The two read the queue, and the two must

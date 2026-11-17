@@ -49,7 +49,7 @@ public sealed class PerKeyCellLockOrderTests
             List<Cell<int>> madeInside = [];
             int sent = 0;
 
-            IListener listener = collection.ItemChangesStream.ListenStrong(_ =>
+            IListener listener = collection.ItemChangesStream.Listen(_ =>
                 madeInside.Add(collection.StateCellImpl(key: 1000 + sent, projection: Score)));
 
             TaskCompletionSource<bool> go = new();

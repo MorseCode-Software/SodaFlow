@@ -21,7 +21,7 @@ public sealed class LoopTests
 
         List<int> @out = [];
 
-        using (result.ListenStrong(@out.Add))
+        using (result.Listen(@out.Add))
         {
             s.Send(1);
             s.Send(2);
@@ -57,7 +57,7 @@ public sealed class LoopTests
 
         List<int> @out = [];
 
-        using (tail.ListenStrong(@out.Add))
+        using (tail.Listen(@out.Add))
         {
             s.Send(0);
         }
@@ -78,8 +78,8 @@ public sealed class LoopTests
         List<int> @out = [];
         List<int> out2 = [];
 
-        using (result.ListenStrong(@out.Add))
-        using (s2.ListenStrong(out2.Add))
+        using (result.Listen(@out.Add))
+        using (s2.Listen(out2.Add))
 
         {
             s.Send(1);
@@ -103,7 +103,7 @@ public sealed class LoopTests
 
         List<int> @out = [];
 
-        using (Transaction.Run(() => Operational.Value(result).ListenStrong(@out.Add)))
+        using (Transaction.Run(() => Operational.Value(result).Listen(@out.Add)))
         {
             s.Send(1);
             s.Send(2);
@@ -169,8 +169,8 @@ public sealed class LoopTests
         List<int> @out = [];
         List<int> out2 = [];
 
-        using (Transaction.Run(() => Operational.Value(result).ListenStrong(@out.Add)))
-        using (Transaction.Run(() => Operational.Value(s2).ListenStrong(out2.Add)))
+        using (Transaction.Run(() => Operational.Value(result).Listen(@out.Add)))
+        using (Transaction.Run(() => Operational.Value(s2).Listen(out2.Add)))
 
         {
             s.Send(1);
@@ -192,7 +192,7 @@ public sealed class LoopTests
 
         List<int> @out = [];
 
-        using (Transaction.Run(() => result.ListenStrong(@out.Add)))
+        using (Transaction.Run(() => result.Listen(@out.Add)))
         {
             s.Send(1);
             s.Send(2);
@@ -216,8 +216,8 @@ public sealed class LoopTests
         List<int> @out = [];
         List<int> out2 = [];
 
-        using (Transaction.Run(() => result.ListenStrong(@out.Add)))
-        using (Transaction.Run(() => s2.ListenStrong(out2.Add)))
+        using (Transaction.Run(() => result.Listen(@out.Add)))
+        using (Transaction.Run(() => s2.Listen(out2.Add)))
 
         {
             s.Send(1);
@@ -321,7 +321,7 @@ public sealed class LoopTests
                             .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]));
 
             List<int> objectCounts = [-1];
-            cell.ListenStrong(vv => objectCounts.Add(vv.Count));
+            using IListener listener = cell.Listen(vv => objectCounts.Add(vv.Count));
             objectCounts.Add(-1);
             cell.Sample()[2].Input1.Send(1);
             objectCounts.Add(-1);
@@ -371,7 +371,7 @@ public sealed class LoopTests
                             .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]));
 
             List<int> objectCounts = [-1];
-            cell.ListenStrong(vv => objectCounts.Add(vv.Count));
+            using IListener listener = cell.Listen(vv => objectCounts.Add(vv.Count));
             objectCounts.Add(-1);
             cell.Sample()[2].Input1.Send(1);
             objectCounts.Add(-1);
@@ -417,7 +417,7 @@ public sealed class LoopTests
                             .Hold([.. Enumerable.Range(start: 1, count: 10).Select(static _ => new TestObject())]));
 
             List<int> objectCounts = [-1];
-            cell.ListenStrong(vv => objectCounts.Add(vv.Count));
+            using IListener listener = cell.Listen(vv => objectCounts.Add(vv.Count));
             objectCounts.Add(-1);
             cell.Sample()[2].Input1.Send(1);
             objectCounts.Add(-1);

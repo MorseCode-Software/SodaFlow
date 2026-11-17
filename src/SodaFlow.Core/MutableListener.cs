@@ -16,6 +16,8 @@ internal sealed class MutableListener : IListenerInternal
 
     public void Unlisten() => this.listener?.Unlisten();
 
+    public void Dispose() => this.Unlisten();
+
     public IListenerWithWeakReference GetListenerWithWeakReference() => this.weakMutableListener;
 
     // The previous target stops after this code sets the new target. Thus, a reader of this

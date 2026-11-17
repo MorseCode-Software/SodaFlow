@@ -38,7 +38,7 @@ StreamSink<int> s = Stream.CreateSink<int>();
 Stream<int> total = Stream.Loop<int>()
     .WithoutCaptures(l => s.Snapshot(l.Hold(0), (n, o) => n + o));
 
-using (total.ListenStrong(Console.WriteLine))
+using (total.Listen(Console.WriteLine))
 {
     s.Send(1);   // 1
     s.Send(2);   // 3
@@ -55,7 +55,7 @@ let s = sinkS<int> ()
 let total =
     loopWithNoCapturesS (fun l -> s |> snapshotC (l |> holdS 0) (+))
 
-use _ = total |> listenStrongS (printfn "%d")
+use _ = total |> listenS (printfn "%d")
 s |> sendS 1   // 1
 s |> sendS 2   // 3
 s |> sendS 3   // 6
@@ -69,9 +69,9 @@ goes. `l.Hold(0)` makes a cell of the running total that starts at zero. Each fi
 a snapshot of that cell and adds to it. The result is what `l` stands for, and `WithoutCaptures`
 closes the loop with it.
 
-These samples use `ListenStrong` rather than `Listen` for one reason: `using` and `use` need
-`IDisposable`, and only `IStrongListener` implements it. Where you keep the handle in a variable,
-use [`Listen`](lifetimes.md).
+These samples hold the listener in `using` and `use`. A handler runs only while something holds
+its listener, and the scope does that here and stops the listener at its end. See
+[Listener lifetimes](lifetimes.md).
 
 The block cannot get a loop wrong. The placeholder has no method that closes it, so you cannot
 close it twice, forget to close it, or close it in a different transaction. The block's return

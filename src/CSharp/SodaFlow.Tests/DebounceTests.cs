@@ -28,7 +28,7 @@ public sealed class DebounceTests
         ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
-        IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).Listen(seen.Add));
 
         keys.Send("a");
         clock.AdvanceTo(3);
@@ -54,7 +54,7 @@ public sealed class DebounceTests
         ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
-        IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).Listen(seen.Add));
 
         keys.Send("a");
         clock.AdvanceTo(10);
@@ -78,7 +78,7 @@ public sealed class DebounceTests
         ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
-        IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).Listen(seen.Add));
 
         keys.Send("a");
         clock.AdvanceTo(10);
@@ -99,7 +99,7 @@ public sealed class DebounceTests
         ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
-        IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).Listen(seen.Add));
 
         keys.Send("a");
 
@@ -136,11 +136,11 @@ public sealed class DebounceTests
         // transaction of a firing reads the value of that same firing.
         Cell<string> lastKey = Transaction.Run(() => keys.Hold(string.Empty));
 
-        IStrongListener l =
+        IListener l =
             Transaction.Run(() =>
                 debounced
                     .Snapshot(c: lastKey, f: static (value, held) => value + " after " + held)
-                    .ListenStrong(seen.Add));
+                    .Listen(seen.Add));
 
         keys.Send("a");
         clock.AdvanceTo(10);
@@ -177,7 +177,7 @@ public sealed class DebounceTests
                     })
                     .Captures);
 
-        IStrongListener l = Transaction.Run(() => debounced.ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => debounced.Listen(seen.Add));
 
         keys.Send("a");
         clock.AdvanceTo(10);

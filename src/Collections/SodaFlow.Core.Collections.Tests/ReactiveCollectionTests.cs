@@ -80,8 +80,8 @@ public sealed class ReactiveCollectionTests
 
         List<int> shapes = [];
         List<int> snapshots = [];
-        IListener shapeListener = collection.ShapeCell.Updates().ListenStrong(s => shapes.Add(s.Count));
-        IListener snapshotListener = collection.SnapshotCell.Updates().ListenStrong(s => snapshots.Add(s.Count));
+        IListener shapeListener = collection.ShapeCell.Updates().Listen(s => shapes.Add(s.Count));
+        IListener snapshotListener = collection.SnapshotCell.Updates().Listen(s => snapshots.Add(s.Count));
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
         edits.Send(TestUtil.Score(key: 1, score: 11));
@@ -109,7 +109,7 @@ public sealed class ReactiveCollectionTests
                 edits);
 
         List<int> fired = [];
-        IListener l = collection.SnapshotCell.Updates().ListenStrong(s => fired.Add(s.Count));
+        IListener l = collection.SnapshotCell.Updates().Listen(s => fired.Add(s.Count));
 
         // A removal of a key that the collection does not have resolves to no change.
         edits.Send(TestUtil.Remove(99));
@@ -194,7 +194,7 @@ public sealed class ReactiveCollectionTests
                 updates);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
-        IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
+        IListener l = collection.ItemChangesStream.Listen(changes.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -275,7 +275,7 @@ public sealed class ReactiveCollectionTests
                 edits);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
-        IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
+        IListener l = collection.ItemChangesStream.Listen(changes.Add);
 
         edits.Send(TestUtil.Remove(1));
 
@@ -380,7 +380,7 @@ public sealed class ReactiveCollectionTests
                 edits);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
-        IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
+        IListener l = collection.ItemChangesStream.Listen(changes.Add);
 
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
@@ -415,7 +415,7 @@ public sealed class ReactiveCollectionTests
                 edits);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
-        IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
+        IListener l = collection.ItemChangesStream.Listen(changes.Add);
 
         edits.Send(TestUtil.Score(key: 1, score: 20));
         edits.Send(TestUtil.Score(key: 1, score: 30));
