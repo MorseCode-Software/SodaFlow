@@ -3710,6 +3710,169 @@ internal sealed class LoopReadAnalyzerTests
             .IsEquivalentTo(Enumerable.Repeat(element: "SF1001", count: levels));
     }
 
+    /// <summary>
+    ///     The analyzer reads the getter of an indexer of this compilation only
+    ///     when the compilation declares an indexer or a <c>Slice</c> method. The
+    ///     shapes file declares the two, thus it cannot show that each one alone
+    ///     is sufficient. Each source here declares one of them, and that member
+    ///     samples the pending cell.
+    /// </summary>
+    [Test]
+    public async Task AnIndexerOrASliceIsReadInACompilationThatDeclaresOnlyThatOne()
+    {
+        const string indexer =
+            """
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+
+                public static Cell<int> ByAnIndexer() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Box box = new(l.Map(v => v));
+
+                        return S.Hold(box[0]);
+                    });
+
+                public sealed class Box(Cell<int> share)
+                {
+                    private readonly Cell<int> share = share;
+
+                    public int this[int index] => this.share.Sample() + index;
+                }
+            }
+            """;
+
+        const string slice =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> ByASlice() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Run run = new(l.Map(v => v));
+                        Kept.Add(run[0..1]);
+
+                        return S.Hold(0);
+                    });
+
+                public sealed class Run(Cell<int> share)
+                {
+                    private readonly Cell<int> share = share;
+
+                    public int Length => 2;
+
+                    public int Slice(int start, int length) => this.share.Sample() + start + length;
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: indexer, assemblyName: "OnlyAnIndexer", images: []))
+            .IsEquivalentTo(["SF1005"]);
+
+        await Assert.That(await RulesIn(source: slice, assemblyName: "OnlyASlice", images: []))
+            .IsEquivalentTo(["SF1005"]);
+    }
+
+    /// <summary>
+    ///     The analyzer reads a conversion that the compiler adds only when the
+    ///     compilation declares an implicit or an explicit operator. The shapes
+    ///     file declares the two. Each source here declares only one of them, and
+    ///     the operator samples the pending cell. A foreach adds an explicit
+    ///     conversion of each element to the type of its variable.
+    /// </summary>
+    [Test]
+    public async Task AConversionIsReadInACompilationThatDeclaresOnlyOneOperator()
+    {
+        const string implicitOnly =
+            """
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+
+                public static Cell<int> ByAnImplicitConversion() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Box box = new(l.Map(v => v));
+                        int number = box;
+
+                        return S.Hold(number);
+                    });
+
+                public sealed class Box(Cell<int> share)
+                {
+                    private readonly Cell<int> share = share;
+
+                    public static implicit operator int(Box box) => box.share.Sample();
+                }
+            }
+            """;
+
+        const string explicitOnly =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> ByTheConversionOfAForeach() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Box> all = [new Box(l.Map(v => v))];
+
+                        foreach (int number in all)
+                        {
+                            Kept.Add(number);
+                        }
+
+                        return S.Hold(0);
+                    });
+
+                public sealed class Box(Cell<int> share)
+                {
+                    private readonly Cell<int> share = share;
+
+                    public static explicit operator int(Box box) => box.share.Sample();
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: implicitOnly, assemblyName: "OnlyAnImplicitOperator", images: []))
+            .IsEquivalentTo(["SF1004"]);
+
+        await Assert.That(await RulesIn(source: explicitOnly, assemblyName: "OnlyAnExplicitOperator", images: []))
+            .IsEquivalentTo(["SF1004"]);
+    }
+
+    // The rules that the analyzer reports for a source that is a compilation of its own.
+    private static async Task<IReadOnlyList<string>> RulesIn(
+        string source,
+        string assemblyName,
+        IEnumerable<byte[]> images) =>
+    [
+        .. (await AnalyzerHarness.Analyze(
+                analyzer: new LoopReadAnalyzer(),
+                compilation: AnalyzerHarness.Compile(
+                    source: source,
+                    libraries: ShapeLibraries,
+                    assemblyName: assemblyName,
+                    images: images)))
+            .Select(static diagnostic => diagnostic.Id)
+    ];
+
     // A file with one loop block that has the given statements.
     private static string OneBlock(string statements) =>
         $$"""
