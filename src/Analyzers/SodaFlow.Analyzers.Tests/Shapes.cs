@@ -17247,6 +17247,38 @@ public static class Shapes
     public static Cell<int> Ab172QuerySyntaxOverATaskWithAKeepingSelectWaits() =>
         Cell.Loop<int>().WithoutCaptures(l => { Task<int> t = from c in Task.FromResult(l.Map(v => v)) select c.Sample(); Kept.Add(t); return S.Hold(0); });
 
+    // S3835. An interpolated string that becomes a FormattableString keeps its values and calls no ToString.
+    public static Cell<int> R3CsFormattableStringDoesNotFormat() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); FormattableString f = $"n{t}"; Kept.Add(f); return S.Hold(0); });
+
+    // S3836. An interpolated string that becomes an IFormattable keeps its values and calls no ToString.
+    public static Cell<int> Ab166InterpolationThatBecomesAnIFormattable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); IFormattable f = $"n{t}"; Kept.Add(f); return S.Hold(0); });
+
+    // S3837. A cast to FormattableString keeps the values of the interpolated string and calls no ToString.
+    public static Cell<int> Ab166InterpolationCastToAFormattableString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Kept.Add((FormattableString)$"n{t}"); return S.Hold(0); });
+
+    // S3838. FormattableString.Invariant formats the interpolated string that it gets at once, and calls ToString of each value.
+    public static Cell<int> Ab166InvariantFormatsTheInterpolationAtOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); string s = FormattableString.Invariant($"n{t}"); return S.Hold(s.Length); });
+
+    // S3839. An interpolated string given to the Append of a StringBuilder goes to a handler that calls ToString of each value.
+    public static Cell<int> Ab166InterpolationIntoAStringBuilderHandler() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); StringBuilder b = new(); b.Append($"n{t}"); return S.Hold(b.Length); });
+
+    // S3840. An interpolated string that becomes an object is a string, which calls ToString of each value.
+    public static Cell<int> Ab166InterpolationThatBecomesAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); object o = $"n{t}"; Kept.Add(o); return S.Hold(0); });
+
+    // S3841. A type of the code with the name FormattableString gets a string, thus the interpolated string formats its values first.
+    public static Cell<int> Ab166InterpolationThatBecomesATypeOfTheCodeNamedFormattableString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Ab166Own.FormattableString f = $"n{t}"; Kept.Add(f); return S.Hold(0); });
+
+    // S3842. A method of the code that gets a FormattableString keeps it, and calls no ToString.
+    public static Cell<int> Ab166FormattableStringGivenToAMethodThatKeepsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Ab166Keep($"n{t}"); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23142,6 +23174,18 @@ public static class Shapes
     public sealed class Ag75Back(Cell<int> share)
     {
         public Cell<int> Share { get; } = share;
+    }
+
+    private static void Ab166Keep(FormattableString kept) => Kept.Add(kept);
+
+    public static class Ab166Own
+    {
+        public sealed class FormattableString(string text)
+        {
+            public string Text { get; } = text;
+
+            public static implicit operator FormattableString(string text) => new(text);
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -2521,7 +2521,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab172QuerySyntaxOverMaybeWithAWhere"] = ["SF1001"],
             ["Ab172QuerySyntaxOverTwoMaybes"] = ["SF1001"],
             ["Ag75ElementAtOfThisCodeThatCountsFromTheEnd"] = ["SF1001"],
-            ["Ag75SortedDictionaryWithAnIgnorableCharacter"] = ["SF1001"]
+            ["Ag75SortedDictionaryWithAnIgnorableCharacter"] = ["SF1001"],
+            ["Ab166InvariantFormatsTheInterpolationAtOnce"] = ["SF1005"],
+            ["Ab166InterpolationIntoAStringBuilderHandler"] = ["SF1005"],
+            ["Ab166InterpolationThatBecomesAnObject"] = ["SF1005"],
+            ["Ab166InterpolationThatBecomesATypeOfTheCodeNamedFormattableString"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

@@ -275,7 +275,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitInterpolation(InterpolationSyntax node)
     {
         base.VisitInterpolation(node);
-        this.Report(this.evaluator.FollowToString(node.Expression));
+        this.Report(this.evaluator.FollowInterpolation(node));
     }
 
     // An async function runs in the call until it awaits a task that is not complete. The rest

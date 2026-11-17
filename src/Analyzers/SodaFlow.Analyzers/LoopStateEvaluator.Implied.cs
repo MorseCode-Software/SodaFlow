@@ -646,8 +646,8 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
     /// <summary>
-    ///     The call of <c>ToString</c> that an interpolation or a concatenation
-    ///     makes on an object of this compilation.
+    ///     The call of <c>ToString</c> that a concatenation makes on an object of
+    ///     this compilation.
     /// </summary>
     public Followed? FollowToString(ExpressionSyntax written) =>
         this.region.Symbols is { ObjectToString: { } toString } symbols
@@ -655,6 +655,39 @@ internal sealed partial class LoopStateEvaluator
         && this.Self(written) is { Members: not null } owner
             ? this.FollowImplied(call: written, member: toString, owner: owner, arguments: [])
             : null;
+
+    /// <summary>
+    ///     The call of <c>ToString</c> that an interpolation makes on its value,
+    ///     when the interpolated string formats it now.
+    /// </summary>
+    public Followed? FollowInterpolation(InterpolationSyntax interpolation) =>
+        this.region.Symbols is { ObjectToString: { } toString } symbols
+        && (symbols.DeclaresToString || symbols.DeclaresRecords)
+        && this.Self(interpolation.Expression) is { Members: not null } owner
+        && interpolation.Parent is InterpolatedStringExpressionSyntax whole
+        && this.FormatsNow(whole)
+            ? this.FollowImplied(call: interpolation.Expression, member: toString, owner: owner, arguments: [])
+            : null;
+
+    // A FormattableString or an IFormattable keeps the values of the interpolated string, and
+    // formats nothing at this point. A method of FormattableString that gets it formats it now.
+    private bool FormatsNow(InterpolatedStringExpressionSyntax whole) =>
+        this.region.ModelFor(whole).GetOperation(whole)?.Parent is not IConversionOperation
+        {
+            Type.Name: "FormattableString" or "IFormattable",
+            Type.ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+        } kept
+        || kept.Parent is IArgumentOperation
+        {
+            Parent: IInvocationOperation
+            {
+                TargetMethod.ContainingType:
+                {
+                    Name: "FormattableString",
+                    ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+                }
+            }
+        };
 
     /// <summary>
     ///     The call of <c>Dispose</c> that a <c>using</c> makes on an object of
