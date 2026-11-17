@@ -22,7 +22,7 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     private int? ShapeOfACallAgain(
         SyntaxNode body,
-        IReadOnlyList<Binding> bindings,
+        IEnumerable<Binding> bindings,
         Dictionary<ISymbol, LoopState> members) =>
         this.region.Walks(body)
             ? unchecked(

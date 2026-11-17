@@ -18,13 +18,10 @@ namespace SodaFlow.Analyzers;
 ///     virtual method on an object that the walk did not see made is not
 ///     usual.
 /// </remarks>
-internal sealed class OverrideIndex
+internal sealed class OverrideIndex(in Compilation compilation)
 {
-    private readonly Lazy<ImmutableDictionary<IMethodSymbol, ImmutableArray<INamedTypeSymbol>>> byMethod;
-
-    public OverrideIndex(Compilation compilation) =>
-        this.byMethod =
-            new Lazy<ImmutableDictionary<IMethodSymbol, ImmutableArray<INamedTypeSymbol>>>(() => Build(compilation));
+    private readonly Lazy<ImmutableDictionary<IMethodSymbol, ImmutableArray<INamedTypeSymbol>>> byMethod =
+        IndexOf(compilation);
 
     /// <summary>
     ///     True when an override that the compilation declares can run for a
@@ -43,6 +40,10 @@ internal sealed class OverrideIndex
             value: out ImmutableArray<INamedTypeSymbol> types)
         && (receiver is not INamedTypeSymbol { TypeKind: TypeKind.Class } named
             || types.Any(type => IsOrDerivesFrom(type: type, other: named.OriginalDefinition)));
+
+    private static Lazy<ImmutableDictionary<IMethodSymbol, ImmutableArray<INamedTypeSymbol>>> IndexOf(
+        Compilation compilation) =>
+        new(() => Build(compilation));
 
     private static ImmutableDictionary<IMethodSymbol, ImmutableArray<INamedTypeSymbol>> Build(Compilation compilation)
     {
@@ -98,7 +99,7 @@ internal sealed class OverrideIndex
         return index.ToImmutable();
     }
 
-    private static bool IsOrDerivesFrom(INamedTypeSymbol type, INamedTypeSymbol other)
+    private static bool IsOrDerivesFrom(INamedTypeSymbol type, ISymbol other)
     {
         for (INamedTypeSymbol? one = type; one != null; one = one.BaseType)
         {
