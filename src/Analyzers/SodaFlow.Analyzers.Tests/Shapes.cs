@@ -16975,6 +16975,10 @@ public static class Shapes
     public static Cell<int> Ag86ReadAfterAnAwaitOfAPropertyWithASetter() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag86ChangedProperty = R3LimNotDone; _ = Ag86ReadAfterAChangedProperty(l); return S.Hold(0); });
 
+    // S3767. Control: a goto case forward to the section that reads the local, and a goto case back between two later sections, the first of which gives the local a pending cell.
+    public static Cell<int> Ab169ForwardJumpBeforeALaterLoopOfSections() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int k = Kept.Count * 0; switch (k) { case 0: goto case 1; case 1: Kept.Add(c.Sample()); break; case 2: c = l.Map(v => v); break; case 3: goto case 2; } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

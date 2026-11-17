@@ -1032,7 +1032,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // A goto case or a goto default to a section at or before its own runs that section again.
         // The walk reads the sections from that one to the last such jump as the turn of a loop, as
         // for a label.
-        if (this.JumpsBack(node) is not (int first, int last))
+        if (this.JumpsBack(node) is not (var first, var last))
         {
             base.VisitSwitchStatement(node);
 
@@ -1088,7 +1088,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             if (to >= 0 && to <= from)
             {
                 found =
-                    found is (int first, int last)
+                    found is (var first, var last)
                         ? (Math.Min(val1: first, val2: to), Math.Max(val1: last, val2: from))
                         : (to, from);
             }
