@@ -66,7 +66,12 @@ internal static class AnalyzerHarness
                 [
                     CSharpSyntaxTree.ParseText(
                         text: source,
-                        options: new CSharpParseOptions(languageVersion: LanguageVersion.Preview))
+                        // The SDK defines TRACE in each configuration and DEBUG only in a debug
+                        // build. Thus, a Trace call runs and a Debug call does not, as in a
+                        // release build.
+                        options: new CSharpParseOptions(
+                            languageVersion: LanguageVersion.Preview,
+                            preprocessorSymbols: ["TRACE"]))
                 ],
                 references: references,
                 options: new CSharpCompilationOptions(

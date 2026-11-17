@@ -2525,7 +2525,11 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab166InvariantFormatsTheInterpolationAtOnce"] = ["SF1005"],
             ["Ab166InterpolationIntoAStringBuilderHandler"] = ["SF1005"],
             ["Ab166InterpolationThatBecomesAnObject"] = ["SF1005"],
-            ["Ab166InterpolationThatBecomesATypeOfTheCodeNamedFormattableString"] = ["SF1005"]
+            ["Ab166InterpolationThatBecomesATypeOfTheCodeNamedFormattableString"] = ["SF1005"],
+            ["Ab167TraceWriteLineRuns"] = ["SF1001"],
+            ["Ab167ConditionalOnASymbolOfADirective"] = ["SF1001"],
+            ["Ab167ConditionalOnTwoSymbolsWithOneDefined"] = ["SF1001"],
+            ["Ab167OverrideOfAKeptConditionalMethodRuns"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

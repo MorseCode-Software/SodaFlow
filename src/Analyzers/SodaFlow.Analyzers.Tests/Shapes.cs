@@ -1,3 +1,6 @@
+// Some shapes call a method that is conditional on the symbol that this directive defines.
+#define AB167_ON
+
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -17279,6 +17282,42 @@ public static class Shapes
     public static Cell<int> Ab166FormattableStringGivenToAMethodThatKeepsIt() =>
         Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Ab166Keep($"n{t}"); return S.Hold(0); });
 
+    // S3843. The compiler removes the call of a method with a Conditional attribute whose symbol is not defined, and the arguments of that call with it.
+    public static Cell<int> R3CsConditionalMethodCallIsRemoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3CsTrace(l.Sample()); return S.Hold(0); });
+
+    // S3844. Debug.WriteLine is conditional on DEBUG, which the compilation does not define, and the compiler removes its call.
+    public static Cell<int> Ab167DebugWriteLineIsRemoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Diagnostics.Debug.WriteLine(l.Sample().ToString()); return S.Hold(0); });
+
+    // S3845. Trace.WriteLine is conditional on TRACE, which the options of the compilation define, and its argument runs.
+    public static Cell<int> Ab167TraceWriteLineRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Diagnostics.Trace.WriteLine(l.Sample().ToString()); return S.Hold(0); });
+
+    // S3846. A method is conditional on a symbol that a define directive of the file defines, and its argument runs.
+    public static Cell<int> Ab167ConditionalOnASymbolOfADirective() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab167Kept(l.Sample()); return S.Hold(0); });
+
+    // S3847. A method is conditional on two symbols, and the file defines one of them, thus its argument runs.
+    public static Cell<int> Ab167ConditionalOnTwoSymbolsWithOneDefined() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab167EitherKept(l.Sample()); return S.Hold(0); });
+
+    // S3848. An override of a conditional method is conditional too, and the compiler removes its call.
+    public static Cell<int> Ab167OverrideOfAConditionalMethodIsRemoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab167QuietLogger q = new(); q.Log(l.Sample()); return S.Hold(0); });
+
+    // S3849. The compiler removes the receiver of a removed call with the call.
+    public static Cell<int> Ab167ReceiverOfARemovedCallDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab167LoggerOf(l.Sample()).Log(1); return S.Hold(0); });
+
+    // S3850. A method is conditional on a symbol that the file does not define. An attribute of the code with the name Conditional names a defined symbol, and the compiler removes the call.
+    public static Cell<int> Ab167ConditionalOfTheCodeDoesNotKeepTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab167FalselyKept(l.Sample()); return S.Hold(0); });
+
+    // S3851. An override of a method that is conditional on a defined symbol runs, and its argument runs.
+    public static Cell<int> Ab167OverrideOfAKeptConditionalMethodRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab167LoudChild c = new(); c.Log(l.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23186,6 +23225,52 @@ public static class Shapes
 
             public static implicit operator FormattableString(string text) => new(text);
         }
+    }
+
+    [System.Diagnostics.Conditional("AB167_ON")]
+    private static void Ab167Kept(int value) => Kept.Add(value);
+
+    [System.Diagnostics.Conditional("R3_CS_TRACE")]
+    [System.Diagnostics.Conditional("AB167_ON")]
+    private static void Ab167EitherKept(int value) => Kept.Add(value);
+
+    private static Ab167Logger Ab167LoggerOf(int value) => new Ab167QuietLogger { Level = value };
+
+    public class Ab167Logger
+    {
+        public int Level { get; init; }
+
+        [System.Diagnostics.Conditional("R3_CS_TRACE")]
+        public virtual void Log(int value) => Kept.Add(value + this.Level);
+    }
+
+    public sealed class Ab167QuietLogger : Ab167Logger
+    {
+        public override void Log(int value) => Kept.Add(value - this.Level);
+    }
+
+    [System.Diagnostics.Conditional("R3_CS_TRACE")]
+    [Ab167Own.Conditional("AB167_ON")]
+    private static void Ab167FalselyKept(int value) => Kept.Add(value);
+
+    public static class Ab167Own
+    {
+        [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+        public sealed class ConditionalAttribute(string condition) : Attribute
+        {
+            public string Condition { get; } = condition;
+        }
+    }
+
+    public class Ab167LoudLogger
+    {
+        [System.Diagnostics.Conditional("AB167_ON")]
+        public virtual void Log(int value) => Kept.Add(value);
+    }
+
+    public sealed class Ab167LoudChild : Ab167LoudLogger
+    {
+        public override void Log(int value) => Kept.Add(value + 1);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

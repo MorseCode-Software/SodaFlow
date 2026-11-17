@@ -2599,6 +2599,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
+        if (this.region.Symbols.IsRemovedFrom(tree: node.SyntaxTree, method: method))
+        {
+            return;
+        }
+
         this.Visit(node.Expression);
 
         SodaFlowSymbols symbols = this.region.Symbols;

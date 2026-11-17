@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -101,6 +102,8 @@ internal sealed class SodaFlowSymbols
 
     private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
         new(SymbolEqualityComparer.Default);
+
+    private readonly ConcurrentDictionary<SyntaxTree, ImmutableHashSet<string>> definedSymbols = new();
 
     private readonly Lazy<bool> declaresAdd;
     private readonly Lazy<bool> declaresConversions;
@@ -600,6 +603,60 @@ internal sealed class SodaFlowSymbols
                 attribute.AttributeClass?.Name is "JsonIgnoreAttribute" or "XmlIgnoreAttribute"
                 // A condition on JsonIgnore reads the value before it decides.
                 && attribute.NamedArguments.IsEmpty);
+
+    /// <summary>
+    ///     True for a call of a conditional method that the compiler removes from
+    ///     the tree. No condition of the method is a symbol that the tree defines.
+    ///     The compiler then also removes the receiver and the arguments.
+    /// </summary>
+    /// <remarks>
+    ///     A <c>#define</c> must come before the first token of a file, thus it
+    ///     applies to each call. The walk ignores an <c>#undef</c>, which keeps a
+    ///     call that the compiler can remove. That is the careful side.
+    /// </remarks>
+    public bool IsRemovedFrom(SyntaxTree tree, IMethodSymbol method)
+    {
+        if (!method.IsConditional)
+        {
+            return false;
+        }
+
+        // An override has the conditions of the method that it overrides.
+        string[] conditions =
+        [
+            .. Overridden(method)
+                .SelectMany(static declared => declared.GetAttributes())
+                .Where(static attribute =>
+                    attribute.AttributeClass is { Name: "ConditionalAttribute", ContainingNamespace: { } space }
+                    && space.ToDisplayString() == "System.Diagnostics")
+                .Select(static attribute => attribute.ConstructorArguments.FirstOrDefault().Value)
+                .OfType<string>()
+        ];
+
+        ImmutableHashSet<string> defined =
+            this.definedSymbols.GetOrAdd(
+                key: tree,
+                valueFactory: static found =>
+                    found.Options.PreprocessorSymbolNames
+                        .Concat(
+                            found.GetRoot()
+                                .GetFirstToken(includeZeroWidth: true)
+                                .LeadingTrivia
+                                .Select(static trivia => trivia.GetStructure())
+                                .OfType<DefineDirectiveTriviaSyntax>()
+                                .Select(static directive => directive.Name.ValueText))
+                        .ToImmutableHashSet(StringComparer.Ordinal));
+
+        return !conditions.Any(defined.Contains);
+
+        static IEnumerable<IMethodSymbol> Overridden(IMethodSymbol first)
+        {
+            for (IMethodSymbol? current = first; current != null; current = current.OverriddenMethod)
+            {
+                yield return current;
+            }
+        }
+    }
 
     /// <summary>
     ///     True for a member of <c>System.Activator</c>, or of a type in

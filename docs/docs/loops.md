@@ -254,6 +254,9 @@ is quiet.
   close the loop with it, the analyzer reports the sample or the close. Collection views work the
   same way. Their predicates, selectors, sort orders, and comparers run when something reads the
   view.
+- **A call that the compiler removes.** A call of a method with `[Conditional]`, such as
+  `Debug.WriteLine` in a release build, does not run, and neither do its arguments, when the build
+  defines none of its symbols.
 - **A sample of a `Hold` with a plain initial value.** A read in the block gives the initial
   value, because a firing of the stream comes after the close. That is also true for a hold that
   the block makes, after a send into its sink in the block: the hold takes the sent value only at
