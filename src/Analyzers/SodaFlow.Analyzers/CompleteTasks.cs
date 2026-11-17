@@ -13,8 +13,9 @@ namespace SodaFlow.Analyzers;
 /// <remarks>
 ///     The answer is true for a task that the platform gives complete. It is
 ///     also true for a method of this compilation that gives only such tasks,
-///     and for a local with one such value. For each other task, the answer is
-///     false, and the walk stops at the await.
+///     and for a local with one such value. A readonly field and a get-only
+///     property with such an initializer count also. For each other task, the
+///     answer is false, and the walk stops at the await.
 /// </remarks>
 internal static class CompleteTasks
 {
@@ -47,6 +48,8 @@ internal static class CompleteTasks
         return symbol switch
         {
             ILocalSymbol local => HasOneCompleteValue(region: region, local: local, visiting: visiting),
+            IFieldSymbol { IsReadOnly: true } or IPropertySymbol { IsReadOnly: true } =>
+                HasACompleteInitializer(region: region, member: symbol.OriginalDefinition, visiting: visiting),
             IMethodSymbol method when written is InvocationExpressionSyntax call =>
                 SodaFlowSymbols.IsTask(method.ContainingType)
                     ? IsCompleteFromThePlatform(region: region, method: method, call: call, visiting: visiting)
@@ -227,6 +230,20 @@ internal static class CompleteTasks
     private static IEnumerable<SyntaxNode> OwnNodesOf(SyntaxNode body) =>
         body.DescendantNodesAndSelf(static node =>
             node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax));
+
+    // The region gives the initializer of a member only when no constructor can write the member.
+    private static bool HasACompleteInitializer(LoopRegion region, ISymbol member, HashSet<ISymbol> visiting)
+    {
+        if (region.InitializerOf(member) is not { } value || !visiting.Add(member))
+        {
+            return false;
+        }
+
+        bool complete = IsComplete(region: region, task: value, visiting: visiting);
+        visiting.Remove(member);
+
+        return complete;
+    }
 
     // A local with an initializer and no other write has the value of that initializer at each
     // read. The search for a write is by the name, in the function that declares the local.

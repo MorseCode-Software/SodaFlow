@@ -16947,6 +16947,34 @@ public static class Shapes
     public static Cell<int> Ab169GotoCaseOfAnInnerSwitch() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int k = Kept.Count * 0; switch (k) { case 1: Kept.Add(c.Sample()); break; case 0: c = l.Map(v => v); switch (k) { case 3: break; case 0: goto case 3; } break; } return S.Hold(0); });
 
+    // S3760. An async helper samples after an await of a static readonly field that has a complete task.
+    public static Cell<int> R3LimReadAfterAnAwaitOfACompleteTaskInAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R3LimReadAfterADoneField(l).GetAwaiter().GetResult(); return S.Hold(0); });
+
+    // S3761. A method samples after an await of a readonly instance field that has a complete task and that no constructor writes.
+    public static Cell<int> Ag86ReadAfterAnAwaitOfACompleteTaskInAnInstanceField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new Ag86Holder().Read(l).GetAwaiter().GetResult(); return S.Hold(0); });
+
+    // S3762. A method samples after an await of a readonly instance field whose constructor gives it a task that never completes.
+    public static Cell<int> Ag86ReadAfterAnAwaitOfAFieldThatTheConstructorWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { _ = new Ag86Rewritten().Read(l); return S.Hold(0); });
+
+    // S3763. An async helper samples after an await of a get-only static property whose initializer has a complete task.
+    public static Cell<int> Ag86ReadAfterAnAwaitOfACompleteTaskInAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag86ReadAfterADoneProperty(l).GetAwaiter().GetResult(); return S.Hold(0); });
+
+    // S3764. An async helper samples after an await of a static readonly field whose initializer is a second such field with a complete task.
+    public static Cell<int> Ag86ReadAfterAnAwaitOfAFieldOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag86ReadAfterAFieldOfAField(l).GetAwaiter().GetResult(); return S.Hold(0); });
+
+    // S3765. A static field that is not readonly has a complete task in its initializer, the block gives it a task that never completes, and an async helper samples after an await of it.
+    public static Cell<int> Ag86ReadAfterAnAwaitOfAFieldThatIsNotReadonly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag86Changed = R3LimNotDone; _ = Ag86ReadAfterAChangedField(l); return S.Hold(0); });
+
+    // S3766. A static property with a setter has a complete task in its initializer, the block gives it a task that never completes, and an async helper samples after an await of it.
+    public static Cell<int> Ag86ReadAfterAnAwaitOfAPropertyWithASetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag86ChangedProperty = R3LimNotDone; _ = Ag86ReadAfterAChangedProperty(l); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -22587,6 +22615,62 @@ public static class Shapes
 
                 break;
         }
+    }
+
+    public sealed class Ag86Holder
+    {
+        private readonly Task done = Task.CompletedTask;
+
+        public async Task Read(Cell<int> c)
+        {
+            await this.done;
+            Kept.Add(c.Sample());
+        }
+    }
+
+    public sealed class Ag86Rewritten
+    {
+        private readonly Task done = Task.CompletedTask;
+
+        public Ag86Rewritten() => this.done = new TaskCompletionSource().Task;
+
+        public async Task Read(Cell<int> c)
+        {
+            await this.done;
+            Kept.Add(c.Sample());
+        }
+    }
+
+    private static Task Ag86Done { get; } = Task.CompletedTask;
+
+    private static readonly Task Ag86DoneAgain = R3LimDone;
+
+    private static async Task Ag86ReadAfterADoneProperty(Cell<int> c)
+    {
+        await Ag86Done;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag86ReadAfterAFieldOfAField(Cell<int> c)
+    {
+        await Ag86DoneAgain;
+        Kept.Add(c.Sample());
+    }
+
+    private static Task Ag86Changed = Task.CompletedTask;
+
+    private static Task Ag86ChangedProperty { get; set; } = Task.CompletedTask;
+
+    private static async Task Ag86ReadAfterAChangedField(Cell<int> c)
+    {
+        await Ag86Changed;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag86ReadAfterAChangedProperty(Cell<int> c)
+    {
+        await Ag86ChangedProperty;
+        Kept.Add(c.Sample());
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
