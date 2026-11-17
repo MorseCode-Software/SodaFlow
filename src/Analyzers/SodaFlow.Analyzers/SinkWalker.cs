@@ -461,7 +461,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // Records the code that does not run after the yield return of the first item. A try statement
     // with a finally block splits that code: the finally block runs, and the code after the try
     // statement does not. A goto to a label after the yield return can skip it.
-    private void StopsAfter(YieldStatementSyntax yielded)
+    private void StopsAfter(SyntaxNode yielded)
     {
         List<(SyntaxNode Block, int From)> parts = [];
         SyntaxNode? block = null;
