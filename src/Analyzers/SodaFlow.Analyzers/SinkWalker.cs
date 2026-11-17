@@ -736,7 +736,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // The value of a condition that is a constant. Null for each other condition. Only names,
     // literals, and operators can make a constant. Thus, the walk asks the compiler only about
     // such a condition.
-    private bool? ConstantOf(ExpressionSyntax condition) =>
+    private bool? ConstantOf(SyntaxNode condition) =>
         condition.DescendantNodesAndSelf()
             .All(static part =>
                 part
