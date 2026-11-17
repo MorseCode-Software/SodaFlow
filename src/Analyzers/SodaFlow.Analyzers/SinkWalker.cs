@@ -308,7 +308,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             _ => null
         };
 
-    private void AwaitsEachItem(CommonForEachStatementSyntax node)
+    private void AwaitsEachItem(SyntaxNode node)
     {
         if (this.LaterAfter(node) is { } part)
         {
@@ -334,7 +334,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private static SyntaxNode? LaterPartOf(SyntaxNode node) =>
         (WhereItAlwaysRuns(node) ?? HeaderOf(node)) is StatementSyntax statement ? PartAround(statement) : null;
 
-    private static SyntaxNode? PartAround(StatementSyntax statement)
+    private static SyntaxNode? PartAround(SyntaxNode statement)
     {
         SyntaxNode? block = null;
         SyntaxNode part = statement;
