@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -35,6 +36,85 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     ///     than the call.
     /// </summary>
     public bool IsOfAConstructor { get; } = isOfAConstructor;
+
+    /// <summary>
+    ///     For a local that is a second name of a value with no object of the
+    ///     store: the expression of the first name. The expression is in the
+    ///     assignment that gave the local that value.
+    /// </summary>
+    public Dictionary<ISymbol, ExpressionSyntax> FirstNameOf { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     Each name that was one of two names of a value with no object. The
+    ///     walk does not know now that the two names are one value.
+    /// </summary>
+    public HashSet<ISymbol> WasOneOfTwoNames { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     For a local that got a value with no object of the store from a
+    ///     location: the expression of that location. The walk can read the
+    ///     location again. Two locals with the same location are two names of
+    ///     one value.
+    /// </summary>
+    public Dictionary<ISymbol, ExpressionSyntax> ReadFrom { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     The objects that code with no body keeps, for an owner that is a
+    ///     location that the walk can read again. The location is an element or a
+    ///     field, through the local that is a name of it when the code has one. The
+    ///     member is set for a field or a property of the value at that location.
+    /// </summary>
+    public List<(ExpressionSyntax Location, ISymbol? Name, ISymbol? Member, LoopState State)> KeptAt { get; } = [];
+
+    /// <summary>
+    ///     Each value that the code of this frame put into an element or into a
+    ///     field, in order. The first part is the field, or null for an element.
+    ///     The second part is the index of an element that has one index. Only
+    ///     the frame of a callee that has a parameter with ref, out, or in keeps
+    ///     them.
+    /// </summary>
+    public List<(ISymbol? Field, ArgumentSyntax? Index, LoopState Value)> PutsIntoLocations { get; } = [];
+
+    /// <summary>
+    ///     Each value that the code of this frame put into a location of the
+    ///     object of a parameter, in order. The location is an element or a
+    ///     field. The last part is the parameter. The caller gets each of them at
+    ///     the end of the walk.
+    /// </summary>
+    public List<(ISymbol? Field, ArgumentSyntax? Index, LoopState Value, ISymbol Parameter)> PutsThroughParameters
+    {
+        get;
+    } = [];
+
+    /// <summary>
+    ///     For a parameter with ref or out that this code gave a value: the
+    ///     number of entries that <see cref="PutsIntoLocations" /> had at that
+    ///     assignment.
+    /// </summary>
+    public Dictionary<ISymbol, int> PutsBeforeAnAssignment { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     For a parameter with ref or out: the value of
+    ///     <see cref="ObjectStore.PositionChanges" /> at the last assignment to
+    ///     it. The assignment always runs in this code.
+    /// </summary>
+    public Dictionary<ISymbol, int> PositionsAtASureAssignment { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>The frame of the block, which has no parent.</summary>
+    public LoopFrame Root
+    {
+        get
+        {
+            LoopFrame frame = this;
+
+            while (frame.parent != null)
+            {
+                frame = frame.parent;
+            }
+
+            return frame;
+        }
+    }
 
     /// <summary>
     ///     True for the given frame, and for the frame of each callee that the
@@ -133,6 +213,16 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     } = [];
 
     /// <summary>
+    ///     For a loop of this code: each collection that is older than the turn,
+    ///     with its positions before the loop. An assignment of the turn replaced
+    ///     an element of it.
+    /// </summary>
+    public List<(SyntaxNode Turn, MadeObject Made, ImmutableArray<LoopState> Before)> PositionsBeforeATurn
+    {
+        get;
+    } = [];
+
+    /// <summary>
     ///     For a local or a parameter of this code: each member that the code
     ///     set through it.
     /// </summary>
@@ -146,10 +236,19 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public HashSet<ISymbol> CanBeUnseen { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
-    ///     For each foreach statement that the walk is in, and whose collection
-    ///     keeps its positions: the writes to a member through its variable.
+    ///     For each foreach statement that the walk is in: the writes to a member
+    ///     through its variable. The collection keeps its positions, or it has
+    ///     the objects of a loop.
     /// </summary>
     public Dictionary<SyntaxNode, WritesThroughEach> WritesThroughEach { get; } = [];
+
+    /// <summary>
+    ///     For each <c>Add</c> of a list in a loop of this code: the list, and
+    ///     the object of the turn that the call adds. Each turn always runs the
+    ///     call. The object is null when a read of the loop added a different
+    ///     value.
+    /// </summary>
+    public Dictionary<SyntaxNode, (MadeObject List, MadeObject? Added)> AddsOfEachTurn { get; } = [];
 
     /// <summary>
     ///     The last write to a member through an element of a collection in the

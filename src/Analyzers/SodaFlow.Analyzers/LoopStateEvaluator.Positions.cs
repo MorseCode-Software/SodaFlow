@@ -45,6 +45,121 @@ internal sealed partial class LoopStateEvaluator
         return this.Eval(access.Expression).Origin is { } origin ? all[index].From(origin) : all[index];
     }
 
+    /// <summary>
+    ///     The state of the first element of a collection, and the number of
+    ///     elements, when the walk knows the positions. Null for each other
+    ///     collection.
+    /// </summary>
+    public (LoopState First, int Count)? FirstElementOf(ExpressionSyntax collection)
+    {
+        if (this.ElementsOf(collection) is { Count: > 0 } elements)
+        {
+            return (this.Eval(elements[0]), elements.Count);
+        }
+
+        if (this.StorePositionsOf(collection) is not (_, { Length: > 0 } all))
+        {
+            return null;
+        }
+
+        return (this.Eval(collection).Origin is { } origin ? all[0].From(origin) : all[0], all.Length);
+    }
+
+    /// <summary>
+    ///     The array of a foreach statement over a name of an array, as the loop
+    ///     starts. Null for each other foreach statement.
+    /// </summary>
+    /// <param name="loop">The foreach statement.</param>
+    /// <param name="state">The state of the collection at the start of the loop.</param>
+    public ArrayOfAForeach? ArrayOf(ForEachStatementSyntax loop, LoopState state) =>
+        Unwrapped(loop.Expression) is IdentifierNameSyntax name && this.region.TypeOf(name) is IArrayTypeSymbol
+            ? new ArrayOfAForeach(name: name, state: state, one: this.TheOneCollectionOf(name))
+            : null;
+
+    /// <summary>
+    ///     True when the body of a foreach statement over an array puts a value
+    ///     into an element that a later turn can read.
+    /// </summary>
+    /// <remarks>
+    ///     A foreach statement reads an element of an array at the start of its
+    ///     turn. Thus, a later turn reads a value that a turn before put into the
+    ///     array. A list stops the loop with an exception after such a change.
+    /// </remarks>
+    /// <param name="loop">The foreach statement.</param>
+    /// <param name="array">The result of <see cref="ArrayOf" /> for the loop.</param>
+    public bool PutsIntoALaterElement(ForEachStatementSyntax loop, ArrayOfAForeach array) =>
+        loop.Statement.DescendantNodes()
+            .OfType<AssignmentExpressionSyntax>()
+            .Any(assignment => this.PutsIntoALaterElement(assignment: assignment, array: array));
+
+    /// <summary>
+    ///     The state of each element of the array of a foreach statement at this
+    ///     time. See <see cref="PutsIntoALaterElement(ForEachStatementSyntax, ArrayOfAForeach)" />.
+    /// </summary>
+    /// <param name="loop">The foreach statement.</param>
+    /// <param name="array">The result of <see cref="ArrayOf" /> for the loop.</param>
+    /// <param name="type">The type of the element.</param>
+    public LoopState ElementsNow(ForEachStatementSyntax loop, ArrayOfAForeach array, ITypeSymbol? type)
+    {
+        LoopState now = this.EvalAgain(loop.Expression);
+
+        // The body can give the name a different array. The loop reads the array of the start,
+        // and the store has the elements of that array.
+        return ElementOf(
+            collection: now.Objects.SequenceEqual(array.State.Objects) ? now : this.InTheStoreNow(array) ?? now,
+            type: type);
+    }
+
+    // True for an assignment to an element of the array that a later turn can read. A second name
+    // of the array of the start is the same array. No later turn reads the first element.
+    private bool PutsIntoALaterElement(AssignmentExpressionSyntax assignment, ArrayOfAForeach array)
+    {
+        if (Unwrapped(assignment.Left)
+                is not ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
+            || Unwrapped(element.Expression) is not IdentifierNameSyntax written
+            || this.ConstantIndexOf(indexes[0]) == 0)
+        {
+            return false;
+        }
+
+        return SymbolEqualityComparer.Default.Equals(
+                   x: this.region.SymbolOf(written),
+                   y: this.region.SymbolOf(array.Name))
+               || (array.One != null && ReferenceEquals(objA: this.TheOneCollectionOf(written), objB: array.One));
+    }
+
+    // The state of the array of the start of a foreach statement, as the store has it now. Null
+    // when the store does not have each object of the array. See Refreshed.
+    private LoopState? InTheStoreNow(ArrayOfAForeach array)
+    {
+        LoopState? stored = null;
+
+        foreach (MadeObject made in array.State.Objects)
+        {
+            if (this.region.Objects.StateOf(made) is not { } one)
+            {
+                return null;
+            }
+
+            stored = stored == null ? one : stored.Join(one);
+        }
+
+        if (stored == null)
+        {
+            return null;
+        }
+
+        LoopState refreshed =
+            array.State.RefreshedFrom(stored: stored.FromIfUnknown(array.State.AnyOrigin), all: true);
+
+        LoopState parts =
+            this.InAnObjectOf(
+                turn: array.One is { } only ? only.Turn : TurnOfTheNewOne(refreshed),
+                state: refreshed);
+
+        return ReferenceEquals(objA: parts, objB: refreshed) ? refreshed : parts.WithObjects(refreshed.Objects);
+    }
+
     // The number that an argument has in the code, when it is a constant that is not negative.
     private int? ConstantIndexOf(ArgumentSyntax argument) =>
         this.region.ModelFor(argument).GetConstantValue(argument.Expression) is { Value: int index and >= 0 }
@@ -70,6 +185,55 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
     /// <summary>
+    ///     The same as <see cref="PositionsBefore" />, for an assignment to an
+    ///     element. Each turn of a loop can always run the assignment, on a
+    ///     collection that is older than the turn. Then, the assignment is sure
+    ///     until the end of the turn, as a write to a member is. After the loop,
+    ///     each position can have its value from before the loop also.
+    /// </summary>
+    /// <param name="collection">The expression of the collection.</param>
+    /// <param name="replaces">True when the assignment always runs in its function.</param>
+    /// <param name="turn">The body of the loop whose each turn always runs the assignment.</param>
+    public (MadeObject Made, ImmutableArray<LoopState> All)? PositionsBeforeAnAssignment(
+        ExpressionSyntax collection,
+        bool replaces,
+        SyntaxNode? turn)
+    {
+        if (this.PositionsBefore(collection: collection, replaces: replaces, turn: turn) is { } sure)
+        {
+            return sure;
+        }
+
+        if (this.quiet || this.StorePositionsOf(collection) is not (var made, var all) || made.IsOfTurnsBefore)
+        {
+            return null;
+        }
+
+        // The loop is in this code, or in the code of a caller for an assignment of a callee.
+        (SyntaxNode Turn, LoopFrame Frame)? inItsTurn =
+            made.IsFrom(this.Frame)
+                ? turn != null && made.Turn != turn && IsTheBodyOfALoop(turn)
+                    ? (turn, this.Frame)
+                    : null
+                : replaces
+                    ? this.TurnOfACaller
+                    : null;
+
+        if (inItsTurn is not (var itsTurn, var itsFrame))
+        {
+            return null;
+        }
+
+        if (!itsFrame.PositionsBeforeATurn.Any(kept =>
+                kept.Turn == itsTurn && ReferenceEquals(objA: kept.Made, objB: made)))
+        {
+            itsFrame.PositionsBeforeATurn.Add((itsTurn, made, all));
+        }
+
+        return (made, all);
+    }
+
+    /// <summary>
     ///     Records that an assignment gave an element of a collection a value. An
     ///     assignment that is sure to run, to a constant index, gives that
     ///     position the value.
@@ -89,15 +253,38 @@ internal sealed partial class LoopStateEvaluator
         {
             this.region.Objects.HasPositions(
                 collection: made,
-                values: all.SetItem(index: index, item: this.Eval(value)));
+                values: all.SetItem(index: index, item: this.Eval(value)),
+                givenBy: this.region.Objects.GivenBy(collection: made, values: all).SetItem(index: index, item: value));
+        }
+    }
+
+    /// <summary>
+    ///     The same as <see cref="HasThePositionAfter" />, for a value that has
+    ///     no expression in this code.
+    /// </summary>
+    /// <param name="before">The result of <see cref="PositionsBefore" /> for the put.</param>
+    /// <param name="element">The element.</param>
+    /// <param name="state">The state of the value.</param>
+    public void HasTheStateAtThePosition(
+        (MadeObject Made, ImmutableArray<LoopState> All)? before,
+        ElementAccessExpressionSyntax element,
+        LoopState state)
+    {
+        if (before is (var made, var all)
+            && element.ArgumentList.Arguments.Count == 1
+            && this.ConstantIndexOf(element.ArgumentList.Arguments[0]) is { } index
+            && index < all.Length)
+        {
+            this.region.Objects.HasPositions(collection: made, values: all.SetItem(index: index, item: state));
         }
     }
 
     /// <summary>
     ///     Records what a call of a method of the platform on a collection does
-    ///     to its positions. <c>Add</c>, <c>Insert</c>, and <c>RemoveAt</c> of a
-    ///     list give the new positions. A search or a copy changes nothing. Each
-    ///     other method can change the order, and takes the positions away.
+    ///     to its positions. <c>Add</c>, <c>Insert</c>, <c>RemoveAt</c>,
+    ///     <c>Remove</c>, and <c>Reverse</c> of a list give the new positions. A
+    ///     search or a copy changes nothing. Each other method can change the
+    ///     order, and takes the positions away.
     /// </summary>
     /// <param name="before">The result of <see cref="PositionsBeforeACall" /> for the call.</param>
     /// <param name="collection">The owner of the call.</param>
@@ -143,6 +330,10 @@ internal sealed partial class LoopStateEvaluator
                                 && this.ConstantIndexOf(at) is { } index
                                 && index < all.Length =>
                     all.RemoveAt(index),
+                "Remove" when For("item") is { } item =>
+                    this.AfterARemove(all: all, item: item.Expression, list: owner),
+                "Reverse" when arguments.Count == 0 =>
+                    ImmutableArray.CreateRange(all.Reverse()),
                 _ => null
             };
 
@@ -160,6 +351,149 @@ internal sealed partial class LoopStateEvaluator
                     SodaFlowSymbols.ParameterOf(callee: method, argument: argument, position: position)?.Name == name)
                 .FirstOrDefault();
     }
+
+    // The positions after a call of Remove with an object. Remove takes the first element that is
+    // equal to that object away. Null when the walk does not know which element that is. An
+    // identity of the turns before is more than one object, and tells nothing here.
+    private ImmutableArray<LoopState>? AfterARemove(
+        ImmutableArray<LoopState> all,
+        ExpressionSyntax item,
+        INamedTypeSymbol list)
+    {
+        if (list.TypeArguments.Length != 1
+            || !IsEqualOnlyToItself(list.TypeArguments[0])
+            || this.TheOneObjectOf(item) is not { IsOfTurnsBefore: false } taken)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < all.Length; i++)
+        {
+            ImmutableArray<MadeObject> here = this.region.Objects.Now(all[i].Objects);
+
+            // The first element that can be the object. A collection that keeps its positions
+            // holds no object that the store does not know.
+            if (here.Contains(taken))
+            {
+                return here.Length == 1 ? all.RemoveAt(i) : null;
+            }
+        }
+
+        // The list does not have the object, and Remove changes nothing.
+        return all;
+    }
+
+    // True for a class whose object is equal to itself and to no other object. The class has
+    // the sealed modifier, it is not IEquatable, and it has no Equals of its own. A record has
+    // one.
+    private static bool IsEqualOnlyToItself(ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsSealed: true } sealedClass
+            || sealedClass.AllInterfaces.Any(static contract => contract.Name == "IEquatable"))
+        {
+            return false;
+        }
+
+        for (INamedTypeSymbol? part = sealedClass;
+             part is { SpecialType: not SpecialType.System_Object };
+             part = part.BaseType)
+        {
+            if (part.GetMembers("Equals").Any(static member => member.IsOverride))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    ///     True for an element at a constant index of a collection that keeps its
+    ///     positions, where that position has no object. A coalescing assignment
+    ///     to such an element always gives it the value.
+    /// </summary>
+    /// <remarks>
+    ///     Such a collection holds only values that the walk knew when they went
+    ///     in. Thus, a position with no object of the store has null.
+    /// </remarks>
+    public bool HasNoObjectAt(ExpressionSyntax target) =>
+        Unwrapped(target) is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
+        && this.region.TypeOf(element) is { } type
+        && this.CanBeAnObject(type)
+        && this.StorePositionsOf(element.Expression) is (_, var all)
+        && this.ConstantIndexOf(indexes[0]) is { } index
+        && index < all.Length
+        && all[index].Objects.IsEmpty;
+
+    /// <summary>
+    ///     True for an element at a constant index of a collection that keeps its
+    ///     positions, where that position has an object for sure. A coalescing
+    ///     assignment to such an element changes nothing.
+    /// </summary>
+    /// <remarks>
+    ///     A state does not say that its value is not null. Thus, the walk reads
+    ///     the expression that gave the position its value.
+    /// </remarks>
+    public bool HasAnObjectAt(ExpressionSyntax target) =>
+        Unwrapped(target) is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
+        && this.StorePositionsOf(element.Expression) is (var made, var all)
+        && this.ConstantIndexOf(indexes[0]) is { } index
+        && index < all.Length
+        && this.region.Objects.GivenBy(collection: made, values: all)[index] is ExpressionSyntax given
+        && this.IsAnObjectForSure(given);
+
+    // True for a creation of an object of a class, and for a local that only such a creation gave
+    // a value. A local can get null from code after the creation. A creation of a struct with a
+    // nullable type gives null.
+    private bool IsAnObjectForSure(ExpressionSyntax value) =>
+        Unwrapped(value) switch
+        {
+            IdentifierNameSyntax name =>
+                this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None } local
+                && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    is VariableDeclaratorSyntax { Initializer.Value: { } made } declarator
+                && IsACreation(made)
+                && this.region.TypeOf(made) is { IsReferenceType: true }
+                && FunctionOf(declarator) is { } code
+                && !this.GetsAValue(
+                    name: local,
+                    code: code,
+                    after: declarator.Span.End,
+                    before: int.MaxValue,
+                    orAFunctionUsesIt: false),
+            var other => IsACreation(other) && this.region.TypeOf(other) is { IsReferenceType: true }
+        };
+
+    private static bool IsACreation(ExpressionSyntax value) =>
+        Unwrapped(value)
+            is BaseObjectCreationExpressionSyntax
+            or ArrayCreationExpressionSyntax
+            or ImplicitArrayCreationExpressionSyntax
+            or AnonymousObjectCreationExpressionSyntax;
+
+    /// <summary>
+    ///     What a <c>CompareExchange</c> does to an element at a constant index
+    ///     of a collection that keeps its positions. True when the call puts the
+    ///     value, as an <c>Exchange</c> does. False when the call changes nothing.
+    ///     Null when the walk does not know.
+    /// </summary>
+    /// <remarks>
+    ///     The call compares the comparand and the element by identity. Two
+    ///     objects of two creations are two objects. A different identity of the
+    ///     store can be the same object, as the result of a call can be. An
+    ///     identity of the turns before is more than one object.
+    /// </remarks>
+    /// <param name="location">The location of the call.</param>
+    /// <param name="comparand">The comparand of the call.</param>
+    public bool? ExchangesAt(ExpressionSyntax location, ExpressionSyntax comparand) =>
+        Unwrapped(location) is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
+        && this.StorePositionsOf(element.Expression) is (_, var all)
+        && this.ConstantIndexOf(indexes[0]) is { } index
+        && index < all.Length
+        && this.TheOneObjectIn(all[index]) is { IsNew: true, IsOfTurnsBefore: false } there
+        && this.TheOneObjectOf(comparand) is { IsNew: true, IsOfTurnsBefore: false } compared
+            ? there == compared
+            : null;
 
     /// <summary>
     ///     The positions of a collection before a call of a method of the
@@ -209,6 +543,15 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     public void MergesWhatACalleePut(ExpressionSyntax target, LoopState state)
     {
+        // The callee put objects into code with no body that the argument names. See
+        // KeepsWhatItGets.
+        if (state is { IsNone: true, HoldsAnObject: true } && IsOfNoObjectOfTheStore(this.Eval(target)))
+        {
+            this.KeepsInTheNameOf(owner: target, holding: state);
+
+            return;
+        }
+
         (MadeObject Made, ImmutableArray<LoopState> All)? kept = this.StorePositionsOf(target);
         this.Merge(target: target, state: state);
 
@@ -298,6 +641,10 @@ internal sealed partial class LoopStateEvaluator
     // The value that a statement at the first level of a block adds to a list of the platform. The
     // name is the name of the list in that statement. Null for each other use of the name.
     private ExpressionSyntax? AddedBy(SyntaxNode use, BlockSyntax scope) =>
+        this.AnAddOf(use) is (var added, var statement) && statement.Parent == scope ? added : null;
+
+    // The same for a statement at each level, with the statement.
+    private (ExpressionSyntax Added, ExpressionStatementSyntax Statement)? AnAddOf(SyntaxNode use) =>
         use.Parent is MemberAccessExpressionSyntax
         {
             Name.Identifier.ValueText: "Add",
@@ -307,11 +654,18 @@ internal sealed partial class LoopStateEvaluator
             } call
         } access
         && access.Expression == use
-        && statement.Parent == scope
         && this.region.SymbolOf(call) is IMethodSymbol { ReducedFrom: null, ContainingType: { Name: "List" } owner }
         && SodaFlowSymbols.IsPlatform(owner)
-            ? arguments[0].Expression
+            ? (arguments[0].Expression, statement)
             : null;
+
+    // True for a local that a literal made, when each use of it is a read or an Add statement. That
+    // Add is of a list of the platform. Thus, no code can take an element out of the collection.
+    private bool OnlyGetsAdds(ExpressionSyntax collection) =>
+        Unwrapped(collection) is IdentifierNameSyntax name
+        && this.region.SymbolOf(name) is ILocalSymbol local
+        && this.LiteralOf(local) is (_, var uses)
+        && uses.All(use => this.IsARead(use) || this.AnAddOf(use) != null);
 
     // The elements of the literal that made a local, and each name of the local in its block.
     private (IReadOnlyList<ExpressionSyntax> Elements, IEnumerable<IdentifierNameSyntax> Uses)? LiteralOf(
@@ -514,7 +868,7 @@ internal sealed partial class LoopStateEvaluator
             } =>
                 this.region.SymbolOf(call) is IMethodSymbol { ReducedFrom.ContainingType: { } owner }
                 && SodaFlowSymbols.IsLinqEnumerable(owner),
-            ForEachStatementSyntax => true,
+            CommonForEachStatementSyntax => true,
             _ => false
         };
 

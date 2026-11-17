@@ -9,12 +9,14 @@ namespace SodaFlow.Analyzers;
 /// <param name="outs">
 ///     The state that the body gives to each <c>out</c> or <c>ref</c> parameter.
 /// </param>
+/// <param name="alwaysGives">The value of <see cref="Followed.AlwaysGives" />.</param>
 internal sealed class Followed(
     in LoopState state,
     in ImmutableArray<Finding> findings,
     in ImmutableDictionary<ISymbol, LoopState> outs,
     in ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> sets,
-    in ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)> through)
+    in ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)> through,
+    in ImmutableHashSet<ISymbol> alwaysGives)
 {
     /// <summary>
     ///     A call that the walk did not read, because no argument has a state.
@@ -26,7 +28,8 @@ internal sealed class Followed(
             findings: ImmutableArray<Finding>.Empty,
             outs: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             sets: ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)>.Empty,
-            through: ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)>.Empty);
+            through: ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)>.Empty,
+            alwaysGives: ImmutableHashSet.Create<ISymbol>(SymbolEqualityComparer.Default));
 
     public LoopState State { get; } = state;
 
@@ -47,4 +50,12 @@ internal sealed class Followed(
     ///     of the member at the return of the callee.
     /// </summary>
     public ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)> Through { get; } = through;
+
+    /// <summary>
+    ///     Each parameter with <c>ref</c> or <c>out</c> that the body always
+    ///     gives the value in <see cref="Outs" />. No position of a collection
+    ///     changes after the last such assignment. Thus, the location of the
+    ///     argument has that value after the call.
+    /// </summary>
+    public ImmutableHashSet<ISymbol> AlwaysGives { get; } = alwaysGives;
 }

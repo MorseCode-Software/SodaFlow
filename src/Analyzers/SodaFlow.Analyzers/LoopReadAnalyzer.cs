@@ -27,6 +27,10 @@ namespace SodaFlow.Analyzers;
 // ReSharper disable once InheritdocConsiderUsage - This class has its own summary, which says more than the base class does.
 public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 {
+    // The most reads of one block. A read can give a sink content that a send of a sink gets in
+    // the next read. Each read after the first one is for such a chain of sinks.
+    private const int MaxReads = 3;
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         ImmutableArray.Create(
             Diagnostics.ReadBeforeClose,
@@ -116,36 +120,125 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         string looper = method.ContainingType.OriginalDefinition.Name;
 
         LoopState placeholderState =
-            looper == "StreamLooper" ? LoopState.StreamPlaceholder : LoopState.PendingPlaceholder;
+            looper switch
+            {
+                "StreamLooper" => LoopState.StreamPlaceholder,
+                "ForwardReference" => ForwardReferenceState(
+                    value: method.ContainingType.TypeArguments[0],
+                    symbols: symbols,
+                    compilation: model.Compilation.Assembly),
+                _ => LoopState.PendingPlaceholder
+            };
 
-        // A forward reference closes its loop with a constant cell, which has no links.
-        bool checkLinks = looper != "ForwardReference";
         bool withCaptures = method.Name is "WithCaptures" or "WithCapturesImpl";
 
-        IEnumerable<ExpressionSyntax> closings =
+        ImmutableArray<ExpressionSyntax> closings =
             (body is ExpressionSyntax expression ? [expression] : LoopStateEvaluator.ReturnExpressions(body))
-            .Select(e => withCaptures ? LoopedElement(e) : e);
+            .Select(e => withCaptures ? LoopedElement(e) : e)
+            .ToImmutableArray();
 
-        LoopRegion region =
-            new(
-                compilation: model.Compilation,
-                symbols: symbols,
-                placeholder: placeholder,
-                placeholderState: placeholderState,
-                root: body,
-                report: report,
-                cancellation: cancellation);
+        // A send can give a sink content after the code made a value from the sink. The next read
+        // gives each sink that content from the start.
+        LoopRegion? before = null;
 
-        region.Analyze(closings: closings, checkLinks: checkLinks);
+        for (int read = 1;; read++)
+        {
+            LoopRegion region =
+                new(
+                    compilation: model.Compilation,
+                    symbols: symbols,
+                    placeholder: placeholder,
+                    placeholderState: placeholderState,
+                    root: body,
+                    report: report,
+                    cancellation: cancellation,
+                    readBefore: before);
+
+            if (region.Analyze(closings: closings, withCaptures: withCaptures, canReadAgain: read < MaxReads))
+            {
+                return;
+            }
+
+            before = region;
+        }
+    }
+
+    /// <summary>
+    ///     The state of the placeholder of a forward reference. A constant cell
+    ///     closes the loop, thus the placeholder itself has no links after the
+    ///     close. The value that it holds is the object that the block returns.
+    ///     A member of that object has the value that the block gives it.
+    ///     Thus, a read back of the value or of a member has that value as the
+    ///     origin of its links.
+    /// </summary>
+    private static LoopState ForwardReferenceState(
+        ITypeSymbol value,
+        SodaFlowSymbols symbols,
+        IAssemblySymbol compilation)
+    {
+        ImmutableDictionary<ISymbol, LoopState>.Builder members =
+            ImmutableDictionary.CreateBuilder<ISymbol, LoopState>(SymbolEqualityComparer.Default);
+
+        IEnumerable<ITypeSymbol> types =
+            value.TypeKind == TypeKind.Interface ? value.AllInterfaces.Prepend(value) : BaseTypes(value);
+
+        foreach (ISymbol member in types.SelectMany(static type => type.GetMembers()))
+        {
+            ITypeSymbol? type =
+                member switch
+                {
+                    IFieldSymbol { IsStatic: false, IsImplicitlyDeclared: false } field => field.Type,
+                    IPropertySymbol { IsStatic: false, IsIndexer: false } property => property.Type,
+                    _ => null
+                };
+
+            if (type != null && symbols.CanHoldState(type: type, compilation: compilation))
+            {
+                members[member.OriginalDefinition] = LoopState.ReadBackOf(member.OriginalDefinition);
+            }
+        }
+
+        // A value of the library is a node of the graph, which can have links. A different value has
+        // only its members.
+        LoopState itself =
+            value is INamedTypeSymbol library && symbols.IsSodaFlow(library)
+                ? LoopState.ReadBackOf(value)
+                : LoopState.None.ReadingBack(ImmutableArray.Create<ISymbol>(value));
+
+        return LoopState.PendingPlaceholder.WithContent(
+            members.Count > 0 && value is INamedTypeSymbol named
+                ? itself.WithMembers(Construction.Of(members: members.ToImmutable(), type: named.OriginalDefinition))
+                : itself);
+
+        static IEnumerable<ITypeSymbol> BaseTypes(ITypeSymbol type)
+        {
+            for (ITypeSymbol? each = type; each != null; each = each.BaseType)
+            {
+                yield return each;
+            }
+        }
     }
 
     /// <summary>
     ///     The placeholder and the body of a block. The block can be a lambda, an
     ///     anonymous method, or the name of a method or a local function of this
-    ///     compilation. A delegate from a different source has no body to read.
+    ///     compilation. It can also be a local of a delegate type that only its
+    ///     declaration gives a value. A delegate from a different source has no
+    ///     body to read.
     /// </summary>
     private static (ISymbol Placeholder, SyntaxNode Body)? BlockOf(ExpressionSyntax written, SemanticModel model)
     {
+        if (written is IdentifierNameSyntax
+            && model.GetSymbolInfo(written).Symbol is ILocalSymbol { Type.TypeKind: TypeKind.Delegate } delegateLocal)
+        {
+            if (OnlyFunctionOf(local: delegateLocal, model: model) is not { } assigned)
+            {
+                return null;
+            }
+
+            written = assigned;
+        }
+
         if (written is AnonymousFunctionExpressionSyntax function)
         {
             ParameterSyntax? parameter =
@@ -185,20 +278,47 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    ///     The element of the returned tuple that closes the loop: the one named
-    ///     Cell, Behavior, or Stream, or else the first.
+    ///     The lambda or the anonymous method that the declaration of a local
+    ///     gives it. Null when the code can give the local a different value, by
+    ///     an assignment or through a reference.
     /// </summary>
-    private static ExpressionSyntax LoopedElement(ExpressionSyntax returned)
+    private static AnonymousFunctionExpressionSyntax? OnlyFunctionOf(ISymbol local, SemanticModel model)
     {
-        if (returned is not TupleExpressionSyntax tuple || tuple.Arguments.Count == 0)
+        if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax
+                {
+                    Initializer.Value: AnonymousFunctionExpressionSyntax function
+                } declarator
+            || declarator.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
         {
-            return returned;
+            return null;
         }
 
-        ArgumentSyntax? named =
-            tuple.Arguments.FirstOrDefault(static a =>
-                a.NameColon?.Name.Identifier.ValueText is "Cell" or "Behavior" or "Stream");
+        bool changes =
+            scope.DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Where(name => name.Identifier.ValueText == local.Name)
+                .Any(name =>
+                    name.Parent switch
+                    {
+                        AssignmentExpressionSyntax assignment => assignment.Left == name,
+                        ArgumentSyntax argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None),
+                        RefExpressionSyntax => true,
+                        _ => false
+                    }
+                    && SymbolEqualityComparer.Default.Equals(x: model.GetSymbolInfo(name).Symbol, y: local));
 
-        return (named ?? tuple.Arguments[0]).Expression;
+        return changes ? null : function;
     }
+
+    /// <summary>
+    ///     The element of a returned tuple literal that closes the loop. C# converts
+    ///     a tuple to the result type of the block by position and not by name,
+    ///     thus it is the first element. A different value stays whole, and the
+    ///     region takes its first part.
+    /// </summary>
+    private static ExpressionSyntax LoopedElement(ExpressionSyntax returned) =>
+        returned is TupleExpressionSyntax { Arguments: { Count: > 0 } elements }
+            ? elements[0].Expression
+            : returned;
 }
