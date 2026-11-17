@@ -18471,6 +18471,50 @@ public static class Shapes
     public static Cell<int> Ab186AnOverrideThatImplementsTheInterface() =>
         Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186AbstractImplAt(0); h.Share = l.Map(v => v); Ab186AbstractImplSlot d = (Ab186AbstractImplSlot)h; return S.Hold(d.Share!.Sample()); });
 
+    // S4140. A helper sets an element of the array that it gets to a lambda, and gives back a ref parameter. The caller gives the first element of the same array as that parameter, thus the helper gives back the lambda. The map of a stream after the close runs it.
+    public static Cell<int> Ab191HelperSetsAnElementAndReadsItByRef() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Func<Cell<int>> got = Ab191Arrays.SetAndRead(readers, ref readers[0], () => h.Sample()); return t.Map(_ => got()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4141. The same with an index that is not a constant. The index is zero when the program runs.
+    public static Cell<int> Ab191HelperSetsAnElementAtAVariableAndReadsItByRef() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Func<Cell<int>> got = Ab191Arrays.SetAtAndRead(readers, ref readers[0], () => h.Sample(), Plain == null ? 1 : 0); return t.Map(_ => got()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4142. A helper fills the array that it gets with a lambda, and gives back a ref parameter that is the first element of that array.
+    public static Cell<int> Ab191HelperFillsAnArrayAndReadsAnElementByRef() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Func<Cell<int>> got = Ab191Arrays.FillAndRead(readers, ref readers[0], () => h.Sample()); return t.Map(_ => got()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4143. A helper gives a ref parameter a plain lambda, and then fills the array. The parameter is the first element of that array, thus the helper gives back the lambda of the fill.
+    public static Cell<int> Ab191HelperSetsARefFillsAndReads() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Func<Cell<int>> got = Ab191Arrays.SetFillAndRead(readers, ref readers[0], () => h.Sample()); return t.Map(_ => got()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4144. The same with a set of the element in place of the fill.
+    public static Cell<int> Ab191HelperSetsARefSetsAnElementAndReads() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Func<Cell<int>> got = Ab191Arrays.SetSetAndRead(readers, ref readers[0], () => h.Sample()); return t.Map(_ => got()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4145. The same as a set of an element that the helper reads by ref, with a parameter with in. An argument that is an element is a location, not a copy.
+    public static Cell<int> Ab191HelperSetsAnElementAndReadsItByIn() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Func<Cell<int>> got = Ab191Arrays.SetAndReadIn(readers, in readers[0], () => h.Sample()); return t.Map(_ => got()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4146. A helper sets the second element of the array to a lambda that samples, and gives back the first element by ref. The lambda that the map runs is plain.
+    public static Cell<int> Ab191HelperSetsAnotherElementAndReadsTheFirstByRef() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain, () => Plain]; Func<Cell<int>> got = Ab191Arrays.SetSecondAndRead(readers, ref readers[0], () => h.Sample()); return t.Map(_ => got()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4147. A helper sets an element to a lambda that samples, and then gives the ref parameter a plain lambda. The helper gives back the plain lambda.
+    public static Cell<int> Ab191HelperSetsAnElementAndThenTheRef() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Func<Cell<int>> got = Ab191Arrays.SetThenAssignAndRead(readers, ref readers[0], () => h.Sample()); return t.Map(_ => got()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4148. A helper sets an element to a plain lambda and gives back the same element by ref.
+    public static Cell<int> Ab191HelperSetsAPlainLambdaAndReadsItByRef() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Func<Cell<int>> got = Ab191Arrays.SetAndRead(readers, ref readers[0], () => Plain); return t.Map(_ => got()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4149. A helper sets an element to a lambda that samples, and gives back a ref parameter that is a local, not that element.
+    public static Cell<int> Ab191HelperSetsAnElementAndReadsALocalByRef() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>> one = () => Plain; Func<Cell<int>>[] readers = [() => Plain]; Func<Cell<int>> got = Ab191Arrays.SetAndRead(readers, ref one, () => h.Sample()); return t.Map(_ => got()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S4150. A helper puts a lambda that samples into a field, and gives back a ref parameter that is an element.
+    public static Cell<int> Ab191HelperSetsAFieldAndReadsAnElementByRef() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>>[] readers = [() => Plain]; Func<Cell<int>> got = Ab191Arrays.SetFieldAndRead(new Ab191Holder(), ref readers[0], () => h.Sample()); return t.Map(_ => got()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -25239,6 +25283,108 @@ public static class Shapes
     private static readonly Ab186AbstractImplSlot[] Ab186AbstractImpls = [new()];
 
     private static IAb186Slot Ab186AbstractImplAt(int at) => Ab186AbstractImpls[at];
+
+    public sealed class Ab191Holder
+    {
+        public Func<Cell<int>>? Reader;
+    }
+
+    public static class Ab191Arrays
+    {
+        public static Func<Cell<int>> SetAndRead(
+            Func<Cell<int>>[] array,
+            ref Func<Cell<int>> slot,
+            Func<Cell<int>> value)
+        {
+            array[0] = value;
+
+            return slot;
+        }
+
+        public static Func<Cell<int>> SetAtAndRead(
+            Func<Cell<int>>[] array,
+            ref Func<Cell<int>> slot,
+            Func<Cell<int>> value,
+            int at)
+        {
+            array[at] = value;
+
+            return slot;
+        }
+
+        public static Func<Cell<int>> FillAndRead(
+            Func<Cell<int>>[] array,
+            ref Func<Cell<int>> slot,
+            Func<Cell<int>> value)
+        {
+            Array.Fill(array, value);
+
+            return slot;
+        }
+
+        public static Func<Cell<int>> SetFillAndRead(
+            Func<Cell<int>>[] array,
+            ref Func<Cell<int>> slot,
+            Func<Cell<int>> value)
+        {
+            slot = () => Plain;
+            Array.Fill(array, value);
+
+            return slot;
+        }
+
+        public static Func<Cell<int>> SetSetAndRead(
+            Func<Cell<int>>[] array,
+            ref Func<Cell<int>> slot,
+            Func<Cell<int>> value)
+        {
+            slot = () => Plain;
+            array[0] = value;
+
+            return slot;
+        }
+
+        public static Func<Cell<int>> SetAndReadIn(
+            Func<Cell<int>>[] array,
+            in Func<Cell<int>> slot,
+            Func<Cell<int>> value)
+        {
+            array[0] = value;
+
+            return slot;
+        }
+
+        public static Func<Cell<int>> SetSecondAndRead(
+            Func<Cell<int>>[] array,
+            ref Func<Cell<int>> slot,
+            Func<Cell<int>> value)
+        {
+            array[1] = value;
+
+            return slot;
+        }
+
+        public static Func<Cell<int>> SetThenAssignAndRead(
+            Func<Cell<int>>[] array,
+            ref Func<Cell<int>> slot,
+            Func<Cell<int>> value)
+        {
+            array[0] = value;
+            slot = () => Plain;
+
+            return slot;
+        }
+
+        public static Func<Cell<int>> SetFieldAndRead(
+            Ab191Holder holder,
+            ref Func<Cell<int>> slot,
+            Func<Cell<int>> value)
+        {
+            holder.Reader = value;
+
+            return slot;
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

@@ -2721,7 +2721,13 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab186AnObjectOfALibraryWrittenThroughTheInterfaceAndReadThroughTheClass"] = ["SF1001"],
             ["Ab186NewObjectOfAClassWhoseBasePropertyImplementsTheInterface"] = ["SF1001"],
             ["Ab186PendingThroughTheOverrideInABranchAndPlainThroughTheVirtualInTheOther"] = ["SF1001"],
-            ["Ab186AnOverrideThatImplementsTheInterface"] = ["SF1001"]
+            ["Ab186AnOverrideThatImplementsTheInterface"] = ["SF1001"],
+            ["Ab191HelperSetsAnElementAndReadsItByRef"] = ["SF1002"],
+            ["Ab191HelperSetsAnElementAtAVariableAndReadsItByRef"] = ["SF1002"],
+            ["Ab191HelperFillsAnArrayAndReadsAnElementByRef"] = ["SF1002"],
+            ["Ab191HelperSetsARefFillsAndReads"] = ["SF1002"],
+            ["Ab191HelperSetsARefSetsAnElementAndReads"] = ["SF1002"],
+            ["Ab191HelperSetsAnElementAndReadsItByIn"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
