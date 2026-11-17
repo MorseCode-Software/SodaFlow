@@ -166,11 +166,47 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
 
             // A using declaration calls Dispose when the code leaves the block that it is in.
-            if (disposes)
+            if (disposes && !this.EndsLater(declaration))
             {
                 this.CheckDisposed(declarator.Initializer.Value);
             }
         }
+    }
+
+    // True when the block of a using declaration ends after an await of a task that is not
+    // complete. The walk can read that await after the declaration. Thus, the test looks at each
+    // await of the block. An await before the declaration that stops the call stops it before the
+    // declaration also, and the walk does not read the declaration.
+    private bool EndsLater(SyntaxNode declaration)
+    {
+        if (declaration.Parent?.Parent is not { } scope)
+        {
+            return false;
+        }
+
+        int end = scope.Span.End - 1;
+
+        return scope
+            .DescendantNodes(static node =>
+                node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+            .Any(node =>
+                node is AwaitExpressionSyntax or CommonForEachStatementSyntax
+                && this.LaterAfter(node) is ({ } part, _)
+                && part.Span.Contains(end));
+    }
+
+    // True when the code at a position runs only after an await completes.
+    private bool RunsLaterAt(int position)
+    {
+        foreach ((SyntaxNode block, int from) in this.later)
+        {
+            if (position >= from && block.Span.Contains(position))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // The Dispose that a using calls on its resource. An object of this compilation has a body to
@@ -207,7 +243,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         base.VisitUsingStatement(node);
 
-        // The statement calls Dispose on each resource when the code leaves it.
+        // The statement calls Dispose on each resource when the code leaves it. An await in it can
+        // make that run later.
+        if (this.RunsLaterAt(node.Span.End - 1))
+        {
+            return;
+        }
+
         IEnumerable<ExpressionSyntax> resources =
             node.Expression != null
                 ? [node.Expression]
@@ -889,10 +931,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return current?.State ?? LoopState.None;
     }
 
-    // A foreach calls Dispose on an enumerator that has it, when the loop ends.
+    // A foreach calls Dispose on an enumerator that has it, when the loop ends. An await in the body
+    // can make the end of the last turn run later.
     private void DisposeTheEnumerator(CommonForEachStatementSyntax node, LoopState? enumerator)
     {
         if (enumerator == null
+            || this.RunsLaterAt(node.Span.End - 1)
             || !this.region.Symbols.DeclaresDispose
             || this.region.ModelFor(node).GetForEachStatementInfo(node).DisposeMethod is not { } dispose)
         {

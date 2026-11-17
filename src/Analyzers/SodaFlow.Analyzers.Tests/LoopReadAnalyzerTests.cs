@@ -2465,7 +2465,14 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab162AwaitOfACompleteSequenceOfAForeach"] = ["SF1001"],
             ["Ab162AwaitInASwitchSectionDoesNotStopTheOtherSections"] = ["SF1001"],
             ["Ab162AwaitInASwitchSectionDoesNotStopTheCodeAfterTheSwitch"] = ["SF1001"],
-            ["Ab162AwaitThatTheHeaderOfAForeachSkips"] = ["SF1001"]
+            ["Ab162AwaitThatTheHeaderOfAForeachSkips"] = ["SF1001"],
+            ["Ab163UsingDeclarationDisposesAfterACompleteAwait"] = ["SF1005"],
+            ["Ab163UsingDeclarationDisposesAfterAnAwaitThatDoesNotRun"] = ["SF1005"],
+            ["Ab163UsingDeclarationInABlockBeforeTheAwait"] = ["SF1005"],
+            ["Ab163UsingStatementDisposesAfterACompleteAwait"] = ["SF1005"],
+            ["Ab163UsingStatementDisposesBeforeTheAwait"] = ["SF1005"],
+            ["Ab163ForeachDisposesAfterAnAwaitThatDoesNotRun"] = ["SF1005"],
+            ["Ab163UsingDeclarationAwaitsACompleteTaskInItsInitializer"] = ["SF1005"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

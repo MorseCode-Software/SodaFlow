@@ -16795,6 +16795,54 @@ public static class Shapes
     public static Cell<int> Ab162AwaitForeachOfPairsOverASequenceThatWaits() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach ((int a, int b) in Ab162PairsAfterAnAwait()) { Kept.Add(a + b); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
 
+    // S3722. An async lambda declares a using variable and then awaits a task that never completes, so the Dispose that samples a pending member never runs.
+    public static Cell<int> R3CsUsingDeclarationDisposesAfterAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using Tally t = new(l.Map(v => v)); await R2NeverDone.Task; }; run().Wait(0); return S.Hold(0); });
+
+    // S3723. An async lambda awaits a task that never completes in the block of a using statement, so the Dispose that samples a pending member never runs.
+    public static Cell<int> R3CsUsingStatementDisposesAfterAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using (Tally t = new(l.Map(v => v))) { await R2NeverDone.Task; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3724. An async lambda awaits a task that never completes in the body of a foreach, so the Dispose of the enumerator that samples a pending member never runs.
+    public static Cell<int> R3CsForeachDisposesAfterAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int n in new R3CsWalk(l.Map(v => v))) { Kept.Add(n); await R2NeverDone.Task; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3725. Control: an async lambda declares a using variable and then awaits a complete task, so the Dispose that samples a pending member runs in the call.
+    public static Cell<int> Ab163UsingDeclarationDisposesAfterACompleteAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using Tally t = new(l.Map(v => v)); await Task.CompletedTask; }; run().Wait(0); return S.Hold(0); });
+
+    // S3726. Control: an async lambda declares a using variable, and an if that does not run awaits a task that never completes, so the Dispose runs in the call.
+    public static Cell<int> Ab163UsingDeclarationDisposesAfterAnAwaitThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using Tally t = new(l.Map(v => v)); if (Kept.Count < 0) { await R2NeverDone.Task; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3727. Control: an async lambda declares a using variable in an inner block, and awaits a task that never completes after that block, so the Dispose runs in the call.
+    public static Cell<int> Ab163UsingDeclarationInABlockBeforeTheAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { { using Tally t = new(l.Map(v => v)); } await R2NeverDone.Task; }; run().Wait(0); return S.Hold(0); });
+
+    // S3728. An async lambda declares a using variable and then uses await foreach on an async iterator that awaits a task that never completes, so the Dispose never runs.
+    public static Cell<int> Ab163UsingDeclarationDisposesAfterAnAwaitForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using Tally t = new(l.Map(v => v)); await foreach (int n in R3CsYieldsAfterAnAwait()) { Kept.Add(n); } }; run().Wait(0); return S.Hold(0); });
+
+    // S3729. Control: an async lambda awaits a complete task in the block of a using statement, so the Dispose runs in the call.
+    public static Cell<int> Ab163UsingStatementDisposesAfterACompleteAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using (Tally t = new(l.Map(v => v))) { await Task.CompletedTask; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3730. Control: an async lambda awaits a task that never completes after a using statement, so the Dispose runs in the call before the await.
+    public static Cell<int> Ab163UsingStatementDisposesBeforeTheAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using (Tally t = new(l.Map(v => v))) { Kept.Add(0); } await R2NeverDone.Task; }; run().Wait(0); return S.Hold(0); });
+
+    // S3731. Control: an async lambda awaits a task that never completes in the body of a foreach only under an if that does not run, so the Dispose of the enumerator runs in the call.
+    public static Cell<int> Ab163ForeachDisposesAfterAnAwaitThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int n in new R3CsWalk(l.Map(v => v))) { Kept.Add(n); if (n < 0) { await R2NeverDone.Task; } } }; run().Wait(0); return S.Hold(0); });
+
+    // S3732. An async lambda declares a using variable whose initializer awaits a task that never completes, so the Dispose that samples a pending member never runs.
+    public static Cell<int> Ab163UsingDeclarationAwaitsInItsInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using Tally t = Ab163Tally(l.Map(v => v), (await R3CsNeverNumbers.Task).Length); }; run().Wait(0); return S.Hold(0); });
+
+    // S3733. Control: an async lambda declares a using variable whose initializer awaits a complete task, so the Dispose that samples a pending member runs in the call.
+    public static Cell<int> Ab163UsingDeclarationAwaitsACompleteTaskInItsInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using Tally t = Ab163Tally(l.Map(v => v), (await Task.FromResult(new[] { 1 })).Length); }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -22345,6 +22393,13 @@ public static class Shapes
         await R2NeverDone.Task;
 
         yield return (1, 2);
+    }
+
+    private static Tally Ab163Tally(Cell<int> c, int n)
+    {
+        Kept.Add(n);
+
+        return new Tally(c);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

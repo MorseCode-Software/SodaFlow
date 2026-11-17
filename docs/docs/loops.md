@@ -315,10 +315,11 @@ The analyzer follows a value made from the placeholder through the code of your 
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
   and the function of a `Lazy<T>` where something reads its `Value`. An `async` method or lambda
   runs in the block up to its first `await` of a task that may not be complete, and the rest of it
-  runs later. That holds for an `await` in a `switch` section and in the header of a `foreach`,
-  `switch`, `while`, or `using` too. An `await foreach` runs its body in the block only for an item
-  that the sequence gives at once, and the code after it only when every item comes at once. An
-  async iterator runs nothing until something enumerates it.
+  runs later. That holds for an `await` in a `switch` section or in the header of a `foreach`,
+  `switch`, `while`, or `using` too. The `Dispose` at the end of a `using` or a `foreach` runs
+  later as well when such an `await` comes before it in its scope. An `await foreach` runs its body
+  in the block only for an item that the sequence gives at once, and the code after it only when
+  every item comes at once. An async iterator runs nothing until something enumerates it.
 - The serializers of `System.Text.Json`, Json.NET, and `XmlSerializer`, and LINQ to XML, which
   call your getters and enumerate your sequences.
 
