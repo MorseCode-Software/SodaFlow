@@ -62,6 +62,7 @@
         <Compile Include="LoopStateEvaluator.cs"/>
         <Compile Include="LoopStateEvaluator.Positions.cs"/>
         <Compile Include="LoopStateEvaluator.ReadBack.cs"/>
+        <Compile Include="LoopStateEvaluator.Recursion.cs"/>
         <Compile Include="LoopStateEvaluator.Sinks.cs"/>
         <Compile Include="LoopStateEvaluator.Writes.cs"/>
         <Compile Include="MadeObject.cs"/>

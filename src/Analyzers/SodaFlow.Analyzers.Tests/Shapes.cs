@@ -7930,7 +7930,7 @@ public static class Shapes
     public static Cell<int> SortWithANullComparerInALocalFunctionOfAHelper() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortRankedInALocalFunction(all, null); return S.Hold(all.Count); });
 
-    // S1661. A sort three helpers down. The helper of CompareTo is the fifth call, and the evaluator does not read it. The object has a pending member, thus the call gets the report for code that the analyzer does not read.
+    // S1661. A sort three helpers down. The helper of CompareTo is the fifth call, and the evaluator reads it.
     public static Cell<int> SortThreeHelpersDown() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<Ranked> all = [new(l.Map(v => v)), new(Plain)]; SortRankedThroughTwo(all); return S.Hold(all.Count); });
 
@@ -7942,11 +7942,11 @@ public static class Shapes
     public static Cell<int> GetterTwoHelpersDown() =>
         Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Kept.Add(NowThrough(reader)); return S.Hold(0); });
 
-    // S1664. The same getter three helpers down. The evaluator does not read its helper.
+    // S1664. The same getter three helpers down. The evaluator reads its helper.
     public static Cell<int> GetterThreeHelpersDown() =>
         Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Kept.Add(NowThroughTwo(reader)); return S.Hold(0); });
 
-    // S1665. A constructor two helpers down reads the getter, whose helper the evaluator does not read.
+    // S1665. A constructor two helpers down reads the getter, and the evaluator reads the helper of the getter.
     public static Cell<int> GetterInAConstructorTwoHelpersDown() =>
         Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Kept.Add(KeepNowThrough(reader)); return S.Hold(0); });
 
@@ -8250,7 +8250,7 @@ public static class Shapes
     public static Cell<int> ObjectThatAHelperMadeAndPutIntoAList() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; SettableSlot slot = MakeASlotInto(list, Plain); slot.Share = l.Map(v => v); return S.Hold(list[0].Share!.Sample()); });
 
-    // S1741. A constructor three helpers down reads the getter. The evaluator does not read the getter, and the record is in the frame of the constructor.
+    // S1741. A constructor three helpers down reads the getter, and the evaluator reads the getter and its helper.
     public static Cell<int> GetterInAConstructorThreeHelpersDown() =>
         Cell.Loop<int>().WithoutCaptures(l => { DeepReader reader = new(l.Map(v => v)); Kept.Add(KeepNowThroughTwo(reader)); return S.Hold(0); });
 
@@ -17862,6 +17862,54 @@ public static class Shapes
     public static Cell<int> Ag89DebouncedPlainCellHeldAndSwitched() =>
         ((Func<Cell<int>>)(() => { Ag89Clock clock = new(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Debounce(timers: clock.Timers, deadline: static now => now + 10).Hold(Plain); s.Send(Cell.Constant(4)); return h.SwitchC(); }); try { clock.AdvanceTo(10); } finally { clock.Dispose(); } return c; }))();
 
+    // S3988. A chain of five helpers gives a pending cell to the last one, which samples it.
+    public static Cell<int> R3LimReadFiveCallsDeep() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(R3LimDeep1(l.Map(v => v))); });
+
+    // S3989. A chain of six helpers gives a pending cell to the last one, which samples it.
+    public static Cell<int> Ag87ReadSixCallsDeep() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag87Six(l.Map(v => v))); });
+
+    // S3990. A chain of seven helpers gives a pending cell to the last one, which samples it. The walk stops at six calls, thus the analyzer gives only the info.
+    public static Cell<int> Ag87ReadSevenCallsDeep() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag87Seven(l.Map(v => v))); });
+
+    // S3991. A helper calls itself with the pending cell that it got, and samples the cell at the end.
+    public static Cell<int> Ag87SelfRecursiveHelperReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag87CountDown(l.Map(v => v), 3)); });
+
+    // S3992. Two helpers call each other with the pending cell, and one of them samples it at the end.
+    public static Cell<int> Ag87MutuallyRecursiveHelpersRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag87Even(l.Map(v => v), 2)); });
+
+    // S3993. A helper calls itself with a map of the pending cell, and returns the last map. Nothing samples it.
+    public static Cell<int> Ag87RecursiveHelperThatOnlyMaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ag87MapDown(l.Map(v => v), 3)); return S.Hold(0); });
+
+    // S3994. A helper calls itself with its three cells in a new order, and samples the third cell at the end. The pending cell is the third cell only in the third call.
+    public static Cell<int> Ag87RecursiveHelperRotatesItsCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag87Rotate(l.Map(v => v), Plain, Plain, 2)); });
+
+    // S3995. A method calls itself on its object, and moves the pending cell one member nearer to the member that it samples at each call. The third call samples the pending cell.
+    public static Cell<int> Ag87RecursiveMethodShiftsItsMembers() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new Ag87Shifter().Walk(l.Map(v => v), 2)); });
+
+    // S3996. A helper calls itself eight times in each call with the pending cell, and samples nothing. Then a second helper samples a pending cell.
+    public static Cell<int> Ag87WideRecursionThenARead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ag87Wide(l.Map(v => v), 1)); Kept.Add(ReadIt(l.Map(v => v))); return S.Hold(0); });
+
+    // S3997. A local function calls itself, and moves the pending cell one captured local nearer to the local that it samples at each call. The third call samples the pending cell.
+    public static Cell<int> Ag87LocalFunctionShiftsItsCapturedCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = Plain; Cell<int> b = Plain; int Walk(int n) { int v = a.Sample(); a = b; b = l.Map(x => x); return n <= 0 ? v : Walk(n - 1); } return S.Hold(Walk(2)); });
+
+    // S3998. A helper samples the first element of a list, puts the pending cell there, and calls itself. The second call samples the pending cell.
+    public static Cell<int> Ag87RecursiveHelperPutsIntoAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain]; return S.Hold(Ag87PutDown(cells, l.Map(v => v), 1)); });
+
+    // S3999. A helper samples a static field, puts the pending cell there, and calls itself. The second call samples the pending cell. The helper puts the first value back at the end.
+    public static Cell<int> Ag87RecursiveHelperSetsAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Ag87FieldDown(l.Map(v => v), 1)); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -24140,6 +24188,69 @@ public static class Shapes
         public void Cancel() => this.Canceled = true;
 
         public void Dispose() => this.Canceled = true;
+    }
+
+    private static int Ag87Six(Cell<int> c) => R3LimDeep1(c);
+
+    private static int Ag87Seven(Cell<int> c) => Ag87Six(c);
+
+    private static int Ag87CountDown(Cell<int> c, int n) => n <= 0 ? c.Sample() : Ag87CountDown(c, n - 1);
+
+    private static int Ag87Even(Cell<int> c, int n) => n <= 0 ? c.Sample() : Ag87Odd(c, n - 1);
+
+    private static int Ag87Odd(Cell<int> c, int n) => n <= 0 ? 0 : Ag87Even(c, n - 1);
+
+    private static Cell<int> Ag87MapDown(Cell<int> c, int n) => n <= 0 ? c : Ag87MapDown(c.Map(v => v + 1), n - 1);
+
+    private static int Ag87Rotate(Cell<int> a, Cell<int> b, Cell<int> c, int n) =>
+        n <= 0 ? c.Sample() : Ag87Rotate(c, a, b, n - 1);
+
+    public sealed class Ag87Shifter
+    {
+        private Cell<int> a = Plain;
+        private Cell<int> b = Plain;
+
+        public int Walk(Cell<int> c, int n)
+        {
+            int v = this.a.Sample();
+            this.a = this.b;
+            this.b = c;
+
+            return n <= 0 ? v : this.Walk(c, n - 1);
+        }
+    }
+
+    private static int Ag87Wide(Cell<int> c, int n) =>
+        n <= 0
+            ? 0
+            : Ag87Wide(c, n - 1) + Ag87Wide(c, n - 1) + Ag87Wide(c, n - 1) + Ag87Wide(c, n - 1)
+              + Ag87Wide(c, n - 1) + Ag87Wide(c, n - 1) + Ag87Wide(c, n - 1) + Ag87Wide(c, n - 1);
+
+    private static int Ag87PutDown(List<Cell<int>> cells, Cell<int> c, int n)
+    {
+        int v = cells[0].Sample();
+        cells[0] = c;
+
+        return n <= 0 ? v : Ag87PutDown(cells, c, n - 1);
+    }
+
+    private static Cell<int> Ag87Field = Plain;
+
+    private static int Ag87FieldDown(Cell<int> c, int n)
+    {
+        Cell<int> before = Ag87Field;
+
+        try
+        {
+            int v = Ag87Field.Sample();
+            Ag87Field = c;
+
+            return n <= 0 ? v : Ag87FieldDown(c, n - 1);
+        }
+        finally
+        {
+            Ag87Field = before;
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

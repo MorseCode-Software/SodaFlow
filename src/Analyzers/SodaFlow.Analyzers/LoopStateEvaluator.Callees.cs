@@ -150,17 +150,28 @@ internal sealed partial class LoopStateEvaluator
             && this.region is { HasFields: false, Objects.ChangedAStaticObject: false }
             && bindings.All(static binding => binding.State.IsNone);
 
+        // A lambda or a local function reads the locals of its code, which each call can change.
+        // Thus, only a callee with a frame of its own stops at a call in its own code.
+        int? recursive =
+            definer == null && !noState
+                ? this.ShapeOfACallAgain(body: body, bindings: bindings, members: members)
+                : null;
+
         switch (noState)
         {
             case true when !this.ReadsForObjects(
                 bindings: bindings,
                 returnsAFunction: returnsAFunction || returnsAnObject):
                 return Followed.Nothing;
-            case false when this.depth >= MaxInlineDepth || !this.region.TryEnter():
+            case false when this.depth >= MaxInlineDepth
+                            || (recursive is { } shape && this.region.WalksAgainWith(body: body, shape: shape))
+                            || !this.region.TryEnter():
                 this.DoesNotRead(call: call, name: name, members: members);
 
                 return null;
         }
+
+        this.region.StartsAWalkOf(body: body, shape: recursive);
 
         MadeObject? self = definer == null && owner != null ? this.TheOneCollectionOf(owner) : null;
 
@@ -258,6 +269,8 @@ internal sealed partial class LoopStateEvaluator
                 inner.EndTurns(body);
             }
         }
+
+        this.region.EndsAWalk();
 
         if (started != null)
         {

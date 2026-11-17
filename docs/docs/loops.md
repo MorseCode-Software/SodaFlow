@@ -428,7 +428,12 @@ Some reads that throw it does not see:
   analyzer knows the complete tasks that the platform makes, such as `Task.CompletedTask` and
   `Task.FromResult`, a local, a `readonly` field, or a get-only property whose initializer is such
   a task, and a method of your own that returns only such tasks.
-- A chain of your own calls more than four calls deep. There, the analyzer reports `SF1003` at the
-  call where it stops.
+- A chain of your own calls more than six calls deep. There, the analyzer reports `SF1003` at the
+  call where it stops. The same happens past a budget of 512 bodies of methods, constructors,
+  getters, and lambdas that it reads for one block, at the call that would go over it.
+- A method that calls itself, directly or through other methods. The analyzer reads such a call,
+  and stops at a later one that gives the method the same kind of values in its arguments and in
+  the members of its object as a call that it is still reading. There, it reports `SF1003` for a
+  value made from the placeholder, as it does at the depth limit.
 - A virtual method, if the analyzer did not see the object built: it reads the method that the
   code names, not an override.

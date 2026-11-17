@@ -62,6 +62,10 @@ internal sealed class LoopRegion(
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
 
+    // The callee bodies that the walk reads now, from the first call. A body that the walk reads
+    // in a read of the same body has the shape of its call also.
+    private readonly List<(SyntaxNode Body, int? Shape)> walks = [];
+
     // The key is a lambda or a local function that the walk read for a call. The value has the
     // locals and the parameters that a function in it reads or writes.
     private readonly Dictionary<SyntaxNode, ImmutableHashSet<ISymbol>?> captured = [];
@@ -388,6 +392,49 @@ internal sealed class LoopRegion(
 
     /// <summary>Records the end of the read that <see cref="StartsACallOf" /> started.</summary>
     public void EndsACallOf(SyntaxNode function) => this.activeFunctions.Remove(function);
+
+    /// <summary>
+    ///     True when the walk reads the given body now. A call of that body is
+    ///     then a call of a method in its own code.
+    /// </summary>
+    public bool Walks(SyntaxNode body)
+    {
+        foreach ((SyntaxNode walked, int? _) in this.walks)
+        {
+            if (walked == body)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     True when the walk reads the given body now for a call in its own
+    ///     code, and that call has the given shape.
+    /// </summary>
+    public bool WalksAgainWith(SyntaxNode body, int shape)
+    {
+        foreach ((SyntaxNode walked, int? itsShape) in this.walks)
+        {
+            if (walked == body && itsShape == shape)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Records the start of the read of a callee body. The shape is that of
+    ///     a call in the code of the same body, and null for a different call.
+    /// </summary>
+    public void StartsAWalkOf(SyntaxNode body, int? shape) => this.walks.Add((body, shape));
+
+    /// <summary>Records the end of the last read that <see cref="StartsAWalkOf" /> started.</summary>
+    public void EndsAWalk() => this.walks.RemoveAt(this.walks.Count - 1);
 
     /// <summary>
     ///     The locals and the parameters that a function in the given function

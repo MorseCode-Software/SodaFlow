@@ -23,11 +23,12 @@ internal sealed partial class LoopStateEvaluator
 {
     /// <summary>
     ///     How many calls deep the evaluator follows a helper or a construction.
-    ///     Four is sufficient for a sort two helpers down. The two helpers are two
-    ///     calls, and the member of an element and its own helper are two more.
-    ///     The limit is also what ends a recursive chain.
+    ///     A sort two helpers down needs four. The two helpers are two calls, and
+    ///     the member of an element and its own helper are two more. Six also
+    ///     permits layers of helpers around that. A method that calls itself
+    ///     usually stops before this limit, at <see cref="ShapeOfACallAgain" />.
     /// </summary>
-    private const int MaxInlineDepth = 4;
+    private const int MaxInlineDepth = 6;
 
     private static readonly ImmutableArray<string> Suffixes = ImmutableArray.Create(item1: "Impl", item2: "Internal");
 
