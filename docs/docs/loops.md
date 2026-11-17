@@ -326,6 +326,9 @@ careful side, so it can report a read that does not throw:
 
 - A collection that it cannot follow item by item has the state of all its items. A list that
   holds one pending cell and one plain cell then reports a read of either.
+- A `foreach` that sets a member of each item does not clear a pending value when the `foreach`
+  runs inside another loop. It can also leave the value for a list that the code changes in a way
+  other than `Add`, or that gets an `Add` under a condition with no loop that adds on every pass.
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending

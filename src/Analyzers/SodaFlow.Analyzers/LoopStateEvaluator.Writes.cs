@@ -1695,7 +1695,7 @@ internal sealed partial class LoopStateEvaluator
 
         IReadOnlyList<ExpressionSyntax>? elements = this.ElementsOf(loop.Expression);
         IReadOnlyList<LoopState>? values = elements == null ? this.StorePositionsOf(loop.Expression)?.All : null;
-        IReadOnlyList<MadeObject>? whole = elements == null && values == null ? this.WhollyIn(loop.Expression) : null;
+        IReadOnlyList<MadeObject>? whole = elements == null && values == null ? this.WhollyIn(loop) : null;
 
         if (elements != null || values != null || whole != null)
         {
@@ -1761,14 +1761,15 @@ internal sealed partial class LoopStateEvaluator
                     : null);
     }
 
-    // Each identity of the store whose objects are all elements of a collection. An Add that each
-    // turn of a loop always runs put each of those objects into the collection. Null when the walk
-    // knows no such identity, or when code can take an element out of the collection.
-    private List<MadeObject>? WhollyIn(ExpressionSyntax collection)
+    // Each identity of the store whose objects are all elements of the collection of a foreach. An
+    // Add that each turn of a loop always runs put each of those objects into the collection. Null
+    // when the walk knows no such identity, or when code can take an element out of the collection.
+    // When the walk knows such an identity, the result also has the objects of PutOneTimeBefore.
+    private List<MadeObject>? WhollyIn(CommonForEachStatementSyntax loop)
     {
         if (this.Frame.AddsOfEachTurn.Count == 0
-            || this.TheOneCollectionOf(collection) is not { } list
-            || !this.OnlyGetsAdds(collection))
+            || this.TheOneCollectionOf(loop.Expression) is not { } list
+            || !this.OnlyGetsAdds(loop.Expression))
         {
             return null;
         }
@@ -1783,7 +1784,41 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
-        return whole.Count > 0 ? whole : null;
+        if (whole.Count == 0)
+        {
+            return null;
+        }
+
+        whole.AddRange(this.PutOneTimeBefore(loop));
+
+        return whole;
+    }
+
+    // Each object that the literal of the local of a foreach, or an Add before the foreach, put into
+    // the list. Such an Add is a statement at the first level of the block of the local. EndsEach
+    // uses the result only for a foreach that always runs in its function, in no loop. Thus, no
+    // goto jumps over such an Add, and the Add ran before the foreach. No use of the local takes an
+    // object out. The result has only objects that this code made one time and that the store has.
+    private IEnumerable<MadeObject> PutOneTimeBefore(CommonForEachStatementSyntax loop)
+    {
+        if (this.region.SymbolOf(Unwrapped(loop.Expression)) is not ILocalSymbol local
+            || this.LiteralOf(local) is not (var written, var uses)
+            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax().FirstAncestorOrSelf<BlockSyntax>()
+                is not { } scope)
+        {
+            return [];
+        }
+
+        return written
+            .Concat(
+                uses.Where(use => use.SpanStart < loop.SpanStart)
+                    .Select(use => this.AddedBy(use: use, scope: scope))
+                    .OfType<ExpressionSyntax>())
+            .Select(this.TheOneObjectOf)
+            .OfType<MadeObject>()
+            .Where(made => made is { Turn: null, IsOfTurnsBefore: false }
+                           && made.IsFrom(this.Frame)
+                           && this.region.Objects.StateOf(made) != null);
     }
 
     // A write to a member through the variable of a foreach statement, which each turn of the

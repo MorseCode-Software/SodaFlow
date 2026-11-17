@@ -16499,6 +16499,154 @@ public static class Shapes
     public static Cell<int> Ab160CallOfTheMethodOfARecordInAMapOfAStream() =>
         ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Ab160HeldReader r = new(h); return t.Map(_ => r.Read()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
 
+    // S3648. A list has an object from its literal and the objects of a loop, and a foreach gives each object a plain cell.
+    public static Cell<int> Ab151ALiteralObjectAndObjectsOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3649. An Add before a loop puts an object into the list, and a foreach gives each object a plain cell.
+    public static Cell<int> Ab151AnAddBeforeTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; list.Add(new SettableSlot { Share = l.Map(v => v) }); for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3650. An Add after a loop and before the foreach puts an object into the list, and the block reads that object.
+    public static Cell<int> Ab151AnAddAfterTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Add(new SettableSlot { Share = l.Map(v => v) }); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[2].Share!.Sample()); });
+
+    // S3651. The literal has the object of a local, and the block reads that object through the local after the foreach.
+    public static Cell<int> Ab151ALocalInTheLiteral() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3652. Control: an Add under a condition that is false keeps an object out of the list, and the block reads it.
+    public static Cell<int> Ab151AnAddUnderAConditionMissesAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = []; if (Kept.Count < 0) { list.Add(one); } for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3653. Control: an Add after the foreach puts an object into the list, and the block reads that object.
+    public static Cell<int> Ab151AnAddAfterTheForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } list.Add(one); return S.Hold(one.Share!.Sample()); });
+
+    // S3654. Control: a method takes the object of the literal out of the list before the foreach, and the block reads it.
+    public static Cell<int> Ab151AMethodTakesTheLiteralObjectOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } Ab151TakeTheFirst(list); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3655. Control: a Remove takes the object of the literal out of the list before the foreach, and the block reads it.
+    public static Cell<int> Ab151ARemoveTakesTheLiteralObjectOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Remove(one); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3656. Control: the foreach is in a loop that runs no turn, and the block reads the object of the literal.
+    public static Cell<int> Ab151AForeachInALoopThatRunsNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } for (int k = 0; k < Kept.Count * 0; k++) { foreach (SettableSlot s in list) { s.Share = Plain; } } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3657. Control: the local of the literal gets a different object before the foreach, and the block reads it.
+    public static Cell<int> Ab151TheLocalGetsADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; one = new SettableSlot { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3658. Control: the literal has the last object of the turns of a loop, and the block reads the object of the first turn.
+    public static Cell<int> Ab151TheLiteralHasAnObjectOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; SettableSlot last = new() { Share = Plain }; for (int i = 0; i < 2; i++) { last = new SettableSlot { Share = l.Map(v => v) }; made.Add(last); } List<SettableSlot> list = [last]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3659. Control: the literal has one of two objects, and the block reads the object that is not in the list.
+    public static Cell<int> Ab151TheLiteralHasOneOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new SettableSlot { Share = l.Map(v => v) }; SettableSlot b = new SettableSlot { Share = l.Map(v => v) }; SettableSlot either = Kept.Count < 0 ? a : b; List<SettableSlot> list = [either]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(a.Share!.Sample()); });
+
+    // S3660. Control: the foreach gives a plain cell only under a condition that is false, and the block reads the object of the literal.
+    public static Cell<int> Ab151AWriteUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { if (list.Count > 3) { s.Share = Plain; } } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3661. The local of an Add before a loop has an object, and the block reads it through the local after the foreach.
+    public static Cell<int> Ab151AnAddOfALocalBeforeTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(one); for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3662. A list has objects from its literal, from an Add before a loop and after it, and from the loop.
+    public static Cell<int> Ab151ObjectsFromEachPlace() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; list.Add(new SettableSlot { Share = l.Map(v => v) }); for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Add(new SettableSlot { Share = l.Map(v => v) }); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample() + list[1].Share!.Sample() + list[4].Share!.Sample()); });
+
+    // S3663. A list with an initializer has an object, a loop adds objects, and a foreach gives each object a plain cell.
+    public static Cell<int> Ab151AnInitializerAndObjectsOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = new() { new SettableSlot { Share = l.Map(v => v) } }; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3664. Control: an Add in a branch that does not run puts no object into the list, and the block reads that object.
+    public static Cell<int> Ab151AnAddInABranchWithALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot b = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; if (Never) { list.Add(b); } for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(b.Share!.Sample()); });
+
+    // S3665. Control: the local of an Add gets a different object before the foreach, and the block reads it.
+    public static Cell<int> Ab151TheLocalOfAnAddGetsADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(one); one = new SettableSlot { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3666. Control: a second local of the list takes the object of the literal out, and the block reads it.
+    public static Cell<int> Ab151ASecondNameTakesTheObjectOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } List<SettableSlot> other = list; other.RemoveAt(0); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3667. Control: a Clear takes each object out of the list before the foreach, and the block reads one.
+    public static Cell<int> Ab151AClearTakesTheObjectsOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Clear(); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3668. Control: a RemoveAt takes the object of the literal out of the list before the foreach, and the block reads it.
+    public static Cell<int> Ab151ARemoveAtTakesTheObjectOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.RemoveAt(0); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3669. Control: the list is in a member, a Remove takes an object out of it, and the block reads that object.
+    public static Cell<int> Ab151AListInAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; Ab151Holder h = new(); h.List.Add(one); for (int i = 0; i < 2; i++) { h.List.Add(new SettableSlot { Share = l.Map(v => v) }); } h.List.Remove(one); foreach (SettableSlot s in h.List) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3670. Control: a continue skips the write for the object of the literal, and the block reads it.
+    public static Cell<int> Ab151AContinueBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { if (s == one) { continue; } s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3671. Control: a break ends the foreach after the first object, and the block reads the object of an Add.
+    public static Cell<int> Ab151ABreakAfterTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot two = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; list.Add(two); for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; break; } return S.Hold(two.Share!.Sample()); });
+
+    // S3672. Control: the write is in a lambda that no code runs, and the block reads the object of the literal.
+    public static Cell<int> Ab151AWriteInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { Kept.Add((Action)(() => s.Share = Plain)); } return S.Hold(one.Share!.Sample()); });
+
+    // S3673. Control: a goto jumps over an Add, and the block reads the object of that Add.
+    public static Cell<int> Ab151AGotoJumpsOverTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } if (Kept.Count >= 0) { goto skip; } list.Add(one); skip: foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3674. Control: a goto jumps over an Add of a list with no loop, and the block reads the object of that Add.
+    public static Cell<int> Ab151AGotoJumpsOverTheAddWithNoLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; if (Kept.Count >= 0) { goto skip; } list.Add(one); skip: foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3675. Control: the local of the literal of a list with no loop gets a different object, and the block reads it.
+    public static Cell<int> Ab151TheLocalGetsADifferentObjectWithNoLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; one = new SettableSlot { Share = l.Map(v => v) }; foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3676. Control: a local function runs the foreach before an Add that comes earlier in the code, and the block reads the object of the Add.
+    public static Cell<int> Ab151ALocalFunctionRunsTheForeachFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } Go(); list.Add(one); return S.Hold(one.Share!.Sample()); void Go() { foreach (SettableSlot s in list) { s.Share = Plain; } } });
+
+    // S3677. Control: an Add is in a lambda that no code runs, and the block reads the object of that Add.
+    public static Cell<int> Ab151AnAddInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; Action put = () => { list.Add(one); }; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } Kept.Add(put); return S.Hold(one.Share!.Sample()); });
+
+    // S3678. A list has an object of a field and the objects of a loop, and the block reads an object of the loop.
+    public static Cell<int> Ab151AnObjectOfAFieldAndObjectsOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [Ab151Slot]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[1].Share!.Sample()); });
+
+    // S3679. Control: the literal has the object of the last turn of a loop, and the block reads the object of the first turn.
+    public static Cell<int> Ab151TheLiteralHasTheObjectOfTheLastTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; SettableSlot? last = null; for (int i = 0; i < 2; i++) { last = new SettableSlot { Share = l.Map(v => v) }; made.Add(last); } List<SettableSlot> list = [last!]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3680. Control: the literal has an element of a list that a loop filled, and the block reads a different element.
+    public static Cell<int> Ab151TheLiteralHasAnElementOfALoopList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; for (int i = 0; i < 2; i++) { made.Add(new SettableSlot { Share = l.Map(v => v) }); } List<SettableSlot> list = [made[0]]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[1].Share!.Sample()); });
+
+    // S3681. Control: an Add before the loop puts the object of the last turn of an earlier loop into the list. The block reads the object of the first turn.
+    public static Cell<int> Ab151AnAddOfTheObjectOfTheLastTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; SettableSlot? last = null; for (int i = 0; i < 2; i++) { last = new SettableSlot { Share = l.Map(v => v) }; made.Add(last); } List<SettableSlot> list = []; list.Add(last!); for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3682. An Add under a condition adds a second object, a loop adds objects, and the block reads the object of the literal.
+    public static Cell<int> Ab151AnAddUnderAConditionAndALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; if (Kept.Count < 0) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3683. The foreach is in a function that Transaction.Run runs, and the block reads the object of the literal.
+    public static Cell<int> Ab151TheForeachInTransactionRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } Kept.Add(Transaction.Run(() => { foreach (SettableSlot s in list) { s.Share = Plain; } return 0; })); return S.Hold(one.Share!.Sample()); });
+
+    // S3684. A goto back to a label after the foreach does not run the foreach again, and the block reads the object of the literal.
+    public static Cell<int> Ab151ALabelAfterTheForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } int k = 0; again: k++; if (k < 2) { goto again; } return S.Hold(one.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -21805,6 +21953,15 @@ public static class Shapes
         private readonly Cell<Cell<int>> held = held;
 
         public Cell<int> Read() => this.held.Sample();
+    }
+
+    private static void Ab151TakeTheFirst(List<SettableSlot> list) => list.RemoveAt(0);
+
+    private static readonly SettableSlot Ab151Slot = new() { Share = Plain };
+
+    public sealed class Ab151Holder
+    {
+        public List<SettableSlot> List { get; } = [];
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
