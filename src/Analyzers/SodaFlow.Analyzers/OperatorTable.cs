@@ -363,13 +363,15 @@ internal static class OperatorTable
             "ThenByDescending",
             "ThenByIdentity",
             "ThenByIdentityDescending",
-            // Listeners from listeners. A listener holds no value and has no state.
+            // Listeners from listeners, and the empty listeners. A listener holds no value and has no state.
             "Append",
             "AppendStrong",
             "AppendWeak",
             "CreateComposite",
             "CreateStrongComposite",
             "CreateWeakComposite",
+            "EmptyStrong",
+            "EmptyWeak",
             // IsActive of a transaction reads no cell. OnStart keeps its function for the start of
             // each transaction after this one.
             "IsActive",
@@ -388,6 +390,7 @@ internal static class OperatorTable
             "Capture",
             "CheckAccess",
             "Immediate",
+            "Instance",
             // The map of a stream through a task. MapAsync keeps its function for a firing, and its
             // status has the state of its inputs. The strategies, the results, and the status of
             // one item are data.
@@ -459,8 +462,9 @@ internal static class OperatorTable
     ///     the public methods of the library with a delegate parameter. A run of
     ///     each method with a function that samples a loop is the source of this
     ///     list.
-    ///     The exceptions are <c>Debounce</c>, <c>MapAsync</c>, <c>OnStart</c>,
-    ///     <c>SetTimer</c>, and <c>Start</c>, whose documentation is the source.
+    ///     The exceptions are <c>Construct</c>, <c>Debounce</c>, <c>MapAsync</c>,
+    ///     <c>OnStart</c>, <c>SetTimer</c>, and <c>Start</c>, whose documentation
+    ///     is the source.
     /// </remarks>
     public static readonly ImmutableHashSet<string> FunctionsAfterTheCall =
         ImmutableHashSet.Create(
@@ -474,6 +478,7 @@ internal static class OperatorTable
             "Choose",
             "Collect",
             "CollectLazy",
+            "Construct",
             "Create",
             "CreateSink",
             "CreateStreamSink",

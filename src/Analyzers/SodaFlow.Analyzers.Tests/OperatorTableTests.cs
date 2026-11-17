@@ -21,8 +21,8 @@ namespace SodaFlow.Analyzers.Tests;
 ///     that crosses a transaction or reads a value at construction. Thus, a new
 ///     member has to say which it is, with a row in the table or an entry in
 ///     <see cref="OperatorTable.DefaultIsSound" />. This test fails until it
-///     does. A member is each method, property, and event of a type of the
-///     library. Each member of an interface of the platform that such a type
+///     does. A member is each method, property, event, and field of a type of
+///     the library. Each member of an interface of the platform that such a type
 ///     implements is one also.
 /// </remarks>
 internal sealed class OperatorTableTests
@@ -36,11 +36,11 @@ internal sealed class OperatorTableTests
     [
         typeof(Cell<>).Assembly,
         typeof(CellExtensionMethods).Assembly,
-        typeof(AsyncConcurrencyStrategy).Assembly,
+        typeof(AsyncMapStatus).Assembly,
         typeof(AsyncStreamExtensions).Assembly,
         typeof(IIdentity<>).Assembly,
         typeof(CollectionExtensionMethods).Assembly,
-        typeof(IBindableFactory).Assembly,
+        typeof(IOneWayBindableValue<>).Assembly,
         typeof(BindableFactory).Assembly
     ];
 
@@ -79,7 +79,9 @@ internal sealed class OperatorTableTests
     // The methods that a type declares, and the members of each interface of the platform that
     // it implements, as ICommand of a bindable action. An accessor has the name of its property
     // or event, thus a setter is in the list as its property. A base type of the platform, as
-    // Enum or Exception is, gives its own interfaces, which read no value of the graph.
+    // Enum or Exception is, gives its own interfaces, which read no value of the graph. A field
+    // can hold a cell or a function, thus each field that is not a constant is a member also. A
+    // constant, as the value of an enum, holds a value that the compiler sets.
     private static IEnumerable<string> MembersOf(Type type) =>
         type.GetMethods(Declared)
             .Concat(
@@ -89,7 +91,11 @@ internal sealed class OperatorTableTests
                         comparisonType: StringComparison.Ordinal) == true)
                     .Except(type.BaseType?.GetInterfaces() ?? [])
                     .SelectMany(static contract => contract.GetMethods()))
-            .Select(NameOf);
+            .Select(NameOf)
+            .Concat(
+                type.GetFields(Declared)
+                    .Where(static field => !field.IsLiteral && !field.IsSpecialName)
+                    .Select(static field => field.Name));
 
     private static string NameOf(MethodInfo method)
     {
