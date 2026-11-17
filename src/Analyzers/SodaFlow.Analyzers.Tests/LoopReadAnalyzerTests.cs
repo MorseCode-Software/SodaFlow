@@ -2655,7 +2655,8 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag90ALocalInTheInitializerChangesTheDictionary"] = ["SF1001"],
             ["Ag90ALambdaWithADefaultParameterSamplesTheFirst"] = ["SF1004"],
             ["Ag90ACollectionExpressionTakesTheAddForItsElement"] = ["SF1004"],
-            ["Ag90AForeachEnumeratesTheCollection"] = ["SF1005"]
+            ["Ag90AForeachEnumeratesTheCollection"] = ["SF1005"],
+            ["Ag90AForwardReferenceSamplesAnIntMember"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -3855,6 +3856,138 @@ internal sealed class LoopReadAnalyzerTests
 
         await Assert.That(await RulesIn(source: explicitOnly, assemblyName: "OnlyAnExplicitOperator", images: []))
             .IsEquivalentTo(["SF1004"]);
+    }
+
+    /// <summary>
+    ///     A block can be the name of a method with no body, as a method of an
+    ///     interface is. The analyzer has no code to read for that block, and it
+    ///     reports nothing. The method that runs returns and reads nothing.
+    /// </summary>
+    [Test]
+    public async Task AMethodWithNoBodyIsNoBlockToRead()
+    {
+        const string source =
+            """
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly IMaker Maker = new PlainMaker();
+
+                public static Cell<int> Run() => Cell.Loop<int>().WithoutCaptures(Maker.Make);
+
+                public interface IMaker
+                {
+                    Cell<int> Make(LoopedCell<int> l);
+                }
+
+                public sealed class PlainMaker : IMaker
+                {
+                    public Cell<int> Make(LoopedCell<int> l) => S.Hold(0);
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyAnInterfaceBlock", images: []))
+            .IsEmpty();
+    }
+
+    /// <summary>
+    ///     The analyzer reads a call of <c>Exchange</c> of a type with the name
+    ///     <c>Interlocked</c> in <c>System.Threading</c> as a write to a location.
+    ///     That needs a location and a value. A package can declare such a type
+    ///     in a type of that namespace, with a method of one parameter. A call of
+    ///     it is a call of code that cannot know the library. That code gives
+    ///     back the object, and the object then gets a plain cell.
+    /// </summary>
+    [Test]
+    public async Task AnExchangeWithOneParameterIsNoExchange()
+    {
+        const string package =
+            """
+            namespace System.Threading
+            {
+                public static class Outer
+                {
+                    public static class Interlocked
+                    {
+                        public static T Exchange<T>(T only) => only;
+                    }
+                }
+            }
+            """;
+
+        const string source =
+            """
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> GivesBackItsArgument() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Slot x = new() { Share = l.Map(v => v) };
+                        object y = System.Threading.Outer.Interlocked.Exchange(x);
+                        x.Share = Plain;
+
+                        return S.Hold(((Slot)y).Share!.Sample());
+                    });
+
+                public sealed class Slot
+                {
+                    public Cell<int>? Share { get; set; }
+                }
+            }
+            """;
+
+        byte[] image =
+            AnalyzerHarness.Emit(
+                AnalyzerHarness.Compile(source: package, libraries: [], assemblyName: "OnlyAnExchange"));
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyACallOfAnExchange", images: [image]))
+            .IsEmpty();
+    }
+
+    /// <summary>
+    ///     The analyzer reads the initial value of a hold only for a
+    ///     <c>Hold</c> or an <c>Accum</c> that is an extension method of a stream.
+    ///     Each such method of the library is one. A compilation with the name of
+    ///     an assembly of the library is a part of the library. Thus, it can
+    ///     declare a <c>Hold</c> of a different value.
+    ///     That method here gives back the cell of cells that it gets, and the
+    ///     cell in it is pending.
+    /// </summary>
+    [Test]
+    public async Task AHoldOfACellIsNoHoldInACompilationOfTheLibrary()
+    {
+        const string source =
+            """
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> ReadsTheCellOfCells() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Cell<Cell<int>> all = Cell.Constant(l.Map(v => v));
+                        Cell<Cell<int>> held = all.Hold(Plain);
+
+                        return S.Hold(held.Sample().Sample());
+                    });
+
+                public static Cell<Cell<int>> Hold(this Cell<Cell<int>> cells, Cell<int> initial) => cells;
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "SodaFlow.FSharp", images: []))
+            .IsEquivalentTo(["SF1001"]);
     }
 
     // The rules that the analyzer reports for a source that is a compilation of its own.

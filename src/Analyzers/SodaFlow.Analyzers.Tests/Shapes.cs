@@ -18103,6 +18103,10 @@ public static class Shapes
     public static Cell<int> Ag90AForeachEnumeratesTheCollection() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag90Names names = new(l.Map(v => v)); foreach (object key in names) { Kept.Add(key); } return S.Hold(0); });
 
+    // S4048. The block of a forward reference samples the placeholder for an int member of the object that it returns.
+    public static Cell<int> Ag90AForwardReferenceSamplesAnIntMember() =>
+        ForwardReference<Ag90Counted>.WithoutCaptures(r => new Ag90Counted(value: Plain, count: r.Sample().Count)).Value;
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -24623,6 +24627,13 @@ public static class Shapes
 
             return base.GetEnumerator();
         }
+    }
+
+    public sealed class Ag90Counted(in Cell<int> value, in int count)
+    {
+        public Cell<int> Value { get; } = value;
+
+        public int Count { get; } = count;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
