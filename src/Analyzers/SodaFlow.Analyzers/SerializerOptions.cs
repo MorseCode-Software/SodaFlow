@@ -59,36 +59,36 @@ internal sealed class SerializerOptions(
                 converters: ImmutableArray<ExpressionSyntax>.Empty);
         }
 
-        SerializerOptions result = Defaults;
-
-        foreach (ArgumentSyntax argument in arguments)
-        {
-            switch (LoopStateEvaluator.ParameterFor(
+        return arguments.Aggregate(
+            seed: Defaults,
+            func: (result, argument) =>
+                LoopStateEvaluator.ParameterFor(
                         method: method,
                         argument: argument,
-                        position: arguments.IndexOf(argument))?.Type.Name)
-            {
-                case "JsonSerializerOptions":
-                    result = Read(region: region, options: argument.Expression);
-
-                    break;
-                case "JsonTypeInfo" or "JsonSerializerContext":
-                    result = Elsewhere;
-
-                    break;
-            }
-        }
-
-        return result;
+                        position: arguments.IndexOf(argument))
+                    ?.Type.Name switch
+                    {
+                        "JsonSerializerOptions" => Read(region: region, options: argument.Expression),
+                        "JsonTypeInfo" or "JsonSerializerContext" => Elsewhere,
+                        _ => result
+                    });
     }
 
     // The options of System.Text.Json with no change.
     private static SerializerOptions Defaults { get; } =
-        new(writesFields: false, skipsReadOnlyProperties: false, skipsReadOnlyFields: false, converters: ImmutableArray<ExpressionSyntax>.Empty);
+        new(
+            writesFields: false,
+            skipsReadOnlyProperties: false,
+            skipsReadOnlyFields: false,
+            converters: ImmutableArray<ExpressionSyntax>.Empty);
 
     // The careful value of each option, for options that the walk cannot read.
     private static SerializerOptions Elsewhere { get; } =
-        new(writesFields: true, skipsReadOnlyProperties: false, skipsReadOnlyFields: false, converters: ImmutableArray<ExpressionSyntax>.Empty);
+        new(
+            writesFields: true,
+            skipsReadOnlyProperties: false,
+            skipsReadOnlyFields: false,
+            converters: ImmutableArray<ExpressionSyntax>.Empty);
 
     // A creation with no argument, or with only JsonSerializerDefaults, starts from the defaults.
     // Each other value is options from elsewhere, as a copy of other options is.

@@ -3481,19 +3481,20 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
-        foreach (IFieldSymbol field in own == null ? members.Fields : Construction.FieldsOf(own))
+        IEnumerable<IFieldSymbol> fields =
+            (own == null ? members.Fields : Construction.FieldsOf(own))
+            .Where(field => SodaFlowSymbols.IsSerialized(field: field, serializer: serializer, options: options));
+
+        foreach (IFieldSymbol field in fields)
         {
-            if (SodaFlowSymbols.IsSerialized(field: field, serializer: serializer, options: options))
-            {
-                this.Serialize(
-                    written: written,
-                    state: LoopStateEvaluator.StateOfAMember(owner: state, member: field),
-                    serializer: serializer,
-                    options: options,
-                    member: field,
-                    declared: declared == null ? null : field.Type,
-                    depth: depth + 1);
-            }
+            this.Serialize(
+                written: written,
+                state: LoopStateEvaluator.StateOfAMember(owner: state, member: field),
+                serializer: serializer,
+                options: options,
+                member: field,
+                declared: declared == null ? null : field.Type,
+                depth: depth + 1);
         }
     }
 
@@ -3514,7 +3515,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         IMethodSymbol serializer,
         SerializerOptions options,
         ISymbol? member,
-        INamedTypeSymbol? own)
+        ISymbol? own)
     {
         if (state.Members is not { } members)
         {

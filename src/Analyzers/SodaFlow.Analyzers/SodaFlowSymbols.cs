@@ -753,11 +753,12 @@ internal sealed class SodaFlowSymbols
     ///     one with <c>JsonInclude</c> for <c>System.Text.Json</c>, and one with
     ///     <c>JsonProperty</c> for Json.NET.
     /// </summary>
-    private static bool IsIncluded(ISymbol member, IMethodSymbol serializer) =>
+    private static bool IsIncluded(ISymbol member, ISymbol serializer) =>
         serializer.ContainingType?.ContainingNamespace?.ToDisplayString() is { } library
         && member.GetAttributes()
             .Any(attribute =>
-                (attribute.AttributeClass?.Name, attribute.AttributeClass?.ContainingNamespace?.ToDisplayString(), library)
+                attribute.AttributeClass is { } found
+                && (found.Name, found.ContainingNamespace?.ToDisplayString(), library)
                 is ("JsonIncludeAttribute", "System.Text.Json.Serialization", "System.Text.Json")
                 or ("JsonPropertyAttribute", "Newtonsoft.Json", "Newtonsoft.Json"));
 

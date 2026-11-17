@@ -175,7 +175,9 @@ internal sealed partial class LoopStateEvaluator
                     .Aggregate(
                         seed: result,
                         func: (all, member) =>
-                            Both(first: all, second: this.FollowPrinted(printed: printed, member: member, owner: owner)));
+                            Both(
+                                first: all,
+                                second: this.FollowPrinted(printed: printed, member: member, owner: owner)));
         }
 
         return result;
@@ -207,7 +209,7 @@ internal sealed partial class LoopStateEvaluator
     ///     the record. A state does not hold itself. Thus, the walk through the
     ///     printed values always ends.
     /// </remarks>
-    private Followed? FollowToStringOf(ExpressionSyntax call, LoopState value) =>
+    private Followed? FollowToStringOf(SyntaxNode call, LoopState value) =>
         this.region.Symbols.ObjectToString is { } toString && value.Members is { } members
             ? members.Resolve(toString)
                 .OfType<IMethodSymbol>()
@@ -548,7 +550,7 @@ internal sealed partial class LoopStateEvaluator
     ///     operator on the left operand. It then calls the operator, unless that
     ///     test decides the result. No node names the test.
     /// </summary>
-    private Followed? FollowShortCircuit(BinaryExpressionSyntax binary, IMethodSymbol operation) =>
+    private Followed? FollowShortCircuit(BinaryExpressionSyntax binary, ISymbol operation) =>
         Both(
             first: operation.ContainingType
                     .GetMembers(binary.IsKind(SyntaxKind.LogicalAndExpression) ? "op_False" : "op_True")
@@ -733,7 +735,7 @@ internal sealed partial class LoopStateEvaluator
     ///     The call of <c>ToString</c> that a concatenation makes on an object of
     ///     this compilation.
     /// </summary>
-    public Followed? FollowToString(ExpressionSyntax written) =>
+    private Followed? FollowToString(ExpressionSyntax written) =>
         this.region.Symbols is { ObjectToString: { } toString } symbols
         && (symbols.DeclaresToString || symbols.DeclaresRecords)
         && this.Self(written) is { Members: not null } owner
@@ -779,11 +781,14 @@ internal sealed partial class LoopStateEvaluator
 
     // A FormattableString or an IFormattable keeps the values of the interpolated string, and
     // formats nothing at this point. A method of FormattableString that gets it formats it now.
-    private bool FormatsNow(InterpolatedStringExpressionSyntax whole) =>
+    private bool FormatsNow(SyntaxNode whole) =>
         this.region.ModelFor(whole).GetOperation(whole)?.Parent is not IConversionOperation
         {
-            Type.Name: "FormattableString" or "IFormattable",
-            Type.ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+            Type:
+            {
+                Name: "FormattableString" or "IFormattable",
+                ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+            }
         } kept
         || kept.Parent is IArgumentOperation
         {
