@@ -40,6 +40,11 @@ internal sealed partial class LoopStateEvaluator
             return this.Eval(initial);
         }
 
+        if (this.FirstValueThrough(cell: cell, read: read) is { } first)
+        {
+            return first;
+        }
+
         // A member of the object of a method. The code of the call that runs the method made the
         // object, and has the hold.
         return this.HeldMemberAt(cell) is ({ } caller, { } given)
@@ -73,6 +78,124 @@ internal sealed partial class LoopStateEvaluator
             ? null
             : initial;
     }
+
+    // The value that a read in the transaction gives for an operator of a hold of the block. A map,
+    // a lift, and a calm cell compute their first value from the value of the input, at the first
+    // read. A cell as a cell is its receiver. A bindable reads its cell, and a constant of a lazy
+    // sample forces the sample at the read. A switch takes the sent cell at the end of the
+    // transaction, thus it is not such an operator. Null for each other cell.
+    private LoopState? FirstValueThrough(ExpressionSyntax cell, SyntaxNode read)
+    {
+        if (this.ValueOfALocalThatNoCodeWrites(cell) is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Name.Identifier.ValueText: "Map" or "Calm" or "AsCell" or "AsBehavior" or "Lift" or "ConstantLazy"
+                    or "CreateOneWay" or "CreateTwoWay"
+                }
+            } call
+            || this.region.SymbolOf(call) is not IMethodSymbol method
+            || !this.region.Symbols.IsSodaFlow(method))
+        {
+            return null;
+        }
+
+        SodaFlowSymbols symbols = this.region.Symbols;
+        ExpressionSyntax? input = ReceiverOf(symbols: symbols, invocation: call, method: method);
+        SeparatedSyntaxList<ArgumentSyntax> arguments = call.ArgumentList.Arguments;
+
+        switch (OperatorTable.Rule(
+                    symbols: symbols,
+                    method: method,
+                    receiverType: input == null ? null : this.region.TypeOf(input)))
+        {
+            case OperatorRule.SameValues:
+                return this.InitialOfAHoldOfTheBlock(read: read, receiver: input);
+            case OperatorRule.MapValue:
+                return this.InitialOfAHoldOfTheBlock(read: read, receiver: input) is { } value
+                    ? this.MappedContent(invocation: call, parameterState: value)
+                    : null;
+            case OperatorRule.LiftValue when input != null:
+                return this.LiftedFirstValue(lift: call, method: method, receiver: input, read: read);
+            case OperatorRule.ConstantLazy:
+                return arguments.FirstOrDefault()?.Expression is { } given
+                       && this.ValueOfALocalThatNoCodeWrites(Unwrapped(given)) is InvocationExpressionSyntax
+                       {
+                           Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "SampleLazy" }
+                       } lazy
+                       && this.region.SymbolOf(lazy) is IMethodSymbol sample
+                       && symbols.IsSodaFlow(sample)
+                    ? this.InitialOfAHoldOfTheBlock(
+                        read: read,
+                        receiver: ReceiverOf(symbols: symbols, invocation: lazy, method: sample))
+                    : null;
+            case OperatorRule.Default when method.Name is "CreateOneWay" or "CreateTwoWay":
+                return arguments
+                    .Where((argument, position) =>
+                        symbols.IsCellOrBehaviorType(
+                            ParameterFor(method: method, argument: argument, position: position)?.Type))
+                    .Select(argument => this.InitialOfAHoldOfTheBlock(read: read, receiver: argument.Expression))
+                    .FirstOrDefault();
+            default:
+                return null;
+        }
+    }
+
+    // The value that a read in the transaction gives for a lift with a hold of the block as an
+    // input. Each such input gives its initial value, and each other input gives what it holds.
+    // Null when no input is such a hold.
+    private LoopState? LiftedFirstValue(
+        InvocationExpressionSyntax lift,
+        IMethodSymbol method,
+        ExpressionSyntax receiver,
+        SyntaxNode read)
+    {
+        if (!this.HoldsContent(method))
+        {
+            return null;
+        }
+
+        bool anyInitial = false;
+        LoopState receiverState = First(receiver);
+
+        List<LoopState> argumentStates =
+        [
+            .. lift.ArgumentList.Arguments
+                .Where(argument => argument.Expression != receiver)
+                .Select(argument => First(argument.Expression))
+        ];
+
+        return anyInitial
+            ? this.LiftedContent(
+                invocation: lift,
+                receiver: receiver,
+                receiverState: receiverState,
+                argumentStates: argumentStates)
+            : null;
+
+        LoopState First(ExpressionSyntax input)
+        {
+            if (this.InitialOfAHoldOfTheBlock(read: read, receiver: input) is not { } initial)
+            {
+                return this.EvalArgument(argument: input, runsNow: false);
+            }
+
+            anyInitial = true;
+
+            return initial.AsContent;
+        }
+    }
+
+    // The value of a local that no code writes. Each other expression is itself. The read of a
+    // hold checks that the code of the transaction made the hold.
+    private ExpressionSyntax ValueOfALocalThatNoCodeWrites(ExpressionSyntax cell) =>
+        cell is IdentifierNameSyntax name
+        && this.region.SymbolOf(name) is ILocalSymbol { DeclaringSyntaxReferences.Length: 1 } local
+        && local.DeclaringSyntaxReferences[0].GetSyntax()
+            is VariableDeclaratorSyntax { Initializer.Value: { } value } declarator
+        && NamesOf(local: local, declarator: declarator, region: this.region)?.Any(IsWritten) == false
+            ? Unwrapped(value)
+            : cell;
 
     // The initial value of the hold, of the accumulation, or of the cell sink that a call makes.
     // Null for each other expression.

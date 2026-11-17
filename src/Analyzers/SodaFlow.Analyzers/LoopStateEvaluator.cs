@@ -2197,17 +2197,20 @@ internal sealed partial class LoopStateEvaluator
                     }
 
                     // A property of the library that reads the current value gives the value that
-                    // its owner holds.
+                    // its owner holds. A bindable of a hold of the block reads that hold, and a read
+                    // in the transaction then gets its initial value.
                     if (this.region.Symbols.ReadsItsOwner(property))
                     {
-                        return this.Eval(
-                                expression switch
-                                {
-                                    MemberAccessExpressionSyntax read => read.Expression,
-                                    MemberBindingExpressionSyntax read => ConditionalReceiver(read),
-                                    _ => null
-                                })
-                            .Content
+                        ExpressionSyntax? owner =
+                            expression switch
+                            {
+                                MemberAccessExpressionSyntax read => read.Expression,
+                                MemberBindingExpressionSyntax read => ConditionalReceiver(read),
+                                _ => null
+                            };
+
+                        return (this.InitialOfAHoldOfTheBlock(read: expression, receiver: owner)
+                                ?? this.Eval(owner).Content)
                             .Join(this.TypeState(expression));
                     }
                 }

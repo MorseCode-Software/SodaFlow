@@ -2578,7 +2578,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab181HoldOfAsStreamSinkGetsASendIntoTheSink"] = ["SF1002"],
             ["R3ApiLambdaKeptInAListAndRunAfterTheClose"] = ["SF1002"],
             ["Ab177LambdaInsertedInAListAndRunAfterTheClose"] = ["SF1002"],
-            ["Ab178MappedItemsProjectionThatReadsRunsAtARead"] = ["SF1001"]
+            ["Ab178MappedItemsProjectionThatReadsRunsAtARead"] = ["SF1001"],
+            ["Ab176MapOfAHoldWithALinkedInitialValue"] = ["SF1002"],
+            ["Ab176MapOfAHoldThatReturnsALinkedCell"] = ["SF1002"],
+            ["Ab176LiftOfAHoldAndALinkedConstant"] = ["SF1002"],
+            ["Ab176MapOfAHoldSampledAfterTheClose"] = ["SF1002"],
+            ["Ab176MapInALocalThatTheBlockWrites"] = ["SF1002"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

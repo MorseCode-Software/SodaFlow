@@ -17682,6 +17682,58 @@ public static class Shapes
     public static Cell<int> Ab178MappedItemsProjectionThatReadsRunsAtARead() =>
         Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k + l.Sample(), onEvicted: _ => { }); return S.Hold(m.Items.Sample().Count); });
 
+    // S3943. The block sends a linked cell into the sink of its hold, and then samples a map of the hold. The map gives the initial value. Thus, a close with it is not a cycle.
+    public static Cell<int> R3ApiMapOfAHoldOfTheBlockSampledAfterASend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return h.Map(c => c).Sample(); });
+
+    // S3944. The block sends a linked cell into the sink of its hold, and then samples Calm of the hold. Calm gives the initial value. Thus, a close with it is not a cycle.
+    public static Cell<int> R3ApiCalmOfAHoldOfTheBlockSampledAfterASend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return h.Calm().Sample(); });
+
+    // S3945. The block sends a linked cell into its cell sink, and then samples AsCell of the sink. AsCell is the sink and gives its initial value. Thus, a close with it is not a cycle.
+    public static Cell<int> R3ApiAsCellOfACellSinkOfTheBlockSampledAfterASend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); c.Send(l.Map(v => v)); return c.AsCell().Sample(); });
+
+    // S3946. The block sends a linked cell into the stream of its accumulation, and then samples a lift of it. The lift gives the initial state. Thus, a close with it is not a cycle.
+    public static Cell<int> R3ApiLiftOfAnAccumOfTheBlockSampledAfterASend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> acc = s.Accum(initialState: Plain, f: static (c, r) => c); s.Send(l.Map(v => v)); return acc.Lift(Plain, (c, _) => c).Sample(); });
+
+    // S3947. The block sends a linked cell into the sink of its hold, and then samples ConstantLazy of a lazy sample of the hold. The sample forces the lazy sample and gives the initial value. Thus, a close with it is not a cycle.
+    public static Cell<int> Ab176ConstantLazyOfASampleLazyOfAHoldSampledAfterASend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Cell.ConstantLazy(h.SampleLazy()).Sample(); });
+
+    // S3948. The block sends a linked cell into the sink of its hold, and then reads a one-way bindable of the hold. The bindable samples the hold and gives the initial value. Thus, a close with it is not a cycle.
+    public static Cell<int> Ab176OneWayBindableOfAHoldReadAfterASend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<Cell<int>> b = R2ApiFactory.CreateOneWay(h); return b.Value; });
+
+    // S3949. The block sends a linked cell into the sink of its hold, and then samples a local with a map of the hold. The map gives the initial value. Thus, a close with it is not a cycle.
+    public static Cell<int> Ab176MapOfAHoldInALocalSampledAfterASend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); Cell<Cell<int>> m = h.Map(c => c); s.Send(l.Map(v => v)); return m.Sample(); });
+
+    // S3950. The block sends a linked cell into the sink of its hold, and then samples Calm of a map of the hold. That gives the initial value. Thus, a close with it is not a cycle.
+    public static Cell<int> Ab176CalmOfAMapOfAHoldSampledAfterASend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return h.Map(c => c).Calm().Sample(); });
+
+    // S3951. A map of a hold of the block whose initial value is a linked cell gives that cell to a sample in the block. Thus, a close with it is a cycle.
+    public static Cell<int> Ab176MapOfAHoldWithALinkedInitialValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(l.Map(v => v)); s.Send(Plain); return h.Map(c => c).Sample(); });
+
+    // S3952. A map of a hold of the block whose function returns a linked cell gives that cell to a sample in the block. Thus, a close with it is a cycle.
+    public static Cell<int> Ab176MapOfAHoldThatReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return h.Map(_ => l.Map(v => v)).Sample(); });
+
+    // S3953. A lift of a hold of the block and of a constant of a linked cell gives the linked cell to a sample. Thus, a close with it is a cycle.
+    public static Cell<int> Ab176LiftOfAHoldAndALinkedConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<Cell<int>> o = Cell.Constant(l.Map(v => v)); return h.Lift(o, (_, b) => b).Sample(); });
+
+    // S3954. A map of a stream samples a map of a hold of the block after the close. It gets the linked cell that the block sent. Thus, the switch of its hold is a cycle.
+    public static Cell<int> Ab176MapOfAHoldSampledAfterTheClose() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Map(_ => h.Map(x => x).Sample()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3955. The block writes a linked cell to a local with a map of its hold, and then samples the local. Thus, a close with it is a cycle.
+    public static Cell<int> Ab176MapInALocalThatTheBlockWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); Cell<Cell<int>> m = h.Map(c => c); s.Send(l.Map(v => v)); m = Cell.Constant(l.Map(v => v)); return m.Sample(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

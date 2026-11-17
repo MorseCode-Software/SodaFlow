@@ -260,7 +260,11 @@ is quiet.
 - **A sample of a `Hold` with a plain initial value.** A read in the block gives the initial
   value, because a firing of the stream comes after the close. That is also true for a hold that
   the block makes, after a send into its sink in the block: the hold takes the sent value only at
-  the end of the transaction. The same goes for an `Accum` and for a cell sink.
+  the end of the transaction. The same goes for an `Accum` and for a cell sink. It also goes for a
+  read through a `Map`, a `Lift`, a `Calm`, or an `AsCell` of such a hold, through a bindable of
+  it, and through a `Cell.ConstantLazy` of its `SampleLazy`: each of these takes its first value
+  from the hold at the read. A switch of the hold is different: it takes the sent value at the end
+  of the transaction.
 
 ### Code the analyzer cannot read
 
@@ -377,18 +381,20 @@ careful side, so it can report a read that does not throw:
 - A sample of a hold gives only the initial value where the hold is made and sampled in the
   transaction of the block: in the block's own code, in a function that `Transaction.Run` runs, in
   the function of a `Map` of a `Cell.Constant`, or in a local function, lambda, or method that such
-  code calls or passes to a call that runs it there. A lambda written at a call counts only where
-  the call is one of those two, a method of your own, a method of an array or a `List<T>` that runs
-  it, such as `ForEach`, `Find`, or `Sort`, or a LINQ method that runs it in the call. A method that
-  only keeps the lambda, such as `Add` or `Array.Fill`, does not count. A LINQ query such as
-  `Select` counts only where the same code enumerates it in the transaction: a `First` or a `ToList`
-  on it, a `foreach` over it, or a local that holds it and that only such code reads. A hold that a
-  method reads from its own object counts where the code made that object with `new` and gave it the
-  hold in the constructor of a positional record, or in a readonly field or a get-only property that
-  a primary constructor sets. A sample in a lambda written at any other call, such as a `Map` of a
-  stream, or of a hold kept in a list or in a member that code can set again, gets each value sent
-  into the sink as well. A close with such a sample can then get `SF1002`, although the sample runs
-  before the end of the transaction.
+  code calls or passes to a call that runs it there. A read through a `Map`, a `Lift`, a `Calm`, an
+  `AsCell`, a bindable, or a `Cell.ConstantLazy` of a `SampleLazy` counts where the same read of the
+  hold counts. A lambda written at a call counts only where the call is one of those two, a method
+  of your own, a method of an array or a `List<T>` that runs it, such as `ForEach`, `Find`, or
+  `Sort`, or a LINQ method that runs it in the call. A method that only keeps the lambda, such as
+  `Add` or `Array.Fill`, does not count. A LINQ query such as `Select` counts only where the same
+  code enumerates it in the transaction: a `First` or a `ToList` on it, a `foreach` over it, or a
+  local that holds it and that only such code reads. A hold that a method reads from its own object
+  counts where the code made that object with `new` and gave it the hold in the constructor of a
+  positional record, or in a readonly field or a get-only property that a primary constructor sets.
+  A sample in a lambda written at any other call, such as a `Map` of a stream, or of a hold kept in
+  a list or in a member that code can set again, gets each value sent into the sink as well. A close
+  with such a sample can then get `SF1002`, although the sample runs before the end of the
+  transaction.
 
 Some reads that throw it does not see:
 
