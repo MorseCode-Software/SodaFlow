@@ -2459,7 +2459,13 @@ internal sealed class LoopReadAnalyzerTests
             ["R3LimPlainThroughAChoiceThatIsTheOtherObject"] = ["SF1001"],
             ["R3LimHandlerAddedTwiceToALocalDelegateAroundACall"] = ["SF1001"],
             ["R3LimHoldWithALinkedInitialValueInAList"] = ["SF1002"],
-            ["R3LimReadFourCallsDeep"] = ["SF1004"]
+            ["R3LimReadFourCallsDeep"] = ["SF1004"],
+            ["Ab162AwaitForeachRunsTheBodyForTheFirstItem"] = ["SF1001"],
+            ["Ab162AwaitForeachOfASequenceThatNeverWaits"] = ["SF1001"],
+            ["Ab162AwaitOfACompleteSequenceOfAForeach"] = ["SF1001"],
+            ["Ab162AwaitInASwitchSectionDoesNotStopTheOtherSections"] = ["SF1001"],
+            ["Ab162AwaitInASwitchSectionDoesNotStopTheCodeAfterTheSwitch"] = ["SF1001"],
+            ["Ab162AwaitThatTheHeaderOfAForeachSkips"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

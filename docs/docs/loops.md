@@ -315,7 +315,10 @@ The analyzer follows a value made from the placeholder through the code of your 
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
   and the function of a `Lazy<T>` where something reads its `Value`. An `async` method or lambda
   runs in the block up to its first `await` of a task that may not be complete, and the rest of it
-  runs later. An async iterator runs nothing until something enumerates it.
+  runs later. That holds for an `await` in a `switch` section and in the header of a `foreach`,
+  `switch`, `while`, or `using` too. An `await foreach` runs its body in the block only for an item
+  that the sequence gives at once, and the code after it only when every item comes at once. An
+  async iterator runs nothing until something enumerates it.
 - The serializers of `System.Text.Json`, Json.NET, and `XmlSerializer`, and LINQ to XML, which
   call your getters and enumerate your sequences.
 
@@ -361,7 +364,9 @@ Some reads that throw it does not see:
 - A function that a constructor from outside your project keeps, other than a `Lazy<T>` or the
   comparer of a platform collection.
 - Code after an `await` of a task that is already complete when the analyzer cannot tell that it
-  is. That code runs in the block, and the analyzer reads it as code that runs later.
+  is. That code runs in the block, and the analyzer reads it as code that runs later. The same
+  goes for the body of an `await foreach` over a sequence other than a call of your own async
+  iterator, and over one whose first `yield return` is not at the top level of its body.
 - A chain of your own calls more than four calls deep. There, the analyzer reports `SF1003` at the
   call where it stops.
 - A virtual method, if the analyzer did not see the object built: it reads the method that the

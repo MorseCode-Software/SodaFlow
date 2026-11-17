@@ -16723,6 +16723,78 @@ public static class Shapes
     public static Cell<int> R3LimBaseMethodOfAnObjectFromAStaticArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(R3LimUnseenShown[1].Now(l.Map(v => v))); });
 
+    // S3704. An async lambda awaits a task that never completes in a switch section, and samples the placeholder after the await in the same section.
+    public static Cell<int> R3CsAwaitInASwitchSection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count) { case < 0: break; default: await R2NeverDone.Task; Kept.Add(l.Sample()); break; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3705. An async lambda awaits a task that never completes to get the sequence of a foreach, and samples the placeholder after the foreach.
+    public static Cell<int> R3CsAwaitOfTheSequenceOfAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int n in await R3CsNeverNumbers.Task) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3706. An async lambda uses await foreach on an async iterator that awaits a task that never completes before its first item, and samples the placeholder after the loop.
+    public static Cell<int> R3CsAwaitForeachOverASequenceThatWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in R3CsYieldsAfterAnAwait()) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3707. An async lambda uses await foreach on an async iterator that yields its first item at once, and the body samples the placeholder.
+    public static Cell<int> Ab162AwaitForeachRunsTheBodyForTheFirstItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in R3CsYieldsARead(Plain)) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S3708. An async lambda uses await foreach on an async iterator that yields its first item at once and then awaits a task that never completes, and samples the placeholder after the loop.
+    public static Cell<int> Ab162AwaitForeachWaitsAfterTheFirstItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in R3CsYieldsARead(Plain)) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3709. An async lambda uses await foreach on an async iterator that awaits only a complete task, and samples the placeholder after the loop.
+    public static Cell<int> Ab162AwaitForeachOfASequenceThatNeverWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in Ab162YieldsAtOnce()) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3710. An async lambda awaits a task that never completes in the value of a switch, and samples the placeholder in a section and after the switch.
+    public static Cell<int> Ab162AwaitInTheValueOfASwitch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch ((await R3CsNeverNumbers.Task).Length) { case 0: break; default: Kept.Add(l.Sample()); break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3711. An async lambda awaits a task that never completes in the condition of a while, and samples the placeholder in the body and after the loop.
+    public static Cell<int> Ab162AwaitInTheConditionOfAWhile() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { while ((await R3CsNeverNumbers.Task).Length > 0) { Kept.Add(l.Sample()); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3712. An async lambda awaits a task that never completes for the resource of a using statement, and samples the placeholder in the block and after it.
+    public static Cell<int> Ab162AwaitInTheResourceOfAUsing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using (await Ab162NeverResource.Task) { Kept.Add(l.Sample()); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3713. An async lambda awaits a complete task to get the sequence of a foreach, and samples the placeholder after the foreach.
+    public static Cell<int> Ab162AwaitOfACompleteSequenceOfAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int n in await Task.FromResult(new[] { 1 })) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3714. An async lambda awaits a task that never completes in one switch section, and a different section that runs samples the placeholder.
+    public static Cell<int> Ab162AwaitInASwitchSectionDoesNotStopTheOtherSections() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count * 0 + 1) { case 0: await R2NeverDone.Task; break; default: Kept.Add(l.Sample()); break; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3715. An async lambda awaits a task that never completes in a switch section that does not run, and samples the placeholder after the switch.
+    public static Cell<int> Ab162AwaitInASwitchSectionDoesNotStopTheCodeAfterTheSwitch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count * 0 + 1) { case 0: await R2NeverDone.Task; break; default: break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3716. An async lambda awaits a task that never completes for the declaration of a using statement, and samples the placeholder in the block and after it.
+    public static Cell<int> Ab162AwaitInTheDeclarationOfAUsing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { using (IDisposable d = await Ab162NeverResource.Task) { Kept.Add(l.Sample()); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3717. An async lambda gets the sequence of a foreach from a conditional expression whose await does not run, and samples the placeholder after the foreach.
+    public static Cell<int> Ab162AwaitThatTheHeaderOfAForeachSkips() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int n in Kept.Count < 0 ? await R3CsNeverNumbers.Task : [1]) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3718. An async lambda uses await foreach on an async iterator that awaits a task that never completes before its first item, and the body samples the placeholder.
+    public static Cell<int> Ab162AwaitForeachWaitsBeforeTheFirstItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in R3CsYieldsAfterAnAwait()) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S3719. An async lambda uses await foreach on an async iterator whose first yield return awaits a task that never completes, and the body samples the placeholder.
+    public static Cell<int> Ab162AwaitForeachWaitsInTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in Ab162YieldsAWait()) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S3720. An async lambda uses await foreach on an async iterator whose goto goes past its first yield return to an await of a task that never completes, and the body samples the placeholder.
+    public static Cell<int> Ab162AwaitForeachWithAGotoPastTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in Ab162SkipsItsFirstYield(Kept.Count >= 0)) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S3721. An async lambda uses await foreach with a deconstruction on an async iterator that awaits a task that never completes before its first item, and samples the placeholder after the loop.
+    public static Cell<int> Ab162AwaitForeachOfPairsOverASequenceThatWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach ((int a, int b) in Ab162PairsAfterAnAwait()) { Kept.Add(a + b); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -22238,6 +22310,42 @@ public static class Shapes
     }
 
     private static readonly R3LimShown[] R3LimUnseenShown = [new R3LimShownReader(), new R3LimShown()];
+
+    private static readonly TaskCompletionSource<IDisposable> Ab162NeverResource = new();
+
+    private static async IAsyncEnumerable<int> Ab162YieldsAtOnce()
+    {
+        await Task.CompletedTask;
+
+        yield return 1;
+    }
+
+    private static async IAsyncEnumerable<int> Ab162YieldsAWait()
+    {
+        yield return (await R3CsNeverNumbers.Task).Length;
+    }
+
+    private static async IAsyncEnumerable<int> Ab162SkipsItsFirstYield(bool skip)
+    {
+        if (skip)
+        {
+            goto Wait;
+        }
+
+        yield return 1;
+
+    Wait:
+        await R2NeverDone.Task;
+
+        yield return 2;
+    }
+
+    private static async IAsyncEnumerable<(int, int)> Ab162PairsAfterAnAwait()
+    {
+        await R2NeverDone.Task;
+
+        yield return (1, 2);
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

@@ -58,9 +58,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // The query whose code the walk reads now, when something enumerates that query.
     private QueryValue? running;
 
-    // The position after each await that can stop the call, with the block around it. The
-    // statements of the block after that position run only when the task completes.
-    private readonly List<(BlockSyntax Block, int From)> later = [];
+    // The position after each await that can stop the call, with the block or the switch section
+    // around it. The statements of that part after the position run only when the task completes.
+    private readonly List<(SyntaxNode Block, int From)> later = [];
 
     public override void Visit(SyntaxNode? node)
     {
@@ -236,42 +236,114 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         base.VisitAwaitExpression(node);
 
-        if (!CompleteTasks.IsComplete(region: this.region, task: node.Expression) && LaterPartOf(node) is { } block)
+        if (this.LaterAfter(node) is { } part)
         {
-            this.later.Add((block, node.Span.End));
+            this.later.Add(part);
         }
     }
 
-    // The largest block that always runs the statement of the await to its end. Null when a
-    // statement, a branch, or a function between the two can skip the await. A goto to a label
-    // after the await can skip it also.
-    private static BlockSyntax? LaterPartOf(SyntaxNode node)
-    {
-        if (WhereItAlwaysRuns(node) is not StatementSyntax statement)
+    // The part of the code that runs after the task of an await completes, and the position where
+    // it starts. Null for an await that cannot stop the call, and where the walk does not know the
+    // part.
+    private (SyntaxNode Block, int From)? LaterAfter(SyntaxNode node) =>
+        node switch
         {
-            return null;
-        }
+            AwaitExpressionSyntax awaited =>
+                !CompleteTasks.IsComplete(region: this.region, task: awaited.Expression)
+                && LaterPartOf(awaited) is { } block
+                    ? (block, awaited.Span.End)
+                    : null,
+            CommonForEachStatementSyntax loop when loop.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword) =>
+                this.LaterAfterEachItem(loop),
+            _ => null
+        };
 
-        BlockSyntax? block = null;
+    private void AwaitsEachItem(CommonForEachStatementSyntax node)
+    {
+        if (this.LaterAfter(node) is { } part)
+        {
+            this.later.Add(part);
+        }
+    }
+
+    // An await foreach awaits each MoveNextAsync. The body runs in the call only for an item that
+    // the sequence gives in the call. The code after the loop runs in the call only when each item
+    // comes in the call.
+    private (SyntaxNode Block, int From)? LaterAfterEachItem(CommonForEachStatementSyntax loop)
+    {
+        (bool first, bool each) = CompleteTasks.ItemsComeAtOnce(region: this.region, sequence: loop.Expression);
+
+        return !each && PartAround(loop) is { } block
+            ? (block, first ? loop.Statement.Span.End : loop.Statement.SpanStart)
+            : null;
+    }
+
+    // The largest block or switch section that always runs the statement of the await to its end.
+    // Null when a statement, a branch, or a function between the two can skip the await. A goto to
+    // a label after the await can skip it also.
+    private static SyntaxNode? LaterPartOf(SyntaxNode node) =>
+        (WhereItAlwaysRuns(node) ?? HeaderOf(node)) is StatementSyntax statement ? PartAround(statement) : null;
+
+    private static SyntaxNode? PartAround(StatementSyntax statement)
+    {
+        SyntaxNode? block = null;
         SyntaxNode part = statement;
 
         for (SyntaxNode? place = statement.Parent;
              place != null && RunsToItsEnd(statement: place, part: part);
              part = place, place = place.Parent)
         {
-            block = place as BlockSyntax ?? block;
+            block = place is BlockSyntax or SwitchSectionSyntax ? place : block;
         }
 
         return block?.DescendantNodes().OfType<LabeledStatementSyntax>().Any() == false ? block : null;
     }
 
+    // The statement that always runs an expression of its header before its other parts. That
+    // expression is the collection of a foreach, the value of a switch, the first condition of a
+    // while, or the resource of a using. Null for each other expression.
+    private static StatementSyntax? HeaderOf(SyntaxNode expression)
+    {
+        SyntaxNode child = expression;
+
+        for (SyntaxNode? parent = expression.Parent; parent != null; child = parent, parent = parent.Parent)
+        {
+            switch (parent)
+            {
+                case CommonForEachStatementSyntax loop:
+                    return loop.Expression == child ? loop : null;
+                case SwitchStatementSyntax choice:
+                    return choice.Expression == child ? choice : null;
+                case WhileStatementSyntax loop:
+                    return loop.Condition == child ? loop : null;
+                case UsingStatementSyntax used:
+                    return used.Expression == child || used.Declaration == child ? used : null;
+                case StatementSyntax
+                    or AnonymousFunctionExpressionSyntax
+                    or SwitchExpressionArmSyntax
+                    or QueryClauseSyntax
+                    or SelectOrGroupClauseSyntax:
+                    return null;
+            }
+
+            if (CanSkip(parent: parent, child: child))
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
     // True when each run of a statement runs a part of it to its end. A do runs its body one time at
     // least. A try runs its block. With a catch clause, the code after the try can run when the
-    // block stops before the await. Thus, only a try with no catch clause counts.
+    // block stops before the await. Thus, only a try with no catch clause counts. A switch section
+    // runs its statements in their order, as a block does.
     private static bool RunsToItsEnd(SyntaxNode statement, SyntaxNode part) =>
         statement switch
         {
             BlockSyntax
+                or SwitchSectionSyntax
                 or UsingStatementSyntax
                 or LockStatementSyntax
                 or CheckedStatementSyntax
@@ -306,7 +378,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     private bool RunsLater(SyntaxNode node)
     {
-        foreach ((BlockSyntax block, int from) in this.later)
+        foreach ((SyntaxNode block, int from) in this.later)
         {
             if (node.SpanStart >= from && block.Span.Contains(node.Span))
             {
@@ -339,6 +411,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         this.Visit(node.Expression);
         this.RunQueries(node.Expression);
+        this.AwaitsEachItem(node);
 
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
@@ -449,6 +522,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         this.Visit(node.Expression);
         this.RunQueries(node.Expression);
+        this.AwaitsEachItem(node);
 
         LoopState ofTheCollection = this.evaluator.Eval(node.Expression).AsElement;
         LoopState enumerated = this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState);
