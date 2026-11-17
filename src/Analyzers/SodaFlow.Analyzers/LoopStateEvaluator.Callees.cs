@@ -199,6 +199,13 @@ internal sealed partial class LoopStateEvaluator
 
         List<Finding> found = [];
         SinkWalker walker = inner.ReadBy(new SinkWalker(region: this.region, evaluator: inner, sink: found.Add));
+
+        // An iterator that the code stops after its first item runs to its first yield return.
+        if (this.TakesOneItem(call))
+        {
+            walker.TakesOneItem();
+        }
+
         int before = manyTimes ? inner.ShapeOfWhatALoopLeaves(body) : 0;
         walker.Visit(body);
         found.AddRange(inner.Frame.TakeUnread());
@@ -277,6 +284,24 @@ internal sealed partial class LoopStateEvaluator
 
         return after;
     }
+
+    // True when the code enumerates the result of a call for one item and then stops. First,
+    // FirstOrDefault, and Any of Enumerable with no other argument do that. A foreach whose body
+    // ends the loop on each path does that also.
+    private bool TakesOneItem(SyntaxNode call) =>
+        call.Parent switch
+        {
+            MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "First" or "FirstOrDefault" or "Any",
+                Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } next
+            } =>
+                this.region.SymbolOf(next) is IMethodSymbol method
+                && SodaFlowSymbols.IsLinqEnumerable((method.ReducedFrom ?? method).OriginalDefinition.ContainingType),
+            CommonForEachStatementSyntax loop =>
+                SinkWalker.EndsTheLoopOnEachPath(loop: loop, body: loop.Statement),
+            _ => false
+        };
 
     // Takes away the state of each local and each parameter that the given function declares,
     // before a call of that function. A local that a function in it reads keeps its state. That

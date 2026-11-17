@@ -62,11 +62,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // around it. The statements of that part after the position run only when the task completes.
     private readonly List<(SyntaxNode Block, int From)> later = [];
 
+    // For an iterator that the code stops after its first item: the position after each yield
+    // return, with the part around it. The code of that part after the position does not run.
+    private readonly List<(SyntaxNode Block, int From)> afterTheItem = [];
+
+    private bool takesOneItem;
+
     public override void Visit(SyntaxNode? node)
     {
         this.region.StopWhenCanceled();
 
-        if (node != null && this.later.Count > 0 && this.RunsLater(node))
+        if (node != null
+            && ((this.later.Count > 0 && IsAfter(parts: this.later, node: node))
+                || (this.afterTheItem.Count > 0 && IsAfter(parts: this.afterTheItem, node: node))))
         {
             return;
         }
@@ -400,11 +408,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // the body, and its block holds the body. The next turn then runs after the task completes,
     // which is after the call, and the walk reads no second turn. A continue can start the next
     // turn before the await. Synchronous code has no such await, and the test is one test of an
-    // empty list.
+    // empty list. A yield return of an iterator that the code stops after its first item ends each
+    // turn also.
     private bool AwaitEndsEachTurn(SyntaxNode body) =>
-        this.later.Count > 0
+        (this.later.Count > 0 || this.afterTheItem.Count > 0)
         && body is BlockSyntax turn
-        && this.later.Any(awaited =>
+        && this.later.Concat(this.afterTheItem).Any(awaited =>
             awaited.Block.Span.Contains(turn.Span)
             && awaited.From > turn.SpanStart
             && awaited.From <= turn.Span.End)
@@ -418,9 +427,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             .OfType<ContinueStatementSyntax>()
             .Any();
 
-    private bool RunsLater(SyntaxNode node)
+    private static bool IsAfter(List<(SyntaxNode Block, int From)> parts, SyntaxNode node)
     {
-        foreach ((SyntaxNode block, int from) in this.later)
+        foreach ((SyntaxNode block, int from) in parts)
         {
             if (node.SpanStart >= from && block.Span.Contains(node.Span))
             {
@@ -429,6 +438,62 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         return false;
+    }
+
+    /// <summary>
+    ///     Makes the walk stop the iterator after its first item. The code after
+    ///     the first yield return on each path does not run. A finally block
+    ///     around that yield return runs at the Dispose of the enumerator.
+    /// </summary>
+    public void TakesOneItem() => this.takesOneItem = true;
+
+    public override void VisitYieldStatement(YieldStatementSyntax node)
+    {
+        base.VisitYieldStatement(node);
+
+        // A yield break ends the iterator also. Thus, the walk stops at each yield statement.
+        if (this.takesOneItem)
+        {
+            this.StopsAfter(node);
+        }
+    }
+
+    // Records the code that does not run after the yield return of the first item. A try statement
+    // with a finally block splits that code: the finally block runs, and the code after the try
+    // statement does not. A goto to a label after the yield return can skip it.
+    private void StopsAfter(YieldStatementSyntax yielded)
+    {
+        List<(SyntaxNode Block, int From)> parts = [];
+        SyntaxNode? block = null;
+        int from = yielded.Span.End;
+        SyntaxNode part = yielded;
+
+        for (SyntaxNode? place = yielded.Parent;
+             place != null && RunsToItsEnd(statement: place, part: part);
+             part = place, place = place.Parent)
+        {
+            if (place is TryStatementSyntax { Finally: not null } attempt)
+            {
+                if (block != null)
+                {
+                    parts.Add((block, from));
+                }
+
+                from = attempt.Span.End;
+            }
+
+            block = place is BlockSyntax or SwitchSectionSyntax ? place : block;
+        }
+
+        if (block != null)
+        {
+            parts.Add((block, from));
+        }
+
+        if (parts.Count > 0 && !parts[parts.Count - 1].Block.DescendantNodes().OfType<LabeledStatementSyntax>().Any())
+        {
+            this.afterTheItem.AddRange(parts);
+        }
     }
 
     // A local function runs when the code calls it, and the evaluator follows it then.
@@ -830,7 +895,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // True when each path through the body of a loop statement ends the loop. The loop then has one
     // turn at most. A continue for the loop starts the next turn. The test reads the last statement
     // of the body first, and that statement is usually not a jump.
-    private static bool EndsTheLoopOnEachPath(SyntaxNode loop, SyntaxNode body) =>
+    public static bool EndsTheLoopOnEachPath(SyntaxNode loop, SyntaxNode body) =>
         loop is ForStatementSyntax or CommonForEachStatementSyntax or WhileStatementSyntax or DoStatementSyntax
         && body is StatementSyntax turn
         && EndsTheLoop(turn)

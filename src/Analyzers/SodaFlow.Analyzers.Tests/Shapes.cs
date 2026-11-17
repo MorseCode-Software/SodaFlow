@@ -16871,6 +16871,66 @@ public static class Shapes
     public static Cell<int> Ab164AsyncMapCalledAsAStaticMethodWaits() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(MaybeAsyncExtensionMethods.Map(R3CsNeverMaybe.Task, c => c.Sample() + l.Sample())); return S.Hold(0); });
 
+    // S3741. First stops an iterator at its first yield, and the iterator samples its parameter only after that yield.
+    public static Cell<int> R3CsIteratorFirstStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R3CsOneThenRead(l.Map(v => v)).First()); return S.Hold(0); });
+
+    // S3742. A foreach that breaks in its first turn stops an iterator at its first yield, and the iterator samples its parameter only after that yield.
+    public static Cell<int> R3CsIteratorBreakStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (int n in R3CsOneThenRead(l.Map(v => v))) { Kept.Add(n); break; } return S.Hold(0); });
+
+    // S3743. Control: First takes the first item of an iterator that samples its parameter before its first yield.
+    public static Cell<int> Ab165IteratorFirstReadsBeforeTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab165ReadThenOne(l.Map(v => v)).First()); return S.Hold(0); });
+
+    // S3744. FirstOrDefault stops an iterator at its first yield, and the iterator samples its parameter only after that yield.
+    public static Cell<int> Ab165IteratorFirstOrDefaultStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R3CsOneThenRead(l.Map(v => v)).FirstOrDefault()); return S.Hold(0); });
+
+    // S3745. Any with no predicate stops an iterator at its first yield, and the iterator samples its parameter only after that yield.
+    public static Cell<int> Ab165IteratorAnyStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R3CsOneThenRead(l.Map(v => v)).Any()); return S.Hold(0); });
+
+    // S3746. Control: Any with a predicate that is false for each item enumerates the iterator to its end, and the iterator samples its parameter after its first yield.
+    public static Cell<int> Ab165IteratorAnyWithAPredicateRunsToTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R3CsOneThenRead(l.Map(v => v)).Any(n => n > 1)); return S.Hold(0); });
+
+    // S3747. Control: Last enumerates the iterator to its end, and the iterator samples its parameter after its first yield.
+    public static Cell<int> Ab165IteratorLastRunsToTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R3CsOneThenRead(l.Map(v => v)).Last()); return S.Hold(0); });
+
+    // S3748. Control: a foreach that breaks only under a condition that is false enumerates the iterator to its end, and the iterator samples its parameter after its first yield.
+    public static Cell<int> Ab165IteratorBreakUnderAConditionRunsToTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (int n in R3CsOneThenRead(l.Map(v => v))) { if (n > 5) { break; } } return S.Hold(0); });
+
+    // S3749. Control: First takes the first item of an iterator whose first yield is under a condition that is false, and the iterator samples its parameter before its second yield.
+    public static Cell<int> Ab165IteratorFirstPastAYieldThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab165OneIfThenRead(l.Map(v => v), Kept.Count < 0).First()); return S.Hold(0); });
+
+    // S3750. First stops an iterator in the first turn of its loop, and a later turn would sample the pending cell that the first turn gives a local.
+    public static Cell<int> Ab165IteratorFirstStopsBeforeTheSecondTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab165TurnsThenRead(l.Map(v => v)).First()); return S.Hold(0); });
+
+    // S3751. First stops an iterator at its first yield in a try block, and the iterator samples its parameter after the try statement.
+    public static Cell<int> Ab165IteratorFirstStopsAfterTheFinally() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab165FinallyThenRead(l.Map(v => v)).First()); return S.Hold(0); });
+
+    // S3752. Control: First stops an iterator at its first yield in a try block, and the finally block samples the parameter at the Dispose of the enumerator.
+    public static Cell<int> Ab165IteratorFirstRunsTheFinally() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R3CsReadsInAFinally(l.Map(v => v)).First()); return S.Hold(0); });
+
+    // S3753. Control: First takes the first item of an iterator whose goto goes past its first yield to a read of its parameter.
+    public static Cell<int> Ab165IteratorFirstWithAGotoPastTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab165SkipsItsFirstYield(l.Map(v => v), Kept.Count >= 0).First()); return S.Hold(0); });
+
+    // S3754. Control: a First of this code enumerates an iterator to its end, and the iterator samples its parameter after its first yield.
+    public static Cell<int> Ab165OwnFirstRunsTheIteratorToTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab165ItemsThenRead(l.Map(v => v)).First()); return S.Hold(0); });
+
+    // S3755. First stops an iterator at its first yield in a switch section, and the iterator samples its parameter after that yield in the same section.
+    public static Cell<int> Ab165IteratorFirstStopsInASwitchSection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab165SectionThenRead(l.Map(v => v), Kept.Count * 0).First()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -22430,6 +22490,89 @@ public static class Shapes
         return new Tally(c);
     }
 
+    private static IEnumerable<int> Ab165ReadThenOne(Cell<int> c)
+    {
+        Kept.Add(c.Sample());
+
+        yield return 1;
+    }
+
+    private static IEnumerable<int> Ab165OneIfThenRead(Cell<int> c, bool first)
+    {
+        if (first)
+        {
+            yield return 1;
+        }
+
+        Kept.Add(c.Sample());
+
+        yield return 2;
+    }
+
+    private static IEnumerable<int> Ab165TurnsThenRead(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+
+        while (Kept.Count >= 0)
+        {
+            Kept.Add(d.Sample());
+            d = c;
+
+            yield return 1;
+        }
+    }
+
+    private static IEnumerable<int> Ab165FinallyThenRead(Cell<int> c)
+    {
+        try
+        {
+            yield return 1;
+        }
+        finally
+        {
+            Kept.Add(0);
+        }
+
+        Kept.Add(c.Sample());
+    }
+
+    private static IEnumerable<int> Ab165SkipsItsFirstYield(Cell<int> c, bool skip)
+    {
+        if (skip)
+        {
+            goto Read;
+        }
+
+        yield return 1;
+
+    Read:
+        Kept.Add(c.Sample());
+
+        yield return 2;
+    }
+
+    public sealed class Ab165Item;
+
+    private static IEnumerable<Ab165Item> Ab165ItemsThenRead(Cell<int> c)
+    {
+        yield return new Ab165Item();
+
+        Kept.Add(c.Sample());
+    }
+
+    private static IEnumerable<int> Ab165SectionThenRead(Cell<int> c, int k)
+    {
+        switch (k)
+        {
+            case 0:
+                yield return 1;
+
+                Kept.Add(c.Sample());
+
+                break;
+        }
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -22438,6 +22581,19 @@ public static class Shapes
 
 file static class Helpers
 {
+    // A First of this code that reads each item. It is a closer extension method than the one of Enumerable.
+    public static Shapes.Ab165Item First(this IEnumerable<Shapes.Ab165Item> items)
+    {
+        Shapes.Ab165Item? last = null;
+
+        foreach (Shapes.Ab165Item item in items)
+        {
+            last = item;
+        }
+
+        return last ?? new Shapes.Ab165Item();
+    }
+
     public static string DvVmCaptionExtension(this SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<string> text) => "Caption: " + text.Value;
 
     public static void Add(this Shapes.Ag72Bare bare, Cell<int> c) => bare.Put(c, c.Sample());

@@ -313,7 +313,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   search, a set, or a dictionary, a comparer that you give a collection, and `ToString` in
   `string.Join` or `string.Format`.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
-  and the function of a `Lazy<T>` where something reads its `Value`. An `async` method or lambda
+  and the function of a `Lazy<T>` where something reads its `Value`. Where the code takes only one
+  item from the call of an iterator, with `First`, `FirstOrDefault`, `Any()` with no predicate, or
+  a `foreach` that leaves the loop in its first pass on every path, the iterator runs only up to
+  its first `yield return` and the `finally` blocks around it. An `async` method or lambda
   runs in the block up to its first `await` of a task that may not be complete, and the rest of it
   runs later. That holds for an `await` in a `switch` section or in the header of a `foreach`,
   `switch`, `while`, or `using` too. The `Dispose` at the end of a `using` or a `foreach` runs

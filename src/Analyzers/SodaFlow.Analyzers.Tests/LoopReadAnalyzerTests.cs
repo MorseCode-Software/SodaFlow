@@ -2475,7 +2475,15 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab163UsingDeclarationAwaitsACompleteTaskInItsInitializer"] = ["SF1005"],
             ["Ab164AsyncMapOfACompleteMaybeTask"] = ["SF1001"],
             ["Ab164AsyncMapOfACompleteMaybeTaskWithAStoredFunction"] = ["SF1001"],
-            ["Ab164MapAsyncOfAMaybeRunsNow"] = ["SF1001"]
+            ["Ab164MapAsyncOfAMaybeRunsNow"] = ["SF1001"],
+            ["Ab165IteratorFirstReadsBeforeTheFirstYield"] = ["SF1004"],
+            ["Ab165IteratorAnyWithAPredicateRunsToTheEnd"] = ["SF1004"],
+            ["Ab165IteratorLastRunsToTheEnd"] = ["SF1004"],
+            ["Ab165IteratorBreakUnderAConditionRunsToTheEnd"] = ["SF1004"],
+            ["Ab165IteratorFirstPastAYieldThatDoesNotRun"] = ["SF1004"],
+            ["Ab165IteratorFirstRunsTheFinally"] = ["SF1004"],
+            ["Ab165IteratorFirstWithAGotoPastTheFirstYield"] = ["SF1004"],
+            ["Ab165OwnFirstRunsTheIteratorToTheEnd"] = ["SF1004"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
