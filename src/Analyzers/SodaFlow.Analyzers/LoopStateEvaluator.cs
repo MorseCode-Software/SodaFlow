@@ -4623,9 +4623,11 @@ internal sealed partial class LoopStateEvaluator
             .Select((argument, position) =>
                 (Written: argument.Expression,
                     Parameter: ParameterFor(method: method, argument: argument, position: position)))
-            // A lambda with no call and no property that reads cannot read a value.
-            .Where(static argument =>
-                argument.Written is not AnonymousFunctionExpressionSyntax lambda || CanRead(lambda.Body))
+            // A lambda with no call and no property that reads cannot read a value. A function that
+            // the operator keeps for a later time does not compute the value.
+            .Where(argument =>
+                (argument.Written is not AnonymousFunctionExpressionSyntax lambda || CanRead(lambda.Body))
+                && OperatorTable.ComputesValue(method: method, parameter: argument.Parameter))
             .Any(Reads);
 
         bool Reads((ExpressionSyntax Written, IParameterSymbol? Parameter) argument)

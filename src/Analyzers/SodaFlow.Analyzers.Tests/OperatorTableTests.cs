@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -163,4 +164,69 @@ internal sealed class OperatorTableTests
             .IsEmpty()
             .Because("each name in the two lists is a public method that takes a function");
     }
+
+    /// <summary>
+    ///     An operator whose function computes its value can also get a function
+    ///     that it keeps for a later time. Only the first makes the result
+    ///     pending. Thus, each function parameter of such an operator has to say
+    ///     which it is, and this test fails for a new one until it does. A
+    ///     comparer, and a cell of functions, are functions here also.
+    /// </summary>
+    [Test]
+    public async Task EachFunctionOfAnOperatorThatComputesItsValueSaysWhetherItComputesIt()
+    {
+        IReadOnlyList<(string Method, string Parameter)> functions =
+        [
+            .. Libraries
+                .SelectMany(static assembly => assembly.GetExportedTypes())
+                .Where(static type => !typeof(Delegate).IsAssignableFrom(type))
+                .SelectMany(static type => type.GetMethods(Declared))
+                .Where(static method => OperatorTable.ValueFromFunction.ContainsKey(method.Name))
+                .SelectMany(static method =>
+                    method.GetParameters()
+                        .Where(static parameter => IsFunction(parameter.ParameterType))
+                        .Select(parameter => (Method: method.Name, Parameter: parameter.Name ?? string.Empty)))
+                .Distinct()
+        ];
+
+        await Assert.That(functions).Contains(("Map", "onEvicted"));
+
+        IReadOnlyList<string> unknown =
+        [
+            .. functions
+                .Where(static function =>
+                    IsListed(table: OperatorTable.ValueFromFunction, function: function)
+                    == IsListed(table: OperatorTable.KeptBesideTheValue, function: function))
+                .Select(static function => function.Method + "(" + function.Parameter + ")")
+        ];
+
+        await Assert.That(unknown)
+            .IsEmpty()
+            .Because("each function parameter is in ValueFromFunction or in KeptBesideTheValue, and not in both");
+
+        IReadOnlyList<(string Method, string Parameter)> listed =
+        [
+            .. OperatorTable.ValueFromFunction.Concat(OperatorTable.KeptBesideTheValue)
+                .SelectMany(static row => row.Value.Select(parameter => (Method: row.Key, Parameter: parameter)))
+        ];
+
+        await Assert.That(listed.Except(functions))
+            .IsEmpty()
+            .Because("each parameter in the two tables is a function parameter of a public method");
+    }
+
+    private static bool IsListed(
+        ImmutableDictionary<string, ImmutableHashSet<string>> table,
+        (string Method, string Parameter) function) =>
+        table.TryGetValue(key: function.Method, value: out ImmutableHashSet<string>? parameters)
+        && parameters.Contains(function.Parameter);
+
+    // A delegate, a comparer, or a type with a delegate as a type argument, as a cell of predicates
+    // is.
+    private static bool IsFunction(Type type) =>
+        typeof(Delegate).IsAssignableFrom(type)
+        || (type.IsGenericType
+            && (type.GetGenericTypeDefinition() == typeof(IComparer<>)
+                || type.GetGenericTypeDefinition() == typeof(IEqualityComparer<>)
+                || type.GetGenericArguments().Any(static argument => typeof(Delegate).IsAssignableFrom(argument))));
 }

@@ -17670,6 +17670,18 @@ public static class Shapes
     public static Cell<int> Ab177ListConvertAllRunsItsConverterInTheCall() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new List<int> { 0 }.ConvertAll(_ => { got = h.Sample(); return 0; }); return got; });
 
+    // S3940. The group function of a queue per group runs at each firing of the source. Thus, a pipeline with a group function that samples the placeholder can show IsRunning in the block.
+    public static Cell<int> R3ApiQueuePerGroupFunctionThatReadsIsNotRunAtConstruction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AsyncMapStatus<int, int> status = Stream.CreateSink<int>().MapAsync(results: Stream.CreateSink<int>(), errors: Stream.CreateSink<Exception>(), handleException: _ => { }, operation: (v, f, _) => Task.FromResult(f.FromValue(v)), strategy: AsyncConcurrencyStrategy.QueuePerGroup<int>().Create(getGroup: v => v + l.Sample())); return S.Hold(status.IsRunning.Sample() ? 1 : 0); });
+
+    // S3941. The eviction handler of a map of a collection runs only when a key leaves or at Dispose. Thus, a handler that samples the placeholder does not make a read of the items throw.
+    public static Cell<int> R3ApiMappedItemsEvictionHandlerThatReadsIsNotRunByARead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); return S.Hold(m.Items.Sample().Count); });
+
+    // S3942. The projection of a map of a collection runs at the first read of the items. Thus, a projection that samples the placeholder makes a read of the items throw.
+    public static Cell<int> Ab178MappedItemsProjectionThatReadsRunsAtARead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k + l.Sample(), onEvicted: _ => { }); return S.Hold(m.Items.Sample().Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

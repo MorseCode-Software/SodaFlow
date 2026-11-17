@@ -2577,7 +2577,8 @@ internal sealed class LoopReadAnalyzerTests
             ["R3ApiSendThroughAsStreamSinkReachesTheHold"] = ["SF1002"],
             ["Ab181HoldOfAsStreamSinkGetsASendIntoTheSink"] = ["SF1002"],
             ["R3ApiLambdaKeptInAListAndRunAfterTheClose"] = ["SF1002"],
-            ["Ab177LambdaInsertedInAListAndRunAfterTheClose"] = ["SF1002"]
+            ["Ab177LambdaInsertedInAListAndRunAfterTheClose"] = ["SF1002"],
+            ["Ab178MappedItemsProjectionThatReadsRunsAtARead"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
