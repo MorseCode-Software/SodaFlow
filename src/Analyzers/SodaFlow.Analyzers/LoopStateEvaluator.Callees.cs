@@ -14,6 +14,86 @@ namespace SodaFlow.Analyzers;
 // from the arguments of the call, and gives the caller what the walk found.
 internal sealed partial class LoopStateEvaluator
 {
+    // The state of a read of a member, with what the initializer of the member says. A creation
+    // there says the class of the object. A lambda or the name of a static method there is the
+    // function of the delegate. The walk reads the initializer for those things only.
+    private LoopState WithItsInitializer(SyntaxNode expression, LoopState state)
+    {
+        if (this.region.SymbolOf(expression) is not { } member
+            || member is not (IFieldSymbol { IsReadOnly: true } or IPropertySymbol { IsReadOnly: true })
+            || this.region.InitializerOf(member.OriginalDefinition) is not { } made)
+        {
+            return state;
+        }
+
+        switch (made)
+        {
+            case AnonymousFunctionExpressionSyntax lambda when state.Functions.IsEmpty:
+                return state.Join(
+                    LoopState.OfFunction(new FunctionValue(declaration: lambda, definer: null, receiver: null)));
+            case BaseObjectCreationExpressionSyntax creation
+                when state.Members == null
+                     && this.region.SymbolOf(creation)
+                         is IMethodSymbol
+                         {
+                             ContainingType: { TypeKind: TypeKind.Class, DeclaringSyntaxReferences.IsEmpty: false }
+                             itsClass
+                         }:
+            {
+                Construction ofItsClass = Construction.Of(itsClass);
+
+                // The object in a member of an object of the store.
+                if (!state.Objects.IsEmpty)
+                {
+                    return state.WithMembers(ofItsClass);
+                }
+
+                // A static member has one object for each read of it. The store keeps that object,
+                // which is older than the block. An evaluator that reads code which does not run
+                // now makes no object.
+                if (!member.IsStatic)
+                {
+                    return state;
+                }
+
+                MadeObject? one = this.region.Objects.InAStaticMember(member.OriginalDefinition);
+
+                if (one == null)
+                {
+                    if (this.quiet)
+                    {
+                        return state;
+                    }
+
+                    one =
+                        this.region.Objects.MakeInAStaticMember(
+                            member: member.OriginalDefinition,
+                            frame: this.Frame.Root,
+                            type: itsClass,
+                            state: LoopState.None.WithMembers(ofItsClass));
+                }
+
+                // The member is the origin of what its object has, as a field that the code set is.
+                // Thus, a callee that reads the object gives its caller a finding.
+                return state.WithMembers(ofItsClass).WithObjects(ImmutableArray.Create(one)).FromIfUnknown(member);
+            }
+            // The name of a static method of this compilation, as a value.
+            case IdentifierNameSyntax or MemberAccessExpressionSyntax
+                when state.Functions.IsEmpty
+                     && this.region.SymbolOf(made) is IMethodSymbol { IsStatic: true } group
+                     && group.OriginalDefinition.DeclaringSyntaxReferences
+                             .Select(static reference => reference.GetSyntax())
+                             .OfType<MethodDeclarationSyntax>()
+                             .FirstOrDefault()
+                         is { } declaration:
+                return state.Join(
+                    LoopState.OfFunction(
+                        new FunctionValue(declaration: declaration, definer: null, receiver: null)));
+            default:
+                return state;
+        }
+    }
+
     /// <summary>
     ///     Walks the body of a callee as a call from this code, and gives the
     ///     caller what the walk found.
@@ -67,7 +147,7 @@ internal sealed partial class LoopStateEvaluator
         bool noState =
             definer == null
             && members.Count == 0
-            && !this.region.HasFields
+            && this.region is { HasFields: false, Objects.ChangedAStaticObject: false }
             && bindings.All(static binding => binding.State.IsNone);
 
         switch (noState)
@@ -203,13 +283,17 @@ internal sealed partial class LoopStateEvaluator
     // function can run after the next call, with the local of its own call.
     private void ForgetTheLocalsOf(SyntaxNode function)
     {
-        if (this.region.CapturedIn(function) is not { } captured)
+        // The compiler does not keep its data flow analysis, and that analysis walks the full
+        // member. When the function declares no local with a state, the walk has nothing to forget.
+        if (!this.locals.Keys.Any(local => this.region.IsDeclaredIn(local: local, code: function))
+            || this.region.CapturedIn(function) is not { } captured)
         {
             return;
         }
 
         foreach (ISymbol local in this.locals.Keys
-                     .Where(local => IsDeclaredIn(local: local, code: function) && !captured.Contains(local))
+                     .Where(local =>
+                         this.region.IsDeclaredIn(local: local, code: function) && !captured.Contains(local))
                      .ToArray())
         {
             this.locals.Remove(local);
@@ -387,9 +471,16 @@ internal sealed partial class LoopStateEvaluator
                 self: self,
                 hasItsOwnMembers: definer == null && !ReferenceEquals(objA: members, objB: this.thisMembers),
                 typeArguments: this.TypeArgumentsOf(call: call, definer: definer),
-                locations: locations));
+                locations: locations,
+                caller: this,
+                site: call));
 
         inner.Frame.CanBeUnseen.UnionWith(unseen);
+
+        // A function of this code, and a member of this object, run on the object that this code
+        // is in.
+        inner.builtType =
+            definer?.builtType ?? (ReferenceEquals(objA: members, objB: this.thisMembers) ? this.builtType : null);
 
         // The code of a function does not read this record: see TheOneCollectionOf.
         foreach (KeyValuePair<ISymbol, MadeObject> one in collections)
@@ -471,6 +562,9 @@ internal sealed partial class LoopStateEvaluator
         ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)>.Builder through =
             ImmutableArray.CreateBuilder<(IParameterSymbol Parameter, ISymbol Member, LoopState State)>();
 
+        ImmutableHashSet<ISymbol>.Builder alwaysGives =
+            ImmutableHashSet.CreateBuilder<ISymbol>(SymbolEqualityComparer.Default);
+
         // A parameter has a state here only when the callee gave it one. For a parameter that is
         // not ref or out, that is a value that the callee put into the object, as Add does. The
         // caller has the same object. An assignment to the parameter changes only the local of
@@ -483,6 +577,16 @@ internal sealed partial class LoopStateEvaluator
             {
                 outs[binding.Parameter] = assigned.WithOrigins(Out).FromIfUnknown(inputs);
 
+                // An assignment that always runs gives the location of the argument this value. A
+                // put or a change of a position after the last such assignment can go to that
+                // location.
+                if (inner.Frame.PositionsAtASureAssignment.TryGetValue(key: binding.Parameter, value: out int at)
+                    && at == this.region.Objects.PositionChanges
+                    && inner.Frame.PutsBeforeAnAssignment[binding.Parameter] == inner.Frame.PutsIntoLocations.Count)
+                {
+                    alwaysGives.Add(binding.Parameter);
+                }
+
                 // The members that the callee set through the parameter.
                 if (assigned.Members is { } has
                     && inner.Frame.SetThrough.TryGetValue(key: binding.Parameter, value: out HashSet<ISymbol>? members))
@@ -492,6 +596,11 @@ internal sealed partial class LoopStateEvaluator
                             (binding.Parameter, member, has.StateOf(member).WithOrigins(Out).FromIfUnknown(inputs))));
                 }
             }
+        }
+
+        if (!lexical && inner.Frame.PutsThroughParameters.Count > 0)
+        {
+            this.GetsThePutsOf(callee: inner.Frame, argumentOf: byParameter);
         }
 
         // A callee on a different object got a copy of the members of that object. Each member
@@ -510,7 +619,8 @@ internal sealed partial class LoopStateEvaluator
             findings: findings,
             outs: outs.ToImmutable(),
             sets: sets,
-            through: through.ToImmutable());
+            through: through.ToImmutable(),
+            alwaysGives: alwaysGives.ToImmutable());
 
         // The findings of the callee, in the names of this code.
         ImmutableArray<Finding> Changed(IEnumerable<Finding> from)
@@ -555,7 +665,8 @@ internal sealed partial class LoopStateEvaluator
                                     name,
                                     finding.Origin.Name,
                                     this.region.PlaceholderName),
-                            subject: finding.Subject));
+                            subject: finding.Subject,
+                            readBack: finding.ReadBack));
 
                     continue;
                 }
@@ -591,7 +702,8 @@ internal sealed partial class LoopStateEvaluator
                                 name,
                                 finding.Origin.Name,
                                 this.region.PlaceholderName),
-                        subject: finding.Subject));
+                        subject: finding.Subject,
+                        readBack: finding.ReadBack));
             }
 
             return changed.ToImmutable();
@@ -712,5 +824,70 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return bindings;
+    }
+
+    /// <summary>
+    ///     The state of what the function of a map returns, for the content of a
+    ///     cell of cells or a cell of streams. The function is a lambda at the
+    ///     call, or a function that the code gives by its name.
+    /// </summary>
+    private LoopState MappedContent(InvocationExpressionSyntax invocation, LoopState parameterState) =>
+        invocation.ArgumentList.Arguments.Any(static argument =>
+            argument.Expression is AnonymousFunctionExpressionSyntax)
+            ? this.LambdaContent(invocation: invocation, parameterState: parameterState)
+            : this.ContentOfANamedFunction(invocation: invocation, given: ImmutableArray.Create(parameterState));
+
+    /// <summary>
+    ///     The state of what a function returns, for a function that the code
+    ///     gives by its name to a map or a lift. The function is a local function,
+    ///     a lambda in a local, or a method. Each parameter gets the state at its
+    ///     position.
+    /// </summary>
+    /// <remarks>
+    ///     The operator runs the function at a time that the walk does not know.
+    ///     Thus, an evaluator that changes nothing reads it. The walk reads it only
+    ///     for a result whose values can hold a state, as for a lambda.
+    /// </remarks>
+    private LoopState ContentOfANamedFunction(InvocationExpressionSyntax invocation, ImmutableArray<LoopState> given)
+    {
+        if (this.region.SymbolOf(invocation) is not IMethodSymbol method || !this.HoldsContent(method))
+        {
+            return LoopState.None;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+        LoopState content = LoopState.None;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            ExpressionSyntax written = arguments[i].Expression;
+
+            if (ParameterFor(method: method, argument: arguments[i], position: i)
+                    is not { Type.TypeKind: TypeKind.Delegate }
+                || this.Eval(written) is not { Functions.IsEmpty: false } functions)
+            {
+                continue;
+            }
+
+            LoopStateEvaluator quiet = this.Quiet();
+
+            content =
+                functions.Functions.Aggregate(
+                    seed: content,
+                    func: (all, function) =>
+                        all.Join(
+                            quiet.FollowFunction(
+                                    call: invocation,
+                                    name: NameOf(written),
+                                    function: function,
+                                    target: functions,
+                                    arguments: default,
+                                    each: (written, LoopState.None, ManyTimes: true),
+                                    byPosition: given)
+                                ?.State
+                            ?? LoopState.None));
+        }
+
+        return content;
     }
 }

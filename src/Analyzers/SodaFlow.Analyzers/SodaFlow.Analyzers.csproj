@@ -41,8 +41,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Compile Include="ArrayOfAForeach.cs"/>
         <Compile Include="AssemblyInfo.cs"/>
         <Compile Include="CalleeKind.cs"/>
+        <Compile Include="CompleteTasks.cs"/>
         <Compile Include="Construction.cs"/>
         <Compile Include="Diagnostics.cs"/>
         <Compile Include="Finding.cs"/>
@@ -54,8 +56,12 @@
         <Compile Include="LoopState.cs"/>
         <Compile Include="LoopStateEvaluator.Callees.cs"/>
         <Compile Include="LoopStateEvaluator.Collections.cs"/>
+        <Compile Include="LoopStateEvaluator.Implied.cs"/>
+        <Compile Include="LoopStateEvaluator.Platform.cs"/>
         <Compile Include="LoopStateEvaluator.cs"/>
         <Compile Include="LoopStateEvaluator.Positions.cs"/>
+        <Compile Include="LoopStateEvaluator.ReadBack.cs"/>
+        <Compile Include="LoopStateEvaluator.Sinks.cs"/>
         <Compile Include="LoopStateEvaluator.Writes.cs"/>
         <Compile Include="MadeObject.cs"/>
         <Compile Include="ObjectStore.cs"/>
@@ -63,6 +69,7 @@
         <Compile Include="PlatformCallers.cs"/>
         <Compile Include="PlatformReceivers.cs"/>
         <Compile Include="QueryValue.cs"/>
+        <Compile Include="SentContent.cs"/>
         <Compile Include="ShapeNumber.cs"/>
         <Compile Include="SinkWalker.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>

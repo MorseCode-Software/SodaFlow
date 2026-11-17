@@ -31,6 +31,8 @@ internal sealed class ObjectStore
     private readonly Dictionary<MadeObject, (ImmutableArray<LoopState> Values, LoopState At)> positions = [];
     private readonly HashSet<MadeObject> ended = [];
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> inMembers = [];
+    private readonly Dictionary<ISymbol, MadeObject> inStaticMembers = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<MadeObject> ofStaticMembers = [];
 
     // For the object in a member: its owner, the member, and the type of the member.
     private readonly Dictionary<MadeObject, (MadeObject Owner, ISymbol Member, ITypeSymbol Type)> memberOf = [];
@@ -298,6 +300,28 @@ internal sealed class ObjectStore
         }
     }
 
+    // The call that made each sink of the store.
+    private readonly Dictionary<MadeObject, SyntaxNode> sinks = [];
+
+    /// <summary>
+    ///     Records that an object is a sink that the call made. Each object of
+    ///     the turns before it is such a sink also. At the end of a loop, a name
+    ///     gets such an object.
+    /// </summary>
+    public void IsASink(MadeObject made, SyntaxNode creation)
+    {
+        for (MadeObject? each = made;
+             each != null && !this.sinks.ContainsKey(each);
+             each = this.before.TryGetValue(key: each, value: out MadeObject? older) ? older : null)
+        {
+            this.sinks[each] = creation;
+        }
+    }
+
+    /// <summary>The call that made a sink of the store. Null for each other object.</summary>
+    public SyntaxNode? CreationOfASink(MadeObject made) =>
+        this.sinks.TryGetValue(key: made, value: out SyntaxNode? creation) ? creation : null;
+
     /// <summary>
     ///     The object in a member of an object of the store. Null when no read of
     ///     that member made it.
@@ -307,6 +331,26 @@ internal sealed class ObjectStore
         && members.TryGetValue(key: member, value: out MadeObject? found)
             ? found
             : null;
+
+    /// <summary>
+    ///     The object in a static member that gets no value after its
+    ///     initializer. Null when no read of that member made it.
+    /// </summary>
+    public MadeObject? InAStaticMember(ISymbol member) =>
+        this.inStaticMembers.TryGetValue(key: member, value: out MadeObject? found) ? found : null;
+
+    /// <summary>
+    ///     Makes the object in a static member, with its first state. The object
+    ///     has the class of the creation in the initializer of the member.
+    /// </summary>
+    public MadeObject MakeInAStaticMember(ISymbol member, LoopFrame frame, ITypeSymbol type, LoopState state)
+    {
+        MadeObject found = this.Make(frame: frame, type: type, exact: true, state: state);
+        this.inStaticMembers[member] = found;
+        this.ofStaticMembers.Add(found);
+
+        return found;
+    }
 
     /// <summary>
     ///     Makes the object in a member of an object of the store, with its first
@@ -385,6 +429,8 @@ internal sealed class ObjectStore
     /// <summary>Records the value at each position of a collection, for the state that it has now.</summary>
     public void HasPositions(MadeObject collection, ImmutableArray<LoopState> values)
     {
+        this.PositionChanges++;
+
         if (this.states.TryGetValue(key: collection, value: out LoopState? now))
         {
             this.positions[collection] = (values, now);
@@ -392,7 +438,51 @@ internal sealed class ObjectStore
     }
 
     /// <summary>Records that the walk does not know the positions of a collection.</summary>
-    public void HasNoPositions(MadeObject collection) => this.positions.Remove(collection);
+    public void HasNoPositions(MadeObject collection)
+    {
+        this.PositionChanges++;
+        this.positions.Remove(collection);
+    }
+
+    // For a collection: its positions at a record, and the expression that gave each position its
+    // value. The record is good while the collection has those positions.
+    private readonly Dictionary<MadeObject, (ImmutableArray<LoopState> Values, ImmutableArray<SyntaxNode?> Given)>
+        givenBy = [];
+
+    /// <summary>
+    ///     Records the value at each position of a collection, and the expression
+    ///     that gave each value. Null is for a value that no expression of the
+    ///     code gave.
+    /// </summary>
+    public void HasPositions(
+        MadeObject collection,
+        ImmutableArray<LoopState> values,
+        ImmutableArray<SyntaxNode?> givenBy)
+    {
+        this.HasPositions(collection: collection, values: values);
+        this.givenBy[collection] = (values, givenBy);
+    }
+
+    /// <summary>
+    ///     The expression that gave each position of a collection its value, for
+    ///     the positions that the collection has now. Null for each value that
+    ///     the walk has no expression for.
+    /// </summary>
+    public ImmutableArray<SyntaxNode?> GivenBy(MadeObject collection, ImmutableArray<LoopState> values) =>
+        this.givenBy.TryGetValue(
+            key: collection,
+            value: out (ImmutableArray<LoopState> Values, ImmutableArray<SyntaxNode?> Given) known)
+        && known.Values == values
+            ? known.Given
+            : values.Select(static SyntaxNode? (_) => null).ToImmutableArray();
+
+    /// <summary>
+    ///     The number of calls of
+    ///     <see cref="HasPositions(MadeObject, ImmutableArray{LoopState})" /> and
+    ///     <see cref="HasNoPositions" />. When the number is the same at two
+    ///     times, no code between the two changed a position.
+    /// </summary>
+    public int PositionChanges { get; private set; }
 
     // For a member of an object: the one collection that the member is.
     private readonly Dictionary<MadeObject, Dictionary<ISymbol, MadeObject>> collectionIn = [];
@@ -448,6 +538,20 @@ internal sealed class ObjectStore
     public LoopState? StateOf(MadeObject found) =>
         this.states.TryGetValue(key: found, value: out LoopState? state) ? state : null;
 
+    /// <summary>
+    ///     True when the code gave an object in a static member a new state. Each
+    ///     callee can read that object.
+    /// </summary>
+    public bool ChangedAStaticObject { get; private set; }
+
     /// <summary>Gives an object of the store a new state.</summary>
-    public void Set(MadeObject found, LoopState state) => this.states[found] = state;
+    public void Set(MadeObject found, LoopState state)
+    {
+        this.states[found] = state;
+
+        if (this.ofStaticMembers.Count > 0 && !this.ChangedAStaticObject)
+        {
+            this.ChangedAStaticObject = this.ofStaticMembers.Contains(found);
+        }
+    }
 }
