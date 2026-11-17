@@ -17119,6 +17119,54 @@ public static class Shapes
     public static Cell<int> Ag77ReadInTheElseOfAConstantFalseCondition() =>
         Cell.Loop<int>().WithoutCaptures(l => { if (R3LimOff) { Kept.Add(0); } else { Kept.Add(l.Sample()); } return S.Hold(0); });
 
+    // S3803. A local delegate gets a handler that samples, a call that does not use the delegate comes next, and a remove takes the handler away before the call of the delegate.
+    public static Cell<int> R3LimHandlerRemovedFromALocalDelegateAfterACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action h = () => Kept.Add(l.Sample()); Action? all = null; all += h; Kept.Add(0); all -= h; all?.Invoke(); return S.Hold(0); });
+
+    // S3804. An event of a new object gets a handler that samples, a call that does not use the object comes next, and a remove takes the handler away before the raise.
+    public static Cell<int> R3LimHandlerRemovedFromAnEventAfterACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Kept.Add(0); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3805. A list gets the object before the add of a handler that samples. A call through the list copies the handlers between the add and the remove, and the raise runs the copy. A control.
+    public static Cell<int> Ag79AListHasTheObjectBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab120Bell b = new(); List<Ab120Bell> keep = [b]; Action h = () => Kept.Add(l.Sample()); b.Rang += h; keep[0].Twice(); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3806. The constructor of the object puts it into a static list. A call through that list copies the handlers between the add and the remove, and the raise runs the copy. A control.
+    public static Cell<int> Ag79AConstructorPutsTheObjectIntoAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag79SelfListed b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Ag79SelfListed.All[^1].Twice(); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3807. The constructor of the base type of the object puts it into a static list. A call through that list copies the handlers between the add and the remove, and the raise runs the copy. A control.
+    public static Cell<int> Ag79ABaseConstructorPutsTheObjectIntoAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag79BaseListed b = new(1); Action h = () => Kept.Add(l.Sample()); b.Rang += h; ((Ag79BaseListed)Ag79Listing.All[^1]).Twice(); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3808. The constructor of the object calls a method of the object that puts it into a static list. A call through that list copies the handlers between the add and the remove. A control.
+    public static Cell<int> Ag79AConstructorCallsAMethodThatPutsTheObjectIntoAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag79MethodListed b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Ag79MethodListed.All[^1].Twice(); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3809. An event of a new object whose constructor only sets a field gets a handler that samples, a call comes next, and a remove takes the handler away before the raise.
+    public static Cell<int> Ag79HandlerRemovedFromAnEventOfAnObjectWithAConstructorAfterACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag79Counted b = new(1); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Kept.Add(0); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3810. A local delegate gets a handler that samples, two calls and a creation come next, and a remove takes the handler away before the call of the delegate.
+    public static Cell<int> Ag79HandlerRemovedFromALocalDelegateAfterTwoCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action h = () => Kept.Add(l.Sample()); Action? all = null; all += h; Kept.Add(0); Kept.Add(new SettableSlot()); all -= h; all?.Invoke(); return S.Hold(0); });
+
+    // S3811. An event of a new object whose constructor only sets a property with no code gets a handler that samples, a call comes next, and a remove takes the handler away before the raise.
+    public static Cell<int> Ag79HandlerRemovedFromAnEventOfAnObjectThatSetsAPropertyAfterACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag79Propertied b = new(1); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Kept.Add(0); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3812. The constructor of the object sets a property whose setter puts the object into a static list. A call through that list copies the handlers between the add and the remove. A control.
+    public static Cell<int> Ag79ASetterInTheConstructorPutsTheObjectIntoAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag79SetterListed b = new(1); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Ag79SetterListed.All[^1].Twice(); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3813. The base type of the object is in code with no body to read, and its constructor puts the object into a static list. A call through that list copies the handlers between the add and the remove. A control.
+    public static Cell<int> Ag79ABaseConstructorWithNoBodyPutsTheObjectIntoAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag79NoBodyListed b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; ((Ag79NoBodyListed)NoBodyListing.All[^1]).Twice(); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3814. The constructor of the object puts a lambda that names the object into a static list. A call of that lambda copies the handlers between the add and the remove. A control.
+    public static Cell<int> Ag79AConstructorKeepsALambdaOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag79LambdaKept b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Ag79LambdaKept.Later[^1](); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -22820,6 +22868,125 @@ public static class Shapes
     public sealed class Ag75Slot(Cell<int> share)
     {
         public Cell<int> Share { get; } = share;
+    }
+
+    public sealed class Ag79SelfListed
+    {
+        public static readonly List<Ag79SelfListed> All = [];
+
+        public Ag79SelfListed() => All.Add(this);
+
+        public event Action? Rang;
+
+        public void Twice() => this.Rang += this.Rang;
+
+        public void Ring() => this.Rang?.Invoke();
+    }
+
+    public class Ag79Listing
+    {
+        public static readonly List<Ag79Listing> All = [];
+
+        public Ag79Listing() => All.Add(this);
+    }
+
+    public sealed class Ag79BaseListed : Ag79Listing
+    {
+        private readonly int start;
+
+        public Ag79BaseListed(int start) => this.start = start;
+
+        public event Action? Rang;
+
+        public int Start => this.start;
+
+        public void Twice() => this.Rang += this.Rang;
+
+        public void Ring() => this.Rang?.Invoke();
+    }
+
+    public sealed class Ag79MethodListed
+    {
+        public static readonly List<Ag79MethodListed> All = [];
+
+        public Ag79MethodListed() => this.Enter();
+
+        public event Action? Rang;
+
+        public void Twice() => this.Rang += this.Rang;
+
+        public void Ring() => this.Rang?.Invoke();
+
+        private void Enter() => All.Add(this);
+    }
+
+    public sealed class Ag79Counted
+    {
+        private readonly int start;
+
+        public Ag79Counted(int start) => this.start = start;
+
+        public event Action? Rang;
+
+        public int Start => this.start;
+
+        public void Ring() => this.Rang?.Invoke();
+    }
+
+    public sealed class Ag79Propertied
+    {
+        public Ag79Propertied(int start) => this.Start = start;
+
+        public event Action? Rang;
+
+        public int Start { get; }
+
+        public void Ring() => this.Rang?.Invoke();
+    }
+
+    public sealed class Ag79SetterListed
+    {
+        public static readonly List<Ag79SetterListed> All = [];
+
+        public Ag79SetterListed(int start) => this.Start = start;
+
+        public event Action? Rang;
+
+        public int Start
+        {
+            get;
+            set
+            {
+                field = value;
+                All.Add(this);
+            }
+        }
+
+        public void Twice() => this.Rang += this.Rang;
+
+        public void Ring() => this.Rang?.Invoke();
+    }
+
+    public sealed class Ag79NoBodyListed : NoBodyListing
+    {
+        public event Action? Rang;
+
+        public void Twice() => this.Rang += this.Rang;
+
+        public void Ring() => this.Rang?.Invoke();
+    }
+
+    public sealed class Ag79LambdaKept
+    {
+        public static readonly List<Action> Later = [];
+
+        public Ag79LambdaKept() => Later.Add(() => this.Twice());
+
+        public event Action? Rang;
+
+        public void Twice() => this.Rang += this.Rang;
+
+        public void Ring() => this.Rang?.Invoke();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

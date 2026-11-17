@@ -1007,8 +1007,9 @@ internal sealed partial class LoopStateEvaluator
     ///         The location is a local of the code, or an event of a local that
     ///         has a new object. Each other use of the location adds a value,
     ///         removes a value, or calls it. Each add and each remove of the
-    ///         lambda has no loop, branch, or function around it. No code runs
-    ///         between the first add and the remove.
+    ///         lambda has no loop, branch, or function around it. For an event,
+    ///         code between the first add and the remove must not get to the
+    ///         object.
     ///     </para>
     /// </remarks>
     /// <param name="remove">The assignment with <c>-=</c>.</param>
@@ -1085,29 +1086,159 @@ internal sealed partial class LoopStateEvaluator
             first ??= start;
         }
 
-        // The remove takes away the last occurrence. No code runs between the first add and the
-        // remove, because a call can copy the delegate into its location again.
+        // The remove takes away the last occurrence. A call between the first add and the remove
+        // can copy the delegate into its location again, but only through a name of the location.
+        // Code names a local location only to add, remove, or call: see UsesOfTheLocation. For an
+        // event, see OnlyTheEventReaches.
         if (count != 1
             || first == null
-            || code.DescendantNodes(descendIntoChildren: node =>
-                    node == code || node is not AnonymousFunctionExpressionSyntax)
-                .Any(node =>
-                    node.SpanStart >= first.Span.End
-                    && node.Span.End <= remove.SpanStart
-                    && !node.AncestorsAndSelf().Any(ofTheLambda.Contains)
-                    && node is InvocationExpressionSyntax
-                        or BaseObjectCreationExpressionSyntax
-                        or AssignmentExpressionSyntax
-                        or AwaitExpressionSyntax
-                        or PrefixUnaryExpressionSyntax
-                        or PostfixUnaryExpressionSyntax
-                        or ElementAccessExpressionSyntax
-                        or MemberAccessExpressionSyntax))
+            || (start == null
+                && code.DescendantNodes(descendIntoChildren: node =>
+                        node == code || node is not AnonymousFunctionExpressionSyntax)
+                    .Any(node =>
+                        node.SpanStart >= first.Span.End
+                        && node.Span.End <= remove.SpanStart
+                        && !node.AncestorsAndSelf().Any(ofTheLambda.Contains)
+                        && node is InvocationExpressionSyntax
+                            or BaseObjectCreationExpressionSyntax
+                            or AssignmentExpressionSyntax
+                            or AwaitExpressionSyntax
+                            or PrefixUnaryExpressionSyntax
+                            or PostfixUnaryExpressionSyntax
+                            or ElementAccessExpressionSyntax
+                            or MemberAccessExpressionSyntax)
+                && !this.OnlyTheEventReaches(remove: remove, changes: changes)))
         {
             return null;
         }
 
         return this.Eval(remove.Left).WithoutFunctionsOf(lambda);
+    }
+
+    // True when code before a remove from an event of a local object gets to the object only to add
+    // or remove a handler. Thus, no code between the add and the remove can copy the handlers. The
+    // constructor must keep the object: see KeepsItsObject.
+    private bool OnlyTheEventReaches(AssignmentExpressionSyntax remove, HashSet<SyntaxNode> changes)
+    {
+        if (Unwrapped(remove.Left) is not MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner }
+            || this.region.SymbolOf(owner) is not ILocalSymbol local
+            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax { Initializer.Value: BaseObjectCreationExpressionSyntax made }
+            || this.region.SymbolOf(made) is not IMethodSymbol constructor
+            || !this.KeepsItsObject(constructor)
+            || FunctionOf(remove) is not { } code)
+        {
+            return false;
+        }
+
+        return code.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(use => use.SpanStart < remove.SpanStart
+                          && use.Identifier.ValueText == local.Name
+                          && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local))
+            .All(use => use.Parent is MemberAccessExpressionSyntax { Parent: AssignmentExpressionSyntax change }
+                        && changes.Contains(change));
+    }
+
+    // True when no constructor that a creation runs can give the new object to other code. Each
+    // constructor of the chain must be in this compilation, or be the constructor of object. A
+    // constructor with no syntax is one that the compiler adds. It calls the base constructor with
+    // no arguments.
+    private bool KeepsItsObject(IMethodSymbol constructor)
+    {
+        HashSet<IMethodSymbol> read = new(SymbolEqualityComparer.Default);
+
+        while (read.Add(constructor))
+        {
+            if (constructor.ContainingType.SpecialType == SpecialType.System_Object)
+            {
+                return true;
+            }
+
+            SyntaxNode? declared = constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+
+            if ((declared == null && !constructor.IsImplicitlyDeclared)
+                || (declared is ConstructorDeclarationSyntax written && this.CanGiveItsObject(written)))
+            {
+                return false;
+            }
+
+            SyntaxNode? chain =
+                declared switch
+                {
+                    ConstructorDeclarationSyntax own => own.Initializer,
+                    TypeDeclarationSyntax type =>
+                        type.BaseList?.Types.OfType<PrimaryConstructorBaseTypeSyntax>().FirstOrDefault(),
+                    _ => null
+                };
+
+            if ((chain != null
+                    ? this.region.SymbolOf(chain)
+                    : constructor.ContainingType.BaseType?.InstanceConstructors.FirstOrDefault(static first =>
+                        first.Parameters.IsEmpty)) is not IMethodSymbol next)
+            {
+                return false;
+            }
+
+            constructor = next;
+        }
+
+        return false;
+    }
+
+    // True when the code of a constructor can give its object to other code. The code names this
+    // other than to get to a member, or it names a member of the object that runs code. A lambda
+    // and a local function can keep this.
+    private bool CanGiveItsObject(ConstructorDeclarationSyntax constructor)
+    {
+        INamedTypeSymbol? type = this.region.ModelFor(constructor).GetDeclaredSymbol(constructor)?.ContainingType;
+
+        return type == null
+               || constructor.DescendantNodes()
+                   .Any(node => node switch
+                   {
+                       ThisExpressionSyntax =>
+                           node.Parent is not MemberAccessExpressionSyntax access || access.Expression != node,
+                       BaseExpressionSyntax
+                           or AnonymousFunctionExpressionSyntax
+                           or LocalFunctionStatementSyntax => true,
+                       SimpleNameSyntax name =>
+                           this.region.SymbolOf(name)
+                               is { IsStatic: false } member and (IMethodSymbol or IPropertySymbol or IEventSymbol)
+                           && !KeepsOnlyAValue(member)
+                           && IsAMemberOf(member: member, type: type),
+                       _ => false
+                   });
+    }
+
+    // True for a member that only keeps a value. Such a member is a property whose accessors have
+    // no code, or an event with a field for its handlers.
+    private static bool KeepsOnlyAValue(ISymbol member) =>
+        member switch
+        {
+            IEventSymbol => SodaFlowSymbols.IsFieldLikeEvent(member),
+            IPropertySymbol property =>
+                !property.DeclaringSyntaxReferences.IsEmpty
+                && property.DeclaringSyntaxReferences.All(static reference =>
+                    reference.GetSyntax() is PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: { } list }
+                    && list.Accessors.All(static accessor => accessor is { Body: null, ExpressionBody: null })),
+            _ => false
+        };
+
+    // True for a member of a type or of one of its base types.
+    private static bool IsAMemberOf(ISymbol member, INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? part = type; part != null; part = part.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(
+                    x: part.OriginalDefinition,
+                    y: member.ContainingType?.OriginalDefinition))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // The assignments with += and -= of a delegate location of this run of the code, and, for a

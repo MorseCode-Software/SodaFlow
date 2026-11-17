@@ -350,7 +350,13 @@ careful side, so it can report a read that does not throw:
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
   one.
 - A handler removed with `-=` still counts as a handler of the event, unless the code adds and
-  removes that one lambda in a straight line, with nothing between the add and the remove.
+  removes that one handler in a straight line. The handler must be a local that holds one lambda,
+  and the code must add it to and remove it from a local delegate, or an event of a local that
+  holds an object made with `new`. A local delegate can have any code between the add and the
+  remove. An event of such an object can too, as long as no code before the remove uses the
+  object other than to add or remove handlers, and no constructor that `new` runs passes `this`
+  on. Otherwise, nothing can come between the add and the remove. An event of `this`, of a field,
+  or of a parameter never qualifies.
 - A sample of a hold gives only the initial value where the hold is made and sampled in the
   transaction of the block: in the block's own code, in a function that `Transaction.Run` runs, in
   the function of a `Map` of a `Cell.Constant`, or in a local function, lambda, or method that such

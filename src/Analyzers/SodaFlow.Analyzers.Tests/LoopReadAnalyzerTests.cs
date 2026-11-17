@@ -2504,7 +2504,14 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag75DictionaryKeepsACopyOfAStruct"] = ["SF1001"],
             ["Ag76InsertUnderAConditionThatFailsBeforeAForeach"] = ["SF1001"],
             ["Ag77ReadUnderAConstantTrueCondition"] = ["SF1001"],
-            ["Ag77ReadInTheElseOfAConstantFalseCondition"] = ["SF1001"]
+            ["Ag77ReadInTheElseOfAConstantFalseCondition"] = ["SF1001"],
+            ["Ag79AListHasTheObjectBeforeTheAdd"] = ["SF1001"],
+            ["Ag79AConstructorPutsTheObjectIntoAList"] = ["SF1001"],
+            ["Ag79ABaseConstructorPutsTheObjectIntoAList"] = ["SF1001"],
+            ["Ag79AConstructorCallsAMethodThatPutsTheObjectIntoAList"] = ["SF1001"],
+            ["Ag79ASetterInTheConstructorPutsTheObjectIntoAList"] = ["SF1001"],
+            ["Ag79ABaseConstructorWithNoBodyPutsTheObjectIntoAList"] = ["SF1001"],
+            ["Ag79AConstructorKeepsALambdaOfTheObject"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
