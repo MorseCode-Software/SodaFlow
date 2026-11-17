@@ -594,6 +594,56 @@ internal static class OperatorTable
         && !symbols.IsStreamType(method.ReturnType);
 
     /// <summary>
+    ///     The comparers that the library calls when code writes to its result.
+    ///     The setter of a two-way bindable compares the value written with the
+    ///     value that it has, in the call of the setter. The walk follows
+    ///     <c>Equals</c> of such a comparer at the write.
+    /// </summary>
+    public static readonly ImmutableDictionary<string, ImmutableHashSet<string>> ComparersAtAWrite =
+        ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
+            .Add(key: "CreateTwoWay", value: ImmutableHashSet.Create("comparer"));
+
+    /// <summary>
+    ///     The comparers that the library calls only at an update of an input,
+    ///     which comes after the close. A calm cell compares each new value with
+    ///     the last, and a one-way bindable compares at each refresh. A read in
+    ///     such a comparer is not a read in the block.
+    /// </summary>
+    /// <remarks>
+    ///     The analyzer does not read this table. The completeness test in the
+    ///     analyzer's tests checks that each comparer parameter of the library is
+    ///     in one table. That is this one, <see cref="ComparersAtAWrite" />, or a
+    ///     table of an operator that computes its value.
+    /// </remarks>
+    public static readonly ImmutableDictionary<string, ImmutableHashSet<string>> ComparersAtAnUpdate =
+        ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
+            .Add(key: "Calm", value: ImmutableHashSet.Create("comparer"))
+            .Add(key: "CreateOneWay", value: ImmutableHashSet.Create("comparer"));
+
+    /// <summary>
+    ///     True for a parameter that gets a comparer which the library calls when
+    ///     code writes to the result of the method.
+    /// </summary>
+    public static bool IsComparerAtAWrite(IMethodSymbol method, IParameterSymbol parameter) =>
+        ComparersAtAWrite.TryGetValue(
+            key: LoopStateEvaluator.OperatorName(method),
+            value: out ImmutableHashSet<string>? parameters)
+        && parameters.Contains(parameter.Name);
+
+    /// <summary>
+    ///     True for a sort by a selector with no comparer of the sort values. The
+    ///     collection compares those values with the default comparer, which calls
+    ///     <c>CompareTo</c> of each value at the first read of the view.
+    /// </summary>
+    public static bool SortsWithTheDefaultComparer(IMethodSymbol method) =>
+        ValueFromFunction.TryGetValue(
+            key: LoopStateEvaluator.OperatorName(method),
+            value: out ImmutableHashSet<string>? parameters)
+        && parameters.Contains("selector")
+        && method.Parameters.Any(static parameter => parameter.Name == "selector")
+        && method.Parameters.All(static parameter => parameter.Name != "sortComparer");
+
+    /// <summary>
     ///     False for an argument of an operator in
     ///     <see cref="ValueFromFunction" /> that does not get the function that
     ///     computes the value. True for an argument with no parameter.

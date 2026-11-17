@@ -17778,6 +17778,30 @@ public static class Shapes
     public static Cell<int> Ab182TwoWayWriteOfAPlainCellIntoASwitchedSink() =>
         Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> sink = Cell.CreateSink(Plain); Cell<int> sw = sink.SwitchC(); SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<Cell<int>> b = R2ApiFactory.CreateTwoWay(sink); b.Value = Cell.Constant(4); return sw; });
 
+    // S3967. A sort by a selector compares the sort values with the default comparer, which calls CompareTo of each sort value. That CompareTo samples the placeholder at the first read of the keys.
+    public static Cell<int> R3ApiSortValueWhoseCompareToReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int count = TwoItems().SortBy(selector: (_, state) => new R3ApiReadingKey(state, l)).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S3968. The setter of a two-way bindable compares the new value with its comparer in the call, and that comparer samples the placeholder.
+    public static Cell<int> R3ApiTwoWayWriteWithAComparerThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<int> b = R2ApiFactory.CreateTwoWay(cell: Plain, editsStreamSink: Stream.CreateSink<int>(), comparer: new ReadingEquality(l.Map(v => v))); b.Value = 4; return S.Hold(0); });
+
+    // S3969. A sort by a selector compares its sort values only at a read of the view. The block only keeps the view, thus a CompareTo that samples the placeholder does not run in the block.
+    public static Cell<int> Ab180SortValueWhoseCompareToReadsInAViewThatTheBlockKeeps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(TwoItems().SortBy(selector: (_, state) => new R3ApiReadingKey(state, l))); return S.Hold(0); });
+
+    // S3970. A descending sort by a selector also compares the sort values with the default comparer at the first read of the keys. A CompareTo that samples the placeholder then runs in the block.
+    public static Cell<int> Ab180DescendingSortValueWhoseCompareToReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int count = TwoItems().SortByDescending(selector: (_, state) => new R3ApiReadingKey(state, l)).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S3971. The setter of a two-way bindable calls Equals of its comparer and not GetHashCode. A comparer that samples the placeholder only in GetHashCode does not make the write throw.
+    public static Cell<int> Ab180TwoWayWriteWithAComparerThatReadsOnlyInItsHash() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<int> b = R2ApiFactory.CreateTwoWay(cell: Plain, editsStreamSink: Stream.CreateSink<int>(), comparer: new Ab180HashReadingEquality(l.Map(v => v))); b.Value = 4; return S.Hold(0); });
+
+    // S3972. A sort by a selector with a comparer of the sort values compares them with that comparer, and not with CompareTo. A CompareTo that samples the placeholder then does not run.
+    public static Cell<int> Ab180SortValueWithAComparerDoesNotCallCompareTo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int count = TwoItems().SortBy(selector: (_, state) => new R3ApiReadingKey(state, l), sortComparer: Comparer<R3ApiReadingKey>.Create(static (a, b) => a.Number - b.Number), keyComparer: Comparer<int>.Default, isDescending: false).KeysCell.Sample().Count; return S.Hold(count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -23952,6 +23976,14 @@ public static class Shapes
     public sealed class Ad2Third(Ad2Second second)
     {
         public Ad2Second Second => second;
+    }
+
+    // A comparer that samples a cell only in GetHashCode.
+    public sealed class Ab180HashReadingEquality(Cell<int> offset) : IEqualityComparer<int>
+    {
+        public bool Equals(int x, int y) => x == y;
+
+        public int GetHashCode(int value) => value + offset.Sample() - offset.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

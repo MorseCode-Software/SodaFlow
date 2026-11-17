@@ -2589,7 +2589,10 @@ internal sealed class LoopReadAnalyzerTests
             ["R3ApiSendInAnActionPostedToTheBindingScheduler"] = ["SF1002"],
             ["R3ApiTwoWayWriteOfALinkedCellIntoASwitchedSink"] = ["SF1002"],
             ["Ab182SendInAnActionPostedToTheImmediateSchedulerInALocal"] = ["SF1002"],
-            ["Ab182TwoWayWriteOfALinkedCellIntoASwitchedEditSink"] = ["SF1002"]
+            ["Ab182TwoWayWriteOfALinkedCellIntoASwitchedEditSink"] = ["SF1002"],
+            ["R3ApiSortValueWhoseCompareToReads"] = ["SF1001"],
+            ["R3ApiTwoWayWriteWithAComparerThatReads"] = ["SF1005"],
+            ["Ab180DescendingSortValueWhoseCompareToReads"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

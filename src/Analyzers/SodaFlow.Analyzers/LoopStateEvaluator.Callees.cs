@@ -930,6 +930,129 @@ internal sealed partial class LoopStateEvaluator
             : this.ContentOfANamedFunction(invocation: invocation, given: ImmutableArray.Create(parameterState));
 
     /// <summary>
+    ///     True when a sort with no comparer compares sort values whose
+    ///     <c>CompareTo</c> reads a pending value. The default comparer calls
+    ///     <c>CompareTo</c> of each value that the selector returns, at the first
+    ///     read of the view. This evaluator must be a quiet one.
+    /// </summary>
+    /// <remarks>
+    ///     The walk follows a <c>CompareTo</c> that the type of the sort value
+    ///     declares in this compilation. A sort value of a type of the platform
+    ///     reads no value of the graph.
+    /// </remarks>
+    private bool SortValuesReadPending(InvocationExpressionSyntax invocation, IMethodSymbol method, LoopState given)
+    {
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            ExpressionSyntax written = arguments[i].Expression;
+
+            // The parameter of the definition has the type parameter of the sort value. The method of
+            // the call has the type that the selector returns.
+            if (ParameterFor(method: method, argument: arguments[i], position: i) is not { Name: "selector" } parameter
+                || method.Parameters.FirstOrDefault(static each => each.Name == "selector")?.Type is not
+                    INamedTypeSymbol { DelegateInvokeMethod.ReturnType: INamedTypeSymbol sortValue })
+            {
+                continue;
+            }
+
+            IMethodSymbol[] compareTo =
+            [
+                .. sortValue.GetMembers("CompareTo")
+                    .OfType<IMethodSymbol>()
+                    .Where(static member => member.Parameters.Length == 1 && !member.DeclaringSyntaxReferences.IsEmpty)
+            ];
+
+            if (compareTo.Length == 0)
+            {
+                continue;
+            }
+
+            LoopState functions = this.Eval(written);
+
+            foreach (FunctionValue function in Callables(state: functions, parameter: parameter))
+            {
+                LoopState value =
+                    this.FollowFunction(
+                            call: invocation,
+                            name: NameOf(written),
+                            function: function,
+                            target: functions,
+                            arguments: default,
+                            each: (written, given, ManyTimes: true))
+                        ?.State
+                    ?? LoopState.None;
+
+                if (compareTo.Any(member =>
+                        this.FollowImplied(call: written, member: member, owner: value, arguments: [(written, value)])
+                            ?.Findings.Any(static finding => !finding.Escape) == true))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     The run of <c>Equals</c> of the comparer of a two-way bindable. Its
+    ///     setter compares the value that it has with the value written, in the
+    ///     call. The bindable is a local that no code writes, and that
+    ///     <c>CreateTwoWay</c> made with a comparer.
+    /// </summary>
+    /// <param name="bindable">The expression of the bindable.</param>
+    /// <param name="value">The value that the code writes.</param>
+    /// <param name="write">The assignment.</param>
+    public Followed? FollowComparerOfAWrite(ExpressionSyntax bindable, ExpressionSyntax value, SyntaxNode write)
+    {
+        if ((this.region.Symbols.DeclaredCallbacks & PlatformCallbacks.Equals) == PlatformCallbacks.None
+            || this.ValueOfALocalThatNoCodeWrites(Unwrapped(bindable)) is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "CreateTwoWay" }
+            } creation
+            || this.region.SymbolOf(creation) is not IMethodSymbol method
+            || !this.region.Symbols.IsSodaFlow(method))
+        {
+            return null;
+        }
+
+        Followed? all = null;
+        SeparatedSyntaxList<ArgumentSyntax> arguments = creation.ArgumentList.Arguments;
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            if (ParameterFor(method: method, argument: arguments[i], position: i) is not { } parameter
+                || !OperatorTable.IsComparerAtAWrite(method: method, parameter: parameter))
+            {
+                continue;
+            }
+
+            LoopState comparer = this.Eval(arguments[i].Expression);
+            LoopState written = this.Eval(value);
+
+            // The setter calls Equals only, and not GetHashCode.
+            foreach (FunctionValue function in Callables(state: comparer, parameter: parameter)
+                         .Where(static function =>
+                             function.Declaration is MethodDeclarationSyntax { Identifier.ValueText: "Equals" }))
+            {
+                all = Both(
+                    first: all,
+                    second: this.FollowFunction(
+                        call: write,
+                        name: "Equals",
+                        function: function,
+                        target: comparer,
+                        arguments: default,
+                        each: (value, written, ManyTimes: false)));
+            }
+        }
+
+        return all;
+    }
+
+    /// <summary>
     ///     The state of what a function returns, for a function that the code
     ///     gives by its name to a map or a lift. The function is a local function,
     ///     a lambda in a local, or a method. Each parameter gets the state at its

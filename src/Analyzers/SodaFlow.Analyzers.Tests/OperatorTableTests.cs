@@ -215,6 +215,72 @@ internal sealed class OperatorTableTests
             .Because("each parameter in the two tables is a function parameter of a public method");
     }
 
+    /// <summary>
+    ///     A comparer is an object whose members the library calls. Each
+    ///     parameter of a public method that gets a comparer has to say when the
+    ///     library calls it. This test fails for a new one until it does. A
+    ///     comparer of an operator that computes its value is in the tables of
+    ///     that operator.
+    /// </summary>
+    /// <remarks>
+    ///     The test sees a comparer only where the signature names one. The
+    ///     default comparer of a type parameter, which calls <c>CompareTo</c> or
+    ///     <c>Equals</c> of each value, has no parameter.
+    /// </remarks>
+    [Test]
+    public async Task EachComparerParameterSaysWhenTheLibraryCallsIt()
+    {
+        IReadOnlyList<(string Method, string Parameter)> comparers =
+        [
+            .. Libraries
+                .SelectMany(static assembly => assembly.GetExportedTypes())
+                .Where(static type => !typeof(Delegate).IsAssignableFrom(type))
+                .SelectMany(static type => type.GetMethods(Declared))
+                .SelectMany(static method =>
+                    method.GetParameters()
+                        .Where(static parameter => IsComparer(parameter.ParameterType))
+                        .Select(parameter => (Method: method.Name, Parameter: parameter.Name ?? string.Empty)))
+                .Distinct()
+        ];
+
+        await Assert.That(comparers).Contains(("CreateTwoWay", "comparer"));
+
+        IReadOnlyList<string> unknown =
+        [
+            .. comparers
+                .Where(static comparer =>
+                    new[]
+                        {
+                            OperatorTable.ValueFromFunction,
+                            OperatorTable.KeptBesideTheValue,
+                            OperatorTable.ComparersAtAWrite,
+                            OperatorTable.ComparersAtAnUpdate
+                        }
+                        .Count(table => IsListed(table: table, function: comparer))
+                    != 1)
+                .Select(static comparer => comparer.Method + "(" + comparer.Parameter + ")")
+        ];
+
+        await Assert.That(unknown)
+            .IsEmpty()
+            .Because("each comparer parameter is in exactly one table of OperatorTable");
+
+        IReadOnlyList<(string Method, string Parameter)> listed =
+        [
+            .. OperatorTable.ComparersAtAWrite.Concat(OperatorTable.ComparersAtAnUpdate)
+                .SelectMany(static row => row.Value.Select(parameter => (Method: row.Key, Parameter: parameter)))
+        ];
+
+        await Assert.That(listed.Except(comparers))
+            .IsEmpty()
+            .Because("each parameter in the two lists of comparers is a comparer parameter of a public method");
+    }
+
+    private static bool IsComparer(Type type) =>
+        type.IsGenericType
+        && (type.GetGenericTypeDefinition() == typeof(IComparer<>)
+            || type.GetGenericTypeDefinition() == typeof(IEqualityComparer<>));
+
     private static bool IsListed(
         ImmutableDictionary<string, ImmutableHashSet<string>> table,
         (string Method, string Parameter) function) =>

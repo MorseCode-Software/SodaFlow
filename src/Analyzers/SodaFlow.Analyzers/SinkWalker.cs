@@ -1545,6 +1545,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             {
                 this.CheckRead(node: node.Left, owner: written.Expression, name: "Value");
                 this.evaluator.PostsAWrite(bindable: written.Expression, value: node.Right, write: node);
+
+                this.Report(
+                    this.evaluator.FollowComparerOfAWrite(
+                        bindable: written.Expression,
+                        value: node.Right,
+                        write: node));
             }
 
             // The indexer of a dictionary of the platform calls a member of the key. The first key

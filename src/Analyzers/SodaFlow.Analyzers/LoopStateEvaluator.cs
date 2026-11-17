@@ -2723,7 +2723,11 @@ internal sealed partial class LoopStateEvaluator
                         receiverType: receiverType)
                     && this.CanUseState(invocation: invocation, given: inputs.Content)
                     && this.Quiet()
-                        .FunctionReadsPending(invocation: invocation, method: method, given: inputs.Content))))
+                        .FunctionReadsPending(invocation: invocation, method: method, given: inputs.Content))
+                || ((this.region.Symbols.DeclaredCallbacks & PlatformCallbacks.Compare) != PlatformCallbacks.None
+                    && OperatorTable.SortsWithTheDefaultComparer(method)
+                    && this.Quiet()
+                        .SortValuesReadPending(invocation: invocation, method: method, given: inputs.Content))))
         {
             state = state.WithPending(true);
         }
