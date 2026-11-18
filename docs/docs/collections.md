@@ -444,8 +444,10 @@ dispose, the projection never runs again and `Items` goes empty in the same tran
 that is still bound to it, such as a view that outlives its view model, shows nothing that was
 released. A dispose from inside a callback, such as a listener or the `onEvicted` of another
 projection, empties `Items` in the transaction just after, because SodaFlow does not let a callback
-send into the transaction it runs in; until then `Items` still lists the released rows. A dispose
-whose transaction fails empties `Items` the same way.
+send into the transaction it runs in. That transaction runs before the lock is let go, so no other
+thread sees the released rows. Work that the first transaction posted before the dispose, such as
+the refresh of a binding, runs first and does see them. A dispose whose transaction fails also
+empties `Items` after the failure, and there a transaction on another thread can come first.
 
 F# has `map` and `mapWith`, the second taking the bound and the eviction callback.
 
