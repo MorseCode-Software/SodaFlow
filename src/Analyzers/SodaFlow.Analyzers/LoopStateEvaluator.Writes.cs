@@ -713,7 +713,7 @@ internal sealed partial class LoopStateEvaluator
         ISymbol name,
         bool aCallCounts)
     {
-        if (GivesAValue(node) && IsAnAssignmentOf(target: node, name: name))
+        if (GivesAValue(node) && this.IsAnAssignmentOf(target: node, name: name))
         {
             return false;
         }
