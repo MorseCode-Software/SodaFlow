@@ -66,7 +66,9 @@ internal sealed partial class LoopStateEvaluator
     ///     Records the puts of a call of the platform through a view of a local
     ///     array. <c>Fill</c> of a span puts its value into each element.
     ///     <c>CopyTo</c> and <c>TryCopyTo</c> put each element of their source
-    ///     into a view or an array that they get.
+    ///     into a view or an array that they get. <c>Array.Copy</c> and
+    ///     <c>Array.ConstrainedCopy</c> put each element of their source array into
+    ///     their destination array.
     /// </summary>
     /// <remarks>
     ///     <c>Clear</c> puts the default value, which has no state. The elements
@@ -80,7 +82,27 @@ internal sealed partial class LoopStateEvaluator
         ExpressionSyntax? receiver,
         SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
-        if (receiver == null || this.quiet)
+        if (this.quiet)
+        {
+            return;
+        }
+
+        if (method is { Name: "Copy" or "ConstrainedCopy", ContainingType.SpecialType: SpecialType.System_Array })
+        {
+            if (ArgumentFor(method: method, arguments: arguments, parameter: "destinationArray") is { } destination
+                && this.TheArrayOfAView(destination) is { } copied
+                && ArgumentFor(method: method, arguments: arguments, parameter: "sourceArray") is { } source)
+            {
+                this.PutsThroughAView(
+                    array: copied,
+                    value: null,
+                    state: this.Eval(this.TheArrayOfAView(source) ?? source).AsOneOfItsElements);
+            }
+
+            return;
+        }
+
+        if (receiver == null)
         {
             return;
         }

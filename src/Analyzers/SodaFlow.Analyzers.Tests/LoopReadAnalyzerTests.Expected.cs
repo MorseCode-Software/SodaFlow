@@ -2999,6 +2999,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag92X1FieldObjectWrittenByAMethod"] = ["SF1001"],
             ["Ag92X1WrittenThroughTheFieldDirectly"] = ["SF1001"],
             ["Ag92F1MethodWritesThenALocalGetsTheElement"] = ["SF1001"],
-            ["Ag92F1MethodWritesThroughTheArrayOfAFieldAtAComputedIndex"] = ["SF1001"]
+            ["Ag92F1MethodWritesThroughTheArrayOfAFieldAtAComputedIndex"] = ["SF1001"],
+            ["Ab205ArrayCopyIntoALocalArray"] = ["SF1001"],
+            ["Ab205ArrayCopyWithIndexes"] = ["SF1001"],
+            ["Ab205ArrayConstrainedCopy"] = ["SF1001"],
+            ["Ab205ArrayCopyWithNoWriteBefore"] = ["SF1001"]
         };
 }

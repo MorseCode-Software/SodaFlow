@@ -304,9 +304,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   makes from an array in one of its locals or parameters, with an implicit conversion, `AsSpan`,
   `AsMemory`, a constructor, `Slice`, or a range, is another name for the elements of that array,
   as long as neither name gets a second value. `Fill`, a write to an element, and `CopyTo` into it
-  put their values into the array, and so does `CopyTo` into the array itself. A write
-  to a member through an element of a local array, `List<T>`, or `Dictionary` created with no
-  comparer, at a constant index or key or at an index in a local, replaces what an earlier write
+  put their values into the array, and so do `CopyTo` into the array itself and `Array.Copy`. A
+  write to a member through an element of a local array, `List<T>`, or `Dictionary` created with
+  no comparer, at a constant index or key or at an index in a local, replaces what an earlier write
   gave that member. So does a write through a local that got that element, and a later read
   through either one sees only the last value. A local that gets the array or the list in a field
   sees each element that code puts in through the field later, also in a method, until the local
@@ -467,8 +467,7 @@ Some reads that throw it does not see:
   read through the field.
 - A write through a span, a memory, or a segment that a method gets as a parameter, that
   `CollectionsMarshal` or `MemoryMarshal` makes, or that a lambda or a local function uses, and a
-  write through a `ref` local of one of its elements. The write does not reach the array. Neither
-  does `Array.Copy`.
+  write through a `ref` local of one of its elements. The write does not reach the array.
 - A write to a member through `this` in a method, when the code also reaches that object through
   another name, such as an element of an array that holds `this`. A read through the other name
   still sees the value from before the write.

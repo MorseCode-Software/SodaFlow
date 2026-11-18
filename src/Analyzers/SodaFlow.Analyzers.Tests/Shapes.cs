@@ -20403,6 +20403,34 @@ public static class Shapes
     public static Cell<int> Ag92F1LocalOfTheFirstItemOfAList() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = Ag92Unknowns.First(); x.Share = Plain; Ag92SetUnknownOther(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
 
+    // S4623. Array.Copy puts an element with a pending cell into a local array.
+    public static Cell<int> Ab205ArrayCopyIntoALocalArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab205Copies[0]]; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; Array.Copy(from, a, 1); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4624. The same with the overload that gets the indexes.
+    public static Cell<int> Ab205ArrayCopyWithIndexes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab205Copies[1], Ab205Copies[2]]; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[1].Share = Plain; Array.Copy(from, 0, a, 1, 1); return S.Hold(a[1].Share!.Sample()); });
+
+    // S4625. The same with Array.ConstrainedCopy.
+    public static Cell<int> Ab205ArrayConstrainedCopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab205Copies[3]]; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; Array.ConstrainedCopy(from, 0, a, 0, 1); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4626. Array.Copy puts an element with a pending cell into a local array, with no write before.
+    public static Cell<int> Ab205ArrayCopyWithNoWriteBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab205Copies[4]]; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; Array.Copy(from, a, 1); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4627. Array.Copy into a second array. The read is of the first array.
+    public static Cell<int> Ab205ArrayCopyIntoASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab205Copies[5]]; SettableSlot[] b = [Ab205Copies[6]]; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; Array.Copy(from, b, 1); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4628. The array is the source of Array.Copy, and not its destination.
+    public static Cell<int> Ab205ArrayCopyOutOfTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab205Copies[7]]; SettableSlot[] to = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; Array.Copy(a, to, 1); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4629. The local of the destination gets a second array before the copy.
+    public static Cell<int> Ab205ArrayCopyIntoALocalThatGetsASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab205Copies[8]]; SettableSlot[] first = a; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; first = [Ab205Copies[9]]; Array.Copy(from, first, 1); return S.Hold(a[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -28443,6 +28471,9 @@ public static class Shapes
     private static readonly SettableSlot Ag92UnknownOther = new();
 
     private static void Ag92SetUnknownOther(Cell<int> share) => Ag92UnknownOther.Share = share;
+
+    private static readonly SettableSlot[] Ab205Copies =
+        [new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
