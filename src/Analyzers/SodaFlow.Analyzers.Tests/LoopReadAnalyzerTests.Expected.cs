@@ -2587,7 +2587,7 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag87RecursiveMethodShiftsItsMembers"] = ["SF1003", "SF1004"],
             ["Ag87WideRecursionThenARead"] = ["SF1003", "SF1004"],
             ["Ag87LocalFunctionShiftsItsCapturedCells"] = ["SF1001"],
-            ["Ag87RecursiveHelperPutsIntoAList"] = ["SF1003", "SF1004"],
+            ["Ag87RecursiveHelperPutsIntoAList"] = ["SF1003", "SF1003", "SF1004"],
             ["Ag87RecursiveHelperSetsAField"] = ["SF1003", "SF1005"],
             ["R3LimOverrideOfAnObjectFromAStaticArrayReads"] = ["SF1003"],
             ["R3LimBaseMethodOfAnObjectFromAStaticArray"] = ["SF1003"],
@@ -2860,6 +2860,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag91ListInsertGivenByReflection"] = ["SF1003"],
             ["Ag91ListAddRangeGivenByReflection"] = ["SF1003"],
             ["Ag91ArrayCopiedByToListAndToArray"] = ["SF1003"],
-            ["Ag91ListInsertBeforeAPlainCellIsSet"] = ["SF1003"]
+            ["Ag91ListInsertBeforeAPlainCellIsSet"] = ["SF1003"],
+            ["Ag91ArrayGivenThroughAParameter"] = ["SF1003"],
+            ["Ag91ArrayGivenThroughTwoParameters"] = ["SF1003"],
+            ["Ag91ArrayInALocalGivenThroughAParameter"] = ["SF1003"],
+            ["Ag91ArrayGivenToAnExtensionMethod"] = ["SF1003"],
+            ["Ag91ArrayGivenToAConstructor"] = ["SF1003"],
+            ["Ag91CellGivenToAParamsArray"] = ["SF1003"],
+            ["Ag91ArrayGivenDownARecursiveMethod"] = ["SF1003"]
         };
 }

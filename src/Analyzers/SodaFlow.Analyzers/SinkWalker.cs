@@ -4337,12 +4337,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     <see cref="HoldsACarrier" />.
     /// </summary>
     private bool IsCarrier(ExpressionSyntax argument) =>
-        this.IsCarrier(argument: argument, seen: ImmutableHashSet<ILocalSymbol>.Empty);
+        this.IsCarrier(
+            argument: argument,
+            seen: ImmutableHashSet<(ISymbol Name, LoopStateEvaluator At)>.Empty,
+            at: this.evaluator);
 
-    // The same, with the locals that the check read before. A local can get its own value. A value
-    // of the library counts only if the walk can give it a pending state. Thus, a plain cell in an
-    // array of objects does not count.
-    private bool IsCarrier(ExpressionSyntax argument, ImmutableHashSet<ILocalSymbol> seen)
+    // The same, with the names that the check read before, each with the evaluator of its code. A
+    // local can get its own value. The evaluator reads the code of the argument. A value of the
+    // library counts only if the walk can give it a pending state. Thus, a plain cell in an array of
+    // objects does not count.
+    private bool IsCarrier(
+        ExpressionSyntax argument,
+        ImmutableHashSet<(ISymbol Name, LoopStateEvaluator At)> seen,
+        LoopStateEvaluator at)
     {
         if (LoopStateEvaluator.IsAsserted(argument))
         {
@@ -4354,7 +4361,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (this.region.Symbols.IsCarrierType(type))
         {
-            return this.evaluator.CanBePending(value);
+            return at.CanBePending(value);
         }
 
         // The elements of an array or a collection that the code writes here have their own types.
@@ -4362,29 +4369,28 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             CollectionExpressionSyntax collection => collection.Elements
                 .OfType<ExpressionElementSyntax>()
-                .Any(element => this.IsCarrier(argument: element.Expression, seen: seen)),
+                .Any(element => this.IsCarrier(argument: element.Expression, seen: seen, at: at)),
             ImplicitArrayCreationExpressionSyntax made =>
-                made.Initializer.Expressions.Any(element => this.IsCarrier(argument: element, seen: seen)),
+                made.Initializer.Expressions.Any(element => this.IsCarrier(argument: element, seen: seen, at: at)),
             ArrayCreationExpressionSyntax { Initializer: { } initializer } =>
-                initializer.Expressions.Any(element => this.IsCarrier(argument: element, seen: seen)),
+                initializer.Expressions.Any(element => this.IsCarrier(argument: element, seen: seen, at: at)),
             _ when type is IArrayTypeSymbol array && this.region.Symbols.IsCarrierType(array.ElementType) =>
-                this.evaluator.CanBePending(value),
+                at.CanBePending(value),
             // ToArray and ToList copy the elements of their receiver.
             InvocationExpressionSyntax
             {
                 Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ToArray" or "ToList" } copied
             } copy when this.region.SymbolOf(copy) is IMethodSymbol method && CopiesItsReceiver(method) =>
-                this.IsCarrier(argument: copied.Expression, seen: seen),
-            IdentifierNameSyntax name => this.region.SymbolOf(name) is ILocalSymbol local
-                                         && this.HoldsACarrier(local: local, seen: seen, use: name),
+                this.IsCarrier(argument: copied.Expression, seen: seen, at: at),
+            IdentifierNameSyntax name => this.HoldsACarrier(use: name, seen: seen, at: at),
             _ => false
         };
     }
 
     /// <summary>
-    ///     True when the code gives a local a value of the library that the type
-    ///     of the local hides. The type <c>object</c> and an array of objects
-    ///     hide it.
+    ///     True when the code gives a local or a parameter a value of the
+    ///     library that its type hides. The type <c>object</c> and an array of
+    ///     objects hide it.
     /// </summary>
     /// <remarks>
     ///     The check reads each value that the block of the local gives it, in
@@ -4395,30 +4401,34 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     replaces the values that it writes over. An assignment replaces each
     ///     value, and an assignment to an element at a constant index replaces
     ///     the value of that element. Each other value stays. The check does
-    ///     not see a value from a parameter, or from a call that fills the
-    ///     array.
+    ///     not see a value from a call that fills the array. A parameter starts
+    ///     with the arguments that the call of its code gives it. The evaluator
+    ///     of the caller reads them. Then, the body of the code is the block of
+    ///     the parameter.
     /// </remarks>
-    /// <param name="local">The local.</param>
-    /// <param name="seen">The locals that the check read before.</param>
-    /// <param name="use">The name of the local whose value the check reads.</param>
-    private bool HoldsACarrier(ILocalSymbol local, ImmutableHashSet<ILocalSymbol> seen, SyntaxNode use)
+    /// <param name="use">The name whose value the check reads.</param>
+    /// <param name="seen">The names that the check read before.</param>
+    /// <param name="at">The evaluator of the code of the name.</param>
+    private bool HoldsACarrier(
+        SyntaxNode use,
+        ImmutableHashSet<(ISymbol Name, LoopStateEvaluator At)> seen,
+        LoopStateEvaluator at)
     {
-        if (seen.Contains(local)
-            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                is not VariableDeclaratorSyntax declarator
-            || declarator.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
+        if (this.region.SymbolOf(use) is not ({ } name and (ILocalSymbol or IParameterSymbol))
+            || seen.Contains((name, at))
+            || StartOf(name: name, at: at) is not (var scope, var initial))
         {
             return false;
         }
 
-        ImmutableHashSet<ILocalSymbol> read = seen.Add(local);
+        ImmutableHashSet<(ISymbol Name, LoopStateEvaluator At)> read = seen.Add((name, at));
 
         // A local function can run before a statement that comes before it in the code.
         bool inOrder =
             !use.Ancestors().TakeWhile(node => node != scope).Any(static node => node is LocalFunctionStatementSyntax);
 
-        Dictionary<int, ExpressionSyntax> elements = [];
-        List<ExpressionSyntax> others = [];
+        Dictionary<int, (ExpressionSyntax Value, LoopStateEvaluator At)> elements = [];
+        List<(ExpressionSyntax Value, LoopStateEvaluator At)> others = [];
 
         // The names of the local that a put writes through. Each other use of the local can move
         // its elements, as Array.Reverse does, or copy them. After such a use, a put at an index
@@ -4426,41 +4436,45 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         HashSet<SyntaxNode> targets = [];
         bool moved = false;
 
-        if (declarator.Initializer?.Value is { } initial)
+        if (initial.Count == 1)
         {
-            Replace(initial);
+            Replace(initial[0]);
+        }
+        else
+        {
+            others.AddRange(initial);
         }
 
         foreach (SyntaxNode node in scope.DescendantNodes())
         {
             switch (node)
             {
-                case AssignmentExpressionSyntax assignment when IsTheLocal(assignment.Left):
+                case AssignmentExpressionSyntax assignment when IsTheName(assignment.Left):
                     targets.Add(LoopStateEvaluator.Unwrapped(assignment.Left));
 
                     if (RunsBeforeTheUse(assignment))
                     {
-                        Replace(assignment.Right);
+                        Replace((assignment.Right, at));
                         moved = false;
                     }
                     else
                     {
-                        others.Add(assignment.Right);
+                        others.Add((assignment.Right, at));
                     }
 
                     break;
                 case AssignmentExpressionSyntax assignment
                     when LoopStateEvaluator.Unwrapped(assignment.Left) is ElementAccessExpressionSyntax element
-                         && IsTheLocal(element.Expression):
+                         && IsTheName(element.Expression):
                     targets.Add(LoopStateEvaluator.Unwrapped(element.Expression));
 
                     if (!moved && RunsBeforeTheUse(assignment) && this.ConstantIndexOf(element) is { } index)
                     {
-                        elements[index] = assignment.Right;
+                        elements[index] = (assignment.Right, at);
                     }
                     else
                     {
-                        others.Add(assignment.Right);
+                        others.Add((assignment.Right, at));
                     }
 
                     break;
@@ -4470,18 +4484,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Fill" },
                         ArgumentList.Arguments: var arguments
                     } call
-                    when arguments.Any(argument => IsTheLocal(argument.Expression))
+                    when arguments.Any(argument => IsTheName(argument.Expression))
                          && this.region.SymbolOf(call) is IMethodSymbol fill
                          && LoopStateEvaluator.IsArrayFill(fill):
                     foreach (ArgumentSyntax argument in arguments)
                     {
-                        if (IsTheLocal(argument.Expression))
+                        if (IsTheName(argument.Expression))
                         {
                             targets.Add(LoopStateEvaluator.Unwrapped(argument.Expression));
                         }
                         else
                         {
-                            others.Add(argument.Expression);
+                            others.Add((argument.Expression, at));
                         }
                     }
 
@@ -4495,7 +4509,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         },
                         ArgumentList.Arguments: var added
                     } call
-                    when IsTheLocal(list)
+                    when IsTheName(list)
                          && this.region.SymbolOf(call) is IMethodSymbol method
                          && PutsIntoAList(method):
                     if (method.Name != "Insert")
@@ -4503,29 +4517,31 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         targets.Add(LoopStateEvaluator.Unwrapped(list));
                     }
 
-                    others.AddRange(added.Select(static argument => argument.Expression));
+                    others.AddRange(added.Select(argument => (argument.Expression, at)));
 
                     break;
-                case IdentifierNameSyntax name when !targets.Contains(name) && IsTheLocal(name):
+                case IdentifierNameSyntax other when !targets.Contains(other) && IsTheName(other):
                     moved = true;
 
                     break;
             }
         }
 
-        return elements.Values.Concat(others).Any(value => this.IsCarrier(argument: value, seen: read));
+        return elements.Values
+            .Concat(others)
+            .Any(value => this.IsCarrier(argument: value.Value, seen: read, at: value.At));
 
         // An array that the code writes gives each element by its index.
-        void Replace(ExpressionSyntax value)
+        void Replace((ExpressionSyntax Value, LoopStateEvaluator At) value)
         {
             elements.Clear();
             others.Clear();
 
-            if (LoopStateEvaluator.ElementsWritten(value) is { } each)
+            if (LoopStateEvaluator.ElementsWritten(value.Value) is { } each)
             {
                 for (int index = 0; index < each.Length; index++)
                 {
-                    elements[index] = each[index];
+                    elements[index] = (each[index], value.At);
                 }
             }
             else
@@ -4543,11 +4559,40 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             && block == scope
             && assignment.Span.End <= use.SpanStart;
 
-        bool IsTheLocal(ExpressionSyntax written) =>
-            LoopStateEvaluator.Unwrapped(written) is IdentifierNameSyntax name
-            && name.Identifier.ValueText == local.Name
-            && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(name), y: local);
+        bool IsTheName(ExpressionSyntax written) =>
+            LoopStateEvaluator.Unwrapped(written) is IdentifierNameSyntax other
+            && other.Identifier.ValueText == name.Name
+            && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(other), y: name);
     }
+
+    // The code that can put into a local or a parameter, with the values that the name starts
+    // with. Null for a parameter that no call of this evaluator gives an argument.
+    private static (SyntaxNode Scope, IReadOnlyList<(ExpressionSyntax Value, LoopStateEvaluator At)> Initial)?
+        StartOf(ISymbol name, LoopStateEvaluator at) =>
+        name switch
+        {
+            ILocalSymbol local
+                when local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                         is VariableDeclaratorSyntax declarator
+                     && declarator.FirstAncestorOrSelf<BlockSyntax>() is { } block =>
+                (block, declarator.Initializer?.Value is { } initial ? [(initial, at)] : []),
+            IParameterSymbol parameter
+                when at.ArgumentsInTheCaller(parameter) is (var caller, var arguments)
+                     && parameter.ContainingSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                         is { } code =>
+                (BodyOf(code), [.. arguments.Select(argument => (argument, caller))]),
+            _ => null
+        };
+
+    // The body of a method, of a constructor, or of a local function. The declaration of a primary
+    // constructor is its type, whose initializers read the parameters.
+    private static SyntaxNode BodyOf(SyntaxNode code) =>
+        code switch
+        {
+            BaseMethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody ?? code,
+            LocalFunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody ?? code,
+            _ => code
+        };
 
     // List<T>.ToArray, and Enumerable.ToArray and ToList.
     private static bool CopiesItsReceiver(IMethodSymbol method) =>

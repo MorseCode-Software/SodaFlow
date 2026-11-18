@@ -19507,6 +19507,58 @@ public static class Shapes
     public static Cell<int> Ag91ListOfTheCodeWithItsOwnToArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag91EchoArrayList given = [l.Map(v => v)]; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given.ToArray(given[0])); return S.Hold(0); });
 
+    // S4399. A method of the code gets an array of objects with a pending cell as a parameter, and gives it to reflection, which runs a method that samples.
+    public static Cell<int> Ag91ArrayGivenThroughAParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = Ag91Runs.Run([l.Map(v => v)]); return S.Hold(0); });
+
+    // S4400. Two calls down: a method of the code gives its parameter to a second method, which gives it to reflection.
+    public static Cell<int> Ag91ArrayGivenThroughTwoParameters() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = Ag91Runs.RunThrough([l.Map(v => v)]); return S.Hold(0); });
+
+    // S4401. A local holds an array of objects with a pending cell, and a method of the code gives it to reflection.
+    public static Cell<int> Ag91ArrayInALocalGivenThroughAParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; object? read = Ag91Runs.Run(given); return S.Hold(0); });
+
+    // S4402. A method of the code is an extension method of an array of objects with a pending cell, and gives its receiver to reflection.
+    public static Cell<int> Ag91ArrayGivenToAnExtensionMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; object? read = given.RunOn(); return S.Hold(0); });
+
+    // S4403. A constructor of the code gets an array of objects with a pending cell, and gives it to reflection.
+    public static Cell<int> Ag91ArrayGivenToAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag91Runner run = new([l.Map(v => v)]); return S.Hold(run.Got == null ? 0 : 1); });
+
+    // S4404. A method of the code gets a pending cell as the one value of a params array, and gives the array to reflection.
+    public static Cell<int> Ag91CellGivenToAParamsArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = Ag91Runs.RunAll(l.Map(v => v)); return S.Hold(0); });
+
+    // S4405. A method of the code gives reflection an array with a pending cell that a method of the code gives back as an object. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ag91EchoGivenThroughAParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? kept = Ag91Runs.RunKeep([Ab185Fills.Echo(l.Map(v => v))]); return S.Hold(0); });
+
+    // S4406. A method of the code puts a plain cell over the pending cell of the array that it gets, and gives the array to reflection, which runs a method that samples. A control.
+    public static Cell<int> Ag91PlainCellSetByTheMethodOverThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = Ag91Runs.RunPlainFirst([l.Map(v => v)]); return S.Hold(0); });
+
+    // S4407. A method of the code gives its parameter a new array with a plain cell, and gives it to reflection, which runs a method that samples. A control.
+    public static Cell<int> Ag91ParameterSetAgainByTheMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = Ag91Runs.RunAgain([l.Map(v => v)]); return S.Hold(0); });
+
+    // S4408. The block puts a plain cell over a pending cell that a method of the code gives back as an object, and a method of the code gives the array to reflection, which runs a method that samples. A control.
+    public static Cell<int> Ag91PlainCellInALocalGivenThroughAParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; given[0] = Plain; object? read = Ag91Runs.Run(given); return S.Hold(0); });
+
+    // S4409. A method of the code calls itself with the array of objects that it gets, and the second call gives it to reflection, which runs a method that samples the pending cell.
+    public static Cell<int> Ag91ArrayGivenDownARecursiveMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = Ag91Inner.RunDown([l.Map(v => v)], 1); return S.Hold(0); });
+
+    // S4410. A method of the code gets a pending cell in its first array, and an echo of one in its second. Array.ForEach runs a lambda whose parameter is the second array, which it gives to reflection. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ag91LambdaParameterGivenToReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag91Inner.KeepEach([l.Map(v => v)], [Ab185Fills.Echo(l.Map(v => v))]); return S.Hold(0); });
+
+    // S4411. A method of the code gets a pending cell in its first array, and an echo of one in its second. A local function gets the second array as its parameter, and gives it to reflection. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ag91LocalFunctionParameterGivenToReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? kept = Ag91Inner.KeepThroughALocalFunction([l.Map(v => v)], [Ab185Fills.Echo(l.Map(v => v))]); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -26719,6 +26771,67 @@ public static class Shapes
         public object[] ToArray(object first) => [Ab185Fills.Echo(first)];
     }
 
+    public static class Ag91Runs
+    {
+        private static readonly Cell<int> Unchanged = Cell.Constant(5);
+
+        public static object? Run(object[] given) =>
+            typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given);
+
+        public static object? RunThrough(object[] given) => Run(given);
+
+        public static object? RunKeep(object[] given) =>
+            typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given);
+
+        public static object? RunAll(params object[] given) =>
+            typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given);
+
+        public static object? RunPlainFirst(object[] given)
+        {
+            given[0] = Unchanged;
+
+            return typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given);
+        }
+
+        public static object? RunAgain(object[] given)
+        {
+            given = [Unchanged];
+
+            return typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given);
+        }
+    }
+
+    public sealed class Ag91Runner(object[] given)
+    {
+        public object? Got { get; } = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given);
+    }
+
+    public static class Ag91Inner
+    {
+        public static object? RunDown(object[] given, int n) =>
+            n <= 0
+                ? typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given)
+                : RunDown(given, n - 1);
+
+        public static void KeepEach(object[] first, object[] second)
+        {
+            if (first.Length > 0)
+            {
+                Array.ForEach(
+                    [second],
+                    inner => typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, inner));
+            }
+        }
+
+        public static object? KeepThroughALocalFunction(object[] first, object[] second)
+        {
+            return first.Length > 0 ? Run(second) : null;
+
+            static object? Run(object[] inner) =>
+                typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, inner);
+        }
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -26727,6 +26840,10 @@ public static class Shapes
 
 file static class Helpers
 {
+    // An extension method of this code that gives its receiver to reflection.
+    public static object? RunOn(this object[] given) =>
+        typeof(Shapes.DvLinksReader).GetMethod(nameof(Shapes.DvLinksReader.Read))!.Invoke(null, given);
+
     // A First of this code that reads each item. It is a closer extension method than the one of Enumerable.
     public static Shapes.Ab165Item First(this IEnumerable<Shapes.Ab165Item> items)
     {
