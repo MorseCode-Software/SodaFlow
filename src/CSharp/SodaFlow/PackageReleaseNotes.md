@@ -14,6 +14,11 @@ collection, with no message. A local that later code reads, a field, a return va
 lambda captures count as held. So does a using declaration, to the end of its block. The rule does not see an object,
 a list, or a lambda that nothing holds. The lifetimes page describes it.
 
+Added: two code fixes for SF2001, in the IDE. One keeps the listener in a new private field, so that it lives as long
+as its owner. The IDE offers it in an instance member of a class or a record class. The other makes a using declaration
+of the listener, so that it lives to the end of its block. The IDE offers it for a statement in a block, in C# 8 or
+later. The fixes are in the assembly SodaFlow.Analyzers.CodeFixes, next to the analyzer in the package.
+
 Added: AsCell on a plain Cell<T>, AsBehavior on a plain Behavior<T>, and AsStream on a plain Stream<T>. Each returns
 its receiver. In a loop block they mark a value derived from the placeholder, at the argument where it leaves for code
 the analyzer cannot see into, as one that no callee reads before the loop closes.
