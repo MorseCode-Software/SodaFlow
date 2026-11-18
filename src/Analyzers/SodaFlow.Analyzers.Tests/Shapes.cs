@@ -19979,6 +19979,98 @@ public static class Shapes
     public static Cell<int> Ab195PendingThroughALocalReadThroughALocalThatReadTheElementAfterIt() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Extra[1]]; SettableSlot d = Ab195Extra[0]; a[0] = d; SettableSlot q = a[0]; d.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
 
+    // S4517. A lambda gives q the value of c, and a second lambda puts a pending cell into q. The block runs the two in that order, thus the cell goes into c.
+    public static Cell<int> Ab196PendingThroughALocalThatASiblingLambdaAssigned() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[0]; SettableSlot q = Ab196Slots[1]; c.Share = Plain; Action a = () => { q = c; }; Action w = () => { q.Share = l.Map(v => v); }; a(); w(); return S.Hold(c.Share!.Sample()); });
+
+    // S4518. The block gives q the value of c, and a lambda that the block then runs puts a pending cell into q. The cell goes into c.
+    public static Cell<int> Ab196PendingThroughALocalOfTheBlockInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[2]; SettableSlot q = Ab196Slots[3]; c.Share = Plain; q = c; Action w = () => { q.Share = l.Map(v => v); }; w(); return S.Hold(c.Share!.Sample()); });
+
+    // S4519. The block gives q the value of c, and a local function that the block then runs puts a pending cell into q. The cell goes into c.
+    public static Cell<int> Ab196PendingThroughALocalOfTheBlockInALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[4]; SettableSlot q = Ab196Slots[5]; c.Share = Plain; q = c; void Name() { q.Share = l.Map(v => v); } Name(); return S.Hold(c.Share!.Sample()); });
+
+    // S4520. The block gives q the value of c, and a lambda that a second lambda runs puts a pending cell into q. The cell goes into c.
+    public static Cell<int> Ab196PendingThroughALocalOfTheBlockInALambdaThatALambdaRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[6]; SettableSlot q = Ab196Slots[7]; c.Share = Plain; q = c; Action w = () => { q.Share = l.Map(v => v); }; Action v = () => { w(); }; v(); return S.Hold(c.Share!.Sample()); });
+
+    // S4521. The block gives q the value of c, and a lambda that a branch runs puts a pending cell into q. The cell goes into c.
+    public static Cell<int> Ab196PendingThroughALocalOfTheBlockInALambdaThatABranchRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[8]; SettableSlot q = Ab196Slots[9]; c.Share = Plain; q = c; Action w = () => { q.Share = l.Map(v => v); }; if (!Ab196Never) { w(); } return S.Hold(c.Share!.Sample()); });
+
+    // S4522. The block gives q the value of c, and c gets a pending cell. A lambda that the block then runs puts a plain cell into q, which replaces the pending cell.
+    public static Cell<int> Ab196PlainCellThroughALocalOfTheBlockInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[10]; SettableSlot q = Ab196Slots[11]; q = c; c.Share = l.Map(v => v); Action w = () => { q.Share = Plain; }; w(); return S.Hold(c.Share!.Sample()); });
+
+    // S4523. A lambda gives q the value of c, and c gets a pending cell. A second lambda then puts a plain cell into q, which replaces the pending cell.
+    public static Cell<int> Ab196PlainCellThroughALocalThatASiblingLambdaAssigned() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[12]; SettableSlot q = Ab196Slots[13]; Action a = () => { q = c; }; Action w = () => { q.Share = Plain; }; a(); c.Share = l.Map(v => v); w(); return S.Hold(c.Share!.Sample()); });
+
+    // S4524. The block gives q the value of c, and c gets a pending cell. A lambda that a second lambda runs puts a plain cell into q, which replaces the pending cell.
+    public static Cell<int> Ab196PlainCellThroughALocalOfTheBlockInALambdaThatALambdaRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[14]; SettableSlot q = Ab196Slots[15]; q = c; c.Share = l.Map(v => v); Action w = () => { q.Share = Plain; }; Action v = () => { w(); }; v(); return S.Hold(c.Share!.Sample()); });
+
+    // S4525. The block gives q the value of c, and c gets a pending cell. A lambda that a branch with a false condition runs puts a plain cell into q. The pending cell stays. A control.
+    public static Cell<int> Ab196PlainCellThroughALocalOfTheBlockInALambdaThatABranchRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[16]; SettableSlot q = Ab196Slots[17]; q = c; c.Share = l.Map(v => v); Action w = () => { q.Share = Plain; }; if (Ab196Never) { w(); } return S.Hold(c.Share!.Sample()); });
+
+    // S4526. The block gives q the value of c, and then a different value before it runs the lambda. The pending cell through q does not go into c. A control.
+    public static Cell<int> Ab196LocalOfTheBlockGetsADifferentValueBeforeTheLambdaRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[18]; SettableSlot q = Ab196Slots[19]; c.Share = Plain; q = c; Action w = () => { q.Share = l.Map(v => v); }; q = Ab196Slots[20]; w(); return S.Hold(c.Share!.Sample()); });
+
+    // S4527. The block gives q the value of c, and a call then gives q a different value through out before the lambda runs. The pending cell through q does not go into c. A control.
+    public static Cell<int> Ab196LocalOfTheBlockGetsAValueByOutBeforeTheLambdaRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[21]; SettableSlot q = Ab196Slots[22]; c.Share = Plain; q = c; Action w = () => { q.Share = l.Map(v => v); }; Ab196Reset(out q); w(); return S.Hold(c.Share!.Sample()); });
+
+    // S4528. The block gives q the value of c, and the lambda gives q a different value before it puts the pending cell in. The cell does not go into c. A control.
+    public static Cell<int> Ab196LambdaGivesTheLocalADifferentValueFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[23]; SettableSlot q = Ab196Slots[24]; c.Share = Plain; q = c; Action w = () => { q = Ab196Slots[25]; q.Share = l.Map(v => v); }; w(); return S.Hold(c.Share!.Sample()); });
+
+    // S4529. The block gives q the value of c, and the lambda that runs the second lambda gives q a different value first. The pending cell does not go into c. A control.
+    public static Cell<int> Ab196OuterLambdaGivesTheLocalADifferentValueFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[26]; SettableSlot q = Ab196Slots[27]; c.Share = Plain; q = c; Action w = () => { q.Share = l.Map(v => v); }; Action v = () => { q = Ab196Slots[28]; w(); }; v(); return S.Hold(c.Share!.Sample()); });
+
+    // S4530. A lambda gives q the value of c, and a call gives q a different value through out before the second lambda runs. The pending cell does not go into c. A control.
+    public static Cell<int> Ab196SiblingLambdaAfterTheLocalGetsAValueByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[29]; SettableSlot q = Ab196Slots[30]; c.Share = Plain; Action a = () => { q = c; }; Action w = () => { q.Share = l.Map(v => v); }; a(); Ab196Reset(out q); w(); return S.Hold(c.Share!.Sample()); });
+
+    // S4531. The block gives q the value of c, and a method gives q a different value through ref before it runs the lambda. The pending cell does not go into c. A control.
+    public static Cell<int> Ab196MethodGivesTheLocalAValueByRefAndRunsTheLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[31]; SettableSlot q = Ab196Slots[32]; c.Share = Plain; q = c; Action w = () => { q.Share = l.Map(v => v); }; Ab196SetAndRun(ref q, w); return S.Hold(c.Share!.Sample()); });
+
+    // S4532. The block gives q the value of c, and the lambda puts a pending cell into q after a branch gives q a different value. The cell can go into c.
+    public static Cell<int> Ab196LambdaGivesTheLocalAValueInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[33]; SettableSlot q = Ab196Slots[34]; c.Share = Plain; q = c; Action w = () => { if (Ab196Never) { q = Ab196Slots[35]; } q.Share = l.Map(v => v); }; w(); return S.Hold(c.Share!.Sample()); });
+
+    // S4533. The block gives q the value of c, and c gets a pending cell. An async lambda puts a plain cell into q after an await of a task that never completes, thus that part does not run. The pending cell stays. A control.
+    public static Cell<int> Ab196PlainCellThroughALocalOfTheBlockAfterAnAwaitInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196Slots[36]; SettableSlot q = Ab196Slots[37]; q = c; c.Share = l.Map(v => v); Func<Task> w = async () => { await Ab196NeverDone.Task; q.Share = Plain; }; _ = w(); return S.Hold(c.Share!.Sample()); });
+
+    // S4534. A lambda gives q the value of c, and a third lambda runs it and then a second one. The second gives q a different value through out before it runs the lambda that puts a pending cell into q. The cell does not go into c. A control.
+    public static Cell<int> Ab196LambdaOnTheWayGivesTheLocalAValueByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196More[0]; SettableSlot q = Ab196More[1]; c.Share = Plain; Action a = () => { q = c; }; Action w = () => { q.Share = l.Map(v => v); }; Action v = () => { Ab196Reset(out q); w(); }; Action u = () => { a(); v(); }; u(); return S.Hold(c.Share!.Sample()); });
+
+    // S4535. A lambda gives q the value of c, and a third lambda runs it and then a second one. The second runs the lambda that puts a pending cell into q, thus the cell goes into c.
+    public static Cell<int> Ab196PendingThroughALocalThatALambdaAssignedInALambdaOnTheWay() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196More[2]; SettableSlot q = Ab196More[3]; c.Share = Plain; Action a = () => { q = c; }; Action w = () => { q.Share = l.Map(v => v); }; Action v = () => { w(); }; Action u = () => { a(); v(); }; u(); return S.Hold(c.Share!.Sample()); });
+
+    // S4536. The block gives q the value of c, and the lambda gives q a different value through out before it puts the pending cell in. The cell does not go into c. A control.
+    public static Cell<int> Ab196LambdaGivesTheLocalAValueByOutFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196More[4]; SettableSlot q = Ab196More[5]; c.Share = Plain; q = c; Action w = () => { Ab196Reset(out q); q.Share = l.Map(v => v); }; w(); return S.Hold(c.Share!.Sample()); });
+
+    // S4537. The block gives q the value of c. An async lambda puts a pending cell into q after an await of a task that never completes. The block then gives q a different value. The pending cell never goes into c. A control.
+    public static Cell<int> Ab196PendingThroughALocalOfTheBlockAfterAnAwaitInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196More[6]; SettableSlot q = Ab196More[7]; c.Share = Plain; q = c; Func<Task> w = async () => { await Ab196NeverDone.Task; q.Share = l.Map(v => v); }; _ = w(); q = Ab196More[8]; return S.Hold(c.Share!.Sample()); });
+
+    // S4538. The block gives q the value of c. An async lambda runs a second lambda, which puts a pending cell into q, after an await of a task that never completes. The block then gives q a different value. The pending cell never goes into c. A control.
+    public static Cell<int> Ab196PendingThroughALocalOfTheBlockInALambdaAfterAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196More[9]; SettableSlot q = Ab196More[10]; c.Share = Plain; q = c; Action w = () => { q.Share = l.Map(v => v); }; Func<Task> v = async () => { await Ab196NeverDone.Task; w(); }; _ = v(); q = Ab196More[11]; return S.Hold(c.Share!.Sample()); });
+
+    // S4539. A lambda gives q the value of c, and a third lambda runs it and then a second one. The second gives q a different value through out before it puts a pending cell into q. The cell does not go into c. A control.
+    public static Cell<int> Ab196LambdaThatALambdaRunsGivesTheLocalAValueByOutFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab196More[12]; SettableSlot q = Ab196More[13]; c.Share = Plain; Action a = () => { q = c; }; Action w = () => { Ab196Reset(out q); q.Share = l.Map(v => v); }; Action u = () => { a(); w(); }; u(); return S.Hold(c.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -27799,6 +27891,30 @@ public static class Shapes
     private static readonly SettableSlot[] Ab195Extra = [new(), new()];
 
     private static readonly bool Ab195Never = Ab195More.Length == 0;
+
+    private static readonly SettableSlot[] Ab196Slots =
+    [
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(),
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(),
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new()
+    ];
+
+    private static readonly SettableSlot[] Ab196More =
+    [
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new()
+    ];
+
+    private static readonly bool Ab196Never = Ab196Slots.Length == 0;
+
+    private static readonly TaskCompletionSource<int> Ab196NeverDone = new();
+
+    private static void Ab196Reset(out SettableSlot slot) => slot = Ab196Slots[39];
+
+    private static void Ab196SetAndRun(ref SettableSlot slot, Action run)
+    {
+        slot = Ab196Slots[38];
+        run();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

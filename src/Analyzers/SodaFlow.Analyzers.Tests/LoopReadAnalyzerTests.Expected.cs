@@ -2933,6 +2933,15 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab195ElementGetsALocalAndARefLocalOfADifferentArrayGetsAValue"] = ["SF1001"],
             ["Ab195NewObjectIntoAnElementPendingCell"] = ["SF1001"],
             ["Ab195ElementGetsALocalInABranchThatDoesNotRun"] = ["SF1001"],
-            ["Ab195PendingThroughALocalReadThroughALocalThatReadTheElementAfterIt"] = ["SF1001"]
+            ["Ab195PendingThroughALocalReadThroughALocalThatReadTheElementAfterIt"] = ["SF1001"],
+            ["Ab196PendingThroughALocalThatASiblingLambdaAssigned"] = ["SF1001"],
+            ["Ab196PendingThroughALocalOfTheBlockInALambda"] = ["SF1001"],
+            ["Ab196PendingThroughALocalOfTheBlockInALocalFunction"] = ["SF1001"],
+            ["Ab196PendingThroughALocalOfTheBlockInALambdaThatALambdaRuns"] = ["SF1001"],
+            ["Ab196PendingThroughALocalOfTheBlockInALambdaThatABranchRuns"] = ["SF1001"],
+            ["Ab196PlainCellThroughALocalOfTheBlockInALambdaThatABranchRuns"] = ["SF1001"],
+            ["Ab196LambdaGivesTheLocalAValueInABranch"] = ["SF1001"],
+            ["Ab196PlainCellThroughALocalOfTheBlockAfterAnAwaitInALambda"] = ["SF1001"],
+            ["Ab196PendingThroughALocalThatALambdaAssignedInALambdaOnTheWay"] = ["SF1001"]
         };
 }

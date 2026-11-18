@@ -139,7 +139,8 @@ internal sealed partial class LoopStateEvaluator
     ///     member through the second name then goes through the first name. That
     ///     is true while no code gives one of the two names a value. A function
     ///     can run at a different time. Thus, a record holds only in the run of
-    ///     the code that made it, and in each caller after the call of that run.
+    ///     the code that made it, in each caller after the call of that run, and
+    ///     in each run that such code calls after the record.
     /// </remarks>
     private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written) =>
         this.TheFirstNameOf(written: written, at: written);
@@ -162,17 +163,16 @@ internal sealed partial class LoopStateEvaluator
             if (Unwrapped(use) is not IdentifierNameSyntax name
                 || this.region.SymbolOf(name) is not { } second
                 || !this.Frame.FirstNameOf.TryGetValue(key: second, value: out ExpressionSyntax? first)
-                || this.StartOfTheRecordOf(first) is not (var start, var ran)
-                || FunctionOf(at) is not { } code
+                || this.WindowsOfTheRecordOf(first: first, at: at) is not (var windows, var ran)
                 || this.region.SymbolOf(first) is not { } firstName
-                || new[] { firstName, second }.Any(one =>
+                || windows.Any(window => new[] { firstName, second }.Any(one =>
                     this.GetsAValue(
                         name: one,
-                        code: code,
-                        after: start,
-                        before: at.SpanStart,
+                        code: window.Code,
+                        after: window.After,
+                        before: window.Before,
                         orAFunctionUsesIt: false,
-                        ran: ran)))
+                        ran: ran))))
             {
                 break;
             }
@@ -197,12 +197,13 @@ internal sealed partial class LoopStateEvaluator
         return state;
     }
 
-    // Where the record of a first name starts in the code of this evaluator, and the functions
+    // The parts of code that run between the record of a first name and a use, and the functions
     // whose run made the record. A lambda or a local function that a call runs can give a local
     // of the code around it a value. That record starts at the end of the call, in the code that
-    // has the call. Null when the code of this evaluator is not the run that made the record, or
-    // a caller of that run.
-    private (int Start, ImmutableArray<SyntaxNode> Ran)? StartOfTheRecordOf(ExpressionSyntax first)
+    // has the call. The code of the record is the run of the use, or a caller of that run. Then,
+    // the parts continue through each run that a call starts, up to the use.
+    private (ImmutableArray<(SyntaxNode Code, int After, int Before)> Windows, ImmutableArray<SyntaxNode> Ran)?
+        WindowsOfTheRecordOf(ExpressionSyntax first, SyntaxNode at)
     {
         SyntaxNode start = first;
         ImmutableArray<SyntaxNode> ran = ImmutableArray<SyntaxNode>.Empty;
@@ -210,14 +211,16 @@ internal sealed partial class LoopStateEvaluator
         LoopStateEvaluator code =
             this.Frame.RunThatNamed.TryGetValue(key: first, value: out LoopStateEvaluator? run) ? run : this;
 
-        // The code of the block has no call, thus the chain of callers has an end.
-        while (!ReferenceEquals(objA: code.call, objB: this.call))
-        {
-            if (code.call is not { } call)
-            {
-                return null;
-            }
+        // The calls from the run of the use up to the code of the block, which has no call.
+        List<CallOfThisCode> calls = [];
 
+        for (CallOfThisCode? up = this.call; up != null; up = up.Caller.call)
+        {
+            calls.Add(up);
+        }
+
+        while (code.call is { } call && !calls.Contains(call))
+        {
             if (code.function is { } function)
             {
                 ran = ran.Add(function);
@@ -227,7 +230,31 @@ internal sealed partial class LoopStateEvaluator
             code = call.Caller;
         }
 
-        return (start.Span.End, ran);
+        List<(SyntaxNode Code, int After, int Before)> windows = [];
+        int? after = start.Span.End;
+
+        // Each call between them runs after the code before it in its run, and so do its arguments.
+        for (int level = code.call is { } met ? calls.IndexOf(met) : calls.Count; level > 0; level--)
+        {
+            SyntaxNode site = calls[level - 1].Site;
+
+            if (FunctionOf(site) is not { } caller)
+            {
+                return null;
+            }
+
+            windows.Add((caller, after ?? caller.SpanStart, site.Span.End));
+            after = null;
+        }
+
+        if (FunctionOf(at) is not { } use)
+        {
+            return null;
+        }
+
+        windows.Add((use, after ?? use.SpanStart, at.SpanStart));
+
+        return (windows.ToImmutableArray(), ran);
     }
 
     // True for a name whose own state can be without a write through a second name of its value.
