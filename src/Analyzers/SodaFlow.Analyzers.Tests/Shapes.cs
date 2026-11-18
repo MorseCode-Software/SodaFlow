@@ -18783,6 +18783,334 @@ public static class Shapes
     public static Cell<int> Ab187RefParameterGivenAStructElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue own = default; Put(ref own); return S.Hold(arr[0].Share!.Sample()); void Put(ref SlotValue p) { p = ref arr[0]; p.Share = l.Map(q => q); } });
 
+    // S4218. The block writes a pending cell and then a plain cell into a member through a value of a dictionary with a constant key. The second write replaces the first, thus the sample returns.
+    public static Cell<int> Ab188SecondWriteThroughAConstantKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Slots[0] }; d["a"].Share = l.Map(v => v); d["a"].Share = Plain; return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4219. A local gets a value of a dictionary, and the block writes a pending cell and then a plain cell through the local. The sample reads the member through the dictionary.
+    public static Cell<int> Ab188SecondWriteThroughALocalOfAValueOfADictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Slots[1] }; SettableSlot x = d["a"]; x.Share = l.Map(v => v); x.Share = Plain; return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4220. The block writes a pending cell and then a plain cell through a value of a dictionary. A local then gets the value, and the sample reads the member through the local.
+    public static Cell<int> Ab188ValueOfADictionaryReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Slots[2] }; d["a"].Share = l.Map(v => v); d["a"].Share = Plain; SettableSlot x = d["a"]; return S.Hold(x.Share!.Sample()); });
+
+    // S4221. The block writes a pending cell and then a plain cell through an element of an array. A local then gets the element, and the sample reads the member through the local.
+    public static Cell<int> Ab188ElementOfAnArrayReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[3]]; a[0].Share = l.Map(v => v); a[0].Share = Plain; SettableSlot x = a[0]; return S.Hold(x.Share!.Sample()); });
+
+    // S4222. A local gets an element of an array, and the block writes a pending cell and then a plain cell through the local. The sample reads the member through the array.
+    public static Cell<int> Ab188SecondWriteThroughALocalOfAnElementOfAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[4]]; SettableSlot x = a[0]; x.Share = l.Map(v => v); x.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4223. The block writes a pending cell and then a plain cell through an element of a list. A local then gets the element, and the sample reads the member through the local.
+    public static Cell<int> Ab188ElementOfAListReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> xs = [Ab188Slots[5]]; xs[0].Share = l.Map(v => v); xs[0].Share = Plain; SettableSlot x = xs[0]; return S.Hold(x.Share!.Sample()); });
+
+    // S4224. The block writes a pending cell and then a plain cell through an element of an array. It calls a method of the platform before the sample.
+    public static Cell<int> Ab188SecondWriteThroughAnArrayWithACallBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[6]]; a[0].Share = l.Map(v => v); a[0].Share = Plain; Kept.Add(1); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4225. The block writes a pending cell and then a plain cell through a value of a dictionary with a key in a local. It calls a method of the platform before the sample.
+    public static Cell<int> Ab188SecondWriteThroughAKeyInALocalWithACallBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string k = "a"; Dictionary<string, SettableSlot> d = new() { [k] = Ab188Slots[7] }; d[k].Share = l.Map(v => v); d[k].Share = Plain; Kept.Add(1); return S.Hold(d[k].Share!.Sample()); });
+
+    // S4226. A local gets an element of a list, and the block writes a pending cell and then a plain cell through the local. The sample reads the member through the list.
+    public static Cell<int> Ab188SecondWriteThroughALocalOfAnElementOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> xs = [Ab188Slots[8]]; SettableSlot x = xs[0]; x.Share = l.Map(v => v); x.Share = Plain; return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4227. The block writes a pending cell and then a plain cell through an element of a list. It calls a method of the platform before the sample.
+    public static Cell<int> Ab188SecondWriteThroughAListWithACallBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> xs = [Ab188Slots[9]]; xs[0].Share = l.Map(v => v); xs[0].Share = Plain; Kept.Add(1); return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4228. The block writes a pending cell and then a plain cell through an element of an array with an index in a local. It calls a method of the platform before the sample.
+    public static Cell<int> Ab188SecondWriteThroughAnIndexInALocalWithACallBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int i = 0; SettableSlot[] a = [Ab188Slots[10]]; a[i].Share = l.Map(v => v); a[i].Share = Plain; Kept.Add(1); return S.Hold(a[i].Share!.Sample()); });
+
+    // S4229. The block writes a pending cell and then a plain cell into a struct element of an array. It calls a method of the platform before the sample.
+    public static Cell<int> Ab188SecondWriteIntoAStructElementWithACallBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue()]; arr[0].Share = l.Map(v => v); arr[0].Share = Plain; Kept.Add(1); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4230. The block writes a plain cell into a struct element after a pending cell, and then a pending cell into a copy of the element. The copy is no name of the element.
+    public static Cell<int> Ab188StructCopyWrittenAfterTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue()]; arr[0].Share = l.Map(v => v); arr[0].Share = Plain; SlotValue v = arr[0]; v.Share = l.Map(v => v); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4231. The block writes a pending cell and then a plain cell through an element of an array, and samples straight after. A control.
+    public static Cell<int> Ab188SecondWriteThroughAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[11]]; a[0].Share = l.Map(v => v); a[0].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4232. The block writes a pending cell and then a plain cell through a local, and calls a method of the platform before the sample. A control.
+    public static Cell<int> Ab188SecondWriteThroughALocalWithACallBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = Ab188Slots[12]; x.Share = l.Map(v => v); x.Share = Plain; Kept.Add(1); return S.Hold(x.Share!.Sample()); });
+
+    // S4233. The block writes a pending cell and then a plain cell through a value of a dictionary with an int key. A control.
+    public static Cell<int> Ab188SecondWriteThroughAnIntKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, SettableSlot> d = new() { [0] = Ab188Slots[13] }; d[0].Share = l.Map(v => v); d[0].Share = Plain; return S.Hold(d[0].Share!.Sample()); });
+
+    // S4234. The block writes a plain cell and then a pending cell through a value of a dictionary.
+    public static Cell<int> Ab188PendingCellWrittenLast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Slots[14] }; d["a"].Share = Plain; d["a"].Share = l.Map(v => v); return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4235. The block writes a pending cell through one key of a dictionary and a plain cell through a second key.
+    public static Cell<int> Ab188WritesThroughTwoKeys() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Slots[15], ["b"] = Ab188Slots[16] }; d["a"].Share = l.Map(v => v); d["b"].Share = Plain; return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4236. The block writes a pending cell through a value of a dictionary and keeps the value in a local. Then it puts a new value for the key. A plain cell goes into the new value.
+    public static Cell<int> Ab188KeyGetsANewValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Slots[17] }; d["a"].Share = l.Map(v => v); SettableSlot old = d["a"]; d["a"] = Ab188Slots[18]; d["a"].Share = Plain; return S.Hold(old.Share!.Sample()); });
+
+    // S4237. The block writes a pending cell through one element of an array and a plain cell through a second element.
+    public static Cell<int> Ab188WritesThroughTwoIndexes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[19], Ab188Slots[20]]; a[0].Share = l.Map(v => v); a[1].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4238. A dictionary has one object for two keys. The block writes a pending cell through the first key and then a plain cell through the second key. A control.
+    public static Cell<int> Ab188OneObjectUnderTwoKeys() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); Dictionary<string, SettableSlot> d = new() { ["a"] = x, ["b"] = x }; d["a"].Share = l.Map(v => v); d["b"].Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S4239. A dictionary has one object for two keys. The block writes a plain cell through the first key and a pending cell through the second key. It samples through the first key.
+    public static Cell<int> Ab188OneObjectUnderTwoKeysReadThroughTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new(); Dictionary<string, SettableSlot> d = new() { ["a"] = x, ["b"] = x }; d["a"].Share = Plain; d["b"].Share = l.Map(v => v); return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4240. Two arrays have one object. The block writes a plain cell through the first array and a pending cell through the second array, and samples through the first array.
+    public static Cell<int> Ab188OneObjectInTwoArrays() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new(); SettableSlot[] a = [s]; SettableSlot[] b = [s]; a[0].Share = Plain; b[0].Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4241. A local gets an element of an array. The block writes a plain cell through the element and then a pending cell through the local, and samples through the array.
+    public static Cell<int> Ab188WriteThroughALocalOfTheElementAfterTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[21]]; SettableSlot x = a[0]; a[0].Share = Plain; x.Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4242. An array has an object of a derived class. The block writes a plain cell through the member of the base class and a pending cell through the override in a local.
+    public static Cell<int> Ab188WriteThroughTheOverrideOfTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab188Derived o = new(); Ab188Base[] a = [o]; a[0].Share = Plain; o.Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4243. An index in a local names the same element as a constant index. The block writes a plain cell through the constant index and a pending cell through the local index.
+    public static Cell<int> Ab188WriteThroughAnIndexInALocalWithTheSameValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int i = 0; SettableSlot[] a = [Ab188Slots[22]]; a[0].Share = Plain; a[i].Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4244. The block writes a plain cell through a value of a dictionary, and then a pending cell in a branch that runs.
+    public static Cell<int> Ab188PendingCellWrittenInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Slots[23] }; d["a"].Share = Plain; if (Plain != null) { d["a"].Share = l.Map(v => v); } return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4245. The block writes a plain cell through an element, and a method of the code writes a pending cell into the element.
+    public static Cell<int> Ab188MethodWritesIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[24]]; a[0].Share = Plain; Ab188SetShare(a[0], l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4246. The block writes a plain cell through an element. Then it gives the local of the array a second array whose element has a pending cell.
+    public static Cell<int> Ab188LocalOfTheArrayGetsASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] b = [new SettableSlot { Share = l.Map(v => v) }]; SettableSlot[] a = [Ab188Slots[25]]; a[0].Share = Plain; a = b; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4247. The block writes a plain cell through an element with an index in a local, and then gives the index a second value. The second element has a pending cell.
+    public static Cell<int> Ab188IndexGetsASecondValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[26], Ab188Slots[27]]; a[1].Share = l.Map(v => v); int i = 0; a[i].Share = Plain; i = 1; return S.Hold(a[i].Share!.Sample()); });
+
+    // S4248. The block writes a plain cell through an element, and then puts a second object with a pending cell into the element.
+    public static Cell<int> Ab188ElementGetsASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[28]]; a[0].Share = Plain; a[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4249. The block writes a plain cell through a value of a dictionary, and then puts a second object with a pending cell for the key.
+    public static Cell<int> Ab188KeyGetsASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Slots[29] }; d["a"].Share = Plain; d["a"] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4250. A second local is a name of the array. The block writes a plain cell through an element. Then it puts a second object with a pending cell into the element through the second local.
+    public static Cell<int> Ab188ElementGetsASecondObjectThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[30]]; SettableSlot[] b = a; a[0].Share = Plain; b[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4251. The block writes a plain cell through an element, and then Array.Fill puts a second object with a pending cell into each element.
+    public static Cell<int> Ab188ArrayFilledAfterTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[31]]; a[0].Share = Plain; Array.Fill(a, new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4252. The block writes a plain cell through an element of a list, and then inserts a second object with a pending cell before it.
+    public static Cell<int> Ab188ListInsertAfterTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> xs = [Ab188Slots[32]]; xs[0].Share = Plain; xs.Insert(0, new SettableSlot { Share = l.Map(v => v) }); return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4253. The block writes a plain cell through a value of a dictionary, and then removes the key and adds it again with a second object.
+    public static Cell<int> Ab188KeyRemovedAndAddedAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Slots[33] }; d["a"].Share = Plain; d.Remove("a"); d.Add("a", new SettableSlot { Share = l.Map(v => v) }); return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4254. A second local is a name of the list. The block writes a plain cell through an element, and then inserts a second object before it through the second local.
+    public static Cell<int> Ab188ListInsertThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> xs = [Ab188Slots[34]]; List<SettableSlot> ys = xs; xs[0].Share = Plain; ys.Insert(0, new SettableSlot { Share = l.Map(v => v) }); return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4255. A lambda puts a second object with a pending cell into the element. The block writes a plain cell through the element and then runs the lambda.
+    public static Cell<int> Ab188LambdaPutsIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[35]]; Action put = () => a[0] = new SettableSlot { Share = l.Map(v => v) }; a[0].Share = Plain; put(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4256. The block writes a plain cell through an element before a loop. Each turn samples through the element, and then puts a second object with a pending cell into it.
+    public static Cell<int> Ab188ReadInALoopThatChangesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[36]]; int got = 0; a[0].Share = Plain; for (int t = 0; t < 2; t++) { got = a[0].Share!.Sample(); a[0] = new SettableSlot { Share = l.Map(v => v) }; } return S.Hold(got); });
+
+    // S4257. The block writes a plain cell through an element. A goto runs the sample again after a put of a second object with a pending cell into the element.
+    public static Cell<int> Ab188ReadAgainAfterAGoto() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[37]]; int got = 0; int turn = 0; a[0].Share = Plain; again: got = a[0].Share!.Sample(); a[0] = new SettableSlot { Share = l.Map(v => v) }; if (turn++ == 0) { goto again; } return S.Hold(got); });
+
+    // S4258. The right side of a write puts a second object with a pending cell into the element. It gives a plain cell to the member of the first object.
+    public static Cell<int> Ab188RightSidePutsIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[38]]; a[0].Share = Ab188Swap(a, l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4259. A local gets an element after the writes, and then a second object with a pending cell. The sample reads through the local.
+    public static Cell<int> Ab188LocalOfTheElementGetsASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[39]]; a[0].Share = Plain; SettableSlot x = a[0]; x = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(x.Share!.Sample()); });
+
+    // S4260. A local gets an element, and the element then gets a second object with a pending cell. The block writes a plain cell through the local, and samples through the array.
+    public static Cell<int> Ab188ElementGetsASecondObjectBeforeTheWriteThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[40]]; SettableSlot x = a[0]; a[0] = new SettableSlot { Share = l.Map(v => v) }; x.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4261. A local gets an element with a pending cell, and then a second object. The block writes a plain cell through the local, and samples through the array.
+    public static Cell<int> Ab188LocalGetsASecondObjectBeforeItsWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Slots[41]]; a[0].Share = l.Map(v => v); SettableSlot x = a[0]; x = new SettableSlot(); x.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4262. A local with ref is a name of an element. The block writes a plain cell through the element, and then puts a second object with a pending cell into the element through the local.
+    public static Cell<int> Ab188ElementGetsASecondObjectThroughARefLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188More[0]]; ref SettableSlot r = ref a[0]; a[0].Share = Plain; r = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4263. The block writes a plain cell through an element, and then Interlocked.Exchange puts a second object with a pending cell into the element.
+    public static Cell<int> Ab188ElementExchangedAfterTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188More[1]]; a[0].Share = Plain; Interlocked.Exchange(ref a[0], new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4264. The block writes a plain cell through an element, and then a deconstruction puts a second object with a pending cell into the element.
+    public static Cell<int> Ab188ElementGetsASecondObjectFromADeconstruction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188More[2]]; int n = 0; a[0].Share = Plain; (a[0], n) = (new SettableSlot { Share = l.Map(v => v) }, 1); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4265. The block writes a plain cell through an element of a list. Then ForEach runs a lambda that writes a pending cell into each element.
+    public static Cell<int> Ab188ForEachWritesIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> xs = [Ab188More[4]]; xs[0].Share = Plain; xs.ForEach(s => s.Share = l.Map(v => v)); return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4266. The block writes a plain cell through an element, and then a pending cell through a local with ref for the element.
+    public static Cell<int> Ab188WriteThroughARefLocalAfterTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188More[5]]; ref SettableSlot r = ref a[0]; a[0].Share = Plain; r.Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4267. The block writes a pending cell and then a plain cell through an element. A lambda that writes a pending cell into the element runs before the sample.
+    public static Cell<int> Ab188LambdaWritesIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188More[6]]; Action write = () => a[0].Share = l.Map(v => v); a[0].Share = l.Map(v => v); a[0].Share = Plain; write(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4268. The block writes a plain cell through an element before a while loop. Each turn samples through the element, and then puts a second object with a pending cell into it.
+    public static Cell<int> Ab188ReadInAWhileLoopThatChangesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spare[0]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; int got = 0; int turn = 0; a[0].Share = Plain; while (turn < 2) { got = a[0].Share!.Sample(); a[0] = other; turn++; } return S.Hold(got); });
+
+    // S4269. The block writes a plain cell through an element before a do loop. Each turn samples through the element, and then puts a second object with a pending cell into it.
+    public static Cell<int> Ab188ReadInADoLoopThatChangesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spare[1]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; int got = 0; int turn = 0; a[0].Share = Plain; do { got = a[0].Share!.Sample(); a[0] = other; turn++; } while (turn < 2); return S.Hold(got); });
+
+    // S4270. The block writes a plain cell through an element before a foreach. Each turn samples through the element, and then puts a second object with a pending cell into it.
+    public static Cell<int> Ab188ReadInAForeachThatChangesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spare[2]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; int got = 0; a[0].Share = Plain; foreach (int number in Numbers) { got = a[0].Share!.Sample() + number; a[0] = other; } return S.Hold(got); });
+
+    // S4271. The block writes a plain cell through an element before a switch. A goto case runs the section with the sample after a section that puts a second object into the element.
+    public static Cell<int> Ab188ReadInASwitchSectionAfterAGotoCase() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spare[3]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; int got = 0; int k = Kept.Count * 0; a[0].Share = Plain; switch (k) { case 1: got = a[0].Share!.Sample(); break; case 0: a[0] = other; goto case 1; } return S.Hold(got); });
+
+    // S4272. The block writes a plain cell through an element, and then puts the object of a local with a pending cell into the element.
+    public static Cell<int> Ab188ElementGetsTheObjectOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spare[4]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; a[0].Share = Plain; a[0] = other; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4273. The block writes a plain cell through a value of a dictionary. Then it puts the object of a local with a pending cell for the key.
+    public static Cell<int> Ab188KeyGetsTheObjectOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Spare[5] }; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; d["a"].Share = Plain; d["a"] = other; return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4274. A local with ref is a name of an element. The block writes a plain cell through the element. Then it puts the object of a local with a pending cell into the element through the name.
+    public static Cell<int> Ab188RefLocalGetsTheObjectOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spare[6]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; ref SettableSlot r = ref a[0]; a[0].Share = Plain; r = other; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4275. A getter of the code puts a second object into the element. The block writes a plain cell through the element, and then reads the property.
+    public static Cell<int> Ab188GetterPutsIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spare[8]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Ab188Changer c = new() { Slots = a, Next = other }; a[0].Share = Plain; int n = c.Change; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4276. A Dispose of the code puts a second object into the element. The block writes a plain cell through the element, and then ends a using in a block.
+    public static Cell<int> Ab188DisposePutsIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spare[9]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Ab188Changer c = new() { Slots = a, Next = other }; a[0].Share = Plain; { using Ab188Changer u = c; } return S.Hold(a[0].Share!.Sample()); });
+
+    // S4277. A setter of the code writes the member. The block writes a plain cell through the element, and then a pending cell through the setter.
+    public static Cell<int> Ab188SetterWritesTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab188Setter[] a = [new Ab188Setter()]; a[0].Share = Plain; a[0].ShareThroughCode = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4278. An indexer of the code puts a second object into the element. The block writes a plain cell through the element, and then reads the indexer.
+    public static Cell<int> Ab188IndexerPutsIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spare[10]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Ab188Changer c = new() { Slots = a, Next = other }; a[0].Share = Plain; int n = c[0]; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4279. The function of a Lazy reads a getter that puts a second object into the element. The block writes a plain cell through the element, and then reads the Value.
+    public static Cell<int> Ab188LazyPutsIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spare[11]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Ab188Changer c = new() { Slots = a, Next = other }; Lazy<int> later = new(() => c.Change); a[0].Share = Plain; int n = later.Value; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4280. A local gets an element with a pending cell. The element then gets a second object, and the block writes a plain cell through the element. The sample reads through the local.
+    public static Cell<int> Ab188LocalOfTheFirstObjectReadAfterAWriteToTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spare[13]]; a[0].Share = l.Map(v => v); SettableSlot x = a[0]; SettableSlot other = new(); a[0] = other; a[0].Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S4281. The block writes a pending cell through a value of a dictionary, and then a plain cell in a branch that does not run.
+    public static Cell<int> Ab188PlainCellWrittenInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Extra[0] }; d["a"].Share = l.Map(v => v); if (Never) { d["a"].Share = Plain; } return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4282. The block writes a plain cell through an element, and a lambda samples through the element. The element gets a second object before the block runs the lambda.
+    public static Cell<int> Ab188ReadInALambdaAfterTheElementChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Extra[1]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; a[0].Share = Plain; Func<int> read = () => a[0].Share!.Sample(); a[0] = other; int got = read(); return S.Hold(got); });
+
+    // S4283. A property of an element has a getter and a setter with code. The block writes a plain cell through the setter, and the getter gives a pending cell.
+    public static Cell<int> Ab188PropertyWithCodeReadThroughTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab188Odd o = new() { Other = l.Map(v => v) }; Ab188Odd[] a = [o]; a[0].Odd = Plain; return S.Hold(a[0].Odd!.Sample()); });
+
+    // S4284. An index is a local with ref for a second local. The block writes a plain cell through the element at the index, and then gives the second local a new value.
+    public static Cell<int> Ab188RefIndexChangesThroughItsTarget() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Extra[2], Ab188Extra[3]]; a[1].Share = l.Map(v => v); int n = 0; ref int i = ref n; a[i].Share = Plain; n = 1; return S.Hold(a[i].Share!.Sample()); });
+
+    // S4285. The block writes a plain cell through an element before a for with no condition. Each turn samples through the element, and then puts a second object with a pending cell into it.
+    public static Cell<int> Ab188ReadInAForWithNoConditionThatChangesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Last[0]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; int got = 0; int turn = 0; a[0].Share = Plain; for (;;) { got = a[0].Share!.Sample(); a[0] = other; turn++; if (turn == 2) { break; } } return S.Hold(got); });
+
+    // S4286. The block writes a plain cell through an element before a while true. Each turn samples through the element, and then puts a second object with a pending cell into it.
+    public static Cell<int> Ab188ReadInAWhileTrueThatChangesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Last[1]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; int got = 0; int turn = 0; a[0].Share = Plain; while (true) { got = a[0].Share!.Sample(); a[0] = other; turn++; if (turn == 2) { break; } } return S.Hold(got); });
+
+    // S4287. A query has a function that puts a second object into the element. The block writes a plain cell through the element, and then ToList runs the query.
+    public static Cell<int> Ab188QueryRunByToListPutsIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Last[2]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; IEnumerable<int> query = Numbers.Select(n => { a[0] = other; return n; }); a[0].Share = Plain; List<int> all = query.ToList(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4288. An index comes from a property with code, which gives a second value at the second read. The block writes a plain cell through the element at the first value.
+    public static Cell<int> Ab188IndexFromAPropertyWithCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Last[3], Ab188Last[4]]; a[1].Share = l.Map(v => v); Ab188Step.Reset(); a[Ab188Step.Next].Share = Plain; return S.Hold(a[Ab188Step.Next].Share!.Sample()); });
+
+    // S4289. A list type of the code has an indexer that gives a second object at the second read. The block writes a plain cell through the first object.
+    public static Cell<int> Ab188ListOfTheCodeWithAnIndexerThatChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab188Own.List<SettableSlot> xs = new(Ab188Last[5], new SettableSlot { Share = l.Map(v => v) }); xs[0].Share = Plain; return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4290. A dictionary with keys of type object has the keys 0 and 0L. The block writes a pending cell through the first key, and a plain cell through the second key.
+    public static Cell<int> Ab188DictionaryWithKeysOfTypeObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<object, SettableSlot> d = new() { [0] = Ab188Last[6], [0L] = Ab188Last[7] }; d[0].Share = l.Map(v => v); d[0L].Share = Plain; return S.Hold(d[0].Share!.Sample()); });
+
+    // S4291. The block writes a plain cell through an element of a list. Then it inserts the object of a local with a pending cell before it.
+    public static Cell<int> Ab188ListInsertOfALocalAfterTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> xs = [Ab188Last[8]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; xs[0].Share = Plain; xs.Insert(0, other); return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4292. A second local is a name of the list. The block writes a plain cell through an element, and then inserts the object of a local before it through the second local.
+    public static Cell<int> Ab188ListInsertOfALocalThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> xs = [Ab188Last[9]]; List<SettableSlot> ys = xs; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; xs[0].Share = Plain; ys.Insert(0, other); return S.Hold(xs[0].Share!.Sample()); });
+
+    // S4293. The block writes a plain cell through an element, and then Array.Fill puts the object of a local with a pending cell into each element.
+    public static Cell<int> Ab188ArrayFilledWithALocalAfterTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Last[10]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; a[0].Share = Plain; Array.Fill(a, other); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4294. The block writes a plain cell through a value of a dictionary. Then it removes the key and adds it again with the object of a local.
+    public static Cell<int> Ab188KeyRemovedAndAddedAgainWithALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = Ab188Last[11] }; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; d["a"].Share = Plain; d.Remove("a"); d.Add("a", other); return S.Hold(d["a"].Share!.Sample()); });
+
+    // S4295. A function in a local puts a second object into the element through a second name of the array. The block writes a plain cell through the element, and then Array.ForEach runs the function.
+    public static Cell<int> Ab188ForEachRunsAFunctionInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Last[12]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] b = a; Action<int> put = n => b[0] = other; a[0].Share = Plain; Array.ForEach(Numbers, put); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4296. A function in a local puts a second object into the element through a second name of the array. The block writes a plain cell through the element, and then calls the function.
+    public static Cell<int> Ab188FunctionInALocalPutsThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Last[13]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] b = a; Action<int> put = n => b[0] = other; a[0].Share = Plain; put(1); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4297. The function of a Lazy puts a second object into the element through a second name of the array. The block writes a plain cell through the element, and then reads the Value.
+    public static Cell<int> Ab188LazyPutsThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Last[14]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] b = a; Lazy<int> later = new(() => { b[0] = other; return 1; }); a[0].Share = Plain; int n = later.Value; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4298. A local gets an element after a write of a plain cell through it, and then the object of a local with a pending cell. The sample reads through the first local.
+    public static Cell<int> Ab188LocalOfTheElementGetsTheObjectOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spot[0]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; a[0].Share = Plain; SettableSlot x = a[0]; x = other; return S.Hold(x.Share!.Sample()); });
+
+    // S4299. A local gets an element with a pending cell, and then the object of a second local. The block writes a plain cell through the first local, and samples through the array.
+    public static Cell<int> Ab188LocalGetsTheObjectOfALocalBeforeItsWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spot[1]]; SettableSlot spare = new(); a[0].Share = l.Map(v => v); SettableSlot x = a[0]; x = spare; x.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -25689,6 +26017,115 @@ public static class Shapes
     }
 
     private static int Ab187Zero() => 0;
+
+    private static readonly SettableSlot[] Ab188Slots =
+    [
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(),
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(),
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new()
+    ];
+
+    private static void Ab188SetShare(SettableSlot slot, Cell<int> share) => slot.Share = share;
+
+    private static Cell<int> Ab188Swap(SettableSlot[] slots, Cell<int> share)
+    {
+        slots[0] = new SettableSlot { Share = share };
+
+        return Plain;
+    }
+
+    public class Ab188Base
+    {
+        public virtual Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab188Derived : Ab188Base
+    {
+        public override Cell<int>? Share { get; set; }
+    }
+
+    private static readonly SettableSlot[] Ab188More = [new(), new(), new(), new(), new(), new(), new(), new()];
+
+    private static readonly SettableSlot[] Ab188Spare =
+        [new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
+
+    public sealed class Ab188Changer : IDisposable
+    {
+        public SettableSlot[]? Slots { get; set; }
+
+        public SettableSlot? Next { get; set; }
+
+        public int Change
+        {
+            get
+            {
+                this.Slots![0] = this.Next!;
+
+                return 0;
+            }
+        }
+
+        public int this[int index]
+        {
+            get
+            {
+                this.Slots![0] = this.Next!;
+
+                return index;
+            }
+        }
+
+        public void Dispose() => this.Slots![0] = this.Next!;
+    }
+
+    public sealed class Ab188Setter
+    {
+        public Cell<int>? Share { get; set; }
+
+        public Cell<int>? ShareThroughCode
+        {
+            set => this.Share = value;
+        }
+    }
+
+    private static readonly SettableSlot[] Ab188Extra = [new(), new(), new(), new()];
+
+    public sealed class Ab188Odd
+    {
+        private Cell<int>? stored;
+
+        public Cell<int>? Other { get; set; }
+
+        public Cell<int>? Odd
+        {
+            get => this.Other ?? this.stored;
+            set => this.stored = value;
+        }
+    }
+
+    private static readonly SettableSlot[] Ab188Last =
+        [new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
+
+    public static class Ab188Own
+    {
+        public sealed class List<T>(T first, T second)
+        {
+            private int reads;
+
+            public T this[int index] => this.reads++ == index ? first : second;
+        }
+    }
+
+    public static class Ab188Step
+    {
+        private static int count;
+
+        public static int Next => count++;
+
+        public static void Reset() => count = 0;
+    }
+
+    private static readonly SettableSlot[] Ab188Spot = [new(), new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

@@ -864,6 +864,7 @@ internal sealed partial class LoopStateEvaluator
 
         this.NotesASecondName(local: local, value: value, replaces: replaces);
         this.NotesANameOfALocation(local: local, value: value, replaces: replaces);
+        this.NotesANameOfAnElement(local: local, value: value);
 
         // A name with ref gets its location here. Each other assignment to the name is an
         // assignment to that location, and the name keeps it.
@@ -1930,7 +1931,7 @@ internal sealed partial class LoopStateEvaluator
             InvocationExpressionSyntax inv => this.EvalInvocation(inv),
             ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => this.EvalCreation(expression),
             MemberAccessExpressionSyntax read when this.WrittenThroughItsName(read) is { } written => written,
-            MemberAccessExpressionSyntax read when this.WrittenThroughItsElement(read) is { } written => written,
+            MemberAccessExpressionSyntax read when this.WrittenAtItsElement(read) is { } written => written,
             IdentifierNameSyntax
                 or MemberAccessExpressionSyntax
                 or MemberBindingExpressionSyntax

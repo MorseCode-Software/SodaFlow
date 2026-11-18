@@ -267,11 +267,33 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<SyntaxNode, (MadeObject List, MadeObject? Added)> AddsOfEachTurn { get; } = [];
 
     /// <summary>
-    ///     The last write to a member through an element of a collection in the
-    ///     code of this frame, when that write always runs. Null when the last
-    ///     write was not such a write.
+    ///     The state of each member of an element at a location that the walk
+    ///     can read again. The last sure write through that location gave it, and
+    ///     each write after that one that can be to the same object added to it.
     /// </summary>
-    public WriteThroughAnElement? LastElementWrite { get; set; }
+    public List<ElementMemberWrite> ElementMemberWrites { get; } = [];
+
+    /// <summary>
+    ///     The number of writes to a member in the region when the code of this
+    ///     frame last wrote to a member. A different number at a read means a write
+    ///     that <see cref="ElementMemberWrites" /> does not have.
+    /// </summary>
+    public int MemberWritesSeen { get; set; }
+
+    /// <summary>
+    ///     For a local of this code that got an element at a location that the
+    ///     walk can read again: the expression of that element.
+    /// </summary>
+    public Dictionary<ISymbol, ElementAccessExpressionSyntax> NamesOfElements { get; } =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     For a local or a parameter: each use of it in the code of this frame.
+    ///     A use has its position, true when it gives the name a value, and true
+    ///     when a function in that code has it.
+    /// </summary>
+    public Dictionary<ISymbol, (SyntaxNode Code, ImmutableArray<(int Position, bool Gives, bool InAFunction)> Uses)>
+        UsesOfNames { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
     ///     The last write to a member through a name in the code of this frame,

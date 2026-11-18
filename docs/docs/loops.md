@@ -299,7 +299,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   element apart, so `cells[0]`, `cells[^1]`, and `cells.ElementAt(1)` are each one element. A
   `Dictionary` that you write with constant keys and no comparer, and that the code then only
   reads, keeps the value of each key apart, so `cells["total"]` is that one value. `Array.Fill`
-  puts its value into each element that it fills, as an assignment to that element would.
+  puts its value into each element that it fills, as an assignment to that element would. A write
+  to a member through an element of a local array, `List<T>`, or `Dictionary` created with no
+  comparer, at a constant index or key or at an index in a local, replaces what an earlier write
+  gave that member. So does a write through a local that got that element, and a later read
+  through either one sees only the last value.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a
@@ -375,7 +379,12 @@ careful side, so it can report a read that does not throw:
   condition that is a constant is read for what it says: the analyzer skips the branch of an `if`
   that the constant rules out, and the body of a `while` whose condition is the constant `false`.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
-  one.
+  one. An element counts as one object from a write through it to a read through it only in a
+  straight line: in one function, with no loop, `goto` label, or `switch` section around the read
+  alone, and with nothing between them but reads, writes to locals, fields, and properties with no
+  body, and calls of the platform or SodaFlow that get neither the collection nor a function other
+  than a lambda written there. A new value for the collection, the index, or the element ends it,
+  and so does a sample or a `Send`.
 - A handler removed with `-=` still counts as a handler of the event, unless the code adds and
   removes that one handler in a straight line. The handler must be a local that holds one lambda,
   and the code must add it to and remove it from a local delegate, or an event of a local that

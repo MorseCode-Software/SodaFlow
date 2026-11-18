@@ -1429,106 +1429,6 @@ internal sealed partial class LoopStateEvaluator
                 });
     }
 
-    // Records a write through an element for WrittenThroughItsElement. Each other write to a
-    // member takes the record away.
-    // The second argument is the owner as the code has it at the write. A name with ref there
-    // has its location as the first argument.
-    private void NotesAWriteThroughAnElement(
-        ExpressionSyntax? owner,
-        SyntaxNode? at,
-        ISymbol member,
-        LoopState state,
-        bool replaces)
-    {
-        this.Frame.LastElementWrite = null;
-
-        if (replaces
-            && !this.quiet
-            && this.function == null
-            && state is { Members: null, Objects.IsEmpty: true }
-            && IsALocation(member)
-            && owner != null
-            && at != null
-            && Unwrapped(owner) is ElementAccessExpressionSyntax element
-            && this.CollectionAndIndexOf(element) is (var collection, var index)
-            && at.FirstAncestorOrSelf<AssignmentExpressionSyntax>() is { } assignment
-            && FunctionOf(at) is { } code)
-        {
-            this.Frame.LastElementWrite =
-                new WriteThroughAnElement(
-                    collection: collection,
-                    index: index,
-                    member: member.OriginalDefinition,
-                    code: code,
-                    end: assignment.Span.End,
-                    state: state,
-                    writes: this.region.MemberWrites);
-        }
-    }
-
-    // The local of the collection and the index of an element access with one index. The index
-    // is a constant number or a local.
-    private (ISymbol Collection, object Index)? CollectionAndIndexOf(ElementAccessExpressionSyntax element)
-    {
-        if (element.ArgumentList.Arguments.Count != 1
-            || Unwrapped(element.Expression) is not IdentifierNameSyntax name
-            || this.region.SymbolOf(name) is not { } collection
-            || !KeepsItsObject(collection))
-        {
-            return null;
-        }
-
-        ExpressionSyntax written = element.ArgumentList.Arguments[0].Expression;
-
-        object? index =
-            this.region.ModelFor(written).GetConstantValue(written) is { HasValue: true, Value: int number }
-                ? number
-                : written is IdentifierNameSyntax && this.region.SymbolOf(written) is ILocalSymbol or IParameterSymbol
-                    ? this.region.SymbolOf(written)
-                    : null;
-
-        return index == null ? null : (collection, index);
-    }
-
-    /// <summary>
-    ///     The state of a read of a member through an element, when the last
-    ///     write through that element gave the member its value. Null for each
-    ///     other read.
-    /// </summary>
-    /// <remarks>
-    ///     The element is one object for the write and the read when no code runs
-    ///     between the two. Thus, the code has no call, no creation, and no
-    ///     assignment between them. No write to a member came after that write.
-    /// </remarks>
-    private LoopState? WrittenThroughItsElement(MemberAccessExpressionSyntax read) =>
-        !this.quiet
-        && this.function == null
-        && this.Frame.LastElementWrite is { } last
-        && last.Writes == this.region.MemberWrites
-        && Unwrapped(read.Expression) is var owner
-        && Unwrapped(this.TheLocationOf(owner) ?? owner) is ElementAccessExpressionSyntax element
-        && owner.SpanStart >= last.End
-        && FunctionOf(owner) == last.Code
-        && this.CollectionAndIndexOf(element) is (var collection, var index)
-        && SymbolEqualityComparer.Default.Equals(x: collection, y: last.Collection)
-        && (index is ISymbol local
-            ? last.Index is ISymbol before && SymbolEqualityComparer.Default.Equals(x: local, y: before)
-            : index.Equals(last.Index))
-        && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(read)?.OriginalDefinition, y: last.Member)
-        && !last.Code.DescendantNodes()
-            .Any(node =>
-                node.SpanStart >= last.End
-                && node.Span.End <= owner.SpanStart
-                && (node is InvocationExpressionSyntax
-                        or BaseObjectCreationExpressionSyntax
-                        or AssignmentExpressionSyntax
-                    || node.Kind() is SyntaxKind.PreIncrementExpression
-                        or SyntaxKind.PreDecrementExpression
-                        or SyntaxKind.PostIncrementExpression
-                        or SyntaxKind.PostDecrementExpression))
-            ? last.State.Join(this.TypeState(read))
-            : null;
-
     // True for the body of a loop statement. A lambda that a callee runs for each element has a
     // turn also, and this rule is only for a loop statement.
     private static bool IsTheBodyOfALoop(SyntaxNode turn) => turn.Parent is { } loop && LoopBodyOf(loop) == turn;
@@ -1785,7 +1685,7 @@ internal sealed partial class LoopStateEvaluator
             from: from,
             sure: replaces && isKnown);
 
-        this.NotesAWriteThroughAnElement(owner: owner, at: written, member: member, state: state, replaces: replaces);
+        this.NotesAWriteAtAnElement(written: written, member: member, state: state, replaces: replaces);
 
         if (!replaces
             || isThroughALocation
