@@ -934,6 +934,12 @@ internal sealed partial class LoopStateEvaluator
                     before: int.MaxValue,
                     orAFunctionUsesIt: false));
 
+    // True for a static field. A local with ref for it reads the field again at each use. Thus, it
+    // gets each value that code gives the field after the declaration.
+    private bool IsAStaticField(ExpressionSyntax location) =>
+        Unwrapped(location) is (IdentifierNameSyntax or MemberAccessExpressionSyntax) and var named
+        && this.region.SymbolOf(named) is IFieldSymbol { IsStatic: true };
+
     // True for the expression of a location that TheLocationOf can give. That is a local, an
     // element of an array in a local, or a field of an object in a local or of this object.
     private bool IsALocationThatTheWalkCanReadAgain(ExpressionSyntax location) =>

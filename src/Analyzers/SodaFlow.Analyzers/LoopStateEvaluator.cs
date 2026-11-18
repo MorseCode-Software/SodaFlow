@@ -873,7 +873,9 @@ internal sealed partial class LoopStateEvaluator
         // assignment to that location, and the name keeps it.
         if (value is RefExpressionSyntax { Expression: var location })
         {
-            if (replaces && local is ILocalSymbol && this.IsALocationThatTheWalkCanReadAgain(location))
+            if (replaces
+                && local is ILocalSymbol
+                && (this.IsALocationThatTheWalkCanReadAgain(location) || this.IsAStaticField(location)))
             {
                 this.Frame.LocationOf[local] = location;
             }

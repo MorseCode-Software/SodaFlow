@@ -19339,6 +19339,34 @@ public static class Shapes
     public static Cell<int> Ag92F7ElementConvertedOnce() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag92Source[] a = [new Ag92Source { Seed = l.Map(v => v) }]; SettableSlot x = a[0]; return S.Hold(x.Share!.Sample()); });
 
+    // S4357. A local with ref is a name of a static field of an array. The block writes a plain cell through an element, and then gives the field a second array with a pending cell.
+    public static Cell<int> Ag92F8RefLocalOfAFieldGetsASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] b = [new SettableSlot { Share = l.Map(v => v) }]; ref SettableSlot[] ra = ref Ag92Swapped; ra[0].Share = Plain; Ag92Swapped = b; return S.Hold(ra[0].Share!.Sample()); });
+
+    // S4358. The same with the field named through its type.
+    public static Cell<int> Ag92F8RefLocalOfAFieldOfATypeGetsASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] b = [new SettableSlot { Share = l.Map(v => v) }]; ref SettableSlot[] ra = ref Shapes.Ag92SwappedByType; ra[0].Share = Plain; Shapes.Ag92SwappedByType = b; return S.Hold(ra[0].Share!.Sample()); });
+
+    // S4359. A local with ref is a name of a static field of an object. The block writes a plain cell through it, and then gives the field a second object with a pending cell.
+    public static Cell<int> Ag92F8RefLocalOfAFieldGetsASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot b = new SettableSlot { Share = l.Map(v => v) }; ref SettableSlot rs = ref Ag92Swap; rs.Share = Plain; Ag92Swap = b; return S.Hold(rs.Share!.Sample()); });
+
+    // S4360. A local with ref is a name of a static field of an object, and the block writes a plain cell through it. A control.
+    public static Cell<int> Ag92F8RefLocalOfAFieldWrittenWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ref SettableSlot rs = ref Ag92Kept; rs.Share = Plain; return S.Hold(rs.Share!.Sample()); });
+
+    // S4361. A local with ref is a name of a static field of an object. The block gives the field a second object with a plain cell, and samples through the local. A control.
+    public static Cell<int> Ag92F8RefLocalOfAFieldGetsAPlainObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot b = new SettableSlot { Share = Plain }; ref SettableSlot rs = ref Ag92Plain; Ag92Plain = b; return S.Hold(rs.Share!.Sample()); });
+
+    // S4362. A local with ref is a name of a field of the object in a static field. The static field then gets a second object. The local still names the field of the first object, whose object has a pending cell.
+    public static Cell<int> Ag92F8RefLocalOfAFieldOfAnObjectInAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Shapes.Ag92Current = new Ag92Cage { Slot = new SettableSlot { Share = l.Map(v => v) } }; ref SettableSlot? r = ref Shapes.Ag92Current.Slot; Shapes.Ag92Current = new Ag92Cage { Slot = new SettableSlot { Share = Plain } }; return S.Hold(r!.Share!.Sample()); });
+
+    // S4363. A method takes a local with ref for a field of the object in a field of this. The field of this then gets a second object. The local still names the field of the first object, whose object has a pending cell.
+    public static Cell<int> Ag92F8RefLocalOfAFieldOfAnObjectInAFieldOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Pen pen = new(); int got = pen.Swap(l.Map(v => v)); return S.Hold(got); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -26499,6 +26527,37 @@ public static class Shapes
         public Cell<int>? Seed { get; set; }
 
         public static implicit operator SettableSlot(Ag92Plainly source) => new() { Share = Plain };
+    }
+
+    private static SettableSlot[] Ag92Swapped = [new()];
+
+    public static SettableSlot[] Ag92SwappedByType = [new()];
+
+    private static SettableSlot Ag92Swap = new();
+
+    private static SettableSlot Ag92Kept = new();
+
+    private static SettableSlot Ag92Plain = new();
+
+    public static Ag92Cage Ag92Current = new();
+
+    public sealed class Ag92Cage
+    {
+        public SettableSlot? Slot;
+    }
+
+    public sealed class Ag92Pen
+    {
+        public Ag92Cage Cage = new();
+
+        public int Swap(Cell<int> pending)
+        {
+            this.Cage = new Ag92Cage { Slot = new SettableSlot { Share = pending } };
+            ref SettableSlot? r = ref this.Cage.Slot;
+            this.Cage = new Ag92Cage { Slot = new SettableSlot { Share = Plain } };
+
+            return r!.Share!.Sample();
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
