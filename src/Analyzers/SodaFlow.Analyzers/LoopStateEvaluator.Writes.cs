@@ -138,9 +138,10 @@ internal sealed partial class LoopStateEvaluator
     ///     name of that value, and not a copy. Each read and each write of a
     ///     member through the second name then goes through the first name. That
     ///     is true while no code gives one of the two names a value. A function
-    ///     can run at a different time. Thus, a record holds only in the run of
-    ///     the code that made it, in each caller after the call of that run, and
-    ///     in each run that such code calls after the record.
+    ///     can run at a different time. Thus, a record holds in the run of the
+    ///     code that made it. It holds also in each caller after the call of
+    ///     that run, and in each run that such code calls after the record. It
+    ///     holds in no other run.
     /// </remarks>
     private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written) =>
         this.TheFirstNameOf(written: written, at: written);
@@ -397,9 +398,9 @@ internal sealed partial class LoopStateEvaluator
     /// <remarks>
     ///     The local and the field are two names of one value with no object of
     ///     the store. An array that a static field holds is such a value. A put
-    ///     into an element through the field goes into the state of the field.
-    ///     That is true also for a put in a callee. Thus, a read of the local
-    ///     gets that state also.
+    ///     into an element through the field changes the state of the field.
+    ///     That is true also for a put that a callee does. Thus, a read of the
+    ///     local gets that state also.
     ///     A call that gives the field a different value is the one that the
     ///     record does not see. Then, the local gets more states than it has,
     ///     and the result is a report and not a miss.

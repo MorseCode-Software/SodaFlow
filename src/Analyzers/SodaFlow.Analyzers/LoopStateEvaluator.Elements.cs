@@ -143,9 +143,9 @@ internal sealed partial class LoopStateEvaluator
     // element. Also, this frame did not see the last write to a member. That write can be through a
     // second name of the object, such as a static field in a method. The region has its state for
     // the member. A write that this frame saw went to the state of the element also. An element of
-    // a view is a second name of an element of the array. Thus, the frame can have seen the write
-    // through the other name. A write through a local that got the element gives the local a copy
-    // with members and no object. The local is a name of the element also after that write.
+    // a view is a second name of an element of the array. Thus, the write that the frame saw can be a
+    // write through the other name. A write through a local that got the element gives the local a
+    // copy with members and no object. The local is a name of the element also after that write.
     private bool CanBeWrittenThroughAField(LoopState owner, ExpressionSyntax written) =>
         (owner.Objects.Contains(MadeObject.Unknown)
          && ((this.Frame.MemberWritesSeen != this.region.MemberWrites
