@@ -368,15 +368,9 @@ internal static class OperatorTable
             "ThenByDescending",
             "ThenByIdentity",
             "ThenByIdentityDescending",
-            // Listeners from listeners, and the empty listeners. A listener holds no value and has no state.
+            // Listeners from listeners. A listener holds no value and has no state.
             "Append",
-            "AppendStrong",
-            "AppendWeak",
             "CreateComposite",
-            "CreateStrongComposite",
-            "CreateWeakComposite",
-            "EmptyStrong",
-            "EmptyWeak",
             // IsActive of a transaction reads no cell. OnStart keeps its function for the start of
             // each transaction after this one.
             "IsActive",
