@@ -2942,6 +2942,16 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab196PlainCellThroughALocalOfTheBlockInALambdaThatABranchRuns"] = ["SF1001"],
             ["Ab196LambdaGivesTheLocalAValueInABranch"] = ["SF1001"],
             ["Ab196PlainCellThroughALocalOfTheBlockAfterAnAwaitInALambda"] = ["SF1001"],
-            ["Ab196PendingThroughALocalThatALambdaAssignedInALambdaOnTheWay"] = ["SF1001"]
+            ["Ab196PendingThroughALocalThatALambdaAssignedInALambdaOnTheWay"] = ["SF1001"],
+            ["Ab197PendingThroughALocalWhenAKeptLambdaThatAssignsItDoesNotRun"] = ["SF1001"],
+            ["Ab197PendingThroughALocalAfterAKeptLambdaThatAssignsIt"] = ["SF1001"],
+            ["Ab197PlainCellThroughALocalAfterAMethodRunsTheKeptLambda"] = ["SF1001"],
+            ["Ab197PlainCellThroughALocalAfterAConversionRunsTheKeptLambda"] = ["SF1001"],
+            ["Ab197PlainCellThroughALocalAfterACallThroughAFieldRunsTheLambda"] = ["SF1001"],
+            ["Ab197PlainCellThroughALocalAfterAGetterRunsTheKeptLambda"] = ["SF1001"],
+            ["Ab197PendingThroughALocalWhenALambdaMadeBetweenAssignsIt"] = ["SF1001"],
+            ["Ab197PendingThroughARefLocalWhenALambdaCanGiveItsFirstNameAValue"] = ["SF1001"],
+            ["Ab197PlainCellThroughALocalAfterACastRunsTheKeptLambda"] = ["SF1001"],
+            ["Ab197PlainCellThroughALocalAfterAnIndexerRunsTheKeptLambda"] = ["SF1001"]
         };
 }

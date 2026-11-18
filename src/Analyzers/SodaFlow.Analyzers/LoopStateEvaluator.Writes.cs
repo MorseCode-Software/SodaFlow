@@ -165,14 +165,7 @@ internal sealed partial class LoopStateEvaluator
                 || !this.Frame.FirstNameOf.TryGetValue(key: second, value: out ExpressionSyntax? first)
                 || this.WindowsOfTheRecordOf(first: first, at: at) is not (var windows, var ran)
                 || this.region.SymbolOf(first) is not { } firstName
-                || windows.Any(window => new[] { firstName, second }.Any(one =>
-                    this.GetsAValue(
-                        name: one,
-                        code: window.Code,
-                        after: window.After,
-                        before: window.Before,
-                        orAFunctionUsesIt: false,
-                        ran: ran))))
+                || this.GetsAValueIn(windows: windows, ran: ran, names: [firstName, second], use: at))
             {
                 break;
             }
@@ -2304,22 +2297,25 @@ internal sealed partial class LoopStateEvaluator
             after: after,
             before: before,
             orAFunctionUsesIt: orAFunctionUsesIt,
-            ran: ImmutableArray<SyntaxNode>.Empty);
+            ran: ImmutableArray<SyntaxNode>.Empty,
+            aFunctionCanRun: true);
 
-    // The same, with no use in the given functions. They ran before the first position.
+    // The same, with no use in the given functions. They ran before the first position. A use in
+    // a function counts only when a function can run between the two positions.
     private bool GetsAValue(
         ISymbol name,
         SyntaxNode code,
         int after,
         int before,
         bool orAFunctionUsesIt,
-        ImmutableArray<SyntaxNode> ran) =>
+        ImmutableArray<SyntaxNode> ran,
+        bool aFunctionCanRun) =>
         code.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Any(use =>
                 use.Identifier.ValueText == name.Name
                 && (FunctionOf(use) is { } function && function != code
-                    ? (orAFunctionUsesIt || GivesAValue(use)) && !ran.Contains(function)
+                    ? aFunctionCanRun && (orAFunctionUsesIt || GivesAValue(use)) && !ran.Contains(function)
                     : use.SpanStart > after && use.SpanStart < before && GivesAValue(use))
                 && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: name));
 
