@@ -44,6 +44,8 @@ internal sealed class Construction(
     // that type with its type arguments, which the definition does not have.
     private readonly ImmutableArray<INamedTypeSymbol> types = types;
 
+    private readonly bool hasInterfaceMembers = hasInterfaceMembers;
+
     /// <summary>An object with no member that the evaluator knows.</summary>
     public static Construction Empty { get; } =
         new(
@@ -97,9 +99,6 @@ internal sealed class Construction(
 
     private static bool IsPart(ISymbol member) => SodaFlowSymbols.HoldsParts(member.ContainingType);
 
-    /// <summary>True when a write named a property of an interface.</summary>
-    public bool HasInterfaceMembers { get; } = hasInterfaceMembers;
-
     private static bool IsOfAnInterface(ISymbol member) =>
         member is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
 
@@ -130,7 +129,7 @@ internal sealed class Construction(
                 members: filled.ToImmutable(),
                 types: this.types,
                 hasParts: this.HasParts,
-                hasInterfaceMembers: this.HasInterfaceMembers);
+                hasInterfaceMembers: this.hasInterfaceMembers);
     }
 
     /// <summary>The state of each member that the evaluator knows.</summary>
@@ -160,7 +159,7 @@ internal sealed class Construction(
                 : this.SetEachResolved(member: member, state: state),
             types: this.types,
             hasParts: this.HasParts || IsPart(member),
-            hasInterfaceMembers: this.HasInterfaceMembers || IsOfAnInterface(member));
+            hasInterfaceMembers: this.hasInterfaceMembers || IsOfAnInterface(member));
 
     private ImmutableDictionary<ISymbol, LoopState> SetEachResolved(ISymbol member, LoopState state) =>
         this.Resolve(member)
@@ -552,7 +551,7 @@ internal sealed class Construction(
             members: changed.ToImmutable(),
             types: this.types,
             hasParts: this.HasParts,
-            hasInterfaceMembers: this.HasInterfaceMembers);
+            hasInterfaceMembers: this.hasInterfaceMembers);
     }
 
     /// <summary>
@@ -595,7 +594,7 @@ internal sealed class Construction(
                 members: this.members,
                 types: owners,
                 hasParts: this.HasParts,
-                hasInterfaceMembers: this.HasInterfaceMembers);
+                hasInterfaceMembers: this.hasInterfaceMembers);
     }
 
     // Of two objects, only the one whose type has the member can be the object that the code
@@ -633,7 +632,7 @@ internal sealed class Construction(
                     key: KeyOf(member),
                     stateOf: static (_, state) => state,
                     implementations: implementations,
-                    hasInterfaceMembers: this.HasInterfaceMembers));
+                    hasInterfaceMembers: this.hasInterfaceMembers));
 
     private static ISymbol ResolveIn(INamedTypeSymbol type, ISymbol member)
     {
@@ -732,7 +731,7 @@ internal sealed class Construction(
                 .Union<INamedTypeSymbol>(second: second.types, comparer: SymbolEqualityComparer.Default)
                 .ToImmutableArray(),
             hasParts: first.HasParts || second.HasParts,
-            hasInterfaceMembers: first.HasInterfaceMembers || second.HasInterfaceMembers);
+            hasInterfaceMembers: first.hasInterfaceMembers || second.hasInterfaceMembers);
     }
 
     // An element of a tuple has a name in the code and a position in the type. The position is

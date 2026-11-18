@@ -52,44 +52,13 @@ internal sealed class ImplementationIndex(in Compilation compilation)
 
         Dictionary<ISymbol, HashSet<ISymbol>> found = new(SymbolEqualityComparer.Default);
 
-        if (!names.IsEmpty)
+        foreach (ImmutableArray<ISymbol> together in compilation
+                     .GetSymbolsWithName(predicate: names.Contains, filter: SymbolFilter.Type)
+                     .OfType<INamedTypeSymbol>()
+                     .Where(static type => !type.AllInterfaces.IsEmpty)
+                     .SelectMany(PairsOf))
         {
-            foreach (INamedTypeSymbol type in compilation
-                         .GetSymbolsWithName(predicate: names.Contains, filter: SymbolFilter.Type)
-                         .OfType<INamedTypeSymbol>()
-                         .Where(static type => !type.AllInterfaces.IsEmpty))
-            {
-                // An override is the same location as the property that it overrides.
-                ImmutableArray<(ISymbol Contract, ISymbol Root)> implemented =
-                    type.AllInterfaces
-                        .SelectMany(static contract => contract.GetMembers().OfType<IPropertySymbol>())
-                        .Select(contract =>
-                            (Contract: contract, Implementation: type.FindImplementationForInterfaceMember(contract)))
-                        .Where(static pair => pair.Implementation != null)
-                        .Select(static pair =>
-                            ((ISymbol)pair.Contract.OriginalDefinition, Construction.RootOf(pair.Implementation!)))
-                        .ToImmutableArray();
-
-                foreach (IGrouping<ISymbol, ISymbol> one in implemented.GroupBy(
-                             keySelector: static pair => pair.Root,
-                             elementSelector: static pair => pair.Contract,
-                             comparer: SymbolEqualityComparer.Default))
-                {
-                    Pair(found: found, contracts: one);
-                }
-
-                // A derived class can give a property of a base class to an interface that the base
-                // class does not have. The aliases of Construction pair the two only when the base class
-                // has the interface.
-                foreach ((ISymbol contract, ISymbol root) in implemented.Where(static pair =>
-                             !pair.Root.ContainingType.AllInterfaces.Any(one =>
-                                 SymbolEqualityComparer.Default.Equals(
-                                     x: one.OriginalDefinition,
-                                     y: pair.Contract.ContainingType))))
-                {
-                    Pair(found: found, contracts: [contract, root]);
-                }
-            }
+            Pair(found: found, contracts: together);
         }
 
         ImmutableDictionary<ISymbol, ImmutableHashSet<ISymbol>>.Builder index =
@@ -103,7 +72,42 @@ internal sealed class ImplementationIndex(in Compilation compilation)
         return index.ToImmutable();
     }
 
-    private static void Pair(Dictionary<ISymbol, HashSet<ISymbol>> found, IEnumerable<ISymbol> contracts)
+    // The groups of properties that the type implements together. An override is the same location as
+    // the property that it overrides.
+    private static IEnumerable<ImmutableArray<ISymbol>> PairsOf(INamedTypeSymbol type)
+    {
+        ImmutableArray<(ISymbol Contract, ISymbol Root)> implemented =
+            type.AllInterfaces
+                .SelectMany(static contract => contract.GetMembers().OfType<IPropertySymbol>())
+                .SelectMany(contract => ImplementationOf(type: type, contract: contract))
+                .ToImmutableArray();
+
+        // A derived class can give a property of a base class to an interface that the base class does
+        // not have. The aliases of Construction pair the two only when the base class has the interface.
+        return implemented
+            .GroupBy(
+                keySelector: static pair => pair.Root,
+                elementSelector: static pair => pair.Contract,
+                comparer: SymbolEqualityComparer.Default)
+            .Select(static one => one.ToImmutableArray())
+            .Concat(
+                implemented
+                    .Where(static pair =>
+                        !pair.Root.ContainingType.AllInterfaces.Any(one =>
+                            SymbolEqualityComparer.Default.Equals(
+                                x: one.OriginalDefinition,
+                                y: pair.Contract.ContainingType)))
+                    .Select(static pair => ImmutableArray.Create(item1: pair.Contract, item2: pair.Root)));
+    }
+
+    private static IEnumerable<(ISymbol Contract, ISymbol Root)> ImplementationOf(
+        ITypeSymbol type,
+        IPropertySymbol contract) =>
+        type.FindImplementationForInterfaceMember(contract) is { } implementation
+            ? [(contract.OriginalDefinition, Construction.RootOf(implementation))]
+            : [];
+
+    private static void Pair(IDictionary<ISymbol, HashSet<ISymbol>> found, ImmutableArray<ISymbol> contracts)
     {
         foreach (ISymbol contract in contracts)
         {
