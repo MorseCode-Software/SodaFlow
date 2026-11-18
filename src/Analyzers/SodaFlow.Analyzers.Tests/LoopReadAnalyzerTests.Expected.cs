@@ -2921,6 +2921,18 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab194PendingReadThroughARefLocalWhoseLocationGotAnotherLocal"] = ["SF1001"],
             ["Ab194PendingReadThroughARefLocalAfterItsLocationGetsAnotherLocal"] = ["SF1001"],
             ["Ab194PendingReadThroughARefLocalReachesTheFirstNameOfTheFirstName"] = ["SF1001"],
-            ["Ab194PendingReadThroughASecondNameReachesTheFirstNameOfTheFirstName"] = ["SF1001"]
+            ["Ab194PendingReadThroughASecondNameReachesTheFirstNameOfTheFirstName"] = ["SF1001"],
+            ["Ab195PendingThroughARefLocalOfAnElementAfterItGetsALocal"] = ["SF1001"],
+            ["Ab195PendingThroughAnElementAfterItGetsALocal"] = ["SF1001"],
+            ["Ab195PendingThroughARefLocalAfterItsElementGetsALocal"] = ["SF1001"],
+            ["Ab195PendingThroughAFieldAfterItGetsALocal"] = ["SF1001"],
+            ["Ab195PendingThroughALocalThatReadsAnElementAfterItGetsALocal"] = ["SF1001"],
+            ["Ab195PlainCellThroughALocalThatReadTheElementBeforeARefLocalGaveItALocal"] = ["SF1001"],
+            ["Ab195PendingThroughAnElementAfterItGetsALocalThatNoLocationGave"] = ["SF1001"],
+            ["Ab195PendingThroughALocalReadThroughALocalThatReadsTheElement"] = ["SF1001"],
+            ["Ab195ElementGetsALocalAndARefLocalOfADifferentArrayGetsAValue"] = ["SF1001"],
+            ["Ab195NewObjectIntoAnElementPendingCell"] = ["SF1001"],
+            ["Ab195ElementGetsALocalInABranchThatDoesNotRun"] = ["SF1001"],
+            ["Ab195PendingThroughALocalReadThroughALocalThatReadTheElementAfterIt"] = ["SF1001"]
         };
 }

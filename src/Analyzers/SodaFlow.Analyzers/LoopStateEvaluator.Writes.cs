@@ -324,6 +324,7 @@ internal sealed partial class LoopStateEvaluator
         }
 
         this.Frame.ReadFrom.Remove(local);
+        this.Frame.GaveTo.Remove(local);
 
         if (replaces
             && this.function == null
@@ -337,6 +338,38 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
+    /// <summary>
+    ///     Records that a local is a name of the location that gets its value.
+    ///     The location is an element with a constant index, or a field, as for
+    ///     <see cref="NotesANameOfALocation" />. The local and the location have one
+    ///     value with no object of the store after the assignment.
+    /// </summary>
+    /// <remarks>
+    ///     The local keeps the location that it got its value from. Thus, this
+    ///     record is apart from that one.
+    /// </remarks>
+    /// <param name="location">The target of the assignment.</param>
+    /// <param name="value">The expression of the value.</param>
+    /// <param name="replaces">True when the location then has only this value.</param>
+    public void NotesALocalOfALocation(SyntaxNode location, ExpressionSyntax value, bool replaces)
+    {
+        if (this.quiet
+            || !replaces
+            || this.function != null
+            || location is not (ElementAccessExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax)
+            || Unwrapped(value) is not IdentifierNameSyntax name
+            || this.region.SymbolOf(name) is not ILocalSymbol { RefKind: RefKind.None } local
+            || this.LocationKeyOf((ExpressionSyntax)location) == null
+            || this.region.TypeOf(name) is not { } type
+            || !this.CanBeAnObject(type)
+            || !IsOfNoObjectOfTheStore(this.Eval(name)))
+        {
+            return;
+        }
+
+        this.Frame.GaveTo[local] = (ExpressionSyntax)location;
+    }
+
     // True for a value whose members only a name keeps. The value is no object, or an object that
     // the store does not know.
     private static bool IsOfNoObjectOfTheStore(LoopState value) =>
@@ -346,7 +379,9 @@ internal sealed partial class LoopStateEvaluator
     // name of that location has now. The local is a name of the same value.
     private LoopState WithTheOtherNames(ISymbol local, ExpressionSyntax? from, LoopState state)
     {
-        if (this.Frame.ReadFrom.Count == 0 || from == null || !IsOfNoObjectOfTheStore(state))
+        if ((this.Frame.ReadFrom.Count == 0 && this.Frame.GaveTo.Count == 0)
+            || from == null
+            || !IsOfNoObjectOfTheStore(state))
         {
             return state;
         }
@@ -372,7 +407,11 @@ internal sealed partial class LoopStateEvaluator
         bool replaces,
         SyntaxNode? turn)
     {
-        if (this.Frame.ReadFrom.Count == 0 || this.quiet || this.function != null || owner == null || at == null)
+        if ((this.Frame.ReadFrom.Count == 0 && this.Frame.GaveTo.Count == 0)
+            || this.quiet
+            || this.function != null
+            || owner == null
+            || at == null)
         {
             return;
         }
@@ -382,19 +421,25 @@ internal sealed partial class LoopStateEvaluator
                 ? local
                 : null;
 
-        ExpressionSyntax? location =
+        // A local can be a name of the location that it got its value from, and of the location
+        // that got its value.
+        ExpressionSyntax?[] locations =
             self == null
-                ? owner
-                : this.Frame.ReadFrom.TryGetValue(key: self, value: out ExpressionSyntax? read)
-                    ? read
-                    : null;
+                ? [owner]
+                :
+                [
+                    this.Frame.ReadFrom.TryGetValue(key: self, value: out ExpressionSyntax? read) ? read : null,
+                    this.Frame.GaveTo.TryGetValue(key: self, value: out ExpressionSyntax? gave) ? gave : null
+                ];
 
-        if (location == null
-            || this.TheOtherNamesOf(location: location, at: at, self: self) is not { Length: > 0 } others
-            || (self != null && !this.IsStillTheLocationOf(name: self, location: location, use: at)))
-        {
-            return;
-        }
+        ISymbol[] others =
+        [
+            .. locations
+                .OfType<ExpressionSyntax>()
+                .Where(location => self == null || this.IsStillTheLocationOf(name: self, location: location, use: at))
+                .SelectMany(location => this.TheOtherNamesOf(location: location, at: at, self: self))
+                .Distinct(SymbolEqualityComparer.Default)
+        ];
 
         foreach (ISymbol other in others)
         {
@@ -425,6 +470,7 @@ internal sealed partial class LoopStateEvaluator
         return
         [
             .. this.Frame.ReadFrom
+                .Concat(this.Frame.GaveTo)
                 .Where(pair =>
                     !SymbolEqualityComparer.Default.Equals(x: pair.Key, y: self)
                     && IsTheSameLocation(one: this.LocationKeyOf(pair.Value), other: key)
@@ -601,15 +647,30 @@ internal sealed partial class LoopStateEvaluator
                && !code.DescendantNodes(TextSpan.FromBounds(start: after, end: before))
                    .Any(node => node.SpanStart > after
                                 && node.SpanStart < before
-                                && this.CanChangeTheLocation(node: node, key: key));
+                                && this.CanChangeTheLocation(node: node, key: key, name: name));
     }
 
     // True for code that can give a location a value. It is an assignment, a deconstruction, or a
     // use with ref of the location. It is a call that gets the array or the owner, or a call of a
     // delegate or of a local function. For a location in a field, each call of code of this
-    // compilation can change it also.
-    private bool CanChangeTheLocation(SyntaxNode node, (ISymbol Of, ISymbol? Owner, int Index) key)
+    // compilation can change it also. An assignment of the name itself keeps the name a name of
+    // the location.
+    private bool CanChangeTheLocation(SyntaxNode node, (ISymbol Of, ISymbol? Owner, int Index) key, ISymbol name)
     {
+        if (GivesAValue(node) && IsAnAssignmentOf(target: node, name: name))
+        {
+            return false;
+        }
+
+        // An assignment to a name with ref is an assignment to its location. A location that the
+        // walk cannot read again can be this one.
+        if (node is IdentifierNameSyntax aliased && GivesAValue(aliased))
+        {
+            return this.region.SymbolOf(aliased) is ILocalSymbol { RefKind: not RefKind.None } named
+                   && (!this.Frame.LocationOf.TryGetValue(key: named, value: out ExpressionSyntax? location)
+                       || IsTheSameLocation(one: this.LocationKeyOf(location), other: key));
+        }
+
         (ExpressionSyntax? receiver, ArgumentListSyntax? arguments) =
             node switch
             {
@@ -638,6 +699,13 @@ internal sealed partial class LoopStateEvaluator
                    && (method.MethodKind is MethodKind.DelegateInvoke or MethodKind.LocalFunction
                        || (key is { Owner: null, Of: IFieldSymbol } && !method.DeclaringSyntaxReferences.IsEmpty)));
     }
+
+    // True for the target of an assignment whose value is the given name.
+    private bool IsAnAssignmentOf(SyntaxNode target, ISymbol name) =>
+        target.Parent is AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment
+        && assignment.Left == target
+        && Unwrapped(assignment.Right) is IdentifierNameSyntax value
+        && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(value), y: name);
 
     // True for an expression that is the array or the owner of a location. A call that gets the
     // value of a field cannot give the field a value, thus the field itself is no such part.

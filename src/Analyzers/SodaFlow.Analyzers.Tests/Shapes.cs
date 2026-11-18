@@ -19883,6 +19883,102 @@ public static class Shapes
     public static Cell<int> Ab194PendingReadThroughASecondNameReachesTheFirstNameOfTheFirstName() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[26]; SettableSlot d = Ab194Slots[27]; SettableSlot e = Ab194Slots[28]; d = e; SettableSlot q = c; q = d; e.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
 
+    // S4493. A ref local names the first element of an array, and an assignment through it gives the element the object of d. A pending cell then goes in through the ref local, thus it goes into the object of d.
+    public static Cell<int> Ab195PendingThroughARefLocalOfAnElementAfterItGetsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[0]]; SettableSlot d = Ab195Slots[1]; ref SettableSlot r = ref a[0]; r = d; d.Share = Plain; r.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4494. The first element of an array gets the object of d. A pending cell then goes in through the element, thus it goes into the object of d.
+    public static Cell<int> Ab195PendingThroughAnElementAfterItGetsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[2]]; SettableSlot d = Ab195Slots[3]; a[0] = d; d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4495. A ref local names the first element of an array, and the element then gets the object of d directly. A pending cell through the ref local goes into the object of d.
+    public static Cell<int> Ab195PendingThroughARefLocalAfterItsElementGetsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[4]]; SettableSlot d = Ab195Slots[5]; ref SettableSlot r = ref a[0]; a[0] = d; d.Share = Plain; r.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4496. A ref local names the first element of an array, and an assignment through it gives the element the object of d. A plain cell through the ref local replaces the pending cell of d.
+    public static Cell<int> Ab195PlainCellThroughARefLocalOfAnElementAfterItGetsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[6]]; SettableSlot d = Ab195Slots[7]; ref SettableSlot r = ref a[0]; r = d; d.Share = l.Map(v => v); r.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S4497. The first element of an array gets the object of d. A plain cell through the element replaces the pending cell of d.
+    public static Cell<int> Ab195PlainCellThroughAnElementAfterItGetsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[8]]; SettableSlot d = Ab195Slots[9]; a[0] = d; d.Share = l.Map(v => v); a[0].Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S4498. A field of a new object gets the object of d. A pending cell then goes in through the field, thus it goes into the object of d.
+    public static Cell<int> Ab195PendingThroughAFieldAfterItGetsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab76Box box = new(); SettableSlot d = Ab195Slots[10]; box.Slot = d; d.Share = Plain; box.Slot!.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4499. A field of a new object gets the object of d. A plain cell through the field replaces the pending cell of d.
+    public static Cell<int> Ab195PlainCellThroughAFieldAfterItGetsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab76Box box = new(); SettableSlot d = Ab195Slots[11]; box.Slot = d; d.Share = l.Map(v => v); box.Slot!.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S4500. A ref local names the first element of an array, and an assignment through it gives the element the object of d. A local q then reads the element, and a pending cell through q goes into the object of d.
+    public static Cell<int> Ab195PendingThroughALocalThatReadsAnElementAfterItGetsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[12]]; SettableSlot d = Ab195Slots[13]; ref SettableSlot r = ref a[0]; r = d; SettableSlot q = a[0]; d.Share = Plain; q.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4501. A local q reads the first element of an array before a ref local gives the element the object of d. The pending cell through q stays in the first object, and d keeps the plain cell. A control.
+    public static Cell<int> Ab195LocalThatReadTheElementBeforeARefLocalGaveItALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[16]]; SettableSlot d = Ab195Slots[17]; SettableSlot q = a[0]; ref SettableSlot r = ref a[0]; r = d; d.Share = Plain; q.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4502. The first element of an array gets the object of d, and then a different object. The pending cell through the element does not go into d. A control.
+    public static Cell<int> Ab195ElementGetsALocalAndThenADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[18]]; SettableSlot d = Ab195Slots[19]; a[0] = d; a[0] = Ab195Slots[20]; d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4503. The first element of an array gets the object of d, and d then gets a different object. The pending cell through the element does not go into the new object of d. A control.
+    public static Cell<int> Ab195ElementGetsALocalThatThenGetsADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[21]]; SettableSlot d = Ab195Slots[22]; a[0] = d; d = Ab195Slots[23]; d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4504. The first element of an array gets the object of d, and a call then gives d a different object through out. The pending cell through the element does not go into the new object of d. A control.
+    public static Cell<int> Ab195ElementGetsALocalThatThenGetsAValueByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[24]]; SettableSlot d = Ab195Slots[25]; a[0] = d; Ab195Reset(out d); d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4505. A ref local names the first element of an array and gives it the object of d. The block then gives the element a different object, thus the pending cell through the ref local does not go into d. A control.
+    public static Cell<int> Ab195RefLocalOfAnElementThatThenGetsADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[26]]; SettableSlot d = Ab195Slots[27]; ref SettableSlot r = ref a[0]; r = d; a[0] = Ab195Slots[28]; d.Share = Plain; r.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4506. A ref local names the first element of an array and gives it the object of d, and then a different object. The pending cell through the element does not go into d. A control.
+    public static Cell<int> Ab195RefLocalGivesTheElementALocalAndThenADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[29]]; SettableSlot d = Ab195Slots[30]; ref SettableSlot r = ref a[0]; r = d; r = Ab195Slots[31]; d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4507. The first element of an array gets the object of d, and a lambda that the block runs then gives the element a different object. The pending cell through the element does not go into d. A control.
+    public static Cell<int> Ab195ElementGetsALocalAndALambdaGivesItADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[32]]; SettableSlot d = Ab195Slots[33]; a[0] = d; Action f = () => { a[0] = Ab195Slots[34]; }; f(); d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4508. A local q reads the first element of an array before a ref local gives the element the object of d. The plain cell through q stays in the first object, thus d keeps the pending cell. A control.
+    public static Cell<int> Ab195PlainCellThroughALocalThatReadTheElementBeforeARefLocalGaveItALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Slots[35]]; SettableSlot d = Ab195Slots[36]; SettableSlot q = a[0]; ref SettableSlot r = ref a[0]; r = d; d.Share = l.Map(v => v); q.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S4509. The first element of an array gets the object of d, which no location gave d. A pending cell then goes in through the element, thus it goes into the object of d.
+    public static Cell<int> Ab195PendingThroughAnElementAfterItGetsALocalThatNoLocationGave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195More[0]]; SettableSlot d = Ab195Unseen(1); a[0] = d; d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4510. The first element of an array gets the object of d, which no location gave d, and d then gets a pending cell. A local q reads the element, and the read through q gets the pending cell.
+    public static Cell<int> Ab195PendingThroughALocalReadThroughALocalThatReadsTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195More[2]]; SettableSlot d = Ab195Unseen(3); a[0] = d; d.Share = l.Map(v => v); SettableSlot q = a[0]; return S.Hold(q.Share!.Sample()); });
+
+    // S4511. The first element of an array gets the object of d. A ref local of an element of a different array then gets a value. A pending cell through the first element goes into the object of d.
+    public static Cell<int> Ab195ElementGetsALocalAndARefLocalOfADifferentArrayGetsAValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195More[4]]; SettableSlot[] other = [Ab195More[5]]; SettableSlot d = Ab195More[6]; a[0] = d; ref SettableSlot r = ref other[0]; r = Ab195More[7]; d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4512. A ref local names an element at an index that a call gives, which is the first element. The element gets the object of d, and the ref local then gives it a different object. The pending cell through the element does not go into d. A control.
+    public static Cell<int> Ab195ElementGetsALocalAndARefLocalOfAnUnknownIndexGivesItADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195More[8]]; SettableSlot d = Ab195More[9]; ref SettableSlot r = ref a[Ab195Zero()]; a[0] = d; r = Ab195More[10]; d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4513. A struct goes into the first element of an array as a copy. A pending cell through the element does not go into the local. A control.
+    public static Cell<int> Ab195StructCopyIntoAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] a = [new()]; SlotValue v = new(); a[0] = v; v.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(v.Share!.Sample()); });
+
+    // S4514. A new object goes into the first element of an array and keeps its local d. A pending cell through the element goes into the object of d. A control.
+    public static Cell<int> Ab195NewObjectIntoAnElementPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195More[12]]; SettableSlot d = new(); a[0] = d; d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S4515. A branch whose condition is false gives the first element of an array the object of d. A plain cell through the element does not go into d, which keeps the pending cell. A control.
+    public static Cell<int> Ab195ElementGetsALocalInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195More[13]]; SettableSlot d = Ab195More[14]; if (Ab195Never) { a[0] = d; } d.Share = l.Map(v => v); a[0].Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S4516. The first element of an array gets the object of d, and a local q then reads the element. A pending cell through d goes into the object of q also.
+    public static Cell<int> Ab195PendingThroughALocalReadThroughALocalThatReadTheElementAfterIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab195Extra[1]]; SettableSlot d = Ab195Extra[0]; a[0] = d; SettableSlot q = a[0]; d.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -27676,6 +27772,33 @@ public static class Shapes
     ];
 
     private static void Ab194Reset(out SettableSlot slot) => slot = Ab194Slots[29];
+
+    private static readonly SettableSlot[] Ab195Slots =
+    [
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(),
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(),
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new()
+    ];
+
+    private static void Ab195Reset(out SettableSlot slot) => slot = Ab195Slots[39];
+
+    private static readonly SettableSlot[] Ab195More =
+    [
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(),
+        new()
+    ];
+
+    private static SettableSlot Ab195Unseen(int index)
+    {
+        SettableSlot found = Ab195More[index];
+        return found;
+    }
+
+    private static int Ab195Zero() => Ab195More.Length - Ab195More.Length;
+
+    private static readonly SettableSlot[] Ab195Extra = [new(), new()];
+
+    private static readonly bool Ab195Never = Ab195More.Length == 0;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

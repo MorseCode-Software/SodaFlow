@@ -66,6 +66,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<ISymbol, ExpressionSyntax> ReadFrom { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     For a local whose value with no object of the store went into a
+    ///     location: the expression of that location. The local is a name of
+    ///     that location also, as a local of <see cref="ReadFrom" /> is.
+    /// </summary>
+    public Dictionary<ISymbol, ExpressionSyntax> GaveTo { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
     ///     The objects that code with no body keeps, for an owner that is a
     ///     location that the walk can read again. The location is an element or a
     ///     field, through the local that is a name of it when the code has one. The
