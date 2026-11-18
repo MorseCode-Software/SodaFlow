@@ -2895,6 +2895,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab199PendingThroughTheDerivedClassAndASampleThroughTheInterface"] = ["SF1001"],
             ["Ab199ANewObjectOfTheDerivedClass"] = ["SF1001"],
             ["Ab199OneOfTwoObjectsWithThePendingCellSecond"] = ["SF1001"],
-            ["Ab199OneOfTwoObjectsWithThePendingCellFirst"] = ["SF1001"]
+            ["Ab199OneOfTwoObjectsWithThePendingCellFirst"] = ["SF1001"],
+            ["Ab200ACallWithADifferentArgumentGivesADifferentObject"] = ["SF1001"],
+            ["Ab200TheSameCallTextGivesADifferentObject"] = ["SF1001"],
+            ["Ab200TheSameCallTextGivesTheFirstObjectAgain"] = ["SF1001"],
+            ["Ab200TheSameCallTextWithANewValueOfTheArgument"] = ["SF1001"],
+            ["Ab200ANewElementBetweenTheTwoWrites"] = ["SF1001"]
         };
 }

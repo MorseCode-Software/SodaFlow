@@ -19711,6 +19711,26 @@ public static class Shapes
     public static Cell<int> Ab199OneOfTwoObjectsWithThePendingCellFirst() =>
         Cell.Loop<int>().WithoutCaptures(l => { IAb199Slot h = Ab199LateAt(7); h.Share = l.Map(v => v); Ab199LateSlot other = Ab199LateDerivedAt(2); other.Share = Plain; Ab199LateSlot d = !Never ? (Ab199LateSlot)h : other; return S.Hold(d.Share!.Sample()); });
 
+    // S4450. A pending cell goes into the member of the object that one call gives. A plain cell goes into that member of the object that a call with a different argument gives. The sample reads the first object. A rule that lets a write to a call result replace the state of the member loses this report.
+    public static Cell<int> Ab200ACallWithADifferentArgumentGivesADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab200SlotAt(1).Share = l.Map(v => v); Ab200SlotAt(2).Share = Plain; return S.Hold(Ab200SlotAt(1).Share!.Sample()); });
+
+    // S4451. The same text of a call gives a different object each time. The sample reads the object of the first call through the array.
+    public static Cell<int> Ab200TheSameCallTextGivesADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab200Turn().Share = l.Map(v => v); Ab200Turn().Share = Plain; return S.Hold(Ab200Turned[0].Share!.Sample()); });
+
+    // S4452. The same text of a call gives a different object the second time and the first object again the third time. The sample reads through a third call.
+    public static Cell<int> Ab200TheSameCallTextGivesTheFirstObjectAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab200Back().Share = l.Map(v => v); Ab200Back().Share = Plain; return S.Hold(Ab200Back().Share!.Sample()); });
+
+    // S4453. The two calls have the same text, but the local in the argument gets a new value between them. Thus, they give two objects.
+    public static Cell<int> Ab200TheSameCallTextWithANewValueOfTheArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int i = 0; Ab200SlotAt(i + 9).Share = l.Map(v => v); i = 1; Ab200SlotAt(i + 9).Share = Plain; return S.Hold(Ab200SlotAt(9).Share!.Sample()); });
+
+    // S4454. The code puts a new object into the array between the two writes. Thus, the second call gives a different object, and the sample reads the first object through a local.
+    public static Cell<int> Ab200ANewElementBetweenTheTwoWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab200SlotAt(12).Share = l.Map(v => v); IAb200Slot first = Ab200SlotAt(12); Ab200Slots[12] = new Ab200Slot(); Ab200SlotAt(12).Share = Plain; return S.Hold(first.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -27279,6 +27299,39 @@ public static class Shapes
     private static IAb199Slot Ab199LateOverrideAt(int at) => Ab199LateOverrides[at];
 
     private static int Ab199Read(Ab199LateSlot slot) => slot.Share!.Sample();
+
+    public interface IAb200Slot
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab200Slot : IAb200Slot
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static readonly IAb200Slot[] Ab200Slots =
+    [
+        new Ab200Slot(), new Ab200Slot(), new Ab200Slot(), new Ab200Slot(), new Ab200Slot(), new Ab200Slot(),
+        new Ab200Slot(), new Ab200Slot(), new Ab200Slot(), new Ab200Slot(), new Ab200Slot(), new Ab200Slot(),
+        new Ab200Slot()
+    ];
+
+    private static readonly IAb200Slot[] Ab200Turned = [new Ab200Slot(), new Ab200Slot()];
+
+    private static readonly IAb200Slot[] Ab200Backs = [new Ab200Slot(), new Ab200Slot()];
+
+    private static int ab200Turns;
+
+    private static int ab200Backs;
+
+    private static IAb200Slot Ab200SlotAt(int at) => Ab200Slots[at];
+
+    // Each call gives the other of two objects.
+    private static IAb200Slot Ab200Turn() => Ab200Turned[ab200Turns++ % 2];
+
+    // The first and the third call give the same object, and the second call gives the other.
+    private static IAb200Slot Ab200Back() => Ab200Backs[ab200Backs++ % 2];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
