@@ -3338,7 +3338,7 @@ internal sealed partial class LoopStateEvaluator
     ///     True for <c>RunSynchronously</c> of a task, which runs the function
     ///     of the task in the call.
     /// </summary>
-    public static bool IsRunSynchronously(IMethodSymbol method) =>
+    private static bool IsRunSynchronously(ISymbol method) =>
         method.Name == "RunSynchronously" && SodaFlowSymbols.IsTask(method.ContainingType);
 
     private static bool IsDynamicInvoke(IMethodSymbol method) =>

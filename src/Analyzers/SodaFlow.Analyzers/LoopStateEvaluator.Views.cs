@@ -13,7 +13,7 @@ internal sealed partial class LoopStateEvaluator
     ///     <c>ReadOnlySpan</c>, <c>Memory</c>, <c>ReadOnlyMemory</c>, or
     ///     <c>ArraySegment</c> of the platform.
     /// </summary>
-    public static bool IsAView(ITypeSymbol? type) =>
+    private static bool IsAView(ITypeSymbol? type) =>
         type is INamedTypeSymbol
         {
             Name: "Span" or "ReadOnlySpan" or "Memory" or "ReadOnlyMemory" or "ArraySegment",
@@ -36,7 +36,7 @@ internal sealed partial class LoopStateEvaluator
     ///     <c>CollectionsMarshal.AsSpan</c>, is no such view.
     /// </remarks>
     /// <param name="view">The expression of the view at the use.</param>
-    public ExpressionSyntax? TheArrayOfAView(ExpressionSyntax view) =>
+    private ExpressionSyntax? TheArrayOfAView(ExpressionSyntax view) =>
         FunctionOf(view) is { } code ? this.ArrayOf(made: view, code: code) : null;
 
     /// <summary>
@@ -120,15 +120,14 @@ internal sealed partial class LoopStateEvaluator
     ///     Records a put of a value into the elements of an array through a
     ///     view. The view can be a slice, thus the walk does not know the
     ///     position. The array holds the value, as after <c>Array.Fill</c> with a
-    ///     range that is not a constant.
+    ///     range that is not a constant. The put into the name of the array makes
+    ///     it forget its positions.
     /// </summary>
     /// <param name="array">The array, from <see cref="TheArrayOfAView" />.</param>
     /// <param name="value">The expression of the value, when the code has one.</param>
     /// <param name="state">The state of the value.</param>
     public void PutsThroughAView(ExpressionSyntax array, ExpressionSyntax? value, LoopState state)
     {
-        this.ForgetsThePositionsOf(array);
-
         if (value != null)
         {
             this.Gets(collection: array, value: value);
@@ -142,52 +141,60 @@ internal sealed partial class LoopStateEvaluator
         this.PutsIntoALocation(field: null, element: null, state: state, owner: array);
     }
 
-    // The array of an expression that is the array, or a view of it. A local of a view gives the
-    // array of its initializer. AsSpan, AsMemory, Slice, a range, a constructor of a view, and the
-    // Span of a memory give the array of what they get.
+    // The array of an expression that is the array, or a view of it. Each step goes one view back,
+    // to an earlier declaration or to a part of the expression. Thus, the chain has an end.
     private ExpressionSyntax? ArrayOf(ExpressionSyntax made, SyntaxNode code)
     {
-        ExpressionSyntax written = Unwrapped(made);
-
-        switch (written)
+        for (ExpressionSyntax? at = made; at != null; at = this.OneViewBack(made: at, code: code))
         {
-            case IdentifierNameSyntax name:
-                return this.region.SymbolOf(name) switch
-                {
-                    { } array and (ILocalSymbol { RefKind: RefKind.None, Type: IArrayTypeSymbol { Rank: 1 } }
-                        or IParameterSymbol { RefKind: RefKind.None, Type: IArrayTypeSymbol { Rank: 1 } })
-                        when this.HasOneValueIn(name: array, code: code) => name,
-                    ILocalSymbol { RefKind: RefKind.None } local
-                        when IsAView(local.Type)
-                             && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                                 is VariableDeclaratorSyntax { Initializer.Value: { } initial }
-                             && this.HasOneValueIn(name: local, code: code) =>
-                        this.ArrayOf(made: initial, code: code),
-                    _ => null
-                };
-            case InvocationExpressionSyntax
+            if (Unwrapped(at) is IdentifierNameSyntax name
+                && this.region.SymbolOf(name) is { } array
+                    and (ILocalSymbol { RefKind: RefKind.None, Type: IArrayTypeSymbol { Rank: 1 } }
+                    or IParameterSymbol { RefKind: RefKind.None, Type: IArrayTypeSymbol { Rank: 1 } })
+                && this.HasOneValueIn(name: array, code: code))
+            {
+                return name;
+            }
+        }
+
+        return null;
+    }
+
+    // What a view is made from. A local of a view gives its initializer. AsSpan, AsMemory, Slice, a
+    // range, a constructor of a view, and the Span of a memory give what they get. Null for each
+    // other expression.
+    private ExpressionSyntax? OneViewBack(ExpressionSyntax made, SyntaxNode code) =>
+        Unwrapped(made) switch
+        {
+            IdentifierNameSyntax name =>
+                this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None } local
+                && IsAView(local.Type)
+                && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    is VariableDeclaratorSyntax { Initializer.Value: { } initial }
+                && this.HasOneValueIn(name: local, code: code)
+                    ? initial
+                    : null,
+            InvocationExpressionSyntax
                 {
                     Expression: MemberAccessExpressionSyntax
                     {
                         Name.Identifier.ValueText: "AsSpan" or "AsMemory" or "Slice", Expression: var of
                     }
                 } call
-                when this.region.SymbolOf(call) is IMethodSymbol method && SodaFlowSymbols.IsPlatform(method):
-                return this.ArrayOf(made: of, code: code);
-            case BaseObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: > 0 } arguments } creation
-                when IsAView(this.region.TypeOf(creation)):
-                return this.ArrayOf(made: arguments[0].Expression, code: code);
+                when this.region.SymbolOf(call) is IMethodSymbol method && SodaFlowSymbols.IsPlatform(method) => of,
+            BaseObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: > 0 } arguments } creation
+                when IsAView(this.region.TypeOf(creation)) => arguments[0].Expression,
             // A range of an array is a new array, and a range of a view is a view.
-            case ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } bounds } range
-                when bounds[0].Expression is RangeExpressionSyntax && IsAView(this.region.TypeOf(range.Expression)):
-                return this.ArrayOf(made: range.Expression, code: code);
-            case MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Span", Expression: var memory }
-                when IsAView(this.region.TypeOf(memory)):
-                return this.ArrayOf(made: memory, code: code);
-            default:
-                return null;
-        }
-    }
+            ElementAccessExpressionSyntax range
+                when IsARange(range.ArgumentList.Arguments) && IsAView(this.region.TypeOf(range.Expression)) =>
+                range.Expression,
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Span", Expression: var memory }
+                when IsAView(this.region.TypeOf(memory)) => memory,
+            _ => null
+        };
+
+    private static bool IsARange(SeparatedSyntaxList<ArgumentSyntax> arguments) =>
+        arguments.Count == 1 && arguments.First() is { Expression: RangeExpressionSyntax };
 
     // True for a local or a parameter of a function that gets no value in it, other than at its
     // declaration.
