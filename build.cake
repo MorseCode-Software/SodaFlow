@@ -676,8 +676,9 @@ Task("Publish")
     // other package here. dotnet pack names a file Id.Version.nupkg, so what follows the id and its
     // dot is the start of the version.
     //
-    // *.symbols.nupkg is excluded: these projects set IncludeSource and IncludeSymbols, which emits
-    // the legacy symbols format that nuget.org rejects.
+    // This excludes *.symbols.nupkg. IncludeSymbols makes that legacy format, which nuget.org refuses.
+    // No project sets it now, because each assembly carries its PDB. The check keeps the match to one
+    // file if the setting comes back.
     var packages = GetFiles($"{artifactsDirectory.Path}/*.nupkg")
         .Where(p => !p.GetFilename().FullPath.EndsWith(".symbols.nupkg", StringComparison.OrdinalIgnoreCase))
         .Where(p =>
