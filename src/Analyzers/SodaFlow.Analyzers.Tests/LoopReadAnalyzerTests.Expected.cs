@@ -2961,6 +2961,16 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab204LambdaPutsThroughAFieldReadThroughALocal"] = ["SF1001"],
             ["Ab204MethodPutsThroughAFieldAfterAPutThroughTheLocal"] = ["SF1001"],
             ["Ab204MethodPutsThroughAFieldReadThroughTheField"] = ["SF1001"],
-            ["Ab204MemberWriteThroughAFieldReadThroughALocal"] = ["SF1001"]
+            ["Ab204MemberWriteThroughAFieldReadThroughALocal"] = ["SF1001"],
+            ["Ag92F3TaskPutsIntoTheElement"] = ["SF1001"],
+            ["Ag92F3TaskWithAResultPutsIntoTheElement"] = ["SF1001"],
+            ["Ag92F3TaskOfALambdaInALocal"] = ["SF1001"],
+            ["Ag92F3TaskPutsIntoItsStateObject"] = ["SF1001"],
+            ["Ag92F3TaskWritesThroughItsStateObject"] = ["SF1001"],
+            ["Ag92F3TaskRunOnAScheduler"] = ["SF1001"],
+            ["Ag92F3TaskRunByAMethod"] = ["SF1001"],
+            ["Ag92F3TaskWritesAPendingCell"] = ["SF1001"],
+            ["Ag92F3TaskSamplesAndWaitThrows"] = ["SF1001"],
+            ["Ag92F3OwnRunSynchronouslyIsAMethod"] = ["SF1001"]
         };
 }

@@ -362,7 +362,8 @@ internal sealed partial class LoopStateEvaluator
     // runs no code of the project. The method has no body to read and no override. A method of
     // the platform calls no member of an object for it: see PlatformCallers. A method of SodaFlow
     // reads no cell and sends nothing. The call cannot get the collection or a view of it, and it
-    // gets no function other than a lambda that the code writes there.
+    // gets no function other than a lambda that the code writes there. RunSynchronously runs the
+    // function of its task.
     private bool CannotChangeItsCollection(InvocationExpressionSyntax call, ITypeSymbol collection)
     {
         if (this.region.SymbolOf(call) is not IMethodSymbol method
@@ -371,6 +372,7 @@ internal sealed partial class LoopStateEvaluator
             || method.IsVirtual
             || method.IsAbstract
             || method.IsOverride
+            || IsRunSynchronously(method)
             || (this.region.Symbols.IsSodaFlow(method)
                 ? method.Name == "Send" || SodaFlowSymbols.ReadMembers.Contains(method.Name)
                 : !SodaFlowSymbols.IsPlatform(method) || PlatformCallers.Of(method) != PlatformCallbacks.None))

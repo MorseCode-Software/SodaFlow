@@ -338,7 +338,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   sorts with no comparer, at the first read of the view, and `Equals` of the comparer of a two-way
   bindable, when you write its `Value`.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
-  and the function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`. A query
+  the function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`, and the
+  function of a `Task` that you create with `new` where `RunSynchronously` runs it. A query
   expression over a type whose methods run their function in the call, such as
   `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. Where the code takes
   only one item from the call of an iterator, with `First`, `FirstOrDefault`, `Any()` with no
@@ -376,6 +377,8 @@ careful side, so it can report a read that does not throw:
   that adds on every pass, and for an item that an `AddRange` of anything but a literal put in.
 - Serializer options that you do not create in the call, such as options in a local or a field,
   count as options that write public fields and read-only properties.
+- A sample in the function of a task that `RunSynchronously` runs gets `SF1001`, although the task
+  keeps the exception and the code after the call goes on. Only a later `Wait` or `Result` throws.
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind. Only a
   condition that is a constant is read for what it says: the analyzer skips the branch of an `if`
@@ -463,7 +466,9 @@ Some reads that throw it does not see:
   implicit conversion of your own, with no cast and no call in the function, or only through a
   compound assignment operator, such as `operator +=`, that a type of yours declares.
 - A function that a constructor from outside your project keeps, other than a `Lazy<T>`, a
-  `ThreadLocal<T>`, or the comparer of a platform collection.
+  `ThreadLocal<T>`, the comparer of a platform collection, or a `Task` that `RunSynchronously` runs.
+  The analyzer does not read the function of a task where `Start` runs it on another thread, and
+  it does not see the value that the function gives to `Result`.
 - Code after an `await` of a task that is already complete when the analyzer cannot tell that it
   is. That code runs in the block, and the analyzer reads it as code that runs later. The same
   goes for the body of an `await foreach` over a sequence other than a call of your own async

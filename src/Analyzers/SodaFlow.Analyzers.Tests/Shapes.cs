@@ -20171,6 +20171,58 @@ public static class Shapes
     public static Cell<int> Ab204LocalOfAnElementBeforeAMethodPut() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab204Thirteenth[0]; q.Share = Plain; Ab204PutThirteenth(l.Map(v => v)); return S.Hold(q.Share!.Sample()); });
 
+    // S4565. A task holds a lambda that puts a second object into the element, and RunSynchronously runs it.
+    public static Cell<int> Ag92F3TaskPutsIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Tasks[0]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Task put = new Task(() => a[0] = other); a[0].Share = Plain; put.RunSynchronously(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4566. The same with a task that has a result.
+    public static Cell<int> Ag92F3TaskWithAResultPutsIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Tasks[1]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Task<int> put = new Task<int>(() => { a[0] = other; return 1; }); a[0].Share = Plain; put.RunSynchronously(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4567. The task gets the lambda from a local.
+    public static Cell<int> Ag92F3TaskOfALambdaInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Tasks[2]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Action set = () => a[0] = other; Task put = new Task(set); a[0].Share = Plain; put.RunSynchronously(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4568. The task gets the array as its state object, and the lambda puts into the element through its parameter.
+    public static Cell<int> Ag92F3TaskPutsIntoItsStateObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Tasks[3]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Task put = new Task(o => ((SettableSlot[])o!)[0] = other, a); a[0].Share = Plain; put.RunSynchronously(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4569. The lambda writes a pending cell into a member of the state object of the task.
+    public static Cell<int> Ag92F3TaskWritesThroughItsStateObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; Task put = new Task(o => ((SettableSlot)o!).Share = l.Map(v => v), s); put.RunSynchronously(); return S.Hold(s.Share!.Sample()); });
+
+    // S4570. RunSynchronously with a scheduler.
+    public static Cell<int> Ag92F3TaskRunOnAScheduler() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Tasks[4]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Task put = new Task(() => a[0] = other); a[0].Share = Plain; put.RunSynchronously(TaskScheduler.Default); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4571. A method of the code gets the task and runs it.
+    public static Cell<int> Ag92F3TaskRunByAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Tasks[5]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Task put = new Task(() => a[0] = other); a[0].Share = Plain; Ag92Run(put); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4572. The lambda of the task writes a pending cell into a member of a local object.
+    public static Cell<int> Ag92F3TaskWritesAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; Task put = new Task(() => s.Share = l.Map(v => v)); put.RunSynchronously(); return S.Hold(s.Share!.Sample()); });
+
+    // S4573. The lambda of the task samples the placeholder. The task keeps the exception, and Wait throws it.
+    public static Cell<int> Ag92F3TaskSamplesAndWaitThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task put = new Task(() => Kept.Add(l.Sample())); put.RunSynchronously(); put.Wait(); return S.Hold(0); });
+
+    // S4574. No code runs the task. Its lambda does not put into the element.
+    public static Cell<int> Ag92F3TaskThatNoCodeRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Tasks[6]]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; Task put = new Task(() => a[0] = other); a[0].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4575. No code runs the task, whose lambda writes a pending cell into a member of a local object.
+    public static Cell<int> Ag92F3TaskWritesAPendingCellAndNoCodeRunsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; Task put = new Task(() => s.Share = l.Map(v => v)); return S.Hold(s.Share!.Sample()); });
+
+    // S4576. A list keeps the task, and no code runs it.
+    public static Cell<int> Ag92F3TaskKeptInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; Task put = new Task(() => s.Share = l.Map(v => v)); Kept.Add(put); return S.Hold(s.Share!.Sample()); });
+
+    // S4577. A method of the code with the name RunSynchronously is no method of a task. The walk reads its body.
+    public static Cell<int> Ag92F3OwnRunSynchronouslyIsAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; Ag92Runner run = new() { Slot = s, Next = l.Map(v => v) }; run.RunSynchronously(); return S.Hold(s.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -28092,6 +28144,19 @@ public static class Shapes
     private static void Ab204PutEleventh(Cell<int> share) => Ab204Eleventh[0] = new SettableSlot { Share = share };
 
     private static void Ab204PutThirteenth(Cell<int> share) => Ab204Thirteenth[0] = new SettableSlot { Share = share };
+
+    private static readonly SettableSlot[] Ag92Tasks = [new(), new(), new(), new(), new(), new(), new()];
+
+    private static void Ag92Run(Task task) => task.RunSynchronously();
+
+    public sealed class Ag92Runner
+    {
+        public SettableSlot? Slot { get; init; }
+
+        public Cell<int>? Next { get; init; }
+
+        public void RunSynchronously() => this.Slot!.Share = this.Next;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

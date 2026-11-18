@@ -3093,14 +3093,16 @@ internal sealed partial class LoopStateEvaluator
         bool withObjects)
     {
         // A callee that returns a delegate gives back the function that it got, as a wrapper
-        // does. Then, the function is a value that it moves. A Lazy keeps the function that its
-        // constructor gets. A method that returns a Lazy gives its function to that Lazy.
+        // does. Then, the function is a value that it moves. A Lazy and a Task keep the function
+        // that their constructor gets. A method that returns a Lazy gives its function to that Lazy.
         // A comparer from a function, as from Comparer.Create, has that function.
         bool keepsFunctions =
             definition.ReturnType.TypeKind == TypeKind.Delegate
             || SodaFlowSymbols.IsLazy(definition.ReturnType)
             || SodaFlowSymbols.IsComparer(definition.ReturnType)
-            || (definition.MethodKind == MethodKind.Constructor && SodaFlowSymbols.IsLazy(definition.ContainingType));
+            || (definition.MethodKind == MethodKind.Constructor
+                && (SodaFlowSymbols.IsLazy(definition.ContainingType)
+                    || SodaFlowSymbols.IsTask(definition.ContainingType)));
 
         // A function for a delegate parameter is code for the callee to run, and not a value that
         // it moves.
@@ -3296,12 +3298,13 @@ internal sealed partial class LoopStateEvaluator
     ///     whose body the evaluator follows gets the function as a value, and the
     ///     body says what runs. For code that the analyzer cannot read, only the
     ///     call itself can tell. A constructor keeps a function for a time
-    ///     after the call, as <c>Lazy</c> and a command object do. A method runs a
-    ///     function given for a delegate parameter. It does not when it returns a
-    ///     delegate or a <c>Lazy</c>, which then has the function. A function given
-    ///     for a parameter of a different type, as to <c>Add</c> of a list, is a
-    ///     value that the callee keeps. A read of <c>Value</c> runs the function
-    ///     that a <c>Lazy</c> has, which <see cref="FollowLazy" /> follows. A
+    ///     after the call, as <c>Lazy</c>, a task, and a command object do. A
+    ///     method runs a function given for a delegate parameter. It does not when
+    ///     it returns a delegate or a <c>Lazy</c>, which then has the function. A
+    ///     function given for a parameter of a different type, as to <c>Add</c> of
+    ///     a list, is a value that the callee keeps. A read of <c>Value</c> runs
+    ///     the function that a <c>Lazy</c> has, which <see cref="FollowLazy" />
+    ///     follows. <c>RunSynchronously</c> runs the function of a task. A
     ///     comparer is a function with a different type. A method runs one that it
     ///     gets, and a method that returns one keeps the function that makes it.
     /// </remarks>
@@ -3318,6 +3321,13 @@ internal sealed partial class LoopStateEvaluator
                  && !SodaFlowSymbols.IsComparer(method.ReturnType)
                  && !RunsOnAnotherThread(method.ContainingType)
         };
+
+    /// <summary>
+    ///     True for <c>RunSynchronously</c> of a task, which runs the function
+    ///     of the task in the call.
+    /// </summary>
+    public static bool IsRunSynchronously(IMethodSymbol method) =>
+        method.Name == "RunSynchronously" && SodaFlowSymbols.IsTask(method.ContainingType);
 
     private static bool IsDynamicInvoke(IMethodSymbol method) =>
         method is
@@ -3480,6 +3490,19 @@ internal sealed partial class LoopStateEvaluator
             return OperatorTable.FunctionsInTheCall.Contains(OperatorName(method))
                 ? this.FollowGivenFunctions(invocation: invocation, method: method)
                 : null;
+        }
+
+        // RunSynchronously runs the function of a task in the call, as a read of Value does for a
+        // Lazy. Start and Task.Run run it on a different thread. The task holds the state object
+        // of its constructor, and the function gets that object as its parameter.
+        if (IsRunSynchronously(method)
+            && invocation.Expression is MemberAccessExpressionSyntax { Expression: var task })
+        {
+            return this.FollowLazy(
+                access: invocation,
+                written: task,
+                lazy: this.Eval(task).AsOneOfItsElements,
+                value: method.ReturnType);
         }
 
         // A call on a value that is one of two objects can run the method of each.
@@ -4451,8 +4474,9 @@ internal sealed partial class LoopStateEvaluator
 
     /// <summary>
     ///     The read of <c>Value</c> of a <c>Lazy</c>, which runs the functions
-    ///     that the <c>Lazy</c> has. The result is null when it has no function
-    ///     that the evaluator can read.
+    ///     that the <c>Lazy</c> has. A call of <c>RunSynchronously</c> runs the
+    ///     functions of a task, as this read does. The result is null when it has
+    ///     no function that the evaluator can read.
     /// </summary>
     /// <remarks>
     ///     A <c>Lazy</c> from a <c>Map</c> has two functions, and the second one
