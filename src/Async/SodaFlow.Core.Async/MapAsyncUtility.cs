@@ -358,7 +358,9 @@ public abstract class AsyncMapStatus : IDisposable
     ///     each tracked item, Queued or Running, as one send on a cancelAll stream
     ///     does. In an open transaction, the cancel occurs when that transaction
     ///     ends, also when it fails, because the pipeline stays disposed. In a
-    ///     listener callback, the cancel occurs after the transaction.
+    ///     listener callback, the cancel occurs after the transaction, and no
+    ///     transaction on a different thread occurs between the two. If that
+    ///     transaction fails, a transaction on a different thread can occur first.
     ///     The same limits apply. A Running operation stops only if it monitors its
     ///     CancellationToken, and the pipeline removes a Queued item at the time of
     ///     its promotion, which is not always at the return of this call. This method
@@ -2724,11 +2726,19 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                     return UnitInternal.Value;
                 }
 
-                // A send throws in a callback. Thus, the trigger goes after this transaction, which
-                // occurs at a commit and at a failure, and no discard is necessary.
+                // A send throws in a callback. Thus, the trigger goes in a posted action. The post runs
+                // after the commit, while the transaction holds the lock. Thus, no transaction on a
+                // different thread can end a Running item before the cancel and promote a Queued item.
+                // A transaction that fails drops the post and calls its failure action. That action
+                // sends the trigger after the release of the lock, because after a failure the
+                // transaction cannot receive a send. Before, this trigger went after the release of the
+                // lock. A different thread that waited for the lock then started a Queued item after the
+                // disposal.
                 if (transaction.InCallback > 0)
                 {
-                    self.SendTheTriggerAfterTheTransaction();
+                    TransactionInternal.PostImpl(
+                        action: self.SendTheTrigger,
+                        onFailure: _ => self.SendTheTriggerAfterTheTransaction());
 
                     return UnitInternal.Value;
                 }
