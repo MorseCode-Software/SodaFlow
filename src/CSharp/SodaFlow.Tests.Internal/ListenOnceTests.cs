@@ -64,7 +64,7 @@ public sealed class ListenOnceTests
             return UnitInternal.Value;
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(committed).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
         await Assert.That(failed).IsEmpty();
@@ -85,7 +85,7 @@ public sealed class ListenOnceTests
                 return RootedWithOutcome(s: s, onCommitted: committed.Add, onFailed: failed.Add);
             });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(committed).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
         await Assert.That(failed).IsEmpty();
@@ -111,7 +111,7 @@ public sealed class ListenOnceTests
         await Assert.That(CountListeners(s)).IsEqualTo(0);
         await Assert.That(committed).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     // The stream fires, and the transaction fails before the entry of the listener runs. The
@@ -139,7 +139,7 @@ public sealed class ListenOnceTests
         await Assert.That(failed[0]).IsSameReferenceAs(fromBody);
         await Assert.That(CountListeners(s)).IsEqualTo(0);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     private static int CountListeners(Stream<int> s)
@@ -171,7 +171,7 @@ public sealed class ListenOnceTests
         return listener;
     }
 
-    // Each firing queues an entry for the listener, and the Unlisten after the first firing does
+    // Each firing queues an entry for the listener, and the Dispose after the first firing does
     // not remove the second entry.
     private static List<int> ListenThenFireTwice(Func<Stream<int>, Action<int>, IListener> listenOnce)
     {
@@ -186,12 +186,12 @@ public sealed class ListenOnceTests
             return UnitInternal.Value;
         });
 
-        l.Unlisten();
+        l.Dispose();
         return @out;
     }
 
     // Listen sends the earlier firings of the transaction to the new handler in one loop, and
-    // Unlisten does not stop that loop.
+    // Dispose does not stop that loop.
     private static List<int> FireTwiceThenListen(Func<Stream<int>, Action<int>, IListener> listenOnce)
     {
         Stream<int> s = new();
@@ -205,7 +205,7 @@ public sealed class ListenOnceTests
                 return listenOnce(arg1: s, arg2: @out.Add);
             });
 
-        l.Unlisten();
+        l.Dispose();
         return @out;
     }
 }

@@ -47,7 +47,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         await Assert.That(received).IsEquivalentTo(expected: ["B", "A"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -97,8 +97,8 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
             .IsEquivalentTo(expected: new object[] { d, "C", b, "A" }, ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
-        l2.Unlisten();
+        l.Dispose();
+        l2.Dispose();
     }
 
     [Test]
@@ -142,7 +142,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         await Assert.That(received).IsEquivalentTo(expected: ["A", "B", "C"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -183,7 +183,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         await Assert.That(received).IsEquivalentTo(["A1", "B1", "A2"]);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
         return;
 
         // The group is the text before the hyphen. Thus, "g1-a" and "g1-b" have one group, and
@@ -229,7 +229,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         await Assert.That(received).IsEquivalentTo(expected: ["B"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -285,7 +285,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
 
         status1.Dispose();
         status2.Dispose();
-        l1.Unlisten();
-        l2.Unlisten();
+        l1.Dispose();
+        l2.Dispose();
     }
 }

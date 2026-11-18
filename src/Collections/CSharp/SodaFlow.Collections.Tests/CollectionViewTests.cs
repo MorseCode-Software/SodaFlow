@@ -106,7 +106,7 @@ public sealed class CollectionViewTests
             additions.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one, replaced", score: 11)));
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(KeysOf(collection))
             .IsEquivalentTo(expected: [2, 3, 1], ordering: CollectionOrdering.Matching);
@@ -313,7 +313,7 @@ public sealed class CollectionViewTests
 
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(operations)
             .IsEquivalentTo(expected: ["ViewMove:1"], ordering: CollectionOrdering.Matching);
@@ -344,7 +344,7 @@ public sealed class CollectionViewTests
 
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(scores)
             .IsEquivalentTo(expected: [10, 99], ordering: CollectionOrdering.Matching);
@@ -373,7 +373,7 @@ public sealed class CollectionViewTests
         // the state that changed, thus this code must send the change to it.
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:1"], ordering: CollectionOrdering.Matching);
     }
@@ -405,7 +405,7 @@ public sealed class CollectionViewTests
 
         edits.Send(TestUtil.Score(key: 2, score: 99));
 
-        l.Unlisten();
+        l.Dispose();
 
         // There is one update, no move, and no change to the order.
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:2"], ordering: CollectionOrdering.Matching);
@@ -485,7 +485,7 @@ public sealed class CollectionViewTests
 
         threshold.Send(5);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
@@ -523,7 +523,7 @@ public sealed class CollectionViewTests
         // nothing.
         edits.Send(TestUtil.Score(key: 1, score: -1));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:2"], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(evens)).IsEquivalentTo(expected: [2, 4], ordering: CollectionOrdering.Matching);
@@ -581,7 +581,7 @@ public sealed class CollectionViewTests
         edits.Send(TestUtil.Score(key: 3, score: -1));
         edits.Send(TestUtil.Score(key: 2, score: -1));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:3"], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
@@ -628,7 +628,7 @@ public sealed class CollectionViewTests
         operations.Clear();
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(operations).IsEmpty();
         await Assert.That(KeysOf(view)).IsEquivalentTo(expected: [2, 3, 4], ordering: CollectionOrdering.Matching);
@@ -702,7 +702,7 @@ public sealed class CollectionViewTests
         // which is [2, 3, 1, 4], and thus from the front of this filter to the end.
         edits.Send(TestUtil.Score(key: 1, score: 35));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(KeysOf(byScore))
             .IsEquivalentTo(expected: [2, 3, 1, 4], ordering: CollectionOrdering.Matching);
@@ -869,7 +869,7 @@ public sealed class CollectionViewTests
         // The selector on the identity only gives that permission.
         edits.Send(TestUtil.Score(key: 3, score: -99));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewUpdate:3"], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(byCode)).IsEquivalentTo(expected: [3, 2, 1], ordering: CollectionOrdering.Matching);
@@ -1482,7 +1482,7 @@ public sealed class CollectionViewTests
 
         order.Send(byName);
 
-        l.Unlisten();
+        l.Dispose();
 
         // A new order is a change of criteria, and a change of criteria is a reset.
         await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
@@ -1633,7 +1633,7 @@ public sealed class CollectionViewTests
 
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
-        l.Unlisten();
+        l.Dispose();
 
         CollectionViewChange<int, ItemIdentity, ItemState> change = changes[0];
 
@@ -1725,7 +1725,7 @@ public sealed class CollectionViewTests
         // And one that moves it out takes the value away again.
         edits.Send(TestUtil.Score(key: 1, score: 1));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(seen)
             .IsEquivalentTo(expected: ["C1:one", "C1:renamed", "gone"], ordering: CollectionOrdering.Matching);
@@ -1758,8 +1758,8 @@ public sealed class CollectionViewTests
         edits.Send(TestUtil.Rename(key: 2, name: "renamed"));
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
-        a.Unlisten();
-        b.Unlisten();
+        a.Dispose();
+        b.Dispose();
 
         await Assert.That(onCollection).IsEmpty();
         await Assert.That(onView).IsEmpty();
@@ -1811,8 +1811,8 @@ public sealed class CollectionViewTests
         await Assert.That(onView.Count).IsEqualTo(2);
         await Assert.That(onView[1].Removed).Contains(1);
 
-        a.Unlisten();
-        b.Unlisten();
+        a.Dispose();
+        b.Dispose();
 
         await Assert.That(collection.SnapshotCell.Sample().ContainsKey(1)).IsTrue();
     }
@@ -1855,7 +1855,7 @@ public sealed class CollectionViewTests
         await Assert.That(TestUtil.Keys(shapes[0].Keys))
             .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Any);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -1971,9 +1971,9 @@ public sealed class CollectionViewTests
         await Assert.That(pageUpdates).IsEqualTo(3);
         await Assert.That(KeysOf(page)).IsEquivalentTo(expected: [5, 3, 2], ordering: CollectionOrdering.Matching);
 
-        collectionListener.Unlisten();
-        pageListener.Unlisten();
-        operationsListener.Unlisten();
+        collectionListener.Dispose();
+        pageListener.Dispose();
+        operationsListener.Dispose();
     }
 
     [Test]
@@ -2099,7 +2099,7 @@ public sealed class CollectionViewTests
 
         edits.Send(TestUtil.Score(key: 42, score: 999));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
 
@@ -2133,7 +2133,7 @@ public sealed class CollectionViewTests
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one", score: 10)));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:1"], ordering: CollectionOrdering.Matching);
@@ -2206,7 +2206,7 @@ public sealed class CollectionViewTests
 
         edits.Send(Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => key + 10_000));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
         await Assert.That(kinds.Count).IsEqualTo(3_000);
@@ -2242,8 +2242,8 @@ public sealed class CollectionViewTests
         // below its limit.
         edits.Send(Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => key + 1));
 
-        filterListener.Unlisten();
-        sortListener.Unlisten();
+        filterListener.Dispose();
+        sortListener.Dispose();
 
         await Assert.That(filterResets).IsEmpty();
         await Assert.That(sortResets).IsEmpty();
@@ -2275,8 +2275,8 @@ public sealed class CollectionViewTests
 
         edits.Send(Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => key + 1));
 
-        positiveListener.Unlisten();
-        oddListener.Unlisten();
+        positiveListener.Dispose();
+        oddListener.Dispose();
 
         await Assert.That(positiveResets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
         await Assert.That(positiveKinds.Count).IsEqualTo(3_000);
@@ -2307,7 +2307,7 @@ public sealed class CollectionViewTests
             Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => key + 1)
                 .CombineWith(TestUtil.Add(TestUtil.Item(number: 9_999, name: "new", score: 0))));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
         await Assert.That(kinds.Count(static kind => kind == "ViewInsert")).IsEqualTo(1);
@@ -2336,7 +2336,7 @@ public sealed class CollectionViewTests
         // This moves the first 3,000 keys to the front of the order.
         edits.Send(Rescore(keys: Enumerable.Range(start: 1, count: 3_000), score: static key => 20_000 - key));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(byScore)[0]).IsEqualTo(3_001);
@@ -2375,7 +2375,7 @@ public sealed class CollectionViewTests
         // This is far above max(1000, 2000 / 10).
         edits.Send(TestUtil.Remove([.. Enumerable.Range(start: 1, count: 1_500)]));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
         await Assert.That(operationCounts).IsEquivalentTo(expected: [0], ordering: CollectionOrdering.Matching);
@@ -2430,7 +2430,7 @@ public sealed class CollectionViewTests
 
         await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     /// <summary>
@@ -2463,7 +2463,7 @@ public sealed class CollectionViewTests
         // This is a different limit that accepts the same two items.
         threshold.Send(15);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(changes).IsEqualTo(0);
         await Assert.That(KeysOf(passing)).IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Matching);
@@ -2507,7 +2507,7 @@ public sealed class CollectionViewTests
 
         threshold.Send(5);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
         await Assert.That(operations).IsEquivalentTo(expected: ["ViewInsert:1"], ordering: CollectionOrdering.Matching);
@@ -2620,7 +2620,7 @@ public sealed class CollectionViewTests
         // 1,000 keys back, each at the position of its arrival.
         minimum.Send(1);
 
-        listener.Unlisten();
+        listener.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
 
@@ -2679,7 +2679,7 @@ public sealed class CollectionViewTests
         // This puts the 1,001 keys back, which is one key more than the limit also.
         minimum.Send(1);
 
-        listener.Unlisten();
+        listener.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
         await Assert.That(operations).IsEmpty();
@@ -2740,7 +2740,7 @@ public sealed class CollectionViewTests
         // end of a set that holds 1,700 keys.
         first.Send(301);
 
-        listener.Unlisten();
+        listener.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching);
 
@@ -2816,7 +2816,7 @@ public sealed class CollectionViewTests
         minimum.Send(2_002);
         int testsOverTheLimit = tests;
 
-        listener.Unlisten();
+        listener.Dispose();
 
         await Assert.That(KeysOf(view).Count).IsEqualTo(2_999);
         await Assert.That(testsOverTheLimit - testsAtTheLimit).IsEqualTo(7_001);
@@ -2896,7 +2896,7 @@ public sealed class CollectionViewTests
         resets.Clear();
         multiple.Send(0);
 
-        listener.Unlisten();
+        listener.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
         await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(0), ordering: CollectionOrdering.Matching);
@@ -2946,7 +2946,7 @@ public sealed class CollectionViewTests
         resets.Clear();
         multiple.Send(2);
 
-        listener.Unlisten();
+        listener.Dispose();
 
         await Assert.That(resets).IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
 
@@ -3021,7 +3021,7 @@ public sealed class CollectionViewTests
 
         multiple.Send(0);
 
-        listener.Unlisten();
+        listener.Dispose();
 
         await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(0), ordering: CollectionOrdering.Matching);
     }
@@ -3088,7 +3088,7 @@ public sealed class CollectionViewTests
                 .IsEquivalentTo(expected: NotMultiplesOfDescending(step), ordering: CollectionOrdering.Matching);
         }
 
-        listener.Unlisten();
+        listener.Dispose();
     }
 
     [Test]
@@ -3141,7 +3141,7 @@ public sealed class CollectionViewTests
             edits.Send(TestUtil.Score(key: 1, score: 1));
         });
 
-        listener.Unlisten();
+        listener.Dispose();
 
         await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOfDescending(0), ordering: CollectionOrdering.Matching);
     }
@@ -3179,7 +3179,7 @@ public sealed class CollectionViewTests
             await Assert.That(KeysOf(view)).IsEquivalentTo(expected: NotMultiplesOf(step), ordering: CollectionOrdering.Matching);
         }
 
-        listener.Unlisten();
+        listener.Dispose();
     }
 
     // A negative count or offset is an error in the arithmetic of the caller. The constant

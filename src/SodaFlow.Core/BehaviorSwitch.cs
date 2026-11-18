@@ -74,7 +74,7 @@ internal sealed class BehaviorSwitch<T, T2>(
             this.@switch.keepListenersAlive.SetInner(this.Source.KeepListenersAlive);
         }
 
-        void ILastAction.Discard() => this.Unlisten();
+        void ILastAction.Discard() => this.Dispose();
 
         protected override void Consume(TransactionInternal trans, T value) =>
             this.@switch.@out.Send(trans: trans, a: value);

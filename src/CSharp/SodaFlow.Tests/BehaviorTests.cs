@@ -29,7 +29,7 @@ public sealed class BehaviorTests
         IListener l = c.Listen(@out.Add);
         s.Send(2);
         s.Send(9);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [0, 2, 9], ordering: CollectionOrdering.Matching);
     }
 
@@ -42,7 +42,7 @@ public sealed class BehaviorTests
         c.Send("0");
         c.Send(null);
         c.Send("1");
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: [string.Empty, "0", null, "1"], ordering: CollectionOrdering.Matching);
@@ -57,7 +57,7 @@ public sealed class BehaviorTests
         IListener l = c.Updates().Listen(@out.Add);
         s.Send(2);
         s.Send(9);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 9], ordering: CollectionOrdering.Matching);
     }
 
@@ -74,7 +74,7 @@ public sealed class BehaviorTests
         b.Send(9);
         b.Send(1);
         trigger.Send(300L);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: ["100 0", "200 2", "300 1"], ordering: CollectionOrdering.Matching);
@@ -88,7 +88,7 @@ public sealed class BehaviorTests
         IListener l = c.Listen(@out.Add);
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [9, 2, 7], ordering: CollectionOrdering.Matching);
     }
 
@@ -100,7 +100,7 @@ public sealed class BehaviorTests
         IListener l = Transaction.Run(() => c.Values().ListenOnce(@out.Add));
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [9], ordering: CollectionOrdering.Matching);
     }
 
@@ -112,7 +112,7 @@ public sealed class BehaviorTests
         IListener l = Transaction.Run(() => c.Updates().ListenOnce(@out.Add));
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
     }
 
@@ -134,7 +134,7 @@ public sealed class BehaviorTests
         IListener l = c.Updates().Listen(@out.Add);
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 7], ordering: CollectionOrdering.Matching);
     }
 
@@ -146,7 +146,7 @@ public sealed class BehaviorTests
         IListener l = Transaction.Run(() => c.Values().Listen(@out.Add));
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [9, 2, 7], ordering: CollectionOrdering.Matching);
     }
 
@@ -164,13 +164,15 @@ public sealed class BehaviorTests
                 c.Send(5);
 
                 return c.Values()
+                    // ReSharper disable once AccessToDisposedClosure - l stops before l2, thus this handler does not
+                    // run after the disposal of l2.
                     .Listen(_ => l2 ??= c.Values().Listen(@out.Add));
             });
 
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
-        l2?.Unlisten();
+        l.Dispose();
+        l2?.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [5, 2, 7], ordering: CollectionOrdering.Matching);
     }
 
@@ -308,10 +310,10 @@ public sealed class BehaviorTests
 
         listCell.Sample()[8].ChangeNumber2(9);
         listCell.Sample()[8].ChangeNumber1(9);
-        l.Unlisten();
-        l2.Unlisten();
-        l3.Unlisten();
-        l4.Unlisten();
+        l.Dispose();
+        l2.Dispose();
+        l3.Dispose();
+        l4.Dispose();
 
         (int Number1, int Number2)[][] expected =
         [
@@ -436,7 +438,7 @@ public sealed class BehaviorTests
         s.Send(4);
         s.Send(7);
         s.Send(8);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [1, 4, 8, 15, 23], ordering: CollectionOrdering.Matching);
     }
@@ -471,7 +473,7 @@ public sealed class BehaviorTests
             s.Send(4);
             s.Send(7);
             s.Send(8);
-            l.Unlisten();
+            l.Dispose();
         }
         catch (AggregateException e)
         {
@@ -516,7 +518,7 @@ public sealed class BehaviorTests
         evens.Send(4);
         odds.Send(3);
         evens.Send(6);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(values).IsEquivalentTo(expected: [2, 3, 6], ordering: CollectionOrdering.Matching);
     }
@@ -574,7 +576,7 @@ public sealed class BehaviorTests
 
         TestObject t5 = new(n1: 5, n2: 5);
         addStreamSink.Send(t5);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [0, 1, 2, 3, 2, 2, 3], ordering: CollectionOrdering.Matching);
     }
@@ -587,7 +589,7 @@ public sealed class BehaviorTests
         IListener l = Transaction.Run(() => c.Values().Listen(@out.Add));
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [9, 2, 7], ordering: CollectionOrdering.Matching);
     }
 
@@ -599,7 +601,7 @@ public sealed class BehaviorTests
         IListener l = c.Values().Listen(@out.Add);
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 7], ordering: CollectionOrdering.Matching);
     }
 
@@ -611,7 +613,7 @@ public sealed class BehaviorTests
         IListener l = Transaction.Run(() => Operational.Value(b).Map(static x => x + 100).Listen(@out.Add));
         b.Send(2);
         b.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [109, 102, 107], ordering: CollectionOrdering.Matching);
     }
 
@@ -623,7 +625,7 @@ public sealed class BehaviorTests
         IListener l = Transaction.Run(() => c.Values().Map(static x => x + 100).Listen(@out.Add));
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [109, 102, 107], ordering: CollectionOrdering.Matching);
     }
 
@@ -649,7 +651,7 @@ public sealed class BehaviorTests
             b2.Send(5);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [11, 1, 4, 12], ordering: CollectionOrdering.Matching);
     }
 
@@ -672,7 +674,7 @@ public sealed class BehaviorTests
             c2.Send(5);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [11, 1, 4, 12], ordering: CollectionOrdering.Matching);
     }
 
@@ -684,7 +686,7 @@ public sealed class BehaviorTests
         IListener l = Transaction.Run(() => Operational.Value(b).Filter(static x => x % 2 != 0).Listen(@out.Add));
         b.Send(2);
         b.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [9, 7], ordering: CollectionOrdering.Matching);
     }
 
@@ -696,7 +698,7 @@ public sealed class BehaviorTests
         IListener l = Transaction.Run(() => c.Values().Filter(static x => x % 2 != 0).Listen(@out.Add));
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [9, 7], ordering: CollectionOrdering.Matching);
     }
 
@@ -708,7 +710,7 @@ public sealed class BehaviorTests
         IListener l = Transaction.Run(() => Operational.Value(b).Once().Listen(@out.Add));
         b.Send(2);
         b.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [9], ordering: CollectionOrdering.Matching);
     }
 
@@ -720,7 +722,7 @@ public sealed class BehaviorTests
         IListener l = Transaction.Run(() => c.Values().Once().Listen(@out.Add));
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [9], ordering: CollectionOrdering.Matching);
     }
 
@@ -734,7 +736,7 @@ public sealed class BehaviorTests
         IListener l = value.Listen(@out.Add);
         b.Send(2);
         b.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 7], ordering: CollectionOrdering.Matching);
     }
 
@@ -748,7 +750,7 @@ public sealed class BehaviorTests
         IListener l = value.Listen(@out.Add);
         c.Send(2);
         c.Send(7);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 7], ordering: CollectionOrdering.Matching);
     }
 
@@ -759,7 +761,7 @@ public sealed class BehaviorTests
         List<string> @out = [];
         IListener l = c.Map(static x => x.ToString()).Listen(@out.Add);
         c.Send(8);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ["6", "8"], ordering: CollectionOrdering.Matching);
     }
 
@@ -772,7 +774,7 @@ public sealed class BehaviorTests
         c.Send(2);
         IListener l = cm.Listen(@out.Add);
         c.Send(8);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ["2", "8"], ordering: CollectionOrdering.Matching);
     }
 
@@ -790,7 +792,7 @@ public sealed class BehaviorTests
         c.Send(4);
         c.Send(2);
         c.Send(2);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 4, 2, 4, 2], ordering: CollectionOrdering.Matching);
     }
 
@@ -806,7 +808,7 @@ public sealed class BehaviorTests
         c.Send(4);
         c.Send(2);
         c.Send(2);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 4, 2, 4, 2], ordering: CollectionOrdering.Matching);
     }
 
@@ -819,7 +821,7 @@ public sealed class BehaviorTests
         IListener l = ca.Apply(cf).Listen(@out.Add);
         cf.Send(static x => "12 " + x);
         ca.Send(6L);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: ["1 5", "12 5", "12 6"], ordering: CollectionOrdering.Matching);
@@ -834,7 +836,7 @@ public sealed class BehaviorTests
         IListener l = c1.Lift(c2: c2, f: static (x, y) => x + " " + y).Listen(@out.Add);
         c1.Send(12);
         c2.Send(6L);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: ["1 5", "12 5", "12 6"], ordering: CollectionOrdering.Matching);
@@ -850,7 +852,7 @@ public sealed class BehaviorTests
         List<string> @out = [];
         IListener l = c.Listen(@out.Add);
         c1.Send(2);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ["3 5", "6 10"], ordering: CollectionOrdering.Matching);
     }
 
@@ -868,7 +870,7 @@ public sealed class BehaviorTests
 
         List<int> @out = [];
         IListener l = c1.Lift(c2: c2, f: static (x, y) => x + y).Listen(@out.Add);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
     }
 
@@ -882,7 +884,7 @@ public sealed class BehaviorTests
         IListener l = pair.Listen(@out.Add);
         s.Send(2);
         s.Send(3);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ["2 0", "3 2"], ordering: CollectionOrdering.Matching);
     }
 
@@ -915,7 +917,7 @@ public sealed class BehaviorTests
         ssc.Send(new Sc(a: Maybe.Some('G'), b: Maybe.Some('g'), sw: Maybe.Some(cb)));
         ssc.Send(new Sc(a: Maybe.Some('H'), b: Maybe.Some('h'), sw: Maybe.Some(ca)));
         ssc.Send(new Sc(a: Maybe.Some('I'), b: Maybe.Some('i'), sw: Maybe.Some(ca)));
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(
@@ -957,7 +959,7 @@ public sealed class BehaviorTests
         });
 
         sc4.C.Send(9);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], ordering: CollectionOrdering.Matching);
@@ -990,7 +992,7 @@ public sealed class BehaviorTests
         IListener l = mapped.Listen(static _ => { });
         calls.Clear();
         selector.Send(deep);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(calls).IsEquivalentTo(expected: [110], ordering: CollectionOrdering.Matching);
     }
@@ -1017,7 +1019,7 @@ public sealed class BehaviorTests
         selected.Send(second);
         first.Send(2);
         second.Send(3);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
     }
@@ -1036,7 +1038,7 @@ public sealed class BehaviorTests
         selected.Send(second);
         first.Send(2);
         second.Send(11);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [1, 10, 11], ordering: CollectionOrdering.Matching);
     }
@@ -1062,7 +1064,7 @@ public sealed class BehaviorTests
         sss.Send(new Ss(a: 'G', b: 'g', sw: Maybe.Some(sb)));
         sss.Send(new Ss(a: 'H', b: 'h', sw: Maybe.Some(sa)));
         sss.Send(new Ss(a: 'I', b: 'i', sw: Maybe.Some(sa)));
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(
@@ -1107,7 +1109,7 @@ public sealed class BehaviorTests
         });
 
         ss4.S.Send(9);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], ordering: CollectionOrdering.Matching);
@@ -1135,7 +1137,7 @@ public sealed class BehaviorTests
             cellSinks[48].Send(5);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [50, 54, 58, 74], ordering: CollectionOrdering.Matching);
     }
 
@@ -1173,7 +1175,7 @@ public sealed class BehaviorTests
         // A single input on its own.
         b.Send(30);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(
@@ -1199,7 +1201,7 @@ public sealed class BehaviorTests
         a.Send(3);
         b.Send(30);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: ["1/10", "2/10", "2/20", "3/20", "3/30"], ordering: CollectionOrdering.Matching);
@@ -1244,7 +1246,7 @@ public sealed class BehaviorTests
         // A single cell, back down to one entry.
         cellSinks[count - 1].Send(5);
 
-        l.Unlisten();
+        l.Dispose();
 
         // ReSharper disable once InlineTemporaryVariable - Done for test readability.
         const int afterAll = count;
@@ -1281,7 +1283,7 @@ public sealed class BehaviorTests
             s[48].Send(5);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [50, 54, 58, 74], ordering: CollectionOrdering.Matching);
     }
 
@@ -1319,7 +1321,7 @@ public sealed class BehaviorTests
             cellSinks[48].Send(5);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [500, 504, 508, 524], ordering: CollectionOrdering.Matching);
     }
 
@@ -1349,7 +1351,7 @@ public sealed class BehaviorTests
             });
         }
 
-        l.Unlisten();
+        l.Dispose();
 
         IReadOnlyList<int> expected =
         [
@@ -1390,7 +1392,7 @@ public sealed class BehaviorTests
             cellSinks[48].Send(5);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [58, 62, 74], ordering: CollectionOrdering.Matching);
     }
 
@@ -1425,7 +1427,7 @@ public sealed class BehaviorTests
         c1.Send(4);
         c2.Send(14);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(output).IsEquivalentTo(expected: [1, 2, 13, 14], ordering: CollectionOrdering.Matching);
     }
@@ -1461,7 +1463,7 @@ public sealed class BehaviorTests
         b1.Send(4);
         b2.Send(14);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(output).IsEquivalentTo(expected: [2, 3, 14], ordering: CollectionOrdering.Matching);
     }
@@ -1501,7 +1503,7 @@ public sealed class BehaviorTests
         c1.Send(5);
         c2.Send(15);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(output).IsEquivalentTo(expected: [12, 13, 4, 5], ordering: CollectionOrdering.Matching);
     }
@@ -1541,7 +1543,7 @@ public sealed class BehaviorTests
         c1.Send(5);
         c2.Send(15);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(output).IsEquivalentTo(expected: [2, 13, 14, 5], ordering: CollectionOrdering.Matching);
     }
@@ -1582,7 +1584,7 @@ public sealed class BehaviorTests
         c1.Send(5);
         c2.Send(15);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(output).IsEquivalentTo(expected: [2, 13, 14, 5], ordering: CollectionOrdering.Matching);
     }
@@ -1617,8 +1619,8 @@ public sealed class BehaviorTests
         list1[3].Value.Send(13);
         list2[3].Value.Send(18);
 
-        l2.Unlisten();
-        l.Unlisten();
+        l2.Dispose();
+        l.Dispose();
 
         await Assert.That(streamOutput.Count).IsEqualTo(4);
         await Assert.That(behaviorOutput.Count).IsEqualTo(5);
@@ -1682,8 +1684,8 @@ public sealed class BehaviorTests
         list1[3].Value.Send(13);
         list2[3].Value.Send(18);
 
-        l2.Unlisten();
-        l.Unlisten();
+        l2.Dispose();
+        l.Dispose();
 
         await Assert.That(streamOutput.Count).IsEqualTo(4);
         await Assert.That(behaviorOutput.Count).IsEqualTo(5);

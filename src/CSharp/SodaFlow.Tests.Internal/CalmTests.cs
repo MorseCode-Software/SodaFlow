@@ -51,7 +51,7 @@ public sealed class CalmTests
             .IsEqualTo(1)
             .Because("the initial value should be forced once, in the sample phase");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     // Forced one time, and not one time for each firing. A bare `committed = init.Value` with no
@@ -83,7 +83,7 @@ public sealed class CalmTests
         s.Send(2);
         s.Send(1);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(forceOperations).IsEqualTo(1).Because("the initial value should be forced exactly once");
 
@@ -113,7 +113,7 @@ public sealed class CalmTests
         s.Send(8);
         s.Send(7);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: [8, 7], ordering: CollectionOrdering.Matching)
@@ -139,7 +139,7 @@ public sealed class CalmTests
         s.Send(1);
         s.Send(2);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching)
@@ -169,12 +169,12 @@ public sealed class CalmTests
 
         await Assert.That(() => s.Send(1)).ThrowsExactly<InvalidOperationException>();
 
-        boom.Unlisten();
+        boom.Dispose();
 
         // 1 again. The transaction that aborted must not commit it.
         s.Send(1);
 
-        good.Unlisten();
+        good.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: [1, 1], ordering: CollectionOrdering.Matching)
@@ -214,7 +214,7 @@ public sealed class CalmTests
 
         a.Send(3);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [2, 3], ordering: CollectionOrdering.Matching);
     }

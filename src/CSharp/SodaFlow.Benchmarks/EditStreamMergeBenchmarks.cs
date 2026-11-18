@@ -82,7 +82,7 @@ public class EditStreamMergeBenchmarks
                         key: EditedKey,
                         transform: state => new ItemState(name: state.Name, score: score, isFrozen: state.IsFrozen)));
 
-        internal void Dispose() => this.listener.Unlisten();
+        internal void Dispose() => this.listener.Dispose();
 
         internal static Shape Build(int streamCount)
         {

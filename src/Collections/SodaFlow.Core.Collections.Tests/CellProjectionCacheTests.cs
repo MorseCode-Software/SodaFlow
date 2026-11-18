@@ -93,7 +93,7 @@ public sealed class CellProjectionCacheTests
         await Assert.That(() => edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "one", score: 10))))
             .ThrowsExactly<InvalidOperationException>();
 
-        listener.Unlisten();
+        listener.Dispose();
 
         await Assert.That(scoreOfOne?.Sample()).IsEqualTo(-1).Because("the add went with the transaction");
         await Assert.That(collection.StateCellImpl(key: 1, projection: Score).Sample()).IsEqualTo(-1);

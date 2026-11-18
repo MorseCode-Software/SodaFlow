@@ -82,7 +82,7 @@ public sealed class PerKeyCellLockOrderTests
             bool outsideFinished = outside.Join(Watchdog);
             bool insideFinished = inside.Join(Watchdog);
 
-            listener.Unlisten();
+            listener.Dispose();
 
             await Assert.That(outsideFinished).IsTrue().Because($"round {round}: the thread with no transaction is stuck");
             await Assert.That(insideFinished).IsTrue().Because($"round {round}: the thread in a transaction is stuck");

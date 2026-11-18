@@ -19,7 +19,7 @@ module Listener =
     /// <remarks>
     ///     A second call is safe. Each call after the first does nothing.
     /// </remarks>
-    let unlisten (listener: IListener) = listener.Unlisten()
+    let unlisten (listener: IListener) = listener.Dispose()
 
     /// <summary>
     ///     A listener which is not listening to anything, and whose <c>unlisten</c> does nothing.

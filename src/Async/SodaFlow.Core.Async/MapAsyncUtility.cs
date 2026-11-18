@@ -2116,7 +2116,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // attached. Listen keeps only a weak reference on the side of the source stream, and Attach
     // gives the cause. While code can get to this execution manager, these fields keep the
     // subscriptions. When no code references the manager, these fields go with it and the
-    // subscriptions stop. A disposal also calls Unlisten on them, to disconnect them
+    // subscriptions stop. A disposal of the manager also disposes them, to disconnect them
     // deterministically, and does not wait for the GC. See RemoveListeners.
     private IListener? cancelAllListener;
 
@@ -2756,9 +2756,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     private void RemoveListeners()
     {
-        this.cancelAllListener?.Unlisten();
-        this.cancelMatchingListener?.Unlisten();
-        this.disposeCancelListener?.Unlisten();
+        this.cancelAllListener?.Dispose();
+        this.cancelMatchingListener?.Dispose();
+        this.disposeCancelListener?.Dispose();
     }
 
     private void PromoteAndLaunch(

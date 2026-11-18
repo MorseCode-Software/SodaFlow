@@ -41,8 +41,8 @@ public sealed class CellTests
         s.Send(5);
         s.Send(7);
 
-        l2.Unlisten();
-        l.Unlisten();
+        l2.Dispose();
+        l.Dispose();
 
         await Assert.That(output1).IsEquivalentTo(expected: [15, 25, 35], ordering: CollectionOrdering.Matching);
         await Assert.That(output2).IsEquivalentTo(expected: [25, 35], ordering: CollectionOrdering.Matching);
@@ -59,7 +59,7 @@ public sealed class CellTests
         cellSink.Send(2);
         cellSink.Send(7);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [6, 21], ordering: CollectionOrdering.Matching);
     }
@@ -94,8 +94,8 @@ public sealed class CellTests
         list1[3].Value.Send(13);
         list2[3].Value.Send(18);
 
-        l2.Unlisten();
-        l.Unlisten();
+        l2.Dispose();
+        l.Dispose();
 
         await Assert.That(streamOutput.Count).IsEqualTo(4);
         await Assert.That(cellOutput.Count).IsEqualTo(5);
@@ -159,8 +159,8 @@ public sealed class CellTests
         list1[3].Value.Send(13);
         list2[3].Value.Send(18);
 
-        l2.Unlisten();
-        l.Unlisten();
+        l2.Dispose();
+        l.Dispose();
 
         await Assert.That(streamOutput.Count).IsEqualTo(4);
         await Assert.That(cellOutput.Count).IsEqualTo(5);
@@ -203,7 +203,7 @@ public sealed class CellTests
         IListener l = r.SwitchC().Listen(@out.Add);
         s.Send(2);
         s.Send(4);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [1, 3, 5], ordering: CollectionOrdering.Matching);
     }
 
@@ -217,7 +217,7 @@ public sealed class CellTests
         IListener l = c.SwitchC().Listen(@out.Add);
         s.Send(3);
         s.Send(5);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [1, 3, 5], ordering: CollectionOrdering.Matching);
     }
 
@@ -430,6 +430,8 @@ public sealed class CellTests
         List<int> @out = [];
         IListener? late = null;
 
+        // ReSharper disable once AccessToDisposedClosure - The outer listener stops before late, at the end of the
+        // using.
         using (Operational.Updates(source)
                    .Listen(_ => late ??= Operational.Updates(derived).Listen(@out.Add)))
         {
@@ -437,7 +439,7 @@ public sealed class CellTests
             source.Send(3);
         }
 
-        late?.Unlisten();
+        late?.Dispose();
         return @out;
     }
 

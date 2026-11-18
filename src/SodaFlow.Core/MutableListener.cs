@@ -14,9 +14,7 @@ internal sealed class MutableListener : IListenerInternal
     private readonly WeakMutableListener weakMutableListener = new();
     private IListenerInternal? listener;
 
-    public void Unlisten() => this.listener?.Unlisten();
-
-    public void Dispose() => this.Unlisten();
+    public void Dispose() => this.listener?.Dispose();
 
     public IListenerWithWeakReference GetListenerWithWeakReference() => this.weakMutableListener;
 
@@ -35,7 +33,7 @@ internal sealed class MutableListener : IListenerInternal
 
         this.listener = listener;
         this.weakMutableListener.WeakListener = listener.GetListenerWithWeakReference();
-        previous?.Unlisten();
+        previous?.Dispose();
     }
 
     private sealed class WeakMutableListener : IListenerWithWeakReference

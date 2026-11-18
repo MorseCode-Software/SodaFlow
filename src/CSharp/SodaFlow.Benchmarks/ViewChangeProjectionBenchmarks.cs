@@ -123,7 +123,7 @@ public class ViewChangeProjectionBenchmarks
         {
             foreach (IListener listener in this.listeners)
             {
-                listener.Unlisten();
+                listener.Dispose();
             }
         }
 

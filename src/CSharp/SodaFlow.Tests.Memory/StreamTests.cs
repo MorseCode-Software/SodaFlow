@@ -109,7 +109,7 @@ public sealed class StreamTests
             {
                 IListener listener = m.Listen(@out.Add);
 
-                listener.Unlisten();
+                listener.Dispose();
 
                 dotMemory.Check(memory =>
                     listenerCount2 = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
@@ -220,7 +220,7 @@ public sealed class StreamTests
 
             s.Send(5);
             s.Send(3);
-            l.Unlisten();
+            l.Dispose();
         }))();
 
         // The lambda above stays synchronous on purpose: it exists so that its locals are out of
@@ -278,7 +278,7 @@ public sealed class StreamTests
 
             s.Send(5);
             s.Send(3);
-            l.Unlisten();
+            l.Dispose();
         }))();
 
         // The lambda above stays synchronous on purpose: it exists so that its locals are out of

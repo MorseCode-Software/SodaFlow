@@ -37,7 +37,7 @@ public sealed class MapAsyncImplTests
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     // The code of an operation before its first await must not run with the transaction lock. Code
@@ -79,7 +79,7 @@ public sealed class MapAsyncImplTests
         await Assert.That(received[0]).IsTrue();
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -108,7 +108,7 @@ public sealed class MapAsyncImplTests
         await Assert.That(received[0]).IsSameReferenceAs(thrown);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     // A listener on the results that throws stops the send of that result. The item ends, the next
@@ -484,7 +484,7 @@ public sealed class MapAsyncImplTests
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -524,7 +524,7 @@ public sealed class MapAsyncImplTests
             .IsTrue();
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     /// <summary>
@@ -588,7 +588,7 @@ public sealed class MapAsyncImplTests
                 + "An empty list says that this end went to OnCompleted instead.");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -616,7 +616,7 @@ public sealed class MapAsyncImplTests
         Thread.Sleep(100);
         await Assert.That(received.Count).IsEqualTo(0);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -648,7 +648,7 @@ public sealed class MapAsyncImplTests
         Thread.Sleep(200);
         await Assert.That(received.Count).IsEqualTo(0).Because("A canceled outcome must never be published.");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -681,7 +681,7 @@ public sealed class MapAsyncImplTests
         TestUtil.WaitUntil(() => received.Count == 1);
         await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     // The pipeline finds the items with a dictionary and a set where it ends more than a few items.
@@ -733,7 +733,7 @@ public sealed class MapAsyncImplTests
         await Assert.That(received).IsEquivalentTo(expected: [0], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]

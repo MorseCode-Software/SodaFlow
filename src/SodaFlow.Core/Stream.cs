@@ -223,7 +223,7 @@ public class Stream<T> : ILastAction
                     // the value it holds at the time the stream fires.
                     TListener? listenerLocal = listener;
 
-                    // The first firing removes the listener and sets null. Unlisten does not
+                    // The first firing removes the listener and sets null. Dispose does not
                     // stop a firing that is in the queue or in the loop of Listen. Thus, this
                     // test stops the second value.
                     if (listenerLocal == null)
@@ -231,7 +231,7 @@ public class Stream<T> : ILastAction
                         return;
                     }
 
-                    listenerLocal.Unlisten();
+                    listenerLocal.Dispose();
                     listener = null;
                     handler(a);
                 });
@@ -1551,7 +1551,7 @@ public class Stream<T> : ILastAction
     }
 
     // The first firing sends and stops the link. Listen can send the earlier firings of a
-    // transaction to this action in one loop, and Unlisten does not stop that loop. Thus, the
+    // transaction to this action in one loop, and Dispose does not stop that loop. Thus, the
     // flag stops the second value.
     private sealed class OnceAction(in Stream<T> @out) : StreamAction<T>
     {
@@ -1567,7 +1567,7 @@ public class Stream<T> : ILastAction
 
             this.fired = true;
             this.@out.Send(trans: trans, a: value);
-            this.Unlisten();
+            this.Dispose();
         }
     }
 
@@ -1628,7 +1628,7 @@ public class Stream<T> : ILastAction
         }
     }
 
-    // The lock on this object makes Root and Unlisten atomic. Thus, a Root on one thread and the
+    // The lock on this object makes Root and Dispose atomic. Thus, a Root on one thread and the
     // first firing on a different thread cannot keep a listener that stopped in the set. The set
     // gets its own lock inside this one, and never the reverse.
     private sealed class RootableListener(in Stream<T> stream, in IListenerInternal listener) : IRootableListener
@@ -1652,9 +1652,9 @@ public class Stream<T> : ILastAction
             }
         }
 
-        public void Unlisten()
+        public void Dispose()
         {
-            this.listener.Unlisten();
+            this.listener.Dispose();
 
             lock (this)
             {
@@ -1667,8 +1667,6 @@ public class Stream<T> : ILastAction
                 }
             }
         }
-
-        public void Dispose() => this.Unlisten();
 
         public IListenerWithWeakReference GetListenerWithWeakReference() =>
             this.listener.GetListenerWithWeakReference();
@@ -1693,9 +1691,7 @@ public class Stream<T> : ILastAction
         // The target is the weak view of this listener. See Node<T>.Target.
         private readonly Node<T>.Target target = target;
 
-        public void Unlisten() => this.target.Unlisten();
-
-        public void Dispose() => this.Unlisten();
+        public void Dispose() => this.target.Unlisten();
 
         public IListenerWithWeakReference GetListenerWithWeakReference() => this.target;
     }

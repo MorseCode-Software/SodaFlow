@@ -222,6 +222,6 @@ public static partial class BindableCoreExtensionMethods
             this.initialValue = null;
         }
 
-        protected override void DisposeCore() => this.listener.Unlisten();
+        protected override void DisposeCore() => this.listener.Dispose();
     }
 }

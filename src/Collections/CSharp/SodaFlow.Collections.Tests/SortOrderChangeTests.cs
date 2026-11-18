@@ -338,7 +338,7 @@ public sealed class SortOrderChangeTests
         await Assert.That(KeysOf(passing))
             .IsEquivalentTo(expected: [5, 4, 3, 2], ordering: CollectionOrdering.Matching);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(tests).IsEqualTo(0);
 

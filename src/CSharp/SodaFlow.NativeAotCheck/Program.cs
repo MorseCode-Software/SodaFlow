@@ -127,7 +127,7 @@ internal static class Program
         numbers.Send(a: 3);
         others.Send(a: 7);
         others.Send(a: 7);
-        listener.Unlisten();
+        listener.Dispose();
 
         // A snapshot reads the total from before its transaction. Calm drops the second 1, and the
         // gate drops the 2.
@@ -158,7 +158,7 @@ internal static class Program
         moreWords.Send(a: "cd");
         offset.Send(a: 20);
         words.Send(a: "abc");
-        listener.Unlisten();
+        listener.Dispose();
 
         // The word "cd" is as long as "ab", thus Calm drops that update.
         return seen.SequenceEqual(second: [12, 22, 23]);

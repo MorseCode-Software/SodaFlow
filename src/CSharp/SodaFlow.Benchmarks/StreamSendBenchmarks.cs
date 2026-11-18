@@ -65,7 +65,7 @@ public class StreamSendBenchmarks
     {
         foreach (IListener listener in this.listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         this.listeners.Clear();

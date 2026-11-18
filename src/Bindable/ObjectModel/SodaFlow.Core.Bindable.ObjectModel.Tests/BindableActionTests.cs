@@ -46,7 +46,7 @@ public sealed class BindableActionTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         await Assert.That(initial).IsFalse();
@@ -93,7 +93,7 @@ public sealed class BindableActionTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         scheduler.Join();
@@ -431,7 +431,7 @@ public sealed class BindableActionTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         scheduler.RunAll();
@@ -475,7 +475,7 @@ public sealed class BindableActionTests
         });
 
         enabled.Send(true);
-        pump.Unlisten();
+        pump.Dispose();
 
         int ranAfter = scheduler.RunAll();
 
@@ -518,7 +518,7 @@ public sealed class BindableActionTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         // A drain in a transaction, as a nested message loop runs it from a callback.
@@ -564,7 +564,7 @@ public sealed class BindableActionTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         bool afterTheFailure = a.CanExecute(null);

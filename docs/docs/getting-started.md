@@ -44,7 +44,7 @@ IListener l = c.Listen(Console.WriteLine);
 s.Send(2);
 s.Send(9);
 
-l.Unlisten();
+l.Dispose();
 ```
 
 Output:

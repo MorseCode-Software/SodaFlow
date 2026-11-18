@@ -1088,7 +1088,7 @@ type ``Behavior Tests``() =
                 cellSinks[41] |> sendC 5
                 cellSinks[48] |> sendC 5)
 
-            l.Unlisten()
+            l.Dispose()
             do! Expect.Sequence([ 58; 62; 74 ], out)
         }
 
