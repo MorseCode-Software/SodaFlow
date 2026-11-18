@@ -4267,7 +4267,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// </remarks>
     private void CheckDynamicRead(MemberAccessExpressionSyntax node)
     {
-        if (this.region.SymbolOf(node) != null
+        // The compiler does not keep the symbol of the name of a called method. Each time that the
+        // walk asks for it, the compiler binds the full chain of the receiver again. The compiler
+        // keeps the symbol of the call, and a dynamic call has none.
+        if (this.IsTheNameOfACalledMethod(node)
+            || this.region.SymbolOf(node) != null
             || this.evaluator.Eval(node.Expression) is not { Members: { } members } owner)
         {
             return;
