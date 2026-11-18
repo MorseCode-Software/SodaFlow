@@ -77,9 +77,9 @@ var mirroredInspectionSettings = new[]
     File("./samples/Accounts/SodaFlow.Samples.Accounts.sln.DotSettings"),
 };
 // Overridable so that a release can be rehearsed against a local folder feed - pass
-// --nuget-source=<path> - without the rehearsal being one typo away from a real publish. nuget.org
-// does not allow a version to be deleted or reused, so the default being the only reachable value
-// was worth giving up.
+// --tag=<tag> --nuget-source=<path> - without the rehearsal being one typo away from a real publish.
+// Publish refuses a URL for a rehearsal. nuget.org does not allow a version to be deleted or reused,
+// so the default being the only reachable value was worth giving up.
 var nugetSource = Argument("nuget-source", "https://api.nuget.org/v3/index.json");
 
 //////////////////////////////////////////////////////////////////////
@@ -580,19 +580,33 @@ Task("Publish")
     // GitHub Actions is the only place this pushes from, and the only CI there is. AppVeyor
     // published until the main build moved, and stopped in the same commit that gave the workflow
     // its publish step, so no commit ever had both able to push one tag.
-    if (!BuildSystem.IsRunningOnGitHubActions ||
-        GitHubActions.Environment.Workflow.RefType != GitHubActionsRefType.Tag)
-    {
-        Information("Not a tag build - skipping NuGet push.");
-        return;
-    }
-
-    var tag = GitHubActions.Environment.Workflow.RefName;
-    if (string.IsNullOrEmpty(tag))
+    //
+    // --tag rehearses a release on a machine. It stands in for the tag that GitHub Actions builds, and
+    // the push goes to the folder that --nuget-source names. A rehearsal refuses a URL, because from a
+    // machine a push to nuget.org is a real release. A folder needs no key.
+    var isTagBuild = BuildSystem.IsRunningOnGitHubActions &&
+                     GitHubActions.Environment.Workflow.RefType == GitHubActionsRefType.Tag;
+    var tag = Argument("tag", isTagBuild ? GitHubActions.Environment.Workflow.RefName : string.Empty);
+    if (isTagBuild && string.IsNullOrEmpty(tag))
     {
         throw new Exception(
             "This is a tag build but the tag name is empty, so there is no way to tell which " +
             "package it releases.");
+    }
+
+    if (string.IsNullOrEmpty(tag))
+    {
+        Information("Not a tag build, and no --tag was given - skipping NuGet push.");
+        return;
+    }
+
+    if (!isTagBuild &&
+        Uri.TryCreate(nugetSource, UriKind.Absolute, out var source) &&
+        (source.Scheme == Uri.UriSchemeHttp || source.Scheme == Uri.UriSchemeHttps))
+    {
+        throw new Exception(
+            $"--tag rehearses a release, and a rehearsal pushes only to a folder, not to {nugetSource}. " +
+            "Give --nuget-source=<folder>. A release pushes its tag, and GitHub Actions publishes it.");
     }
 
     // Read from the environment, and deliberately incurious about where it came from. Nothing here
@@ -605,7 +619,7 @@ Task("Publish")
     // quietly published nothing is the failure that is hardest to notice - the tag exists, the run
     // is green, and only nuget.org disagrees.
     var apiKey = EnvironmentVariable("NUGET_API_KEY");
-    if (string.IsNullOrEmpty(apiKey))
+    if (isTagBuild && string.IsNullOrEmpty(apiKey))
     {
         throw new Exception(
             "NUGET_API_KEY is not set. It is minted by the NuGet login step in "
@@ -703,7 +717,7 @@ Task("Publish")
         packages[0].FullPath,
         new DotNetNuGetPushSettings
         {
-            ApiKey = apiKey,
+            ApiKey = string.IsNullOrEmpty(apiKey) ? null : apiKey,
             Source = nugetSource,
             SkipDuplicate = true,
         });
