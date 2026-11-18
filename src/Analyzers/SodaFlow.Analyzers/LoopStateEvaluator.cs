@@ -2237,7 +2237,10 @@ internal sealed partial class LoopStateEvaluator
 
                 // A field that the code set while the loop is open, on an object that the walk does
                 // not know.
-                LoopState field = this.region.HasFields ? this.region.FieldState(symbol) : LoopState.None;
+                LoopState field =
+                    this.region.HasFields
+                        ? this.region.FieldState(field: symbol, canHave: this.KeysOfTheResult(expression))
+                        : LoopState.None;
 
                 // A member of this object, in a constructor the evaluator follows, has the state the
                 // constructor gave it.

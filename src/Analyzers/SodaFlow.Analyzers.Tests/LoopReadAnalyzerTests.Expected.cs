@@ -2900,6 +2900,21 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab200TheSameCallTextGivesADifferentObject"] = ["SF1001"],
             ["Ab200TheSameCallTextGivesTheFirstObjectAgain"] = ["SF1001"],
             ["Ab200TheSameCallTextWithANewValueOfTheArgument"] = ["SF1001"],
-            ["Ab200ANewElementBetweenTheTwoWrites"] = ["SF1001"]
+            ["Ab200ANewElementBetweenTheTwoWrites"] = ["SF1001"],
+            ["Ab203OneObjectThroughTwoCallsWithNoCast"] = ["SF1001"],
+            ["Ab203APlainCellInTheOtherObjectAndAReadOfTheClassWithBoth"] = ["SF1001"],
+            ["Ab203AWriteThroughTheSecondAndAReadThroughTheFirst"] = ["SF1001"],
+            ["Ab203AReadThroughTheBaseClass"] = ["SF1001"],
+            ["Ab203AWriteThroughTheBaseClass"] = ["SF1001"],
+            ["Ab203AnArrayOfTheInterfaceThatHoldsTheClassWithBoth"] = ["SF1001"],
+            ["Ab203ACastToTheClassWithBothInTheCallee"] = ["SF1001"],
+            ["Ab203AClassThatIsNotSealed"] = ["SF1001"],
+            ["Ab203ACalleeThatReturnsALocal"] = ["SF1001"],
+            ["Ab203ABasePropertyThatASealedClassGivesToTwoInterfaces"] = ["SF1001"],
+            ["Ab203AWriteThroughAGenericBaseClass"] = ["SF1001"],
+            ["Ab203AReadThroughAGenericBaseClass"] = ["SF1001"],
+            ["Ab203OneObjectWithTwoGenericInterfaces"] = ["SF1001"],
+            ["Ab203APendingCellThroughThePropertyOfTheClassAndAReadThroughTheInterface"] = ["SF1001"],
+            ["Ab203TwoLocalsAndAReadOfTheClassWithBoth"] = ["SF1001"]
         };
 }

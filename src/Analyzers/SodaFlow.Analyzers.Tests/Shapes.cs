@@ -19731,6 +19731,110 @@ public static class Shapes
     public static Cell<int> Ab200ANewElementBetweenTheTwoWrites() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab200SlotAt(12).Share = l.Map(v => v); IAb200Slot first = Ab200SlotAt(12); Ab200Slots[12] = new Ab200Slot(); Ab200SlotAt(12).Share = Plain; return S.Hold(first.Share!.Sample()); });
 
+    // S4455. A plain cell goes into an object of a class with only the second interface. A pending cell goes through the first interface into an object of the class with the two interfaces. Calls give the two objects. The callee of the read returns only an element of an array of the sealed class, thus the object cannot have the first interface.
+    public static Cell<int> Ab203APlainCellInAClassWithOnlyTheSecondInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203OnlySecondAt(0).Share = Plain; Ab203TwoAt(0).Share = l.Map(v => v); return S.Hold(Ab203OnlySecondAt(0).Share!.Sample()); });
+
+    // S4456. The same as the shape before, with the two interfaces in the other order.
+    public static Cell<int> Ab203APlainCellInAClassWithOnlyTheFirstInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203OnlyFirstAt(0).Share = Plain; Ab203TwoAsSecondAt(1).Share = l.Map(v => v); return S.Hold(Ab203OnlyFirstAt(0).Share!.Sample()); });
+
+    // S4457. The pending cell goes into the object of the class with the two interfaces before the plain cell goes into the other object.
+    public static Cell<int> Ab203ThePendingCellBeforeThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203TwoAt(2).Share = l.Map(v => v); Ab203OnlySecondAt(1).Share = Plain; return S.Hold(Ab203OnlySecondAt(1).Share!.Sample()); });
+
+    // S4458. A base class declares the property without the interface, and a sealed derived class without the interface has the plain cell. The pending cell goes through the interface into an object of a derived class that has it.
+    public static Cell<int> Ab203ADerivedClassWithoutTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203OtherBaseAt(0).Share = Plain; Ab203LateAt(0).Share = l.Map(v => v); return S.Hold(Ab203OtherBaseAt(0).Share!.Sample()); });
+
+    // S4459. The callee returns a cast to the sealed class with only the second interface.
+    public static Cell<int> Ab203ACastToTheSealedClassInTheCallee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203OnlySecondCastAt(0).Share = Plain; Ab203TwoAt(3).Share = l.Map(v => v); return S.Hold(Ab203OnlySecondCastAt(0).Share!.Sample()); });
+
+    // S4460. The callee is a block with one return statement.
+    public static Cell<int> Ab203ACalleeWithABlockOfOneReturn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203OnlySecondBlockAt(2).Share = Plain; Ab203TwoAt(4).Share = l.Map(v => v); return S.Hold(Ab203OnlySecondBlockAt(2).Share!.Sample()); });
+
+    // S4461. The read casts the result of the call to the second interface.
+    public static Cell<int> Ab203ACastOfTheResultAtTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203OnlySecondAt(3).Share = Plain; Ab203TwoAt(5).Share = l.Map(v => v); return S.Hold(((IAb203Second)Ab203OnlySecondAt(3)).Share!.Sample()); });
+
+    // S4462. A generic base class declares the property without the interface. A sealed derived class without the interface has the plain cell.
+    public static Cell<int> Ab203AGenericBaseClassAndADerivedClassWithoutTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203GenericOtherAt(0).Share = Plain; Ab203GenericLateAt(0).Share = l.Map(v => v); return S.Hold(Ab203GenericOtherAt(0).Share!.Sample()); });
+
+    // S4463. The two interfaces are generic. A sealed class with only the second interface has the plain cell.
+    public static Cell<int> Ab203AClassWithOnlyTheSecondGenericInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203GenericOnlySecondAt(0).Share = Plain; Ab203GenericTwoAt(0).Share = l.Map(v => v); return S.Hold(Ab203GenericOnlySecondAt(0).Share!.Sample()); });
+
+    // S4464. The pending cell goes through the property of the class with the two interfaces. That property is a second name of the property of the second interface. The read is of an object of the class with only the second interface.
+    public static Cell<int> Ab203APendingCellThroughThePropertyOfTheOtherClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203OnlySecondAt(9).Share = Plain; Ab203TwoOfTheClassAt(15).Share = l.Map(v => v); return S.Hold(Ab203OnlySecondAt(9).Share!.Sample()); });
+
+    // S4465. Control: two locals of two calls keep two objects apart. The sample reads the plain cell.
+    public static Cell<int> Ab203TwoLocalsOfTwoCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb203Second o = Ab203OnlySecondAt(4); o.Share = Plain; IAb203First t = Ab203TwoAt(6); t.Share = l.Map(v => v); return S.Hold(o.Share!.Sample()); });
+
+    // S4466. Control: two calls give one object of the class with the two interfaces, through a different interface each time, with no cast.
+    public static Cell<int> Ab203OneObjectThroughTwoCallsWithNoCast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203TwoAt(10).Share = l.Map(v => v); return S.Hold(Ab203TwoAsSecondAt(10).Share!.Sample()); });
+
+    // S4467. Control: the plain cell goes into an object with only the second interface. The sample reads the object of the class with the two interfaces.
+    public static Cell<int> Ab203APlainCellInTheOtherObjectAndAReadOfTheClassWithBoth() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203OnlySecondAt(7).Share = Plain; Ab203TwoAt(11).Share = l.Map(v => v); return S.Hold(Ab203TwoAsSecondAt(11).Share!.Sample()); });
+
+    // S4468. Control: the write goes through the second interface and the read through the first, on one object.
+    public static Cell<int> Ab203AWriteThroughTheSecondAndAReadThroughTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203TwoAsSecondAt(12).Share = l.Map(v => v); return S.Hold(Ab203TwoAt(12).Share!.Sample()); });
+
+    // S4469. Control: the write goes through the interface and the read through the base class, on one object of the sealed derived class.
+    public static Cell<int> Ab203AReadThroughTheBaseClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203LateAt(1).Share = l.Map(v => v); return S.Hold(Ab203LateBaseAt(1).Share!.Sample()); });
+
+    // S4470. Control: the write goes through the base class and the read through the interface. The callee of the read returns the sealed derived class, which derives from the base class.
+    public static Cell<int> Ab203AWriteThroughTheBaseClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203LateBaseAt(2).Share = l.Map(v => v); return S.Hold(Ab203LateAt(2).Share!.Sample()); });
+
+    // S4471. Control: the same code as Ab203APlainCellInAClassWithOnlyTheSecondInterface, but the array of the interface holds objects of the class with the two interfaces. The plain cell and the pending cell go into one object.
+    public static Cell<int> Ab203AnArrayOfTheInterfaceThatHoldsTheClassWithBoth() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203MixedAt(0).Share = Plain; Ab203FirstOfMixedAt(0).Share = l.Map(v => v); return S.Hold(Ab203MixedAt(0).Share!.Sample()); });
+
+    // S4472. Control: the callee of the read returns a cast to the sealed class with the two interfaces.
+    public static Cell<int> Ab203ACastToTheClassWithBothInTheCallee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203FirstOfMixedAt(1).Share = l.Map(v => v); return S.Hold(Ab203TwoCastAt(1).Share!.Sample()); });
+
+    // S4473. Control: the callee of the read returns an element of an array of a class that is not sealed. A derived class of it has the first interface.
+    public static Cell<int> Ab203AClassThatIsNotSealed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203OpenFirstAt(0).Share = l.Map(v => v); return S.Hold(Ab203OpenAt(0).Share!.Sample()); });
+
+    // S4474. Control: the callee of the read returns a local of the second interface.
+    public static Cell<int> Ab203ACalleeThatReturnsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203TwoAt(13).Share = l.Map(v => v); return S.Hold(Ab203TwoBlockAt(13).Share!.Sample()); });
+
+    // S4475. Control: a base class declares the property, and a sealed derived class gives it to two interfaces. The callee of the read returns that derived class.
+    public static Cell<int> Ab203ABasePropertyThatASealedClassGivesToTwoInterfaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203FifthAt(0).Share = l.Map(v => v); return S.Hold(Ab203SixthAt(0).Share!.Sample()); });
+
+    // S4476. Control: the write goes through a generic base class and the read through the interface of the sealed derived class.
+    public static Cell<int> Ab203AWriteThroughAGenericBaseClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203GenericBaseAt(1).Share = l.Map(v => v); return S.Hold(Ab203GenericLateAt(1).Share!.Sample()); });
+
+    // S4477. Control: the write goes through the interface and the read through the generic base class.
+    public static Cell<int> Ab203AReadThroughAGenericBaseClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203GenericLateAt(2).Share = l.Map(v => v); return S.Hold(Ab203GenericBaseAt(2).Share!.Sample()); });
+
+    // S4478. Control: two calls give one object of a sealed class with two generic interfaces, through a different interface each time.
+    public static Cell<int> Ab203OneObjectWithTwoGenericInterfaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203GenericTwoAt(1).Share = l.Map(v => v); return S.Hold(Ab203GenericTwoAsSecondAt(1).Share!.Sample()); });
+
+    // S4479. Control: the pending cell goes through the property of the class, and the read through the second interface, on one object.
+    public static Cell<int> Ab203APendingCellThroughThePropertyOfTheClassAndAReadThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab203TwoOfTheClassAt(16).Share = l.Map(v => v); return S.Hold(Ab203TwoAsSecondAt(16).Share!.Sample()); });
+
+    // S4480. Control: two locals of two calls, and the sample reads the object of the class with the two interfaces after a cast.
+    public static Cell<int> Ab203TwoLocalsAndAReadOfTheClassWithBoth() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb203Second o = Ab203OnlySecondAt(8); o.Share = Plain; IAb203First t = Ab203TwoAt(14); t.Share = l.Map(v => v); return S.Hold(((IAb203Second)t).Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -27332,6 +27436,190 @@ public static class Shapes
 
     // The first and the third call give the same object, and the second call gives the other.
     private static IAb200Slot Ab200Back() => Ab200Backs[ab200Backs++ % 2];
+
+    public interface IAb203First
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb203Second
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab203Two : IAb203First, IAb203Second
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab203OnlyFirst : IAb203First
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab203OnlySecond : IAb203Second
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public class Ab203OpenSecond : IAb203Second
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab203OpenTwo : Ab203OpenSecond, IAb203First;
+
+    private static readonly Ab203Two[] Ab203Twos =
+    [
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(),
+        new(), new()
+    ];
+
+    private static readonly Ab203OnlySecond[] Ab203OnlySeconds =
+        [new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
+
+    private static readonly Ab203OnlyFirst[] Ab203OnlyFirsts = [new()];
+
+    private static readonly IAb203Second[] Ab203InterfaceElements = [new Ab203OnlySecond()];
+
+    private static readonly IAb203Second[] Ab203Mixed = [new Ab203Two(), new Ab203Two()];
+
+    private static readonly Ab203OpenSecond[] Ab203Opens = [new Ab203OpenTwo()];
+
+    private static IAb203First Ab203TwoAt(int at) => Ab203Twos[at];
+
+    private static IAb203Second Ab203TwoAsSecondAt(int at) => Ab203Twos[at];
+
+    private static Ab203Two Ab203TwoOfTheClassAt(int at) => Ab203Twos[at];
+
+    private static IAb203Second Ab203OnlySecondAt(int at) => Ab203OnlySeconds[at];
+
+    private static IAb203First Ab203OnlyFirstAt(int at) => Ab203OnlyFirsts[at];
+
+    private static IAb203Second Ab203OnlySecondCastAt(int at) => (Ab203OnlySecond)Ab203InterfaceElements[at];
+
+    private static IAb203Second Ab203OnlySecondBlockAt(int at)
+    {
+        return Ab203OnlySeconds[at];
+    }
+
+    private static IAb203Second Ab203MixedAt(int at) => Ab203Mixed[at];
+
+    private static IAb203First Ab203FirstOfMixedAt(int at) => (IAb203First)Ab203Mixed[at];
+
+    private static IAb203Second Ab203TwoCastAt(int at) => (Ab203Two)Ab203Mixed[at];
+
+    private static IAb203Second Ab203TwoBlockAt(int at)
+    {
+        IAb203Second two = Ab203Twos[at];
+
+        return two;
+    }
+
+    private static IAb203Second Ab203OpenAt(int at) => Ab203Opens[at];
+
+    private static IAb203First Ab203OpenFirstAt(int at) => (IAb203First)Ab203Opens[at];
+
+    public interface IAb203Slot
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public class Ab203PlainBase
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab203Late : Ab203PlainBase, IAb203Slot;
+
+    public sealed class Ab203Other : Ab203PlainBase;
+
+    private static readonly Ab203Late[] Ab203Lates = [new(), new(), new()];
+
+    private static readonly Ab203Other[] Ab203Others = [new()];
+
+    private static IAb203Slot Ab203LateAt(int at) => Ab203Lates[at];
+
+    private static Ab203PlainBase Ab203LateBaseAt(int at) => Ab203Lates[at];
+
+    private static Ab203PlainBase Ab203OtherBaseAt(int at) => Ab203Others[at];
+
+    public interface IAb203Fifth
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb203Sixth
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public class Ab203TwoBase
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab203LateTwo : Ab203TwoBase, IAb203Fifth, IAb203Sixth;
+
+    private static readonly Ab203LateTwo[] Ab203LateTwos = [new()];
+
+    private static IAb203Fifth Ab203FifthAt(int at) => Ab203LateTwos[at];
+
+    private static IAb203Sixth Ab203SixthAt(int at) => Ab203LateTwos[at];
+
+    public interface IAb203GenericSlot
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public class Ab203GenericBase<T>
+    {
+        public Cell<T>? Share { get; set; }
+    }
+
+    public sealed class Ab203GenericLate : Ab203GenericBase<int>, IAb203GenericSlot;
+
+    public sealed class Ab203GenericOther : Ab203GenericBase<int>;
+
+    private static readonly Ab203GenericLate[] Ab203GenericLates = [new(), new(), new()];
+
+    private static readonly Ab203GenericOther[] Ab203GenericOthers = [new()];
+
+    private static IAb203GenericSlot Ab203GenericLateAt(int at) => Ab203GenericLates[at];
+
+    private static Ab203GenericBase<int> Ab203GenericBaseAt(int at) => Ab203GenericLates[at];
+
+    private static Ab203GenericBase<int> Ab203GenericOtherAt(int at) => Ab203GenericOthers[at];
+
+    public interface IAb203FirstOf<T>
+    {
+        Cell<T>? Share { get; set; }
+    }
+
+    public interface IAb203SecondOf<T>
+    {
+        Cell<T>? Share { get; set; }
+    }
+
+    public sealed class Ab203GenericTwo : IAb203FirstOf<int>, IAb203SecondOf<int>
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab203GenericOnlySecond : IAb203SecondOf<int>
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static readonly Ab203GenericTwo[] Ab203GenericTwos = [new(), new()];
+
+    private static readonly Ab203GenericOnlySecond[] Ab203GenericOnlySeconds = [new()];
+
+    private static IAb203FirstOf<int> Ab203GenericTwoAt(int at) => Ab203GenericTwos[at];
+
+    private static IAb203SecondOf<int> Ab203GenericTwoAsSecondAt(int at) => Ab203GenericTwos[at];
+
+    private static IAb203SecondOf<int> Ab203GenericOnlySecondAt(int at) => Ab203GenericOnlySeconds[at];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

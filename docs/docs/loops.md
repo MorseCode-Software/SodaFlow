@@ -390,7 +390,13 @@ careful side, so it can report a read that does not throw:
   what writes through other calls gave that member, and does not replace it, because the analyzer
   cannot tell whether two calls give the same object, even two calls with the same text. So a plain
   value written into `Find(id).Cell` after a pending one still reports a read of `Find(id).Cell`.
-  A local that holds the result is one object: writes through the local replace each other.
+  A local that holds the result is one object: writes through the local replace each other. The
+  state is shared across the names of one property as well: a property of a class and the
+  interface properties that it implements, or two interface properties that one property of a
+  class in your project implements. A pending value written through one name then reaches a read
+  through another name on the result of any call. The exception is a call of a method that is not
+  virtual and whose body only returns an expression of a sealed type: the analyzer then knows the
+  type of the result, and a name that this type does not have does not reach it.
 - A handler removed with `-=` still counts as a handler of the event, unless the code adds and
   removes that one handler in a straight line. The handler must be a local that holds one lambda,
   and the code must add it to and remove it from a local delegate, or an event of a local that

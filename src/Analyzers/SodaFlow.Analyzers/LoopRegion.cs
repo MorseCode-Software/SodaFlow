@@ -158,18 +158,26 @@ internal sealed class LoopRegion(
     ///     The state of a field that the code set while the loop is open. The
     ///     field is the origin of that state, in each frame that reads it.
     /// </summary>
-    public LoopState FieldState(ISymbol field) =>
+    /// <param name="field">The field.</param>
+    /// <param name="canHave">
+    ///     False for a key that the object of the read cannot have. See
+    ///     <see cref="Construction.StateWithTheAliases" /> and
+    ///     <see cref="Construction.StateImplementedTogether" />.
+    /// </param>
+    public LoopState FieldState(ISymbol field, Func<ISymbol, bool>? canHave = null) =>
         Construction.StateWithTheAliases(
                 states: this.fields,
                 key: field.OriginalDefinition,
-                stateOf: static (key, state) => state.From(key))
+                stateOf: static (key, state) => state.From(key),
+                canHave: canHave)
             .Join(
                 Construction.StateImplementedTogether(
                     states: this.fields,
                     key: field.OriginalDefinition,
                     stateOf: static (key, state) => state.From(key),
                     implementations: this.Symbols.Implementations,
-                    hasInterfaceMembers: this.hasInterfaceFields));
+                    hasInterfaceMembers: this.hasInterfaceFields,
+                    canHave: canHave));
 
     /// <summary>
     ///     Records a value that the code gives to a field. The walk does not know

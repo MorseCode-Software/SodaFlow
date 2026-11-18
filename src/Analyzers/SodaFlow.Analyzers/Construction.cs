@@ -197,12 +197,14 @@ internal sealed class Construction(
     /// <remarks>
     ///     A write keys a state with the member that the code names. A read can
     ///     name an alias of that member. The alias is a second key for the same
-    ///     location.
+    ///     location. The last argument is false for a key that the object of the
+    ///     read cannot have.
     /// </remarks>
     public static LoopState StateWithTheAliases(
         IReadOnlyDictionary<ISymbol, LoopState> states,
         ISymbol key,
-        Func<ISymbol, LoopState, LoopState> stateOf)
+        Func<ISymbol, LoopState, LoopState> stateOf,
+        Func<ISymbol, bool>? canHave = null)
     {
         LoopState? own = states.TryGetValue(key: key, value: out LoopState? found) ? found : null;
         LoopState state = own != null ? stateOf(arg1: key, arg2: own) : LoopState.None;
@@ -210,7 +212,7 @@ internal sealed class Construction(
         // Most reads stop here: no different key has a state, or the member cannot have an alias.
         return states.Count <= (own != null ? 1 : 0) || !CanHaveAnAlias(key)
             ? state
-            : JoinTheAliases(states: states, key: key, own: own, state: state, stateOf: stateOf);
+            : JoinTheAliases(states: states, key: key, own: own, state: state, stateOf: stateOf, canHave: canHave);
     }
 
     private static LoopState JoinTheAliases(
@@ -218,9 +220,13 @@ internal sealed class Construction(
         ISymbol key,
         LoopState? own,
         LoopState state,
-        Func<ISymbol, LoopState, LoopState> stateOf) =>
+        Func<ISymbol, LoopState, LoopState> stateOf,
+        Func<ISymbol, bool>? canHave) =>
         states
-            .Where(pair => !ReferenceEquals(objA: pair.Value, objB: own) && AreAliases(first: pair.Key, second: key))
+            .Where(pair =>
+                !ReferenceEquals(objA: pair.Value, objB: own)
+                && AreAliases(first: pair.Key, second: key)
+                && (canHave == null || canHave(pair.Key)))
             .Aggregate(seed: state, func: (joined, pair) => joined.Join(stateOf(arg1: pair.Key, arg2: pair.Value)));
 
     /// <summary>
@@ -234,20 +240,27 @@ internal sealed class Construction(
     ///     write through an interface and a read through a second name then use
     ///     two keys for one location. The second name is a second interface, or a
     ///     base class that does not have the interface. The write keeps its key,
-    ///     thus the read joins the two states. The last argument is true when a
-    ///     key of the states is of an interface.
+    ///     thus the read joins the two states. The fifth argument is true when a
+    ///     key of the states is of an interface. The last argument is false for
+    ///     a key that the object of the read cannot have.
     /// </remarks>
     public static LoopState StateImplementedTogether(
         IReadOnlyDictionary<ISymbol, LoopState> states,
         ISymbol key,
         Func<ISymbol, LoopState, LoopState> stateOf,
         ImplementationIndex implementations,
-        bool hasInterfaceMembers) =>
+        bool hasInterfaceMembers,
+        Func<ISymbol, bool>? canHave = null) =>
         // Most reads stop here: no different key has a state, or no key can be such a property.
         states.Count <= (states.ContainsKey(key) ? 1 : 0)
         || !CanBeImplementedTogether(key: key, with: hasInterfaceMembers)
             ? LoopState.None
-            : JoinImplementedTogether(states: states, key: key, stateOf: stateOf, implementations: implementations);
+            : JoinImplementedTogether(
+                states: states,
+                key: key,
+                stateOf: stateOf,
+                implementations: implementations,
+                canHave: canHave);
 
     // A property of an interface can have such a key. A property of a class can have one only when
     // a key is of an interface and the class is not sealed. A derived class then gives the property
@@ -260,14 +273,16 @@ internal sealed class Construction(
         IReadOnlyDictionary<ISymbol, LoopState> states,
         ISymbol key,
         Func<ISymbol, LoopState, LoopState> stateOf,
-        ImplementationIndex implementations) =>
+        ImplementationIndex implementations,
+        Func<ISymbol, bool>? canHave) =>
         states
             .Where(pair =>
                 // One property implements two properties only when the two have its name. The test of the
                 // name comes first, thus a key with a different name does not make the index.
                 pair.Key is IPropertySymbol other
                 && other.Name == key.Name
-                && implementations.AreTogether(first: other, second: key))
+                && implementations.AreTogether(first: other, second: key)
+                && (canHave == null || canHave(other)))
             .Aggregate(
                 seed: LoopState.None,
                 func: (joined, pair) => joined.Join(stateOf(arg1: pair.Key, arg2: pair.Value)));

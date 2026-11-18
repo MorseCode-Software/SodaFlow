@@ -70,6 +70,7 @@
         <Compile Include="LoopStateEvaluator.Reflection.cs"/>
         <Compile Include="LoopStateEvaluator.Recursion.cs"/>
         <Compile Include="LoopStateEvaluator.Sinks.cs"/>
+        <Compile Include="LoopStateEvaluator.Together.cs"/>
         <Compile Include="LoopStateEvaluator.Writes.cs"/>
         <Compile Include="MadeObject.cs"/>
         <Compile Include="ObjectStore.cs"/>
