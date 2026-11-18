@@ -73,6 +73,12 @@ public sealed class MappedItems<TResult> : IDisposable
     ///         list that stays bound shows no object that this call released.
     ///     </para>
     ///     <para>
+    ///         A call in a callback, such as a listener or an eviction callback, makes
+    ///         <see cref="Items" /> empty in a transaction after the current one. The
+    ///         same occurs when the transaction of the call fails. Until then,
+    ///         <see cref="Items" /> keeps the objects that this call released.
+    ///     </para>
+    ///     <para>
     ///         The call runs in the transaction that is open, or in a new one. Thus,
     ///         it cannot occur during a change of the keys on a different thread. A
     ///         second call does nothing.

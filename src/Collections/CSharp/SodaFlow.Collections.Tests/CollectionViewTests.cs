@@ -21,7 +21,8 @@ public sealed class CollectionViewTests
         BeforeTheEdit,
         AfterTheEdit,
         InAListenerOfTheKeys,
-        InAListenerOfTheItems
+        InAListenerOfTheItems,
+        InAMapOfTheKeys
     }
 
     private static ReactiveCollection<int, ItemIdentity, ItemState> Create(
@@ -2120,13 +2121,44 @@ public sealed class CollectionViewTests
         listener.Unlisten();
     }
 
+    // The listener that disposes the projection at the edit, for the places in a callback. The edit
+    // makes three keys, thus the map of the keys does not dispose at its first value.
+    private static IListener DisposeAtTheEdit(
+        DisposalPlace place,
+        ReactiveCollection<int, ItemIdentity, ItemState> collection,
+        MappedItems<string> mapped) =>
+        place switch
+        {
+            DisposalPlace.InAListenerOfTheKeys => collection.KeysCell.Updates().ListenStrong(_ => mapped.Dispose()),
+            DisposalPlace.InAListenerOfTheItems => mapped.Items.Updates().ListenStrong(_ => mapped.Dispose()),
+            DisposalPlace.InAMapOfTheKeys =>
+                collection.KeysCell
+                    .Map(keys =>
+                    {
+                        if (keys.Count > 2)
+                        {
+                            mapped.Dispose();
+                        }
+
+                        return keys.Count;
+                    })
+                    .Updates()
+                    .ListenStrong(static _ => { }),
+            _ => collection.KeysCell.Updates().ListenStrong(static _ => { })
+        };
+
     // A disposal in the transaction of an edit, before the edit or after it, releases each row that
     // the edit builds. A disposal in a listener runs in a callback, where a sink refuses a send.
+    //
+    // A cell of the items and the keys must agree with the two after the transaction. Before, a disposal
+    // in a callback sent into the drain. The merge then fired a second time, and that cell kept the
+    // count of keys before the edit.
     [Test]
     [Arguments(DisposalPlace.BeforeTheEdit)]
     [Arguments(DisposalPlace.AfterTheEdit)]
     [Arguments(DisposalPlace.InAListenerOfTheKeys)]
     [Arguments(DisposalPlace.InAListenerOfTheItems)]
+    [Arguments(DisposalPlace.InAMapOfTheKeys)]
     public async Task ADisposalInTheTransactionOfAnEditLeavesNoRowUnreleased(DisposalPlace place)
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
@@ -2153,13 +2185,14 @@ public sealed class CollectionViewTests
 
         _ = mapped.Items.Sample();
 
-        IListener listener =
-            place switch
-            {
-                DisposalPlace.InAListenerOfTheKeys => collection.KeysCell.Updates().ListenStrong(_ => mapped.Dispose()),
-                DisposalPlace.InAListenerOfTheItems => mapped.Items.Updates().ListenStrong(_ => mapped.Dispose()),
-                _ => collection.KeysCell.Updates().ListenStrong(static _ => { })
-            };
+        Cell<(int Rows, int Keys)> both =
+            mapped.Items.Lift(
+                c2: collection.KeysCell,
+                f: static (rows, keys) => (Rows: rows.Count, Keys: keys.Count));
+
+        List<(int Rows, int Keys)> updatesOfBoth = [];
+        IListener record = both.Updates().ListenStrong(updatesOfBoth.Add);
+        IListener listener = DisposeAtTheEdit(place: place, collection: collection, mapped: mapped);
 
         Transaction.RunVoid(() =>
         {
@@ -2177,15 +2210,109 @@ public sealed class CollectionViewTests
         });
 
         listener.Unlisten();
+        record.Unlisten();
 
         await Assert.That(released).IsEquivalentTo(expected: built, ordering: CollectionOrdering.Any);
         await Assert.That(mapped.Items.Sample()).IsEmpty();
+        await Assert.That(both.Sample()).IsEqualTo((Rows: 0, Keys: 3));
+
+        await Assert.That(updatesOfBoth.Select(static update => update.Keys).Distinct())
+            .IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching);
 
         int builtBefore = built.Count;
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 40)));
 
         await Assert.That(built.Count).IsEqualTo(builtBefore);
+        await Assert.That(mapped.Items.Sample()).IsEmpty();
+    }
+
+    // A row that owns a projection of its own disposes it when a different projection evicts the row.
+    // The eviction occurs in the projection, which is a callback.
+    [Test]
+    public async Task ADisposalInTheEvictionCallbackOfADifferentProjectionEmptiesTheItems()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> outerEdits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> innerEdits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> outer =
+            Create(edits: outerEdits, TestUtil.Item(number: 1, name: "one", score: 10));
+
+        ReactiveCollection<int, ItemIdentity, ItemState> inner =
+            Create(edits: innerEdits, TestUtil.Item(number: 7, name: "seven", score: 70));
+
+        List<string> released = [];
+        MappedItems<string> innerMapped = inner.Map(project: static key => "child " + key, onEvicted: released.Add);
+
+        _ = innerMapped.Items.Sample();
+
+        MappedItems<string> outerMapped =
+            outer.Map(
+                project: static key => "row " + key,
+                retainedBeyondTheView: 0,
+                onEvicted: _ => innerMapped.Dispose());
+
+        _ = outerMapped.Items.Sample();
+
+        outerEdits.Send(TestUtil.Remove(1));
+
+        await Assert.That(released).IsEquivalentTo(expected: ["child 7"], ordering: CollectionOrdering.Matching);
+        await Assert.That(innerMapped.Items.Sample()).IsEmpty();
+        await Assert.That(outerMapped.Items.Sample()).IsEmpty();
+    }
+
+    // A transaction that fails discards the update of the items, but the cache stays released. Before,
+    // the items then kept the released rows, and a second disposal did nothing.
+    [Test]
+    public async Task AFailedTransactionOfADisposalLeavesTheItemsEmpty()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(edits: edits, TestUtil.Item(number: 1, name: "one", score: 10));
+
+        List<string> built = [];
+        List<string> released = [];
+
+        MappedItems<string> mapped =
+            collection.Map(
+                project: key =>
+                {
+                    built.Add("row " + key);
+
+                    return "row " + key;
+                },
+                onEvicted: released.Add);
+
+        _ = mapped.Items.Sample();
+
+        bool failed = false;
+
+        try
+        {
+            Transaction.RunVoid(() =>
+            {
+                mapped.Dispose();
+
+                throw new InvalidOperationException("The transaction fails after the disposal.");
+            });
+        }
+        catch (InvalidOperationException)
+        {
+            failed = true;
+        }
+
+        await Assert.That(failed).IsTrue();
+        await Assert.That(released).IsEquivalentTo(expected: ["row 1"], ordering: CollectionOrdering.Matching);
+        await Assert.That(mapped.Items.Sample()).IsEmpty();
+
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
+
+        await Assert.That(built).IsEquivalentTo(expected: ["row 1"], ordering: CollectionOrdering.Matching);
         await Assert.That(mapped.Items.Sample()).IsEmpty();
     }
 

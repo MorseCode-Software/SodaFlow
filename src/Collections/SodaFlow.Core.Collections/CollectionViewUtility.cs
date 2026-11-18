@@ -758,9 +758,8 @@ internal static class CollectionViewUtility
                 onEvicted: onEvicted,
                 keyEqualityComparer: collection.Root.KeyEqualityComparer);
 
-        // The disposal sends here. This is not a sink, because a sink refuses a send in a callback,
-        // and a caller can dispose a projection in a listener.
-        Stream<UnitInternal> releases = new();
+        // The disposal sends here.
+        StreamSink<UnitInternal> releases = new();
 
         // One transaction, thus the first value and the first update use one version of the keys.
         Cell<IReadOnlyList<TResult>> items =
@@ -776,23 +775,55 @@ internal static class CollectionViewUtility
 
         // The release runs at the call and not in the graph. Thus, the eviction callback runs where the
         // caller runs, as before. The transaction stops a change of the keys on a different thread
-        // during the release. The send then makes the items empty in that transaction, and the release
-        // wins over a change of the keys in it.
+        // during the release.
+        //
+        // Outside a callback, the send makes the items empty in the transaction of the call. The
+        // release wins over a change of the keys in it.
+        //
+        // In a callback, the sink refuses the send, and a caller can dispose a projection in a listener
+        // or in an eviction callback. Thus, the send occurs after the transaction, as in the disposal
+        // of an asynchronous map. Until then, the items keep the released objects. Before, a stream
+        // that was not a sink got the send directly. In a callback, that put a second firing of the
+        // merge into the transaction. A cell that read the items and a different cell then got an
+        // earlier value of the different cell.
+        //
+        // A transaction that fails discards the send, but the cache stays released. Thus, the discard
+        // sends again after that transaction.
         return new MappedItems<TResult>(
             items: items,
             dispose: () =>
                 TransactionInternal.Apply(
                     code: static (trans, _, state) =>
                     {
-                        if (state.Cache.Release())
+                        if (!state.Cache.Release())
                         {
-                            state.Releases.Send(trans: trans, a: UnitInternal.Value);
+                            return UnitInternal.Value;
                         }
+
+                        StreamSink<UnitInternal> releases = state.Releases;
+
+                        if (trans.InCallback > 0)
+                        {
+                            SendAfterTheTransaction(releases);
+
+                            return UnitInternal.Value;
+                        }
+
+                        trans.Last(
+                            commit: static () =>
+                            {
+                            },
+                            discard: () => SendAfterTheTransaction(releases));
+
+                        releases.SendImpl(UnitInternal.Value);
 
                         return UnitInternal.Value;
                     },
                     state: (Cache: cache, Releases: releases)));
     }
+
+    private static void SendAfterTheTransaction(StreamSink<UnitInternal> releases) =>
+        TransactionInternal.AfterReleaseImpl(() => releases.SendImpl(UnitInternal.Value));
 
     #endregion
 
