@@ -214,7 +214,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The elements of an array that the code writes at the call, each by itself. Null for a
     // different expression, and for an array with a spread element.
-    private static ImmutableArray<ExpressionSyntax>? ElementsWritten(ExpressionSyntax array) =>
+    public static ImmutableArray<ExpressionSyntax>? ElementsWritten(ExpressionSyntax array) =>
         WithoutAssertion(array) switch
         {
             CollectionExpressionSyntax collection

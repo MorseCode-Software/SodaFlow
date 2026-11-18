@@ -59,6 +59,7 @@
         <Compile Include="LoopStateEvaluator.Callees.cs"/>
         <Compile Include="LoopStateEvaluator.Collections.cs"/>
         <Compile Include="LoopStateEvaluator.Elements.cs"/>
+        <Compile Include="LoopStateEvaluator.Escapes.cs"/>
         <Compile Include="LoopStateEvaluator.Implied.cs"/>
         <Compile Include="LoopStateEvaluator.Overrides.cs"/>
         <Compile Include="LoopStateEvaluator.Platform.cs"/>

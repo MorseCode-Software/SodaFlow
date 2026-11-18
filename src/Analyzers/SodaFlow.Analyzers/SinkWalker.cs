@@ -4339,7 +4339,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private bool IsCarrier(ExpressionSyntax argument) =>
         this.IsCarrier(argument: argument, seen: ImmutableHashSet<ILocalSymbol>.Empty);
 
-    // The same, with the locals that the check read before. A local can get its own value.
+    // The same, with the locals that the check read before. A local can get its own value. A value
+    // of the library counts only if the walk can give it a pending state. Thus, a plain cell in an
+    // array of objects does not count.
     private bool IsCarrier(ExpressionSyntax argument, ImmutableHashSet<ILocalSymbol> seen)
     {
         if (LoopStateEvaluator.IsAsserted(argument))
@@ -4352,7 +4354,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (this.region.Symbols.IsCarrierType(type))
         {
-            return true;
+            return this.evaluator.CanBePending(value);
         }
 
         // The elements of an array or a collection that the code writes here have their own types.
@@ -4365,9 +4367,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 made.Initializer.Expressions.Any(element => this.IsCarrier(argument: element, seen: seen)),
             ArrayCreationExpressionSyntax { Initializer: { } initializer } =>
                 initializer.Expressions.Any(element => this.IsCarrier(argument: element, seen: seen)),
-            _ when type is IArrayTypeSymbol array && this.region.Symbols.IsCarrierType(array.ElementType) => true,
+            _ when type is IArrayTypeSymbol array && this.region.Symbols.IsCarrierType(array.ElementType) =>
+                this.evaluator.CanBePending(value),
             IdentifierNameSyntax name => this.region.SymbolOf(name) is ILocalSymbol local
-                                         && this.HoldsACarrier(local: local, seen: seen),
+                                         && this.HoldsACarrier(local: local, seen: seen, use: name),
             _ => false
         };
     }
@@ -4378,12 +4381,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     hide it.
     /// </summary>
     /// <remarks>
-    ///     The check reads each value that the block of the local gives it. These
-    ///     are the initializer, an assignment, an assignment to an element, and a
-    ///     call of <c>Array.Fill</c>. The check does not see a value from a
+    ///     The check reads each value that the block of the local gives it, in
+    ///     the order of the code. These are the initializer, an assignment, an
+    ///     assignment to an element, and a call of <c>Array.Fill</c>. A statement
+    ///     of the block that runs before the use replaces the values that it
+    ///     writes over. An assignment replaces each value, and an assignment to
+    ///     an element at a constant index replaces the value of that element.
+    ///     Each other value stays. The check does not see a value from a
     ///     parameter, or from a call that fills the array.
     /// </remarks>
-    private bool HoldsACarrier(ILocalSymbol local, ImmutableHashSet<ILocalSymbol> seen)
+    /// <param name="local">The local.</param>
+    /// <param name="seen">The locals that the check read before.</param>
+    /// <param name="use">The name of the local whose value the check reads.</param>
+    private bool HoldsACarrier(ILocalSymbol local, ImmutableHashSet<ILocalSymbol> seen, SyntaxNode use)
     {
         if (seen.Contains(local)
             || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
@@ -4395,35 +4405,125 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         ImmutableHashSet<ILocalSymbol> read = seen.Add(local);
 
-        if (declarator.Initializer?.Value is { } initial && this.IsCarrier(argument: initial, seen: read))
+        // A local function can run before a statement that comes before it in the code.
+        bool inOrder =
+            !use.Ancestors().TakeWhile(node => node != scope).Any(static node => node is LocalFunctionStatementSyntax);
+
+        Dictionary<int, ExpressionSyntax> elements = [];
+        List<ExpressionSyntax> others = [];
+
+        // The names of the local that a put writes through. Each other use of the local can move
+        // its elements, as Array.Reverse does, or copy them. After such a use, a put at an index
+        // replaces nothing.
+        HashSet<SyntaxNode> targets = [];
+        bool moved = false;
+
+        if (declarator.Initializer?.Value is { } initial)
         {
-            return true;
+            Replace(initial);
         }
 
-        return scope.DescendantNodes()
-            .Any(node => node switch
+        foreach (SyntaxNode node in scope.DescendantNodes())
+        {
+            switch (node)
             {
-                AssignmentExpressionSyntax assignment =>
-                    (IsTheLocal(assignment.Left)
-                     || (LoopStateEvaluator.Unwrapped(assignment.Left) is ElementAccessExpressionSyntax element
-                         && IsTheLocal(element.Expression)))
-                    && this.IsCarrier(argument: assignment.Right, seen: read),
+                case AssignmentExpressionSyntax assignment when IsTheLocal(assignment.Left):
+                    targets.Add(LoopStateEvaluator.Unwrapped(assignment.Left));
+
+                    if (RunsBeforeTheUse(assignment))
+                    {
+                        Replace(assignment.Right);
+                        moved = false;
+                    }
+                    else
+                    {
+                        others.Add(assignment.Right);
+                    }
+
+                    break;
+                case AssignmentExpressionSyntax assignment
+                    when LoopStateEvaluator.Unwrapped(assignment.Left) is ElementAccessExpressionSyntax element
+                         && IsTheLocal(element.Expression):
+                    targets.Add(LoopStateEvaluator.Unwrapped(element.Expression));
+
+                    if (!moved && RunsBeforeTheUse(assignment) && this.ConstantIndexOf(element) is { } index)
+                    {
+                        elements[index] = assignment.Right;
+                    }
+                    else
+                    {
+                        others.Add(assignment.Right);
+                    }
+
+                    break;
                 // Only the value of Array.Fill can be a value of the library.
-                InvocationExpressionSyntax
+                case InvocationExpressionSyntax
+                    {
+                        Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Fill" },
+                        ArgumentList.Arguments: var arguments
+                    } call
+                    when arguments.Any(argument => IsTheLocal(argument.Expression))
+                         && this.region.SymbolOf(call) is IMethodSymbol fill
+                         && LoopStateEvaluator.IsArrayFill(fill):
+                    foreach (ArgumentSyntax argument in arguments)
+                    {
+                        if (IsTheLocal(argument.Expression))
+                        {
+                            targets.Add(LoopStateEvaluator.Unwrapped(argument.Expression));
+                        }
+                        else
+                        {
+                            others.Add(argument.Expression);
+                        }
+                    }
+
+                    break;
+                case IdentifierNameSyntax name when !targets.Contains(name) && IsTheLocal(name):
+                    moved = true;
+
+                    break;
+            }
+        }
+
+        return elements.Values.Concat(others).Any(value => this.IsCarrier(argument: value, seen: read));
+
+        // An array that the code writes gives each element by its index.
+        void Replace(ExpressionSyntax value)
+        {
+            elements.Clear();
+            others.Clear();
+
+            if (LoopStateEvaluator.ElementsWritten(value) is { } each)
+            {
+                for (int index = 0; index < each.Length; index++)
                 {
-                    Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Fill" },
-                    ArgumentList.Arguments: var arguments
-                } call =>
-                    arguments.Any(argument => IsTheLocal(argument.Expression))
-                    && this.region.SymbolOf(call) is IMethodSymbol fill
-                    && LoopStateEvaluator.IsArrayFill(fill)
-                    && arguments.Any(argument => this.IsCarrier(argument: argument.Expression, seen: read)),
-                _ => false
-            });
+                    elements[index] = each[index];
+                }
+            }
+            else
+            {
+                others.Add(value);
+            }
+        }
+
+        // A plain assignment in a statement of the block runs before the use each time, if it
+        // comes first in the code.
+        bool RunsBeforeTheUse(SyntaxNode assignment) =>
+            inOrder
+            && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && assignment.Parent is ExpressionStatementSyntax { Parent: var block }
+            && block == scope
+            && assignment.Span.End <= use.SpanStart;
 
         bool IsTheLocal(ExpressionSyntax written) =>
             LoopStateEvaluator.Unwrapped(written) is IdentifierNameSyntax name
             && name.Identifier.ValueText == local.Name
             && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(name), y: local);
     }
+
+    private int? ConstantIndexOf(ElementAccessExpressionSyntax element) =>
+        element.ArgumentList.Arguments is { Count: 1 } arguments
+        && this.region.ModelFor(element).GetConstantValue(arguments[0].Expression) is { Value: int index }
+            ? index
+            : null;
 }

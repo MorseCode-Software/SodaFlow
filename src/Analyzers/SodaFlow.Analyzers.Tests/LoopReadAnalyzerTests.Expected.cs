@@ -2841,6 +2841,19 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag92F8RefLocalOfAFieldOfATypeGetsASecondArray"] = ["SF1001"],
             ["Ag92F8RefLocalOfAFieldGetsASecondObject"] = ["SF1001"],
             ["Ag92F8RefLocalOfAFieldOfAnObjectInAStaticField"] = ["SF1001"],
-            ["Ag92F8RefLocalOfAFieldOfAnObjectInAFieldOfThis"] = ["SF1004"]
+            ["Ag92F8RefLocalOfAFieldOfAnObjectInAFieldOfThis"] = ["SF1004"],
+            ["Ab193PendingCellSetOverAPlainCell"] = ["SF1003"],
+            ["Ab193PlainCellSetInABranchOverAPendingCell"] = ["SF1003"],
+            ["Ab193PlainCellSetAfterTheCall"] = ["SF1003"],
+            ["Ab193PlainCellSetBeforeALocalFunctionThatRunsFirst"] = ["SF1003"],
+            ["Ab193PlainCellSetAfterTheArrayIsReversed"] = ["SF1003"],
+            ["Ab193PlainCellSetAfterAnElementIsCopied"] = ["SF1003"],
+            ["Ab193PlainCellSetOverOneOfTwoPendingCells"] = ["SF1003"],
+            ["Ab193CellOfALocalSetBeforeTheLocalChanges"] = ["SF1003"],
+            ["Ab193FirstLocalSetAgainAfterTheCopy"] = ["SF1003"],
+            ["Ab193PendingCellSetAfterTheCallInALoop"] = ["SF1003"],
+            ["Ab193PlainCellSetWithACompoundAssignmentOverAPendingCell"] = ["SF1003"],
+            ["Ab193PlainCellSetAtAVariableIndex"] = ["SF1003"],
+            ["Ab193NumberSetBeforeALocalFunctionThatRunsFirst"] = ["SF1003"]
         };
 }

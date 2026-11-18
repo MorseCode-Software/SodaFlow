@@ -423,9 +423,12 @@ Some reads that throw it does not see:
   arguments. The name can be a string or a `nameof`, and the arguments must be written in the call,
   one by one or as an array or a collection expression. Arguments in an array held in a local are
   not followed, and a value there gets `SF1003` when the local's own block puts it in: in the
-  declaration, by an assignment to the local or to an element, or by `Array.Fill`. The same holds
-  for a local of type `object`. A value that reaches the array another way, such as through a
-  parameter, a method of yours, or `ToArray` of a list, gets no report at all.
+  declaration, by an assignment to the local or to an element, or by `Array.Fill`. It reads those
+  puts in order: a statement of the block that runs before the call and sets the local again, or
+  sets an element at a constant index, replaces what was there, so a plain cell set over the value
+  clears it. A put in a branch or a loop, or after other code used the local, only adds to what was
+  there. The same holds for a local of type `object`. A value that reaches the array another way,
+  such as through a parameter, a method of yours, or `ToArray` of a list, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
 - A member that the platform calls from a method that is not in its table of common methods.

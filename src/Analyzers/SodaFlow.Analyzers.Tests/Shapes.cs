@@ -19367,6 +19367,98 @@ public static class Shapes
     public static Cell<int> Ag92F8RefLocalOfAFieldOfAnObjectInAFieldOfThis() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag92Pen pen = new(); int got = pen.Swap(l.Map(v => v)); return S.Hold(got); });
 
+    // S4364. The block puts a plain cell into the element of an array of objects that held a pending cell, which a method of the code gives back as an object. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ab193PlainCellSetOverAnEcho() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; given[0] = Plain; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4365. The block puts a plain cell into the element of an array of objects that held a pending cell. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ab193PlainCellSetOverAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; given[0] = Plain; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4366. The block puts a plain cell into the element of an array of objects that held a pending cell. Reflection runs a method that samples the plain cell. A control.
+    public static Cell<int> Ab193PlainCellSetOverAPendingCellAndSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; given[0] = Plain; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4367. The block puts a pending cell and then a plain cell into the one element of an array of objects. Reflection runs a method that samples the plain cell. A control.
+    public static Cell<int> Ab193PendingCellThenPlainCellSetIntoOneElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Plain]; given[0] = l.Map(v => v); given[0] = Plain; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4368. The local gets a new array with a pending cell, and the block then puts a plain cell into its element. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ab193PlainCellSetAfterTheLocalGetsANewArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Plain]; given = [l.Map(v => v)]; given[0] = Plain; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4369. The block puts an array of plain cells into the element of an array of objects that held a pending cell, which a method of the code gives back as an object. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ab193ArrayOfPlainCellsSetOverAnEcho() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; given[0] = new Cell<int>[] { Plain }; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4370. The block puts a pending cell into the element of an array of objects that held a plain cell. Reflection runs a method that samples it.
+    public static Cell<int> Ab193PendingCellSetOverAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Plain]; given[0] = l.Map(v => v); object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4371. An array of objects holds a pending cell that a method of the code gives back as an object. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ab193EchoKept() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4372. A branch that does not run puts a plain cell into the element of an array of objects that holds a pending cell. Reflection runs a method that samples the pending cell.
+    public static Cell<int> Ab193PlainCellSetInABranchOverAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; if (Plain == null) { given[0] = Plain; } object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4373. Reflection runs a method that samples the pending cell in an array of objects. The block puts a plain cell into that element after the call.
+    public static Cell<int> Ab193PlainCellSetAfterTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); given[0] = Plain; return S.Hold(0); });
+
+    // S4374. A local function gives an array of objects to reflection, which runs a method that samples. The block calls the function before it puts a plain cell over the pending cell, and declares the function after that.
+    public static Cell<int> Ab193PlainCellSetBeforeALocalFunctionThatRunsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; object? read = Run(); given[0] = Plain; return S.Hold(0); object? Run() => typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); });
+
+    // S4375. Array.Reverse moves the pending cell of an array of objects to the second element, and the block puts a plain cell into the first. Reflection runs a method that samples the second.
+    public static Cell<int> Ab193PlainCellSetAfterTheArrayIsReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v), Plain]; Array.Reverse(given); given[0] = Plain; object? read = typeof(Ab193Reads).GetMethod(nameof(Ab193Reads.ReadSecond))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4376. The block copies the pending cell of the second element to the first, and puts a plain cell into the second. Reflection runs a method that samples the first.
+    public static Cell<int> Ab193PlainCellSetAfterAnElementIsCopied() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Plain, l.Map(v => v)]; given[0] = given[1]; given[1] = Plain; object? read = typeof(Ab193Reads).GetMethod(nameof(Ab193Reads.ReadFirst))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4377. Two elements of an array of objects hold a pending cell, and the block puts a plain cell into the first. Reflection runs a method that samples the second.
+    public static Cell<int> Ab193PlainCellSetOverOneOfTwoPendingCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v), l.Map(v => v)]; given[0] = Plain; object? read = typeof(Ab193Reads).GetMethod(nameof(Ab193Reads.ReadSecond))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4378. The block puts the pending cell of a local into an array of objects, and then gives the local a plain cell. Reflection runs a method that samples the element.
+    public static Cell<int> Ab193CellOfALocalSetBeforeTheLocalChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); object[] given = new object[1]; given[0] = c; c = Plain; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4379. A second local gets the array of objects of the first, which then gets a new array with a plain cell. Reflection runs a method that samples the pending cell in the array of the second local.
+    public static Cell<int> Ab193FirstLocalSetAgainAfterTheCopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] first = [l.Map(v => v)]; object[] given = first; first = [Plain]; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(first.Length); });
+
+    // S4380. The block puts a local that holds an array of plain cells into the element of an array of objects that held a pending cell, which a method of the code gives back as an object. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ab193ArrayOfPlainCellsInALocalSetOverAnEcho() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; Cell<int>[] plain = [Plain]; given[0] = plain; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4381. A loop gives an array of objects to reflection, which runs a method that samples, and then puts a pending cell into the array. The second turn samples the pending cell.
+    public static Cell<int> Ab193PendingCellSetAfterTheCallInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Plain]; for (int i = 0; i < 2; i++) { object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); given[0] = l.Map(v => v); } return S.Hold(0); });
+
+    // S4382. The block reads the length of an array of objects, gives the local a new array with a pending cell, and puts a plain cell into its element. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ab193PlainCellSetAfterAUseAndANewArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Plain]; int count = given.Length; given = [l.Map(v => v)]; given[0] = Plain; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(count); });
+
+    // S4383. A compound assignment gives a plain cell only to an element that is null. The element holds a pending cell, and reflection runs a method that samples it.
+    public static Cell<int> Ab193PlainCellSetWithACompoundAssignmentOverAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; given[0] ??= Plain; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4384. The block puts a plain cell into the second element of an array of objects, at an index that is not a constant. Reflection runs a method that samples the pending cell in the first.
+    public static Cell<int> Ab193PlainCellSetAtAVariableIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v), Plain]; int at = Plain == null ? 0 : 1; given[at] = Plain; object? read = typeof(Ab193Reads).GetMethod(nameof(Ab193Reads.ReadFirst))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4385. Array.Fill puts a plain cell into each element of an array of objects that held a pending cell, and the block puts a plain cell into the first. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ab193PlainCellSetAfterAFillWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; Array.Fill(given, Plain); given[0] = Plain; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4386. A local function gives an array of objects to reflection, which runs a method that samples. The block calls the function before it puts a number over the pending cell, and declares the function after that.
+    public static Cell<int> Ab193NumberSetBeforeALocalFunctionThatRunsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; object? read = Run(); given[0] = 0; return S.Hold(0); object? Run() => typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -26558,6 +26650,13 @@ public static class Shapes
 
             return r!.Share!.Sample();
         }
+    }
+
+    public static class Ab193Reads
+    {
+        public static int ReadFirst(Cell<int> first, object second) => first.Sample() + (second == null ? 0 : 1);
+
+        public static int ReadSecond(object first, Cell<int> second) => second.Sample() + (first == null ? 0 : 1);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
