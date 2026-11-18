@@ -2186,6 +2186,8 @@ internal sealed partial class LoopStateEvaluator
                     named = named.Join(before);
                 }
 
+                named = this.WithItsField(local: symbol, use: expression, state: named);
+
                 // A parameter with ref, out, or in whose location the walk cannot read.
                 if (symbol is IParameterSymbol { RefKind: not RefKind.None } aliased)
                 {

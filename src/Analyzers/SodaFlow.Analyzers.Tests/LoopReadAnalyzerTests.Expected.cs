@@ -2952,6 +2952,15 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab197PendingThroughALocalWhenALambdaMadeBetweenAssignsIt"] = ["SF1001"],
             ["Ab197PendingThroughARefLocalWhenALambdaCanGiveItsFirstNameAValue"] = ["SF1001"],
             ["Ab197PlainCellThroughALocalAfterACastRunsTheKeptLambda"] = ["SF1001"],
-            ["Ab197PlainCellThroughALocalAfterAnIndexerRunsTheKeptLambda"] = ["SF1001"]
+            ["Ab197PlainCellThroughALocalAfterAnIndexerRunsTheKeptLambda"] = ["SF1001"],
+            ["Ab204PutThroughAFieldAfterAWriteReadThroughALocal"] = ["SF1001"],
+            ["Ab204MethodPutsThroughAFieldReadThroughALocal"] = ["SF1001"],
+            ["Ab204PutThroughAFieldReadThroughALocal"] = ["SF1001"],
+            ["Ab204MethodPutsThroughAMutableFieldReadThroughALocal"] = ["SF1001"],
+            ["Ab204MethodPutsThroughAFieldOfAListReadThroughALocal"] = ["SF1001"],
+            ["Ab204LambdaPutsThroughAFieldReadThroughALocal"] = ["SF1001"],
+            ["Ab204MethodPutsThroughAFieldAfterAPutThroughTheLocal"] = ["SF1001"],
+            ["Ab204MethodPutsThroughAFieldReadThroughTheField"] = ["SF1001"],
+            ["Ab204MemberWriteThroughAFieldReadThroughALocal"] = ["SF1001"]
         };
 }

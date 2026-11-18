@@ -303,7 +303,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   to a member through an element of a local array, `List<T>`, or `Dictionary` created with no
   comparer, at a constant index or key or at an index in a local, replaces what an earlier write
   gave that member. So does a write through a local that got that element, and a later read
-  through either one sees only the last value.
+  through either one sees only the last value. A local that gets the array or the list in a field
+  sees each element that code puts in through the field later, also in a method, until the local
+  or the field gets a different value.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a
@@ -448,6 +450,8 @@ Some reads that throw it does not see:
   the method makes itself or that a call inside it puts there, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
+- A new element that code puts into an array or a list through a local that got it from a field,
+  read through the field.
 - A member that the platform calls from a method that is not in its table of common methods.
 - A converter of serializer options that you do not create in the call, a converter that a
   `JsonConverterFactory` makes, the settings of Json.NET, and an object more than three levels

@@ -390,6 +390,29 @@ internal sealed partial class LoopStateEvaluator
         this.Frame.GaveTo[local] = (ExpressionSyntax)location;
     }
 
+    /// <summary>
+    ///     The state of a local that got the value of a field, with the state
+    ///     that the field has now.
+    /// </summary>
+    /// <remarks>
+    ///     The local and the field are two names of one value with no object of
+    ///     the store. An array that a static field holds is such a value. A put
+    ///     into an element through the field goes into the state of the field.
+    ///     That is true also for a put in a callee. Thus, a read of the local
+    ///     gets that state also.
+    ///     A call that gives the field a different value is the one that the
+    ///     record does not see. Then, the local gets more states than it has,
+    ///     and the result is a report and not a miss.
+    /// </remarks>
+    private LoopState WithItsField(ISymbol local, SyntaxNode use, LoopState state) =>
+        this.Frame.ReadFrom.Count > 0
+        && this.Frame.ReadFrom.TryGetValue(key: local, value: out ExpressionSyntax? field)
+        && Unwrapped(field) is IdentifierNameSyntax or MemberAccessExpressionSyntax
+        && this.LocationKeyOf(field) is { Index: < 0 }
+        && this.IsStillTheLocationOf(name: local, location: field, use: use, aCallCounts: false)
+            ? state.Join(this.EvalAgain(field))
+            : state;
+
     // True for a value whose members only a name keeps. The value is no object, or an object that
     // the store does not know.
     private static bool IsOfNoObjectOfTheStore(LoopState value) =>
@@ -647,8 +670,13 @@ internal sealed partial class LoopStateEvaluator
 
     // True when a local is still a name of the location that it got its value from, at a use. No
     // code between the two gave the local, the array, the field, or the owner a value. No code
-    // between them can give the location itself a value.
-    private bool IsStillTheLocationOf(ISymbol name, ExpressionSyntax location, SyntaxNode use)
+    // between them can give the location itself a value. The last argument is false where a call
+    // of code of this compilation does not count as such code: see WithItsField.
+    private bool IsStillTheLocationOf(
+        ISymbol name,
+        ExpressionSyntax location,
+        SyntaxNode use,
+        bool aCallCounts = true)
     {
         if (FunctionOf(location) is not { } code
             || FunctionOf(use) != code
@@ -667,7 +695,11 @@ internal sealed partial class LoopStateEvaluator
                && !code.DescendantNodes(TextSpan.FromBounds(start: after, end: before))
                    .Any(node => node.SpanStart > after
                                 && node.SpanStart < before
-                                && this.CanChangeTheLocation(node: node, key: key, name: name));
+                                && this.CanChangeTheLocation(
+                                    node: node,
+                                    key: key,
+                                    name: name,
+                                    aCallCounts: aCallCounts));
     }
 
     // True for code that can give a location a value. It is an assignment, a deconstruction, or a
@@ -675,7 +707,11 @@ internal sealed partial class LoopStateEvaluator
     // delegate or of a local function. For a location in a field, each call of code of this
     // compilation can change it also. An assignment of the name itself keeps the name a name of
     // the location.
-    private bool CanChangeTheLocation(SyntaxNode node, (ISymbol Of, ISymbol? Owner, int Index) key, ISymbol name)
+    private bool CanChangeTheLocation(
+        SyntaxNode node,
+        (ISymbol Of, ISymbol? Owner, int Index) key,
+        ISymbol name,
+        bool aCallCounts)
     {
         if (GivesAValue(node) && IsAnAssignmentOf(target: node, name: name))
         {
@@ -715,7 +751,8 @@ internal sealed partial class LoopStateEvaluator
 
         return (receiver != null && this.IsAPartOf(expression: receiver, key: key))
                || arguments.Arguments.Any(argument => this.IsAPartOf(expression: argument.Expression, key: key))
-               || (this.region.SymbolOf(node) is IMethodSymbol method
+               || (aCallCounts
+                   && this.region.SymbolOf(node) is IMethodSymbol method
                    && (method.MethodKind is MethodKind.DelegateInvoke or MethodKind.LocalFunction
                        || (key is { Owner: null, Of: IFieldSymbol } && !method.DeclaringSyntaxReferences.IsEmpty)));
     }

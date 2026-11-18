@@ -20119,6 +20119,58 @@ public static class Shapes
     public static Cell<int> Ab197PlainCellThroughALocalAfterAnIndexerRunsTheKeptLambda() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab197Slots[34]; SettableSlot q = Ab197Slots[35]; Action w = () => { q = Ab197Slots[36]; }; Ab197Kept.Add(w); Ab197Indexer runs = new(); c.Share = l.Map(v => v); q = c; int got = runs[0]; q.Share = Plain; GC.KeepAlive(got); return S.Hold(c.Share!.Sample()); });
 
+    // S4552. A local gets the array of a static field, and its element gets a plain cell. The block then puts a new object with a pending cell into the element through the field, and samples the cell through the local.
+    public static Cell<int> Ab204PutThroughAFieldAfterAWriteReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab204First; a[0].Share = Plain; Ab204First[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4553. A local gets the array of a static field. A method puts a new object with a pending cell into the element through the field, and the block samples the cell through the local.
+    public static Cell<int> Ab204MethodPutsThroughAFieldReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab204Second; Ab204PutSecond(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4554. A local gets the array of a static field. The block puts a new object with a pending cell into the element through the field, and samples the cell through the local.
+    public static Cell<int> Ab204PutThroughAFieldReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab204Third; Ab204Third[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4555. A local gets the array of a static field that is not readonly. A method puts a new object with a pending cell into the element through the field, and the block samples the cell through the local.
+    public static Cell<int> Ab204MethodPutsThroughAMutableFieldReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab204Mutable; a[0].Share = Plain; Ab204PutMutable(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4556. A local gets the list of a static field. A method puts a new object with a pending cell into the list through the field, and the block samples the cell through the local.
+    public static Cell<int> Ab204MethodPutsThroughAFieldOfAListReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = Ab204Fifth; a[0].Share = Plain; Ab204PutFifth(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4557. A local gets the array of a static field. A lambda that the block runs puts a new object with a pending cell into the element through the field. The block samples the cell through the local.
+    public static Cell<int> Ab204LambdaPutsThroughAFieldReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab204Sixth; Action put = () => { Ab204Sixth[0] = new SettableSlot { Share = l.Map(v => v) }; }; put(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4558. A local gets the array of a static field, and puts an object with a plain cell into the element. A method then puts a new object with a pending cell there through the field, and the block samples the cell through the local.
+    public static Cell<int> Ab204MethodPutsThroughAFieldAfterAPutThroughTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab204Seventh; a[0] = new SettableSlot { Share = Plain }; Ab204PutSeventh(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4559. A method puts a new object with a pending cell into the element of a static field. The block samples the cell through the field. A control.
+    public static Cell<int> Ab204MethodPutsThroughAFieldReadThroughTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab204Eighth[0].Share = Plain; Ab204PutEighth(l.Map(v => v)); return S.Hold(Ab204Eighth[0].Share!.Sample()); });
+
+    // S4560. A local gets the array of a static field, and the field then gets a different array, which gets a pending cell. The local puts an object with a plain cell into its own array. A control.
+    public static Cell<int> Ab204FieldGetsADifferentArrayBeforeThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab204Mutable; Ab204Mutable = [new SettableSlot { Share = Plain }]; Ab204Mutable[0] = new SettableSlot { Share = l.Map(v => v) }; a[0] = new SettableSlot { Share = Plain }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4561. A local gets the array of a static field, and then a different array. The put through the field does not reach the local. A control.
+    public static Cell<int> Ab204LocalGetsADifferentArrayBeforeThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab204Tenth; a = [new SettableSlot { Share = Plain }]; Ab204Tenth[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4562. A local gets the array of a static field, and then a different array. The put of a method through the field does not reach the local. A control.
+    public static Cell<int> Ab204LocalGetsADifferentArrayBeforeTheMethodPut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab204Eleventh; a = [new SettableSlot { Share = Plain }]; Ab204PutEleventh(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4563. A local gets the array of a static field, and a pending cell goes into a member of the element through the field. The read through the local gets it. A control.
+    public static Cell<int> Ab204MemberWriteThroughAFieldReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab204Twelfth; Ab204Twelfth[0].Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4564. A local gets the element of the array of a static field, and its member gets a plain cell. A method then puts a new object with a pending cell into the element through the field, thus the local keeps the first object. A control.
+    public static Cell<int> Ab204LocalOfAnElementBeforeAMethodPut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab204Thirteenth[0]; q.Share = Plain; Ab204PutThirteenth(l.Map(v => v)); return S.Hold(q.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -28013,6 +28065,33 @@ public static class Shapes
             }
         }
     }
+
+    private static readonly SettableSlot[] Ab204First = [new()];
+    private static readonly SettableSlot[] Ab204Second = [new()];
+    private static readonly SettableSlot[] Ab204Third = [new()];
+    private static SettableSlot[] Ab204Mutable = [new()];
+    private static readonly List<SettableSlot> Ab204Fifth = [new()];
+    private static readonly SettableSlot[] Ab204Sixth = [new()];
+    private static readonly SettableSlot[] Ab204Seventh = [new()];
+    private static readonly SettableSlot[] Ab204Eighth = [new()];
+    private static readonly SettableSlot[] Ab204Tenth = [new()];
+    private static readonly SettableSlot[] Ab204Eleventh = [new()];
+    private static readonly SettableSlot[] Ab204Twelfth = [new()];
+    private static readonly SettableSlot[] Ab204Thirteenth = [new()];
+
+    private static void Ab204PutSecond(Cell<int> share) => Ab204Second[0] = new SettableSlot { Share = share };
+
+    private static void Ab204PutMutable(Cell<int> share) => Ab204Mutable[0] = new SettableSlot { Share = share };
+
+    private static void Ab204PutFifth(Cell<int> share) => Ab204Fifth[0] = new SettableSlot { Share = share };
+
+    private static void Ab204PutSeventh(Cell<int> share) => Ab204Seventh[0] = new SettableSlot { Share = share };
+
+    private static void Ab204PutEighth(Cell<int> share) => Ab204Eighth[0] = new SettableSlot { Share = share };
+
+    private static void Ab204PutEleventh(Cell<int> share) => Ab204Eleventh[0] = new SettableSlot { Share = share };
+
+    private static void Ab204PutThirteenth(Cell<int> share) => Ab204Thirteenth[0] = new SettableSlot { Share = share };
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
