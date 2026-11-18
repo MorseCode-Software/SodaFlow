@@ -19147,6 +19147,62 @@ public static class Shapes
     public static Cell<int> Ab192HelperSetsAPendingCellAndReadsALocalByRef() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> one = Plain; Cell<int>[] cells = [Plain]; Cell<int> got = Ab192Cells.SetAndRead(cells, ref one, l.Map(v => v)); int read = got.Sample(); return S.Hold(read); });
 
+    // S4309. A local function gives its parameter with ref a copy of a struct element, and writes a pending cell through the parameter. The element keeps its plain cell.
+    public static Cell<int> Ab201RefParameterGetsACopyOfAStructElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue own = default; Put(ref own); return S.Hold(arr[0].Share!.Sample()); void Put(ref SlotValue p) { p = arr[0]; p.Share = l.Map(q => q); } });
+
+    // S4310. A local with ref for a local gets a copy of a struct element, and the block writes a pending cell through it. The element keeps its plain cell.
+    public static Cell<int> Ab201RefLocalGetsACopyOfAStructElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue own = default; ref SlotValue v = ref own; v = arr[0]; v.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4311. The same copy into a parameter with ref, and the block samples through the argument. The read sees the pending cell.
+    public static Cell<int> Ab201RefParameterGetsACopyAndIsRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue own = default; Put(ref own); return S.Hold(own.Share!.Sample()); void Put(ref SlotValue p) { p = arr[0]; p.Share = l.Map(q => q); } });
+
+    // S4312. A local function gives its parameter with ref the location of a struct element, then a copy of the same element, and writes a pending cell through the parameter. The parameter still names the element.
+    public static Cell<int> Ab201RefParameterGivenAStructElementThenACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue own = default; Put(ref own); return S.Hold(arr[0].Share!.Sample()); void Put(ref SlotValue p) { p = ref arr[0]; p = arr[0]; p.Share = l.Map(q => q); } });
+
+    // S4313. A local with ref is a name of a struct element, then gets a copy of the same element, and the block writes a pending cell through it. The local still names the element.
+    public static Cell<int> Ab201RefLocalOfAStructElementGetsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; ref SlotValue v = ref arr[0]; v = arr[0]; v.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4314. A local function gives its parameter with out a copy of a struct element, and writes a pending cell through the parameter. The element keeps its plain cell.
+    public static Cell<int> Ab201OutParameterGetsACopyOfAStructElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; Put(out SlotValue own); return S.Hold(arr[0].Share!.Sample()); void Put(out SlotValue p) { p = arr[0]; p.Share = l.Map(q => q); } });
+
+    // S4315. A local function gives its parameter with ref a copy of a struct element in a deconstruction, and writes a pending cell through the parameter. The element keeps its plain cell.
+    public static Cell<int> Ab201RefParameterGetsACopyInADeconstruction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue own = default; Put(ref own); return S.Hold(arr[0].Share!.Sample()); void Put(ref SlotValue p) { int n; (p, n) = (arr[0], 1); p.Share = l.Map(q => q); } });
+
+    // S4316. A local with ref for a location that a method gives gets a copy of a struct element, and the block writes a pending cell through it. The element keeps its plain cell.
+    public static Cell<int> Ab201RefLocalOfACallGetsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue own = default; ref SlotValue v = ref Ab201Same(ref own); v = arr[0]; v.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4317. A local with ref for a static field gets a copy of a struct element, and the block writes a pending cell through it. The element keeps its plain cell.
+    public static Cell<int> Ab201RefLocalOfAFieldGetsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; ref SlotValue v = ref Ab201Field; v = arr[0]; v.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4318. A local with ref for an element of a second array gets a copy of a struct element, and the block writes a pending cell through it. The first element keeps its plain cell.
+    public static Cell<int> Ab201RefLocalOfASecondArrayGetsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] arr = [new SlotValue { Share = Plain }]; SlotValue[] other = [default]; ref SlotValue v = ref other[0]; v = arr[0]; v.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4319. A local with ref for a local of a class gets an element of an array of that class, and the block writes a pending cell through it. The two share the object.
+    public static Cell<int> Ab201RefLocalGetsAnElementOfAClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }]; SettableSlot own = new(); ref SettableSlot p = ref own; p = arr[0]; p.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4320. A method with a parameter with ref of a class gives it an element of an array, and writes a pending cell through it. The two share the object.
+    public static Cell<int> Ab201MethodRefParameterGetsAnElementOfAClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }]; SettableSlot own = new(); Ab201Put(arr, ref own, l.Map(q => q)); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4321. A local with ref for a static field of a class gets an element whose object the store does not know, and the block writes a pending cell through it. The two share the object.
+    public static Cell<int> Ab201RefLocalOfAFieldGetsAnUnseenElementOfAClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [Ab201Unseen[0]]; ref SettableSlot p = ref Ab201ClassField; p = arr[0]; p.Share = l.Map(q => q); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4322. A method gives its parameter with ref of a class an element whose object the store does not know, and writes a pending cell through it. The two share the object.
+    public static Cell<int> Ab201MethodRefParameterGetsAnUnseenElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [Ab201Unseen[1]]; SettableSlot own = new(); Ab201Put(arr, ref own, l.Map(q => q)); return S.Hold(arr[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -26217,6 +26273,20 @@ public static class Shapes
     }
 
     private static SettableSlot Ab192Slot(Cell<int> share) => new() { Share = share };
+
+    private static SlotValue Ab201Field;
+
+    private static ref SlotValue Ab201Same(ref SlotValue value) => ref value;
+
+    private static void Ab201Put(SettableSlot[] arr, ref SettableSlot p, Cell<int> share)
+    {
+        p = arr[0];
+        p.Share = share;
+    }
+
+    private static SettableSlot Ab201ClassField = new();
+
+    private static readonly SettableSlot[] Ab201Unseen = [new() { Share = Plain }, new() { Share = Plain }];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

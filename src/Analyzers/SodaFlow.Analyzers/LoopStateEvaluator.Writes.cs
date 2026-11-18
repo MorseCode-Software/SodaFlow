@@ -2017,6 +2017,14 @@ internal sealed partial class LoopStateEvaluator
         name is ILocalSymbol { RefKind: RefKind.None, Type.IsValueType: true }
             or IParameterSymbol { RefKind: RefKind.None, Type.IsValueType: true };
 
+    // True for a name with ref of a value type that gets a value with no ref. The assignment
+    // copies the value into the location of the name. Thus, the name is no second name of the
+    // element that it copies, and it keeps its location.
+    private static bool CopiesIntoItsLocation(ISymbol name, ExpressionSyntax value) =>
+        value is not RefExpressionSyntax
+        && name is ILocalSymbol { RefKind: not RefKind.None, Type.IsValueType: true }
+            or IParameterSymbol { RefKind: not RefKind.None, Type.IsValueType: true };
+
     // True for a member that is a location and no code: a field, or a property whose accessors
     // have no body. A read of it gives the value of the last write to it.
     private static bool IsALocation(ISymbol member) =>

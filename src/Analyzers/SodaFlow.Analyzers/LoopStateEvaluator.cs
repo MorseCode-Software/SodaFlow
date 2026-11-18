@@ -887,6 +887,11 @@ internal sealed partial class LoopStateEvaluator
             this.Frame.CanBeUnseen.Add(local);
         }
 
+        if (CopiesIntoItsLocation(name: local, value: value))
+        {
+            return;
+        }
+
         if (this.CollectionOf(value) is { } collection && !HasACopy(local))
         {
             this.Frame.ElementOf[local] = collection;

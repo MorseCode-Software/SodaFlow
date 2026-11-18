@@ -2834,7 +2834,14 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab192HelperSetsAPendingCellAtAVariableAndReadsItByRef"] = ["SF1001"],
             ["Ab192HelperFillsWithAPendingCellAndReadsByRef"] = ["SF1001"],
             ["Ab192HelperSetsAPendingCellAndReadsItByIn"] = ["SF1001"],
-            ["Ab192HelperSetsASlotWithAPendingMemberAndReadsItByRef"] = ["SF1001"]
+            ["Ab192HelperSetsASlotWithAPendingMemberAndReadsItByRef"] = ["SF1001"],
+            ["Ab201RefParameterGetsACopyAndIsRead"] = ["SF1001"],
+            ["Ab201RefParameterGivenAStructElementThenACopy"] = ["SF1001"],
+            ["Ab201RefLocalOfAStructElementGetsACopy"] = ["SF1001"],
+            ["Ab201RefLocalGetsAnElementOfAClass"] = ["SF1001"],
+            ["Ab201MethodRefParameterGetsAnElementOfAClass"] = ["SF1001"],
+            ["Ab201RefLocalOfAFieldGetsAnUnseenElementOfAClass"] = ["SF1001"],
+            ["Ab201MethodRefParameterGetsAnUnseenElement"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
