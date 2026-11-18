@@ -37,10 +37,15 @@
 # Coverage is collected by the test run and submitted by Coveralls' own action on every run. No
 # secret is involved: the action authenticates with the run's GITHUB_TOKEN, so COVERALLS_REPO_TOKEN
 # is not read and does not need to exist.
+#
+# EACH ACTION IS PINNED to a commit, with its version in a comment after it. The owner of an action can
+# move a tag such as v7 to other code at any time, and the publish job holds the token that becomes a
+# key for nuget.org. A commit cannot move. Dependabot opens one pull request each week that moves the
+# pins of all the actions; see .github/dependabot.yml.
 name: Build
 
-# No paths filter, unlike docs.yml. That one guards a narrow, self-contained corner of the
-# repository; this builds the libraries, and there is nothing under src/ whose change could not
+# No paths filter, unlike a push of docs.yml. That one guards a narrow, self-contained corner of
+# the repository; this builds the libraries, and there is nothing under src/ whose change could not
 # affect them. A filter here would mean trusting a list of globs to know what a compiler does.
 #
 # Tags are built, and a tag build is what releases a package - see the publish job at the bottom.
@@ -106,14 +111,14 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Load-bearing. MinVer reads the full commit graph and every tag to work out each
           # package's version; the default here is a depth-1 clone with no tags, which gives every
           # package a wrong version or none at all.
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           # 6.0 and nothing else, which is the whole list of what this build needs and the image
           # does not already have. Measured on the runner rather than assumed: windows-latest ships
@@ -207,7 +212,7 @@ jobs:
       # uploading anyway would have test-report.yml create a check run for a superseded commit.
       - name: Collect test results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results
           path: coverage/**/*.trx
@@ -262,7 +267,7 @@ jobs:
       # reporting should be visible when it breaks without deciding whether the code is good.
       - name: Upload coverage
         continue-on-error: true
-        uses: coverallsapp/github-action@v2
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2.3.8
         with:
           files: ${{ steps.coverage-files.outputs.files }}
           format: cobertura
@@ -296,7 +301,7 @@ jobs:
       # time on the collection.
       - name: Collect packages
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: packages
           path: artifacts/*.nupkg
@@ -305,7 +310,7 @@ jobs:
       # numbers behind a percentage are recoverable. The trx files ride along in the same directory.
       - name: Collect coverage
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: coverage
@@ -330,14 +335,14 @@ jobs:
       security-events: write
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Same reason as the build job: MinVer wants the full graph. The inspection itself does
           # not care, but it compiles the solution to have something to inspect, and a wrong version
           # there would be a difference between the two jobs for no reason.
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           # Same set as the build job, and for the same reasons - see there.
           dotnet-version: 6.0.x
@@ -370,7 +375,7 @@ jobs:
       # restore-keys to the most recent cache there is, and saves a new entry. That fallback is the
       # whole design: a stale cache is worth having, so the miss path must not start cold.
       - name: Cache inspection analysis
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .inspectcode-cache
           key: inspectcode-${{ runner.os }}-${{ hashFiles('src/**/*.cs', 'src/**/*.fs', 'src/**/*.csproj', 'src/**/*.fsproj', 'src/SodaFlow.slnx', 'src/SodaFlow.sln.DotSettings', '.editorconfig', 'src/**/.editorconfig', 'samples/**/.editorconfig') }}
@@ -408,7 +413,7 @@ jobs:
       - name: Upload inspection results
         if: always()
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: inspection/inspectcode.sarif
           category: src
@@ -416,7 +421,7 @@ jobs:
       # The raw SARIF, for opening in a viewer rather than reading off the Security tab.
       - name: Collect inspection
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: inspection
           path: inspection
@@ -450,9 +455,9 @@ jobs:
       # No fetch-depth here, unlike the other two. Nothing in this job asks git anything: the
       # packages were versioned by MinVer when they were built, and all Publish reads from the tree
       # is build.cake and the project files it takes the tag-prefix-to-package-id map from.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           # Deliberately still pinned, where the other two jobs now rely on whatever the image
           # ships. Nothing is compiled here, so the 6.0 pack those two need has nothing to target -
@@ -472,7 +477,7 @@ jobs:
       # expects exactly one package there matching the tag's id - which is also why this downloads
       # that one artifact by name rather than everything the run produced.
       - name: Download packages
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: packages
           path: artifacts
@@ -489,7 +494,7 @@ jobs:
       # up as a refused exchange during a release.
       - name: NuGet login
         id: nuget-login
-        uses: NuGet/login@v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         with:
           user: jam40jeff
 

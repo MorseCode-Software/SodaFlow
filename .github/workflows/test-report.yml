@@ -65,7 +65,7 @@ jobs:
         # test passed, as the comment below the step says. continue-on-error keeps the two from the
         # job, and lets the job go on to the second attempt.
         continue-on-error: true
-        uses: dorny/test-reporter@v3
+        uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a # v3.2.0
         # The anchor gives these inputs to the second attempt, so that they are written one time.
         with: &report-inputs
           artifact: test-results
@@ -114,7 +114,7 @@ jobs:
         if: steps.report.outcome == 'failure' && steps.report.outputs.conclusion == ''
         # As for the first attempt: a failed test fails this step, and not the job.
         continue-on-error: true
-        uses: dorny/test-reporter@v3
+        uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a # v3.2.0
         with: *report-inputs
 
       # continue-on-error on the second attempt also keeps a second Not Found from the job. Then

@@ -1,0 +1,17 @@
+# Dependabot keeps the actions of the workflows current. Each action is pinned to a commit, with its
+# version in a comment after it, and Dependabot moves the commit and the comment together. One pull
+# request each week holds all the actions, in one group.
+#
+# NuGet is not here, on purpose. Each NuGet version in this repository is a decision: the samples pin
+# the published packages, the libraries state ranges with ceilings, and each project restores through
+# a lock file. A change to one of them needs a person, not a bot.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
