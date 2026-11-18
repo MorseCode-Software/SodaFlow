@@ -2,10 +2,15 @@ using Microsoft.CodeAnalysis;
 
 namespace SodaFlow.Analyzers;
 
-/// <summary>The diagnostics that <see cref="LoopReadAnalyzer" /> reports.</summary>
+/// <summary>
+///     The diagnostics that <see cref="LoopReadAnalyzer" /> and
+///     <see cref="ListenerAnalyzer" /> report.
+/// </summary>
 internal static class Diagnostics
 {
     private const string Category = "SodaFlow.Loops";
+
+    private const string ListenersCategory = "SodaFlow.Listeners";
 
     public static readonly DiagnosticDescriptor ReadBeforeClose =
         new(
@@ -69,6 +74,17 @@ internal static class Diagnostics
             messageFormat:
             "'{0}' samples its parameter '{1}'. Looped value '{2}' is passed to it before the loop closes.",
             category: Category,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor DroppedListener =
+        new(
+            id: "SF2001",
+            title: "Nothing holds the listener that Listen or ListenOnce returns",
+            messageFormat:
+            "Nothing holds the listener that '{0}' returns, thus a garbage collection can stop it with no message. "
+            + "Keep it in a field, or in a local that later code reads.",
+            category: ListenersCategory,
             defaultSeverity: DiagnosticSeverity.Warning,
             isEnabledByDefault: true);
 }

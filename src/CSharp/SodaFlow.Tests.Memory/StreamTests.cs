@@ -39,8 +39,10 @@ public sealed class StreamTests
 
             ((Action)(() =>
             {
+#pragma warning disable SF2001 // The test counts this listener, which nothing reads, before and after nothing holds it.
                 // ReSharper disable once UnusedVariable
                 IListener listener = m.Listen(@out.Add);
+#pragma warning restore SF2001 // The test counts this listener, which nothing reads, before and after nothing holds it.
 
                 dotMemory.Check(memory =>
                     listenerCount2 = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
