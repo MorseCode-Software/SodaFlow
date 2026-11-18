@@ -344,9 +344,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   bindable, when you write its `Value`.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
   the function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`, and the
-  function of a `Task` that you create with `new` where `RunSynchronously` runs it. A query
-  expression over a type whose methods run their function in the call, such as
-  `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. Where the code takes
+  function of a `Task` that you create with `new` where `RunSynchronously` runs it. The `Result` of
+  such a task, and `GetResult` of its awaiter, have the value that the function returns, however
+  the task runs. A query expression over a type whose methods run their function in the call, such
+  as `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. Where the code takes
   only one item from the call of an iterator, with `First`, `FirstOrDefault`, `Any()` with no
   predicate, or a `foreach` that leaves the loop in its first pass on every path, the iterator runs
   only up to its first `yield return` and the `finally` blocks around it. An `async` method or
@@ -384,6 +385,8 @@ careful side, so it can report a read that does not throw:
   count as options that write public fields and read-only properties.
 - A sample in the function of a task that `RunSynchronously` runs gets `SF1001`, although the task
   keeps the exception and the code after the call goes on. Only a later `Wait` or `Result` throws.
+- The `Result` of a task that you create with `new` has the value that its function returns even
+  where no code runs the task. Such a `Result` waits forever, and the code after it does not run.
 - A method that writes a member through an object that the analyzer does not know, such as an
   element of an array in a static field, can have written that member of any such object. So a
   read of the member through an element whose object the analyzer does not know, or through a
@@ -487,8 +490,9 @@ Some reads that throw it does not see:
   compound assignment operator, such as `operator +=`, that a type of yours declares.
 - A function that a constructor from outside your project keeps, other than a `Lazy<T>`, a
   `ThreadLocal<T>`, the comparer of a platform collection, or a `Task` that `RunSynchronously` runs.
-  The analyzer does not read the function of a task where `Start` runs it on another thread, and
-  it does not see the value that the function gives to `Result`.
+  The analyzer does not read what the function of a task does where `Start` runs it on another
+  thread, although it sees the value that the function gives to `Result`. It does not see that
+  value for a task from `Task.Run` or `Task.Factory.StartNew`.
 - Code after an `await` of a task that is already complete when the analyzer cannot tell that it
   is. That code runs in the block, and the analyzer reads it as code that runs later. The same
   goes for the body of an `await foreach` over a sequence other than a call of your own async

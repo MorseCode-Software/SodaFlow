@@ -20491,6 +20491,146 @@ public static class Shapes
     public static Cell<int> Ab207StructLocalAndAStructInAField() =>
         Cell.Loop<int>().WithoutCaptures(l => { SlotValue s = new(); s.Share = Plain; Ab207SetStruct(l.Map(v => v)); return S.Hold(s.Share!.Sample()); });
 
+    // S4645. A task gets a lambda that returns a pending cell. RunSynchronously runs it, and the code samples the Result of the task.
+    public static Cell<int> Ag94ResultAfterRunSynchronously() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); return S.Hold(put.Result.Sample()); });
+
+    // S4646. The same with a Wait between RunSynchronously and the Result.
+    public static Cell<int> Ag94ResultAfterAWait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); put.Wait(); return S.Hold(put.Result.Sample()); });
+
+    // S4647. The code reads the Result two times, and samples the second one.
+    public static Cell<int> Ag94ResultReadTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); Cell<int> first = put.Result; Cell<int> again = put.Result; Kept.Add(first); return S.Hold(again.Sample()); });
+
+    // S4648. A static field keeps the task.
+    public static Cell<int> Ag94ResultOfATaskInAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag94Kept = new Task<Cell<int>>(() => l.Map(v => v)); Ag94Kept.RunSynchronously(); return S.Hold(Ag94Kept.Result.Sample()); });
+
+    // S4649. A member of a local object keeps the task.
+    public static Cell<int> Ag94ResultOfATaskInAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag94Holder h = new() { Task = new Task<Cell<int>>(() => l.Map(v => v)) }; h.Task!.RunSynchronously(); return S.Hold(h.Task.Result.Sample()); });
+
+    // S4650. The lambda of the task returns a plain cell.
+    public static Cell<int> Ag94ResultOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => Plain); put.RunSynchronously(); return S.Hold(put.Result.Sample()); });
+
+    // S4651. Start runs the task on another thread, and the Result waits for it. The lambda returns a pending cell that the block made.
+    public static Cell<int> Ag94ResultAfterStart() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m = l.Map(v => v); Task<Cell<int>> put = new Task<Cell<int>>(() => m); put.Start(); return S.Hold(put.Result.Sample()); });
+
+    // S4652. GetResult of the awaiter of the task gives the value that the lambda returns.
+    public static Cell<int> Ag94GetResultOfTheAwaiter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); return S.Hold(put.GetAwaiter().GetResult().Sample()); });
+
+    // S4653. The code keeps the Result and does not sample it.
+    public static Cell<int> Ag94ResultKeptAndNotSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); Kept.Add(put.Result); return S.Hold(0); });
+
+    // S4654. A lambda that no code runs samples the Result. No code runs the task.
+    public static Cell<int> Ag94ResultInALambdaThatNoCodeRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); Kept.Add(new Func<int>(() => put.Result.Sample())); return S.Hold(0); });
+
+    // S4655. The lambda returns the state object of the task, which is a pending cell.
+    public static Cell<int> Ag94ResultIsTheStateObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(o => (Cell<int>)o!, l.Map(v => v)); put.RunSynchronously(); return S.Hold(put.Result.Sample()); });
+
+    // S4656. The task is one of a task with a lambda and a complete task that holds a pending cell.
+    public static Cell<int> Ag94ResultOfATaskOrOfACompleteTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = Never ? new Task<Cell<int>>(() => Plain) : Task.FromResult(l.Map(v => v)); if (!put.IsCompleted) { put.RunSynchronously(); } return S.Hold(put.Result.Sample()); });
+
+    // S4657. The Result does not run the lambda again. A write after RunSynchronously stays.
+    public static Cell<int> Ag94ResultDoesNotRunTheWritesAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new(); Task<int> put = new Task<int>(() => { s.Share = Plain; return 1; }); put.RunSynchronously(); s.Share = l.Map(v => v); int n = put.Result; return S.Hold(s.Share!.Sample() + n); });
+
+    // S4658. A method of the code runs the task.
+    public static Cell<int> Ag94ResultOfATaskThatAMethodRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); Ag94Run(put); return S.Hold(put.Result.Sample()); });
+
+    // S4659. The code reads the Result through a conditional access.
+    public static Cell<int> Ag94ConditionalResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); return S.Hold(put?.Result.Sample() ?? 0); });
+
+    // S4660. A map samples the Result. The map runs after the close.
+    public static Cell<int> Ag94ResultSampledInAMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); return S.Map(_ => put.Result.Sample()).Hold(0); });
+
+    // S4661. The lambda returns the placeholder.
+    public static Cell<int> Ag94ResultIsThePlaceholder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l); put.RunSynchronously(); return S.Hold(put.Result.Sample()); });
+
+    // S4662. A property pattern reads the Result.
+    public static Cell<int> Ag94ResultInAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); return S.Hold(put is { Result: var r } ? r.Sample() : 0); });
+
+    // S4663. The lambda is a block that returns a pending cell from a local.
+    public static Cell<int> Ag94ResultFromABlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => { Cell<int> m = l.Map(v => v); return m; }); put.RunSynchronously(); return S.Hold(put.Result.Sample()); });
+
+    // S4664. A property Result of an extension block on a function is not the Result of a task. It gives a plain cell.
+    public static Cell<int> Ag94ResultOfAnExtensionOnAFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>> f = () => l.Map(v => v); return S.Hold(f.Result.Sample()); });
+
+    // S4665. GetResult of an awaiter that an extension method of the code gives for a function. It gives a plain cell.
+    public static Cell<int> Ag94GetResultOfAnAwaiterOfAFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>> f = () => l.Map(v => v); return S.Hold(f.GetAwaiter().GetResult().Sample()); });
+
+    // S4666. AsyncState of a task is its state object, a plain cell, and not the value that the lambda returns.
+    public static Cell<int> Ag94AsyncStateIsNotTheResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(_ => l.Map(v => v), Plain); put.RunSynchronously(); return S.Hold(((Cell<int>)put.AsyncState!).Sample()); });
+
+    // S4667. The lambda returns a member of the state object of the task, which holds a pending cell.
+    public static Cell<int> Ag94ResultThroughTheStateObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = l.Map(v => v) }; Task<Cell<int>> put = new Task<Cell<int>>(o => ((SettableSlot)o!).Share!, s); put.RunSynchronously(); return S.Hold(put.Result.Sample()); });
+
+    // S4668. The lambda of the task returns a lambda that samples the placeholder, and the code calls the Result.
+    public static Cell<int> Ag94ResultIsAFunctionThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Func<int>> put = new Task<Func<int>>(() => () => l.Sample()); put.RunSynchronously(); return S.Hold(put.Result()); });
+
+    // S4669. A method of the code makes the task.
+    public static Cell<int> Ag94ResultOfATaskThatAMethodMakes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = Ag94Make(l); put.RunSynchronously(); return S.Hold(put.Result.Sample()); });
+
+    // S4670. ConfigureAwait comes before GetAwaiter.
+    public static Cell<int> Ag94GetResultAfterConfigureAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); return S.Hold(put.ConfigureAwait(false).GetAwaiter().GetResult().Sample()); });
+
+    // S4671. A map of a stream that fires after the close samples the Result.
+    public static Cell<int> Ag94ResultSampledAfterTheClose() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); return t.Map(_ => put.Result.Sample()).Hold(0); }); t.Send(1); return c; }))();
+
+    // S4672. A ConfigureAwait of the code on a function gives the function, and GetResult of its awaiter gives a plain cell.
+    public static Cell<int> Ag94GetResultAfterAConfigureAwaitOfAFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>> f = () => l.Map(v => v); return S.Hold(f.ConfigureAwait(false).GetAwaiter().GetResult().Sample()); });
+
+    // S4673. A property pattern reads AsyncState of a task, which is a plain cell.
+    public static Cell<int> Ag94AsyncStateInAPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(_ => l.Map(v => v), Plain); put.RunSynchronously(); return S.Hold(put is { AsyncState: Cell<int> c } ? c.Sample() : 0); });
+
+    // S4674. A property pattern reads the Result of a task. The task is one of a task with a lambda and a complete task that holds a pending cell.
+    public static Cell<int> Ag94ResultInAPatternOfATaskOrOfACompleteTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = Never ? new Task<Cell<int>>(() => Plain) : Task.FromResult(l.Map(v => v)); if (!put.IsCompleted) { put.RunSynchronously(); } return S.Hold(put is { Result: var r } ? r.Sample() : 0); });
+
+    // S4675. GetResult of the awaiter of a task that is one of a task with a lambda and a complete task that holds a pending cell.
+    public static Cell<int> Ag94GetResultOfATaskOrOfACompleteTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = Never ? new Task<Cell<int>>(() => Plain) : Task.FromResult(l.Map(v => v)); if (!put.IsCompleted) { put.RunSynchronously(); } return S.Hold(put.GetAwaiter().GetResult().Sample()); });
+
+    // S4676. The lambda tests the type of the state object of the task with a pattern, and returns its member, which holds a pending cell.
+    public static Cell<int> Ag94ResultOfAPatternOnTheStateObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = l.Map(v => v) }; Task<Cell<int>> put = new Task<Cell<int>>(o => o is SettableSlot x ? x.Share! : Plain, s); put.RunSynchronously(); return S.Hold(put.Result.Sample()); });
+
+    // S4677. The state object of the task is a function that returns a pending cell, and the lambda calls it.
+    public static Cell<int> Ag94ResultCallsTheFunctionInTheStateObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>> f = () => l.Map(v => v); Task<Cell<int>> put = new Task<Cell<int>>(o => ((Func<Cell<int>>)o!)(), f); put.RunSynchronously(); return S.Hold(put.Result.Sample()); });
+
+    // S4678. A ValueTask holds the task.
+    public static Cell<int> Ag94ResultOfAValueTaskOfATask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); ValueTask<Cell<int>> held = new ValueTask<Cell<int>>(put); return S.Hold(held.Result.Sample()); });
+
+    // S4679. A continuation of the task returns its Result.
+    public static Cell<int> Ag94ResultOfAContinuation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); return S.Hold(put.ContinueWith(t => t.Result).Result.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -28566,6 +28706,45 @@ public static class Shapes
     private static void Ab207SetFieldedLate(Cell<int> share) => Ab207FieldedLate[0].Share = share;
 
     private static readonly SettableSlot Ab207Second = new();
+
+    private static Task<Cell<int>>? Ag94Kept;
+
+    private static void Ag94Run(Task task) => task.RunSynchronously();
+
+    public sealed class Ag94Holder
+    {
+        public Task<Cell<int>>? Task { get; init; }
+    }
+
+    private static Task<Cell<int>> Ag94Make(Cell<int> c) => new(() => c.Map(v => v));
+
+    private static Ag94Awaiter GetAwaiter(this Func<Cell<int>> f) => new(f);
+
+    private static Cell<int> Ag94KeepAndGivePlain(Func<Cell<int>> f)
+    {
+        Kept.Add(f);
+
+        return Plain;
+    }
+
+    public sealed class Ag94Awaiter(in Func<Cell<int>> f)
+    {
+        private readonly Func<Cell<int>> function = f;
+
+        public Cell<int> GetResult() => Ag94KeepAndGivePlain(this.function);
+    }
+
+    extension(Func<Cell<int>> f)
+    {
+        public Cell<int> Result => Ag94KeepAndGivePlain(f);
+    }
+
+    private static Func<Cell<int>> ConfigureAwait(this Func<Cell<int>> f, bool continueOnCapturedContext)
+    {
+        Kept.Add(continueOnCapturedContext);
+
+        return f;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

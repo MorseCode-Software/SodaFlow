@@ -1335,9 +1335,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         return LoopStateEvaluator.StateOfAMember(
-            owner: owner,
-            member: member,
-            implementations: this.region.Symbols.Implementations);
+                owner: owner,
+                member: member,
+                implementations: this.region.Symbols.Implementations)
+            .Join(this.evaluator.ResultOfATask(name: name, member: member, task: owner));
     }
 
     /// <summary>
