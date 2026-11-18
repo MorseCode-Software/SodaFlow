@@ -3037,6 +3037,18 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag94ResultOfAPatternOnTheStateObject"] = ["SF1001"],
             ["Ag94ResultCallsTheFunctionInTheStateObject"] = ["SF1001"],
             ["Ag94ResultOfAValueTaskOfATask"] = ["SF1001"],
-            ["Ag94ResultOfAContinuation"] = ["SF1001"]
+            ["Ag94ResultOfAContinuation"] = ["SF1001"],
+            ["Ab208TwoLocalsOfTwoCallsThroughTwoInterfaces"] = ["SF1001"],
+            ["Ab208TwoLocalsOfTwoCallsOfOneMethod"] = ["SF1001"],
+            ["Ab208TwoLocalsOfCallsOfTwoMethods"] = ["SF1001"],
+            ["Ab208ALocalOfACallAndASecondCall"] = ["SF1001"],
+            ["Ab208ALocalOfACallWrittenUnderACondition"] = ["SF1001"],
+            ["Ab208ACalleeWritesThroughTheResultOfACall"] = ["SF1001"],
+            ["Ab208TwoCallsThatReturnASealedClass"] = ["SF1001"],
+            ["Ab208AWriteThroughTheInterfaceAndAReadThroughTheSealedClass"] = ["SF1001"],
+            ["Ab208ALocalOfACallThatReturnsTheSealedClass"] = ["SF1001"],
+            ["Ab208TwoLocalsOfCallsThatReturnTheSealedClass"] = ["SF1001"],
+            ["Ab208ACallAndALocalOfASecondCallOfTheSealedClass"] = ["SF1001"],
+            ["Ab208ACallAndALocalOfASecondCall"] = ["SF1001"]
         };
 }

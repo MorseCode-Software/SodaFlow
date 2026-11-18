@@ -37,6 +37,9 @@ internal sealed class LoopRegion(
 
     // True when a key of the fields is a property of an interface: see FieldState.
     private bool hasInterfaceFields;
+
+    // The results of calls whose callee the walk read, and which no creation gave.
+    private readonly HashSet<MadeObject> olderObjects = [];
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Dictionary<ISymbol, ExpressionSyntax?> initializerOf = new(SymbolEqualityComparer.Default);
     private readonly Action<Diagnostic> report = report;
@@ -146,6 +149,18 @@ internal sealed class LoopRegion(
 
     /// <summary>True when the code set a field to a value with a state.</summary>
     public bool HasFields => this.fields.Count > 0;
+
+    /// <summary>
+    ///     Keeps the objects as results of calls that a second call can give
+    ///     also. See <see cref="IsAnOlderObject" />.
+    /// </summary>
+    public void NotesOlderObjects(ImmutableArray<MadeObject> objects) => this.olderObjects.UnionWith(objects);
+
+    /// <summary>
+    ///     True for the result of a call whose callee the walk read and which no
+    ///     creation in that callee gave.
+    /// </summary>
+    public bool IsAnOlderObject(MadeObject one) => this.olderObjects.Contains(one);
 
     /// <summary>A number for what the fields say, from <see cref="LoopState.Shape" />.</summary>
     public int ShapeOfFields =>

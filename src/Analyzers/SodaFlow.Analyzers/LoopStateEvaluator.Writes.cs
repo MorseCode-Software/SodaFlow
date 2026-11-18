@@ -2567,8 +2567,9 @@ internal sealed partial class LoopStateEvaluator
             }
 
             // The value has two names, or it had them. A read through the other name can be one
-            // that does not see the state of this name. Thus, the region keeps the write also.
-            if (this.IsOneOfTwoNames(holder))
+            // that does not see the state of this name. Thus, the region keeps the write also. A
+            // second call can give an object that a call gave, which is a second name of it too.
+            if (this.IsOneOfTwoNames(holder) || CanBeAnOlderObject(has))
             {
                 this.SetField(field: member, state: state);
             }

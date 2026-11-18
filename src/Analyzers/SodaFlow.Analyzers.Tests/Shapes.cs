@@ -20631,6 +20631,86 @@ public static class Shapes
     public static Cell<int> Ag94ResultOfAContinuation() =>
         Cell.Loop<int>().WithoutCaptures(l => { Task<Cell<int>> put = new Task<Cell<int>>(() => l.Map(v => v)); put.RunSynchronously(); return S.Hold(put.ContinueWith(t => t.Result).Result.Sample()); });
 
+    // S4680. Two locals of two calls get one object of the class with two interfaces. The pending cell goes through the first local, and the sample reads through the second.
+    public static Cell<int> Ab208TwoLocalsOfTwoCallsThroughTwoInterfaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb208First first = Ab208TwoAt(0); first.Share = l.Map(v => v); IAb208Second second = Ab208TwoAsSecondAt(0); return S.Hold(second.Share!.Sample()); });
+
+    // S4681. Two locals of two calls of one method get one object.
+    public static Cell<int> Ab208TwoLocalsOfTwoCallsOfOneMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb208Slot first = Ab208SlotAt(0); first.Share = l.Map(v => v); IAb208Slot second = Ab208SlotAt(0); return S.Hold(second.Share!.Sample()); });
+
+    // S4682. Two locals of calls of two methods get one object.
+    public static Cell<int> Ab208TwoLocalsOfCallsOfTwoMethods() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb208Slot first = Ab208SlotAt(1); first.Share = l.Map(v => v); IAb208Slot second = Ab208SlotAgainAt(1); return S.Hold(second.Share!.Sample()); });
+
+    // S4683. The pending cell goes through a local of a call, and the sample reads through a second call.
+    public static Cell<int> Ab208ALocalOfACallAndASecondCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb208Slot first = Ab208SlotAt(2); first.Share = l.Map(v => v); return S.Hold(Ab208SlotAt(2).Share!.Sample()); });
+
+    // S4684. The same as the shape before, with the write in a branch of a condition.
+    public static Cell<int> Ab208ALocalOfACallWrittenUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb208Slot first = Ab208SlotAt(3); if (!Never) { first.Share = l.Map(v => v); } return S.Hold(Ab208SlotAt(3).Share!.Sample()); });
+
+    // S4685. A callee writes the pending cell through its parameter, which gets the result of a call. The sample reads through a second call.
+    public static Cell<int> Ab208ACalleeWritesThroughTheResultOfACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab208WriteSlot(Ab208SlotAt(4), l.Map(v => v)); return S.Hold(Ab208SlotAt(4).Share!.Sample()); });
+
+    // S4686. The call returns a sealed class. The pending cell goes through the result of one call, and the sample reads through a second call.
+    public static Cell<int> Ab208TwoCallsThatReturnASealedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab208SealedAt(0).Share = l.Map(v => v); return S.Hold(Ab208SealedAt(0).Share!.Sample()); });
+
+    // S4687. The pending cell goes through an interface on the result of one call. The sample reads through a call that returns the sealed class.
+    public static Cell<int> Ab208AWriteThroughTheInterfaceAndAReadThroughTheSealedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab208SealedAsSlotAt(1).Share = l.Map(v => v); return S.Hold(Ab208SealedAt(1).Share!.Sample()); });
+
+    // S4688. The pending cell goes through a local of a call that returns the sealed class. The sample reads through a second call.
+    public static Cell<int> Ab208ALocalOfACallThatReturnsTheSealedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab208Sealed first = Ab208SealedAt(2); first.Share = l.Map(v => v); return S.Hold(Ab208SealedAt(2).Share!.Sample()); });
+
+    // S4689. Two locals of two calls that return the sealed class get one object.
+    public static Cell<int> Ab208TwoLocalsOfCallsThatReturnTheSealedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab208Sealed first = Ab208SealedAt(3); first.Share = l.Map(v => v); Ab208Sealed second = Ab208SealedAt(3); return S.Hold(second.Share!.Sample()); });
+
+    // S4690. The pending cell goes through the result of a call that returns the sealed class. The sample reads through a local of a second call.
+    public static Cell<int> Ab208ACallAndALocalOfASecondCallOfTheSealedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab208SealedAt(4).Share = l.Map(v => v); Ab208Sealed second = Ab208SealedAt(4); return S.Hold(second.Share!.Sample()); });
+
+    // S4691. Control: the pending cell goes through the result of a call, and the sample reads through a local of a second call.
+    public static Cell<int> Ab208ACallAndALocalOfASecondCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab208SlotAt(5).Share = l.Map(v => v); IAb208Slot second = Ab208SlotAt(5); return S.Hold(second.Share!.Sample()); });
+
+    // S4692. Control: a plain cell through a local of a call replaces the pending cell that went through that local. The sample reads through the local.
+    public static Cell<int> Ab208APlainCellThroughTheLocalReplacesThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb208Slot first = Ab208SlotAt(6); first.Share = l.Map(v => v); first.Share = Plain; return S.Hold(first.Share!.Sample()); });
+
+    // S4693. Control: the same for a local of a call that returns the sealed class.
+    public static Cell<int> Ab208APlainCellThroughALocalOfTheSealedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab208Sealed first = Ab208SealedAt(5); first.Share = l.Map(v => v); first.Share = Plain; return S.Hold(first.Share!.Sample()); });
+
+    // S4694. Control: a write through a call comes first, thus the region has the field. A plain cell through a local of a second call then replaces the pending cell of that local.
+    public static Cell<int> Ab208APlainCellThroughALocalAfterAWriteThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab208SlotAt(10).Share = l.Map(v => v); IAb208Slot first = Ab208SlotAt(11); first.Share = l.Map(v => v); first.Share = Plain; return S.Hold(first.Share!.Sample()); });
+
+    // S4695. Control: the same for a local of a call that returns the sealed class.
+    public static Cell<int> Ab208APlainCellThroughALocalOfTheSealedClassAfterAWriteThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab208SealedAt(6).Share = l.Map(v => v); Ab208Sealed first = Ab208SealedAt(7); first.Share = l.Map(v => v); first.Share = Plain; return S.Hold(first.Share!.Sample()); });
+
+    // S4696. Control: the same for a local of the interface that gets the result of a call that returns the sealed class. The write names the property of the interface, and the object keeps the property of the class.
+    public static Cell<int> Ab208APlainCellThroughALocalOfTheInterfaceWithTheSealedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab208SealedAt(8).Share = l.Map(v => v); IAb208Slot first = Ab208SealedAt(9); first.Share = l.Map(v => v); first.Share = Plain; return S.Hold(first.Share!.Sample()); });
+
+    // S4697. Control: the sample reads through a second local, which has a plain cell of its own.
+    public static Cell<int> Ab208ASecondLocalWithAPlainCellOfItsOwn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb208Slot first = Ab208SlotAt(7); first.Share = l.Map(v => v); IAb208Slot second = Ab208SlotAt(8); second.Share = Plain; return S.Hold(second.Share!.Sample()); });
+
+    // S4698. Control: the pending cell goes into an object that the block makes, and the sample reads through a call.
+    public static Cell<int> Ab208ANewObjectAndACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb208Slot made = new Ab208Slot(); made.Share = l.Map(v => v); return S.Hold(Ab208FilledAt(0).Share!.Sample()); });
+
+    // S4699. Control: only a plain cell goes through a local of a call.
+    public static Cell<int> Ab208OnlyAPlainCellThroughALocalOfACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb208Slot first = Ab208SlotAt(9); first.Share = Plain; return S.Hold(Ab208SlotAt(9).Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -28745,6 +28825,65 @@ public static class Shapes
 
         return f;
     }
+
+    public interface IAb208Slot
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab208Slot : IAb208Slot
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab208Sealed : IAb208Slot
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb208First
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb208Second
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab208Two : IAb208First, IAb208Second
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static readonly IAb208Slot[] Ab208Slots =
+    [
+        new Ab208Slot(), new Ab208Slot(), new Ab208Slot(), new Ab208Slot(), new Ab208Slot(), new Ab208Slot(),
+        new Ab208Slot(), new Ab208Slot(), new Ab208Slot(), new Ab208Slot(), new Ab208Slot(), new Ab208Slot()
+    ];
+
+    private static readonly IAb208Slot[] Ab208Filled = [new Ab208Slot { Share = Plain }];
+
+    private static readonly Ab208Sealed[] Ab208Sealeds =
+        [new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
+
+    private static readonly Ab208Two[] Ab208Twos = [new()];
+
+    private static IAb208Slot Ab208SlotAt(int at) => Ab208Slots[at];
+
+    private static IAb208Slot Ab208SlotAgainAt(int at) => Ab208Slots[at];
+
+    private static IAb208Slot Ab208FilledAt(int at) => Ab208Filled[at];
+
+    private static Ab208Sealed Ab208SealedAt(int at) => Ab208Sealeds[at];
+
+    private static IAb208Slot Ab208SealedAsSlotAt(int at) => Ab208Sealeds[at];
+
+    private static IAb208First Ab208TwoAt(int at) => Ab208Twos[at];
+
+    private static IAb208Second Ab208TwoAsSecondAt(int at) => Ab208Twos[at];
+
+    private static void Ab208WriteSlot(IAb208Slot slot, Cell<int> share) => slot.Share = share;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

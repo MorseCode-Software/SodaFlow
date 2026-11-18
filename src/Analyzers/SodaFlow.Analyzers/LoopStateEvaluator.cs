@@ -1674,7 +1674,7 @@ internal sealed partial class LoopStateEvaluator
                 ? result.WithMembers(Construction.Of(itsClass))
                 : result;
 
-        return this.MadeHere(place: call, state: known, exact: false);
+        return this.NotesAnOlderResult(call: call, made: this.MadeHere(place: call, state: known, exact: false));
     }
 
     // True for a type that does not say the class of its object: an interface, or a class that is
@@ -2322,7 +2322,8 @@ internal sealed partial class LoopStateEvaluator
                         // A write through the other name of the value did not come to this name.
                         // The region has each such write for the field.
                         if (this.WasOneOfTwoNames(ownerExpression)
-                            || this.CanBeWrittenThroughAField(owner: owner, written: ownerExpression))
+                            || this.CanBeWrittenThroughAField(owner: owner, written: ownerExpression)
+                            || this.ReadsAnOlderObject(owner: owner, member: symbol, field: field))
                         {
                             through = through.Join(field);
                         }
