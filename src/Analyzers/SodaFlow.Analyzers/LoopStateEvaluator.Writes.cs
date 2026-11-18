@@ -1784,7 +1784,7 @@ internal sealed partial class LoopStateEvaluator
     // other field with no owner in the code is a field of the object that the code is in.
     private void WritesInPlace(
         ExpressionSyntax owner,
-        IFieldSymbol field,
+        ISymbol field,
         ISymbol member,
         LoopState state,
         bool replaces,
