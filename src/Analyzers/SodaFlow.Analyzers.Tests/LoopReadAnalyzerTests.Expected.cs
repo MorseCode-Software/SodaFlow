@@ -3009,6 +3009,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab206RefLocalOfAnElementOfTheSpanOfAMemory"] = ["SF1001"],
             ["Ab206MemberWrittenThroughASpanElement"] = ["SF1001"],
             ["Ab206MemberWrittenAndReadThroughASpanElement"] = ["SF1001"],
-            ["Ab206MemberWrittenThroughTheArrayAndReadThroughASpanElement"] = ["SF1001"]
+            ["Ab206MemberWrittenThroughTheArrayAndReadThroughASpanElement"] = ["SF1001"],
+            ["Ab207ReadThroughALocalOfTheElementAfterAMethodWrites"] = ["SF1001"],
+            ["Ab207ReadThroughALocalOfAListElementAfterAMethodWrites"] = ["SF1001"],
+            ["Ab207ReadThroughALocalOfTheElementAtALocalIndex"] = ["SF1001"]
         };
 }

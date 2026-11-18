@@ -144,12 +144,17 @@ internal sealed partial class LoopStateEvaluator
     // second name of the object, such as a static field in a method. The region has its state for
     // the member. A write that this frame saw went to the state of the element also. An element of
     // a view is a second name of an element of the array. Thus, the frame can have seen the write
-    // through the other name.
+    // through the other name. A write through a local that got the element gives the local a copy
+    // with members and no object. The local is a name of the element also after that write.
     private bool CanBeWrittenThroughAField(LoopState owner, ExpressionSyntax written) =>
-        owner.Objects.Contains(MadeObject.Unknown)
-        && ((this.Frame.MemberWritesSeen != this.region.MemberWrites
-             && (Unwrapped(written) is ElementAccessExpressionSyntax || this.ElementAt(written) != null))
-            || (Unwrapped(written) is ElementAccessExpressionSyntax viewed && this.TheArrayOfAViewOf(viewed) != null));
+        (owner.Objects.Contains(MadeObject.Unknown)
+         && ((this.Frame.MemberWritesSeen != this.region.MemberWrites
+              && (Unwrapped(written) is ElementAccessExpressionSyntax || this.ElementAt(written) != null))
+             || (Unwrapped(written) is ElementAccessExpressionSyntax viewed && this.TheArrayOfAViewOf(viewed) != null)))
+        || (owner.Objects.IsEmpty
+            && this.Frame.MemberWritesSeen != this.region.MemberWrites
+            && Unwrapped(written) is IdentifierNameSyntax
+            && this.ElementAt(written) != null);
 
     // True for a member that is a location and no code: a field, or a property of this compilation
     // with no body. A property of a library has code that the walk does not read.

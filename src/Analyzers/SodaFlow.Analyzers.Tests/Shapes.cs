@@ -20463,6 +20463,34 @@ public static class Shapes
     public static Cell<int> Ab206PlainCellThroughASpanElementAfterThePendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; Span<SettableSlot> view = a; a[0].Share = l.Map(v => v); view[0].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
 
+    // S4638. A local gets an element of an array that a static field shares. The code writes a plain cell through the local, a method writes a pending cell through the field, and the read goes through the local.
+    public static Cell<int> Ab207ReadThroughALocalOfTheElementAfterAMethodWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab207Fielded; SettableSlot x = a[0]; x.Share = Plain; Ab207SetFielded(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S4639. The same with a list.
+    public static Cell<int> Ab207ReadThroughALocalOfAListElementAfterAMethodWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = Ab207FieldedList; SettableSlot x = a[0]; x.Share = Plain; Ab207SetFieldedList(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S4640. The same with an index in a local.
+    public static Cell<int> Ab207ReadThroughALocalOfTheElementAtALocalIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int i = 0; SettableSlot[] a = Ab207FieldedAt; SettableSlot x = a[i]; x.Share = Plain; Ab207SetFieldedAt(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S4641. The method writes the pending cell before the write of the plain cell through the local. A call that writes no member comes after.
+    public static Cell<int> Ab207MethodWritesBeforeThePlainWriteThroughTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab207FieldedEarly; SettableSlot x = a[0]; Ab207SetFieldedEarly(l.Map(v => v)); x.Share = Plain; Ab207Keep(Plain); return S.Hold(x.Share!.Sample()); });
+
+    // S4642. A struct in an element of a local array. A method writes the member of a struct in a static field.
+    public static Cell<int> Ab207StructElementAndAStructInAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] a = [new SlotValue()]; a[0].Share = Plain; Ab207SetStruct(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4643. The method writes the pending cell before the write of the plain cell through the local. The block then writes a plain cell into a second object.
+    public static Cell<int> Ab207MethodWritesBeforeAndTheBlockWritesASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab207FieldedLate; SettableSlot x = a[0]; Ab207SetFieldedLate(l.Map(v => v)); x.Share = Plain; Ab207Second.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S4644. No element: a struct in a local. A method writes the member of a struct in a static field.
+    public static Cell<int> Ab207StructLocalAndAStructInAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue s = new(); s.Share = Plain; Ab207SetStruct(l.Map(v => v)); return S.Hold(s.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -28508,6 +28536,36 @@ public static class Shapes
         [new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
 
     private static readonly SettableSlot[] Ab206Slots = [new(), new(), new(), new(), new(), new(), new()];
+
+    private static readonly SettableSlot[] Ab207Fielded = [new()];
+
+    private static void Ab207SetFielded(Cell<int> share) => Ab207Fielded[0].Share = share;
+
+    private static readonly List<SettableSlot> Ab207FieldedList = [new()];
+
+    private static void Ab207SetFieldedList(Cell<int> share) => Ab207FieldedList[0].Share = share;
+
+    private static readonly SettableSlot[] Ab207FieldedAt = [new()];
+
+    private static void Ab207SetFieldedAt(Cell<int> share) => Ab207FieldedAt[0].Share = share;
+
+    private static readonly SettableSlot[] Ab207FieldedEarly = [new()];
+
+    private static void Ab207SetFieldedEarly(Cell<int> share) => Ab207FieldedEarly[0].Share = share;
+
+    private static readonly List<Cell<int>> Ab207Kept = [];
+
+    private static void Ab207Keep(Cell<int> share) => Ab207Kept.Add(share);
+
+    private static readonly SlotValue[] Ab207Structs = [new()];
+
+    private static void Ab207SetStruct(Cell<int> share) => Ab207Structs[0].Share = share;
+
+    private static readonly SettableSlot[] Ab207FieldedLate = [new()];
+
+    private static void Ab207SetFieldedLate(Cell<int> share) => Ab207FieldedLate[0].Share = share;
+
+    private static readonly SettableSlot Ab207Second = new();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
