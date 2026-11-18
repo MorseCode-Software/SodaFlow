@@ -94,6 +94,9 @@ internal sealed partial class LoopStateEvaluator
     // each other code.
     private INamedTypeSymbol? builtType;
 
+    // The code that defines the function that this evaluator reads, or null. See StateAtAPosition.
+    private LoopStateEvaluator? definer;
+
     // The walker that reads the code of this evaluator. It knows where a call always runs.
     private SinkWalker? walker;
 
@@ -1919,7 +1922,7 @@ internal sealed partial class LoopStateEvaluator
             // An indexer of this compilation gives what its getter returns. An element of a
             // collection has the state of the collection.
             ElementAccessExpressionSyntax e when this.PositionOf(e) is { } position =>
-                this.Eval(position).Join(this.TypeState(expression)),
+                this.StateAtAPosition(position).Join(this.TypeState(expression)),
             ElementAccessExpressionSyntax e when this.AtAStorePosition(e) is { } known =>
                 known.Join(this.TypeState(expression)),
             ElementAccessExpressionSyntax e => this.FollowExpression(e) is { } indexed

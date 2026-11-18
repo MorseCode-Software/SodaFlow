@@ -558,6 +558,7 @@ internal sealed partial class LoopStateEvaluator
                 site: call));
 
         inner.Frame.CanBeUnseen.UnionWith(unseen);
+        inner.definer = definer;
 
         // A function of this code, and a member of this object, run on the object that this code
         // is in.

@@ -23,6 +23,22 @@ internal sealed partial class LoopStateEvaluator
                 : null
             : this.ValueOfAKey(access);
 
+    // The state of the expression of an element. The expression can be in the code of a definer of
+    // this function. That code read it, and a second read here makes a second object for a
+    // creation. Thus, the state is the one that the definer gave it.
+    private LoopState StateAtAPosition(ExpressionSyntax position)
+    {
+        for (LoopStateEvaluator? outer = this.definer; outer != null; outer = outer.definer)
+        {
+            if (outer.memo.TryGetValue(key: position, value: out LoopState? known))
+            {
+                return known;
+            }
+        }
+
+        return this.Eval(position);
+    }
+
     // The position that a constant index gives in a collection with a number of elements. An index
     // from the end, ^k, gives the position count - k. Null for an index that is not in the collection.
     private int? PositionIn(SyntaxNode index, int count)

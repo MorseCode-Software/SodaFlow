@@ -2811,6 +2811,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab201RefLocalGetsAnElementOfAClass"] = ["SF1001"],
             ["Ab201MethodRefParameterGetsAnElementOfAClass"] = ["SF1001"],
             ["Ab201RefLocalOfAFieldGetsAnUnseenElementOfAClass"] = ["SF1001"],
-            ["Ab201MethodRefParameterGetsAnUnseenElement"] = ["SF1001"]
+            ["Ab201MethodRefParameterGetsAnUnseenElement"] = ["SF1001"],
+            ["Ab202ParameterOfALocalFunctionGetsAnElement"] = ["SF1001"],
+            ["Ab202RefParameterOfALocalFunctionGetsAnElement"] = ["SF1001"],
+            ["Ab202LocalOfALocalFunctionGetsAnElement"] = ["SF1001"],
+            ["Ab202ParameterOfALambdaGetsAnElement"] = ["SF1001"],
+            ["Ab202ParameterGetsAnElementAndThenASecondObject"] = ["SF1001"],
+            ["Ab202LocalFunctionGetsTheElementAsAnArgument"] = ["SF1001"],
+            ["Ab202LocalFunctionReadsThePendingElement"] = ["SF1001"],
+            ["Ab202LocalFunctionInALambdaGetsAnElement"] = ["SF1001"]
         };
 }

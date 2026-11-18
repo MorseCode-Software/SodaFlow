@@ -19203,6 +19203,54 @@ public static class Shapes
     public static Cell<int> Ab201MethodRefParameterGetsAnUnseenElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [Ab201Unseen[1]]; SettableSlot own = new(); Ab201Put(arr, ref own, l.Map(q => q)); return S.Hold(arr[0].Share!.Sample()); });
 
+    // S4323. A local function gives its parameter an element of an array of the block, and writes a pending cell through the parameter. The two share the object.
+    public static Cell<int> Ab202ParameterOfALocalFunctionGetsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }]; SettableSlot own = new(); Put(own); return S.Hold(arr[0].Share!.Sample()); void Put(SettableSlot p) { p = arr[0]; p.Share = l.Map(q => q); } });
+
+    // S4324. The same with a parameter with ref.
+    public static Cell<int> Ab202RefParameterOfALocalFunctionGetsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }]; SettableSlot own = new(); Put(ref own); return S.Hold(arr[0].Share!.Sample()); void Put(ref SettableSlot p) { p = arr[0]; p.Share = l.Map(q => q); } });
+
+    // S4325. A local function puts an element of an array of the block into a local, and writes a pending cell through the local.
+    public static Cell<int> Ab202LocalOfALocalFunctionGetsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }]; Put(); return S.Hold(arr[0].Share!.Sample()); void Put() { SettableSlot p = arr[0]; p.Share = l.Map(q => q); } });
+
+    // S4326. A lambda gives its parameter an element of an array of the block, and writes a pending cell through the parameter.
+    public static Cell<int> Ab202ParameterOfALambdaGetsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }]; SettableSlot own = new(); Action<SettableSlot> put = p => { p = arr[0]; p.Share = l.Map(q => q); }; put(own); return S.Hold(arr[0].Share!.Sample()); });
+
+    // S4327. A local function gives its parameter an element, writes a pending cell through it, and then gives the parameter a second object.
+    public static Cell<int> Ab202ParameterGetsAnElementAndThenASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }]; SettableSlot own = new(); Put(own); return S.Hold(arr[0].Share!.Sample()); void Put(SettableSlot p) { p = arr[0]; p.Share = l.Map(q => q); p = own; } });
+
+    // S4328. A local function writes a pending cell through a parameter whose argument is the element. A control.
+    public static Cell<int> Ab202LocalFunctionGetsTheElementAsAnArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }]; Put(arr[0]); return S.Hold(arr[0].Share!.Sample()); void Put(SettableSlot p) { p.Share = l.Map(q => q); } });
+
+    // S4329. A local function gives its parameter a new object, and writes a pending cell through it. The object of the argument keeps its plain cell. A control.
+    public static Cell<int> Ab202ParameterOfALocalFunctionGetsANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot own = new() { Share = Plain }; Put(own); return S.Hold(own.Share!.Sample()); void Put(SettableSlot p) { p = new SettableSlot(); p.Share = l.Map(q => q); } });
+
+    // S4330. A local function samples the plain element of two. A control.
+    public static Cell<int> Ab202LocalFunctionReadsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }, new SettableSlot { Share = l.Map(q => q) }]; return S.Hold(Read()); int Read() => arr[0].Share!.Sample(); });
+
+    // S4331. A local function samples the pending element of two. A control.
+    public static Cell<int> Ab202LocalFunctionReadsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }, new SettableSlot { Share = l.Map(q => q) }]; return S.Hold(Read()); int Read() => arr[1].Share!.Sample(); });
+
+    // S4332. A local function samples the plain value of one of two keys. A control.
+    public static Cell<int> Ab202LocalFunctionReadsThePlainValueOfAKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> d = new() { ["a"] = new SettableSlot { Share = Plain }, ["b"] = new SettableSlot { Share = l.Map(q => q) } }; return S.Hold(Read()); int Read() => d["a"].Share!.Sample(); });
+
+    // S4333. A local function writes a plain cell through the element with a pending cell, and the block samples the other element. A control.
+    public static Cell<int> Ab202LocalFunctionWritesTheOtherElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = l.Map(q => q) }, new SettableSlot { Share = Plain }]; Put(); return S.Hold(arr[1].Share!.Sample()); void Put() { SettableSlot p = arr[0]; p.Share = Plain; } });
+
+    // S4334. A local function in a lambda puts an element of an array of the block into a local, and writes a pending cell through the local.
+    public static Cell<int> Ab202LocalFunctionInALambdaGetsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }]; Action outer = () => { Put(); void Put() { SettableSlot p = arr[0]; p.Share = l.Map(q => q); } }; outer(); return S.Hold(arr[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
