@@ -2884,6 +2884,17 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab198AVirtualPropertyThatImplementsTwoInterfaces"] = ["SF1001"],
             ["Ab198AnInterfaceThatExtendsBoth"] = ["SF1001"],
             ["Ab198ANewObjectOfTheClass"] = ["SF1001"],
-            ["Ab198AnOverrideInAClassThatAddsTheSecondInterface"] = ["SF1001"]
+            ["Ab198AnOverrideInAClassThatAddsTheSecondInterface"] = ["SF1001"],
+            ["Ab199PendingThroughTheInterfaceAndASampleThroughTheDerivedClass"] = ["SF1001"],
+            ["Ab199PendingThroughTheInterfaceAndASampleThroughTheBaseClass"] = ["SF1001"],
+            ["Ab199PendingThroughTheBaseClassAndASampleThroughTheInterface"] = ["SF1001"],
+            ["Ab199AParameterOfTheDerivedClassSamples"] = ["SF1004"],
+            ["Ab199OwnersThatACallGivesBack"] = ["SF1001"],
+            ["Ab199OwnersThatACallGivesBackThroughTheBaseClass"] = ["SF1001"],
+            ["Ab199AnOverrideInTheDerivedClassAndASampleThroughTheBaseClass"] = ["SF1001"],
+            ["Ab199PendingThroughTheDerivedClassAndASampleThroughTheInterface"] = ["SF1001"],
+            ["Ab199ANewObjectOfTheDerivedClass"] = ["SF1001"],
+            ["Ab199OneOfTwoObjectsWithThePendingCellSecond"] = ["SF1001"],
+            ["Ab199OneOfTwoObjectsWithThePendingCellFirst"] = ["SF1001"]
         };
 }

@@ -19659,6 +19659,58 @@ public static class Shapes
     public static Cell<int> Ab198AnOverrideInAClassThatAddsTheSecondInterface() =>
         Cell.Loop<int>().WithoutCaptures(l => { IAb198FirstLate h = Ab198LateOverrideAt(0); h.Share = l.Map(v => v); IAb198SecondLate s = (IAb198SecondLate)h; return S.Hold(s.Share!.Sample()); });
 
+    // S4437. A base class declares the property without the interface. A derived class gets the interface, and the base property implements it. The block writes a pending cell through the interface on an object that a call gives, and samples through the derived class after a cast.
+    public static Cell<int> Ab199PendingThroughTheInterfaceAndASampleThroughTheDerivedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb199Slot h = Ab199LateAt(0); h.Share = l.Map(v => v); Ab199LateSlot d = (Ab199LateSlot)h; return S.Hold(d.Share!.Sample()); });
+
+    // S4438. The same as the shape before, with the sample through the base class, which does not have the interface.
+    public static Cell<int> Ab199PendingThroughTheInterfaceAndASampleThroughTheBaseClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb199Slot h = Ab199LateAt(1); h.Share = l.Map(v => v); Ab199PlainBase b = (Ab199PlainBase)h; return S.Hold(b.Share!.Sample()); });
+
+    // S4439. The block writes the pending cell through the base class, and samples through the interface after a cast.
+    public static Cell<int> Ab199PendingThroughTheBaseClassAndASampleThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab199PlainBase b = Ab199LateBaseAt(0); b.Share = l.Map(v => v); IAb199Slot h = (IAb199Slot)b; return S.Hold(h.Share!.Sample()); });
+
+    // S4440. A method with a parameter of the derived class samples the property.
+    public static Cell<int> Ab199AParameterOfTheDerivedClassSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb199Slot h = Ab199LateAt(2); h.Share = l.Map(v => v); return S.Hold(Ab199Read((Ab199LateSlot)h)); });
+
+    // S4441. The owner is the result of a call at the write through the interface and at the sample through the derived class.
+    public static Cell<int> Ab199OwnersThatACallGivesBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab199LateAt(3).Share = l.Map(v => v); return S.Hold(((Ab199LateSlot)Ab199LateAt(3)).Share!.Sample()); });
+
+    // S4442. The owner is the result of a call at the write through the base class and at the sample through the interface.
+    public static Cell<int> Ab199OwnersThatACallGivesBackThroughTheBaseClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab199LateBaseAt(1).Share = l.Map(v => v); return S.Hold(((IAb199Slot)Ab199LateBaseAt(1)).Share!.Sample()); });
+
+    // S4443. A base class declares a virtual property without the interface. A derived class gets the interface and overrides the property. The block samples through the base class.
+    public static Cell<int> Ab199AnOverrideInTheDerivedClassAndASampleThroughTheBaseClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb199Slot h = Ab199LateOverrideAt(0); h.Share = l.Map(v => v); Ab199VirtualBase b = (Ab199VirtualBase)h; return S.Hold(b.Share!.Sample()); });
+
+    // S4444. Control: the block writes the pending cell through the derived class, and samples through the interface.
+    public static Cell<int> Ab199PendingThroughTheDerivedClassAndASampleThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab199LateSlot d = Ab199LateDerivedAt(0); d.Share = l.Map(v => v); IAb199Slot h = d; return S.Hold(h.Share!.Sample()); });
+
+    // S4445. Control: a different class that derives from the same base class has no interface. The block gives its object a plain cell, and samples it after a pending cell goes to an object of the derived class through the interface.
+    public static Cell<int> Ab199AnotherDerivedClassWithoutTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab199OtherDerived o = Ab199OtherAt(0); o.Share = Plain; IAb199Slot h = Ab199LateAt(4); h.Share = l.Map(v => v); return S.Hold(o.Share!.Sample()); });
+
+    // S4446. Control: a class with a property of the same name has no interface and no base class. The block gives its object a plain cell, and samples it after a pending cell goes to an object through the interface.
+    public static Cell<int> Ab199AnUnrelatedClassWithAPropertyOfTheSameName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab199Unrelated u = Ab199UnrelatedAt(0); u.Share = Plain; IAb199Slot h = Ab199LateAt(5); h.Share = l.Map(v => v); return S.Hold(u.Share!.Sample()); });
+
+    // S4447. Control: the block makes the object, thus the walk knows its class.
+    public static Cell<int> Ab199ANewObjectOfTheDerivedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb199Slot h = new Ab199LateSlot(); h.Share = l.Map(v => v); Ab199PlainBase b = (Ab199PlainBase)h; return S.Hold(b.Share!.Sample()); });
+
+    // S4448. A conditional gives one of two objects. The second object is the one that got the pending cell through the interface. The first got a plain cell through the derived class. The sample reads the derived class.
+    public static Cell<int> Ab199OneOfTwoObjectsWithThePendingCellSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb199Slot h = Ab199LateAt(6); h.Share = l.Map(v => v); Ab199LateSlot other = Ab199LateDerivedAt(1); other.Share = Plain; Ab199LateSlot d = Never ? other : (Ab199LateSlot)h; return S.Hold(d.Share!.Sample()); });
+
+    // S4449. The same as the shape before, with the object that got the pending cell first.
+    public static Cell<int> Ab199OneOfTwoObjectsWithThePendingCellFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb199Slot h = Ab199LateAt(7); h.Share = l.Map(v => v); Ab199LateSlot other = Ab199LateDerivedAt(2); other.Share = Plain; Ab199LateSlot d = !Never ? (Ab199LateSlot)h : other; return S.Hold(d.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -27172,6 +27224,61 @@ public static class Shapes
     private static readonly Ab198OverrideSecond[] Ab198LateOverrides = [new()];
 
     private static IAb198FirstLate Ab198LateOverrideAt(int at) => Ab198LateOverrides[at];
+
+    public interface IAb199Slot
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public class Ab199PlainBase
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab199LateSlot : Ab199PlainBase, IAb199Slot;
+
+    public sealed class Ab199OtherDerived : Ab199PlainBase;
+
+    public sealed class Ab199Unrelated
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public class Ab199VirtualBase
+    {
+        public virtual Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab199LateOverride : Ab199VirtualBase, IAb199Slot
+    {
+        public override Cell<int>? Share { get; set; }
+    }
+
+    private static readonly Ab199LateSlot[] Ab199Lates = [new(), new(), new(), new(), new(), new(), new(), new()];
+
+    private static readonly Ab199LateSlot[] Ab199LateBases = [new(), new()];
+
+    private static readonly Ab199LateSlot[] Ab199LateDerived = [new(), new(), new()];
+
+    private static readonly Ab199OtherDerived[] Ab199Others = [new()];
+
+    private static readonly Ab199Unrelated[] Ab199Unrelateds = [new()];
+
+    private static readonly Ab199LateOverride[] Ab199LateOverrides = [new()];
+
+    private static IAb199Slot Ab199LateAt(int at) => Ab199Lates[at];
+
+    private static Ab199PlainBase Ab199LateBaseAt(int at) => Ab199LateBases[at];
+
+    private static Ab199LateSlot Ab199LateDerivedAt(int at) => Ab199LateDerived[at];
+
+    private static Ab199OtherDerived Ab199OtherAt(int at) => Ab199Others[at];
+
+    private static Ab199Unrelated Ab199UnrelatedAt(int at) => Ab199Unrelateds[at];
+
+    private static IAb199Slot Ab199LateOverrideAt(int at) => Ab199LateOverrides[at];
+
+    private static int Ab199Read(Ab199LateSlot slot) => slot.Share!.Sample();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

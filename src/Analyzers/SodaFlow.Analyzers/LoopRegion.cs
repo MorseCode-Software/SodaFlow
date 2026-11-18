@@ -34,6 +34,9 @@ internal sealed class LoopRegion(
     // object. Such a field is a static field, or a field of an object that the block did not
     // make.
     private readonly Dictionary<ISymbol, LoopState> fields = new(SymbolEqualityComparer.Default);
+
+    // True when a key of the fields is a property of an interface: see FieldState.
+    private bool hasInterfaceFields;
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Dictionary<ISymbol, ExpressionSyntax?> initializerOf = new(SymbolEqualityComparer.Default);
     private readonly Action<Diagnostic> report = report;
@@ -165,7 +168,8 @@ internal sealed class LoopRegion(
                     states: this.fields,
                     key: field.OriginalDefinition,
                     stateOf: static (key, state) => state.From(key),
-                    implementations: this.Symbols.Implementations));
+                    implementations: this.Symbols.Implementations,
+                    hasInterfaceMembers: this.hasInterfaceFields));
 
     /// <summary>
     ///     Records a value that the code gives to a field. The walk does not know
@@ -184,6 +188,8 @@ internal sealed class LoopRegion(
 
         this.fields[key] =
             this.fields.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
+
+        this.hasInterfaceFields |= key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
     }
 
     private SemanticModel ModelFor(SyntaxTree tree)

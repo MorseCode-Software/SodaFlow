@@ -8,13 +8,16 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace SodaFlow.Analyzers;
 
 /// <summary>
-///     The properties of interfaces in one compilation that one property of a
-///     type in it implements together.
+///     The properties in one compilation that one property of a type in it
+///     implements together. A pair is two properties of interfaces, or a
+///     property of an interface and a property of a base class. That base class
+///     does not have the interface.
 /// </summary>
 /// <remarks>
 ///     The first call of <see cref="AreTogether" /> makes the index from
-///     declarations only. Most compilations never make it, because an object
-///     with states for two interface properties of one name is not usual.
+///     declarations only. Most compilations never make it. Only an object with
+///     states for an interface property and a second property of that name
+///     asks for it.
 /// </remarks>
 internal sealed class ImplementationIndex(in Compilation compilation)
 {
@@ -22,7 +25,8 @@ internal sealed class ImplementationIndex(in Compilation compilation)
 
     /// <summary>
     ///     True when one property of a type in the compilation implements the two
-    ///     properties. Each is the definition of a property of an interface.
+    ///     properties. It is true also when one of the two is that property and
+    ///     the other is of an interface. Each is a definition.
     /// </summary>
     public bool AreTogether(ISymbol first, ISymbol second) =>
         this.together.Value.TryGetValue(key: first, value: out ImmutableHashSet<ISymbol>? others)
@@ -53,21 +57,37 @@ internal sealed class ImplementationIndex(in Compilation compilation)
             foreach (INamedTypeSymbol type in compilation
                          .GetSymbolsWithName(predicate: names.Contains, filter: SymbolFilter.Type)
                          .OfType<INamedTypeSymbol>()
-                         .Where(static type => type.AllInterfaces.Length > 1))
+                         .Where(static type => !type.AllInterfaces.IsEmpty))
             {
                 // An override is the same location as the property that it overrides.
-                foreach (IGrouping<ISymbol, ISymbol> one in type.AllInterfaces
-                             .SelectMany(static contract => contract.GetMembers().OfType<IPropertySymbol>())
-                             .Select(contract =>
-                                 (Contract: contract,
-                                     Implementation: type.FindImplementationForInterfaceMember(contract)))
-                             .Where(static pair => pair.Implementation != null)
-                             .GroupBy(
-                                 keySelector: static pair => Construction.RootOf(pair.Implementation!),
-                                 elementSelector: static pair => (ISymbol)pair.Contract.OriginalDefinition,
-                                 comparer: SymbolEqualityComparer.Default))
+                ImmutableArray<(ISymbol Contract, ISymbol Root)> implemented =
+                    type.AllInterfaces
+                        .SelectMany(static contract => contract.GetMembers().OfType<IPropertySymbol>())
+                        .Select(contract =>
+                            (Contract: contract, Implementation: type.FindImplementationForInterfaceMember(contract)))
+                        .Where(static pair => pair.Implementation != null)
+                        .Select(static pair =>
+                            ((ISymbol)pair.Contract.OriginalDefinition, Construction.RootOf(pair.Implementation!)))
+                        .ToImmutableArray();
+
+                foreach (IGrouping<ISymbol, ISymbol> one in implemented.GroupBy(
+                             keySelector: static pair => pair.Root,
+                             elementSelector: static pair => pair.Contract,
+                             comparer: SymbolEqualityComparer.Default))
                 {
                     Pair(found: found, contracts: one);
+                }
+
+                // A derived class can give a property of a base class to an interface that the base
+                // class does not have. The aliases of Construction pair the two only when the base class
+                // has the interface.
+                foreach ((ISymbol contract, ISymbol root) in implemented.Where(static pair =>
+                             !pair.Root.ContainingType.AllInterfaces.Any(one =>
+                                 SymbolEqualityComparer.Default.Equals(
+                                     x: one.OriginalDefinition,
+                                     y: pair.Contract.ContainingType))))
+                {
+                    Pair(found: found, contracts: [contract, root]);
                 }
             }
         }
@@ -83,7 +103,7 @@ internal sealed class ImplementationIndex(in Compilation compilation)
         return index.ToImmutable();
     }
 
-    private static void Pair(Dictionary<ISymbol, HashSet<ISymbol>> found, IGrouping<ISymbol, ISymbol> contracts)
+    private static void Pair(Dictionary<ISymbol, HashSet<ISymbol>> found, IEnumerable<ISymbol> contracts)
     {
         foreach (ISymbol contract in contracts)
         {
