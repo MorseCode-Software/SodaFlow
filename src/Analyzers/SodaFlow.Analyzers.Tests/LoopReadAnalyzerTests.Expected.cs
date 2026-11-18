@@ -2828,6 +2828,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag92F6StructFieldInAStructField"] = ["SF1001"],
             ["Ag92F6StaticStructFieldOfAType"] = ["SF1001"],
             ["Ag92F6ClassFieldOfALocal"] = ["SF1001"],
-            ["Ag92F6StaticStructFieldWrittenInAMethod"] = ["SF1001"]
+            ["Ag92F6StaticStructFieldWrittenInAMethod"] = ["SF1001"],
+            ["Ag92F7ElementConvertedIntoTwoLocals"] = ["SF1001"],
+            ["Ag92F7LocalConvertedIntoTwoLocals"] = ["SF1001"],
+            ["Ag92F7LocalConvertedInAnAssignment"] = ["SF1001"],
+            ["Ag92F7LocalConvertedByACast"] = ["SF1001"],
+            ["Ag92F7LocalConvertedForTwoArguments"] = ["SF1005"],
+            ["Ag92F7LocalConvertedIntoTwoElements"] = ["SF1001"],
+            ["Ag92F7LocalInParenthesesConverted"] = ["SF1001"],
+            ["Ag92F7ElementConvertedOnce"] = ["SF1001"]
         };
 }

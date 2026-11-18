@@ -118,7 +118,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // The compiler adds no conversion to the owner of a member, to a member name, to an assignment
     // target, or to a type name. This list is only for speed. A place that it does not have gets a
     // question with no result.
-    private static bool NeverConverts(SyntaxNode expression) =>
+    internal static bool NeverConverts(SyntaxNode expression) =>
         expression.Parent switch
         {
             MemberAccessExpressionSyntax

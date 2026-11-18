@@ -19299,6 +19299,46 @@ public static class Shapes
     public static Cell<int> Ag92F6StaticStructFieldWrittenInAMethod() =>
         Cell.Loop<int>().WithoutCaptures(l => { new Ag92StaticWriter().Write(l.Map(v => v)); return S.Hold(Ag92StaticOfAMethod.Share!.Sample()); });
 
+    // S4347. A conversion of the code makes a new object from an element. Two locals get the element, and the block writes a plain cell through the first one.
+    public static Cell<int> Ag92F7ElementConvertedIntoTwoLocals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Source[] a = [new Ag92Source { Seed = l.Map(v => v) }]; SettableSlot x = a[0]; SettableSlot y = a[0]; x.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S4348. The same with a local in place of the element.
+    public static Cell<int> Ag92F7LocalConvertedIntoTwoLocals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Source src = new() { Seed = l.Map(v => v) }; SettableSlot x = src; SettableSlot y = src; x.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S4349. The same with an assignment to the first local.
+    public static Cell<int> Ag92F7LocalConvertedInAnAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Source src = new() { Seed = l.Map(v => v) }; SettableSlot x = new(); x = src; SettableSlot y = src; x.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S4350. The same with a cast.
+    public static Cell<int> Ag92F7LocalConvertedByACast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Source src = new() { Seed = l.Map(v => v) }; SettableSlot x = (SettableSlot)src; SettableSlot y = (SettableSlot)src; x.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S4351. A method gets the same value converted for each of two parameters, writes a plain cell through the first, and samples through the second.
+    public static Cell<int> Ag92F7LocalConvertedForTwoArguments() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Source src = new() { Seed = l.Map(v => v) }; int got = Ag92WriteFirstReadSecond(src, src); return S.Hold(got); });
+
+    // S4352. Two elements of a collection expression are the same value converted.
+    public static Cell<int> Ag92F7LocalConvertedIntoTwoElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Source src = new() { Seed = l.Map(v => v) }; SettableSlot[] both = [src, src]; both[0].Share = Plain; return S.Hold(both[1].Share!.Sample()); });
+
+    // S4353. A conversion gives the one object that its source holds. Two locals get it, and the block writes a plain cell through the first one. A control.
+    public static Cell<int> Ag92F7ConversionGivesTheSameObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Holding src = new() { Slot = new SettableSlot { Share = l.Map(v => v) } }; SettableSlot x = src; SettableSlot y = src; x.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S4354. A conversion makes a new object with a plain cell from a source with a pending cell. A control.
+    public static Cell<int> Ag92F7ConversionDropsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Plainly src = new() { Seed = l.Map(v => v) }; SettableSlot x = src; return S.Hold(x.Share!.Sample()); });
+
+    // S4355. The same as two locals of a local, with the source in parentheses.
+    public static Cell<int> Ag92F7LocalInParenthesesConverted() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Source src = new() { Seed = l.Map(v => v) }; SettableSlot x = (src); SettableSlot y = (src); x.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S4356. An element of an array of a type with an indexer of the code. A conversion of the code makes a new object from the element, and the block samples through it.
+    public static Cell<int> Ag92F7ElementConvertedOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Source[] a = [new Ag92Source { Seed = l.Map(v => v) }]; SettableSlot x = a[0]; return S.Hold(x.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -26431,6 +26471,34 @@ public static class Shapes
             Ag92StaticOfAMethod = new SlotValue { Share = Plain };
             Ag92StaticOfAMethod.Share = pending;
         }
+    }
+
+    private static int Ag92WriteFirstReadSecond(SettableSlot x, SettableSlot y)
+    {
+        x.Share = Plain;
+
+        return y.Share!.Sample();
+    }
+
+    public sealed class Ag92Source
+    {
+        public Cell<int>? Seed { get; set; }
+
+        public static implicit operator SettableSlot(Ag92Source source) => new() { Share = source.Seed };
+    }
+
+    public sealed class Ag92Holding
+    {
+        public SettableSlot? Slot { get; set; }
+
+        public static implicit operator SettableSlot(Ag92Holding source) => source.Slot!;
+    }
+
+    public sealed class Ag92Plainly
+    {
+        public Cell<int>? Seed { get; set; }
+
+        public static implicit operator SettableSlot(Ag92Plainly source) => new() { Share = Plain };
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

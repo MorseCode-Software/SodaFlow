@@ -710,6 +710,19 @@ internal sealed partial class LoopStateEvaluator
             ? this.FollowOperator(call: expression, operation: conversion, operands: [expression])
             : null;
 
+    // The value that the code holds where the compiler converts an expression with an operator of
+    // this compilation. That is the result of the operator, and not the value that it gets. The
+    // walk asks at the places where SinkWalker asks. Thus, the two get the one result of
+    // FollowImplied for the call.
+    private LoopState? ConvertedBy(ExpressionSyntax expression, LoopState value) =>
+        expression.Parent is not ParenthesizedExpressionSyntax
+        && !SinkWalker.NeverConverts(expression)
+        && this.region.ConversionOf(expression) is { } conversion
+        && this.FollowImplied(call: expression, member: conversion, owner: null, arguments: [(expression, value)])
+            is { } converted
+            ? converted.State
+            : null;
+
     /// <summary>
     ///     The call of <c>operator true</c> or <c>operator false</c> that a
     ///     condition makes on its value. No node names that operator, thus the
@@ -900,7 +913,10 @@ internal sealed partial class LoopStateEvaluator
             this.region.SymbolOf(access) switch
             {
                 IPropertySymbol { GetMethod: { } getter } => getter,
-                IMethodSymbol { DeclaringSyntaxReferences.IsEmpty: false } slice => slice,
+                // The symbol of an element that the code converts can be the conversion, which is not
+                // a Slice.
+                IMethodSymbol { DeclaringSyntaxReferences.IsEmpty: false, MethodKind: MethodKind.Ordinary } slice =>
+                    slice,
                 _ => null
             };
 

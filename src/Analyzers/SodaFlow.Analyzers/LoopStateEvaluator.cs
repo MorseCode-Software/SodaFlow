@@ -1203,6 +1203,11 @@ internal sealed partial class LoopStateEvaluator
             this.beforeTheStore[expression] = own;
         }
 
+        if (this.region.Symbols.DeclaresConversions && this.ConvertedBy(expression: expression, value: state) is { } to)
+        {
+            state = to;
+        }
+
         this.memo[expression] = state;
 
         return state;
