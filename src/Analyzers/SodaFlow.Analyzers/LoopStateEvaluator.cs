@@ -2152,10 +2152,14 @@ internal sealed partial class LoopStateEvaluator
                 }
 
                 // A name with ref has the value that its location has now. A second name of a
-                // value with no object has the state of the first name.
-                if ((this.TheLocationOf(expression) ?? this.TheFirstNameOf(expression)) is { } location)
+                // value with no object has the state of the first name. Each record holds from the
+                // code that made it up to this use.
+                if (!ReferenceEquals(objA: expression, objB: this.readForAUse)
+                    && (this.TheLocationOf(expression) is { } itsLocation
+                        ? this.TheFirstNameOf(written: itsLocation, at: expression) ?? itsLocation
+                        : this.TheFirstNameOf(expression)) is { } location)
                 {
-                    return this.EvalAgain(location);
+                    return this.EvalAgainForAUse(location);
                 }
 
                 // A parameter with ref, out, or in has the value that its location has now in the

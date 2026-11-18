@@ -11,6 +11,9 @@ namespace SodaFlow.Analyzers;
 // The part of the evaluator for a write to a member of an object, and for what a write through a name replaces.
 internal sealed partial class LoopStateEvaluator
 {
+    // The location or the first name that EvalAgainForAUse reads now.
+    private ExpressionSyntax? readForAUse;
+
     /// <summary>
     ///     Records the state of a member of the object that the code is in, at
     ///     its initializer or assignment.
@@ -179,6 +182,19 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return found;
+    }
+
+    // Reads a location or a first name again for a use. TheFirstNameOf followed each record that
+    // holds at that use. A record that it did not follow can hold at the location itself, because
+    // the location comes before the use. Thus, the read of the location follows no record.
+    private LoopState EvalAgainForAUse(ExpressionSyntax location)
+    {
+        ExpressionSyntax? outer = this.readForAUse;
+        this.readForAUse = location;
+        LoopState state = this.EvalAgain(location);
+        this.readForAUse = outer;
+
+        return state;
     }
 
     // Where the record of a first name starts in the code of this evaluator, and the functions

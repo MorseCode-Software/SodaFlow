@@ -19835,6 +19835,54 @@ public static class Shapes
     public static Cell<int> Ab203TwoLocalsAndAReadOfTheClassWithBoth() =>
         Cell.Loop<int>().WithoutCaptures(l => { IAb203Second o = Ab203OnlySecondAt(8); o.Share = Plain; IAb203First t = Ab203TwoAt(14); t.Share = l.Map(v => v); return S.Hold(((IAb203Second)t).Share!.Sample()); });
 
+    // S4481. A ref local names c, and an assignment through it gives c the object of d, which has a plain cell. A call then gives d a different object through out, and a pending cell goes into that object. The read through the ref local gets the plain cell.
+    public static Cell<int> Ab194ReadThroughARefLocalAfterItsFirstNameGetsAValueByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[0]; SettableSlot d = Ab194Slots[1]; d.Share = Plain; ref SettableSlot r = ref c; r = d; Ab194Reset(out d); d.Share = l.Map(v => v); return S.Hold(r.Share!.Sample()); });
+
+    // S4482. A ref local names c, and c gets the object of d, which has a pending cell. A call then gives d a different object through out, and a plain cell goes in through the ref local. The read through the ref local gets the plain cell.
+    public static Cell<int> Ab194PlainCellReadThroughARefLocalAfterItsFirstNameGetsAValueByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[2]; SettableSlot d = Ab194Slots[3]; ref SettableSlot r = ref c; r = d; d.Share = l.Map(v => v); Ab194Reset(out d); r.Share = Plain; return S.Hold(r.Share!.Sample()); });
+
+    // S4483. A ref local names c, and c gets the object of d, which then gets a pending cell. A call then gives d a different object through out, and that object gets a plain cell. The read through the ref local gets the pending cell.
+    public static Cell<int> Ab194PendingReadThroughARefLocalAfterItsFirstNameGetsAValueByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[4]; SettableSlot d = Ab194Slots[5]; ref SettableSlot r = ref c; r = d; d.Share = l.Map(v => v); Ab194Reset(out d); d.Share = Plain; return S.Hold(r.Share!.Sample()); });
+
+    // S4484. A ref local names c, and c gets the object of d, which then gets a pending cell. A call then gives c a different object through out, with a plain cell. The read through the ref local gets the plain cell.
+    public static Cell<int> Ab194ReadThroughARefLocalAfterItsLocationGetsAValueByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[6]; SettableSlot d = Ab194Slots[7]; ref SettableSlot r = ref c; r = d; d.Share = l.Map(v => v); Ab194Reset(out c); c.Share = Plain; return S.Hold(r.Share!.Sample()); });
+
+    // S4485. A ref local names c, and c gets the object of d, which then gets a plain cell. A call then gives c a different object through out, with a pending cell. The read through the ref local gets the pending cell.
+    public static Cell<int> Ab194PendingReadThroughARefLocalAfterItsLocationGetsAValueByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[8]; SettableSlot d = Ab194Slots[9]; ref SettableSlot r = ref c; r = d; d.Share = Plain; Ab194Reset(out c); c.Share = l.Map(v => v); return S.Hold(r.Share!.Sample()); });
+
+    // S4486. A ref local names c, and c gets the object of d, which got the object of e before. A call then gives e a different object with a pending cell, and d gets a plain cell. The read through the ref local gets the plain cell.
+    public static Cell<int> Ab194ReadThroughARefLocalAfterTheFirstNameOfItsFirstNameGetsAValueByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[10]; SettableSlot d = Ab194Slots[11]; SettableSlot e = Ab194Slots[12]; d = e; ref SettableSlot r = ref c; r = d; Ab194Reset(out e); e.Share = l.Map(v => v); d.Share = Plain; return S.Hold(r.Share!.Sample()); });
+
+    // S4487. A local q gets the object of d, which got the object of e before. A call then gives e a different object with a pending cell, and d gets a plain cell. The read through q gets the plain cell.
+    public static Cell<int> Ab194ReadThroughASecondNameAfterTheFirstNameOfItsFirstNameGetsAValueByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[13]; SettableSlot d = Ab194Slots[14]; SettableSlot e = Ab194Slots[15]; d = e; SettableSlot q = c; q = d; Ab194Reset(out e); e.Share = l.Map(v => v); d.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S4488. A ref local names c, and c gets the object of d, which got the object of e before. A call then gives e a different object with a pending cell, and a plain cell goes in through the ref local. The read through the ref local gets the plain cell.
+    public static Cell<int> Ab194PlainCellReadThroughARefLocalAfterTheFirstNameOfItsFirstNameGetsAValueByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[16]; SettableSlot d = Ab194Slots[17]; SettableSlot e = Ab194Slots[18]; d = e; ref SettableSlot r = ref c; r = d; Ab194Reset(out e); e.Share = l.Map(v => v); r.Share = Plain; return S.Hold(r.Share!.Sample()); });
+
+    // S4489. A ref local names c, and c gets the object of d, which then gets a pending cell. The read through the ref local gets the pending cell. A control.
+    public static Cell<int> Ab194PendingReadThroughARefLocalWhoseLocationGotAnotherLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[19]; SettableSlot d = Ab194Slots[20]; ref SettableSlot r = ref c; r = d; d.Share = l.Map(v => v); return S.Hold(r.Share!.Sample()); });
+
+    // S4490. A ref local names c, and c then gets the object of d directly, which then gets a pending cell. The read through the ref local gets the pending cell. A control.
+    public static Cell<int> Ab194PendingReadThroughARefLocalAfterItsLocationGetsAnotherLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[21]; SettableSlot d = Ab194Slots[22]; ref SettableSlot r = ref c; c = d; d.Share = l.Map(v => v); return S.Hold(r.Share!.Sample()); });
+
+    // S4491. A ref local names c, and c gets the object of d, which got the object of e before. A pending cell goes into e, and the read through the ref local gets it. A control.
+    public static Cell<int> Ab194PendingReadThroughARefLocalReachesTheFirstNameOfTheFirstName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[23]; SettableSlot d = Ab194Slots[24]; SettableSlot e = Ab194Slots[25]; d = e; ref SettableSlot r = ref c; r = d; e.Share = l.Map(v => v); return S.Hold(r.Share!.Sample()); });
+
+    // S4492. A local q gets the object of d, which got the object of e before. A pending cell goes into e, and the read through q gets it. A control.
+    public static Cell<int> Ab194PendingReadThroughASecondNameReachesTheFirstNameOfTheFirstName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab194Slots[26]; SettableSlot d = Ab194Slots[27]; SettableSlot e = Ab194Slots[28]; d = e; SettableSlot q = c; q = d; e.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -27620,6 +27668,14 @@ public static class Shapes
     private static IAb203SecondOf<int> Ab203GenericTwoAsSecondAt(int at) => Ab203GenericTwos[at];
 
     private static IAb203SecondOf<int> Ab203GenericOnlySecondAt(int at) => Ab203GenericOnlySeconds[at];
+
+    private static readonly SettableSlot[] Ab194Slots =
+    [
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(),
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new()
+    ];
+
+    private static void Ab194Reset(out SettableSlot slot) => slot = Ab194Slots[29];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

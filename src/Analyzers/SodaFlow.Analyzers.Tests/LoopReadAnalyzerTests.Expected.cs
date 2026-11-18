@@ -2915,6 +2915,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab203AReadThroughAGenericBaseClass"] = ["SF1001"],
             ["Ab203OneObjectWithTwoGenericInterfaces"] = ["SF1001"],
             ["Ab203APendingCellThroughThePropertyOfTheClassAndAReadThroughTheInterface"] = ["SF1001"],
-            ["Ab203TwoLocalsAndAReadOfTheClassWithBoth"] = ["SF1001"]
+            ["Ab203TwoLocalsAndAReadOfTheClassWithBoth"] = ["SF1001"],
+            ["Ab194PendingReadThroughARefLocalAfterItsFirstNameGetsAValueByOut"] = ["SF1001"],
+            ["Ab194PendingReadThroughARefLocalAfterItsLocationGetsAValueByOut"] = ["SF1001"],
+            ["Ab194PendingReadThroughARefLocalWhoseLocationGotAnotherLocal"] = ["SF1001"],
+            ["Ab194PendingReadThroughARefLocalAfterItsLocationGetsAnotherLocal"] = ["SF1001"],
+            ["Ab194PendingReadThroughARefLocalReachesTheFirstNameOfTheFirstName"] = ["SF1001"],
+            ["Ab194PendingReadThroughASecondNameReachesTheFirstNameOfTheFirstName"] = ["SF1001"]
         };
 }
