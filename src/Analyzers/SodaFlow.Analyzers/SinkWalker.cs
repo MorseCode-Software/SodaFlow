@@ -4400,11 +4400,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     <c>AddRange</c>. A statement of the block that runs before the use
     ///     replaces the values that it writes over. An assignment replaces each
     ///     value, and an assignment to an element at a constant index replaces
-    ///     the value of that element. Each other value stays. The check does
-    ///     not see a value from a call that fills the array. A parameter starts
-    ///     with the arguments that the call of its code gives it. The evaluator
-    ///     of the caller reads them. Then, the body of the code is the block of
-    ///     the parameter.
+    ///     the value of that element. Each other value stays. A call that gives
+    ///     the name to a method of the code adds the values that
+    ///     <see cref="PutsOf" /> finds. A parameter starts with the arguments
+    ///     that the call of its code gives it. The evaluator of the caller
+    ///     reads them. Then, the body of the code is the block of the
+    ///     parameter.
     /// </remarks>
     /// <param name="use">The name whose value the check reads.</param>
     /// <param name="seen">The names that the check read before.</param>
@@ -4520,6 +4521,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     others.AddRange(added.Select(argument => (argument.Expression, at)));
 
                     break;
+                // A method of the code that gets the name can put the value of a parameter into an
+                // element. The call is also a use that can move the elements.
+                case InvocationExpressionSyntax call
+                    when GivesTheName(call) && this.region.SymbolOf(call) is IMethodSymbol method:
+                    others.AddRange(
+                        this.PutsOf(call: call, method: method, isTheName: IsTheName).Select(value => (value, at)));
+
+                    break;
                 case IdentifierNameSyntax other when !targets.Contains(other) && IsTheName(other):
                     moved = true;
 
@@ -4550,6 +4559,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
+        // A call can give the name as an argument, or as the receiver of an extension method.
+        bool GivesTheName(InvocationExpressionSyntax call) =>
+            call.ArgumentList.Arguments.Any(argument => IsTheName(argument.Expression))
+            || (call.Expression is MemberAccessExpressionSyntax { Expression: var receiver } && IsTheName(receiver));
+
         // A plain assignment in a statement of the block runs before the use each time, if it
         // comes first in the code.
         bool RunsBeforeTheUse(SyntaxNode assignment) =>
@@ -4563,6 +4577,46 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             LoopStateEvaluator.Unwrapped(written) is IdentifierNameSyntax other
             && other.Identifier.ValueText == name.Name
             && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(other), y: name);
+    }
+
+    // The values that a method of the code puts into an element of a parameter that gets the name
+    // at the call. A value counts only if it is a parameter of the method. Then, it is each
+    // argument that the call gives that parameter. The check does not follow a call in the method.
+    private IEnumerable<ExpressionSyntax> PutsOf(
+        SyntaxNode call,
+        IMethodSymbol method,
+        Func<ExpressionSyntax, bool> isTheName)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        if (definition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not { } code)
+        {
+            return [];
+        }
+
+        IParameterSymbol[] holders =
+        [
+            .. definition.Parameters.Where(parameter =>
+                LoopStateEvaluator.ArgumentsFor(method: method, site: call, parameter: parameter).Any(isTheName))
+        ];
+
+        return code.DescendantNodes()
+            .OfType<AssignmentExpressionSyntax>()
+            .Where(assignment =>
+                LoopStateEvaluator.Unwrapped(assignment.Left) is ElementAccessExpressionSyntax element
+                && IsAHolder(element.Expression))
+            .SelectMany(assignment =>
+                LoopStateEvaluator.Unwrapped(assignment.Right) is IdentifierNameSyntax value
+                && this.region.SymbolOf(value) is IParameterSymbol parameter
+                && SymbolEqualityComparer.Default.Equals(x: parameter.ContainingSymbol, y: definition)
+                    ? LoopStateEvaluator.ArgumentsFor(method: method, site: call, parameter: parameter)
+                    : []);
+
+        bool IsAHolder(ExpressionSyntax target) =>
+            LoopStateEvaluator.Unwrapped(target) is IdentifierNameSyntax name
+            && holders.Any(holder => holder.Name == name.Identifier.ValueText)
+            && this.region.SymbolOf(name) is IParameterSymbol found
+            && holders.Contains(value: found, comparer: SymbolEqualityComparer.Default);
     }
 
     // The code that can put into a local or a parameter, with the values that the name starts

@@ -430,8 +430,10 @@ Some reads that throw it does not see:
   there. The same holds for a local of type `object`. A `ToArray` or a `ToList` of such a local, or
   of a local `List<T>`, counts as the local, and an `Add`, an `Insert`, or an `AddRange` of that
   list counts as a put. A parameter that gets such an array counts as what each call of its method
-  gives it, and the analyzer then reads what that method puts into it. A value that reaches the
-  array another way, such as through a method of yours that puts it there, gets no report at all.
+  gives it, and the analyzer then reads what that method puts into it. A method of yours that gets
+  such an array, and sets one of its elements to one of its own parameters, counts as a put of what
+  the call gives that parameter. A value that reaches the array another way, such as a value that
+  the method makes itself or that a call inside it puts there, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
 - A member that the platform calls from a method that is not in its table of common methods.

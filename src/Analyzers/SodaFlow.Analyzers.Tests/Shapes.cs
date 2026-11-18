@@ -19559,6 +19559,42 @@ public static class Shapes
     public static Cell<int> Ag91LocalFunctionParameterGivenToReflection() =>
         Cell.Loop<int>().WithoutCaptures(l => { object? kept = Ag91Inner.KeepThroughALocalFunction([l.Map(v => v)], [Ab185Fills.Echo(l.Map(v => v))]); return S.Hold(0); });
 
+    // S4412. A method of the code puts a pending cell into the array of objects that a local holds. Reflection runs a method that samples it.
+    public static Cell<int> Ag91ArrayFilledByAMethodOfTheCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = new object[1]; Ag91Puts.PutInto(given, l.Map(v => v)); object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4413. A method of the code with a parameter of the type object puts a pending cell into the array of objects that a local holds. Reflection runs a method that samples it.
+    public static Cell<int> Ag91ArrayFilledByAMethodWithAnObjectParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = new object[1]; Ag91Puts.PutObject(given, l.Map(v => v)); object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4414. An extension method of the code puts a pending cell into the array of objects that is its receiver. Reflection runs a method that samples it.
+    public static Cell<int> Ag91ArrayFilledByAnExtensionMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = new object[1]; given.PutOn(l.Map(v => v)); object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4415. A method of the code gets its arguments by name, in an order that is not that of its parameters, and puts a pending cell into the array of objects. Reflection runs a method that samples it.
+    public static Cell<int> Ag91ArrayFilledByAMethodWithNamedArguments() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = new object[1]; Ag91Puts.PutObject(value: l.Map(v => v), array: given); object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4416. A method of the code puts a plain cell into the array of objects, which held a pending cell that a method of the code gives back as an object. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ag91PlainCellPutByAMethodOverAnEcho() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; Ag91Puts.PutInto(given, Plain); object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4417. A method of the code gets two arrays of objects and puts a pending cell into the second. The first holds a pending cell that a method of the code gives back as an object, and reflection runs a method that does not sample with it. A control.
+    public static Cell<int> Ag91MethodPutsIntoTheOtherArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; object[] other = new object[1]; Ag91Puts.PutIntoSecond(given, other, l.Map(v => v)); object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(other.Length); });
+
+    // S4418. A method of the code puts a plain cell of its own into the array of objects, which held a pending cell that a method of the code gives back as an object. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ag91MethodPutsACellOfItsOwn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; Ag91Puts.PutOwn(given); object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4419. A method of the code gets a pending cell that it does not put into the array of objects. A lambda in the method puts the value of its own second parameter. Reflection runs a method that does not sample. A control.
+    public static Cell<int> Ag91MethodPutsTheParameterOfALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; Ag91Puts.PutThroughALambda(given, l.Map(v => v)); object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
+    // S4420. A method of the code puts its pending cell into the array of a lambda parameter that has the name of its own array parameter. The array of the block holds a pending cell that a method of the code gives back as an object, and reflection runs a method that does not sample. A control.
+    public static Cell<int> Ag91MethodPutsIntoALambdaParameterOfTheSameName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; Ag91Shadows.PutIntoAShadow(given, l.Map(v => v)); object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -26832,6 +26868,38 @@ public static class Shapes
         }
     }
 
+    public static class Ag91Puts
+    {
+        private static readonly Cell<int> Own = Cell.Constant(7);
+
+        public static void PutInto(object[] array, Cell<int> cell) => array[0] = cell;
+
+        public static void PutObject(object[] array, object value) => array[0] = value;
+
+        public static void PutIntoSecond(object[] first, object[] second, object value)
+        {
+            second[0] = value;
+            second[first.Length - 1] = value;
+        }
+
+        public static void PutOwn(object[] array) => array[0] = Own;
+
+        public static void PutThroughALambda(object[] array, Cell<int> unused)
+        {
+            Action<int, object> put = (at, value) => array[at] = value;
+            put(0, Ab185Fills.Echo(unused));
+        }
+    }
+
+    public static class Ag91Shadows
+    {
+        public static void PutIntoAShadow(object[] array, Cell<int> cell)
+        {
+            Action<object[]> put = array => array[0] = cell;
+            put(new object[array.Length]);
+        }
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -26840,6 +26908,9 @@ public static class Shapes
 
 file static class Helpers
 {
+    // An extension method of this code that puts a value into the first element of its receiver.
+    public static void PutOn(this object[] array, object value) => array[0] = value;
+
     // An extension method of this code that gives its receiver to reflection.
     public static object? RunOn(this object[] given) =>
         typeof(Shapes.DvLinksReader).GetMethod(nameof(Shapes.DvLinksReader.Read))!.Invoke(null, given);

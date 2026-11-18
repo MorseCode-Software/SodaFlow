@@ -2867,6 +2867,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag91ArrayGivenToAnExtensionMethod"] = ["SF1003"],
             ["Ag91ArrayGivenToAConstructor"] = ["SF1003"],
             ["Ag91CellGivenToAParamsArray"] = ["SF1003"],
-            ["Ag91ArrayGivenDownARecursiveMethod"] = ["SF1003"]
+            ["Ag91ArrayGivenDownARecursiveMethod"] = ["SF1003"],
+            ["Ag91ArrayFilledByAMethodOfTheCode"] = ["SF1003"],
+            ["Ag91ArrayFilledByAMethodWithAnObjectParameter"] = ["SF1003"],
+            ["Ag91ArrayFilledByAnExtensionMethod"] = ["SF1003"],
+            ["Ag91ArrayFilledByAMethodWithNamedArguments"] = ["SF1003"]
         };
 }
