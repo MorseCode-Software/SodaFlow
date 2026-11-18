@@ -1,16 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CodeActions;
-using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Text;
 using SodaFlow.Analyzers.CodeFixes;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
@@ -20,8 +14,8 @@ namespace SodaFlow.Analyzers.Tests;
 
 /// <summary>
 ///     Applies each fix of <see cref="DroppedListenerCodeFixProvider" /> to a
-///     sample, and checks the text that it gives. Each fixed sample must compile
-///     with no new warning, and SF2001 must not report it.
+///     sample through <see cref="CodeFixHarness" />, and checks the text that it
+///     gives and which fixes the provider offers.
 /// </summary>
 internal sealed class ListenerCodeFixTests
 {
@@ -39,6 +33,24 @@ internal sealed class ListenerCodeFixTests
         await Assert.That(new DroppedListenerCodeFixProvider().FixableDiagnosticIds)
             .IsEquivalentTo([Diagnostics.DroppedListener.Id]);
     }
+
+    [Test]
+    public async Task AnEditorShowsTheTitleOfEachFix() =>
+        await Assert.That(
+                (await Offers(
+                    """
+                    using SodaFlow;
+
+                    public sealed class Sample
+                    {
+                        public void Start(StreamSink<int> clicks)
+                        {
+                            clicks.Listen(static _ => { });
+                        }
+                    }
+                    """))
+                .Select(static offer => offer.Title))
+            .IsEquivalentTo(["Keep the listener in a field", "Hold the listener to the end of the block with 'using'"]);
 
     [Test]
     public async Task AStatementGetsAField()
@@ -972,148 +984,36 @@ internal sealed class ListenerCodeFixTests
     public async Task EachFixOfTheShapesCompilesAndClearsItsReport()
     {
         string source = await File.ReadAllTextAsync(Path.Combine(path1: AppContext.BaseDirectory, path2: "ListenerShapes.cs"));
-        Document document = Sample(source: source, version: LanguageVersion.Preview);
-        IReadOnlyList<Diagnostic> reports = await Reports(document);
-        int fixes = 0;
-        List<string> failures = [];
 
-        foreach (Diagnostic report in reports)
-        {
-            foreach (CodeAction action in await Actions(document: document, diagnostic: report))
-            {
-                try
-                {
-                    await Apply(document: document, action: action, reportsBefore: reports.Count);
-                }
-                catch (InvalidOperationException failure)
-                {
-                    failures.Add($"line {report.Location.GetLineSpan().StartLinePosition.Line + 1}: {failure.Message.Split('\n')[0]}");
-                }
-
-                fixes++;
-            }
-        }
-
-        await Assert.That(failures).IsEmpty();
-
-        await Assert.That(fixes).IsGreaterThan(0);
+        await Assert.That(await Offers(source)).IsNotEmpty();
     }
 
+    // The fixes that the provider offers for each report on the sample. The harness applies and
+    // checks each one.
+    private static Task<IReadOnlyList<CodeFixHarness.Offer>> Offers(
+        string source,
+        LanguageVersion languageVersion = LanguageVersion.Preview) =>
+        CodeFixHarness.Offers(
+            analyzer: new ListenerAnalyzer(),
+            provider: new DroppedListenerCodeFixProvider(),
+            source: source,
+            libraries: ShapeLibraries,
+            languageVersion: languageVersion);
+
+    // The keys of the fixes for one report.
     private static async Task<IReadOnlyList<string>> Offered(
         string source,
         LanguageVersion version = LanguageVersion.Preview,
-        int at = 0)
-    {
-        Document document = Sample(source: source, version: version);
-        IReadOnlyList<Diagnostic> reports = await Reports(document);
+        int at = 0) =>
+        [
+            .. (await Offers(source: source, languageVersion: version))
+                .Where(offer => offer.Report == at)
+                .Select(static offer => offer.Key ?? string.Empty)
+        ];
 
-        return [.. (await Actions(document: document, diagnostic: reports[at])).Select(static action => action.EquivalenceKey ?? string.Empty)];
-    }
-
-    private static async Task<string> Fixed(string source, string key, int at = 0)
-    {
-        Document document = Sample(source: source, version: LanguageVersion.Preview);
-        IReadOnlyList<Diagnostic> reports = await Reports(document);
-
-        CodeAction action =
-            (await Actions(document: document, diagnostic: reports[at])).FirstOrDefault(action => action.EquivalenceKey == key)
-            ?? throw new InvalidOperationException($"The provider offers no fix {key}.");
-
-        Document changed = await Apply(document: document, action: action, reportsBefore: reports.Count);
-
-        return (await changed.GetTextAsync()).ToString().Replace(oldValue: "\r\n", newValue: "\n");
-    }
-
-    // A document of a workspace, with the references of the harness.
-    private static Document Sample(string source, LanguageVersion version)
-    {
-        CSharpCompilation references =
-            AnalyzerHarness.Compile(source: string.Empty, libraries: ShapeLibraries, assemblyName: "Sample");
-
-        AdhocWorkspace workspace = new();
-
-        Project project =
-            workspace.AddProject(
-                ProjectInfo.Create(
-                    id: ProjectId.CreateNewId(),
-                    version: VersionStamp.Create(),
-                    name: "Sample",
-                    assemblyName: "Sample",
-                    language: LanguageNames.CSharp,
-                    compilationOptions: references.Options.WithNullableContextOptions(
-                        version >= LanguageVersion.CSharp8 ? NullableContextOptions.Enable : NullableContextOptions.Disable),
-                    parseOptions: new CSharpParseOptions(languageVersion: version),
-                    metadataReferences: references.References));
-
-        return workspace.AddDocument(projectId: project.Id, name: "Sample.cs", text: SourceText.From(source));
-    }
-
-    private static async Task<IReadOnlyList<Diagnostic>> Reports(TextDocument document)
-    {
-        Compilation compilation =
-            await document.Project.GetCompilationAsync()
-            ?? throw new InvalidOperationException("The sample has no compilation.");
-
-        Diagnostic[] errors = [.. compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)];
-
-        return errors.Length > 0
-            ? throw new InvalidOperationException($"The sample does not compile: {errors[0]}")
-            : await AnalyzerHarness.Analyze(analyzer: new ListenerAnalyzer(), compilation: compilation);
-    }
-
-    private static async Task<IReadOnlyList<CodeAction>> Actions(Document document, Diagnostic diagnostic)
-    {
-        List<CodeAction> actions = [];
-
-        await new DroppedListenerCodeFixProvider().RegisterCodeFixesAsync(
-            new CodeFixContext(
-                document: document,
-                diagnostic: diagnostic,
-                registerCodeFix: (action, _) => actions.Add(action),
-                cancellationToken: CancellationToken.None));
-
-        return actions;
-    }
-
-    // Applies the fix, and checks the result. It compiles, with no warning that the sample did not
-    // have, and the rule reports one call less.
-    private static async Task<Document> Apply(TextDocument document, CodeAction action, int reportsBefore)
-    {
-        ImmutableArray<CodeActionOperation> operations = await action.GetOperationsAsync(CancellationToken.None);
-
-        Document changed =
-            operations.OfType<ApplyChangesOperation>().Single().ChangedSolution.GetDocument(document.Id)
-            ?? throw new InvalidOperationException("The fix removes the document.");
-
-        Compilation before =
-            await document.Project.GetCompilationAsync()
-            ?? throw new InvalidOperationException("The sample has no compilation.");
-
-        Compilation after =
-            await changed.Project.GetCompilationAsync()
-            ?? throw new InvalidOperationException("The fixed sample has no compilation.");
-
-        string[] warningsBefore = [.. Warnings(before)];
-        string[] added = [.. Warnings(after).Where(warning => !warningsBefore.Contains(warning))];
-
-        Diagnostic[] errors = [.. after.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)];
-
-        if (errors.Length > 0 || added.Length > 0)
-        {
-            throw new InvalidOperationException(
-                $"The fix {action.EquivalenceKey} gives {errors.FirstOrDefault()?.ToString() ?? added[0]}:\n{await changed.GetTextAsync()}");
-        }
-
-        IReadOnlyList<Diagnostic> reportsAfter = await AnalyzerHarness.Analyze(analyzer: new ListenerAnalyzer(), compilation: after);
-
-        return reportsAfter.Count != reportsBefore - 1
-            ? throw new InvalidOperationException(
-                $"The fix {action.EquivalenceKey} leaves {reportsAfter.Count} reports of {reportsBefore}:\n{await changed.GetTextAsync()}")
-            : changed;
-    }
-
-    private static IEnumerable<string> Warnings(Compilation compilation) =>
-        compilation.GetDiagnostics()
-            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Warning)
-            .Select(static diagnostic => diagnostic.Id + " " + diagnostic.GetMessage());
+    // The sample after one fix of one report, with the line ends of the samples.
+    private static async Task<string> Fixed(string source, string key, int at = 0) =>
+        ((await Offers(source)).FirstOrDefault(offer => offer.Report == at && offer.Key == key)
+         ?? throw new InvalidOperationException($"The provider offers no fix {key}."))
+        .Result.Replace(oldValue: "\r\n", newValue: "\n");
 }
