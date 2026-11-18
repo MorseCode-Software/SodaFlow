@@ -156,6 +156,10 @@ AOT, and single-file analyzers on it and fails on a report. The assembly carries
 IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
 net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them.
 
+Added: each assembly in the package carries its PDB, with Source Link to the commit on GitHub. A debugger can step into
+the source with no symbol server, and a stack trace on .NET shows line numbers. The package has a readme, and its
+metadata gives the URL of the repository.
+
 5.0.1
 
 No public API change. Adds the internal path that two new Execute overloads use: the one for a Cell<Maybe<TInput>> in

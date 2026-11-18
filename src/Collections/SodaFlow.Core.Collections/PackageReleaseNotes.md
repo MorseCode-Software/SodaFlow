@@ -246,6 +246,10 @@ gave 11.3 ms and 10.8 ms in the fastest runs. In KeyedCollectionViewBenchmarks, 
 which is no reset, and allocates what it did. Its times in the two runs were up to a third apart. The times of the arm
 with no view were also that far apart. A run of the two builds in turn gave the same times.
 
+Added: each assembly in the package carries its PDB, with Source Link to the commit on GitHub. A debugger can step into
+the source with no symbol server, and a stack trace on .NET shows line numbers. The package has a readme, and its
+metadata gives the URL of the repository.
+
 2.0.0
 
 Adds the fold of a collection, which CollectionFoldUtility.FoldImpl gives to each language surface. A total, a count of

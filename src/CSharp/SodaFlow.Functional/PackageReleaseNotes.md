@@ -86,6 +86,10 @@ reported IL2091 where LazyExtensionMethods makes a Lazy<T>. The class suppresses
 the trimmer of an app reads it too. Each Lazy<T> there gets a value factory, so it never uses the parameterless
 constructor that the annotation of Lazy<T> asks the trimmer to keep.
 
+Added: each assembly in the package carries its PDB, with Source Link to the commit on GitHub. A debugger can step into
+the source with no symbol server, and a stack trace on .NET shows line numbers. The package has a readme, and its
+metadata gives the URL of the repository.
+
 3.0.2
 
 The documentation comments are rewritten in Simplified Technical English, and the ones that the rewrite damaged are
