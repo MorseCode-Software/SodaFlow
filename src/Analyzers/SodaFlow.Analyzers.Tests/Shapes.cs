@@ -20351,6 +20351,58 @@ public static class Shapes
     public static Cell<int> Ag92F2CopyOfTheArrayInALocalOfItsOwnType() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Copied[0]]; Ag92Copy copy = a; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; from.CopyTo(copy); return S.Hold(a[0].Share!.Sample()); });
 
+    // S4610. The array is in a static field also. A method of the code writes a pending cell through the element of the field.
+    public static Cell<int> Ag92F1MethodWritesThroughTheArrayOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ag92Fielded; a[0].Share = Plain; Ag92SetFielded(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4611. The same with a list in the static field.
+    public static Cell<int> Ag92F1MethodWritesThroughTheListOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = Ag92FieldedList; a[0].Share = Plain; Ag92SetFieldedList(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4612. The same with an index in a local.
+    public static Cell<int> Ag92F1MethodWritesThroughTheArrayOfAFieldAtALocalIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int i = 0; SettableSlot[] a = Ag92FieldedAt; a[i].Share = Plain; Ag92SetFieldedAt(l.Map(v => v)); return S.Hold(a[i].Share!.Sample()); });
+
+    // S4613. No element: a local shares the object of a static field, and a method writes a pending cell through the field.
+    public static Cell<int> Ag92X1FieldObjectWrittenByAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ag92One; s.Share = Plain; Ag92SetOne(l.Map(v => v)); return S.Hold(s.Share!.Sample()); });
+
+    // S4614. The array of a static field in a local, written through the field directly.
+    public static Cell<int> Ag92X1WrittenThroughTheFieldDirectly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ag92FieldedDirect; a[0].Share = Plain; Ag92FieldedDirect[0].Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4615. A local gets the element after the method writes through the field. The read goes through that local.
+    public static Cell<int> Ag92F1MethodWritesThenALocalGetsTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ag92FieldedThenLocal; a[0].Share = Plain; Ag92SetFieldedThenLocal(l.Map(v => v)); SettableSlot x = a[0]; return S.Hold(x.Share!.Sample()); });
+
+    // S4616. No element: a local gets an object of a static field from a method. A second method writes the member of a second object.
+    public static Cell<int> Ag92F1LocalOfAnObjectFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = Ag92Pick(); x.Share = Plain; Ag92SetPickedOther(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S4617. The method writes the pending cell before the write of the plain cell.
+    public static Cell<int> Ag92F1MethodWritesBeforeThePlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ag92FieldedBefore; Ag92SetFieldedBefore(l.Map(v => v)); a[0].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4618. The method writes a pending cell into a second member of the element.
+    public static Cell<int> Ag92F1MethodWritesASecondMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Pair[] a = Ag92Pairs; a[0].Share = Plain; Ag92SetSecond(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4619. The method gets the pending cell and writes no member.
+    public static Cell<int> Ag92F1MethodWritesNoMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ag92FieldedQuiet; a[0].Share = Plain; Ag92Keep(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4620. The element is an object that the block made. The method writes the member of a second object.
+    public static Cell<int> Ag92F1MethodWritesAnObjectThatIsNotTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; a[0].Share = Plain; Ag92SetOther(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4621. The same as the array of a field that a method writes through, with an index that the code computes.
+    public static Cell<int> Ag92F1MethodWritesThroughTheArrayOfAFieldAtAComputedIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = 1; SettableSlot[] a = Ag92FieldedComputed; a[n - 1].Share = Plain; Ag92SetFieldedComputed(l.Map(v => v)); return S.Hold(a[n - 1].Share!.Sample()); });
+
+    // S4622. No element: a local gets the first item of a list in a static field. A method writes the member of a second object.
+    public static Cell<int> Ag92F1LocalOfTheFirstItemOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = Ag92Unknowns.First(); x.Share = Plain; Ag92SetUnknownOther(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -28326,6 +28378,71 @@ public static class Shapes
 
         public static implicit operator Span<SettableSlot>(Ag92Copy copy) => copy.items;
     }
+
+    private static readonly SettableSlot[] Ag92Fielded = [new()];
+
+    private static void Ag92SetFielded(Cell<int> share) => Ag92Fielded[0].Share = share;
+
+    private static readonly List<SettableSlot> Ag92FieldedList = [new()];
+
+    private static void Ag92SetFieldedList(Cell<int> share) => Ag92FieldedList[0].Share = share;
+
+    private static readonly SettableSlot[] Ag92FieldedAt = [new()];
+
+    private static void Ag92SetFieldedAt(Cell<int> share) => Ag92FieldedAt[0].Share = share;
+
+    private static readonly SettableSlot Ag92One = new();
+
+    private static void Ag92SetOne(Cell<int> share) => Ag92One.Share = share;
+
+    private static readonly SettableSlot[] Ag92FieldedDirect = [new()];
+
+    private static readonly SettableSlot[] Ag92FieldedBefore = [new()];
+
+    private static void Ag92SetFieldedBefore(Cell<int> share) => Ag92FieldedBefore[0].Share = share;
+
+    private static readonly Ag92Pair[] Ag92Pairs = [new()];
+
+    private static void Ag92SetSecond(Cell<int> second) => Ag92Pairs[0].Second = second;
+
+    private static readonly SettableSlot[] Ag92FieldedQuiet = [new()];
+
+    private static readonly List<Cell<int>> Ag92KeptF1 = [];
+
+    private static void Ag92Keep(Cell<int> share) => Ag92KeptF1.Add(share);
+
+    private static readonly SettableSlot Ag92Other = new();
+
+    private static void Ag92SetOther(Cell<int> share) => Ag92Other.Share = share;
+
+    private static readonly SettableSlot[] Ag92FieldedThenLocal = [new()];
+
+    private static void Ag92SetFieldedThenLocal(Cell<int> share) => Ag92FieldedThenLocal[0].Share = share;
+
+    private static readonly SettableSlot Ag92Picked = new();
+
+    private static readonly SettableSlot Ag92PickedOther = new();
+
+    private static SettableSlot Ag92Pick() => Ag92Picked;
+
+    private static void Ag92SetPickedOther(Cell<int> share) => Ag92PickedOther.Share = share;
+
+    public sealed class Ag92Pair
+    {
+        public Cell<int>? Share { get; set; }
+
+        public Cell<int>? Second { get; set; }
+    }
+
+    private static readonly SettableSlot[] Ag92FieldedComputed = [new()];
+
+    private static void Ag92SetFieldedComputed(Cell<int> share) => Ag92FieldedComputed[0].Share = share;
+
+    private static readonly List<SettableSlot> Ag92Unknowns = [new()];
+
+    private static readonly SettableSlot Ag92UnknownOther = new();
+
+    private static void Ag92SetUnknownOther(Cell<int> share) => Ag92UnknownOther.Share = share;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

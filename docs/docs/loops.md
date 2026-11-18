@@ -384,6 +384,11 @@ careful side, so it can report a read that does not throw:
   count as options that write public fields and read-only properties.
 - A sample in the function of a task that `RunSynchronously` runs gets `SF1001`, although the task
   keeps the exception and the code after the call goes on. Only a later `Wait` or `Result` throws.
+- A method that writes a member through an object that the analyzer does not know, such as an
+  element of an array in a static field, can have written that member of any such object. So a
+  read of the member through an element whose object the analyzer does not know, after a call that
+  wrote that member, also gets what the call wrote. That is so even when the call wrote a
+  different object.
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind. Only a
   condition that is a constant is read for what it says: the analyzer skips the branch of an `if`

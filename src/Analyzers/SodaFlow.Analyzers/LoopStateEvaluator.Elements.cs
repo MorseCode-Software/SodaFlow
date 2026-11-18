@@ -139,6 +139,15 @@ internal sealed partial class LoopStateEvaluator
             : null;
     }
 
+    // True for an element whose object the store does not know, or for a local that got such an
+    // element. Also, this frame did not see the last write to a member. That write can be through a
+    // second name of the object, such as a static field in a method. The region has its state for
+    // the member. A write that this frame saw went to the state of the element also.
+    private bool CanBeWrittenThroughAField(LoopState owner, ExpressionSyntax written) =>
+        this.Frame.MemberWritesSeen != this.region.MemberWrites
+        && owner.Objects.Contains(MadeObject.Unknown)
+        && (Unwrapped(written) is ElementAccessExpressionSyntax || this.ElementAt(written) != null);
+
     // True for a member that is a location and no code: a field, or a property of this compilation
     // with no body. A property of a library has code that the walk does not read.
     private static bool IsAMemberLocation(ISymbol member) =>

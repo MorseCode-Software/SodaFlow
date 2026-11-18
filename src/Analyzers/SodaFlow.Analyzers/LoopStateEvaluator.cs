@@ -2319,7 +2319,8 @@ internal sealed partial class LoopStateEvaluator
 
                         // A write through the other name of the value did not come to this name.
                         // The region has each such write for the field.
-                        if (this.WasOneOfTwoNames(ownerExpression))
+                        if (this.WasOneOfTwoNames(ownerExpression)
+                            || this.CanBeWrittenThroughAField(owner: owner, written: ownerExpression))
                         {
                             through = through.Join(field);
                         }

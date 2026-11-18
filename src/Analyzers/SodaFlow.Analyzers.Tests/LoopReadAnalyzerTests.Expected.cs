@@ -2992,6 +2992,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag92F2SpanFilledWhereTheCodeMakesIt"] = ["SF1001"],
             ["Ag92F2SpanOfAParameterSetInAMethod"] = ["SF1001"],
             ["Ag92F2SpanFilledThenReadThroughIt"] = ["SF1001"],
-            ["Ag92F2SliceElementSetAtItsOwnPosition"] = ["SF1001"]
+            ["Ag92F2SliceElementSetAtItsOwnPosition"] = ["SF1001"],
+            ["Ag92F1MethodWritesThroughTheArrayOfAField"] = ["SF1001"],
+            ["Ag92F1MethodWritesThroughTheListOfAField"] = ["SF1001"],
+            ["Ag92F1MethodWritesThroughTheArrayOfAFieldAtALocalIndex"] = ["SF1001"],
+            ["Ag92X1FieldObjectWrittenByAMethod"] = ["SF1001"],
+            ["Ag92X1WrittenThroughTheFieldDirectly"] = ["SF1001"],
+            ["Ag92F1MethodWritesThenALocalGetsTheElement"] = ["SF1001"],
+            ["Ag92F1MethodWritesThroughTheArrayOfAFieldAtAComputedIndex"] = ["SF1001"]
         };
 }
