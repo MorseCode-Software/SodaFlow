@@ -2732,7 +2732,24 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab190PendingThroughARefLocalAfterItsLocationGetsAnotherLocal"] = ["SF1001"],
             ["Ab190PendingThroughARefLocalReachesTheFirstNameOfTheFirstName"] = ["SF1001"],
             ["Ab190PlainCellThroughARefLocalAfterItsLocationGetsAValueByOut"] = ["SF1001"],
-            ["Ab190PendingThroughTheLocationOfARefLocal"] = ["SF1001"]
+            ["Ab190PendingThroughTheLocationOfARefLocal"] = ["SF1001"],
+            ["Ab189PendingThroughACapturedLocalThatALambdaAssignsAndRuns"] = ["SF1001"],
+            ["Ab189PendingThroughACapturedLocalAfterALambdaThatAssignsItRuns"] = ["SF1001"],
+            ["Ab189PendingThroughACapturedLocalThatALocalFunctionAssignsAndRuns"] = ["SF1001"],
+            ["Ab189PendingThroughACapturedLocalAfterALocalFunctionThatAssignsItRuns"] = ["SF1001"],
+            ["Ab189PendingAfterALambdaThatAssignsTheCapturedLocalInABranch"] = ["SF1001"],
+            ["Ab189PlainCellAfterALambdaThatAssignsTheCapturedLocalInABranch"] = ["SF1001"],
+            ["Ab189PendingAfterALambdaThatABranchRuns"] = ["SF1001"],
+            ["Ab189PlainCellAfterALambdaThatABranchDoesNotRun"] = ["SF1001"],
+            ["Ab189PendingAfterALambdaThatALoopRuns"] = ["SF1001"],
+            ["Ab189PendingAfterALambdaThatASecondLambdaRuns"] = ["SF1001"],
+            ["Ab189PendingAfterALambdaThatAMethodRuns"] = ["SF1001"],
+            ["Ab189PendingThroughACapturedLocalThatALambdaAssignsAndAMethodRuns"] = ["SF1001"],
+            ["Ab189PendingThroughASecondNameThatALambdaInABranchCanChange"] = ["SF1001"],
+            ["Ab189PlainCellThroughACapturedLocalInALambdaAfterOut"] = ["SF1001"],
+            ["Ab189ReadThroughACapturedLocalThatALambdaAssignsAndRuns"] = ["SF1001"],
+            ["Ab189PendingThroughALocalOfALambdaThatRuns"] = ["SF1001"],
+            ["Ab189PendingThroughACapturedLocalThatAListRuns"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

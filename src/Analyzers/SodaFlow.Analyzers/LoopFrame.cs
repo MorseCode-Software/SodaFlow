@@ -45,6 +45,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<ISymbol, ExpressionSyntax> FirstNameOf { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     For the expression of each first name in <see cref="FirstNameOf" />:
+    ///     the evaluator of the code that made the record. For a lambda or a
+    ///     local function, that is one run of it.
+    /// </summary>
+    public Dictionary<ExpressionSyntax, LoopStateEvaluator> RunThatNamed { get; } = [];
+
+    /// <summary>
     ///     Each name that was one of two names of a value with no object. The
     ///     walk does not know now that the two names are one value.
     /// </summary>

@@ -135,9 +135,8 @@ internal sealed partial class LoopStateEvaluator
     ///     name of that value, and not a copy. Each read and each write of a
     ///     member through the second name then goes through the first name. That
     ///     is true while no code gives one of the two names a value. A function
-    ///     can run at a different time, thus the code of a function gets a first
-    ///     name only for a local of its own. One run of the function makes such
-    ///     a local, and the two names are one value in that run.
+    ///     can run at a different time. Thus, a record holds only in the run of
+    ///     the code that made it, and in each caller after the call of that run.
     /// </remarks>
     private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written) =>
         this.TheFirstNameOf(written: written, at: written);
@@ -159,17 +158,18 @@ internal sealed partial class LoopStateEvaluator
         {
             if (Unwrapped(use) is not IdentifierNameSyntax name
                 || this.region.SymbolOf(name) is not { } second
-                || (this.function != null && !IsDeclaredIn(local: second, code: this.function))
                 || !this.Frame.FirstNameOf.TryGetValue(key: second, value: out ExpressionSyntax? first)
+                || this.StartOfTheRecordOf(first) is not (var start, var ran)
                 || FunctionOf(at) is not { } code
                 || this.region.SymbolOf(first) is not { } firstName
                 || new[] { firstName, second }.Any(one =>
                     this.GetsAValue(
                         name: one,
                         code: code,
-                        after: first.Span.End,
+                        after: start,
                         before: at.SpanStart,
-                        orAFunctionUsesIt: false)))
+                        orAFunctionUsesIt: false,
+                        ran: ran)))
             {
                 break;
             }
@@ -179,6 +179,39 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return found;
+    }
+
+    // Where the record of a first name starts in the code of this evaluator, and the functions
+    // whose run made the record. A lambda or a local function that a call runs can give a local
+    // of the code around it a value. That record starts at the end of the call, in the code that
+    // has the call. Null when the code of this evaluator is not the run that made the record, or
+    // a caller of that run.
+    private (int Start, ImmutableArray<SyntaxNode> Ran)? StartOfTheRecordOf(ExpressionSyntax first)
+    {
+        SyntaxNode start = first;
+        ImmutableArray<SyntaxNode> ran = ImmutableArray<SyntaxNode>.Empty;
+
+        LoopStateEvaluator code =
+            this.Frame.RunThatNamed.TryGetValue(key: first, value: out LoopStateEvaluator? run) ? run : this;
+
+        // The code of the block has no call, thus the chain of callers has an end.
+        while (!ReferenceEquals(objA: code.call, objB: this.call))
+        {
+            if (code.call is not { } call)
+            {
+                return null;
+            }
+
+            if (code.function is { } function)
+            {
+                ran = ran.Add(function);
+            }
+
+            start = call.Site;
+            code = call.Caller;
+        }
+
+        return (start.Span.End, ran);
     }
 
     // True for a name whose own state can be without a write through a second name of its value.
@@ -215,20 +248,25 @@ internal sealed partial class LoopStateEvaluator
             this.Frame.FirstNameOf.Remove(second);
         }
 
+        // A function can give a local of the code around it a value. For that code, the assignment
+        // is sure only when each call of the function up to that code always runs. A local of the
+        // function itself has the same rule. At a different call, a write through its first name
+        // only joins the state of the first name.
+        bool sure = replaces && (this.function == null || this.call is { AlwaysRuns: true });
+
         // After an assignment that is not sure to run, the local can be a second name.
         if (this.Frame.FirstNameOf.TryGetValue(key: local, value: out ExpressionSyntax? first))
         {
             this.Frame.FirstNameOf.Remove(local);
 
-            if (!replaces && this.region.SymbolOf(first) is { } firstName)
+            if (!sure && this.region.SymbolOf(first) is { } firstName)
             {
                 this.Frame.WasOneOfTwoNames.Add(local);
                 this.Frame.WasOneOfTwoNames.Add(firstName);
             }
         }
 
-        if ((this.function != null && !IsDeclaredIn(local: local, code: this.function))
-            || !KeepsItsObject(local)
+        if (!KeepsItsObject(local)
             || Unwrapped(value) is not IdentifierNameSyntax name
             || this.region.SymbolOf(name) is not ((ILocalSymbol or IParameterSymbol) and { } from)
             || !KeepsItsObject(from)
@@ -240,9 +278,10 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
-        if (replaces)
+        if (sure)
         {
             this.Frame.FirstNameOf[local] = name;
+            this.Frame.RunThatNamed[name] = this;
         }
         else
         {
@@ -2181,12 +2220,28 @@ internal sealed partial class LoopStateEvaluator
     // function that uses the name can change the object of the name also, and the last argument
     // says if that use is such code.
     private bool GetsAValue(ISymbol name, SyntaxNode code, int after, int before, bool orAFunctionUsesIt) =>
+        this.GetsAValue(
+            name: name,
+            code: code,
+            after: after,
+            before: before,
+            orAFunctionUsesIt: orAFunctionUsesIt,
+            ran: ImmutableArray<SyntaxNode>.Empty);
+
+    // The same, with no use in the given functions. They ran before the first position.
+    private bool GetsAValue(
+        ISymbol name,
+        SyntaxNode code,
+        int after,
+        int before,
+        bool orAFunctionUsesIt,
+        ImmutableArray<SyntaxNode> ran) =>
         code.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Any(use =>
                 use.Identifier.ValueText == name.Name
-                && (FunctionOf(use) != code
-                    ? orAFunctionUsesIt || GivesAValue(use)
+                && (FunctionOf(use) is { } function && function != code
+                    ? (orAFunctionUsesIt || GivesAValue(use)) && !ran.Contains(function)
                     : use.SpanStart > after && use.SpanStart < before && GivesAValue(use))
                 && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: name));
 
