@@ -1082,16 +1082,18 @@ internal sealed partial class LoopStateEvaluator
         && this.region.SymbolOf(named) is IFieldSymbol { IsStatic: true };
 
     // True for the expression of a location that TheLocationOf can give. That is a local, an
-    // element of an array in a local, or a field of an object in a local or of this object.
+    // element of an array in a local, or a field of an object in a local or of this object. An
+    // element of a view of such an array is one also.
     private bool IsALocationThatTheWalkCanReadAgain(ExpressionSyntax location) =>
         Unwrapped(location) switch
         {
             IdentifierNameSyntax name => this.region.SymbolOf(name) is { } local && KeepsItsObject(local),
             ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element =>
-                Unwrapped(element.Expression) is IdentifierNameSyntax array
-                && this.region.SymbolOf(array) is { } local
-                && KeepsItsObject(local)
-                && this.region.TypeOf(array) is IArrayTypeSymbol
+                ((Unwrapped(element.Expression) is IdentifierNameSyntax array
+                  && this.region.SymbolOf(array) is { } local
+                  && KeepsItsObject(local)
+                  && this.region.TypeOf(array) is IArrayTypeSymbol)
+                 || this.TheArrayOfAViewOf(element) != null)
                 && (indexes[0].Expression is LiteralExpressionSyntax
                     || (indexes[0].Expression is IdentifierNameSyntax index
                         && this.region.SymbolOf(index) is { } number

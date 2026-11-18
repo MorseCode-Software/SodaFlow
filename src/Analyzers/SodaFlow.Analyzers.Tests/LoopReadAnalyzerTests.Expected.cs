@@ -3003,6 +3003,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab205ArrayCopyIntoALocalArray"] = ["SF1001"],
             ["Ab205ArrayCopyWithIndexes"] = ["SF1001"],
             ["Ab205ArrayConstrainedCopy"] = ["SF1001"],
-            ["Ab205ArrayCopyWithNoWriteBefore"] = ["SF1001"]
+            ["Ab205ArrayCopyWithNoWriteBefore"] = ["SF1001"],
+            ["Ab206RefLocalOfASpanElement"] = ["SF1001"],
+            ["Ab206RefLocalOfASliceElement"] = ["SF1001"],
+            ["Ab206RefLocalOfAnElementOfTheSpanOfAMemory"] = ["SF1001"],
+            ["Ab206MemberWrittenThroughASpanElement"] = ["SF1001"],
+            ["Ab206MemberWrittenAndReadThroughASpanElement"] = ["SF1001"],
+            ["Ab206MemberWrittenThroughTheArrayAndReadThroughASpanElement"] = ["SF1001"]
         };
 }

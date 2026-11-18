@@ -20431,6 +20431,38 @@ public static class Shapes
     public static Cell<int> Ab205ArrayCopyIntoALocalThatGetsASecondArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab205Copies[8]]; SettableSlot[] first = a; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; first = [Ab205Copies[9]]; Array.Copy(from, first, 1); return S.Hold(a[0].Share!.Sample()); });
 
+    // S4630. A local with ref names an element of a span of the array, and gets a second object.
+    public static Cell<int> Ab206RefLocalOfASpanElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab206Slots[0]]; Span<SettableSlot> view = a; ref SettableSlot at = ref view[0]; a[0].Share = Plain; at = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4631. The same with a span from the second element.
+    public static Cell<int> Ab206RefLocalOfASliceElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot { Share = Plain }, new SettableSlot { Share = Plain }]; Span<SettableSlot> view = a.AsSpan(1); ref SettableSlot at = ref view[0]; at = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[1].Share!.Sample()); });
+
+    // S4632. The same with the span of a memory of the array.
+    public static Cell<int> Ab206RefLocalOfAnElementOfTheSpanOfAMemory() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab206Slots[1]]; Memory<SettableSlot> m = a; ref SettableSlot at = ref m.Span[0]; a[0].Share = Plain; at = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4633. A pending cell goes into a member through an element of a span, after a plain cell through the array. The object is from a static array.
+    public static Cell<int> Ab206MemberWrittenThroughASpanElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab206Slots[2]]; Span<SettableSlot> view = a; a[0].Share = Plain; view[0].Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4634. The same, and the read goes through the span.
+    public static Cell<int> Ab206MemberWrittenAndReadThroughASpanElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab206Slots[3]]; Span<SettableSlot> view = a; a[0].Share = Plain; view[0].Share = l.Map(v => v); return S.Hold(view[0].Share!.Sample()); });
+
+    // S4635. The same, with the plain cell through the span and the pending cell through the array, and the read through the span.
+    public static Cell<int> Ab206MemberWrittenThroughTheArrayAndReadThroughASpanElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab206Slots[4]]; Span<SettableSlot> view = a; view[0].Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(view[0].Share!.Sample()); });
+
+    // S4636. A local with ref names an element of a span of a second array. The read is of the first array.
+    public static Cell<int> Ab206RefLocalOfAnElementOfASpanOfASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab206Slots[5]]; SettableSlot[] b = [Ab206Slots[6]]; Span<SettableSlot> view = b; ref SettableSlot at = ref view[0]; a[0].Share = Plain; at = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4637. A plain cell goes into a member through an element of a span after the pending cell. The read goes through the array.
+    public static Cell<int> Ab206PlainCellThroughASpanElementAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; Span<SettableSlot> view = a; a[0].Share = l.Map(v => v); view[0].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -28474,6 +28506,8 @@ public static class Shapes
 
     private static readonly SettableSlot[] Ab205Copies =
         [new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
+
+    private static readonly SettableSlot[] Ab206Slots = [new(), new(), new(), new(), new(), new(), new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

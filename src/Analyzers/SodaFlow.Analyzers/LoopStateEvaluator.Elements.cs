@@ -142,11 +142,14 @@ internal sealed partial class LoopStateEvaluator
     // True for an element whose object the store does not know, or for a local that got such an
     // element. Also, this frame did not see the last write to a member. That write can be through a
     // second name of the object, such as a static field in a method. The region has its state for
-    // the member. A write that this frame saw went to the state of the element also.
+    // the member. A write that this frame saw went to the state of the element also. An element of
+    // a view is a second name of an element of the array. Thus, the frame can have seen the write
+    // through the other name.
     private bool CanBeWrittenThroughAField(LoopState owner, ExpressionSyntax written) =>
-        this.Frame.MemberWritesSeen != this.region.MemberWrites
-        && owner.Objects.Contains(MadeObject.Unknown)
-        && (Unwrapped(written) is ElementAccessExpressionSyntax || this.ElementAt(written) != null);
+        owner.Objects.Contains(MadeObject.Unknown)
+        && ((this.Frame.MemberWritesSeen != this.region.MemberWrites
+             && (Unwrapped(written) is ElementAccessExpressionSyntax || this.ElementAt(written) != null))
+            || (Unwrapped(written) is ElementAccessExpressionSyntax viewed && this.TheArrayOfAViewOf(viewed) != null));
 
     // True for a member that is a location and no code: a field, or a property of this compilation
     // with no body. A property of a library has code that the walk does not read.
@@ -328,7 +331,9 @@ internal sealed partial class LoopStateEvaluator
                     _ => false
                 },
             ElementAccessExpressionSyntax element =>
-                this.region.SymbolOf(element) == null || this.ElementKeyOf(element) != null,
+                this.region.SymbolOf(element) == null
+                || this.ElementKeyOf(element) != null
+                || this.IsAViewElementOfAnUnknownObject(element),
             IdentifierNameSyntax or GenericNameSyntax or MemberAccessExpressionSyntax =>
                 this.region.SymbolOf(node) is not IPropertySymbol property
                 || IsAMemberLocation(property)
@@ -366,6 +371,13 @@ internal sealed partial class LoopStateEvaluator
                 or ParameterSyntax => true,
             _ => false
         };
+
+    // True for a read of an element of a view of a local array, whose object the store does not
+    // know. The read does not change the element. A write to a member through it adds its state to
+    // the record of the element of the array. The store has each write to an object that it knows,
+    // and that answer is more accurate. Thus, only an object that the store does not know passes.
+    private bool IsAViewElementOfAnUnknownObject(ElementAccessExpressionSyntax element) =>
+        this.TheArrayOfAViewOf(element) != null && this.Eval(element).Objects.Contains(MadeObject.Unknown);
 
     // True for a call that cannot change an element of a collection of the given type, and that
     // runs no code of the project. The method has no body to read and no override. A method of
