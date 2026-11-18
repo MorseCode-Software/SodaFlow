@@ -442,7 +442,10 @@ everything still held, including the rows that never left and so were never evic
 that builds bindables needs both halves of that or it leaks the ones still on screen. After the
 dispose, the projection never runs again and `Items` goes empty in the same transaction, so a list
 that is still bound to it, such as a view that outlives its view model, shows nothing that was
-released.
+released. A dispose from inside a callback, such as a listener or the `onEvicted` of another
+projection, empties `Items` in the transaction just after, because SodaFlow does not let a callback
+send into the transaction it runs in; until then `Items` still lists the released rows. A dispose
+whose transaction fails empties `Items` the same way.
 
 F# has `map` and `mapWith`, the second taking the bound and the eviction callback.
 

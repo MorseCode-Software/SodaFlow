@@ -21,9 +21,13 @@ runs after Dispose, and Items becomes empty in the transaction of the Dispose, s
 nothing that was released. Dispose also runs in a transaction, the open one or a new one, where before it cleared the
 caches with no lock while a transaction on another thread could be changing them. The eviction callback for the
 objects it releases therefore runs inside that transaction, so a send it makes joins that transaction rather than
-starting one of its own. Tests cover a later change of the keys; a Dispose before an edit, after it, or in a listener
-in the same transaction; and a Dispose that waits for a transaction on another thread. Each failed on the previous
-code.
+starting one of its own. A Dispose inside a callback, such as a listener, a map, or the eviction callback of another
+projection, empties Items in the transaction just after it instead, because a callback cannot send into its own
+transaction; until then Items still holds the released objects. A Dispose whose transaction fails empties Items the
+same way, where it would otherwise keep the released objects for good. Tests cover a later change of the keys; a
+Dispose before an edit, after it, or in a listener or a map in the same transaction, each with a check that a cell of
+the items and the keys agrees with both; a Dispose in the eviction callback of another projection; a Dispose whose
+transaction fails; and a Dispose that waits for a transaction on another thread. Each failed on the previous code.
 
 Fixed: the cache of per-key cells compares keys as the collection does. It used the default comparer, so on a
 collection keyed with a comparer such as StringComparer.OrdinalIgnoreCase, a key asked for in two spellings got two
