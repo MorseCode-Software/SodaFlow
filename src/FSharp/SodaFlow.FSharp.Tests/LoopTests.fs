@@ -12,7 +12,7 @@ type ``Loop Tests``() =
             let s = sinkS ()
             let result = loopWithNoCapturesS (fun r -> s |> snapshotC (r |> holdS 0) (+))
             let out = List<_>()
-            let l = result |> listenStrongS out.Add
+            let l = result |> listenS out.Add
             s |> sendS 1
             s |> sendS 2
             s |> sendS 3
@@ -32,8 +32,8 @@ type ``Loop Tests``() =
             let out2 = List<_>()
 
             let _ =
-                (use _l = result |> listenStrongS out.Add
-                 use _l = s2 |> listenStrongS out2.Add
+                (use _l = result |> listenS out.Add
+                 use _l = s2 |> listenS out2.Add
                  s |> sendS 1
                  s |> sendS 2
                  s |> sendS 3)
@@ -51,7 +51,7 @@ type ``Loop Tests``() =
                 loopWithNoCapturesB (fun r -> s |> Operational.updates |> snapshotB r (+) |> holdS 0 |> asBehaviorC)
 
             let out = List<_>()
-            let l = runT (fun () -> result |> Operational.value |> listenStrongS out.Add)
+            let l = runT (fun () -> result |> Operational.value |> listenS out.Add)
             s |> sendB 1
             s |> sendB 2
             s |> sendB 3
@@ -72,8 +72,8 @@ type ``Loop Tests``() =
             let out2 = List<_>()
 
             let _ =
-                (use _l = runT (fun () -> result |> Operational.value |> listenStrongS out.Add)
-                 use _l = runT (fun () -> s2 |> Operational.value |> listenStrongS out2.Add)
+                (use _l = runT (fun () -> result |> Operational.value |> listenS out.Add)
+                 use _l = runT (fun () -> s2 |> Operational.value |> listenS out2.Add)
                  s |> sendB 1
                  s |> sendB 2
                  s |> sendB 3)
@@ -91,7 +91,7 @@ type ``Loop Tests``() =
                 loopWithNoCapturesC (fun r -> s |> updatesC |> snapshotC r (+) |> holdS 0)
 
             let out = List<_>()
-            let l = runT (fun () -> result |> listenStrongC out.Add)
+            let l = runT (fun () -> result |> listenC out.Add)
             s |> sendC 1
             s |> sendC 2
             s |> sendC 3
@@ -111,8 +111,8 @@ type ``Loop Tests``() =
             let out2 = List<_>()
 
             let _ =
-                (use _l = runT (fun () -> result |> listenStrongC out.Add)
-                 use _l = s2 |> listenStrongC out2.Add
+                (use _l = runT (fun () -> result |> listenC out.Add)
+                 use _l = s2 |> listenC out2.Add
                  s |> sendC 1
                  s |> sendC 2
                  s |> sendC 3)

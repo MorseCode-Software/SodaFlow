@@ -83,7 +83,7 @@ public sealed class CellTests
             sink.Send(2);
             sink.Send(2);
             sink.Send(3);
-            l.Unlisten();
+            l.Dispose();
 
             await Assert.That(@out).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
         }

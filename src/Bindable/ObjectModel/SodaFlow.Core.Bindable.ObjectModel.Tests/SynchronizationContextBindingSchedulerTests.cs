@@ -133,7 +133,7 @@ public sealed class SynchronizationContextBindingSchedulerTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         int items = context.Count;
@@ -177,7 +177,7 @@ public sealed class SynchronizationContextBindingSchedulerTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         context.RunAll();
@@ -224,8 +224,8 @@ public sealed class SynchronizationContextBindingSchedulerTests
         }
         finally
         {
-            posts.Unlisten();
-            throws.Unlisten();
+            posts.Dispose();
+            throws.Dispose();
         }
 
         context.RunAll();

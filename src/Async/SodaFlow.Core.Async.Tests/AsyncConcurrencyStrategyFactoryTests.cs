@@ -19,7 +19,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -47,7 +47,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         await Assert.That(received).IsEquivalentTo(expected: ["B", "A"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -58,8 +58,8 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<object> received = [];
-        IListener l = results.ListenStrong(received.Add);
-        IListener l2 = errors.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
+        IListener l2 = errors.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -97,8 +97,8 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
             .IsEquivalentTo(expected: new object[] { d, "C", b, "A" }, ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
-        l2.Unlisten();
+        l.Dispose();
+        l2.Dispose();
     }
 
     [Test]
@@ -109,7 +109,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -142,7 +142,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         await Assert.That(received).IsEquivalentTo(expected: ["A", "B", "C"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -153,7 +153,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -183,7 +183,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         await Assert.That(received).IsEquivalentTo(["A1", "B1", "A2"]);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
         return;
 
         // The group is the text before the hyphen. Thus, "g1-a" and "g1-b" have one group, and
@@ -199,7 +199,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -229,7 +229,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         await Assert.That(received).IsEquivalentTo(expected: ["B"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -242,14 +242,14 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         StreamSink<Exception> errors1 = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op1 = new();
         List<string> received1 = [];
-        IListener l1 = results1.ListenStrong(received1.Add);
+        IListener l1 = results1.Listen(received1.Add);
 
         StreamSink<string> source2 = Stream.CreateSink<string>();
         StreamSink<string> results2 = Stream.CreateSink<string>();
         StreamSink<Exception> errors2 = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op2 = new();
         List<string> received2 = [];
-        IListener l2 = results2.ListenStrong(received2.Add);
+        IListener l2 = results2.Listen(received2.Add);
 
         AsyncMapStatus<string> status1 =
             source1.MapAsyncImpl(
@@ -285,7 +285,7 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
 
         status1.Dispose();
         status2.Dispose();
-        l1.Unlisten();
-        l2.Unlisten();
+        l1.Dispose();
+        l2.Dispose();
     }
 }

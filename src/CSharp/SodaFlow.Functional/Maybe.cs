@@ -334,6 +334,30 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
         // non-null value.
         this.hasValue ? onSome(this.value!) : onNone();
 
+    /// <summary>
+    ///     Runs one function when there is a value, and a different one when there is
+    ///     none. The function that runs gets the state.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <typeparam name="TResult">The type each of the two functions returns.</typeparam>
+    /// <param name="state">A value that this method gives to the function that it runs.</param>
+    /// <param name="onSome">Run with the state and the contained value when there is one.</param>
+    /// <param name="onNone">Run with the state when there is no value.</param>
+    /// <returns>Whatever the function that was run returned.</returns>
+    /// <remarks>
+    ///     A lambda that reads a local captures it, and that capture allocates for
+    ///     each call. Give the local as <paramref name="state" /> and make each
+    ///     lambda static. The call then allocates nothing. Use a tuple for a state of
+    ///     more than one value.
+    /// </remarks>
+    public TResult Match<TState, TResult>(
+        TState state,
+        [InstantHandle] Func<TState, T, TResult> onSome,
+        [InstantHandle] Func<TState, TResult> onNone) =>
+        // ReSharper disable once NullableWarningSuppressionIsUsed - If hasValue is true, then value will have a
+        // non-null value.
+        this.hasValue ? onSome(arg1: state, arg2: this.value!) : onNone(state);
+
     #endregion
 
     #region Helper Methods
@@ -359,6 +383,33 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
     }
 
     /// <summary>
+    ///     Runs one action when there is a value, and a different action when there is
+    ///     none. The action that runs gets the state.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <param name="state">A value that this method gives to the action that it runs.</param>
+    /// <param name="onSome">Run with the state and the contained value when there is one.</param>
+    /// <param name="onNone">Run with the state when there is no value.</param>
+    /// <remarks>
+    ///     See <see cref="Maybe{T}.Match{TState,TResult}(TState,Func{TState,T,TResult},Func{TState,TResult})" />
+    ///     for the purpose of the state.
+    /// </remarks>
+    public void MatchVoid<TState>(
+        TState state,
+        [InstantHandle] Action<TState, T> onSome,
+        [InstantHandle] Action<TState> onNone)
+    {
+        if (this.TryGetValue(out T value))
+        {
+            onSome(arg1: state, arg2: value);
+        }
+        else
+        {
+            onNone(state);
+        }
+    }
+
+    /// <summary>
     ///     Runs an action with the contained value when there is one, and otherwise
     ///     does nothing.
     /// </summary>
@@ -372,6 +423,25 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
     }
 
     /// <summary>
+    ///     Runs an action with a state and the contained value when there is one, and
+    ///     otherwise does nothing.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <param name="state">A value that this method gives to the action.</param>
+    /// <param name="onSome">Run with the state and the contained value when there is one.</param>
+    /// <remarks>
+    ///     See <see cref="Maybe{T}.Match{TState,TResult}(TState,Func{TState,T,TResult},Func{TState,TResult})" />
+    ///     for the purpose of the state.
+    /// </remarks>
+    public void MatchSome<TState>(TState state, [InstantHandle] Action<TState, T> onSome)
+    {
+        if (this.TryGetValue(out T value))
+        {
+            onSome(arg1: state, arg2: value);
+        }
+    }
+
+    /// <summary>
     ///     Runs an action when there is no value, and otherwise does nothing.
     /// </summary>
     /// <param name="onNone">Run when there is no value.</param>
@@ -380,6 +450,25 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
         if (!this.hasValue)
         {
             onNone();
+        }
+    }
+
+    /// <summary>
+    ///     Runs an action with a state when there is no value, and otherwise does
+    ///     nothing.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <param name="state">A value that this method gives to the action.</param>
+    /// <param name="onNone">Run with the state when there is no value.</param>
+    /// <remarks>
+    ///     See <see cref="Maybe{T}.Match{TState,TResult}(TState,Func{TState,T,TResult},Func{TState,TResult})" />
+    ///     for the purpose of the state.
+    /// </remarks>
+    public void MatchNone<TState>(TState state, [InstantHandle] Action<TState> onNone)
+    {
+        if (!this.hasValue)
+        {
+            onNone(state);
         }
     }
 
@@ -450,6 +539,25 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
     /// </returns>
     public Maybe<TResult> Map<TResult>([InstantHandle] Func<T, TResult> f) =>
         this.TryGetValue(out T value) ? Maybe.Some(f(value)) : Maybe<TResult>.None;
+
+    /// <summary>
+    ///     Maps the value with the given function and a state when there is one, and
+    ///     gives no value when there is none.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state.</typeparam>
+    /// <typeparam name="TResult">The type of the maybe result value.</typeparam>
+    /// <param name="state">A value that this method gives to the function.</param>
+    /// <param name="f">The function to transform this <see cref="Maybe{T}" />, with the state.</param>
+    /// <returns>
+    ///     The <see cref="Maybe{TResult}" /> which results from transforming this
+    ///     <see cref="Maybe{T}" /> using <paramref name="f" />.
+    /// </returns>
+    /// <remarks>
+    ///     See <see cref="Maybe{T}.Match{TState,TResult}(TState,Func{TState,T,TResult},Func{TState,TResult})" />
+    ///     for the purpose of the state.
+    /// </remarks>
+    public Maybe<TResult> Map<TState, TResult>(TState state, [InstantHandle] Func<TState, T, TResult> f) =>
+        this.TryGetValue(out T value) ? Maybe.Some(f(arg1: state, arg2: value)) : Maybe<TResult>.None;
 
     /// <summary>
     ///     Gives true when there is a value.

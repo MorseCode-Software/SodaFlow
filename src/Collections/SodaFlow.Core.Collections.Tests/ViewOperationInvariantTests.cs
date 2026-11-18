@@ -143,7 +143,7 @@ public sealed class ViewOperationInvariantTests
         [
             .. Stages(collection)
                 .Select(stage =>
-                    stage.View.KeyChangesStream.ListenStrong(change =>
+                    stage.View.KeyChangesStream.Listen(change =>
                     {
                         foreach (ViewOperation<int> operation in change.Operations)
                         {
@@ -169,7 +169,7 @@ public sealed class ViewOperationInvariantTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         await Assert.That(bad).IsEmpty();
@@ -196,7 +196,7 @@ public sealed class ViewOperationInvariantTests
         [
             .. Stages(collection)
                 .Select(stage =>
-                    stage.View.KeyChangesStream.ListenStrong(change =>
+                    stage.View.KeyChangesStream.Listen(change =>
                     {
                         bool moved =
                             change.Operations.Any(static operation =>
@@ -229,7 +229,7 @@ public sealed class ViewOperationInvariantTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         await Assert.That(bad).IsEmpty();
@@ -271,14 +271,14 @@ public sealed class ViewOperationInvariantTests
         List<IListener> listeners =
         [
             .. stages.Select(stage =>
-                stage.View.KeyChangesStream.ListenStrong(change => reported[stage.Name] = TestUtil.Keys(change.Keys)))
+                stage.View.KeyChangesStream.Listen(change => reported[stage.Name] = TestUtil.Keys(change.Keys)))
         ];
 
         SendEdits(edits);
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         foreach ((string name, ReactiveCollection<int, ItemIdentity, ItemState> view) in stages)
@@ -359,7 +359,7 @@ public sealed class ViewOperationInvariantTests
         List<IListener> listeners =
         [
             .. stages.Select(stage =>
-                stage.View.KeyChangesStream.ListenStrong(change =>
+                stage.View.KeyChangesStream.Listen(change =>
                     seen.Add(
                         $"{stage.Name}: reset={change.IsReset} reordersOnly={change.ReordersOnly} "
                         + $"changesMembership={change.ChangesMembership}")))
@@ -380,7 +380,7 @@ public sealed class ViewOperationInvariantTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         await Assert.That(reorder)

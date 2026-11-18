@@ -15,10 +15,10 @@ public sealed class CommonTests
     {
         StreamSink<string> s = Stream.CreateSink<string>();
         List<string> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
         s.Send("a");
         s.Send("b");
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ["a", "b"], ordering: CollectionOrdering.Matching);
     }
 
@@ -28,9 +28,9 @@ public sealed class CommonTests
         StreamSink<List<string>> a = Stream.CreateSink<List<string>>();
         Stream<string> b = Operational.Split<string, List<string>>(a);
         List<string> @out = [];
-        IListener l = b.ListenStrong(@out.Add);
+        IListener l = b.Listen(@out.Add);
         a.Send(["a", "b"]);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ["a", "b"], ordering: CollectionOrdering.Matching);
     }
 
@@ -40,14 +40,14 @@ public sealed class CommonTests
         StreamSink<string> a = Stream.CreateSink<string>();
         Stream<string> b = Operational.Defer(a);
         List<string> @out = [];
-        IListener l = b.ListenStrong(@out.Add);
+        IListener l = b.Listen(@out.Add);
         a.Send("a");
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ["a"], ordering: CollectionOrdering.Matching);
         List<string> out2 = [];
-        IListener l2 = b.ListenStrong(out2.Add);
+        IListener l2 = b.Listen(out2.Add);
         a.Send("b");
-        l2.Unlisten();
+        l2.Dispose();
         await Assert.That(out2).IsEquivalentTo(expected: ["b"], ordering: CollectionOrdering.Matching);
     }
 
@@ -58,12 +58,12 @@ public sealed class CommonTests
         StreamSink<string> b = Stream.CreateSink<string>();
         Stream<string> c = Operational.Defer(a).OrElse(b);
         List<string> @out = [];
-        IListener l = c.ListenStrong(@out.Add);
+        IListener l = c.Listen(@out.Add);
         a.Send("a");
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ["a"], ordering: CollectionOrdering.Matching);
         List<string> out2 = [];
-        IListener l2 = c.ListenStrong(out2.Add);
+        IListener l2 = c.Listen(out2.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -71,7 +71,7 @@ public sealed class CommonTests
             b.Send("B");
         });
 
-        l2.Unlisten();
+        l2.Dispose();
         await Assert.That(out2).IsEquivalentTo(expected: ["B", "b"], ordering: CollectionOrdering.Matching);
     }
 
@@ -82,17 +82,17 @@ public sealed class CommonTests
         StreamSink<int> b = Stream.CreateSink<int>();
         Stream<int> c = a.OrElse(b);
         List<int> @out = [];
-        IListener l = c.ListenStrong(@out.Add);
+        IListener l = c.Listen(@out.Add);
         a.Send(0);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [0], ordering: CollectionOrdering.Matching);
         List<int> out2 = [];
-        IListener l2 = c.ListenStrong(out2.Add);
+        IListener l2 = c.Listen(out2.Add);
         b.Send(10);
-        l2.Unlisten();
+        l2.Dispose();
         await Assert.That(out2).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
         List<int> out3 = [];
-        IListener l3 = c.ListenStrong(out3.Add);
+        IListener l3 = c.Listen(out3.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -100,12 +100,12 @@ public sealed class CommonTests
             b.Send(20);
         });
 
-        l3.Unlisten();
+        l3.Dispose();
         await Assert.That(out3).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
         List<int> out4 = [];
-        IListener l4 = c.ListenStrong(out4.Add);
+        IListener l4 = c.Listen(out4.Add);
         b.Send(30);
-        l4.Unlisten();
+        l4.Dispose();
         await Assert.That(out4).IsEquivalentTo(expected: [30], ordering: CollectionOrdering.Matching);
     }
 
@@ -116,12 +116,12 @@ public sealed class CommonTests
         StreamSink<string> b = Stream.CreateSink<string>();
         Stream<string> c = Operational.Defer(a).OrElse(Operational.Defer(b));
         List<string> @out = [];
-        IListener l = c.ListenStrong(@out.Add);
+        IListener l = c.Listen(@out.Add);
         b.Send("A");
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
         List<string> out2 = [];
-        IListener l2 = c.ListenStrong(out2.Add);
+        IListener l2 = c.Listen(out2.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -129,7 +129,7 @@ public sealed class CommonTests
             b.Send("B");
         });
 
-        l2.Unlisten();
+        l2.Dispose();
         await Assert.That(out2).IsEquivalentTo(expected: ["b"], ordering: CollectionOrdering.Matching);
     }
 

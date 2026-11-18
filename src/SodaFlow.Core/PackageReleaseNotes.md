@@ -9,12 +9,26 @@ each value, however many cells start from the sample, and runs again after a tra
 pure and must not send. A sample that forces itself, which a loop that is not closed can cause, now throws an
 InvalidOperationException whose message says so; before, Lazy<T> reported a ValueFactory that accessed its own Value.
 
-BREAKING: IListener has one member, Unlisten. GetListenerWithWeakReference is gone from it, and the
+BREAKING: GetListenerWithWeakReference is gone from IListener, and the
 IListenerWithWeakReference that it returned is internal. The weak view lets the library stop the listeners attached to a
 stream once the stream is collected, without keeping the stream alive to do so. That is the library's own work, and a
 caller that implemented IListener, as the composite factories invite, had to write a method whose contract was the
 library's. Every listener the library makes still has its weak view, now behind an internal interface, and a stream
 attaches only that interface, so the compiler checks that each attached listener has one.
+
+BREAKING: the strong listener is removed, and one kind of listener is left. IStrongListener and IWeakListener are gone,
+and IListener is an IDisposable. Its Unlisten is gone, because Dispose did the same thing. Thus, a call to Unlisten
+changes to Dispose. A listener listens while a caller holds it, it
+keeps the stream that it monitors in memory, and the garbage collector removes it after no caller holds it.
+ListenStrongImpl and ListenOnceStrongImpl, which the language packages gave as ListenStrong and ListenOnceStrong, are
+removed with the strong and weak composite and empty listeners. ListenImpl, ListenOnceImpl, the composite, and the empty
+listener give an IListener. A strong listener that a caller dropped continued for as long as a source of its stream
+lived, and nothing could stop it after that. A caller that used one must keep its listener, in a field or in a using
+statement, and a type that implements IListener renames its Unlisten to Dispose. The keep-alive sets stay for the
+one-shot listener of
+ListenOnceAsync, because an await has no place to keep a listener. Where a note below names ListenStrong in a
+measurement, the measurement is from before this removal, and the benchmark of that name now attaches the listener that
+is left.
 
 BREAKING: MutableListener is internal, and Cleanup is removed. The switches hold their inner listener in a
 MutableListener, and nothing outside the library needed one; its ClearListener, which only callers outside the library
@@ -87,22 +101,21 @@ to 976 bytes, Apply 760 to 442 ns on the argument and 769 to 463 ns on the funct
 326 to 276 ns, SnapshotLatest 421 to 280 ns on the stream and 405 to 265 ns on the cell, and Merge of two types 457
 to 309 ns. On .NET Framework the figures are about twice those and move the same way.
 
-Fixed: a strong listener on a stream with more than one input is rooted by every root of that stream, so it lives while
-any of them does. Before, Lift, Apply, Merge, OrElse, MergeMaybes, SwitchB, SwitchC, and SwitchS took the keep-alive set
-of their first input only. A listener on a lift whose first cell the application dropped, while it kept sending into the
-second, was collected and stopped without a message, and a switch over a constant cell,
-Cell.Constant(s).SwitchS().ListenStrong(h), was an unrooted cycle from the start. A switch now moves its listeners to
-the root of the inner it selects on each switch, so the listener lives while the outer cell or the selected inner lives,
-and Unlisten still releases the listener from every root. The cost is one small object per such stream and one entry per
-root per strong listener. Measured on .NET 10, a lift of two cells builds for 2,746 bytes where it built for 2,682, a
+Fixed: the wait of ListenOnceAsync on a stream with more than one input is held by every root of that stream, so it
+lives while any of them does. Before, Lift, Apply, Merge, OrElse, MergeMaybes, SwitchB, SwitchC, and SwitchS took the
+keep-alive set of their first input only. A wait on a lift whose first cell the application dropped, while it kept
+sending into the second, was collected, and its task did not complete. A wait on a switch over a constant cell,
+Cell.Constant(s).SwitchS().ListenOnceAsync(), was an unrooted cycle from the start. A switch now moves the waits that
+pass it to the root of the inner it selects on each switch, so a wait lives while the outer cell or the selected inner
+lives, and a cancellation still releases the wait from every root. The cost is one small object per such stream and one
+entry per root per wait. Measured on .NET 10, a lift of two cells builds for 2,746 bytes where it built for 2,682, a
 lift of six for 4,482 where 4,258, a merge of two streams for 1,694 where 1,590, and a switch for 56 bytes more. The
 memory tests pin a lift, a merge, and a switch, each with its first root dropped and its other root kept. A switch over a
 loop can reach its own keep-alive set again through its inner or its outer. A view model that a ForwardReference builds,
-and that switches onto its own output, is an example. A walk with a visited set finds the roots of a strong listener, so
-the walk ends where the loop comes back. A switch that selects a new inner walks again for each strong listener that
-passes it, and changes only the roots that changed. Thus, Unlisten releases the listener from every root, also after a
-switch in its loop moved out of the loop. All keep-alive sets share one lock, so two threads in one loop cannot wait for
-each other. The memory tests pin both loops.
+and that switches onto its own output, is an example. A walk with a visited set finds the roots of a wait, so the walk
+ends where the loop comes back. A switch that selects a new inner walks again for each wait that passes it, and changes
+only the roots that changed. Thus, a cancellation releases the wait from every root, also after a switch in its loop
+moved out of the loop. All keep-alive sets share one lock, so two threads in one loop cannot block each other. The memory tests pin both loops.
 
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
@@ -144,7 +157,7 @@ sample actions, which the transaction holds as objects where it held delegates, 
 Calm, which also allocated a delegate in every transaction that fired, now allocates nothing for the protocol. A lazy
 sample of a behavior reads the behavior itself in the sample phase, and a sample of a behavior through a function, which
 Map, Calm, and the switches take as their initial value, is one object where it was two samples with a closure each.
-Value, which is under Cell.Listen, Cell.ListenStrong, Cell.Values, and both switches, is one stream: its updates
+Value, which is under Cell.Listen, Cell.Values, and both switches, is one stream: its updates
 arrive at a bare node that links into the output, and the right-wins coalesce runs on the output node, where before a
 second stream with its own listener did that one node later. Measured in GraphBuildBenchmarks, per thousand, .NET 10: a
 map of one cell 2.22 ms and 2,078 KB to 1.78 ms and 1,340 KB, an accum 2.30 ms and 2,191 KB to 1.94 ms and 1,585 KB,
@@ -154,8 +167,8 @@ collection of ten 75.5 ms and 17,160 KB to 66.0 ms and 15,483 KB. A send that sw
 3.79 µs and 4,345 B to 3.03 µs and 3,260 B, and a send into a lift of two is unchanged at 437 ns and 928 B.
 
 A switch builds for half of what it did and switches for less than two thirds. The value of a behavior is a listener
-object that delivers to a consumer, and Value is that object with its output stream as the consumer, so Cell.Listen,
-Cell.ListenStrong, and Cell.Values no longer allocate a delegate for the send in each transaction that fires. SwitchB
+object that delivers to a consumer, and Value is that object with its output stream as the consumer, so Cell.Listen
+and Cell.Values no longer allocate a delegate for the send in each transaction that fires. SwitchB
 and SwitchC are that object on the outer behavior, and each behavior they select gets one whose consumer sends into the
 output, where before the switch built a Value and a listener on it for the outer behavior and again for every selection,
 with a closure and two delegates for the commit. SwitchC selects the behavior of each cell through a function on the
@@ -223,8 +236,8 @@ nested Apply that found the transaction open and allocated a closure for nothing
 the samples are captured at the end of whichever transaction closes them either way, and a calm built from outside is
 now atomic with respect to a send from another thread. Measured in the scratch harness on .NET 10, built from outside
 a transaction: a cell calm 4 transactions to 1, 3,085 bytes to 1,733, and 3,320 ns to 2,030; an accum 1,673 bytes to
-1,577; a stream calm 1,209 bytes to 1,121. A cell's Listen and ListenStrong go through one transaction as before and
-allocate the same.
+1,577; a stream calm 1,209 bytes to 1,121. A cell's Listen goes through one transaction as before and
+allocates the same.
 
 Transaction.Post allocates nothing of its own when no transaction is open, where it allocated four objects: two to
 wrap the action in the delegate type of the post queue, and two to capture it for the transaction it opened. The
@@ -275,7 +288,7 @@ reference to either, so the collected path works as before.
 A link is one object where it was three, and an operator's output stream takes no weak handle. The action of a link was
 a lambda, which is a closure and a delegate, and a listener object held the delegate alive because the node holds the
 action through a weak reference. An operator's action is now one object that holds what the lambda captured, is the
-action, and is the listener that the output attaches; a handler given to Listen or ListenStrong goes behind such an
+action, and is the listener that the output attaches; a handler given to Listen goes behind such an
 object too, and a behavior is the action of its own link. The registry, which stopped the links of a collected stream
 through a weak handle to that stream, asks the weak reference that the first attached link already holds, because that
 link's action holds the stream, so no operator stream allocates a handle. Nothing observable changes. Measured in
@@ -299,7 +312,7 @@ an entry on a new node of its own, so that the entry sat at rank zero, and an en
 allocates the node's entry list at the first registration: a node, a list, and the list's array, about 150 bytes, for a
 rank that nothing can raise because nothing links into a node that nothing holds. The one shared node takes those
 entries now, and an entry on it goes into no list. A switch makes two value listeners, and Cell.Listen,
-Cell.ListenStrong, Cell.Values, and every bindable value make one. Nothing observable changes. Measured in
+Cell.Values, and every bindable value make one. Nothing observable changes. Measured in
 GraphBuildBenchmarks, per thousand, before and after, .NET 10 then .NET Framework 4.7.2: a switch of a constant cell
 8.87 to 9.14 ms and 3,171 to 2,877 KB, and 9.41 to 9.09 ms; ListenStrong on one cell 2.88 to 2.67 ms and 1,693 to 1,546
 KB, and 3.56 to 3.46 ms. The switch's .NET 10 time moves inside its error of 0.18 ms either way. In the scratch probe on
@@ -366,6 +379,27 @@ paths where nothing fails. Allocated on .NET 10: a post from a transaction 456 B
 where the runs were steady: the three split cases 1,002 ns to 950 ns, 1,599 to 1,468, and 7,381 to 6,365, and the two
 posts within 3% of what they were. On .NET 10 every case is the same or faster within the noise of the run.
 
+Changed: a chain of deferred work that has no end throws DeferredChainLimitException, an InvalidOperationException,
+where before it ran forever. A posted action and each element of a split run in a transaction of their own after the
+one that deferred them, and that transaction can defer work in turn. A value that finds its way back to its own source
+through Defer, Split, or a posted action that posts again, with nothing on the way to stop it, made a new transaction
+for every lap: the call that started it never returned, on a full core, with flat memory and no exception. The drain
+of a transaction now counts the rounds of splits that it runs, and the generations of posts that it runs after the
+last round, where the posts that one generation makes are the next. It stops when either count is at 100,000. The
+exception comes out of the call that started the first transaction, after any other deferred failure. Every
+transaction before the limit has committed and its values stay; the work that was still waiting does not run, and a
+post that was waiting gets its release with the exception as the cause. A chain that does end, but only after more
+than 100,000 laps, throws as well, and there is no setting for the limit. The count is of depth and not of volume, so
+one split of a million elements is one round. The count of generations starts again after each round, so a chain of
+posts inside each lap of a chain of splits is held to the limit once for each kind and not for the product of the two
+depths. The deepest chain in the tests of the whole solution is 11 laps. The counts are locals in the drain and
+nothing on a queued entry, so a post and a split are the size they were. DeferredWorkBenchmarks allocates the same
+with the limit and without it: to a hundredth of a byte in each of its five cases on .NET Framework 4.7.2, and 440,
+648, 1,208, 1,880, and 7,208 B on .NET 10. The .NET 10 JIT removes a 32-byte object from some of these paths when its
+profile lets it, so a run can read 32 or 64 B more, with the limit or without it; with dynamic PGO off, the defer case
+reads 1,240 B both ways. The times do not show the limit: on a machine that was busy, the runs with it are inside the
+spread of the runs without it on both runtimes.
+
 Fixed: no transaction gets the id zero. Each transaction takes the next value of a 64-bit count as its id, and zero
 already means two things: a root transaction that has no id yet, and an input slot of a merge, lift, apply, or snapshot
 that holds no value for the current transaction. The count wraps without an exception, so after 2^64 transactions one of
@@ -375,6 +409,14 @@ first use, and was not affected. The count now skips zero. Nobody was going to m
 under the transaction lock, and at one id per nanosecond the count takes about 585 years to get there. The point is that
 "the id of a transaction is never zero", which the capture slot depends on, now holds without a condition. The cost is
 one comparison per id.
+
+Added, for the two language packages: a one-shot listener that gives the outcome of the transaction of its firing, which
+ListenOnceAsync and listenOnceAsync now use. It gives the value once that transaction has committed, and the exception
+of a transaction that fails after the stream fired, also where the transaction fails before the listener runs. For that,
+a transaction that fails now tells each queued step that it discards which exception failed it, and a step that carried
+a firing passes that on to a listener that asks for it. Nothing changes for any other listener, and the path of a
+transaction that commits is the same, with one allocation fewer where a listener attaches to a stream that already fired
+in the same transaction.
 
 Changed: a posted action that throws no longer stops the posted actions behind it, and the transaction that posted them
 no longer reads as failed. A transaction commits, runs its last actions, and only then runs what was posted during it,
@@ -393,7 +435,7 @@ Fixed: MutableListener.SetListener stops the listener it replaces, and ClearList
 documentation on both language surfaces said they did. Before, each only changed the field, so a caller who followed
 the documentation kept every listener it replaced, and the only code that did not leak was the library's own
 SwitchB and SwitchS, which stopped the old listener by hand. A set of the listener that is already the target stops
-nothing. Unlisten is unchanged.
+nothing. The stop of the MutableListener itself does not change.
 
 Fixed: a cell with a lazy initial value, a looped cell, the state of AccumLazy or CollectLazy, and the first value of
 a bindable no longer keep a value from a transaction that failed after its sample phase. The sample phase, which runs
@@ -475,11 +517,11 @@ the queue, so it ran a second time in the same transaction. A Map on the switche
 the same value both times, and a listener on the cell still saw one update. Only a function with side effects, which a
 Map must not have, could tell.
 
-Fixed: ListenOnceImpl and ListenOnceStrongImpl, which the language packages give as ListenOnce and ListenOnceStrong,
+Fixed: ListenOnceImpl, which the language packages give as ListenOnce, and the one-shot listener under ListenOnceAsync
 could call the handler twice when the stream fired on another thread. The listener stops itself through its own handle,
 and it got that handle only after the transaction that attached it had closed and released the lock. A firing on
 another thread in that gap ran the handler but could leave the listener attached, and the next firing ran the handler
-again. A stress test that called ListenOnceStrong over and over on a sink while another thread sent to it saw the
+again. A stress test that attached a one-shot listener over and over on a sink while another thread sent to it saw the
 handler run twice 726 times in 163,783 calls. The listener now gets its handle inside the transaction that attaches it,
 so nothing can fire in between, and the same test saw no double call in 137,524 calls. It also costs less: Listen
 now runs in that one transaction rather than opening a nested one, so each call allocates 112 bytes less on .NET 10
@@ -494,7 +536,7 @@ OnceImpl loses a branch that could never run. What it does is unchanged.
 Removed: the internal NoListener type, which nothing uses any more. No released version of any package here calls it.
 
 Added: the internal IRootableListener and ListenOnceRootableImpl, which gives one. It is a one-shot listener that is
-weak until Root is called and is held by the stream after that, until its first firing or Unlisten. A Root after either
+weak until Root is called and is held by the stream after that, until its first firing or its Dispose. A Root after either
 of those does nothing. SodaFlow.FSharp's listenOnceAsync uses it so that an async that never runs leaves no listener
 behind.
 
@@ -546,6 +588,21 @@ last action was silently dropped. The transaction now fails with an InvalidOpera
 failure discards the step, so the next transaction starts clean. Nothing in this library's own last actions does this;
 the check is there to make the mistake loud rather than silent. A last action can still queue a last action, which runs
 in the same drain, and a post, which runs after it.
+
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
+Added: the net8.0 build is marked as compatible with trimming and native AOT. The build of the package runs the trim,
+AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
+IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
+net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them. The analyzers
+cannot see one thing that the native AOT compiler reports. A native AOT publish that roots the assembly reports IL3054
+on generic expansions that the compiler stopped, because MaybeInternal<T> nests inside itself with no limit that the
+compiler can prove. The code of an expansion that stopped throws if it runs. A root makes the compiler follow each
+method of each expansion, and an app does not. The publish of an app that uses Gate, Calm, Snapshot, Accum, Collect,
+OrElse, Merge, Hold, Lift, Updates, and Listen reported none. The build of the repository now publishes that app with
+each warning as an error, and runs it.
 
 5.0.0
 

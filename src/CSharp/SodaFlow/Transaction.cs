@@ -120,6 +120,12 @@ public static class Transaction
     ///         the posted actions after it. Each throw comes out after the last posted
     ///         action, in one AggregateException when there is more than one.
     ///     </para>
+    ///     <para>
+    ///         A posted action that posts again makes a chain of deferred work. That
+    ///         chain must have an end. A chain with no end throws
+    ///         <see cref="DeferredChainLimitException" /> from the call that started
+    ///         the first transaction.
+    ///     </para>
     /// </remarks>
     /// <param name="action">
     ///     The action to run after the current transaction closes or immediately if
@@ -157,6 +163,12 @@ public static class Transaction
     ///         transaction that posts it commits. An action that throws does not stop
     ///         the posted actions after it. Each throw comes out after the last posted
     ///         action, in one AggregateException when there is more than one.
+    ///     </para>
+    ///     <para>
+    ///         A posted action that posts again makes a chain of deferred work. That
+    ///         chain must have an end. A chain with no end throws
+    ///         <see cref="DeferredChainLimitException" /> from the call that started
+    ///         the first transaction.
     ///     </para>
     /// </remarks>
     /// <param name="action">

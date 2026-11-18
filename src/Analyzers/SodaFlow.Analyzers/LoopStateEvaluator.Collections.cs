@@ -67,7 +67,10 @@ internal sealed partial class LoopStateEvaluator
         // A literal whose object has its elements in the order of the code gives the positions.
         if (this.LiteralElements(made: Unwrapped(place), type: this.region.TypeOf(place)) is { } ordered)
         {
-            this.region.Objects.HasPositions(collection: made, values: ordered.Select(this.Eval).ToImmutableArray());
+            this.region.Objects.HasPositions(
+                collection: made,
+                values: ordered.Select(this.Eval).ToImmutableArray(),
+                givenBy: ordered.Select(static SyntaxNode? (element) => element).ToImmutableArray());
         }
     }
 
@@ -121,6 +124,152 @@ internal sealed partial class LoopStateEvaluator
 
                 return;
             }
+        }
+    }
+
+    /// <summary>
+    ///     Records that the owner of a method of a package got the arguments of
+    ///     a call. The owner holds each argument that is an object of the store,
+    ///     where the walk has a record for that. The owner then needs no copy of
+    ///     the state of that argument.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A copy keeps a cell that the object had at the call, and the store
+    ///         has the state of the object at each read. An owner that is an
+    ///         object of the store holds its objects there, from
+    ///         <see cref="Gets" />. It gets a copy of each argument when one of
+    ///         them is no such object.
+    ///     </para>
+    ///     <para>
+    ///         The store has no record of what each other owner holds. A static
+    ///         field or a static property has one record of the region, and each
+    ///         read of its name gets that record. A parameter gives what it holds
+    ///         to its argument. A location that the walk can read again gives it
+    ///         to each later read of that location. Thus, such a name holds the
+    ///         objects, as in <see cref="KeepsWhatItGets" />, and keeps a copy of
+    ///         only a value with no object. Each other owner keeps a copy of each
+    ///         argument.
+    ///     </para>
+    /// </remarks>
+    /// <param name="owner">The owner in the call.</param>
+    /// <param name="invocation">The call.</param>
+    /// <param name="method">The method of the package.</param>
+    public void KeepsWhatAPackageGets(
+        ExpressionSyntax owner,
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method)
+    {
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+        LoopState has = this.Eval(owner);
+        ExpressionSyntax name = Unwrapped(owner);
+
+        bool inItsName =
+            IsOfNoObjectOfTheStore(has)
+            && (this.region.SymbolOf(name) is { IsStatic: true } and (IFieldSymbol or IPropertySymbol)
+                    or IParameterSymbol { RefKind: RefKind.None }
+                || this.KeptKeyOf(name) != null);
+
+        if (inItsName)
+        {
+            foreach (LoopState put in arguments
+                         .Select(argument => this.Eval(argument.Expression))
+                         .Where(IsOnlyKnownObjects))
+            {
+                this.KeepsInTheNameOf(owner: name, holding: LoopState.None.HoldingWhatCameWith(put));
+            }
+        }
+
+        bool holdsItsObjects =
+            inItsName
+            || (IsOnlyKnownObjects(has)
+                && arguments.All(argument => IsOnlyKnownObjects(this.Eval(argument.Expression))));
+
+        this.Absorb(
+            target: owner,
+            state: this.Moved(
+                invocation: invocation,
+                method: method,
+                withReceiver: false,
+                withObjects: !holdsItsObjects));
+    }
+
+    private static bool IsOnlyKnownObjects(LoopState state) =>
+        !state.Objects.IsEmpty && !state.Objects.Contains(MadeObject.Unknown);
+
+    /// <summary>
+    ///     Records that code with no body to read got the arguments of a call
+    ///     on an owner that is no object of the store. The store has no record of
+    ///     what such an owner holds. Thus, the name of the owner keeps it, as the
+    ///     owner of a method of a package does.
+    /// </summary>
+    /// <remarks>
+    ///     An argument that is an object of the store keeps its state in the
+    ///     store. The owner then holds the object, and a later change to the
+    ///     object is a change to what the owner gives back. A value with no object
+    ///     has its members only in a copy, and the owner keeps that copy.
+    /// </remarks>
+    /// <param name="owner">The owner in the call.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    public void KeepsWhatItGets(ExpressionSyntax owner, SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        if (arguments.Count == 0)
+        {
+            return;
+        }
+
+        // An owner that is an object of the store holds each object that it gets, from Gets. A
+        // value with no object has its state only in a copy, and the owner keeps that copy also. A
+        // pending value gets SF1003 there, and the walk does not follow it.
+        if (!IsOfNoObjectOfTheStore(this.Eval(owner)))
+        {
+            foreach (LoopState put in arguments
+                         .Select(argument => this.Eval(argument.Expression))
+                         .Where(static put => put is { IsNone: false, Pending: false } && IsOfNoObjectOfTheStore(put)))
+            {
+                this.Absorb(target: owner, state: put);
+            }
+
+            return;
+        }
+
+        foreach (LoopState put in arguments.Select(argument => this.Eval(argument.Expression)))
+        {
+            if (IsOfNoObjectOfTheStore(put))
+            {
+                this.Absorb(target: owner, state: put);
+            }
+            else
+            {
+                this.KeepsInTheNameOf(owner: owner, holding: LoopState.None.HoldingWhatCameWith(put));
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Gives a state that only holds objects to the name of an owner with no
+    ///     object of the store. When the owner is a location that the walk can
+    ///     read again, each later read of that location holds the objects also.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="Merge(ExpressionSyntax, LoopState)" /> stops at such a
+    ///     state. The store has each change to an object that a value holds, but
+    ///     an owner with no object has no record in the store. An element or a
+    ///     member of a location has no name of its own. The state of its
+    ///     collection or its owner is of a different value. See
+    ///     <see cref="KeptThrough" />.
+    /// </remarks>
+    /// <param name="owner">The owner, as the code names it.</param>
+    /// <param name="holding">The state, which only holds objects.</param>
+    private void KeepsInTheNameOf(ExpressionSyntax owner, LoopState holding)
+    {
+        ExpressionSyntax target = Unwrapped(owner);
+
+        this.MergeInto(target: target, state: holding, level: 0);
+
+        if (!this.quiet && this.function == null && this.KeptKeyOf(target) is { } key)
+        {
+            this.Frame.KeptAt.Add((key.Location, key.Name, key.Member, State: holding));
         }
     }
 
@@ -192,14 +341,31 @@ internal sealed partial class LoopStateEvaluator
 
     // The object of a local of this code that is one collection and no other value. A function
     // can run at a different time, thus a local that it reads from the code around it is no such
-    // name.
-    private MadeObject? TheOneCollectionOf(ExpressionSyntax expression) =>
-        this.function == null
-        && Unwrapped(expression) is IdentifierNameSyntax name
-        && this.region.SymbolOf(name) is { } local and (ILocalSymbol or IParameterSymbol)
-        && this.Frame.TheOneCollectionOf.TryGetValue(key: local, value: out MadeObject? one)
-            ? one
-            : null;
+    // name. A function of this run that a call runs now, one time, reads the locals as they are
+    // now. A static field with readonly is one object for each read, at each time, when the store
+    // has an object for it. See WithItsInitializer.
+    private MadeObject? TheOneCollectionOf(ExpressionSyntax expression)
+    {
+        ExpressionSyntax written = Unwrapped(expression);
+
+        if (written is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
+        {
+            return null;
+        }
+
+        return this.region.SymbolOf(written) switch
+        {
+            { } local and (ILocalSymbol or IParameterSymbol) =>
+                (this.function == null || this.call is { RunsAFunctionOfThisRun: true, RunsOneTime: true })
+                && written is IdentifierNameSyntax
+                && this.Frame.TheOneCollectionOf.TryGetValue(key: local, value: out MadeObject? one)
+                    ? one
+                    : null,
+            IFieldSymbol { IsStatic: true, IsReadOnly: true } field =>
+                this.region.Objects.InAStaticMember(field.OriginalDefinition),
+            _ => null
+        };
+    }
 
     private MadeObject? TheCompleteCollection(ExpressionSyntax collection)
     {

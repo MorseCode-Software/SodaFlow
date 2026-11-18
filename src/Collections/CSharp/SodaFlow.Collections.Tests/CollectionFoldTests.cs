@@ -102,7 +102,7 @@ public sealed class CollectionFoldTests
 
         Cell<int> total = Transaction.Run(() => Total(collection));
         List<int> seen = [];
-        IStrongListener l = Transaction.Run(() => total.Updates().ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => total.Updates().Listen(seen.Add));
 
         // One edit that adds a key, updates a key, and removes a key.
         edits.Send(
@@ -116,7 +116,7 @@ public sealed class CollectionFoldTests
             .IsEquivalentTo([101])
             .Because("one change of the collection gives one value, and not one for each key in it");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -363,7 +363,7 @@ public sealed class CollectionFoldTests
                     subtract: static (a, b) => a - b));
 
         List<int> seen = [];
-        IStrongListener l = Transaction.Run(() => count.Updates().ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => count.Updates().Listen(seen.Add));
 
         await Assert.That(Transaction.Run(count.Sample)).IsEqualTo(2);
 
@@ -379,7 +379,7 @@ public sealed class CollectionFoldTests
 
         await Assert.That(seen).IsEquivalentTo(expected: [3, 2], ordering: CollectionOrdering.Matching);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]

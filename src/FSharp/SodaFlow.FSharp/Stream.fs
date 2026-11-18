@@ -67,83 +67,59 @@ let loopWithNoCaptures f =
     l
 
 /// <summary>
-///     Listens for firings without keeping the stream alive.
+///     Listens for firings while the caller keeps the handle.
 /// </summary>
 /// <param name="handler">Run with each fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
-/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it.</returns>
+/// <returns>A listener. <c>Listener.unlisten</c> stops it, and a disposal also stops it.</returns>
 /// <remarks>
-///     The listener stops when a GC collects the stream, thus this is the correct selection where there is no
-///     clear moment to stop the listener. Keep the handle from this call in a field of the object doing the
-///     listening, and the two go away together. Where other code must keep the stream kept alive for as long
-///     as something is listening, use <c>listenStrong</c>.
-/// </remarks>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let listen handler (stream: Stream<_>) = stream.ListenImpl(Action<_> handler)
-
-/// <summary>
-///     Listens for firings, keeping the stream alive while the listener lives.
-/// </summary>
-/// <param name="handler">Run with each fired value.</param>
-/// <param name="stream">The stream to listen to.</param>
-/// <returns>
-///     A strong listener. <c>StrongListener.unlisten</c> stops it, and a disposal also stops it.
-/// </returns>
-/// <remarks>
-///     The listener roots the stream, so the graph behind it stays alive for as long as the
-///     returned handle is reachable. Keep the handle and stop it when finished, or use
-///     <c>listen</c> where there is no good moment to do that.
+///     The handle from this call keeps the stream and the graph behind it in memory, and only the caller
+///     keeps the handle. Keep the handle in a field of the object that listens, and the two go out of memory
+///     together. A call that discards the handle compiles, and the handler then stops with no message when a
+///     GC collects the handle.
 ///
 ///     The handler runs with the transaction lock held, thus it must return quickly. Give work
 ///     that takes a long time, and work that blocks, to a different thread.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenStrong handler (stream: Stream<_>) =
-    stream.ListenStrongImpl(Action<_> handler)
+let listen handler (stream: Stream<_>) : IListener =
+    stream.ListenImpl(Action<_> handler) :> IListener
 
 /// <summary>
-///     Listens for the next firing only, then stops, without keeping the stream alive.
+///     Listens for the next firing only, then stops.
 /// </summary>
 /// <param name="handler">Run with the first fired value.</param>
 /// <param name="stream">The stream to listen to.</param>
-/// <returns>A weak listener. <c>WeakListener.unlisten</c> stops it before that first firing.</returns>
+/// <returns>
+///     A listener. <c>Listener.unlisten</c> stops it before that first firing, and a disposal also stops it.
+/// </returns>
 /// <remarks>
 ///     The handle from this call is the only thing that keeps the handler alive, thus hold it until
 ///     that first firing arrives. A call that discards the handle compiles, and the handler then runs
-///     or does not run according to when a GC collects it. Use <c>listenOnceStrong</c> where the
-///     caller does not keep the handle.
+///     or does not run according to when a GC collects it. Use <c>listenOnceAsync</c> where the
+///     caller cannot keep the handle.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let listenOnce handler (stream: Stream<_>) =
     stream.ListenOnceImpl(Action<_> handler)
 
-/// <summary>
-///     Listens for the next firing only, then stops, and keeps the stream alive until that firing.
-/// </summary>
-/// <param name="handler">Run with the first fired value.</param>
-/// <param name="stream">The stream to listen to.</param>
-/// <returns>
-///     A strong listener. <c>StrongListener.unlisten</c> stops it before that first firing, and a
-///     disposal also stops it.
-/// </returns>
-/// <remarks>
-///     The listener roots the stream until that first firing, thus the handler runs when the caller
-///     discards the handle. The root ends with that firing, or with an earlier stop. Use
-///     <c>listenOnce</c> where the listener must not extend the lifetime of what it observes.
-/// </remarks>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let listenOnceStrong handler (stream: Stream<_>) =
-    stream.ListenOnceStrongImpl(Action<_> handler)
-
 // Async.AwaitTask sends a canceled task to the exception continuation, thus the async faults. This
 // sends it to the cancellation continuation, thus the async cancels. Only listenOnceAsync completes
-// the task. It gives a value or a cancellation, thus the task cannot fault.
+// the task. It gives a value, a cancellation, or the exception of a transaction that failed. The
+// async raises that exception, and not the AggregateException in which the task holds it.
 let private awaitValueOrCancellation (token: CancellationToken) (task: Task<_>) =
-    Async.FromContinuations(fun (cont, _, ccont) ->
+    Async.FromContinuations(fun (cont, econt, ccont) ->
         task.ContinueWith(
             (fun (t: Task<_>) ->
                 if t.IsCanceled then
                     ccont (OperationCanceledException token)
+                elif t.IsFaulted then
+                    match t.Exception with
+                    | null -> econt (InvalidOperationException "The task faulted with no exception.")
+                    | failure ->
+                        match failure.InnerException with
+                        | null -> econt failure
+                        | cause -> econt cause
                 else
                     cont t.Result),
             CancellationToken.None,
@@ -169,11 +145,24 @@ let private awaitValueOrCancellation (token: CancellationToken) (task: Task<_>) 
 ///     A cancellation of the async stops the listener and cancels the result. A thread that is not
 ///     the thread that fired the value gives the value. Thus, an await of this does not run a
 ///     continuation with the transaction lock.
+///
+///     The value arrives when the transaction of the firing commits. A transaction that fails
+///     after the stream fired gives no value, and the async raises the exception of that
+///     transaction. That holds also where the transaction fails before the listener runs. A
+///     transaction that fails before the stream fires gives the stream no firing, and the async
+///     waits for the next one. The body of a transaction and each operator above the stream come
+///     before the firing.
 /// </remarks>
 let listenOnceAsync (stream: Stream<_>) =
     let tcs = TaskCompletionSource<_> TaskCreationOptions.RunContinuationsAsynchronously
+
+    // The listener gives the outcome of the transaction of the firing: the value after a commit,
+    // and the exception of a transaction that fails. See OnceWithOutcomeAction.
     let listener =
-        stream.ListenOnceRootableImpl(Action<_>(fun a -> tcs.TrySetResult(a) |> ignore))
+        stream.ListenOnceWithOutcomeRootableImpl(
+            Action<_>(fun a -> tcs.TrySetResult(a) |> ignore),
+            Action<exn>(fun e -> tcs.TrySetException(e) |> ignore)
+        )
 
     async {
         let! ct = Async.CancellationToken

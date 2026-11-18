@@ -25,10 +25,10 @@ internal static class TestUtil
     ///     stream, which is one step from the stream. Thus, the pipeline gets the
     ///     value before the throw.
     /// </summary>
-    public static IStrongListener ThrowAfterThePipeline<T>(Stream<T> stream) =>
+    public static IListener ThrowAfterThePipeline<T>(Stream<T> stream) =>
         stream.Map(static value => value)
             .Map(static value => value)
-            .ListenStrong(static _ => throw new InvalidOperationException("The test fails this transaction."));
+            .Listen(static _ => throw new InvalidOperationException("The test fails this transaction."));
 
     /// <summary>
     ///     Reads <paramref name="condition" /> until it is true, or fails the test at

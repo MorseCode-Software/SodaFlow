@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace SodaFlow.Analyzers;
 
@@ -123,6 +124,770 @@ internal sealed partial class LoopStateEvaluator
             : location;
     }
 
+    /// <summary>
+    ///     For a local that is a second name of a value with no object of the
+    ///     store: the expression of the first name. Null for each other
+    ///     expression.
+    /// </summary>
+    /// <remarks>
+    ///     A value that is no object of the store keeps the state of its members
+    ///     in its name. A local that gets the value of a second local is one more
+    ///     name of that value, and not a copy. Each read and each write of a
+    ///     member through the second name then goes through the first name. That
+    ///     is true while no code gives one of the two names a value. A function
+    ///     can run at a different time, thus the code of a function gets a first
+    ///     name only for a local of its own. One run of the function makes such
+    ///     a local, and the two names are one value in that run.
+    /// </remarks>
+    private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written)
+    {
+        if (this.Frame.FirstNameOf.Count == 0)
+        {
+            return null;
+        }
+
+        ExpressionSyntax? found = null;
+        ExpressionSyntax use = written;
+
+        // The first name can be a second name also. The number of names has an end.
+        for (int level = 0; level < MaxOwners; level++)
+        {
+            if (Unwrapped(use) is not IdentifierNameSyntax name
+                || this.region.SymbolOf(name) is not { } second
+                || (this.function != null && !IsDeclaredIn(local: second, code: this.function))
+                || !this.Frame.FirstNameOf.TryGetValue(key: second, value: out ExpressionSyntax? first)
+                || FunctionOf(written) is not { } code
+                || this.region.SymbolOf(first) is not { } firstName
+                || new[] { firstName, second }.Any(one =>
+                    this.GetsAValue(
+                        name: one,
+                        code: code,
+                        after: first.Span.End,
+                        before: written.SpanStart,
+                        orAFunctionUsesIt: false)))
+            {
+                break;
+            }
+
+            found = first;
+            use = first;
+        }
+
+        return found;
+    }
+
+    // True for a name whose own state can be without a write through a second name of its value.
+    // The name was one of two names, or it is a second name whose first name the walk cannot
+    // read here.
+    private bool WasOneOfTwoNames(ExpressionSyntax written) =>
+        (this.Frame.WasOneOfTwoNames.Count > 0 || this.Frame.FirstNameOf.Count > 0)
+        && Unwrapped(written) is IdentifierNameSyntax name
+        && this.region.SymbolOf(name) is { } symbol
+        && (this.Frame.WasOneOfTwoNames.Contains(symbol)
+            || (this.Frame.FirstNameOf.ContainsKey(symbol) && this.TheFirstNameOf(name) == null));
+
+    // Records what an assignment to a local does to the names of a value with no object.
+    private void NotesASecondName(ISymbol local, ExpressionSyntax value, bool replaces)
+    {
+        if (this.quiet)
+        {
+            return;
+        }
+
+        // The local gets a different value. Each second name of its value keeps that value, with
+        // the state that it has now.
+        foreach (ISymbol second in this.Frame.FirstNameOf
+                     .Where(pair =>
+                         SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(pair.Value), y: local))
+                     .Select(static pair => pair.Key)
+                     .ToArray())
+        {
+            if (this.locals.TryGetValue(key: local, value: out LoopState? now))
+            {
+                this.locals[second] = now;
+            }
+
+            this.Frame.FirstNameOf.Remove(second);
+        }
+
+        // After an assignment that is not sure to run, the local can be a second name.
+        if (this.Frame.FirstNameOf.TryGetValue(key: local, value: out ExpressionSyntax? first))
+        {
+            this.Frame.FirstNameOf.Remove(local);
+
+            if (!replaces && this.region.SymbolOf(first) is { } firstName)
+            {
+                this.Frame.WasOneOfTwoNames.Add(local);
+                this.Frame.WasOneOfTwoNames.Add(firstName);
+            }
+        }
+
+        if ((this.function != null && !IsDeclaredIn(local: local, code: this.function))
+            || !KeepsItsObject(local)
+            || Unwrapped(value) is not IdentifierNameSyntax name
+            || this.region.SymbolOf(name) is not ((ILocalSymbol or IParameterSymbol) and { } from)
+            || !KeepsItsObject(from)
+            || SymbolEqualityComparer.Default.Equals(x: from, y: local)
+            || this.region.TypeOf(name) is not { } type
+            || !this.CanBeAnObject(type)
+            || !this.Eval(name).Objects.IsEmpty)
+        {
+            return;
+        }
+
+        if (replaces)
+        {
+            this.Frame.FirstNameOf[local] = name;
+        }
+        else
+        {
+            // The local can be a second name after an assignment that is not sure to run.
+            this.Frame.WasOneOfTwoNames.Add(local);
+            this.Frame.WasOneOfTwoNames.Add(from);
+        }
+    }
+
+    /// <summary>
+    ///     Records the location that a local got a value with no object of the
+    ///     store from. The location is an element with a constant index, or a
+    ///     field. Each read of that location gives the same value, thus each local
+    ///     that got it is a name of one value.
+    /// </summary>
+    /// <param name="local">The local.</param>
+    /// <param name="value">The expression of the value.</param>
+    /// <param name="replaces">True when the local then has only this value.</param>
+    private void NotesANameOfALocation(ISymbol local, ExpressionSyntax value, bool replaces)
+    {
+        if (this.quiet)
+        {
+            return;
+        }
+
+        this.Frame.ReadFrom.Remove(local);
+
+        if (replaces
+            && this.function == null
+            && local is ILocalSymbol { RefKind: RefKind.None }
+            && this.LocationKeyOf(value) != null
+            && this.region.TypeOf(value) is { } type
+            && this.CanBeAnObject(type)
+            && IsOfNoObjectOfTheStore(this.Eval(value)))
+        {
+            this.Frame.ReadFrom[local] = value;
+        }
+    }
+
+    // True for a value whose members only a name keeps. The value is no object, or an object that
+    // the store does not know.
+    private static bool IsOfNoObjectOfTheStore(LoopState value) =>
+        value.Objects.All(static one => ReferenceEquals(objA: one, objB: MadeObject.Unknown));
+
+    // The state of a local that gets a value from a location, with the members that each other
+    // name of that location has now. The local is a name of the same value.
+    private LoopState WithTheOtherNames(ISymbol local, ExpressionSyntax? from, LoopState state)
+    {
+        if (this.Frame.ReadFrom.Count == 0 || from == null || !IsOfNoObjectOfTheStore(state))
+        {
+            return state;
+        }
+
+        foreach (ISymbol other in this.TheOtherNamesOf(location: from, at: from, self: local))
+        {
+            if (this.locals.TryGetValue(key: other, value: out LoopState? named))
+            {
+                state = state.Join(named);
+            }
+        }
+
+        return state;
+    }
+
+    // Gives each other name of the location of an owner a write to a member through that owner.
+    // The owner is a name of the location, or the location itself.
+    private void GivesTheOtherNames(
+        ExpressionSyntax? owner,
+        SyntaxNode? at,
+        ISymbol member,
+        LoopState state,
+        bool replaces,
+        SyntaxNode? turn)
+    {
+        if (this.Frame.ReadFrom.Count == 0 || this.quiet || this.function != null || owner == null || at == null)
+        {
+            return;
+        }
+
+        ISymbol? self =
+            Unwrapped(owner) is IdentifierNameSyntax name && this.region.SymbolOf(name) is ILocalSymbol local
+                ? local
+                : null;
+
+        ExpressionSyntax? location =
+            self == null
+                ? owner
+                : this.Frame.ReadFrom.TryGetValue(key: self, value: out ExpressionSyntax? read)
+                    ? read
+                    : null;
+
+        if (location == null
+            || this.TheOtherNamesOf(location: location, at: at, self: self) is not { Length: > 0 } others
+            || (self != null && !this.IsStillTheLocationOf(name: self, location: location, use: at)))
+        {
+            return;
+        }
+
+        foreach (ISymbol other in others)
+        {
+            LoopState known =
+                this.locals.TryGetValue(key: other, value: out LoopState? existing) ? existing : LoopState.None;
+
+            Construction had = known.Members ?? Construction.Empty;
+
+            bool only =
+                replaces
+                    ? this.AlwaysRunsForAName(other)
+                    : turn != null && IsMadeInEachTurn(name: other, turn: turn);
+
+            this.locals[other] =
+                known.WithMembers(had.With(member: member, state: only ? state : had.StateOf(member).Join(state)));
+        }
+    }
+
+    // Each local, other than the given one, that is a name of the same location as the given
+    // expression at a use.
+    private ISymbol[] TheOtherNamesOf(ExpressionSyntax location, SyntaxNode at, ISymbol? self)
+    {
+        if (this.LocationKeyOf(location) is not { } key)
+        {
+            return [];
+        }
+
+        return
+        [
+            .. this.Frame.ReadFrom
+                .Where(pair =>
+                    !SymbolEqualityComparer.Default.Equals(x: pair.Key, y: self)
+                    && IsTheSameLocation(one: this.LocationKeyOf(pair.Value), other: key)
+                    && this.IsStillTheLocationOf(name: pair.Key, location: pair.Value, use: at))
+                .Select(static pair => pair.Key)
+        ];
+    }
+
+    // The parts of a location that the walk can read again. They are the array or the field, the
+    // owner of the field, and the index of the element. The array is in a local, in a parameter, or in a
+    // field. The owner is null for a static field and for a field of this object. Null for each
+    // other expression.
+    private (ISymbol Of, ISymbol? Owner, int Index)? LocationKeyOf(ExpressionSyntax written) =>
+        Unwrapped(written) switch
+        {
+            ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
+                when Unwrapped(element.Expression) is IdentifierNameSyntax array
+                     && this.region.SymbolOf(array) is { } collection
+                     && (collection is IFieldSymbol || KeepsItsObject(collection))
+                     && this.ConstantIndexOf(indexes[0]) is { } index =>
+                (collection, null, index),
+            IdentifierNameSyntax name when this.region.SymbolOf(name) is IFieldSymbol field => (field, null, -1),
+            MemberAccessExpressionSyntax access when this.region.SymbolOf(access) is IFieldSymbol field =>
+                Unwrapped(access.Expression) switch
+                {
+                    ThisExpressionSyntax => (field, null, -1),
+                    _ when field.IsStatic => (field, null, -1),
+                    IdentifierNameSyntax holder when this.region.SymbolOf(holder) is { } owner
+                                                     && KeepsItsObject(owner) =>
+                        (field, owner, -1),
+                    _ => null
+                },
+            InvocationExpressionSyntax call => this.LocationReturnedBy(call),
+            _ => null
+        };
+
+    // The location that a call gives the value of, as a read of it at the call does. A parameter
+    // of the callee there is its argument, and an array or an owner of a field must be a name of
+    // the caller. Null when the callee returns no location.
+    private (ISymbol Of, ISymbol? Owner, int Index)? LocationReturnedBy(InvocationExpressionSyntax call)
+    {
+        if (this.ReturnedBy(call) is not ({ } returned, var callee)
+            || Unwrapped(returned) is InvocationExpressionSyntax
+            || this.LocationKeyOf(returned) is not { } key)
+        {
+            return null;
+        }
+
+        ISymbol? of = this.AtTheCall(part: key.Of, call: call, callee: callee);
+        ISymbol? owner = key.Owner == null ? null : this.AtTheCall(part: key.Owner, call: call, callee: callee);
+
+        // A field of the object of an instance method is a field of this object only for a call
+        // on this object.
+        bool onThis =
+            callee is not { IsStatic: false }
+            || Unwrapped(call.Expression) is IdentifierNameSyntax or GenericNameSyntax
+                or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax };
+
+        return of == null
+               || (key.Owner != null && owner == null)
+               || (!onThis && key is { Owner: null, Of: IFieldSymbol { IsStatic: false } })
+            ? null
+            : (of, owner, key.Index);
+    }
+
+    // A part of a location that a callee returns, as a name of the caller. A parameter of the
+    // callee gives the name that is its argument. A local of a method is no name of the caller.
+    // A lambda reads the locals of the code around it, thus its names are names of the caller.
+    private ISymbol? AtTheCall(ISymbol part, InvocationExpressionSyntax call, IMethodSymbol? callee)
+    {
+        if (callee == null || part is IFieldSymbol)
+        {
+            return part;
+        }
+
+        if (part is not IParameterSymbol parameter
+            || !SymbolEqualityComparer.Default.Equals(
+                x: parameter.ContainingSymbol,
+                y: (callee.ReducedFrom ?? callee).OriginalDefinition))
+        {
+            return null;
+        }
+
+        ExpressionSyntax? argument =
+            callee.ReducedFrom != null
+                ? parameter.Ordinal == 0
+                    ? (call.Expression as MemberAccessExpressionSyntax)?.Expression
+                    : ArgumentAt(ordinal: parameter.Ordinal - 1)
+                : ArgumentAt(ordinal: parameter.Ordinal);
+
+        return argument != null
+               && Unwrapped(argument) is IdentifierNameSyntax name
+               && this.region.SymbolOf(name) is { } given
+               && (given is IFieldSymbol || KeepsItsObject(given))
+            ? given
+            : null;
+
+        ExpressionSyntax? ArgumentAt(int ordinal) =>
+            call.ArgumentList.Arguments.Any(static each => each.NameColon != null)
+            || ordinal >= call.ArgumentList.Arguments.Count
+                ? null
+                : call.ArgumentList.Arguments[ordinal].Expression;
+    }
+
+    /// <summary>
+    ///     The expression that a call returns, when the code of the callee is only
+    ///     a return of it, with the callee. The callee is a method of this
+    ///     compilation that no override can replace. For a transaction, it is the
+    ///     function that the transaction runs. Its callee is null for a lambda.
+    /// </summary>
+    private (ExpressionSyntax? Returned, IMethodSymbol? Callee) ReturnedBy(InvocationExpressionSyntax call)
+    {
+        if (this.region.SymbolOf(call) is not IMethodSymbol method)
+        {
+            return (null, null);
+        }
+
+        if (this.region.Symbols.IsSodaFlow(method))
+        {
+            if (!OperatorTable.RunsFunctionOneTime(method)
+                || call.ArgumentList.Arguments.Count != 1
+                || call.ArgumentList.Arguments[0].Expression is not { } function)
+            {
+                return (null, null);
+            }
+
+            return function switch
+            {
+                ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 0 } lambda =>
+                    (OnlyReturnOf(lambda.Body), null),
+                IdentifierNameSyntax or MemberAccessExpressionSyntax
+                    when this.region.SymbolOf(function) is IMethodSymbol { Parameters.Length: 0 } group =>
+                    ReturnedByMethod(group),
+                _ => (null, null)
+            };
+        }
+
+        return ReturnedByMethod(method);
+
+        static (ExpressionSyntax?, IMethodSymbol?) ReturnedByMethod(IMethodSymbol method) =>
+            method is { IsVirtual: false, IsAbstract: false, IsOverride: false }
+                ? (OnlyReturnOf(BodyOf((method.ReducedFrom ?? method).OriginalDefinition)), method)
+                : (null, null);
+
+        static ExpressionSyntax? OnlyReturnOf(SyntaxNode? body) =>
+            body switch
+            {
+                ExpressionSyntax expression => expression,
+                BlockSyntax { Statements: { Count: 1 } statements } =>
+                    (statements[0] as ReturnStatementSyntax)?.Expression,
+                _ => null
+            };
+    }
+
+    // True when a local is still a name of the location that it got its value from, at a use. No
+    // code between the two gave the local, the array, the field, or the owner a value. No code
+    // between them can give the location itself a value.
+    private bool IsStillTheLocationOf(ISymbol name, ExpressionSyntax location, SyntaxNode use)
+    {
+        if (FunctionOf(location) is not { } code
+            || FunctionOf(use) != code
+            || location.Span.End > use.SpanStart
+            || this.LocationKeyOf(location) is not { } key)
+        {
+            return false;
+        }
+
+        int after = location.Span.End;
+        int before = use.SpanStart;
+
+        return new[] { name, key.Of, key.Owner }.All(part =>
+                   part == null
+                   || !this.GetsAValue(name: part, code: code, after: after, before: before, orAFunctionUsesIt: false))
+               && !code.DescendantNodes(TextSpan.FromBounds(start: after, end: before))
+                   .Any(node => node.SpanStart > after
+                                && node.SpanStart < before
+                                && this.CanChangeTheLocation(node: node, key: key));
+    }
+
+    // True for code that can give a location a value. It is an assignment, a deconstruction, or a
+    // use with ref of the location. It is a call that gets the array or the owner, or a call of a
+    // delegate or of a local function. For a location in a field, each call of code of this
+    // compilation can change it also.
+    private bool CanChangeTheLocation(SyntaxNode node, (ISymbol Of, ISymbol? Owner, int Index) key)
+    {
+        (ExpressionSyntax? receiver, ArgumentListSyntax? arguments) =
+            node switch
+            {
+                ElementAccessExpressionSyntax or MemberAccessExpressionSyntax when GivesAValue(node) =>
+                    ((ExpressionSyntax)node, null),
+                InvocationExpressionSyntax call =>
+                    ((call.Expression as MemberAccessExpressionSyntax)?.Expression, call.ArgumentList),
+                BaseObjectCreationExpressionSyntax creation => (null, creation.ArgumentList),
+                _ => (null, null)
+            };
+
+        if (arguments == null)
+        {
+            return receiver != null && IsTheSameLocation(one: this.LocationKeyOf(receiver), other: key);
+        }
+
+        // A callee that only returns a location changes nothing.
+        if (node is InvocationExpressionSyntax read && this.LocationReturnedBy(read) != null)
+        {
+            return false;
+        }
+
+        return (receiver != null && this.IsAPartOf(expression: receiver, key: key))
+               || arguments.Arguments.Any(argument => this.IsAPartOf(expression: argument.Expression, key: key))
+               || (this.region.SymbolOf(node) is IMethodSymbol method
+                   && (method.MethodKind is MethodKind.DelegateInvoke or MethodKind.LocalFunction
+                       || (key is { Owner: null, Of: IFieldSymbol } && !method.DeclaringSyntaxReferences.IsEmpty)));
+    }
+
+    // True for an expression that is the array or the owner of a location. A call that gets the
+    // value of a field cannot give the field a value, thus the field itself is no such part.
+    private bool IsAPartOf(ExpressionSyntax expression, (ISymbol Of, ISymbol? Owner, int Index) key) =>
+        Unwrapped(expression) is IdentifierNameSyntax name
+        && this.region.SymbolOf(name) is { } symbol
+        && ((key.Index >= 0 && SymbolEqualityComparer.Default.Equals(x: symbol, y: key.Of))
+            || SymbolEqualityComparer.Default.Equals(x: symbol, y: key.Owner));
+
+    // The location that an expression reads, as a key of KeptAt. The key has the element or the
+    // field, the local that names it, and the member of the value there. Null when the walk cannot
+    // read that location again.
+    private (ExpressionSyntax Location, ISymbol? Name, ISymbol? Member)? KeptKeyOf(ExpressionSyntax expression) =>
+        Unwrapped(expression) switch
+        {
+            MemberAccessExpressionSyntax access
+                when this.region.SymbolOf(access) is { } member
+                     && IsALocation(member)
+                     && this.KeptKeyOf(access.Expression) is (var location, var name, null) =>
+                (location, name, member.OriginalDefinition),
+            IdentifierNameSyntax local
+                when this.region.SymbolOf(local) is ILocalSymbol named
+                     && this.Frame.ReadFrom.TryGetValue(key: named, value: out ExpressionSyntax? from) =>
+                (from, named, null),
+            (ElementAccessExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax) and var written
+                when this.LocationKeyOf(written) != null =>
+                (written, null, null),
+            _ => null
+        };
+
+    /// <summary>
+    ///     What code with no body keeps for the location that an expression
+    ///     reads, from <see cref="LoopFrame.KeptAt" />. Only the code between the
+    ///     two cannot give the location a new value.
+    /// </summary>
+    private LoopState KeptThrough(ExpressionSyntax expression)
+    {
+        if (this.function != null
+            || this.KeptKeyOf(expression) is not { } read
+            || this.LocationKeyOf(read.Location) is not { } at)
+        {
+            return LoopState.None;
+        }
+
+        LoopState kept = LoopState.None;
+
+        foreach ((ExpressionSyntax location, ISymbol? name, ISymbol? member, LoopState state) in this.Frame.KeptAt)
+        {
+            if (SymbolEqualityComparer.Default.Equals(x: member, y: read.Member)
+                && IsTheSameLocation(one: this.LocationKeyOf(location), other: at)
+                && this.IsStillTheLocationOf(name: name ?? at.Of, location: location, use: expression)
+                && (read.Name == null
+                    || this.IsStillTheLocationOf(name: read.Name, location: read.Location, use: expression)))
+            {
+                kept = kept.Join(state);
+            }
+        }
+
+        return kept;
+    }
+
+    private static bool IsTheSameLocation(
+        (ISymbol Of, ISymbol? Owner, int Index)? one,
+        (ISymbol Of, ISymbol? Owner, int Index) other) =>
+        one is { } key
+        && key.Index == other.Index
+        && SymbolEqualityComparer.Default.Equals(x: key.Of, y: other.Of)
+        && SymbolEqualityComparer.Default.Equals(x: key.Owner, y: other.Owner);
+
+    /// <summary>
+    ///     Records that this code put a value into an element or into a field. A
+    ///     parameter with ref, out, or in of this code can be a name of that
+    ///     location. Then, the parameter has that value after the put.
+    /// </summary>
+    /// <param name="field">The field, or null for an element.</param>
+    /// <param name="element">The element, or null for a field.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="owner">The expression of the object of a field.</param>
+    public void PutsIntoALocation(
+        ISymbol? field,
+        ElementAccessExpressionSyntax? element,
+        LoopState state,
+        ExpressionSyntax? owner = null) =>
+        this.PutsIntoALocation(
+            field: field?.OriginalDefinition,
+            index: element is { ArgumentList.Arguments: { Count: 1 } indexes } ? indexes[0] : null,
+            state: state,
+            owner: element?.Expression ?? owner);
+
+    // The same for a put of this code or of a callee. The caller can have the object of a
+    // parameter. Thus, the frame keeps each put into an element or a field of that object for the
+    // caller: see Leave.
+    private void PutsIntoALocation(ISymbol? field, ArgumentSyntax? index, LoopState state, ExpressionSyntax? owner)
+    {
+        if (this.quiet || state.Objects.IsEmpty || this.bound.Count == 0)
+        {
+            return;
+        }
+
+        if (this.bound.Keys.Any(static name => name is IParameterSymbol { RefKind: not RefKind.None }))
+        {
+            this.Frame.PutsIntoLocations.Add((field, index, state));
+        }
+
+        if (owner != null && this.NameUnder(owner) is IParameterSymbol parameter && this.bound.ContainsKey(parameter))
+        {
+            this.Frame.PutsThroughParameters.Add((field, index, state, parameter));
+        }
+    }
+
+    /// <summary>
+    ///     Gives this code each put of a callee into an element or into a field
+    ///     of the object of a parameter. The argument for that parameter has the
+    ///     same object, thus the put is a put of this code through the argument.
+    /// </summary>
+    /// <param name="callee">The frame of the callee, at the end of its walk.</param>
+    /// <param name="argumentOf">The argument for each parameter of the callee.</param>
+    private void GetsThePutsOf(LoopFrame callee, IReadOnlyDictionary<ISymbol, Binding> argumentOf)
+    {
+        foreach ((ISymbol? field, ArgumentSyntax? index, LoopState value, ISymbol parameter)
+                 in callee.PutsThroughParameters)
+        {
+            if (argumentOf.TryGetValue(key: parameter, value: out Binding binding))
+            {
+                this.PutsIntoALocation(field: field, index: index, state: value, owner: binding.Argument);
+            }
+        }
+    }
+
+    // The state of a parameter with ref, out, or in, where the walk does not read its location in
+    // the code of the caller. The location has no object that the store knows, or this code gave
+    // the parameter a value. A put of this code into an element or a field after that can be a put
+    // into the location of the parameter. Then, the parameter is the object of that put. The walk
+    // does not know which of them it is. Thus, the value can be an object that the store does not
+    // know also. A write through the parameter is then sure for no object.
+    private LoopState WithThePutsOfThisCode(IParameterSymbol parameter, LoopState state)
+    {
+        List<(ISymbol? Field, ArgumentSyntax? Index, LoopState Value)> puts = this.Frame.PutsIntoLocations;
+
+        int first =
+            this.Frame.PutsBeforeAnAssignment.TryGetValue(key: parameter, value: out int before) ? before : 0;
+
+        if (puts.Count <= first)
+        {
+            return state;
+        }
+
+        ExpressionSyntax? location =
+            this.call != null
+            && this.call.Locations.TryGetValue(
+                key: parameter,
+                value: out (LoopStateEvaluator Reader, ExpressionSyntax Location) of)
+                ? Unwrapped(of.Location)
+                : null;
+
+        // An argument for a parameter with in can be a copy, and a copy is no location.
+        if (location == null && parameter.RefKind is not (RefKind.Ref or RefKind.Out))
+        {
+            return state;
+        }
+
+        LoopState all = state;
+
+        for (int i = first; i < puts.Count; i++)
+        {
+            if (this.CanBeTheLocationOf(location: location, field: puts[i].Field, index: puts[i].Index))
+            {
+                all = all.Join(puts[i].Value.AsElement).OrAnUnknownObject;
+            }
+        }
+
+        return all;
+    }
+
+    // False when a put into a field or an element is sure to be no put into the location of an
+    // argument. The location is then a local, or the two are an element and a field. Two fields
+    // are two locations also, and two elements with two constant indexes are. The walk does not
+    // know the location of an argument that it cannot read again, and that location can be each
+    // one.
+    private bool CanBeTheLocationOf(ExpressionSyntax? location, ISymbol? field, ArgumentSyntax? index) =>
+        location switch
+        {
+            null => true,
+            ElementAccessExpressionSyntax { ArgumentList.Arguments: var indexes } =>
+                field == null
+                && (index == null
+                    || indexes.Count != 1
+                    || this.ConstantIndexOf(indexes[0]) is not { } one
+                    || this.ConstantIndexOf(index) is not { } other
+                    || one == other),
+            MemberAccessExpressionSyntax access =>
+                field != null
+                && SymbolEqualityComparer.Default.Equals(
+                    x: this.region.SymbolOf(access)?.OriginalDefinition,
+                    y: field),
+            _ => false
+        };
+
+    /// <summary>
+    ///     The locations that a call of a method that returns a ref can give,
+    ///     in the code of the caller. Each is the argument for a parameter that
+    ///     the method returns, or an element of that argument. The walk does not
+    ///     know the position of such an element. Empty for each other location.
+    /// </summary>
+    /// <param name="call">The call that is the target of an assignment.</param>
+    public IReadOnlyList<(ExpressionSyntax Argument, bool IsAnElement)> LocationsOfARefReturn(
+        InvocationExpressionSyntax call)
+    {
+        if (this.region.SymbolOf(call) is not IMethodSymbol { ReturnsByRef: true } method
+            || BodyOf((method.ReducedFrom ?? method).OriginalDefinition) is not { } body)
+        {
+            return [];
+        }
+
+        IReadOnlyList<Binding> bindings =
+            this.Bind(
+                definition: (method.ReducedFrom ?? method).OriginalDefinition,
+                arguments: call.ArgumentList.Arguments,
+                extensionReceiver: method.ReducedFrom != null
+                    ? ReceiverOf(symbols: this.region.Symbols, invocation: call, method: method)
+                    : null);
+
+        List<(ExpressionSyntax Argument, bool IsAnElement)> locations = [];
+
+        foreach (ExpressionSyntax returned in body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+        {
+            (ExpressionSyntax name, bool isAnElement) =
+                Unwrapped(returned) is ElementAccessExpressionSyntax element
+                    ? (Unwrapped(element.Expression), true)
+                    : (Unwrapped(returned), false);
+
+            if (name is not IdentifierNameSyntax || this.region.SymbolOf(name) is not IParameterSymbol parameter)
+            {
+                continue;
+            }
+
+            locations.AddRange(
+                bindings
+                    .Where(binding => SymbolEqualityComparer.Default.Equals(x: binding.Parameter, y: parameter))
+                    .Select(binding => (binding.Argument, isAnElement)));
+        }
+
+        return locations;
+    }
+
+    /// <summary>
+    ///     The collection of the element that a name with ref is for. It is for
+    ///     a name whose location the walk cannot read again: see
+    ///     <see cref="TheLocationOf" />. A value that goes to such a name goes into
+    ///     that collection, at a position that the walk does not know. Null for
+    ///     each other expression.
+    /// </summary>
+    public ExpressionSyntax? TheCollectionOfARef(ExpressionSyntax written) =>
+        Unwrapped(written) is IdentifierNameSyntax use
+        && this.region.SymbolOf(use) is ILocalSymbol { RefKind: not RefKind.None } name
+        && this.Frame.ElementOf.TryGetValue(key: name, value: out ExpressionSyntax? collection)
+            ? collection
+            : null;
+
+    /// <summary>
+    ///     Records that a collection got a value through a name with ref for one
+    ///     of its elements. The walk does not know the position. The ref to the
+    ///     element took the positions of the collection away.
+    /// </summary>
+    /// <param name="collection">The result of <see cref="TheCollectionOfARef" /> for the name.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="value">The expression of the value, when the code has one.</param>
+    public void GetsThroughARef(ExpressionSyntax collection, LoopState state, ExpressionSyntax? value)
+    {
+        if (value != null)
+        {
+            this.Gets(collection: collection, value: value);
+        }
+        else
+        {
+            this.GetsAState(collection: collection, put: state);
+        }
+
+        this.Absorb(target: collection, state: state);
+    }
+
+    /// <summary>
+    ///     True for a <c>ref</c> to an element in the declaration of a local with
+    ///     ref. The walk must read that location at each use of the local. Each
+    ///     assignment to the local is then an assignment to the element, and the
+    ///     positions of the collection stay.
+    /// </summary>
+    /// <remarks>
+    ///     A ref local is no name in a function of its code. A name in the location
+    ///     that gets a value after the declaration makes a different location.
+    ///     Then, an assignment to the local goes to the collection, which is not
+    ///     sure to be the collection of the location.
+    /// </remarks>
+    public bool KeepsThePositionsAt(RefExpressionSyntax reference) =>
+        this.function == null
+        && reference.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
+        && Unwrapped(reference.Expression) is ElementAccessExpressionSyntax location
+        && this.IsALocationThatTheWalkCanReadAgain(location)
+        && FunctionOf(declarator) is { } code
+        && !location.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Any(part =>
+                this.region.SymbolOf(part) is { } symbol and (ILocalSymbol or IParameterSymbol)
+                && this.GetsAValue(
+                    name: symbol,
+                    code: code,
+                    after: reference.Span.End,
+                    before: int.MaxValue,
+                    orAFunctionUsesIt: false));
+
     // True for the expression of a location that TheLocationOf can give. That is a local, an
     // element of an array in a local, or a field of an object in a local or of this object.
     private bool IsALocationThatTheWalkCanReadAgain(ExpressionSyntax location) =>
@@ -146,6 +911,303 @@ internal sealed partial class LoopStateEvaluator
                 && KeepsItsObject(local),
             _ => false
         };
+
+    /// <summary>
+    ///     Records the content of a send for the next read of the block. That
+    ///     read gives the content to the sink from the start. Thus, a value that
+    ///     the code made from the sink before the send gets it also.
+    /// </summary>
+    /// <remarks>
+    ///     The sink is an object of the store, through each name of it. A sink
+    ///     that the walk did not see made has only the name of the send.
+    /// </remarks>
+    /// <param name="sink">The receiver of the send.</param>
+    /// <param name="content">The state of the sink after the send of the value.</param>
+    public void Sends(ExpressionSyntax sink, LoopState content)
+    {
+        // An evaluator that reads a posted function changes nothing else. The send in that
+        // function comes after the close, thus no part of its content is pending.
+        bool later = this.region.ReadsCodeAfterTheTransaction;
+
+        if ((this.quiet && !later) || content.IsNone)
+        {
+            return;
+        }
+
+        if (later)
+        {
+            content = content.AfterTheClose;
+        }
+
+        bool toAnObject = false;
+
+        foreach (MadeObject made in this.region.Objects.Now(this.Eval(sink).Objects))
+        {
+            if (this.region.Objects.CreationOfASink(made) is { } creation)
+            {
+                this.region.Sent.Add(creation: creation, content: content);
+                toAnObject = true;
+            }
+        }
+
+        if (!toAnObject
+            && Unwrapped(sink) is IdentifierNameSyntax or MemberAccessExpressionSyntax
+            && this.region.SymbolOf(Unwrapped(sink))
+                is { } name and (ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol))
+        {
+            this.region.Sent.Add(name: name.OriginalDefinition, content: content);
+        }
+    }
+
+    // A sink that a call makes is an object of the store. It has the content that the sends of
+    // the read before gave it.
+    private LoopState ASink(ExpressionSyntax creation, LoopState state)
+    {
+        LoopState made =
+            this.MadeHere(
+                place: creation,
+                state: state.Join(this.region.SentBefore.To(creation)),
+                exact: false);
+
+        foreach (MadeObject sink in made.Objects)
+        {
+            this.region.Objects.IsASink(made: sink, creation: creation);
+        }
+
+        return made;
+    }
+
+    // A name of a sink whose creation the walk did not see has the content that the sends of the
+    // read before gave it.
+    private LoopState WithTheSendsBefore(SyntaxNode name, LoopState state) =>
+        this.region.SentBefore.HasNames && this.region.SymbolOf(name) is { } symbol
+            ? state.Join(this.region.SentBefore.To(symbol.OriginalDefinition))
+            : state;
+
+    /// <summary>
+    ///     The state of a delegate after a remove, as in <c>handlers -= handler</c>,
+    ///     that takes away the last occurrence of a lambda. Null when the walk
+    ///     is not sure of that, and the delegate keeps the function.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A remove takes away one occurrence of a delegate that is equal to
+    ///         the one that it gets. The state of a delegate is a set of
+    ///         functions. It has no count, and it does not tell two instances
+    ///         apart. Thus, the walk counts here, only where the code shows each
+    ///         occurrence.
+    ///     </para>
+    ///     <para>
+    ///         The value is a local with one lambda. No loop and no branch is
+    ///         around its declaration, and it gets no second value. Thus, it is
+    ///         one instance in each run of the code. Each use of it adds it to
+    ///         the location, removes it from the location, or calls it.
+    ///     </para>
+    ///     <para>
+    ///         The location is a local of the code, or an event of a local that
+    ///         has a new object. Each other use of the location adds a value,
+    ///         removes a value, or calls it. Each add and each remove of the
+    ///         lambda has no loop, branch, or function around it. No code runs
+    ///         between the first add and the remove.
+    ///     </para>
+    /// </remarks>
+    /// <param name="remove">The assignment with <c>-=</c>.</param>
+    public LoopState? AfterTheLastRemove(AssignmentExpressionSyntax remove)
+    {
+        if (this.quiet
+            || Unwrapped(remove.Right) is not IdentifierNameSyntax handler
+            || this.region.SymbolOf(handler) is not ILocalSymbol local
+            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax { Initializer.Value: { } value } declarator
+            || Unwrapped(value) is not AnonymousFunctionExpressionSyntax lambda
+            || FunctionOf(remove) is not { } code
+            || code.DescendantNodes().OfType<LabeledStatementSyntax>().Any()
+            || !RunsStraightIn(node: declarator, code: code)
+            || this.GetsASecondValue(local: local, scope: code)
+            || this.UsesOfTheLocation(location: remove.Left, code: code) is not (var changes, var start))
+        {
+            return null;
+        }
+
+        int count = 0;
+        SyntaxNode? first = null;
+        HashSet<SyntaxNode> ofTheLambda = [];
+
+        foreach (IdentifierNameSyntax use in code.DescendantNodes()
+                     .OfType<IdentifierNameSyntax>()
+                     .Where(use =>
+                         use.Identifier.ValueText == local.Name
+                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local)))
+        {
+            if (FunctionOf(use) != code)
+            {
+                return null;
+            }
+
+            switch (use.Parent)
+            {
+                case InvocationExpressionSyntax call when call.Expression == use:
+                    continue;
+                case AssignmentExpressionSyntax change when change.Right == use && changes.Contains(change):
+                {
+                    if (!RunsStraightIn(node: change, code: code))
+                    {
+                        return null;
+                    }
+
+                    ofTheLambda.Add(change);
+
+                    if (change.SpanStart < remove.SpanStart)
+                    {
+                        count += change.IsKind(SyntaxKind.AddAssignmentExpression) ? 1 : -1;
+                        first ??= change;
+                    }
+
+                    continue;
+                }
+            }
+
+            // An operand of the sum that is the first value of the local location.
+            SyntaxNode sum =
+                use.Ancestors()
+                    .TakeWhile(static around =>
+                        around is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AddExpression }
+                            or ParenthesizedExpressionSyntax)
+                    .LastOrDefault()
+                ?? use;
+
+            if (start == null || sum.Parent != start.Initializer)
+            {
+                return null;
+            }
+
+            count++;
+            first ??= start;
+        }
+
+        // The remove takes away the last occurrence. No code runs between the first add and the
+        // remove, because a call can copy the delegate into its location again.
+        if (count != 1
+            || first == null
+            || code.DescendantNodes(descendIntoChildren: node =>
+                    node == code || node is not AnonymousFunctionExpressionSyntax)
+                .Any(node =>
+                    node.SpanStart >= first.Span.End
+                    && node.Span.End <= remove.SpanStart
+                    && !node.AncestorsAndSelf().Any(ofTheLambda.Contains)
+                    && node is InvocationExpressionSyntax
+                        or BaseObjectCreationExpressionSyntax
+                        or AssignmentExpressionSyntax
+                        or AwaitExpressionSyntax
+                        or PrefixUnaryExpressionSyntax
+                        or PostfixUnaryExpressionSyntax
+                        or ElementAccessExpressionSyntax
+                        or MemberAccessExpressionSyntax))
+        {
+            return null;
+        }
+
+        return this.Eval(remove.Left).WithoutFunctionsOf(lambda);
+    }
+
+    // The assignments with += and -= of a delegate location of this run of the code, and, for a
+    // local, its declarator. The location is a local, or an event of a local whose value is a new
+    // object. Null when a use of the location can copy the delegate, or when the location can be
+    // of a different run.
+    private (HashSet<SyntaxNode> Changes, VariableDeclaratorSyntax? Start)? UsesOfTheLocation(
+        ExpressionSyntax location,
+        SyntaxNode code)
+    {
+        (ISymbol Variable, ISymbol? Member)? named =
+            Unwrapped(location) switch
+            {
+                IdentifierNameSyntax name when this.region.SymbolOf(name) is ILocalSymbol own => (own, null),
+                MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner } access
+                    when this.region.SymbolOf(owner) is ILocalSymbol own
+                         && this.region.SymbolOf(access) is IEventSymbol happening
+                         && SodaFlowSymbols.IsFieldLikeEvent(happening)
+                         && !happening.ContainingType.DeclaringSyntaxReferences.Any(reference =>
+                             reference.SyntaxTree == location.SyntaxTree
+                             && reference.Span.Contains(location.Span)) => (own, happening),
+                _ => null
+            };
+
+        if (named is not (var variable, var member)
+            || variable.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax declarator
+            || FunctionOf(declarator) != code
+            || !RunsStraightIn(node: declarator, code: code)
+            || (member != null
+                && (declarator.Initializer?.Value is not BaseObjectCreationExpressionSyntax
+                    || this.GetsASecondValue(local: variable, scope: code))))
+        {
+            return null;
+        }
+
+        HashSet<SyntaxNode> changes = [];
+
+        foreach (IdentifierNameSyntax use in code.DescendantNodes()
+                     .OfType<IdentifierNameSyntax>()
+                     .Where(use =>
+                         use.Identifier.ValueText == variable.Name
+                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: variable)))
+        {
+            if (FunctionOf(use) != code)
+            {
+                return null;
+            }
+
+            // For an event, a use of the local can name a different member. That use reads the
+            // member, or calls a method of the object. Such code runs only where the remove
+            // permits it.
+            SyntaxNode? at =
+                member == null
+                    ? use
+                    : use.Parent is MemberAccessExpressionSyntax access
+                      && access.Expression == use
+                      && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(access), y: member)
+                        ? access
+                        : null;
+
+            if (at == null)
+            {
+                continue;
+            }
+
+            switch (at.Parent)
+            {
+                case InvocationExpressionSyntax call when call.Expression == at:
+                case MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Invoke" } invoke
+                    when invoke.Expression == at:
+                case ConditionalAccessExpressionSyntax conditional when conditional.Expression == at:
+                    continue;
+                case AssignmentExpressionSyntax change
+                    when change.Left == at
+                         && change.Kind() is SyntaxKind.AddAssignmentExpression
+                             or SyntaxKind.SubtractAssignmentExpression:
+                    changes.Add(change);
+
+                    continue;
+                default:
+                    return null;
+            }
+        }
+
+        return (changes, member == null ? declarator : null);
+    }
+
+    // True when each run of the code runs the node. The node has only blocks and its own statement
+    // around it, up to the code.
+    private static bool RunsStraightIn(SyntaxNode node, SyntaxNode code) =>
+        node.Ancestors()
+            .TakeWhile(around => around != code)
+            .All(static around =>
+                around is BlockSyntax
+                    or ExpressionStatementSyntax
+                    or LocalDeclarationStatementSyntax
+                    or VariableDeclarationSyntax
+                    or VariableDeclaratorSyntax
+                    or EqualsValueClauseSyntax);
 
     // The state of an expression at this time. The walk reads a node one time, and this takes
     // that read away for the expression and for each of its parts.
@@ -341,6 +1403,25 @@ internal sealed partial class LoopStateEvaluator
         }
 
         this.Frame.BeforeATurn.RemoveAll(kept => kept.Turn == turn);
+
+        // A position has the value from before the loop also. Positions of a different count
+        // tell nothing.
+        foreach ((SyntaxNode _, MadeObject made, ImmutableArray<LoopState> before)
+                 in this.Frame.PositionsBeforeATurn.Where(kept => kept.Turn == turn).ToArray())
+        {
+            if (this.region.Objects.PositionsOf(made) is { } after && after.Length == before.Length)
+            {
+                this.region.Objects.HasPositions(
+                    collection: made,
+                    values: after.Select((value, position) => value.Join(before[position])).ToImmutableArray());
+            }
+            else
+            {
+                this.region.Objects.HasNoPositions(made);
+            }
+        }
+
+        this.Frame.PositionsBeforeATurn.RemoveAll(kept => kept.Turn == turn);
     }
 
     private static LoopState WithAlso(LoopState state, ISymbol member, LoopState also)
@@ -479,7 +1560,7 @@ internal sealed partial class LoopStateEvaluator
         // A write through a name with ref is a write through its location, read at this time.
         ExpressionSyntax? written = owner;
 
-        if (owner != null && this.TheLocationOf(owner) is { } location)
+        if (owner != null && (this.TheLocationOf(owner) ?? this.TheFirstNameOf(owner)) is { } location)
         {
             this.EvalAgain(location);
             owner = location;
@@ -489,6 +1570,12 @@ internal sealed partial class LoopStateEvaluator
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
         this.region.AddAMemberWrite();
+
+        // A field is a location that a parameter with ref can be a name of.
+        if (member is IFieldSymbol)
+        {
+            this.PutsIntoALocation(field: member, element: null, state: state, owner: owner);
+        }
 
         // A name with ref is its location, and code can give that location a different object with
         // no assignment to the name. Thus, a write through such a name is sure for no object. A
@@ -543,6 +1630,14 @@ internal sealed partial class LoopStateEvaluator
 
             this.Frame.LastWrite = null;
 
+            this.GivesTheOtherNames(
+                owner: owner,
+                at: written,
+                member: member,
+                state: state,
+                replaces: replaces,
+                turn: turn);
+
             return;
         }
 
@@ -567,6 +1662,8 @@ internal sealed partial class LoopStateEvaluator
             has: has,
             isKnown: isKnown,
             isReadInTheCaller: false);
+
+        this.GivesTheOtherNames(owner: owner, at: owner, member: member, state: state, replaces: replaces, turn: turn);
 
         this.Frame.LastWrite =
             new WriteThroughAName(
@@ -598,13 +1695,15 @@ internal sealed partial class LoopStateEvaluator
 
         IReadOnlyList<ExpressionSyntax>? elements = this.ElementsOf(loop.Expression);
         IReadOnlyList<LoopState>? values = elements == null ? this.StorePositionsOf(loop.Expression)?.All : null;
+        IReadOnlyList<MadeObject>? whole = elements == null && values == null ? this.WhollyIn(loop) : null;
 
-        if (elements != null || values != null)
+        if (elements != null || values != null || whole != null)
         {
             this.Frame.WritesThroughEach[loop] =
                 new WritesThroughEach(
                     elements: elements ?? [],
                     values: values,
+                    whole: whole,
                     start: this.region.MemberWrites,
                     member: null,
                     state: LoopState.None,
@@ -612,6 +1711,114 @@ internal sealed partial class LoopStateEvaluator
                     visits: 0,
                     last: 0);
         }
+    }
+
+    /// <summary>
+    ///     Records a call of <c>Add</c> of a list of the platform, which each
+    ///     turn of a loop always runs. When the call adds the object of the
+    ///     turn, each object that the same code makes in a turn goes into the
+    ///     list. See <see cref="WhollyIn" />.
+    /// </summary>
+    /// <param name="call">The call.</param>
+    /// <param name="collection">The owner of the call.</param>
+    /// <param name="method">The method.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    /// <param name="turn">The body of the loop.</param>
+    public void AddsInEachTurn(
+        SyntaxNode call,
+        ExpressionSyntax collection,
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        SyntaxNode turn)
+    {
+        if (this.quiet
+            || arguments.Count != 1
+            || method is not { Name: "Add", ContainingType: { Name: "List" or "IList" or "ICollection" } owner }
+            || !SodaFlowSymbols.IsPlatform(owner))
+        {
+            return;
+        }
+
+        bool noted =
+            this.Frame.AddsOfEachTurn.TryGetValue(key: call, value: out (MadeObject List, MadeObject? Added) before);
+
+        // Each read of the loop must add the object of its turn to the same list, which no loop made.
+        if (this.TheOneCollectionOf(collection) is not { Turn: null, IsOfTurnsBefore: false } list
+            || (noted && (before.Added == null || !ReferenceEquals(objA: before.List, objB: list))))
+        {
+            if (noted)
+            {
+                this.Frame.AddsOfEachTurn[call] = before with { Added = null };
+            }
+
+            return;
+        }
+
+        this.Frame.AddsOfEachTurn[call] =
+            (list,
+                this.TheOneObjectOf(arguments[0].Expression) is { IsOfTurnsBefore: false } added && added.Turn == turn
+                    ? added
+                    : null);
+    }
+
+    // Each identity of the store whose objects are all elements of the collection of a foreach. An
+    // Add that each turn of a loop always runs put each of those objects into the collection. Null
+    // when the walk knows no such identity, or when code can take an element out of the collection.
+    // When the walk knows such an identity, the result also has the objects of PutOneTimeBefore.
+    private List<MadeObject>? WhollyIn(CommonForEachStatementSyntax loop)
+    {
+        if (this.Frame.AddsOfEachTurn.Count == 0
+            || this.TheOneCollectionOf(loop.Expression) is not { } list
+            || !this.OnlyGetsAdds(loop.Expression))
+        {
+            return null;
+        }
+
+        List<MadeObject> whole = [];
+
+        foreach ((MadeObject into, MadeObject? added) in this.Frame.AddsOfEachTurn.Values)
+        {
+            if (added != null && ReferenceEquals(objA: into, objB: list))
+            {
+                whole.AddRange(this.region.Objects.Now(ImmutableArray.Create(added)));
+            }
+        }
+
+        if (whole.Count == 0)
+        {
+            return null;
+        }
+
+        whole.AddRange(this.PutOneTimeBefore(loop));
+
+        return whole;
+    }
+
+    // Each object that the literal of the local of a foreach, or an Add before the foreach, put into
+    // the list. Such an Add is a statement at the first level of the block of the local. EndsEach
+    // uses the result only for a foreach that always runs in its function, in no loop. Thus, no
+    // goto jumps over such an Add, and the Add ran before the foreach. No use of the local takes an
+    // object out. The result has only objects that this code made one time and that the store has.
+    private IEnumerable<MadeObject> PutOneTimeBefore(CommonForEachStatementSyntax loop)
+    {
+        if (this.region.SymbolOf(Unwrapped(loop.Expression)) is not ILocalSymbol local
+            || this.LiteralOf(local) is not (var written, var uses)
+            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax().FirstAncestorOrSelf<BlockSyntax>()
+                is not { } scope)
+        {
+            return [];
+        }
+
+        return written
+            .Concat(
+                uses.Where(use => use.SpanStart < loop.SpanStart)
+                    .Select(use => this.AddedBy(use: use, scope: scope))
+                    .OfType<ExpressionSyntax>())
+            .Select(this.TheOneObjectOf)
+            .OfType<MadeObject>()
+            .Where(made => made is { Turn: null, IsOfTurnsBefore: false }
+                           && made.IsFrom(this.Frame)
+                           && this.region.Objects.StateOf(made) != null);
     }
 
     // A write to a member through the variable of a foreach statement, which each turn of the
@@ -650,6 +1857,11 @@ internal sealed partial class LoopStateEvaluator
     ///         that the code of this frame made.
     ///     </para>
     ///     <para>
+    ///         A collection with no positions can have the objects of the turns of
+    ///         a loop, which each turn added. The objects of such an identity are
+    ///         all elements, thus each of them has the value also.
+    ///     </para>
+    ///     <para>
     ///         A second write to a member in the body can give an element that a
     ///         turn before changed a different value. Thus, each write to a member
     ///         in each read of the body is the write through the variable.
@@ -678,10 +1890,12 @@ internal sealed partial class LoopStateEvaluator
 
         List<(MadeObject Object, LoopState State)> objects = [];
 
-        foreach (MadeObject? made in noted.Values?.Select(this.TheOneObjectIn)
+        foreach (MadeObject? made in noted.Whole
+                                     ?? noted.Values?.Select(this.TheOneObjectIn)
                                      ?? noted.Elements.Select(this.TheOneObjectOf))
         {
-            if (made is not { Turn: null, IsOfTurnsBefore: false }
+            if (made == null
+                || (noted.Whole == null && made is not { Turn: null, IsOfTurnsBefore: false })
                 || !made.IsFrom(this.Frame)
                 || this.region.Objects.StateOf(made) is not { } old)
             {
@@ -1042,9 +2256,24 @@ internal sealed partial class LoopStateEvaluator
                 sets.Add(member.OriginalDefinition);
             }
 
+            // The value has two names, or it had them. A read through the other name can be one
+            // that does not see the state of this name. Thus, the region keeps the write also.
+            if (this.IsOneOfTwoNames(holder))
+            {
+                this.SetField(field: member, state: state);
+            }
+
             return;
         }
 
         this.SetField(field: member, state: state);
     }
+
+    // True for a name of a value with no object that has a second name, or had one.
+    private bool IsOneOfTwoNames(ISymbol name) =>
+        (this.Frame.WasOneOfTwoNames.Count > 0 || this.Frame.FirstNameOf.Count > 0)
+        && (this.Frame.WasOneOfTwoNames.Contains(name)
+            || this.Frame.FirstNameOf.ContainsKey(name)
+            || this.Frame.FirstNameOf.Values.Any(first =>
+                SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(first), y: name)));
 }

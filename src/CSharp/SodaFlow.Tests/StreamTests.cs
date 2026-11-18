@@ -26,9 +26,9 @@ public sealed class StreamTests
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
         s.Send(5);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
         s.Send(6);
         await Assert.That(@out).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
@@ -42,7 +42,7 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         StreamSink<int> s2 = Stream.CreateSink<int>();
 
-        using (s.ListenStrong(s2.Send))
+        using (s.Listen(s2.Send))
         {
             try
             {
@@ -71,7 +71,7 @@ public sealed class StreamTests
                        s2.Send(v);
                        return Unit.Value;
                    })
-                   .ListenStrong(static _ =>
+                   .Listen(static _ =>
                    {
                    }))
         {
@@ -104,7 +104,7 @@ public sealed class StreamTests
                            s2.Send(v);
                            return Unit.Value;
                        })
-                       .ListenStrong(static _ =>
+                       .Listen(static _ =>
                        {
                        }))
             {
@@ -137,7 +137,7 @@ public sealed class StreamTests
                                s2.Send(5);
                                return Unit.Value;
                            })
-                       .ListenStrong(static _ =>
+                       .Listen(static _ =>
                        {
                        }))
             {
@@ -170,7 +170,7 @@ public sealed class StreamTests
         try
         {
             using (c.Apply(c2)
-                       .ListenStrong(static _ =>
+                       .Listen(static _ =>
                        {
                        }))
             {
@@ -191,10 +191,10 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<string> m = s.Map(static x => (x + 2).ToString());
         List<string> @out = [];
-        IListener l = m.ListenStrong(@out.Add);
+        IListener l = m.Listen(@out.Add);
         s.Send(5);
         s.Send(3);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ["7", "5"], ordering: CollectionOrdering.Matching);
     }
 
@@ -204,11 +204,11 @@ public sealed class StreamTests
         StreamSink<int> s1 = Stream.CreateSink<int>();
         StreamSink<int> s2 = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s1.OrElse(s2).ListenStrong(@out.Add);
+        IListener l = s1.OrElse(s2).Listen(@out.Add);
         s1.Send(7);
         s2.Send(9);
         s1.Send(8);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [7, 9, 8], ordering: CollectionOrdering.Matching);
     }
 
@@ -218,7 +218,7 @@ public sealed class StreamTests
         StreamSink<int> s1 = Stream.CreateSink<int>(static (_, r) => r);
         StreamSink<int> s2 = Stream.CreateSink<int>(static (_, r) => r);
         List<int> @out = [];
-        IListener l = s2.OrElse(s1).ListenStrong(@out.Add);
+        IListener l = s2.OrElse(s1).Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -255,7 +255,7 @@ public sealed class StreamTests
             s1.Send(60);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [60, 9, 90, 90, 90], ordering: CollectionOrdering.Matching);
     }
 
@@ -265,10 +265,10 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<int> s2 = s.Map(static x => 2 * x);
         List<int> @out = [];
-        IListener l = s.OrElse(s2).ListenStrong(@out.Add);
+        IListener l = s.OrElse(s2).Listen(@out.Add);
         s.Send(7);
         s.Send(9);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [7, 9], ordering: CollectionOrdering.Matching);
     }
 
@@ -278,10 +278,10 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<int> s2 = s.Map(static x => 2 * x);
         List<int> @out = [];
-        IListener l = s2.OrElse(s).ListenStrong(@out.Add);
+        IListener l = s2.OrElse(s).Listen(@out.Add);
         s.Send(7);
         s.Send(9);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [14, 18], ordering: CollectionOrdering.Matching);
     }
 
@@ -291,11 +291,11 @@ public sealed class StreamTests
         StreamSink<int> s1 = Stream.CreateSink<int>();
         StreamSink<int> s2 = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s1.Merge(s2: s2, f: static (x, y) => x + y).ListenStrong(@out.Add);
+        IListener l = s1.Merge(s2: s2, f: static (x, y) => x + y).Listen(@out.Add);
         s1.Send(7);
         s2.Send(9);
         s1.Send(8);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [7, 9, 8], ordering: CollectionOrdering.Matching);
     }
 
@@ -312,7 +312,7 @@ public sealed class StreamTests
         IListener l =
             new[] { a.AsStream(), b.AsStream(), c.AsStream() }
                 .Merge(static (left, right) => left + "," + right)
-                .ListenStrong(@out.Add);
+                .Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -328,7 +328,7 @@ public sealed class StreamTests
         });
 
         b.Send("b");
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: ["a,b,c", "a,c", "b"], ordering: CollectionOrdering.Matching);
     }
@@ -339,10 +339,10 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Stream<int> s2 = s.Map(static x => 2 * x);
         List<int> @out = [];
-        IListener l = s.Merge(s2: s2, f: static (x, y) => x + y).ListenStrong(@out.Add);
+        IListener l = s.Merge(s2: s2, f: static (x, y) => x + y).Listen(@out.Add);
         s.Send(7);
         s.Send(9);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [21, 27], ordering: CollectionOrdering.Matching);
     }
 
@@ -351,7 +351,7 @@ public sealed class StreamTests
     {
         StreamSink<int> s = Stream.CreateSink<int>(static (x, y) => x + y);
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -364,7 +364,7 @@ public sealed class StreamTests
             s.Send(40);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 48], ordering: CollectionOrdering.Matching);
     }
 
@@ -373,7 +373,7 @@ public sealed class StreamTests
     {
         StreamSink<int> s = Stream.CreateSink<int>(static (x, y) => x + y);
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -393,7 +393,7 @@ public sealed class StreamTests
             s.Send(10);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [15, 40], ordering: CollectionOrdering.Matching);
     }
 
@@ -402,11 +402,11 @@ public sealed class StreamTests
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         List<char> @out = [];
-        IListener l = s.Filter(char.IsUpper).ListenStrong(@out.Add);
+        IListener l = s.Filter(char.IsUpper).Listen(@out.Add);
         s.Send('H');
         s.Send('o');
         s.Send('I');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ['H', 'I'], ordering: CollectionOrdering.Matching);
     }
 
@@ -415,13 +415,13 @@ public sealed class StreamTests
     {
         StreamSink<Maybe<string>> s = Stream.CreateSink<Maybe<string>>();
         List<string> @out = [];
-        IListener l = s.FilterSome().ListenStrong(@out.Add);
+        IListener l = s.FilterSome().Listen(@out.Add);
         s.Send(Maybe.Some("tomato"));
         s.Send(Maybe.None);
         s.Send(Maybe.Some("peach"));
         s.Send(Maybe.None);
         s.Send(Maybe.Some("pear"));
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: ["tomato", "peach", "pear"], ordering: CollectionOrdering.Matching);
@@ -435,14 +435,14 @@ public sealed class StreamTests
 
         IListener l =
             s.Choose(static v => int.TryParse(s: v, result: out int n) ? Maybe.Some(n) : Maybe.None)
-                .ListenStrong(@out.Add);
+                .Listen(@out.Add);
 
         s.Send("1");
         s.Send("tomato");
         s.Send("2");
         s.Send(string.Empty);
         s.Send("3");
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
@@ -455,15 +455,15 @@ public sealed class StreamTests
 
         Func<string, Maybe<int>> f = static v => int.TryParse(s: v, result: out int n) ? Maybe.Some(n) : Maybe.None;
 
-        IListener l1 = s.Choose(f).ListenStrong(chosen.Add);
-        IListener l2 = s.Map(f).FilterSome().ListenStrong(mapped.Add);
+        IListener l1 = s.Choose(f).Listen(chosen.Add);
+        IListener l2 = s.Map(f).FilterSome().Listen(mapped.Add);
 
         s.Send("1");
         s.Send("tomato");
         s.Send("2");
 
-        l1.Unlisten();
-        l2.Unlisten();
+        l1.Dispose();
+        l2.Dispose();
 
         await Assert.That(chosen).IsEquivalentTo(expected: mapped, ordering: CollectionOrdering.Matching);
         await Assert.That(chosen).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
@@ -474,10 +474,10 @@ public sealed class StreamTests
     {
         StreamSink<string> s = Stream.CreateSink<string>();
         List<int> @out = [];
-        IListener l = s.Choose(static _ => Maybe<int>.None).ListenStrong(@out.Add);
+        IListener l = s.Choose(static _ => Maybe<int>.None).Listen(@out.Add);
         s.Send("1");
         s.Send("2");
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
@@ -499,14 +499,14 @@ public sealed class StreamTests
         List<int> @out = [];
         List<int> out2 = [];
         List<int> out3 = [];
-        IListener l = sb.ListenStrong(@out.Add);
-        IListener l2 = sb2.ListenStrong(out2.Add);
-        IListener l3 = sc.ListenStrong(out3.Add);
+        IListener l = sb.Listen(@out.Add);
+        IListener l2 = sb2.Listen(out2.Add);
+        IListener l3 = sc.Listen(out3.Add);
         sa.Send(2);
         sa.Send(52);
-        l3.Unlisten();
-        l2.Unlisten();
-        l.Unlisten();
+        l3.Dispose();
+        l2.Dispose();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
         await Assert.That(out2).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
         await Assert.That(out3).IsEquivalentTo(expected: [2, 10], ordering: CollectionOrdering.Matching);
@@ -530,14 +530,14 @@ public sealed class StreamTests
         List<int> @out = [];
         List<int> out2 = [];
         List<int> out3 = [];
-        IListener l = cb.ListenStrong(@out.Add);
-        IListener l2 = cb2.ListenStrong(out2.Add);
-        IListener l3 = cc.ListenStrong(out3.Add);
+        IListener l = cb.Listen(@out.Add);
+        IListener l2 = cb2.Listen(out2.Add);
+        IListener l3 = cc.Listen(out3.Add);
         ca.Send(2);
         ca.Send(52);
-        l3.Unlisten();
-        l2.Unlisten();
-        l.Unlisten();
+        l3.Dispose();
+        l2.Dispose();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 0, 5], ordering: CollectionOrdering.Matching);
         await Assert.That(out2).IsEquivalentTo(expected: [2, 0, 5], ordering: CollectionOrdering.Matching);
         await Assert.That(out3).IsEquivalentTo(expected: [4, 0, 10], ordering: CollectionOrdering.Matching);
@@ -549,13 +549,13 @@ public sealed class StreamTests
         StreamSink<char?> sc = Stream.CreateSink<char?>();
         BehaviorSink<bool> cGate = Behavior.CreateSink(true);
         List<char?> @out = [];
-        IListener l = sc.Gate(cGate).ListenStrong(@out.Add);
+        IListener l = sc.Gate(cGate).Listen(@out.Add);
         sc.Send('H');
         cGate.Send(false);
         sc.Send('O');
         cGate.Send(true);
         sc.Send('I');
-        l.Unlisten();
+        l.Dispose();
 
         // char?[] rather than char[]: this collection holds char?, and TUnit compares element
         // types where NUnit coerced them.
@@ -568,7 +568,7 @@ public sealed class StreamTests
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s.Calm().ListenStrong(@out.Add);
+        IListener l = s.Calm().Listen(@out.Add);
         s.Send(2);
         s.Send(2);
         s.Send(2);
@@ -614,7 +614,7 @@ public sealed class StreamTests
         s.Send(4);
         s.Send(2);
         s.Send(2);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(
@@ -627,7 +627,7 @@ public sealed class StreamTests
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s.Calm().ListenStrong(@out.Add);
+        IListener l = s.Calm().Listen(@out.Add);
         s.Send(2);
         s.Send(4);
         s.Send(2);
@@ -635,7 +635,7 @@ public sealed class StreamTests
         s.Send(4);
         s.Send(2);
         s.Send(2);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 4, 2, 4, 2], ordering: CollectionOrdering.Matching);
     }
 
@@ -653,7 +653,7 @@ public sealed class StreamTests
         Stream<int> merged = a.Merge(s2: b, f: static (x, y) => x + y);
 
         List<int> @out = [];
-        IListener l = merged.Calm().ListenStrong(@out.Add);
+        IListener l = merged.Calm().Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -675,7 +675,7 @@ public sealed class StreamTests
 
         b.Send(4);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [2, 3, 4], ordering: CollectionOrdering.Matching);
     }
@@ -695,13 +695,13 @@ public sealed class StreamTests
                     return (ReturnValue: outputValue, State: (Value: outputValue, Test: outputValue % 2 == 0));
                 });
 
-        IListener l = sum.ListenStrong(@out.Add);
+        IListener l = sum.Listen(@out.Add);
         sa.Send(5);
         sa.Send(7);
         sa.Send(1);
         sa.Send(2);
         sa.Send(3);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: [115, 122, 125, 127, 130], ordering: CollectionOrdering.Matching);
@@ -713,13 +713,13 @@ public sealed class StreamTests
         StreamSink<int> sa = Stream.CreateSink<int>();
         List<int> @out = [];
         Cell<int> sum = sa.Accum(initialState: 100, f: static (a, s) => a + s);
-        IListener l = sum.ListenStrong(@out.Add);
+        IListener l = sum.Listen(@out.Add);
         sa.Send(5);
         sa.Send(7);
         sa.Send(1);
         sa.Send(2);
         sa.Send(3);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: [100, 105, 112, 113, 115, 118], ordering: CollectionOrdering.Matching);
@@ -746,7 +746,7 @@ public sealed class StreamTests
                     f: static (v, s) =>
                         (ReturnValue: s.Total + v + "/" + (s.Count + 1),
                             State: (Total: s.Total + v, Count: s.Count + 1)))
-                .ListenStrong(@out.Add);
+                .Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -762,7 +762,7 @@ public sealed class StreamTests
             b.Send(1);
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: ["3/1", "13/2", "15/3"], ordering: CollectionOrdering.Matching);
@@ -777,7 +777,7 @@ public sealed class StreamTests
         Stream<int> merged = a.Merge(s2: b, f: static (x, y) => x + y);
 
         List<int> @out = [];
-        IListener l = merged.Accum(initialState: 0, f: static (v, s) => s + v).ListenStrong(@out.Add);
+        IListener l = merged.Accum(initialState: 0, f: static (v, s) => s + v).Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -793,7 +793,7 @@ public sealed class StreamTests
             b.Send(1);
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [0, 3, 13, 15], ordering: CollectionOrdering.Matching);
     }
@@ -803,11 +803,11 @@ public sealed class StreamTests
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         List<char> @out = [];
-        IListener l = s.Once().ListenStrong(@out.Add);
+        IListener l = s.Once().Listen(@out.Add);
         s.Send('A');
         s.Send('B');
         s.Send('C');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ['A'], ordering: CollectionOrdering.Matching);
     }
 
@@ -817,11 +817,11 @@ public sealed class StreamTests
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold(' ');
         List<char> @out = [];
-        IListener l = c.ListenStrong(@out.Add);
+        IListener l = c.Listen(@out.Add);
         s.Send('C');
         s.Send('B');
         s.Send('A');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [' ', 'C', 'B', 'A'], ordering: CollectionOrdering.Matching);
     }
 
@@ -831,11 +831,11 @@ public sealed class StreamTests
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold(' ');
         List<char> @out = [];
-        IListener l = s.Snapshot(c).ListenStrong(@out.Add);
+        IListener l = s.Snapshot(c).Listen(@out.Add);
         s.Send('C');
         s.Send('B');
         s.Send('A');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [' ', 'C', 'B'], ordering: CollectionOrdering.Matching);
     }
 
@@ -845,11 +845,11 @@ public sealed class StreamTests
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold(' ');
         List<char> @out = [];
-        IListener l = Operational.Defer(s).Snapshot(c).ListenStrong(@out.Add);
+        IListener l = Operational.Defer(s).Snapshot(c).Listen(@out.Add);
         s.Send('C');
         s.Send('B');
         s.Send('A');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ['C', 'B', 'A'], ordering: CollectionOrdering.Matching);
     }
 
@@ -859,11 +859,11 @@ public sealed class StreamTests
         StreamSink<char> s = Stream.CreateSink<char>();
         Cell<char> c = s.Hold(' ');
         List<char> @out = [];
-        IListener l = s.SnapshotLatest(c).ListenStrong(@out.Add);
+        IListener l = s.SnapshotLatest(c).Listen(@out.Add);
         s.Send('C');
         s.Send('B');
         s.Send('A');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ['C', 'B', 'A'], ordering: CollectionOrdering.Matching);
     }
 
@@ -876,10 +876,10 @@ public sealed class StreamTests
         List<string> latest = [];
 
         IListener l1 =
-            c1.Updates().Snapshot(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(snapshot.Add);
+            c1.Updates().Snapshot(c: c2, f: static (a, b) => $"{a},{b}").Listen(snapshot.Add);
 
         IListener l2 =
-            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(latest.Add);
+            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").Listen(latest.Add);
 
         // The cell updates after the stream fires.
         Transaction.RunVoid(() =>
@@ -901,8 +901,8 @@ public sealed class StreamTests
         // Only the stream fires. This gives the current value of the cell.
         c1.Send(4);
 
-        l1.Unlisten();
-        l2.Unlisten();
+        l1.Dispose();
+        l2.Dispose();
 
         await Assert.That(snapshot)
             .IsEquivalentTo(expected: ["2,10", "3,20", "4,40"], ordering: CollectionOrdering.Matching);
@@ -919,10 +919,10 @@ public sealed class StreamTests
         List<string> expected = [];
         List<string> actual = [];
 
-        IListener l1 = Reference(c1: c1, c2: c2, f: static (a, b) => $"{a},{b}").ListenStrong(expected.Add);
+        IListener l1 = Reference(c1: c1, c2: c2, f: static (a, b) => $"{a},{b}").Listen(expected.Add);
 
         IListener l2 =
-            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").ListenStrong(actual.Add);
+            c1.Updates().SnapshotLatest(c: c2, f: static (a, b) => $"{a},{b}").Listen(actual.Add);
 
         Random random = new(1234);
 
@@ -952,8 +952,8 @@ public sealed class StreamTests
             });
         }
 
-        l1.Unlisten();
-        l2.Unlisten();
+        l1.Dispose();
+        l2.Dispose();
 
         await Assert.That(actual.Count).IsGreaterThan(0);
         await Assert.That(actual).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
@@ -1100,7 +1100,7 @@ public sealed class StreamTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         await Assert.That(lift5.Count).IsGreaterThan(0);
@@ -1118,7 +1118,7 @@ public sealed class StreamTests
         List<string> ListenTo(Stream<string> stream)
         {
             List<string> @out = [];
-            listeners.Add(stream.ListenStrong(@out.Add));
+            listeners.Add(stream.Listen(@out.Add));
             return @out;
         }
     }
@@ -1129,7 +1129,7 @@ public sealed class StreamTests
         StreamSink<int> s1 = Stream.CreateSink<int>();
         StreamSink<string> s2 = Stream.CreateSink<string>();
         List<(Maybe<int>, Maybe<string>)> @out = [];
-        IListener l = s1.Merge(s2).ListenStrong(@out.Add);
+        IListener l = s1.Merge(s2).Listen(@out.Add);
 
         s1.Send(1);
         s2.Send("a");
@@ -1145,7 +1145,7 @@ public sealed class StreamTests
         {
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         List<(Maybe<int>, Maybe<string>)> expected =
         [
@@ -1236,7 +1236,7 @@ public sealed class StreamTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         await Assert.That(expected4.Count).IsGreaterThan(0);
@@ -1263,7 +1263,7 @@ public sealed class StreamTests
         List<TOut> ListenTo<TOut>(Stream<TOut> stream)
         {
             List<TOut> @out = [];
-            listeners.Add(stream.ListenStrong(@out.Add));
+            listeners.Add(stream.Listen(@out.Add));
             return @out;
         }
     }
@@ -1560,7 +1560,7 @@ public sealed class StreamTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         foreach ((string name, List<string> actual, List<string> expected) in checks)
@@ -1588,7 +1588,7 @@ public sealed class StreamTests
         List<string> ListenTo(Stream<string> stream)
         {
             List<string> @out = [];
-            listeners.Add(stream.ListenStrong(@out.Add));
+            listeners.Add(stream.Listen(@out.Add));
             return @out;
         }
     }
@@ -1716,7 +1716,7 @@ public sealed class StreamTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         foreach ((string name, List<string> actual, List<string> expected) in checks)
@@ -1748,7 +1748,7 @@ public sealed class StreamTests
         List<string> ListenTo(Stream<string> stream)
         {
             List<string> @out = [];
-            listeners.Add(stream.ListenStrong(@out.Add));
+            listeners.Add(stream.Listen(@out.Add));
             return @out;
         }
     }
@@ -1762,7 +1762,7 @@ public sealed class StreamTests
 
         IListener l =
             Transaction.Run(() =>
-                c1.Values().SnapshotLatest(c: c2, f: static (a, b) => a + b).ListenStrong(@out.Add));
+                c1.Values().SnapshotLatest(c: c2, f: static (a, b) => a + b).Listen(@out.Add));
 
         Transaction.RunVoid(() =>
         {
@@ -1770,7 +1770,7 @@ public sealed class StreamTests
             c2.Send(20);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [11, 22], ordering: CollectionOrdering.Matching);
     }
 
@@ -1780,7 +1780,7 @@ public sealed class StreamTests
         StreamSink<int> s = Stream.CreateSink<int>();
         BehaviorSink<int> b = Behavior.CreateSink(0);
         List<int> @out = [];
-        IListener l = s.SnapshotLatest(b: b, f: static (a, v) => a + v).ListenStrong(@out.Add);
+        IListener l = s.SnapshotLatest(b: b, f: static (a, v) => a + v).Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -1789,7 +1789,7 @@ public sealed class StreamTests
         });
 
         s.Send(2);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [101, 102], ordering: CollectionOrdering.Matching);
     }
 
@@ -1804,7 +1804,7 @@ public sealed class StreamTests
         IListener l =
             c1.Updates()
                 .SnapshotLatest(c2.Lift(c2: c3, f: static (b, c) => b + c))
-                .ListenStrong(@out.Add);
+                .Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -1819,7 +1819,7 @@ public sealed class StreamTests
             c1.Send(3);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [220, 320], ordering: CollectionOrdering.Matching);
     }
 
@@ -1832,7 +1832,7 @@ public sealed class StreamTests
 
         ((Action)(() =>
         {
-            IWeakListener l = s.Listen(@out.Add);
+            IListener l = s.Listen(@out.Add);
 
             s.Send(1);
             s.Send(2);
@@ -1864,7 +1864,7 @@ public sealed class StreamTests
 
             ((Action)(() =>
             {
-                IWeakListener l = s2.Listen(@out.Add);
+                IListener l = s2.Listen(@out.Add);
 
                 s.Send(1);
                 s.Send(2);
@@ -1877,7 +1877,7 @@ public sealed class StreamTests
 
             ((Action)(() =>
             {
-                IWeakListener l = s2.Listen(@out.Add);
+                IListener l = s2.Listen(@out.Add);
 
                 s.Send(3);
                 s.Send(4);
@@ -1905,11 +1905,11 @@ public sealed class StreamTests
         ((Action)(() =>
         {
             // ReSharper disable once UnusedVariable
-            IStrongListener l = s.ListenStrong(@out.Add);
+            IListener l = s.Listen(@out.Add);
 
             s.Send(1);
 
-            l.Unlisten();
+            l.Dispose();
 
             s.Send(2);
         }))();
@@ -1930,11 +1930,11 @@ public sealed class StreamTests
         ((Action)(() =>
         {
             // ReSharper disable once UnusedVariable
-            IWeakListener l = s.Listen(@out.Add);
+            IListener l = s.Listen(@out.Add);
 
             s.Send(1);
 
-            l.Unlisten();
+            l.Dispose();
 
             s.Send(2);
         }))();
@@ -1955,16 +1955,16 @@ public sealed class StreamTests
         ((Action)(() =>
         {
             // ReSharper disable once UnusedVariable
-            IStrongListener l = s.ListenStrong(@out.Add);
+            IListener l = s.Listen(@out.Add);
 
             s.Send(1);
 
-            l.Unlisten();
-            l.Unlisten();
+            l.Dispose();
+            l.Dispose();
 
             s.Send(2);
 
-            l.Unlisten();
+            l.Dispose();
         }))();
 
         s.Send(3);
@@ -1983,16 +1983,16 @@ public sealed class StreamTests
         ((Action)(() =>
         {
             // ReSharper disable once UnusedVariable
-            IWeakListener l = s.Listen(@out.Add);
+            IListener l = s.Listen(@out.Add);
 
             s.Send(1);
 
-            l.Unlisten();
-            l.Unlisten();
+            l.Dispose();
+            l.Dispose();
 
             s.Send(2);
 
-            l.Unlisten();
+            l.Dispose();
         }))();
 
         s.Send(3);
@@ -2010,30 +2010,17 @@ public sealed class StreamTests
         s.Send('A');
         s.Send('B');
         s.Send('C');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ['A'], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
-    public async Task TestListenOnceStrong()
+    public async Task TestListenOnceUnlistenBeforeTheFirstFiring()
     {
         StreamSink<char> s = Stream.CreateSink<char>();
         List<char> @out = [];
-        IStrongListener l = s.ListenOnceStrong(@out.Add);
-        s.Send('A');
-        s.Send('B');
-        s.Send('C');
-        l.Unlisten();
-        await Assert.That(@out).IsEquivalentTo(expected: ['A'], ordering: CollectionOrdering.Matching);
-    }
-
-    [Test]
-    public async Task TestListenOnceStrongUnlistenBeforeTheFirstFiring()
-    {
-        StreamSink<char> s = Stream.CreateSink<char>();
-        List<char> @out = [];
-        IStrongListener l = s.ListenOnceStrong(@out.Add);
-        l.Unlisten();
+        IListener l = s.ListenOnce(@out.Add);
+        l.Dispose();
         s.Send('A');
         await Assert.That(@out).IsEmpty();
     }
@@ -2113,6 +2100,252 @@ public sealed class StreamTests
         await Assert.That(t.IsCanceled).IsTrue();
     }
 
+    // The task gives the value of the stream, thus only a transaction that committed can give that
+    // value. Here a second listener throws after the listener of the task ran, and the
+    // transaction fails. The task must fail with the exception of that transaction. Before, the
+    // task completed with a value that no stream committed.
+    [Test]
+    public async Task ListenOnceAsync_WhenAListenerAfterItThrows_FailsTheTaskWithTheExceptionOfTheTransaction()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        InvalidOperationException fromListener = new("The test fails this transaction.");
+        Task<int> task = s.ListenOnceAsync();
+
+        // The two maps put this listener after the listener of the task.
+        using IListener thrower =
+            s.Map(static x => x).Map(static x => x).Listen(_ => throw fromListener);
+
+        await Assert.That(() => s.Send(1)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(fromListener);
+    }
+
+    // The sample phase of a transaction makes the first value of a cell that the transaction
+    // builds, and that phase comes after each listener. A throw there fails the transaction after
+    // the listener of the task ran.
+    [Test]
+    public async Task ListenOnceAsync_WhenTheFirstValueOfANewCellThrows_FailsTheTaskWithThatException()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        CellSink<int> c = Cell.CreateSink(0);
+        InvalidOperationException fromCell = new("The first value of the cell throws.");
+        Task<int> task = s.ListenOnceAsync();
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    s.Send(1);
+                    _ = c.Map<int, int>(_ => throw fromCell);
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(fromCell);
+    }
+
+    // The value arrives when the transaction commits. A listener that runs after the listener of
+    // the task, in the same transaction, must find a task that is not complete.
+    [Test]
+    public async Task ListenOnceAsync_CompletesItsTaskWhenTheTransactionCommitsAndNotBefore()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        Task<int> task = s.ListenOnceAsync();
+        bool completedInTheTransaction = true;
+
+        using IListener after =
+            s.Map(static x => x)
+                .Map(static x => x)
+                .Listen(_ => completedInTheTransaction = task.IsCompleted);
+
+        s.Send(1);
+
+        await Assert.That(completedInTheTransaction).IsFalse();
+        await Assert.That(await task).IsEqualTo(1);
+    }
+
+    // The stream fired, and the transaction failed before the listener of the task ran. An operator
+    // below the stream threw, and each operator comes before the listeners. The value is not from
+    // a transaction that committed, thus the task fails with the exception of that transaction.
+    [Test]
+    public async Task ListenOnceAsync_WhenAnOperatorThrowsAfterTheStreamFired_FailsTheTaskWithThatException()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        InvalidOperationException fromOperator = new("An operator throws.");
+        Task<int> task = s.ListenOnceAsync();
+
+        using IListener other = s.Map<int, int>(_ => throw fromOperator).Listen(static _ => { });
+
+        await Assert.That(() => s.Send(1)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(fromOperator);
+    }
+
+    // A listener that came to the stream first runs first. It throws, and the listener of the task
+    // does not run. The stream fired in that transaction, thus the task fails as above.
+    [Test]
+    public async Task ListenOnceAsync_WhenAListenerBeforeItThrows_FailsTheTaskWithThatException()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        InvalidOperationException fromListener = new("The test fails this transaction.");
+
+        using IListener first = s.Listen(_ => throw fromListener);
+
+        Task<int> task = s.ListenOnceAsync();
+
+        await Assert.That(() => s.Send(1)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(fromListener);
+    }
+
+    // The listener comes to the stream in a transaction in which the stream fired before. The
+    // transaction sends that firing to the new listener at its end, and here it fails before that.
+    [Test]
+    public async Task ListenOnceAsync_WhenItComesAfterTheFiringInATransactionThatFails_FailsTheTask()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        InvalidOperationException fromOperator = new("An operator throws.");
+        Task<int>? task = null;
+
+        using IListener other =
+            s.Map(x =>
+                {
+                    task ??= s.ListenOnceAsync();
+
+                    return x;
+                })
+                .Map<int, int>(_ => throw fromOperator)
+                .Listen(static _ => { });
+
+        await Assert.That(() => s.Send(1)).ThrowsExactly<InvalidOperationException>();
+
+        Task<int> started = task ?? throw new InvalidOperationException("The map did not run.");
+
+        await Assert.That(started.IsFaulted).IsTrue();
+        await Assert.That(started.Exception?.InnerException).IsSameReferenceAs(fromOperator);
+    }
+
+    // The same listener in a transaction that commits gets the firing that came before it.
+    [Test]
+    public async Task ListenOnceAsync_WhenItComesAfterTheFiringInATransactionThatCommits_GivesThatValue()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        Task<int>? task = null;
+
+        using IListener other =
+            s.Map(x =>
+                {
+                    task ??= s.ListenOnceAsync();
+
+                    return x;
+                })
+                .Listen(static _ => { });
+
+        s.Send(1);
+
+        Task<int> started = task ?? throw new InvalidOperationException("The map did not run.");
+
+        await Assert.That(await started).IsEqualTo(1);
+    }
+
+    // A transaction that fails before the stream fires gives the stream no firing, thus the task
+    // waits. The body of a transaction comes before each firing, and so does an operator above the
+    // stream. The next firing completes the task.
+    [Test]
+    public async Task ListenOnceAsync_WhenTheTransactionFailsBeforeTheStreamFires_WaitsForTheNextFiring()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        bool operatorThrows = false;
+
+        // ReSharper disable once AccessToModifiedClosure - The map must read the flag at each firing, and the test
+        // changes it between two sends.
+        Stream<int> s =
+            source.Map(x => operatorThrows ? throw new InvalidOperationException("An operator throws.") : x);
+
+        Task<int> task = s.ListenOnceAsync();
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    source.Send(1);
+
+                    throw new InvalidOperationException("The body of the transaction throws.");
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsCompleted).IsFalse().Because("the body threw before the stream fired");
+
+        operatorThrows = true;
+
+        await Assert.That(() => source.Send(2)).ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsCompleted).IsFalse().Because("the operator above the stream threw");
+
+        operatorThrows = false;
+        source.Send(3);
+
+        await Assert.That(await task).IsEqualTo(3);
+    }
+
+    // A posted action runs in a transaction of its own. The firing here is in a posted action
+    // whose transaction fails, thus the task fails with the exception of that transaction.
+    [Test]
+    public async Task ListenOnceAsync_WhenTheFiringIsInAPostedActionWhoseTransactionFails_FailsTheTask()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        InvalidOperationException fromListener = new("The test fails this transaction.");
+        Task<int> task = s.ListenOnceAsync();
+
+        using IListener thrower =
+            s.Map(static x => x).Map(static x => x).Listen(_ => throw fromListener);
+
+        await Assert.That(() => Transaction.RunVoid(() => Transaction.Post(() => s.Send(1))))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(task.IsFaulted).IsTrue();
+        await Assert.That(task.Exception?.InnerException).IsSameReferenceAs(fromListener);
+    }
+
+    // A posted action that throws does not fail the transaction that posted it, which committed
+    // before the posted action ran. Thus, the transaction committed the value of the stream, and
+    // the task gives it.
+    [Test]
+    public async Task ListenOnceAsync_WhenAPostedActionThrowsAfterTheCommit_GivesTheValue()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        Task<int> task = s.ListenOnceAsync();
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    s.Send(1);
+                    Transaction.Post(static () => throw new InvalidOperationException("The posted action throws."));
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(await task).IsEqualTo(1);
+    }
+
+    // A cancellation that arrives in the transaction of the firing, after the listener of the task
+    // ran, comes before the commit. Thus, the task ends as canceled.
+    [Test]
+    public async Task ListenOnceAsync_CanceledInTheTransactionOfTheFiring_IsCanceled()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        using CancellationTokenSource cts = new();
+        Task<int> task = s.ListenOnceAsync(cts.Token);
+
+        // ReSharper disable once AccessToDisposedClosure - The listener runs in the send below, before the disposal.
+        // ReSharper disable once MethodHasAsyncOverload - CancelAsync arrived in .NET 8, and this compiles for net472.
+        using IListener after = s.Map(static x => x).Map(static x => x).Listen(_ => cts.Cancel());
+
+        s.Send(1);
+
+        await Assert.That(task.IsCanceled).IsTrue();
+    }
+
     [Test]
     public async Task TestListenAsync()
     {
@@ -2136,7 +2369,7 @@ public sealed class StreamTests
                                 .Hold(0));
 
                 IListener lLocal =
-                    result.ListenStrong(_ =>
+                    result.Listen(_ =>
                     {
                         Task.Run(async () =>
                         {
@@ -2150,7 +2383,7 @@ public sealed class StreamTests
 
         // ReSharper disable once UnusedVariable
         List<int> calledResults = [];
-        IListener l2 = called.ListenStrong(calledResults.Add);
+        IListener l2 = called.Listen(calledResults.Add);
 
         await Task.Delay(500);
         a.Send(2);
@@ -2158,8 +2391,8 @@ public sealed class StreamTests
         a.Send(3);
         await Task.Delay(2500);
 
-        l2.Unlisten();
-        l.Unlisten();
+        l2.Dispose();
+        l.Dispose();
     }
 
     [Test]
@@ -2176,12 +2409,12 @@ public sealed class StreamTests
                 });
 
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
         streamSink.Send(3);
         streamSink.Send(4);
         streamSink.Send(7);
         streamSink.Send(8);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [3, 9, 18, 28], ordering: CollectionOrdering.Matching);
     }
@@ -2197,9 +2430,9 @@ public sealed class StreamTests
                     Operational.Defer(streamSink.OrElse(streamLoop).Filter(static v => v < 5).Map(static v => v + 1)));
 
         List<int> @out = [];
-        IListener l = stream.ListenStrong(@out.Add);
+        IListener l = stream.Listen(@out.Add);
         streamSink.Send(2);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [3, 4, 5], ordering: CollectionOrdering.Matching);
     }
@@ -2223,9 +2456,9 @@ public sealed class StreamTests
             }
 
             List<int> @out = [];
-            IListener l = stream.ListenStrong(@out.Add);
+            IListener l = stream.Listen(@out.Add);
             s.Send(0);
-            l.Unlisten();
+            l.Dispose();
 
             await Assert.That(@out)
                 .IsEquivalentTo(expected: [depth], ordering: CollectionOrdering.Matching)
@@ -2234,9 +2467,9 @@ public sealed class StreamTests
 
         StreamSink<int> shallowSink = Stream.CreateSink<int>();
         List<int> shallowOut = [];
-        IListener shallowListener = shallowSink.Map(static v => v + 1).ListenStrong(shallowOut.Add);
+        IListener shallowListener = shallowSink.Map(static v => v + 1).Listen(shallowOut.Add);
         shallowSink.Send(1);
-        shallowListener.Unlisten();
+        shallowListener.Dispose();
 
         await Assert.That(shallowOut).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
     }

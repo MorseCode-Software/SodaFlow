@@ -25,14 +25,14 @@ public sealed class SnapshotLatestTests
         List<int> @out = [];
 
         IListener l =
-            s.SnapshotLatestImpl(b1: b1, b2: b2, f: static (a, v1, v2) => a + v1 + v2).ListenStrong(@out.Add);
+            s.SnapshotLatestImpl(b1: b1, b2: b2, f: static (a, v1, v2) => a + v1 + v2).Listen(@out.Add);
 
         b2.Reads = 0;
 
         Send(s: updates, a: 11);
         int readsAfterTheUpdate = b2.Reads;
         Send(s: s, a: 1);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(readsAfterTheUpdate).IsEqualTo(0);
         await Assert.That(b2.Reads).IsEqualTo(1);

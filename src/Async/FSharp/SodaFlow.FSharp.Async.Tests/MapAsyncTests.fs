@@ -53,7 +53,7 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
 
     override _.Admit
         (
-            _state: EmptyState,
+            state: EmptyState,
             incoming: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
         ) =
@@ -62,11 +62,11 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
         let v = incoming.Value
         lock admittedValues (fun () -> admittedValues.Add(v))
         let toStart = AsyncMapBase.AsyncToStart<'TStrategyInput>(incoming)
-        [| toStart |] :> IReadOnlyList<_>
+        AsyncMapBase.AsyncStrategyStep<'TStrategyInput, EmptyState>(state, ([| toStart |] :> IReadOnlyList<_>))
 
     override _.OnCompleted
         (
-            _state: EmptyState,
+            state: EmptyState,
             _item: AsyncMapBase.AsyncQueuedItem<'TStrategyInput>,
             completion: AsyncMapBase.AsyncCompletion,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
@@ -77,11 +77,15 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
 
         lock completions (fun () -> completions.Add(how))
 
-        AsyncMapBase.AsyncStrategyResult<'TStrategyInput>(true, AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None)
+        AsyncMapBase.AsyncStrategyResult<'TStrategyInput, EmptyState>(
+            state,
+            true,
+            AsyncMapBase.AsyncToStart<'TStrategyInput>.None
+        )
 
     override _.OnCanceled
         (
-            _state: EmptyState,
+            state: EmptyState,
             canceled: IReadOnlyList<AsyncMapBase.AsyncQueuedItem<'TStrategyInput>>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<'TStrategyInput>>
         ) =
@@ -89,7 +93,10 @@ type private AlwaysStartStrategy<'TStrategyInput>() =
         for _ in 0 .. canceled.Count - 1 do
             lock completions (fun () -> completions.Add("canceled"))
 
-        AsyncMapBase.AsyncStrategyResult<'TStrategyInput>.None
+        AsyncMapBase.AsyncStrategyStep<'TStrategyInput, EmptyState>(
+            state,
+            AsyncMapBase.AsyncToStart<'TStrategyInput>.None
+        )
 
 /// A small custom strategy that uses EmptyState directly. The input type and the result type are
 /// `unit`, through the short AsyncConcurrencyStrategy of the F# module, which is not generic. Each
@@ -106,30 +113,71 @@ type private CountingStrategy() =
 
     override _.Admit
         (
-            _state: EmptyState,
+            state: EmptyState,
             incoming: AsyncMapBase.AsyncQueuedItem<unit>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
         ) =
         count <- count + 1
         let toStart = AsyncMapBase.AsyncToStart<unit>(incoming)
-        [| toStart |] :> IReadOnlyList<_>
+        AsyncMapBase.AsyncStrategyStep<unit, EmptyState>(state, ([| toStart |] :> IReadOnlyList<_>))
 
     override _.OnCompleted
         (
-            _state: EmptyState,
+            state: EmptyState,
             _item: AsyncMapBase.AsyncQueuedItem<unit>,
             _completion: AsyncMapBase.AsyncCompletion,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
         ) =
-        AsyncMapBase.AsyncStrategyResult<unit>(true, AsyncMapBase.AsyncStrategyResult<unit>.None)
+        AsyncMapBase.AsyncStrategyResult<unit, EmptyState>(state, true, AsyncMapBase.AsyncToStart<unit>.None)
 
     override _.OnCanceled
         (
-            _state: EmptyState,
+            state: EmptyState,
             _canceled: IReadOnlyList<AsyncMapBase.AsyncQueuedItem<unit>>,
             _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
         ) =
-        AsyncMapBase.AsyncStrategyResult<unit>.None
+        AsyncMapBase.AsyncStrategyStep<unit, EmptyState>(state, AsyncMapBase.AsyncToStart<unit>.None)
+
+/// Counts the admissions in its state, through the short AsyncConcurrencyStrategy<'TState> of the
+/// F# module, and records the state that each call gets. Each method returns the next state and
+/// changes nothing, thus the pipeline puts the state back where a transaction fails.
+type private StateCountingStrategy() =
+    inherit AsyncConcurrencyStrategy<int>()
+
+    let calls = ResizeArray<string>()
+
+    member _.Calls = calls
+
+    override _.CreateState() = 0
+
+    override _.Admit
+        (
+            state: int,
+            incoming: AsyncMapBase.AsyncQueuedItem<unit>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
+        lock calls (fun () -> calls.Add(sprintf "admit:%d" state))
+        let toStart = AsyncMapBase.AsyncToStart<unit>(incoming)
+        AsyncMapBase.AsyncStrategyStep<unit, int>(state + 1, ([| toStart |] :> IReadOnlyList<_>))
+
+    override _.OnCompleted
+        (
+            state: int,
+            _item: AsyncMapBase.AsyncQueuedItem<unit>,
+            _completion: AsyncMapBase.AsyncCompletion,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
+        lock calls (fun () -> calls.Add(sprintf "completed:%d" state))
+        AsyncMapBase.AsyncStrategyResult<unit, int>(state + 10, true, AsyncMapBase.AsyncToStart<unit>.None)
+
+    override _.OnCanceled
+        (
+            state: int,
+            _canceled: IReadOnlyList<AsyncMapBase.AsyncQueuedItem<unit>>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
+        lock calls (fun () -> calls.Add(sprintf "canceled:%d" state))
+        AsyncMapBase.AsyncStrategyStep<unit, int>(state + 100, AsyncMapBase.AsyncToStart<unit>.None)
 
 type ``MapAsync Tests``() =
 
@@ -141,7 +189,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -171,7 +219,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source |> mapAsync results errors unexpected op.Operation (queueStrategy ()) None None true
@@ -201,7 +249,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -223,6 +271,83 @@ type ``MapAsync Tests``() =
             l |> unlistenL
         }
 
+    /// switchLatestStrategy cancels the run in flight for each new value, and records the new value
+    /// as its current run. A transaction that fails must do neither. The two maps put the listener
+    /// that throws after the listener of the pipeline on the stream.
+    [<Test>]
+    member _.``a send that fails keeps the run in flight of switchLatestStrategy and its result``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let op = ControlledOperation<string, string>()
+            let received = List<string>()
+            let l = results |> listenS received.Add
+
+            let status =
+                source
+                |> mapAsync results errors unexpected op.Operation (switchLatestStrategy ()) None None true
+
+            source |> sendS "a"
+            waitUntil (fun () -> op.HasStarted "a")
+
+            let thrower =
+                source
+                |> Stream.map id
+                |> Stream.map id
+                |> listenS (fun (_: string) ->
+                    raise (InvalidOperationException "The test fails this transaction."))
+
+            do! Expect.Throws<InvalidOperationException>(fun () -> source |> sendS "b")
+
+            thrower |> unlistenL
+
+            do! Expect.False(op.HasStarted "b")
+
+            op.Release("a", "A")
+            waitUntil (fun () -> (status.Items |> sampleC).Count = 0)
+
+            do! Expect.Sequence([ "A" ], received)
+
+            status.Dispose()
+            l |> unlistenL
+        }
+
+    /// A strategy returns its next state, and the pipeline keeps it. A transaction that fails
+    /// discards the state that its call returned, thus the next call gets the state from before.
+    [<Test>]
+    member _.``a custom strategy gets its state back after an admission that fails``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let op = ControlledOperation<string, string>()
+            let strategy = StateCountingStrategy()
+
+            let status = source |> mapAsync results errors unexpected op.Operation strategy None None true
+
+            source |> sendS "a"
+            waitUntil (fun () -> op.HasStarted "a")
+
+            let thrower =
+                source
+                |> Stream.map id
+                |> Stream.map id
+                |> listenS (fun (_: string) ->
+                    raise (InvalidOperationException "The test fails this transaction."))
+
+            do! Expect.Throws<InvalidOperationException>(fun () -> source |> sendS "b")
+
+            thrower |> unlistenL
+
+            source |> sendS "c"
+            waitUntil (fun () -> op.HasStarted "c")
+
+            do! Expect.Sequence([ "admit:0"; "admit:1"; "admit:1" ], strategy.Calls)
+
+            status.Dispose()
+        }
+
     [<Test>]
     member _.``queuePerGroupStrategy lets different groups run concurrently but serializes within a group``() =
         task {
@@ -231,7 +356,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let getGroup (v: string) = v.Split('-').[0]
             let strategy = queuePerGroupStrategy getGroup
@@ -268,7 +393,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             // The group comparer is not sensitive to a capital letter, thus "A-1" and "a-2" have
             // one group.
@@ -305,7 +430,7 @@ type ``MapAsync Tests``() =
             let results = sinkS<unit> ()
             let errors = sinkS<exn> ()
             let received = List<unit>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
             let strategy = CountingStrategy()
 
             let operation (_: string) (resultFactory: ResultFactory<unit>) (_: CancellationToken) =
@@ -332,7 +457,7 @@ type ``MapAsync Tests``() =
             let cancelAll = sinkS<unit> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -363,7 +488,7 @@ type ``MapAsync Tests``() =
             let cancelAll = sinkS<unit> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -373,7 +498,7 @@ type ``MapAsync Tests``() =
                 cancelAll
                 |> Stream.map id
                 |> Stream.map id
-                |> listenStrongS (fun () -> raise (InvalidOperationException "The test fails this transaction."))
+                |> listenS (fun () -> raise (InvalidOperationException "The test fails this transaction."))
 
             source |> sendS "a"
             waitUntil (fun () -> op.HasStarted "a")
@@ -399,7 +524,7 @@ type ``MapAsync Tests``() =
             let cancelMatching = sinkS<IReadOnlyCollection<string>> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -429,7 +554,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -454,7 +579,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let op = ControlledOperation<string, string>()
             let received = List<string>()
-            let l = results |> listenStrongS received.Add
+            let l = results |> listenS received.Add
 
             let status =
                 source
@@ -480,7 +605,7 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let thrown = InvalidOperationException("boom")
             let received = List<exn>()
-            let l = errors |> listenStrongS received.Add
+            let l = errors |> listenS received.Add
 
             let operation (_: string) (_: ResultFactory<string>) (_: CancellationToken) : Task<MapAsyncResult<string>> =
                 Task.FromException<MapAsyncResult<string>>(thrown)
@@ -839,8 +964,8 @@ type ``MapAsync Tests``() =
             let errors = sinkS<exn> ()
             let listenerError = InvalidOperationException("results listener")
             let failures = List<exn>()
-            let r = results |> listenStrongS (fun (_: int) -> raise listenerError)
-            let e = errors |> listenStrongS failures.Add
+            let r = results |> listenS (fun (_: int) -> raise listenerError)
+            let e = errors |> listenS failures.Add
 
             let operation (v: int) (factory: ResultFactory<int>) (_: CancellationToken) =
                 Task.FromResult(factory.FromValue v)
@@ -874,7 +999,7 @@ type ``MapAsync Tests``() =
 
             let e =
                 errors
-                |> listenStrongS (fun error ->
+                |> listenS (fun error ->
                     if obj.ReferenceEquals(error, operationError) then
                         raise listenerError
 

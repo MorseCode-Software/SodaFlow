@@ -56,7 +56,7 @@ public sealed class BindableValueTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         await Assert.That(initial).IsEqualTo(1);
@@ -136,7 +136,7 @@ public sealed class BindableValueTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         List<int> writes = [];
@@ -147,7 +147,7 @@ public sealed class BindableValueTests
 
         await Assert.That(writes).IsEmpty().Because("a write equal to the shown value is not sent");
 
-        records.Unlisten();
+        records.Dispose();
         twoWay.Dispose();
     }
 
@@ -179,7 +179,7 @@ public sealed class BindableValueTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         scheduler.Join();

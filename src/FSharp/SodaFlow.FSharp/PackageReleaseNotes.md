@@ -6,10 +6,22 @@ transaction that fails forget its value; the core notes say why. New: the LazySa
 function, map, and lift2 to lift8, and the lazySample alias for defer in Shorthand. A function given to any of them
 can run again after a failed transaction, so it must be pure and must not send.
 
+BREAKING: Stream.listenStrong, Stream.listenOnceStrong, and Cell.listenStrong are removed, with their aliases
+listenStrongS, listenOnceStrongS, and listenStrongC. listen and listenOnce answer with an IListener, which is now an
+IDisposable, so use can keep it and stop it. The WeakListener and StrongListener modules are removed, with
+Listener.fromWeakList, fromStrongList, fromWeakSeq, fromStrongSeq, and the aliases unlistenWeakL and unlistenStrongL:
+use the Listener module and unlistenL. A handler runs while the caller holds its listener, and stops when the garbage
+collector removes a listener that no caller holds. A strong listener that a caller dropped continued for as long as a
+source of its stream lived, and nothing could stop it after that. Each use of a removed name stops compiling, which
+marks the places to change. Keep the listener there. A call that changes to listen and discards the result compiles, and
+its handler stops at a garbage collection with no message. listenOnceAsync does not change.
+
 BREAKING: getListenerWithWeakReference in the Listener, WeakListener, StrongListener, and MutableListener modules, and
 Listener.unlistenWeak, are removed, and IListenerWithWeakReference is internal. The MutableListener module is removed
 with the type, which is internal, and the Cleanup module with Cleanup, which is removed; the core notes say why. F#
 never had the explicit loop types that the C# package removes in this release, so loops in F# do not change.
+IListener has no Unlisten method, because Dispose does the same thing. Listener.unlisten and unlistenL stay, and call
+Dispose, so a call of the method changes to Dispose or to Listener.unlisten.
 
 BREAKING: Cell<'T> derives from Behavior<'T>, so the functions of the Behavior module take a cell without asBehavior,
 and lift2 to lift8 take cells and behaviors together and give a behavior. asBehavior stays, as an upcast.
@@ -86,8 +98,8 @@ that reach this package, and its notes have the details of each:
   and the result was wrong until the first input updated again.
 - switchB and switchC no longer keep a switch that a failed transaction made. Before, the output went on following the
   behavior the transaction had switched to, although the outer cell still held the one from before the failure.
-- listenOnce and listenOnceStrong no longer call the handler twice when the stream fires on another thread at the
-  moment the listener is attached.
+- listenOnce no longer calls the handler twice when the stream fires on another thread at the moment the listener is
+  attached.
 - A step of the graph that threw in a failed transaction no longer runs again in a later one. The same fix stops a
   map of a cell from switchC or switchB from running its function a wasted second time when the switch moves to an inner
   cell of higher rank than its output.
@@ -96,12 +108,16 @@ that reach this package, and its notes have the details of each:
 - A posted action, or an element of Operational.split, whose transaction fails no longer leaves behind what it deferred.
   The actions it posted do not run, the release of each one does, and the values it sent through defer or split do not
   arrive.
+- A chain of deferred work that has no end throws DeferredChainLimitException, where before the call that started it
+  never returned. A value that finds its way back to its own source through Operational.defer, Operational.split, or a
+  posted action that posts again made a new transaction for every lap, forever. The chain is cut when it is 100,000
+  laps deep, and the laps before that have committed. The core notes have the rest.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
 5.0.0. This release also calls a member that SodaFlow.Core 5.0.1 adds, so it cannot run against 5.0.0, and the
 floor is what keeps a consumer from pairing them.
 
-Changed: listenOnceAsync is now built on listenOnceStrong, so it gets the same fix. It used to carry its own copy of
+Changed: listenOnceAsync is now built on the one-shot listener of the core, so it gets the same fix. It used to carry its own copy of
 that logic, with the same gap. The result still arrived only once, but the listener could stay attached until the
 stream fired again.
 
@@ -120,6 +136,16 @@ call caught the exception. Now the async ends the way any canceled async does: A
 task, a try ... with does not see it, and a try ... finally or a use still runs. Code that caught TaskCanceledException
 from listenOnceAsync to notice the cancellation no longer gets it, and the cancellation reaches whatever started the
 async, as it does for any other async.
+
+Fixed: listenOnceAsync no longer gives a value from a transaction that failed. Its listener completed the result as soon
+as the stream fired, inside the transaction. When something later in that transaction threw, the async already had a
+value that no stream committed, and the listener was spent, so the next firing did not reach it. The value now arrives
+when the transaction commits. When the stream fires in a transaction that then fails, the async raises the exception of
+that transaction, the exception itself and not an AggregateException around it. That holds whether the failure comes
+after the listener ran, as when a second listener throws or the first value of a cell built in the same transaction
+throws, or before it ran, as when an operator below the stream or an earlier listener throws. A transaction that fails
+before the stream fires gives the stream no firing, as before: the async waits, and the next firing gives its value. A
+throw from the body of the transaction and a throw from an operator above the stream are of that kind.
 
 Fixed: a listenOnceAsync that never runs no longer leaves its listener on the stream. The listener attaches when you
 call listenOnceAsync, and only the running async removed it. An async can be stopped before it runs: started with a
@@ -158,6 +184,12 @@ counts with a Stopwatch, which only measures time going by.
 
 Changed: the timer thread reads the next timer due with the set's own Min rather than LINQ's First, which allocated an
 enumerator every time the thread woke to see what was due. Which timer it finds, and when it fires, are unchanged.
+
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build. Unlike the net8.0 builds of the C# packages, it is not marked as compatible with trimming and native AOT. The
+analyzers that check that mark do not run on F#, and a native AOT publish that roots the F# packages reports warnings
+inside FSharp.Core.
 
 5.0.1
 

@@ -43,6 +43,7 @@
         <Compile Include="DeferredWorkBenchmarks.cs"/>
         <Compile Include="EditStreamMergeBenchmarks.cs"/>
         <Compile Include="EitherBenchmarks.cs"/>
+        <Compile Include="FilterCriteriaBenchmarks.cs"/>
         <Compile Include="GraphBuildBenchmarks.cs"/>
         <Compile Include="KeyedCollectionAggregateBenchmarks.cs"/>
         <Compile Include="KeyedCollectionAggregateShapes.cs"/>
@@ -57,6 +58,7 @@
         <Compile Include="KeyedCollectionViewShapes.cs"/>
         <Compile Include="LiftBenchmarks.cs"/>
         <Compile Include="ListenOnceBenchmarks.cs"/>
+        <Compile Include="MatchWithStateBenchmarks.cs"/>
         <Compile Include="MaybeBenchmarks.cs"/>
         <Compile Include="MaybeCompareBenchmarks.cs"/>
         <Compile Include="OneWayScaleBenchmarks.cs"/>
@@ -64,6 +66,7 @@
         <Compile Include="Program.cs"/>
         <Compile Include="RankPropagationBenchmarks.cs"/>
         <Compile Include="SelectAllBenchmarks.cs"/>
+        <Compile Include="SortLevelsBenchmarks.cs"/>
         <Compile Include="SortReverseBenchmarks.cs"/>
         <Compile Include="StreamSendBenchmarks.cs"/>
         <Compile Include="TimerSchedulingBenchmarks.cs"/>

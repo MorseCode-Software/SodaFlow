@@ -158,7 +158,7 @@ internal sealed class SinkPerFieldShape : IKeyedCollectionShape
                     c3: item.IsFrozen,
                     f: static (name, score, isFrozen) => new ItemState(name: name, score: score, isFrozen: isFrozen))
                 .Updates()
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 }));
     }
@@ -239,7 +239,7 @@ internal sealed class StreamFedCellShape : IKeyedCollectionShape
                     c3: item.IsFrozen,
                     f: static (name, score, isFrozen) => new ItemState(name: name, score: score, isFrozen: isFrozen))
                 .Updates()
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 }));
     }
@@ -325,7 +325,7 @@ internal sealed class ReactiveCollectionShape : IKeyedCollectionShape
         Transaction.Run(() =>
             this.collection.StateCell(key)
                 .Updates()
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 }));
 

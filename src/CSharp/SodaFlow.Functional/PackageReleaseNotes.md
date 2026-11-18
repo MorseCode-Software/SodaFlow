@@ -9,6 +9,19 @@ and its hash code is that of no case. Code that read a default on purpose and ex
 value with First instead. Maybe<T> already had a safe default, None, and the two structs now agree. The tests that
 pinned the old behavior now pin the throw.
 
+Added: overloads of Match, MatchVoid, MatchSome, MatchNone, and Map on Maybe<T>, and of Match and MatchVoid on every
+Either, that take a state as their first argument and hand it to whichever function runs. A lambda that reads a local
+captures it, and the compiled code makes a closure for the local and a delegate for each lambda on every call. For a
+Match on a Maybe<int> with two such lambdas that is 152 bytes a call on .NET Framework 4.7.2. On .NET 10 the same call
+measured 152 bytes in a loop under the default tiered compilation, and 24 bytes with tiered compilation off and under
+BenchmarkDotNet. The 24 bytes is the closure alone, so the two delegates no longer reach the heap there. That help does
+not reach every match: Map with one such lambda allocates 88 bytes on both runtimes, and MatchVoid on an Either of eight
+with eight lambdas that capture an object allocates 512. With the value passed as the state and the lambdas marked
+static, each of these calls allocates nothing on either runtime. A static lambda cannot read a local, so the compiler
+keeps a capture from coming back. Pass a tuple when the functions need more than one value. Each new overload takes one
+argument more than the one it sits beside, so no existing call changes meaning. MatchWithStateBenchmarks in
+SodaFlow.Benchmarks measures each pair.
+
 Fixed: Maybe<T>.CompareTo allocated two closures on every call. It was two nested Match calls, and each one captured a
 value. A sort calls it about n log n times, so sorting 100,000 Maybe<int> values on .NET 10 took 45.5 ms and allocated
 396 MB. CompareTo now reads the two fields directly and allocates nothing. The same sort takes 6.1 ms, a little under
@@ -60,6 +73,18 @@ thread, that blocked on the task from MatchAsyncVoid, or from a wrapper of its o
 another thread, never got that continuation and hung. The wrappers now stay off the caller's context, as the rest of
 this package already did. A caller that awaits the task sees no change, because its own await decides where it
 continues. The build now fails on an unconfigured await in library code, so the omission cannot come back.
+
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
+Added: the net8.0 build is marked as compatible with trimming and native AOT. The build of the package runs the trim,
+AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
+IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
+net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them. The analyzers
+reported IL2091 where LazyExtensionMethods makes a Lazy<T>. The class suppresses that report, in the assembly so that
+the trimmer of an app reads it too. Each Lazy<T> there gets a value factory, so it never uses the parameterless
+constructor that the annotation of Lazy<T> asks the trimmer to keep.
 
 3.0.2
 

@@ -23,13 +23,13 @@ public sealed class FailedTransactionTests
         Fail(s: s, value: 1);
 
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
         s.Send(2);
-        l.Unlisten();
+        l.Dispose();
 
         List<int> later = [];
-        IListener l2 = s.ListenStrong(later.Add);
-        l2.Unlisten();
+        IListener l2 = s.Listen(later.Add);
+        l2.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
         await Assert.That(later).IsEmpty();
@@ -69,7 +69,7 @@ public sealed class FailedTransactionTests
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
 
         await Assert.That(() =>
                 Transaction.RunVoid(() =>
@@ -80,7 +80,7 @@ public sealed class FailedTransactionTests
             .ThrowsExactly<InvalidOperationException>();
 
         s.Send(3);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching);
     }
@@ -110,10 +110,10 @@ public sealed class FailedTransactionTests
                 send: () => s1.Send(1));
 
             List<int> @out = [];
-            IListener l = merged.ListenStrong(@out.Add);
+            IListener l = merged.Listen(@out.Add);
             s2.Send(5);
             s2.Send(6);
-            l.Unlisten();
+            l.Dispose();
 
             await Assert.That(@out)
                 .IsEquivalentTo(expected: [5, 6], ordering: CollectionOrdering.Matching)
@@ -133,10 +133,10 @@ public sealed class FailedTransactionTests
 
         int afterFailure = sum.Sample();
         List<int> @out = [];
-        IListener l = sum.Updates().ListenStrong(@out.Add);
+        IListener l = sum.Updates().Listen(@out.Add);
         b.Send(20);
         a.Send(3);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(afterFailure).IsEqualTo(11);
         await Assert.That(@out).IsEquivalentTo(expected: [21, 23], ordering: CollectionOrdering.Matching);
@@ -160,9 +160,9 @@ public sealed class FailedTransactionTests
             send: () => a.Send(100));
 
         List<int> @out = [];
-        IListener l = sum.Updates().ListenStrong(@out.Add);
+        IListener l = sum.Updates().Listen(@out.Add);
         b.Send(20);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(sum.Sample()).IsEqualTo(21);
         await Assert.That(@out).IsEquivalentTo(expected: [21], ordering: CollectionOrdering.Matching);
@@ -182,9 +182,9 @@ public sealed class FailedTransactionTests
             send: () => a.Send(1000));
 
         List<IReadOnlyList<int>> @out = [];
-        IListener l = values.Updates().ListenStrong(@out.Add);
+        IListener l = values.Updates().Listen(@out.Add);
         b.Send(20);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(values.Sample())
             .IsEquivalentTo(expected: [1, 20, 100], ordering: CollectionOrdering.Matching);
@@ -205,9 +205,9 @@ public sealed class FailedTransactionTests
         Fail(s: applied.Updates(), send: () => cf.Send(static x => x * 10));
 
         List<int> @out = [];
-        IListener l = applied.Updates().ListenStrong(@out.Add);
+        IListener l = applied.Updates().Listen(@out.Add);
         ca.Send(2);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(applied.Sample()).IsEqualTo(3);
         await Assert.That(@out).IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching);
@@ -226,9 +226,9 @@ public sealed class FailedTransactionTests
             send: () => c.Send(100));
 
         List<string> @out = [];
-        IListener l = latest.ListenStrong(@out.Add);
+        IListener l = latest.Listen(@out.Add);
         s.Send(1);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: ["1,10"], ordering: CollectionOrdering.Matching);
     }
@@ -248,9 +248,9 @@ public sealed class FailedTransactionTests
             send: () => s.Send(7));
 
         List<string> @out = [];
-        IListener l = latest.ListenStrong(@out.Add);
+        IListener l = latest.Listen(@out.Add);
         c.Send(20);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEmpty();
     }
@@ -270,13 +270,13 @@ public sealed class FailedTransactionTests
                 f: static (a, v) => a == 7 ? throw new InvalidOperationException("abort") : $"{a},{v}");
 
         List<string> @out = [];
-        IListener l = latest.ListenStrong(@out.Add);
+        IListener l = latest.Listen(@out.Add);
 
         await Assert.That(() => s.Send(7)).ThrowsExactly<InvalidOperationException>().WithMessage("abort");
 
         c.Send(20);
         s.Send(1);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: ["1,20"], ordering: CollectionOrdering.Matching);
     }
@@ -295,9 +295,9 @@ public sealed class FailedTransactionTests
             send: () => s1.Send(7));
 
         List<(Maybe<int>, Maybe<int>)> @out = [];
-        IListener l = merged.ListenStrong(@out.Add);
+        IListener l = merged.Listen(@out.Add);
         s2.Send(5);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: [(Maybe<int>.None, Maybe.Some(5))], ordering: CollectionOrdering.Matching);
@@ -319,10 +319,10 @@ public sealed class FailedTransactionTests
         await Assert.That(switched.Sample()).IsEqualTo(1);
 
         List<int> @out = [];
-        IListener l = switched.Updates().ListenStrong(@out.Add);
+        IListener l = switched.Updates().Listen(@out.Add);
         c2.Send(20);
         c1.Send(2);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(switched.Sample()).IsEqualTo(2);
         await Assert.That(@out).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
@@ -343,7 +343,7 @@ public sealed class FailedTransactionTests
         Cell<int> switched = selector.SwitchC();
 
         List<int> @out = [];
-        IListener l = switched.Updates().ListenStrong(@out.Add);
+        IListener l = switched.Updates().Listen(@out.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -351,7 +351,7 @@ public sealed class FailedTransactionTests
             source.Send(5);
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(switched.Sample()).IsEqualTo(10);
         await Assert.That(@out).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
@@ -362,7 +362,7 @@ public sealed class FailedTransactionTests
     // Sends with a listener that throws, and removes the listener after the failure.
     private static void Fail<T>(Stream<T> s, Action send)
     {
-        IListener boom = s.ListenStrong(static _ => throw new InvalidOperationException("abort"));
+        IListener boom = s.Listen(static _ => throw new InvalidOperationException("abort"));
 
         try
         {
@@ -372,7 +372,7 @@ public sealed class FailedTransactionTests
         {
         }
 
-        boom.Unlisten();
+        boom.Dispose();
     }
 
     // A throw from the body of a transaction fails it, as a throw from a listener does. The
@@ -383,7 +383,7 @@ public sealed class FailedTransactionTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Cell<int> held = s.Hold(0);
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
 
         await Assert.That(() =>
                 Transaction.RunVoid(() =>
@@ -398,7 +398,7 @@ public sealed class FailedTransactionTests
         await Assert.That(held.Sample()).IsEqualTo(0);
 
         s.Send(2);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
         await Assert.That(held.Sample()).IsEqualTo(2);
@@ -410,7 +410,7 @@ public sealed class FailedTransactionTests
     {
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
 
         await Assert.That(() =>
                 Transaction.RunVoid(() =>
@@ -421,7 +421,7 @@ public sealed class FailedTransactionTests
             .ThrowsExactly<InvalidOperationException>()
             .WithMessage("nested");
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEmpty();
     }

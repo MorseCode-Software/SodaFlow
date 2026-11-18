@@ -23,7 +23,7 @@ public sealed class TransactionTests
     private static Exception RunFailingTransaction(Action inTransaction)
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
-        IListener listener = sink.ListenStrong(static _ => throw new InvalidOperationException("listener"));
+        IListener listener = sink.Listen(static _ => throw new InvalidOperationException("listener"));
 
         try
         {
@@ -40,7 +40,7 @@ public sealed class TransactionTests
         }
         finally
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         throw new InvalidOperationException("The transaction did not fail.");
@@ -48,10 +48,10 @@ public sealed class TransactionTests
 
     // A listener that fails each transaction in which the stream fires. The two maps put it after
     // an operation that listens to the stream directly.
-    private static IStrongListener ThrowAfterTheDefer(Stream<int> stream) =>
+    private static IListener ThrowAfterTheDefer(Stream<int> stream) =>
         stream.Map(static value => value)
             .Map(static value => value)
-            .ListenStrong(static _ => throw new InvalidOperationException("listener"));
+            .Listen(static _ => throw new InvalidOperationException("listener"));
 
     [Test]
     public async Task PostWithReleaseRunsTheReleaseWhereTheTransactionFails()
@@ -175,7 +175,7 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = sink.ListenStrong(seen.Add);
+        using IListener l = sink.Listen(seen.Add);
 
         await Assert.That(() =>
                 Transaction.RunVoid(() =>
@@ -213,7 +213,7 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = sink.ListenStrong(seen.Add);
+        using IListener l = sink.Listen(seen.Add);
 
         await Assert.That(() =>
                 Transaction.Post(() =>
@@ -233,7 +233,7 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = sink.ListenStrong(seen.Add);
+        using IListener l = sink.Listen(seen.Add);
         InvalidOperationException thrown = new("first");
 
         InvalidOperationException? caught =
@@ -370,7 +370,7 @@ public sealed class TransactionTests
     public async Task APostedActionWhoseTransactionFailsRunsNoneOfItsPosts()
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
-        using IStrongListener thrower = sink.ListenStrong(static _ => throw new InvalidOperationException("listener"));
+        using IListener thrower = sink.Listen(static _ => throw new InvalidOperationException("listener"));
         bool ran = false;
 
         await Assert.That(() =>
@@ -424,8 +424,8 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = Operational.Defer(sink).ListenStrong(seen.Add);
-        using IStrongListener thrower = ThrowAfterTheDefer(sink);
+        using IListener l = Operational.Defer(sink).Listen(seen.Add);
+        using IListener thrower = ThrowAfterTheDefer(sink);
 
         await Assert.That(() => sink.Send(1)).ThrowsExactly<InvalidOperationException>();
 
@@ -437,8 +437,8 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = Operational.Defer(sink).ListenStrong(seen.Add);
-        using IStrongListener thrower = ThrowAfterTheDefer(sink);
+        using IListener l = Operational.Defer(sink).Listen(seen.Add);
+        using IListener thrower = ThrowAfterTheDefer(sink);
 
         await Assert.That(() => Transaction.RunVoid(() => Transaction.Post(() => sink.Send(1))))
             .ThrowsExactly<InvalidOperationException>();
@@ -454,7 +454,7 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = Operational.Defer(sink).ListenStrong(seen.Add);
+        using IListener l = Operational.Defer(sink).Listen(seen.Add);
 
         Transaction.RunVoid(() => Transaction.Post(() => sink.Send(1)));
 
@@ -472,15 +472,15 @@ public sealed class TransactionTests
         List<int> posted = [];
         List<int> released = [];
 
-        using IStrongListener l =
-            items.ListenStrong(item =>
+        using IListener l =
+            items.Listen(item =>
                 Transaction.Post(action: () => posted.Add(item), onFailure: _ => released.Add(item)));
 
-        using IStrongListener thrower =
+        using IListener thrower =
             items.Map(static item => item)
                 .Map(static item => item)
                 .Filter(static item => item == 1)
-                .ListenStrong(static _ => throw new InvalidOperationException("1"));
+                .Listen(static _ => throw new InvalidOperationException("1"));
 
         await Assert.That(() => sink.Send([1, 2, 3])).ThrowsExactly<InvalidOperationException>();
 
@@ -496,13 +496,13 @@ public sealed class TransactionTests
         StreamSink<List<int>> sink = Stream.CreateSink<List<int>>();
         Stream<int> items = Operational.Split<int, List<int>>(sink);
         List<int> posted = [];
-        using IStrongListener l = items.ListenStrong(item => Transaction.Post(() => posted.Add(item)));
+        using IListener l = items.Listen(item => Transaction.Post(() => posted.Add(item)));
 
-        using IStrongListener thrower =
+        using IListener thrower =
             items.Map(static item => item)
                 .Map(static item => item)
                 .Filter(static item => item == 2)
-                .ListenStrong(static _ => throw new InvalidOperationException("2"));
+                .Listen(static _ => throw new InvalidOperationException("2"));
 
         await Assert.That(() => sink.Send([1, 2, 3])).ThrowsExactly<InvalidOperationException>();
 
@@ -517,13 +517,13 @@ public sealed class TransactionTests
         StreamSink<List<int>> sink = Stream.CreateSink<List<int>>();
         Stream<int> items = Operational.Split<int, List<int>>(sink);
         List<int> seen = [];
-        using IStrongListener l = Operational.Defer(items).ListenStrong(seen.Add);
+        using IListener l = Operational.Defer(items).Listen(seen.Add);
 
-        using IStrongListener thrower =
+        using IListener thrower =
             items.Map(static item => item)
                 .Map(static item => item)
                 .Filter(static item => item == 2)
-                .ListenStrong(static _ => throw new InvalidOperationException("2"));
+                .Listen(static _ => throw new InvalidOperationException("2"));
 
         await Assert.That(() => sink.Send([1, 2, 3])).ThrowsExactly<InvalidOperationException>();
 
@@ -545,7 +545,7 @@ public sealed class TransactionTests
             Operational.Split<string, List<string>>(source.Map(static _ => new List<string> { "b0", "b1", "b2" }));
 
         List<string> seen = [];
-        using IStrongListener l = two.Merge(s2: three, f: static (a, b) => a + "+" + b).ListenStrong(seen.Add);
+        using IListener l = two.Merge(s2: three, f: static (a, b) => a + "+" + b).Listen(seen.Add);
 
         source.Send(1);
 
@@ -572,7 +572,7 @@ public sealed class TransactionTests
                 source.Map(static _ => Enumerable.Range(start: 0, count: more).Select(static i => "b" + i).ToList()));
 
         List<string> seen = [];
-        using IStrongListener l = shorter.Merge(s2: longer, f: static (a, b) => a + "+" + b).ListenStrong(seen.Add);
+        using IListener l = shorter.Merge(s2: longer, f: static (a, b) => a + "+" + b).Listen(seen.Add);
 
         source.Send(1);
 
@@ -591,7 +591,7 @@ public sealed class TransactionTests
     {
         StreamSink<List<int>> sink = Stream.CreateSink<List<int>>();
         List<int> seen = [];
-        using IStrongListener l = Operational.Defer(Operational.Split<int, List<int>>(sink)).ListenStrong(seen.Add);
+        using IListener l = Operational.Defer(Operational.Split<int, List<int>>(sink)).Listen(seen.Add);
 
         sink.Send([1, 2, 3]);
         sink.Send([4, 5]);
@@ -607,8 +607,8 @@ public sealed class TransactionTests
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
 
-        using IStrongListener l =
-            Operational.Defer(Operational.Defer(Operational.Defer(Operational.Defer(sink)))).ListenStrong(seen.Add);
+        using IListener l =
+            Operational.Defer(Operational.Defer(Operational.Defer(Operational.Defer(sink)))).Listen(seen.Add);
 
         sink.Send(7);
         sink.Send(8);
@@ -627,7 +627,7 @@ public sealed class TransactionTests
         StreamSink<List<List<int>>> sink = Stream.CreateSink<List<List<int>>>();
         Stream<List<int>> together = Operational.Defer(Operational.Split<List<int>, List<List<int>>>(sink));
         List<int> seen = [];
-        using IStrongListener l = Operational.Split<int, List<int>>(together).ListenStrong(seen.Add);
+        using IListener l = Operational.Split<int, List<int>>(together).Listen(seen.Add);
 
         sink.Send(
         [
@@ -652,7 +652,7 @@ public sealed class TransactionTests
         Stream<string> items = Operational.Split<string, List<string>>(sink);
         List<string> seen = [];
 
-        using IStrongListener l = items.ListenStrong(item =>
+        using IListener l = items.Listen(item =>
         {
             seen.Add(item);
 
@@ -665,6 +665,132 @@ public sealed class TransactionTests
         await Assert.That(() => sink.Send(["a", "b", "c"])).ThrowsExactly<InvalidOperationException>();
 
         await Assert.That(seen).IsEquivalentTo(expected: ["a", "b", "c"], ordering: CollectionOrdering.Matching);
+    }
+
+    // A value that goes back to its own source through a defer makes one more round of deferred
+    // work each time. With nothing that stops it, the drain comes to its limit and throws. Before,
+    // the call that closed the loop did not return.
+    [Test]
+    public async Task ADeferThatFeedsItselfWithNoEndThrows() =>
+        await Assert.That(static () =>
+            {
+                _ = Cell.Loop<int>().WithoutCaptures(static l => Operational.Defer(Operational.Value(l)).Hold(0));
+            })
+            .ThrowsExactly<DeferredChainLimitException>();
+
+    // The same chain with a filter that stops it. Each step is one round of deferred work.
+    [Test]
+    public async Task ADeferThatFeedsItselfAndStopsReturns()
+    {
+        Cell<int> count =
+            Cell.Loop<int>()
+                .WithoutCaptures(static l =>
+                    Operational.Defer(Operational.Value(l))
+                        .Filter(static v => v < 1000)
+                        .Map(static v => v + 1)
+                        .Hold(0));
+
+        await Assert.That(count.Sample()).IsEqualTo(1000);
+    }
+
+    // A posted action that posts itself is a chain also.
+    [Test]
+    public async Task APostedActionThatPostsItselfWithNoEndThrows()
+    {
+        await Assert.That(static () => Transaction.RunVoid(static () => Transaction.Post(PostAgain)))
+            .ThrowsExactly<DeferredChainLimitException>();
+
+        return;
+
+        static void PostAgain() => Transaction.Post(PostAgain);
+    }
+
+    // The post that remains at the limit does not run. Thus, its release runs, with the
+    // exception of the limit as the cause.
+    [Test]
+    public async Task APostThatRemainsAtTheLimitRunsItsRelease()
+    {
+        List<Exception> causes = [];
+
+        await Assert.That(() => Transaction.RunVoid(PostAgain)).ThrowsExactly<DeferredChainLimitException>();
+
+        await Assert.That(causes.Count).IsEqualTo(1);
+        await Assert.That(causes[0]).IsTypeOf<DeferredChainLimitException>();
+
+        return;
+
+        void PostAgain() => Transaction.Post(action: PostAgain, onFailure: causes.Add);
+    }
+
+    // A release that throws at the limit does not hide the limit. The exception of the limit comes
+    // out first, and the exception of the release comes out after it.
+    [Test]
+    public async Task AReleaseThatThrowsAtTheLimitComesOutAfterTheLimit()
+    {
+        NotSupportedException thrown = new("release");
+
+        AggregateException? aggregate =
+            await Assert.That(() => Transaction.RunVoid(PostAgain)).ThrowsExactly<AggregateException>();
+
+        await Assert.That(aggregate?.InnerExceptions.Count).IsEqualTo(2);
+        await Assert.That(aggregate?.InnerExceptions[0]).IsTypeOf<DeferredChainLimitException>();
+        await Assert.That(aggregate?.InnerExceptions[1]).IsSameReferenceAs(thrown);
+
+        return;
+
+        void PostAgain() => Transaction.Post(action: PostAgain, onFailure: _ => throw thrown);
+    }
+
+    // A posted action that throws does not hide the limit. Its exception comes out first, and the
+    // exception of the limit comes out after it.
+    [Test]
+    public async Task TheLimitComesOutAfterAPostedActionThatThrows()
+    {
+        InvalidOperationException first = new("first");
+
+        AggregateException? aggregate =
+            await Assert.That(() =>
+                    Transaction.RunVoid(() =>
+                    {
+                        Transaction.Post(() => throw first);
+                        Transaction.Post(PostAgain);
+                    }))
+                .ThrowsExactly<AggregateException>();
+
+        await Assert.That(aggregate?.InnerExceptions.Count).IsEqualTo(2);
+        await Assert.That(aggregate?.InnerExceptions[0]).IsSameReferenceAs(first);
+        await Assert.That(aggregate?.InnerExceptions[1]).IsTypeOf<DeferredChainLimitException>();
+
+        return;
+
+        static void PostAgain() => Transaction.Post(PostAgain);
+    }
+
+    // Each transaction before the limit committed. Its value stays in the graph, and the graph
+    // works after the exception.
+    [Test]
+    public async Task AfterTheLimitTheGraphKeepsItsValuesAndWorks()
+    {
+        StreamSink<int> start = Stream.CreateSink<int>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+
+        (_, (Cell<int> Steps, Cell<int> Other) cells) =
+            Stream.Loop<int>()
+                .WithCaptures(back =>
+                {
+                    Stream<int> steps = start.OrElse(back);
+
+                    return (
+                        Stream: Operational.Defer(steps.Map(static v => v + 1)),
+                        Captures: (Steps: steps.Hold(0), Other: other.Hold(0)));
+                });
+
+        await Assert.That(() => start.Send(0)).ThrowsExactly<DeferredChainLimitException>();
+        await Assert.That(cells.Steps.Sample()).IsGreaterThan(0);
+
+        other.Send(7);
+
+        await Assert.That(cells.Other.Sample()).IsEqualTo(7);
     }
 
     [Test]

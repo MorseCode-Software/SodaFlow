@@ -96,7 +96,7 @@ public static class ListenerShapes
         IListener listener = s.Listen(seen.Add); // SF2001
         listener = s.Listen(static _ => { });
         Probe.Fire(s);
-        listener.Unlisten();
+        listener.Dispose();
     }
 
     // L11. A ListenOnce into a local that nothing reads.
@@ -175,13 +175,22 @@ public static class ListenerShapes
         Probe.Fire(s);
     }
 
+    // L19. A local of another type that nothing reads. The listener goes into it through an
+    // implicit conversion.
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    public static void ListenIntoADisposableLocalThatNothingReads(StreamSink<int> s, List<int> seen)
+    {
+        IDisposable listener = s.Listen(seen.Add); // SF2001
+        Probe.Fire(s);
+    }
+
     // K01. A local read after the send.
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static void ListenIntoALocalReadAfter(StreamSink<int> s, List<int> seen)
     {
         IListener listener = s.Listen(seen.Add);
         Probe.Fire(s);
-        listener.Unlisten();
+        listener.Dispose();
     }
 
     // K02. A local that GC.KeepAlive reads.
@@ -202,7 +211,7 @@ public static class ListenerShapes
 
         if (seen.Count == 0)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
     }
 
@@ -248,7 +257,7 @@ public static class ListenerShapes
     public static void ListenIntoALocalThatALambdaReads(StreamSink<int> s, List<int> seen)
     {
         IListener listener = s.Listen(seen.Add);
-        Action stop = () => listener.Unlisten();
+        Action stop = () => listener.Dispose();
         Probe.Fire(s);
         stop();
     }
@@ -265,7 +274,7 @@ public static class ListenerShapes
         }
         finally
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
     }
 
@@ -284,7 +293,7 @@ public static class ListenerShapes
             }
             else
             {
-                listener?.Unlisten();
+                listener?.Dispose();
             }
         }
     }
@@ -296,7 +305,7 @@ public static class ListenerShapes
         Func<IListener> listen = () => s.Listen(seen.Add);
         IListener listener = listen();
         Probe.Fire(s);
-        listener.Unlisten();
+        listener.Dispose();
     }
 
     // K12. ListenOnceAsync roots its listener, and its result is a task.
@@ -345,7 +354,7 @@ public static class ListenerShapes
     public static void ListenIntoALocalThatAnEarlierLambdaReads(StreamSink<int> s, List<int> seen)
     {
         IListener? listener = null;
-        Action stop = () => listener?.Unlisten();
+        Action stop = () => listener?.Dispose();
         listener = s.Listen(seen.Add);
         Probe.Fire(s);
         stop();
@@ -360,6 +369,33 @@ public static class ListenerShapes
         listen();
         Probe.Fire(s);
         GC.KeepAlive(listener);
+    }
+
+    // K18. A using declaration with the type written. It disposes the listener at the end of the
+    // block, thus it holds the listener until then.
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    public static void ListenIntoATypedUsingDeclaration(StreamSink<int> s, List<int> seen)
+    {
+        using IListener listener = s.Listen(seen.Add);
+        Probe.Fire(s);
+    }
+
+    // K19. The same with var.
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    public static void ListenIntoAUsingDeclaration(StreamSink<int> s, List<int> seen)
+    {
+        using var listener = s.Listen(seen.Add);
+        Probe.Fire(s);
+    }
+
+    // K20. A using statement with no local. It holds the listener to the end of its block.
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+    public static void ListenAsTheResourceOfAUsingStatement(StreamSink<int> s, List<int> seen)
+    {
+        using (s.Listen(seen.Add))
+        {
+            Probe.Fire(s);
+        }
     }
 
     // M01. The field of an owner that nothing holds. The rule does not see the owner.
@@ -383,7 +419,7 @@ public static class ListenerShapes
     public static void ListenIntoALocalThatADroppedLambdaReads(StreamSink<int> s, List<int> seen)
     {
         IListener listener = s.Listen(seen.Add);
-        Action stop = () => listener.Unlisten();
+        Action stop = () => listener.Dispose();
         Probe.Fire(s);
     }
 }
@@ -401,7 +437,7 @@ public sealed class Owner
 
     public Owner(StreamSink<int> s, List<int> seen) => this.listener = s.Listen(seen.Add);
 
-    public void Stop() => this.listener.Unlisten();
+    public void Stop() => this.listener.Dispose();
 }
 
 public static class Probe

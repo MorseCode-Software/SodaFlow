@@ -11,8 +11,8 @@ analyzer does not see.
 Added: rule SF2001 in the same analyzer, a warning. It reports a call to Listen or ListenOnce whose listener nothing
 holds: a statement of the call alone, a discard, or a local that no later code reads. Such a listener stops at a garbage
 collection, with no message. A local that later code reads, a field, a return value, an argument, and a local that a
-lambda captures count as held. The rule does not see an object, a list, or a lambda that nothing holds. The lifetimes
-page describes it.
+lambda captures count as held. So does a using declaration, to the end of its block. The rule does not see an object,
+a list, or a lambda that nothing holds. The lifetimes page describes it.
 
 Added: AsCell on a plain Cell<T>, AsBehavior on a plain Behavior<T>, and AsStream on a plain Stream<T>. Each returns
 its receiver. In a loop block they mark a value derived from the placeholder, at the argument where it leaves for code
@@ -23,10 +23,22 @@ each used a Lazy<T>. Only SodaFlow reads a LazySample, which is what lets a tran
 core notes say why. New: LazySample.Defer makes one from a function, Map transforms one, and Lift combines two to
 eight. A function given to any of them can run again after a failed transaction, so it must be pure and must not send.
 
-BREAKING: the listener surface is smaller. IListener has only Unlisten, GetListenerWithWeakReference is gone from it and
+BREAKING: ListenStrong and ListenOnceStrong are removed, and Listen and ListenOnce return an IListener, which is now an
+IDisposable. IStrongListener and IWeakListener are gone, and so are Listener.EmptyWeak, EmptyStrong,
+CreateWeakComposite, CreateStrongComposite, AppendWeak, and AppendStrong: use Listener.Empty, CreateComposite, and
+Append. A handler runs while the caller holds its listener, and stops when the garbage collector removes a listener that
+no caller holds. A strong listener that a caller dropped continued for as long as a source of its stream lived, and
+nothing could stop it after that. Each call to a removed member stops compiling, which marks the places to change. Keep
+the listener there, in a field or in a using statement. A call that changes to Listen and discards the result compiles,
+and its handler stops at a garbage collection with no message. ListenOnceAsync does not change: an await has no place to
+keep a listener, so the sources of the stream hold the wait, and the core notes say what that fixes.
+
+BREAKING: the listener surface is smaller. IListener has no member of its own. Its Unlisten is gone, because Dispose
+does the same thing. Thus, a call to Unlisten changes to Dispose. GetListenerWithWeakReference is gone from it and
 from the extension methods of MutableListener, and IListenerWithWeakReference is internal. MutableListener and
 MutableListenerExtensionMethods are internal, and Cleanup and CleanupExtensionMethods are removed; the core notes say
-why. A type of yours that implements IListener deletes its GetListenerWithWeakReference.
+why. A type of yours that implements IListener deletes its GetListenerWithWeakReference, and renames its Unlisten to
+Dispose.
 
 BREAKING: Stream.CreateLoop, Cell.CreateLoop, and Behavior.CreateLoop are removed, with the StreamLoop<T>, CellLoop<T>,
 and BehaviorLoop<T> they returned. Write a loop with Stream.Loop<T>(), Cell.Loop<T>(), or Behavior.Loop<T>() and
@@ -130,8 +142,8 @@ that reach this package, and its notes have the details of each:
   and the result was wrong until the first input updated again.
 - SwitchB and SwitchC no longer keep a switch that a failed transaction made. Before, the output went on following the
   behavior the transaction had switched to, although the outer cell still held the one from before the failure.
-- ListenOnce and ListenOnceStrong no longer call the handler twice when the stream fires on another thread at the
-  moment the listener is attached.
+- ListenOnce no longer calls the handler twice when the stream fires on another thread at the moment the listener is
+  attached.
 - A step of the graph that threw in a failed transaction no longer runs again in a later one. The same fix stops a
   map of a cell from SwitchC or SwitchB from running its function a wasted second time when the switch moves to an inner
   cell of higher rank than its output.
@@ -140,17 +152,32 @@ that reach this package, and its notes have the details of each:
 - A posted action, or an element of Operational.Split, whose transaction fails no longer leaves behind what it deferred.
   The actions it posted do not run, the release of each one does, and the values it sent through Defer or Split do not
   arrive.
+- A chain of deferred work that has no end throws DeferredChainLimitException, where before the call that started it
+  never returned. A value that finds its way back to its own source through Operational.Defer, Operational.Split, or a
+  posted action that posts again made a new transaction for every lap, forever. The chain is cut when it is 100,000
+  laps deep, and the laps before that have committed. The core notes have the rest.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
 5.0.0. A consumer who references SodaFlow.Core directly gets the fixes either way.
 
-Changed: ListenOnceAsync is now built on ListenOnceStrong, so it gets the same fix. It used to carry its own copy of
+Changed: ListenOnceAsync is now built on the one-shot listener of the core, so it gets the same fix. It used to carry its own copy of
 that logic, with the same gap. The task still completed only once, but the listener could stay attached until the
 stream fired again.
 
 Fixed: ListenOnceAsync with a CancellationToken that can be canceled now removes its registration from the token when
 the task completes. Before, each call left a registration behind until the token was canceled or collected, so a
 long-lived token gathered one per call. The task, its result, and what happens on cancellation are unchanged.
+
+Fixed: ListenOnceAsync no longer gives a value from a transaction that failed. Its listener completed the task as soon
+as the stream fired, inside the transaction. When something later in that transaction threw, the task already held a
+value that no stream committed, and the listener was spent, so the next firing did not reach it. The task now gets the
+value when the transaction commits, so a listener that runs later in the same transaction finds it still incomplete.
+When the stream fires in a transaction that then fails, the task fails with the exception of that transaction. That
+holds whether the failure comes after the listener ran, as when a second listener throws or the first value of a cell
+built in the same transaction throws, or before it ran, as when an operator below the stream or an earlier listener
+throws. A transaction that fails before the stream fires gives the stream no firing, as before: the task waits, and the
+next firing completes it. A throw from the body of the transaction and a throw from an operator above the stream are of
+that kind. A cancellation that arrives in the transaction of the firing, before it commits, cancels the task.
 
 Changed: Choose builds one node instead of a map followed by a filter. It fires the same values in the same transactions
 and costs about half as much to build.
@@ -181,6 +208,15 @@ counts with a Stopwatch, which only measures time going by.
 
 Changed: the timer thread reads the next timer due with the set's own Min rather than LINQ's First, which allocated an
 enumerator every time the thread woke to see what was due. Which timer it finds, and when it fires, are unchanged.
+
+Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
+.NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
+build.
+
+Added: the net8.0 build is marked as compatible with trimming and native AOT. The build of the package runs the trim,
+AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
+IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
+net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them.
 
 5.0.1
 

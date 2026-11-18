@@ -226,8 +226,13 @@
         and so a project that sets PackageReleaseNotes itself still wins.
     -->
     <!--
-        Dependencies between these packages are emitted with an upper bound, so that NuGet refuses
-        an incompatible pairing rather than a release note asking people not to create one.
+        Dependencies between these packages are emitted with an upper bound, so that an incompatible
+        pairing shows at restore and not only in a release note that asks people not to create one.
+        On its own, NuGet never picks a dependency past the bound. A project that asks for one
+        directly still gets it, with warning NU1608, which a build that treats warnings as errors
+        fails on. So the bound does not refuse the pairing; it makes it visible. Measured from the
+        MorseCode.Toolkit repository on 2026-11-10, with a stand-in package past the bound: NU1608
+        and the stand-in used, where the same restore with no bound gave no warning.
 
         Pack writes a ProjectReference dependency as a bare version, which NuGet reads as a
         minimum with no ceiling: SodaFlow 2.0.1 declared SodaFlow.Core >= 2.1.1, and would happily
@@ -267,5 +272,26 @@
             <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == ''">https://github.com/MorseCode-Software/SodaFlow/releases</PackageReleaseNotes>
         </PropertyGroup>
     </Target>
+
+    <!--
+        A library that sets IsAotCompatible gets the trim, AOT, and single-file analyzers, which are in
+        the package Microsoft.NET.ILLink.Tasks. Without this reference, the SDK adds that package
+        itself, at a version that changes with the SDK, and the lock file records it. A locked restore
+        on a different SDK then fails with NU1004. Measured on 2026-11-10, from the MorseCode.Toolkit
+        repository: for net8.0, SDK 10.0.403 asks for 8.0.33 and SDK 11.0 RC 2 asks for 8.0.32. With
+        this reference, both restore the same lock file.
+
+        The 10.0 analyzer, and not the 8.0 one that the SDK gives net8.0. The 8.0 analyzer is older
+        than C# 14, and it stopped with AD0001 on FlushInTransaction in SodaFlow.Core.Async.
+
+        The condition reads IsAotCompatible from the project file. MSBuild evaluates all properties
+        before it evaluates an item, thus a property that the project sets later is already there.
+
+        Only the C# libraries set IsAotCompatible. The analyzers do not run on F#, and a native AOT
+        publish reports warnings inside FSharp.Core that the F# libraries reach.
+    -->
+    <ItemGroup Condition="'$(IsAotCompatible)' == 'true'">
+        <PackageReference Include="Microsoft.NET.ILLink.Tasks" Version="10.0.14" PrivateAssets="all"/>
+    </ItemGroup>
 
 </Project>

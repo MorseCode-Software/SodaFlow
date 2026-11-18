@@ -20,7 +20,8 @@ internal sealed class LoopRegion(
     in LoopState placeholderState,
     in SyntaxNode root,
     in Action<Diagnostic> report,
-    in CancellationToken cancellation)
+    in CancellationToken cancellation,
+    in LoopRegion? readBefore)
 {
     // The walk reads at most this many callee bodies for one block. A block that needs more is
     // code that calls itself through many paths, and the limit is what ends the work.
@@ -34,16 +35,29 @@ internal sealed class LoopRegion(
     // make.
     private readonly Dictionary<ISymbol, LoopState> fields = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
+    private readonly Dictionary<ISymbol, ExpressionSyntax?> initializerOf = new(SymbolEqualityComparer.Default);
     private readonly Action<Diagnostic> report = report;
-    private readonly HashSet<(string Id, Location Location)> reported = [];
+
+    // A read of the block after the first one reports only what the reads before did not.
+    private readonly HashSet<(string Id, Location Location)> reported = readBefore?.reported ?? [];
 
     // The walk and the evaluator get the symbol and the type of one node many times. The compiler
     // computes them again at each call, thus the region keeps them.
     private readonly Dictionary<ExpressionSyntax, IMethodSymbol?> conversionOf = [];
     private readonly Dictionary<SyntaxNode, ISymbol?> symbolOf = [];
     private readonly Dictionary<ExpressionSyntax, ITypeSymbol?> typeOf = [];
+
+    // The compiler makes a new array of the declarations of a local each time. The walk takes a loop
+    // shape before and after each function that runs for each element, and each shape tests each local.
+    private readonly Dictionary<ISymbol, ImmutableArray<SyntaxReference>> declarationsOf =
+        new(SymbolEqualityComparer.Default);
+
     private int frames;
     private int objectFrames;
+
+    // The members of the object of a forward reference that the code samples at the end of the
+    // transaction, before a switch links to them.
+    private readonly HashSet<ISymbol> forced = new(SymbolEqualityComparer.Default);
 
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
@@ -55,6 +69,47 @@ internal sealed class LoopRegion(
     /// <summary>The one state of each object that the code of the region makes.</summary>
     public ObjectStore Objects { get; } = new();
 
+    /// <summary>The content that the sends of the read before gave to the sinks.</summary>
+    public SentContent SentBefore { get; } = readBefore?.Sent ?? new SentContent();
+
+    /// <summary>The content that the sends of this read give to the sinks.</summary>
+    public SentContent Sent { get; } = new();
+
+    // The functions that run after the transaction of the block, while the walk reads them.
+    private readonly HashSet<SyntaxNode> readAfterTheTransaction = [];
+
+    /// <summary>
+    ///     True while the walk reads a function that runs after the transaction
+    ///     of the block. A send in that function gives content to the sink after
+    ///     the close.
+    /// </summary>
+    public bool ReadsCodeAfterTheTransaction => this.readAfterTheTransaction.Count > 0;
+
+    /// <summary>Reads a function that runs after the transaction of the block.</summary>
+    /// <remarks>
+    ///     A posted function can post a function also. The walk does not read a
+    ///     function again while it reads that function. Thus, a function that
+    ///     posts itself does not make the walk continue without end.
+    /// </remarks>
+    /// <param name="function">The declaration of the function.</param>
+    /// <param name="read">The read of the function.</param>
+    public void ReadAfterTheTransaction(SyntaxNode function, Action read)
+    {
+        if (!this.readAfterTheTransaction.Add(function))
+        {
+            return;
+        }
+
+        try
+        {
+            read();
+        }
+        finally
+        {
+            this.readAfterTheTransaction.Remove(function);
+        }
+    }
+
     /// <summary>The body of the block.</summary>
     public SyntaxNode Root { get; } = root;
 
@@ -64,6 +119,18 @@ internal sealed class LoopRegion(
     public ISymbol Placeholder { get; } = placeholder;
 
     public LoopState PlaceholderState { get; } = placeholderState;
+
+    /// <summary>
+    ///     True for the block of a forward reference, whose placeholder holds the
+    ///     object that the block returns.
+    /// </summary>
+    public bool ReadsBack => !this.PlaceholderState.Content.ReadBack.IsEmpty;
+
+    /// <summary>
+    ///     Records the members of the object of a forward reference that the code
+    ///     samples at the end of the transaction.
+    /// </summary>
+    public void Forces(ImmutableArray<ISymbol> members) => this.forced.UnionWith(members);
 
     public string PlaceholderName => this.Placeholder.Name;
 
@@ -96,7 +163,8 @@ internal sealed class LoopRegion(
     /// </summary>
     public void SetField(ISymbol field, LoopState state)
     {
-        if (state.IsNone)
+        // A state that only holds objects of the store says what the owner of the field holds.
+        if (state is { IsNone: true, HoldsAnObject: false })
         {
             return;
         }
@@ -120,6 +188,55 @@ internal sealed class LoopRegion(
 
     public SemanticModel ModelFor(SyntaxNode node) => this.ModelFor(node.SyntaxTree);
 
+    /// <summary>
+    ///     The initializer of a field or of a property, when no code can give the
+    ///     member a different value after it. Null for each other member.
+    /// </summary>
+    /// <remarks>
+    ///     The member is a field with readonly, or a property with only a getter
+    ///     that has no body. Only a constructor of the type can give such a
+    ///     member a value. Thus, a constructor that has the name of the member in
+    ///     its code can give it a different value.
+    /// </remarks>
+    public ExpressionSyntax? InitializerOf(ISymbol member)
+    {
+        if (!this.initializerOf.TryGetValue(key: member, value: out ExpressionSyntax? found))
+        {
+            found = FindTheInitializerOf(member);
+            this.initializerOf[member] = found;
+        }
+
+        return found;
+    }
+
+    private static ExpressionSyntax? FindTheInitializerOf(ISymbol member)
+    {
+        ExpressionSyntax? value =
+            member.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() switch
+            {
+                VariableDeclaratorSyntax { Initializer.Value: { } ofAField } => ofAField,
+                PropertyDeclarationSyntax { Initializer.Value: { } ofAProperty, AccessorList: { } accessors }
+                    when accessors.Accessors.All(static accessor =>
+                        accessor is { Body: null, ExpressionBody: null }) => ofAProperty,
+                _ => null
+            };
+
+        if (value == null)
+        {
+            return null;
+        }
+
+        bool aConstructorNamesIt =
+            member.ContainingType.DeclaringSyntaxReferences
+                .SelectMany(static declared => declared.GetSyntax().ChildNodes())
+                .OfType<ConstructorDeclarationSyntax>()
+                .Where(constructor => constructor.Modifiers.Any(SyntaxKind.StaticKeyword) == member.IsStatic)
+                .Any(constructor => constructor.DescendantTokens()
+                    .Any(token => token.IsKind(SyntaxKind.IdentifierToken) && token.ValueText == member.Name));
+
+        return aConstructorNamesIt ? null : value;
+    }
+
     /// <summary>The symbol that a node names, or null when it names none.</summary>
     public ISymbol? SymbolOf(SyntaxNode node)
     {
@@ -130,6 +247,23 @@ internal sealed class LoopRegion(
         }
 
         return symbol;
+    }
+
+    /// <summary>
+    ///     True for a local that the given code declares. The region keeps the
+    ///     declarations of each local.
+    /// </summary>
+    /// <param name="local">The local.</param>
+    /// <param name="code">The body of a loop, or a function.</param>
+    public bool IsDeclaredIn(ISymbol local, SyntaxNode code)
+    {
+        if (!this.declarationsOf.TryGetValue(key: local, value: out ImmutableArray<SyntaxReference> declarations))
+        {
+            declarations = local.DeclaringSyntaxReferences;
+            this.declarationsOf[local] = declarations;
+        }
+
+        return LoopStateEvaluator.IsDeclaredIn(declarations: declarations, code: code);
     }
 
     /// <summary>
@@ -147,6 +281,18 @@ internal sealed class LoopRegion(
 
         return method;
     }
+
+    /// <summary>
+    ///     The operator of the code that converts a value of the type to bool
+    ///     with no cast. Null when no such operator makes that conversion.
+    /// </summary>
+    public IMethodSymbol? ConversionToBoolean(ITypeSymbol from) =>
+        this.compilation.ClassifyConversion(
+                source: from,
+                destination: this.compilation.GetSpecialType(SpecialType.System_Boolean))
+            is { IsImplicit: true, IsUserDefined: true, MethodSymbol: { } method }
+            ? method
+            : null;
 
     /// <summary>
     ///     True when the compiler converts the first type to the second one with
@@ -274,7 +420,21 @@ internal sealed class LoopRegion(
     ///     Walks the region for reads that run before the close, then checks each
     ///     expression that closes the loop for a link back to the placeholder.
     /// </summary>
-    public void Analyze(IEnumerable<ExpressionSyntax> closings, bool checkLinks)
+    /// <param name="closings">
+    ///     The expressions that the block returns, or the first element of a
+    ///     tuple literal that it returns.
+    /// </param>
+    /// <param name="withCaptures">
+    ///     True for a block that returns a tuple. The first element of the tuple
+    ///     closes the loop.
+    /// </param>
+    /// <param name="canReadAgain">True when the block can have a read after this one.</param>
+    /// <returns>
+    ///     False when the block needs a read after this one. A send then gave a
+    ///     sink content that it did not have in this read. This read then checks
+    ///     no close, because the next read gives the close more content.
+    /// </returns>
+    public bool Analyze(ImmutableArray<ExpressionSyntax> closings, bool withCaptures, bool canReadAgain)
     {
         LoopStateEvaluator evaluator = new(this);
 
@@ -287,16 +447,31 @@ internal sealed class LoopRegion(
             this.Report(unread.Diagnostic);
         }
 
-        if (!checkLinks)
+        if (canReadAgain && this.Sent.SaysMoreThan(this.SentBefore))
         {
-            return;
+            return false;
         }
 
         foreach (ExpressionSyntax closing in closings)
         {
             LoopState state = evaluator.Eval(closing);
 
-            if (state.Linked)
+            // A tuple that is not a literal, as from a local or a helper, can have a state for each
+            // part. The state of the whole is then of each part.
+            if (withCaptures
+                && this.TypeOf(closing) is { IsTupleType: true }
+                && state.Members?.PartsAt(ofATuple: true).ToList() is { Count: > 0 } parts)
+            {
+                state = parts.Where(static part => part.Position == 0)
+                    .Select(static part => part.State)
+                    .FirstOrDefault() ?? LoopState.None;
+            }
+
+            if (this.ReadsBack)
+            {
+                this.CheckReadBack(closing: closing, state: state);
+            }
+            else if (state.Linked)
             {
                 this.Report(
                     Diagnostic.Create(
@@ -314,6 +489,82 @@ internal sealed class LoopRegion(
                         location: closing.GetLocation(),
                         this.PlaceholderName));
             }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    ///     Checks the value that closes a forward reference, and each of its
+    ///     members. The close gives each of them the value that the code reads
+    ///     back through the reference. A value that reads back itself gets its
+    ///     links or its initial value from itself.
+    /// </summary>
+    /// <remarks>
+    ///     A cycle through two members or more needs a switch for each. The first
+    ///     switch links to a value that has no link back yet, and then samples it.
+    ///     A sample that is pending forces itself before the second link. Thus,
+    ///     such a cycle is a link only when its values are not pending.
+    /// </remarks>
+    private void CheckReadBack(CSharpSyntaxNode closing, LoopState state)
+    {
+        Dictionary<ISymbol, LoopState> parts =
+            new(SymbolEqualityComparer.Default) { [this.PlaceholderState.Content.ReadBack[0]] = state };
+
+        foreach (KeyValuePair<ISymbol, LoopState> member in state.Members?.Members ?? [])
+        {
+            parts[member.Key] = member.Value;
+        }
+
+        foreach (Diagnostic diagnostic in parts
+                     .Where(part => part.Value is not { Linked: false, Pending: false } && ReachesItself(part.Key))
+                     .Select(part =>
+                         Diagnostic.Create(
+                             descriptor: IsALink(member: part.Key, value: part.Value)
+                                 ? Diagnostics.LinkedClose
+                                 : Diagnostics.PendingClose,
+                             location: closing.GetLocation(),
+                             this.PlaceholderName)))
+        {
+            this.Report(diagnostic);
+        }
+
+        return;
+
+        // A sample at the end of the transaction forces the value before the switch links to it.
+        bool IsALink(ISymbol member, LoopState value) =>
+            value.ReadBack.Contains(value: member, comparer: SymbolEqualityComparer.Default)
+                ? value.Linked && !(value.Pending && this.forced.Contains(member))
+                : !value.Pending;
+
+        bool ReachesItself(ISymbol start)
+        {
+            HashSet<ISymbol> seen = new(SymbolEqualityComparer.Default);
+            Stack<ISymbol> next = new([start]);
+
+            while (next.Count > 0)
+            {
+                if (!parts.TryGetValue(key: next.Pop(), value: out LoopState? from)
+                    || from is { Linked: false, Pending: false })
+                {
+                    continue;
+                }
+
+                foreach (ISymbol member in from.ReadBack)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(x: member, y: start))
+                    {
+                        return true;
+                    }
+
+                    if (seen.Add(member))
+                    {
+                        next.Push(member);
+                    }
+                }
+            }
+
+            return false;
         }
     }
 }

@@ -126,19 +126,14 @@ public class Stream<T> : ILastAction
         }
     }
 
-    internal IStrongListener ListenStrongImpl(Action<T> handler) => this.KeepAlive(this.ListenImpl(handler));
-
-    internal IStrongListener ListenStrongImpl(TransactionInternal trans, Action<T> handler) =>
-        this.KeepAlive(this.ListenImpl(trans: trans, handler: handler));
-
     // The handler goes behind one object, which is the action and the listener. Before, a
     // closure, a delegate, and a listener object stood between the node and the handler.
-    internal IWeakListenerInternal ListenImpl(Action<T> handler) =>
+    internal IListenerInternal ListenImpl(Action<T> handler) =>
         this.Listen(target: Node<T>.Null, action: new HandlerAction<T>(handler));
 
     // For a caller that holds the transaction, such as a cell's Listen, which makes the value
     // stream and listens to it in one.
-    internal IWeakListenerInternal ListenImpl(TransactionInternal trans, Action<T> handler) =>
+    internal IListenerInternal ListenImpl(TransactionInternal trans, Action<T> handler) =>
         this.Listen(
             target: Node<T>.Null,
             trans: trans,
@@ -153,18 +148,35 @@ public class Stream<T> : ILastAction
         }
     }
 
-    internal IWeakListener ListenOnceImpl(Action<T> handler) =>
+    internal IListener ListenOnceImpl(Action<T> handler) =>
         this.ListenOnce(
             listen: static (stream, trans, action) =>
                 stream.Listen(target: Node<T>.Null, trans: trans, action: action, suppressEarlierFirings: false),
             handler: handler);
 
-    internal IStrongListener ListenOnceStrongImpl(Action<T> handler) =>
-        this.ListenOnce(
-            listen: static (stream, trans, action) =>
-                stream.KeepAlive(
-                    stream.Listen(target: Node<T>.Null, trans: trans, action: action, suppressEarlierFirings: false)),
-            handler: handler);
+    // The listener below gives the outcome of the transaction of the first firing. The task of
+    // ListenOnceAsync needs it: a value only from a transaction that committed, and the exception
+    // of a transaction that failed. See OnceWithOutcomeAction.
+    internal IRootableListener ListenOnceWithOutcomeRootableImpl(Action<T> onCommitted, Action<Exception> onFailed) =>
+        TransactionInternal.Apply(
+            code: static IRootableListener (trans, _, state) =>
+            {
+                OnceWithOutcomeAction<T> action = new(onCommitted: state.OnCommitted, onFailed: state.OnFailed);
+
+                RootableListener listener =
+                    new(
+                        stream: state.Self,
+                        listener: state.Self.Listen(
+                            target: Node<T>.Null,
+                            trans: trans,
+                            action: action,
+                            suppressEarlierFirings: false));
+
+                action.Own(listener);
+
+                return listener;
+            },
+            state: (Self: this, OnCommitted: onCommitted, OnFailed: onFailed));
 
     internal IRootableListener ListenOnceRootableImpl(Action<T> handler) =>
         this.ListenOnce<IRootableListener>(
@@ -178,7 +190,7 @@ public class Stream<T> : ILastAction
                         suppressEarlierFirings: false)),
             handler: handler);
 
-    // The weak and the strong one-shot listeners do the same thing with a different listener
+    // The plain and the rootable one-shot listeners do the same thing with a different listener
     // type. The transaction holds the lock until the listener has a value. Thus, no firing on a
     // different thread and no firing that Listen sends again can find the listener without its
     // value. The listen function takes that transaction and does not open a nested one. A nested
@@ -211,7 +223,7 @@ public class Stream<T> : ILastAction
                     // the value it holds at the time the stream fires.
                     TListener? listenerLocal = listener;
 
-                    // The first firing removes the listener and sets null. Unlisten does not
+                    // The first firing removes the listener and sets null. Dispose does not
                     // stop a firing that is in the queue or in the loop of Listen. Thus, this
                     // test stops the second value.
                     if (listenerLocal == null)
@@ -219,7 +231,7 @@ public class Stream<T> : ILastAction
                         return;
                     }
 
-                    listenerLocal.Unlisten();
+                    listenerLocal.Dispose();
                     listener = null;
                     handler(a);
                 });
@@ -228,32 +240,9 @@ public class Stream<T> : ILastAction
         return listenerToReturn;
     }
 
-    private StrongListener KeepAlive(IWeakListenerInternal innerListener)
-    {
-        StrongListener? listener = null;
-
-        listener =
-            new StrongListener(
-                unlisten: () =>
-                {
-                    innerListener.Unlisten();
-
-                    // ReSharper disable AccessToModifiedClosure
-                    if (listener != null)
-                    {
-                        this.KeepListenersAlive.StopKeepingAlive(listener);
-                    }
-                    // ReSharper restore AccessToModifiedClosure
-                },
-                listener: innerListener);
-
-        this.KeepListenersAlive.KeepAlive(listener);
-        return listener;
-    }
-
     // A static lambda with a state: no closure and no delegate for the call that each
     // single-input operator makes. See SendImpl in StreamSink.
-    internal IWeakListenerInternal Listen(Node target, Action<TransactionInternal, T> action) =>
+    internal IListenerInternal Listen(Node target, Action<TransactionInternal, T> action) =>
         TransactionInternal.Apply(
             code: static (trans, _, state) =>
                 state.Stream.Listen(
@@ -263,7 +252,7 @@ public class Stream<T> : ILastAction
                     suppressEarlierFirings: false),
             state: (Stream: this, Target: target, Action: action));
 
-    internal IWeakListenerInternal Listen(
+    internal IListenerInternal Listen(
         Node target,
         TransactionInternal trans,
         Action<TransactionInternal, T> action,
@@ -334,38 +323,44 @@ public class Stream<T> : ILastAction
         Node<T>.Target nodeTarget = this.Node.Link(trans: trans, action: action, target: target);
 
         // Copy the firings only when the program will send them again. Before, the program
-        // made this copy on each call to listenStrong. That includes the most frequent
+        // made this copy on each call to listen. That includes the most frequent
         // condition, a stream that did not fire in this transaction.
         if (!suppressEarlierFirings && this.firings is { Count: > 0 })
         {
-            // ReSharper disable once LocalVariableHidesMember
-            List<T> firings = [.. this.firings];
-
-            trans.Prioritized(
-                node: target,
-                action: trans2 =>
-                {
-                    // Send the values that this transaction sent before now. This removes the
-                    // sequence dependency between send and listenStrong.
-                    foreach (T a in firings)
-                    {
-                        trans2.InCallback++;
-
-                        try
-                        {
-                            // A transaction must not change the internal parts of
-                            // SodaFlow.
-                            StreamInternal.Fire(action: action, trans: trans2, value: a);
-                        }
-                        finally
-                        {
-                            trans2.InCallback--;
-                        }
-                    }
-                });
+            trans.Prioritized(new ReplayEntry(target: target, action: action, firings: [.. this.firings]));
         }
 
         return nodeTarget;
+    }
+
+    // Sends a new listener the values that this transaction sent before the listener came. This
+    // removes the sequence dependency between send and listen. An entry and not a lambda:
+    // the entry holds what the lambda captured, and it can tell the action of a discard.
+    private sealed class ReplayEntry(in Node target, in object action, in List<T> firings)
+        : TransactionInternal.Entry(target)
+    {
+        private readonly object action = action;
+        private readonly List<T> firings = firings;
+
+        public override void Execute(TransactionInternal trans)
+        {
+            foreach (T a in this.firings)
+            {
+                trans.InCallback++;
+
+                try
+                {
+                    // A transaction must not change the internal parts of SodaFlow.
+                    StreamInternal.Fire(action: this.action, trans: trans, value: a);
+                }
+                finally
+                {
+                    trans.InCallback--;
+                }
+            }
+        }
+
+        public override void Discard(Exception cause) => (this.action as IFailedFiringAction)?.FiringFailed(cause);
     }
 
     internal Stream<TResult> MapImpl<TResult>(Func<T, TResult> f)
@@ -1556,7 +1551,7 @@ public class Stream<T> : ILastAction
     }
 
     // The first firing sends and stops the link. Listen can send the earlier firings of a
-    // transaction to this action in one loop, and Unlisten does not stop that loop. Thus, the
+    // transaction to this action in one loop, and Dispose does not stop that loop. Thus, the
     // flag stops the second value.
     private sealed class OnceAction(in Stream<T> @out) : StreamAction<T>
     {
@@ -1572,7 +1567,7 @@ public class Stream<T> : ILastAction
 
             this.fired = true;
             this.@out.Send(trans: trans, a: value);
-            this.Unlisten();
+            this.Dispose();
         }
     }
 
@@ -1618,33 +1613,27 @@ public class Stream<T> : ILastAction
                 trans.InCallback--;
             }
         }
+
+        // The stream fired, and the transaction failed before this entry ran. An action that
+        // gives the outcome of that transaction gets the exception here. Each other action
+        // ignores a firing that it did not get.
+        public override void Discard(Exception cause)
+        {
+            if (this.target.IsActivated
+                && this.target.Action.TryGetTarget(out object? action)
+                && action is IFailedFiringAction failed)
+            {
+                failed.FiringFailed(cause);
+            }
+        }
     }
 
-    private sealed class StrongListener(Action unlisten, IListenerInternal listener)
-        : IStrongListener, IListenerInternal
-    {
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
-        // captured into a mutable variable.
-        private readonly IListenerInternal listener = listener;
-
-        // ReSharper disable once ReplaceWithPrimaryConstructorParameter - This field is needed so action is not
-        // captured into a mutable variable.
-        private readonly Action unlisten = unlisten;
-
-        public void Unlisten() => this.unlisten();
-
-        public IListenerWithWeakReference GetListenerWithWeakReference() =>
-            this.listener.GetListenerWithWeakReference();
-
-        public void Dispose() => this.Unlisten();
-    }
-
-    // The lock on this object makes Root and Unlisten atomic. Thus, a Root on one thread and the
+    // The lock on this object makes Root and Dispose atomic. Thus, a Root on one thread and the
     // first firing on a different thread cannot keep a listener that stopped in the set. The set
     // gets its own lock inside this one, and never the reverse.
-    private sealed class RootableListener(in Stream<T> stream, in IWeakListenerInternal listener) : IRootableListener
+    private sealed class RootableListener(in Stream<T> stream, in IListenerInternal listener) : IRootableListener
     {
-        private readonly IWeakListenerInternal listener = listener;
+        private readonly IListenerInternal listener = listener;
         private readonly Stream<T> stream = stream;
         private bool rooted;
         private bool stopped;
@@ -1663,9 +1652,9 @@ public class Stream<T> : ILastAction
             }
         }
 
-        public void Unlisten()
+        public void Dispose()
         {
-            this.listener.Unlisten();
+            this.listener.Dispose();
 
             lock (this)
             {
@@ -1688,7 +1677,7 @@ public class Stream<T> : ILastAction
         in Stream<T> stream,
         in Action<TransactionInternal, T> action,
         in Node<T>.Target target)
-        : IWeakListenerInternal
+        : IListenerInternal
     {
         // This field keeps the action alive, because the node uses a weak reference.
         // ReSharper disable once UnusedMember.Local
@@ -1702,7 +1691,7 @@ public class Stream<T> : ILastAction
         // The target is the weak view of this listener. See Node<T>.Target.
         private readonly Node<T>.Target target = target;
 
-        public void Unlisten() => this.target.Unlisten();
+        public void Dispose() => this.target.Unlisten();
 
         public IListenerWithWeakReference GetListenerWithWeakReference() => this.target;
     }

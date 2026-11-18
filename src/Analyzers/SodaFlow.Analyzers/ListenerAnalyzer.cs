@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
@@ -23,7 +24,8 @@ namespace SodaFlow.Analyzers;
 ///         local that no later code reads. The flow analysis of the compiler says
 ///         which code can read the value. A local that a lambda or a local function
 ///         captures counts as read, because the function can read it at a later
-///         time. The rule does not report a field, a return, an argument, or an
+///         time. A <c>using</c> declaration or statement disposes the listener at the
+///         end of its block, thus it holds the listener until then. The rule does not report a field, a return, an argument, or an
 ///         element. It does not see an owner that nothing holds, such as an object
 ///         whose field has the listener.
 ///     </para>
@@ -104,6 +106,7 @@ public sealed class ListenerAnalyzer : DiagnosticAnalyzer
                 IsNotReadLater(local: target.Local, statement: statement.Syntax, call: call),
             IVariableInitializerOperation { Parent: IVariableDeclaratorOperation declarator } =>
                 declarator.Parent?.Parent is IVariableDeclarationGroupOperation { Syntax: LocalDeclarationStatementSyntax declaration }
+                && !declaration.UsingKeyword.IsKind(SyntaxKind.UsingKeyword)
                 && IsNotReadLater(local: declarator.Symbol, statement: declaration, call: call),
             _ => false
         };
