@@ -195,7 +195,11 @@ internal sealed partial class LoopStateEvaluator
             first: getter,
             second: this.FollowToStringOf(
                 call: printed,
-                value: getter?.State ?? StateOfAMember(owner: owner, member: member)));
+                value: getter?.State
+                       ?? StateOfAMember(
+                           owner: owner,
+                           member: member,
+                           implementations: this.region.Symbols.Implementations)));
     }
 
     /// <summary>
@@ -266,7 +270,13 @@ internal sealed partial class LoopStateEvaluator
                     : null;
 
             LoopState part =
-                getter?.State ?? (member == null ? LoopState.None : StateOfAMember(owner: owner, member: member));
+                getter?.State
+                ?? (member == null
+                    ? LoopState.None
+                    : StateOfAMember(
+                        owner: owner,
+                        member: member,
+                        implementations: this.region.Symbols.Implementations));
 
             result =
                 new Followed(
@@ -286,7 +296,7 @@ internal sealed partial class LoopStateEvaluator
     ///     getter of the code runs. A property pattern and the
     ///     <c>Deconstruct</c> of a record read a member this way.
     /// </summary>
-    public static LoopState StateOfAMember(LoopState owner, ISymbol member)
+    public static LoopState StateOfAMember(LoopState owner, ISymbol member, ImplementationIndex implementations)
     {
         if (owner.Members == null)
         {
@@ -301,7 +311,8 @@ internal sealed partial class LoopStateEvaluator
 
         if (owner.Members.CanOwn(member))
         {
-            return owner.Members.StateThrough(member).FromIfUnknown(owner.Origin);
+            return owner.Members.StateThrough(member: member, implementations: implementations)
+                .FromIfUnknown(owner.Origin);
         }
 
         // The members are those of an object that the owner contains, as a pair of the platform

@@ -1334,7 +1334,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
-        return LoopStateEvaluator.StateOfAMember(owner: owner, member: member);
+        return LoopStateEvaluator.StateOfAMember(
+            owner: owner,
+            member: member,
+            implementations: this.region.Symbols.Implementations);
     }
 
     /// <summary>
@@ -2586,7 +2589,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         return this.region.SymbolOf(name) is { } member && owner.Members is { } members
-            ? members.StateThrough(this.evaluator.InitializedThrough(member))
+            ? members.StateThrough(
+                member: this.evaluator.InitializedThrough(member),
+                implementations: this.region.Symbols.Implementations)
             : LoopState.None;
     }
 
@@ -3517,7 +3522,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             this.Serialize(
                 written: written,
-                state: LoopStateEvaluator.StateOfAMember(owner: state, member: field),
+                state: LoopStateEvaluator.StateOfAMember(
+                    owner: state,
+                    member: field,
+                    implementations: this.region.Symbols.Implementations),
                 serializer: serializer,
                 options: options,
                 member: field,

@@ -2871,6 +2871,19 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag91ArrayFilledByAMethodOfTheCode"] = ["SF1003"],
             ["Ag91ArrayFilledByAMethodWithAnObjectParameter"] = ["SF1003"],
             ["Ag91ArrayFilledByAnExtensionMethod"] = ["SF1003"],
-            ["Ag91ArrayFilledByAMethodWithNamedArguments"] = ["SF1003"]
+            ["Ag91ArrayFilledByAMethodWithNamedArguments"] = ["SF1003"],
+            ["Ab198PendingThroughOneInterfaceAndASampleThroughTheOther"] = ["SF1001"],
+            ["Ab198PendingThroughTheSecondInterfaceAndASampleThroughTheFirst"] = ["SF1001"],
+            ["Ab198AWriteInACalleeThroughTheFirstInterface"] = ["SF1001"],
+            ["Ab198OwnersThatACallGivesBack"] = ["SF1001"],
+            ["Ab198ASampleThroughTheSecondAfterACastToTheClass"] = ["SF1001"],
+            ["Ab198ASecondNameBeforeTheWrite"] = ["SF1001"],
+            ["Ab198ABasePropertyThatADerivedClassGivesToTwoInterfaces"] = ["SF1001"],
+            ["Ab198TwoGenericInterfaces"] = ["SF1001"],
+            ["Ab198AnInterfaceThatHidesItsBaseWithNew"] = ["SF1001"],
+            ["Ab198AVirtualPropertyThatImplementsTwoInterfaces"] = ["SF1001"],
+            ["Ab198AnInterfaceThatExtendsBoth"] = ["SF1001"],
+            ["Ab198ANewObjectOfTheClass"] = ["SF1001"],
+            ["Ab198AnOverrideInAClassThatAddsTheSecondInterface"] = ["SF1001"]
         };
 }

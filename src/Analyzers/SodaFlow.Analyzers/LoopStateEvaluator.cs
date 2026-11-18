@@ -2292,7 +2292,10 @@ internal sealed partial class LoopStateEvaluator
                         && owner.Members.CanOwn(symbol)
                         && (!symbol.ContainingType.IsTupleType || owner.Members.Has(symbol)))
                     {
-                        LoopState through = owner.Members.StateThrough(symbol);
+                        LoopState through =
+                            owner.Members.StateThrough(
+                                member: symbol,
+                                implementations: this.region.Symbols.Implementations);
 
                         // A write through the other name of the value did not come to this name.
                         // The region has each such write for the field.
@@ -2890,7 +2893,10 @@ internal sealed partial class LoopStateEvaluator
                             (state.Members ?? Construction.Empty).With(
                                 member: written,
                                 state: this.WithInitializer(
-                                    state: state.Members?.StateThrough(written) ?? LoopState.None,
+                                    state: state.Members?.StateThrough(
+                                               member: written,
+                                               implementations: this.region.Symbols.Implementations)
+                                           ?? LoopState.None,
                                     initializer: nested)));
 
                     continue;

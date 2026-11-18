@@ -197,6 +197,45 @@ internal sealed class Construction(
             .Where(pair => !ReferenceEquals(objA: pair.Value, objB: own) && AreAliases(first: pair.Key, second: key))
             .Aggregate(seed: state, func: (joined, pair) => joined.Join(stateOf(arg1: pair.Key, arg2: pair.Value)));
 
+    /// <summary>
+    ///     The join of the states of each property of a different interface
+    ///     that one property of a type in the compilation implements with the
+    ///     key. The function gives each state from its key and the state that the
+    ///     dictionary has for that key.
+    /// </summary>
+    /// <remarks>
+    ///     The walk does not know the type of an object that a call gives. A
+    ///     write through one interface and a read through the other then use two
+    ///     keys for one location. The write keeps its key, thus the read joins
+    ///     the two states.
+    /// </remarks>
+    public static LoopState StateImplementedTogether(
+        IReadOnlyDictionary<ISymbol, LoopState> states,
+        ISymbol key,
+        Func<ISymbol, LoopState, LoopState> stateOf,
+        ImplementationIndex implementations) =>
+        // Most reads stop here: the key is not of an interface, or no different key has a state.
+        key is not IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface }
+        || states.Count <= (states.ContainsKey(key) ? 1 : 0)
+            ? LoopState.None
+            : JoinImplementedTogether(states: states, key: key, stateOf: stateOf, implementations: implementations);
+
+    private static LoopState JoinImplementedTogether(
+        IReadOnlyDictionary<ISymbol, LoopState> states,
+        ISymbol key,
+        Func<ISymbol, LoopState, LoopState> stateOf,
+        ImplementationIndex implementations) =>
+        states
+            .Where(pair =>
+                // One property implements two properties only when the two have its name. The test of the
+                // name comes first, thus a key with a different name does not make the index.
+                pair.Key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface } other
+                && other.Name == key.Name
+                && implementations.AreTogether(first: other, second: key))
+            .Aggregate(
+                seed: LoopState.None,
+                func: (joined, pair) => joined.Join(stateOf(arg1: pair.Key, arg2: pair.Value)));
+
     // Only a property can have an alias. It is a property of an interface, an abstract property, a
     // virtual property, an override, or a property of a type that has an interface.
     private static bool CanHaveAnAlias(ISymbol key) =>
@@ -225,9 +264,11 @@ internal sealed class Construction(
             x: RootOf(ResolveIn(type: owner, member: contract)),
             y: RootOf(member));
 
-    // The property at the base of each override of the property. It is the property itself when it
-    // is not an override.
-    private static ISymbol RootOf(ISymbol member)
+    /// <summary>
+    ///     The definition of the property at the base of each override of the
+    ///     property. It is the property itself when it is not an override.
+    /// </summary>
+    public static ISymbol RootOf(ISymbol member)
     {
         ISymbol root = member;
 
@@ -533,9 +574,20 @@ internal sealed class Construction(
     ///     base type. For a value that is one of two objects, it is the join of
     ///     the states of the member of each.
     /// </summary>
-    public LoopState StateThrough(ISymbol member) =>
+    /// <remarks>
+    ///     The state of each property that the compilation implements together
+    ///     with the member is in the join also: see
+    ///     <see cref="StateImplementedTogether" />.
+    /// </remarks>
+    public LoopState StateThrough(ISymbol member, ImplementationIndex implementations) =>
         this.Resolve(member)
-            .Aggregate(seed: LoopState.None, func: (joined, actual) => joined.Join(this.StateOf(actual)));
+            .Aggregate(seed: LoopState.None, func: (joined, actual) => joined.Join(this.StateOf(actual)))
+            .Join(
+                StateImplementedTogether(
+                    states: this.members,
+                    key: KeyOf(member),
+                    stateOf: static (_, state) => state,
+                    implementations: implementations));
 
     private static ISymbol ResolveIn(INamedTypeSymbol type, ISymbol member)
     {

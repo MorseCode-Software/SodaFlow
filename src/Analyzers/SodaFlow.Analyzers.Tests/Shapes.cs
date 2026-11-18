@@ -19595,6 +19595,70 @@ public static class Shapes
     public static Cell<int> Ag91MethodPutsIntoALambdaParameterOfTheSameName() =>
         Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; Ag91Shadows.PutIntoAShadow(given, l.Map(v => v)); object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
 
+    // S4421. One property of a class implements two interfaces. The block writes a pending cell through the first interface on an object that a call gives, and samples through the second after a cast.
+    public static Cell<int> Ab198PendingThroughOneInterfaceAndASampleThroughTheOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198First h = Ab198TwoAt(0); h.Share = l.Map(v => v); IAb198Second s = (IAb198Second)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4422. The same as the shape before, with the write through the second interface and the sample through the first.
+    public static Cell<int> Ab198PendingThroughTheSecondInterfaceAndASampleThroughTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198Second s = (IAb198Second)Ab198TwoAt(1); s.Share = l.Map(v => v); IAb198First h = (IAb198First)s; return S.Hold(h.Share!.Sample()); });
+
+    // S4423. A callee writes the pending cell through a parameter of the first interface. The block samples through the second.
+    public static Cell<int> Ab198AWriteInACalleeThroughTheFirstInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198First h = Ab198TwoAt(3); Ab198WriteFirst(h, l.Map(v => v)); return S.Hold(((IAb198Second)h).Share!.Sample()); });
+
+    // S4424. The owner is the result of a call at the write and at the sample, through a different interface each time.
+    public static Cell<int> Ab198OwnersThatACallGivesBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab198TwoAt(4).Share = l.Map(v => v); return S.Hold(((IAb198Second)Ab198TwoAt(4)).Share!.Sample()); });
+
+    // S4425. A cast to the class comes between the two interfaces.
+    public static Cell<int> Ab198ASampleThroughTheSecondAfterACastToTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198First h = Ab198TwoAt(5); h.Share = l.Map(v => v); Ab198Two t = (Ab198Two)h; IAb198Second s = t; return S.Hold(s.Share!.Sample()); });
+
+    // S4426. The name of the second interface exists before the write through the first.
+    public static Cell<int> Ab198ASecondNameBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198First h = Ab198TwoAt(6); IAb198Second s = (IAb198Second)h; h.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S4427. A base class declares the property. A derived class gives that property to two interfaces.
+    public static Cell<int> Ab198ABasePropertyThatADerivedClassGivesToTwoInterfaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198Fifth h = Ab198LateTwoAt(0); h.Share = l.Map(v => v); IAb198Sixth s = (IAb198Sixth)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4428. One property implements two generic interfaces with the same type argument.
+    public static Cell<int> Ab198TwoGenericInterfaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198FirstOf<int> h = Ab198GenericTwoAt(0); h.Share = l.Map(v => v); IAb198SecondOf<int> s = (IAb198SecondOf<int>)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4429. An interface hides the property of its base interface with new. One property of the class implements the two.
+    public static Cell<int> Ab198AnInterfaceThatHidesItsBaseWithNew() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198Hidden h = Ab198HidingAt(0); h.Share = l.Map(v => v); IAb198Hiding s = (IAb198Hiding)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4430. A virtual property implements two interfaces, and the object is of a class that overrides it.
+    public static Cell<int> Ab198AVirtualPropertyThatImplementsTwoInterfaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198FirstVirtual h = Ab198VirtualTwoAt(0); h.Share = l.Map(v => v); IAb198SecondVirtual s = (IAb198SecondVirtual)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4431. The class has the two interfaces through a third interface that extends both.
+    public static Cell<int> Ab198AnInterfaceThatExtendsBoth() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198Left h = Ab198BothAt(0); h.Share = l.Map(v => v); IAb198Right s = (IAb198Right)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4432. Control: each interface has a class of its own, and no class implements both. The pending cell goes to an object of the first, and the sample reads the plain cell of an object of the second.
+    public static Cell<int> Ab198TwoClassesThatEachImplementOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198Fourth f = Ab198FourthAt(0); f.Share = Plain; IAb198Third t = Ab198ThirdAt(0); t.Share = l.Map(v => v); return S.Hold(f.Share!.Sample()); });
+
+    // S4433. Control: the class implements the second interface with a second, explicit property. The write through the first does not change it.
+    public static Cell<int> Ab198AClassThatImplementsTheSecondExplicitly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198SplitB b = Ab198SplitAt(0); b.Share = Plain; IAb198SplitA a = (IAb198SplitA)b; a.Share = l.Map(v => v); return S.Hold(b.Share!.Sample()); });
+
+    // S4434. Control: the class implements each interface with an explicit property of its own.
+    public static Cell<int> Ab198AClassThatImplementsBothExplicitly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198SplitB b = Ab198ExplicitAt(0); b.Share = Plain; IAb198SplitA a = (IAb198SplitA)b; a.Share = l.Map(v => v); return S.Hold(b.Share!.Sample()); });
+
+    // S4435. Control: the block makes the object, thus the walk knows its class.
+    public static Cell<int> Ab198ANewObjectOfTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198First h = new Ab198Two(); h.Share = l.Map(v => v); IAb198Second s = (IAb198Second)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4436. A base class implements the first interface with a virtual property. A derived class adds the second interface and overrides the property. The compiler gives each interface a different property, with one property at the base of the two.
+    public static Cell<int> Ab198AnOverrideInAClassThatAddsTheSecondInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb198FirstLate h = Ab198LateOverrideAt(0); h.Share = l.Map(v => v); IAb198SecondLate s = (IAb198SecondLate)h; return S.Hold(s.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -26899,6 +26963,215 @@ public static class Shapes
             put(new object[array.Length]);
         }
     }
+
+    public interface IAb198First
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb198Second
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab198Two : IAb198First, IAb198Second
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static readonly Ab198Two[] Ab198Twos = [new(), new(), new(), new(), new(), new(), new()];
+
+    private static IAb198First Ab198TwoAt(int at) => Ab198Twos[at];
+
+    private static void Ab198WriteFirst(IAb198First first, Cell<int> share) => first.Share = share;
+
+    public interface IAb198Fifth
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb198Sixth
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public class Ab198TwoBase
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab198LateTwo : Ab198TwoBase, IAb198Fifth, IAb198Sixth;
+
+    private static readonly Ab198LateTwo[] Ab198LateTwos = [new()];
+
+    private static IAb198Fifth Ab198LateTwoAt(int at) => Ab198LateTwos[at];
+
+    public interface IAb198FirstOf<T>
+    {
+        Cell<T>? Share { get; set; }
+    }
+
+    public interface IAb198SecondOf<T>
+    {
+        Cell<T>? Share { get; set; }
+    }
+
+    public sealed class Ab198GenericTwo : IAb198FirstOf<int>, IAb198SecondOf<int>
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static readonly Ab198GenericTwo[] Ab198GenericTwos = [new()];
+
+    private static IAb198FirstOf<int> Ab198GenericTwoAt(int at) => Ab198GenericTwos[at];
+
+    public interface IAb198Hidden
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb198Hiding : IAb198Hidden
+    {
+        new Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab198HidingTwo : IAb198Hiding
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static readonly Ab198HidingTwo[] Ab198HidingTwos = [new()];
+
+    private static IAb198Hidden Ab198HidingAt(int at) => Ab198HidingTwos[at];
+
+    public interface IAb198FirstVirtual
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb198SecondVirtual
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public class Ab198VirtualTwo : IAb198FirstVirtual, IAb198SecondVirtual
+    {
+        public virtual Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab198OverrideTwo : Ab198VirtualTwo
+    {
+        public override Cell<int>? Share { get; set; }
+    }
+
+    private static readonly Ab198VirtualTwo[] Ab198VirtualTwos = [new Ab198OverrideTwo()];
+
+    private static IAb198FirstVirtual Ab198VirtualTwoAt(int at) => Ab198VirtualTwos[at];
+
+    public interface IAb198Left
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb198Right
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb198Both : IAb198Left, IAb198Right;
+
+    public sealed class Ab198BothImpl : IAb198Both
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static readonly Ab198BothImpl[] Ab198Boths = [new()];
+
+    private static IAb198Left Ab198BothAt(int at) => Ab198Boths[at];
+
+    public interface IAb198Third
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb198Fourth
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab198OnlyThird : IAb198Third
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab198OnlyFourth : IAb198Fourth
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static readonly Ab198OnlyThird[] Ab198Thirds = [new()];
+
+    private static readonly Ab198OnlyFourth[] Ab198Fourths = [new()];
+
+    private static IAb198Third Ab198ThirdAt(int at) => Ab198Thirds[at];
+
+    private static IAb198Fourth Ab198FourthAt(int at) => Ab198Fourths[at];
+
+    public interface IAb198SplitA
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb198SplitB
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab198Split : IAb198SplitA, IAb198SplitB
+    {
+        public Cell<int>? Share { get; set; }
+
+        Cell<int>? IAb198SplitB.Share { get; set; }
+    }
+
+    public sealed class Ab198Explicit : IAb198SplitA, IAb198SplitB
+    {
+        Cell<int>? IAb198SplitA.Share { get; set; }
+
+        Cell<int>? IAb198SplitB.Share { get; set; }
+    }
+
+    private static readonly Ab198Split[] Ab198Splits = [new()];
+
+    private static readonly Ab198Explicit[] Ab198Explicits = [new()];
+
+    private static IAb198SplitB Ab198SplitAt(int at) => Ab198Splits[at];
+
+    private static IAb198SplitB Ab198ExplicitAt(int at) => Ab198Explicits[at];
+
+    public interface IAb198FirstLate
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb198SecondLate
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public class Ab198VirtualFirst : IAb198FirstLate
+    {
+        public virtual Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab198OverrideSecond : Ab198VirtualFirst, IAb198SecondLate
+    {
+        public override Cell<int>? Share { get; set; }
+    }
+
+    private static readonly Ab198OverrideSecond[] Ab198LateOverrides = [new()];
+
+    private static IAb198FirstLate Ab198LateOverrideAt(int at) => Ab198LateOverrides[at];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

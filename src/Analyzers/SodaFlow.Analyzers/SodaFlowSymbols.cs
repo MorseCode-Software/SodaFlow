@@ -219,6 +219,7 @@ internal sealed class SodaFlowSymbols
                 .FirstOrDefault();
 
         this.Overrides = new OverrideIndex(compilation);
+        this.Implementations = new ImplementationIndex(compilation);
     }
 
     /// <summary>
@@ -325,6 +326,9 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>The methods that an override in the compilation replaces.</summary>
     public OverrideIndex Overrides { get; }
+
+    /// <summary>The properties of interfaces that one property of a type implements together.</summary>
+    public ImplementationIndex Implementations { get; }
 
     // Each gate from Declares is only for speed. A search for a member that the compilation does
     // not declare finds no body to read, thus a true value changes no rule. An explicit member of
