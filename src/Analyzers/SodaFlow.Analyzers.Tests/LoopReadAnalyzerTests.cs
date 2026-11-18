@@ -2829,7 +2829,12 @@ internal sealed class LoopReadAnalyzerTests
             ["Ab188FunctionInALocalPutsThroughASecondName"] = ["SF1001"],
             ["Ab188LazyPutsThroughASecondName"] = ["SF1001"],
             ["Ab188LocalOfTheElementGetsTheObjectOfALocal"] = ["SF1001"],
-            ["Ab188LocalGetsTheObjectOfALocalBeforeItsWrite"] = ["SF1001"]
+            ["Ab188LocalGetsTheObjectOfALocalBeforeItsWrite"] = ["SF1001"],
+            ["Ab192HelperSetsAPendingCellAndReadsItByRef"] = ["SF1001"],
+            ["Ab192HelperSetsAPendingCellAtAVariableAndReadsItByRef"] = ["SF1001"],
+            ["Ab192HelperFillsWithAPendingCellAndReadsByRef"] = ["SF1001"],
+            ["Ab192HelperSetsAPendingCellAndReadsItByIn"] = ["SF1001"],
+            ["Ab192HelperSetsASlotWithAPendingMemberAndReadsItByRef"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.

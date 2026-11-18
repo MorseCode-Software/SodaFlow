@@ -19111,6 +19111,42 @@ public static class Shapes
     public static Cell<int> Ab188LocalGetsTheObjectOfALocalBeforeItsWrite() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab188Spot[1]]; SettableSlot spare = new(); a[0].Share = l.Map(v => v); SettableSlot x = a[0]; x = spare; x.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
 
+    // S4300. A helper sets an element to a pending cell, and gives back a parameter with ref that is that element. The block samples it.
+    public static Cell<int> Ab192HelperSetsAPendingCellAndReadsItByRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; Cell<int> got = Ab192Cells.SetAndRead(cells, ref cells[0], l.Map(v => v)); int read = got.Sample(); return S.Hold(read); });
+
+    // S4301. The same at an index that is not a constant.
+    public static Cell<int> Ab192HelperSetsAPendingCellAtAVariableAndReadsItByRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; Cell<int> got = Ab192Cells.SetAtAndRead(cells, ref cells[0], l.Map(v => v), Never ? 1 : 0); int read = got.Sample(); return S.Hold(read); });
+
+    // S4302. A helper fills the array with a pending cell, and gives back a parameter with ref that is an element. The block samples it.
+    public static Cell<int> Ab192HelperFillsWithAPendingCellAndReadsByRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; Cell<int> got = Ab192Cells.FillAndRead(cells, ref cells[0], l.Map(v => v)); int read = got.Sample(); return S.Hold(read); });
+
+    // S4303. The same as the first, read through a parameter with in.
+    public static Cell<int> Ab192HelperSetsAPendingCellAndReadsItByIn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; Cell<int> got = Ab192Cells.SetAndReadIn(cells, in cells[0], l.Map(v => v)); int read = got.Sample(); return S.Hold(read); });
+
+    // S4304. A helper sets an element to an object with a pending member that a method of the code makes, and gives back a parameter with ref that is that element. The block samples the member.
+    public static Cell<int> Ab192HelperSetsASlotWithAPendingMemberAndReadsItByRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; SettableSlot got = Ab192Cells.SetSlotAndRead(slots, ref slots[0], l.Map(v => v)); int read = got.Share!.Sample(); return S.Hold(read); });
+
+    // S4305. The same with a plain cell. A control.
+    public static Cell<int> Ab192HelperSetsAPlainCellAndReadsItByRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; Cell<int> got = Ab192Cells.SetAndRead(cells, ref cells[0], Plain); int read = got.Sample(); return S.Hold(read); });
+
+    // S4306. A helper sets a second element to a pending cell, and gives back a parameter with ref that is the first element. A control.
+    public static Cell<int> Ab192HelperSetsAPendingCellIntoAnotherElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int> got = Ab192Cells.SetSecondAndRead(cells, ref cells[0], l.Map(v => v)); int read = got.Sample(); return S.Hold(read); });
+
+    // S4307. A helper sets an element to a pending cell, and then gives the parameter with ref a plain cell. A control.
+    public static Cell<int> Ab192HelperSetsAPendingCellAndThenTheRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; Cell<int> got = Ab192Cells.SetThenAssignAndRead(cells, ref cells[0], l.Map(v => v)); int read = got.Sample(); return S.Hold(read); });
+
+    // S4308. A helper sets an element to a pending cell, and gives back a parameter with ref whose argument is a local. A control.
+    public static Cell<int> Ab192HelperSetsAPendingCellAndReadsALocalByRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> one = Plain; Cell<int>[] cells = [Plain]; Cell<int> got = Ab192Cells.SetAndRead(cells, ref one, l.Map(v => v)); int read = got.Sample(); return S.Hold(read); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -26126,6 +26162,61 @@ public static class Shapes
     }
 
     private static readonly SettableSlot[] Ab188Spot = [new(), new()];
+
+    public static class Ab192Cells
+    {
+        public static Cell<int> SetAndRead(Cell<int>[] array, ref Cell<int> slot, Cell<int> value)
+        {
+            array[0] = value;
+
+            return slot;
+        }
+
+        public static Cell<int> SetAtAndRead(Cell<int>[] array, ref Cell<int> slot, Cell<int> value, int index)
+        {
+            array[index] = value;
+
+            return slot;
+        }
+
+        public static Cell<int> FillAndRead(Cell<int>[] array, ref Cell<int> slot, Cell<int> value)
+        {
+            Array.Fill(array, value);
+
+            return slot;
+        }
+
+        public static Cell<int> SetAndReadIn(Cell<int>[] array, in Cell<int> slot, Cell<int> value)
+        {
+            array[0] = value;
+
+            return slot;
+        }
+
+        public static SettableSlot SetSlotAndRead(SettableSlot[] array, ref SettableSlot slot, Cell<int> value)
+        {
+            array[0] = Ab192Slot(value);
+
+            return slot;
+        }
+
+        public static Cell<int> SetSecondAndRead(Cell<int>[] array, ref Cell<int> slot, Cell<int> value)
+        {
+            array[1] = value;
+
+            return slot;
+        }
+
+        public static Cell<int> SetThenAssignAndRead(Cell<int>[] array, ref Cell<int> slot, Cell<int> value)
+        {
+            array[0] = value;
+            slot = Plain;
+
+            return slot;
+        }
+    }
+
+    private static SettableSlot Ab192Slot(Cell<int> share) => new() { Share = share };
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

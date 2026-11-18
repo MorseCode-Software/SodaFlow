@@ -716,9 +716,9 @@ internal sealed partial class LoopStateEvaluator
     // caller: see Leave.
     private void PutsIntoALocation(ISymbol? field, ArgumentSyntax? index, LoopState state, ExpressionSyntax? owner)
     {
-        // A function is a value that a read through the parameter can get, as an object is. A call of
-        // that function can read a pending cell.
-        if (this.quiet || (state.Objects.IsEmpty && state.Functions.IsEmpty) || this.bound.Count == 0)
+        // A read through the parameter can get each value that has a state, as it gets an object. A
+        // pending cell or a function is such a value.
+        if (this.quiet || state is { IsNone: true, Objects.IsEmpty: true } || this.bound.Count == 0)
         {
             return;
         }
