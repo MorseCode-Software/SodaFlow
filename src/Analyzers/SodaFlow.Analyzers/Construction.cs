@@ -121,11 +121,123 @@ internal sealed class Construction(
     ///     The same object after an initializer sets one member. The new state
     ///     replaces the state from the constructor.
     /// </summary>
+    /// <remarks>
+    ///     The write sets the member that <see cref="Resolve" /> finds for a read
+    ///     of the same name. It also sets each alias of that member that the
+    ///     object has.
+    /// </remarks>
     public Construction With(ISymbol member, LoopState state) =>
         new(
-            members: this.members.SetItem(key: KeyOf(member), value: state),
+            // Most writes name the member that a read finds. Such a write does not call Resolve.
+            members: this.IsItsOwnMember(member)
+                ? SetWithTheAliases(members: this.members, key: KeyOf(member), state: state)
+                : this.SetEachResolved(member: member, state: state),
             types: this.types,
             hasParts: this.HasParts || IsPart(member));
+
+    private ImmutableDictionary<ISymbol, LoopState> SetEachResolved(ISymbol member, LoopState state) =>
+        this.Resolve(member)
+            .Aggregate(
+                seed: this.members,
+                func: (set, actual) => SetWithTheAliases(members: set, key: KeyOf(actual), state: state));
+
+    private static ImmutableDictionary<ISymbol, LoopState> SetWithTheAliases(
+        ImmutableDictionary<ISymbol, LoopState> members,
+        ISymbol key,
+        LoopState state)
+    {
+        ImmutableDictionary<ISymbol, LoopState> set = members.SetItem(key: key, value: state);
+
+        // Most writes stop here: the object has no member, or the member cannot have an alias.
+        return members.IsEmpty || !CanHaveAnAlias(key)
+            ? set
+            : SetTheAliases(members: members, set: set, key: key, state: state);
+    }
+
+    private static ImmutableDictionary<ISymbol, LoopState> SetTheAliases(
+        ImmutableDictionary<ISymbol, LoopState> members,
+        ImmutableDictionary<ISymbol, LoopState> set,
+        ISymbol key,
+        LoopState state) =>
+        members.Keys
+            .Where(other => AreAliases(first: other, second: key))
+            .Aggregate(seed: set, func: (aliased, other) => aliased.SetItem(key: other, value: state));
+
+    /// <summary>
+    ///     The state of a key, joined with the state of each alias of the key.
+    ///     The function gives each state from its key and the state that the
+    ///     dictionary has for that key.
+    /// </summary>
+    /// <remarks>
+    ///     A write keys a state with the member that the code names. A read can
+    ///     name an alias of that member. The alias is a second key for the same
+    ///     location.
+    /// </remarks>
+    public static LoopState StateWithTheAliases(
+        IReadOnlyDictionary<ISymbol, LoopState> states,
+        ISymbol key,
+        Func<ISymbol, LoopState, LoopState> stateOf)
+    {
+        LoopState? own = states.TryGetValue(key: key, value: out LoopState? found) ? found : null;
+        LoopState state = own != null ? stateOf(arg1: key, arg2: own) : LoopState.None;
+
+        // Most reads stop here: no different key has a state, or the member cannot have an alias.
+        return states.Count <= (own != null ? 1 : 0) || !CanHaveAnAlias(key)
+            ? state
+            : JoinTheAliases(states: states, key: key, own: own, state: state, stateOf: stateOf);
+    }
+
+    private static LoopState JoinTheAliases(
+        IReadOnlyDictionary<ISymbol, LoopState> states,
+        ISymbol key,
+        LoopState? own,
+        LoopState state,
+        Func<ISymbol, LoopState, LoopState> stateOf) =>
+        states
+            .Where(pair => !ReferenceEquals(objA: pair.Value, objB: own) && AreAliases(first: pair.Key, second: key))
+            .Aggregate(seed: state, func: (joined, pair) => joined.Join(stateOf(arg1: pair.Key, arg2: pair.Value)));
+
+    // Only a property can have an alias. It is a property of an interface, an abstract property, a
+    // virtual property, an override, or a property of a type that has an interface.
+    private static bool CanHaveAnAlias(ISymbol key) =>
+        key is IPropertySymbol property
+        && (property.IsVirtual
+            || property.IsAbstract
+            || property.IsOverride
+            || property.ContainingType.AllInterfaces.Length > 0);
+
+    // Two properties are aliases when one access on one object can find the two. This is true when
+    // one overrides the other, or when the two override one property. It is true also for a
+    // property of an interface and the property that implements it in its own type.
+    private static bool AreAliases(ISymbol first, ISymbol second) =>
+        first is IPropertySymbol
+        && !SymbolEqualityComparer.Default.Equals(x: first, y: second)
+        && (SymbolEqualityComparer.Default.Equals(x: RootOf(first), y: RootOf(second))
+            || Implements(contract: first, member: second)
+            || Implements(contract: second, member: first));
+
+    private static bool Implements(ISymbol contract, ISymbol member) =>
+        contract.ContainingType is { TypeKind: TypeKind.Interface } face
+        && member.ContainingType is { } owner
+        && owner.AllInterfaces.Any(one =>
+            SymbolEqualityComparer.Default.Equals(x: one.OriginalDefinition, y: face.OriginalDefinition))
+        && SymbolEqualityComparer.Default.Equals(
+            x: RootOf(ResolveIn(type: owner, member: contract)),
+            y: RootOf(member));
+
+    // The property at the base of each override of the property. It is the property itself when it
+    // is not an override.
+    private static ISymbol RootOf(ISymbol member)
+    {
+        ISymbol root = member;
+
+        while (root is IPropertySymbol { OverriddenProperty: { } overridden })
+        {
+            root = overridden;
+        }
+
+        return root.OriginalDefinition;
+    }
 
     /// <summary>
     ///     True when the evaluator knows the type of this object, and an object of
@@ -346,7 +458,7 @@ internal sealed class Construction(
     public bool Has(ISymbol member) => this.members.ContainsKey(KeyOf(member));
 
     public LoopState StateOf(ISymbol member) =>
-        this.members.TryGetValue(key: KeyOf(member), value: out LoopState? state) ? state : LoopState.None;
+        StateWithTheAliases(states: this.members, key: KeyOf(member), stateOf: static (_, state) => state);
 
     /// <summary>The same object, with the state of each member changed.</summary>
     public Construction Select(Func<LoopState, LoopState> change)
@@ -368,13 +480,17 @@ internal sealed class Construction(
     ///     gives the member of each type.
     /// </summary>
     public IEnumerable<ISymbol> Resolve(ISymbol member) =>
-        this.types.IsEmpty
-        || (member.ContainingType?.TypeKind != TypeKind.Interface
-            && member is { IsAbstract: false, IsVirtual: false, IsOverride: false })
+        this.IsItsOwnMember(member)
             ? [member]
             : this.OwnersOf(member)
                 .Select(type => ResolveIn(type: type, member: member))
                 .Distinct(SymbolEqualityComparer.Default);
+
+    // True when a read finds the member that the code names: see Resolve.
+    private bool IsItsOwnMember(ISymbol member) =>
+        this.types.IsEmpty
+        || (member.ContainingType?.TypeKind != TypeKind.Interface
+            && member is { IsAbstract: false, IsVirtual: false, IsOverride: false });
 
     /// <summary>
     ///     The same object, as a value of the given type. Of two objects, only

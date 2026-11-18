@@ -156,9 +156,10 @@ internal sealed class LoopRegion(
     ///     field is the origin of that state, in each frame that reads it.
     /// </summary>
     public LoopState FieldState(ISymbol field) =>
-        this.fields.TryGetValue(key: field.OriginalDefinition, value: out LoopState? state)
-            ? state.From(field.OriginalDefinition)
-            : LoopState.None;
+        Construction.StateWithTheAliases(
+            states: this.fields,
+            key: field.OriginalDefinition,
+            stateOf: static (key, state) => state.From(key));
 
     /// <summary>
     ///     Records a value that the code gives to a field. The walk does not know

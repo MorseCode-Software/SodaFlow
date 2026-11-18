@@ -18267,6 +18267,210 @@ public static class Shapes
     public static Cell<int> Ab185LambdaParameterWithTheNameOfTheLocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { object[] given = [Ab185Fills.Echo(l.Map(v => v))]; Func<object[], int> put = given => { given[0] = l.Map(v => v); return given.Length; }; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given); return S.Hold(0); });
 
+    // S4089. The block writes a pending cell through an interface into an object that the walk does not know. It samples the property of the class of the object after a cast.
+    public static Cell<int> Ab186PendingThroughTheInterfaceAndASampleThroughTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SlotAt(0); h.Share = l.Map(v => v); Ab186SealedSlot s = (Ab186SealedSlot)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4090. The block writes a pending cell through an interface, and then a plain cell through the class after a cast. The class property is the interface property, thus the sample reads the plain cell.
+    public static Cell<int> Ab186PlainThroughTheClassAfterAPendingCellThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SlotAt(1); h.Share = l.Map(v => v); Ab186SealedSlot s = (Ab186SealedSlot)h; s.Share = Plain; return S.Hold(h.Share!.Sample()); });
+
+    // S4091. The block makes an object, writes a pending cell into it through an interface, and samples the property of its class after a cast.
+    public static Cell<int> Ab186NewObjectPendingThroughTheInterfaceAndASampleThroughTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = new Ab186SealedSlot(); h.Share = l.Map(v => v); Ab186SealedSlot s = (Ab186SealedSlot)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4092. The block makes an object, writes a pending cell into it through an interface, and then a plain cell through its class. The sample through the interface reads the plain cell. A control.
+    public static Cell<int> Ab186NewObjectPlainThroughTheClassAfterAPendingCellThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = new Ab186SealedSlot(); h.Share = l.Map(v => v); Ab186SealedSlot s = (Ab186SealedSlot)h; s.Share = Plain; return S.Hold(h.Share!.Sample()); });
+
+    // S4093. The block writes a pending cell through an interface, and samples the property of the class after a cast with as.
+    public static Cell<int> Ab186ACastWithAsToTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SlotAt(2); h.Share = l.Map(v => v); Ab186SealedSlot s = (h as Ab186SealedSlot)!; return S.Hold(s.Share!.Sample()); });
+
+    // S4094. The block writes a pending cell through an interface, and samples the property of the class after a pattern with is.
+    public static Cell<int> Ab186APatternOfTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SlotAt(3); h.Share = l.Map(v => v); if (h is Ab186SealedSlot s) { return S.Hold(s.Share!.Sample()); } return S.Hold(0); });
+
+    // S4095. The block writes a pending cell through an interface, and samples the property of a class that is not sealed after a cast.
+    public static Cell<int> Ab186ACastToAClassThatIsNotSealed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186OpenAt(0); h.Share = l.Map(v => v); Ab186OpenSlot o = (Ab186OpenSlot)h; return S.Hold(o.Share!.Sample()); });
+
+    // S4096. The block writes a pending cell through a virtual property, and samples its override after a cast.
+    public static Cell<int> Ab186PendingThroughTheVirtualAndASampleThroughTheOverride() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186VirtualSlot b = Ab186VirtualAt(0); b.Share = l.Map(v => v); Ab186OverrideSlot d = (Ab186OverrideSlot)b; return S.Hold(d.Share!.Sample()); });
+
+    // S4097. The block writes a pending cell through a virtual property, and then a plain cell through its override. The sample through the virtual property reads the plain cell.
+    public static Cell<int> Ab186PlainThroughTheOverrideAfterAPendingCellThroughTheVirtual() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186VirtualSlot b = Ab186VirtualAt(1); b.Share = l.Map(v => v); Ab186OverrideSlot d = (Ab186OverrideSlot)b; d.Share = Plain; return S.Hold(b.Share!.Sample()); });
+
+    // S4098. The block makes an object, writes a pending cell into it through a virtual property, and samples the override after a cast.
+    public static Cell<int> Ab186NewObjectPendingThroughTheVirtualAndASampleThroughTheOverride() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186VirtualSlot b = new Ab186OverrideSlot(); b.Share = l.Map(v => v); Ab186OverrideSlot d = (Ab186OverrideSlot)b; return S.Hold(d.Share!.Sample()); });
+
+    // S4099. The block writes a pending cell through an interface, and gives the object after a cast to a method whose parameter has the class type. The method samples the property of the class.
+    public static Cell<int> Ab186AParameterOfTheClassTypeSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SlotAt(4); h.Share = l.Map(v => v); return S.Hold(Ab186Read((Ab186SealedSlot)h)); });
+
+    // S4100. Two calls give the same object. The block writes a pending cell through an interface on the first, and samples the property of the class on the second after a cast.
+    public static Cell<int> Ab186OwnersThatACallGivesBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186SlotAt(5).Share = l.Map(v => v); return S.Hold(((Ab186SealedSlot)Ab186SlotAt(5)).Share!.Sample()); });
+
+    // S4101. A local of the class and a local of the interface hold one object. The block writes a pending cell through the interface, and samples through the class.
+    public static Cell<int> Ab186ALocalOfTheClassAfterAWriteThroughALocalOfTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186SealedSlot s = Ab186SealedAt(0); IAb186Slot h = s; h.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S4102. One branch writes a pending cell through an interface, and the other branch writes a plain cell through the class. The first branch runs, and the block samples through the class.
+    public static Cell<int> Ab186PendingThroughTheInterfaceInABranchAndPlainThroughTheClassInTheOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SlotAt(6); Ab186SealedSlot s = (Ab186SealedSlot)h; if (!Never) { h.Share = l.Map(v => v); } else { s.Share = Plain; } return S.Hold(s.Share!.Sample()); });
+
+    // S4103. One branch writes a pending cell through the class, and the other branch writes a plain cell through an interface. The first branch runs, and the block samples through the interface.
+    public static Cell<int> Ab186PendingThroughTheClassInABranchAndPlainThroughTheInterfaceInTheOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SlotAt(7); Ab186SealedSlot s = (Ab186SealedSlot)h; if (!Never) { s.Share = l.Map(v => v); } else { h.Share = Plain; } return S.Hold(h.Share!.Sample()); });
+
+    // S4104. The block makes an object. One branch writes a pending cell through an interface, and the other branch writes a plain cell through the class. The first branch runs.
+    public static Cell<int> Ab186NewObjectPendingThroughTheInterfaceInABranchAndPlainThroughTheClassInTheOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = new Ab186SealedSlot(); Ab186SealedSlot s = (Ab186SealedSlot)h; if (!Never) { h.Share = l.Map(v => v); } else { s.Share = Plain; } return S.Hold(s.Share!.Sample()); });
+
+    // S4105. The block writes a pending cell through an interface. A branch that does not run writes a plain cell through the class, and the block samples through the class.
+    public static Cell<int> Ab186PlainThroughTheClassInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SlotAt(8); h.Share = l.Map(v => v); Ab186SealedSlot s = (Ab186SealedSlot)h; if (Never) { s.Share = Plain; } return S.Hold(s.Share!.Sample()); });
+
+    // S4106. The block makes an object and writes a pending cell through an interface. A branch that does not run writes a plain cell through the class, and the block samples through the class.
+    public static Cell<int> Ab186NewObjectPlainThroughTheClassInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = new Ab186SealedSlot(); h.Share = l.Map(v => v); Ab186SealedSlot s = (Ab186SealedSlot)h; if (Never) { s.Share = Plain; } return S.Hold(s.Share!.Sample()); });
+
+    // S4107. The block writes a pending cell through a generic interface, and samples the property of the class after a cast.
+    public static Cell<int> Ab186AGenericInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Generic<int> h = Ab186GenericAt(0); h.Share = l.Map(v => v); Ab186GenericSealed s = (Ab186GenericSealed)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4108. The block writes a pending cell through a generic interface, and samples the property of a generic class after a cast.
+    public static Cell<int> Ab186AGenericInterfaceOfAGenericClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Generic<int> h = Ab186GenericOpenAt(0); h.Share = l.Map(v => v); Ab186GenericOpen<int> s = (Ab186GenericOpen<int>)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4109. The block writes a pending cell through a virtual property, and samples an override of an override of it after a cast.
+    public static Cell<int> Ab186AnOverrideOfAnOverride() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186VirtualSlot b = Ab186LeafAt(0); b.Share = l.Map(v => v); Ab186LeafSlot d = (Ab186LeafSlot)b; return S.Hold(d.Share!.Sample()); });
+
+    // S4110. A base class implements an interface. The block writes a pending cell through the interface, and samples through a class that derives from the base class.
+    public static Cell<int> Ab186AnInterfaceThatABaseClassImplements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186DerivedAt(0); h.Share = l.Map(v => v); Ab186DerivedSlot d = (Ab186DerivedSlot)h; return S.Hold(d.Share!.Sample()); });
+
+    // S4111. The block writes a pending cell through an abstract property, and samples its override after a cast.
+    public static Cell<int> Ab186AnAbstractPropertyAndItsOverride() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186AbstractSlot b = Ab186AbstractAt(0); b.Share = l.Map(v => v); Ab186ConcreteSlot d = (Ab186ConcreteSlot)b; return S.Hold(d.Share!.Sample()); });
+
+    // S4112. A method writes a pending cell through a parameter of the interface type. The block samples through the class after a cast.
+    public static Cell<int> Ab186PendingThroughAParameterOfTheInterfaceType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SlotAt(9); Ab186Write(h, l.Map(v => v)); Ab186SealedSlot s = (Ab186SealedSlot)h; return S.Hold(s.Share!.Sample()); });
+
+    // S4113. The initializer of a new object puts a pending cell into the property of the class. The block then writes a plain cell through an interface, and samples through the class.
+    public static Cell<int> Ab186NewObjectPlainThroughTheInterfaceAfterAnInitializerOfTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186SealedSlot s = new() { Share = l.Map(v => v) }; IAb186Slot h = s; h.Share = Plain; return S.Hold(s.Share!.Sample()); });
+
+    // S4114. A method of a base class writes a pending cell into a virtual property of its object. The object has an override, and the block samples the override.
+    public static Cell<int> Ab186AMethodOfTheBaseSetsTheVirtual() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186OverrideSlot d = new(); d.SetShare(l.Map(v => v)); return S.Hold(d.Share!.Sample()); });
+
+    // S4115. The block writes a pending cell through an interface. A lambda samples through the class after a cast, and the block calls it.
+    public static Cell<int> Ab186ALambdaSamplesThroughTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SlotAt(10); h.Share = l.Map(v => v); Ab186SealedSlot s = (Ab186SealedSlot)h; Func<int> f = () => s.Share!.Sample(); return S.Hold(f()); });
+
+    // S4116. The block makes an object, writes a pending cell into it through the class, and samples through an interface. A control.
+    public static Cell<int> Ab186NewObjectPendingThroughTheClassAndASampleThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186SealedSlot s = new(); s.Share = l.Map(v => v); IAb186Slot h = s; return S.Hold(h.Share!.Sample()); });
+
+    // S4117. The block writes a pending cell through the class into an object that the walk does not know, and samples through an interface. A control.
+    public static Cell<int> Ab186PendingThroughTheClassAndASampleThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186SealedSlot s = Ab186SealedAt(1); s.Share = l.Map(v => v); IAb186Slot h = s; return S.Hold(h.Share!.Sample()); });
+
+    // S4118. A local of the class and a local of the interface hold one object. The block writes a pending cell through the interface, then a plain cell through the class, and samples through the interface. A control.
+    public static Cell<int> Ab186PlainThroughTheClassLocalAfterAPendingCellThroughTheInterfaceLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186SealedSlot s = Ab186SealedAt(2); IAb186Slot h = s; h.Share = l.Map(v => v); s.Share = Plain; return S.Hold(h.Share!.Sample()); });
+
+    // S4119. The block writes a pending cell through a property that is not virtual, and samples it through a derived class after a cast. A control.
+    public static Cell<int> Ab186APropertyThatIsNotVirtualThroughADerivedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186PlainBase b = Ab186PlainAt(0); b.Share = l.Map(v => v); Ab186PlainDerived d = (Ab186PlainDerived)b; return S.Hold(d.Share!.Sample()); });
+
+    // S4120. The block writes a pending cell through a virtual property, and samples the same virtual property. A control.
+    public static Cell<int> Ab186PendingThroughTheVirtualAndASampleThroughTheVirtual() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186VirtualSlot b = Ab186VirtualAt(2); b.Share = l.Map(v => v); return S.Hold(b.Share!.Sample()); });
+
+    // S4121. A derived class has a new property with the name of a property of its base class. The block writes a pending cell into the base property, and samples the new property, which has no cell. A control.
+    public static Cell<int> Ab186APropertyThatHidesIsADifferentProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186PlainBase b = Ab186HidingAt(0); b.Share = l.Map(v => v); Ab186HidingSlot d = (Ab186HidingSlot)b; return S.Hold((d.Share ?? Plain).Sample()); });
+
+    // S4122. A derived class has a new property with the name of a property of its base class. A plain cell in the new property does not change the pending cell in the base property. A control.
+    public static Cell<int> Ab186PlainThroughAPropertyThatHides() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186PlainBase b = Ab186HidingAt(1); b.Share = l.Map(v => v); Ab186HidingSlot d = (Ab186HidingSlot)b; d.Share = Plain; return S.Hold(b.Share!.Sample()); });
+
+    // S4123. The block makes two objects. It writes a pending cell into the first through an interface, and a plain cell into the second through the class. It samples the second. A control.
+    public static Cell<int> Ab186TwoNewObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = new Ab186SealedSlot(); Ab186SealedSlot s = new(); h.Share = l.Map(v => v); s.Share = Plain; return S.Hold(s.Share!.Sample()); });
+
+    // S4124. Two objects that the walk does not know. The block writes a pending cell into the first through an interface, and a plain cell into the second through the class. It samples the second. A control.
+    public static Cell<int> Ab186TwoObjectsThatTheWalkDoesNotKnow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SlotAt(11); Ab186SealedSlot s = Ab186SealedAt(3); h.Share = l.Map(v => v); s.Share = Plain; return S.Hold(s.Share!.Sample()); });
+
+    // S4125. The initializer of a new object puts a pending cell into the property of the class, and the block samples through an interface. A control.
+    public static Cell<int> Ab186NewObjectInitializerOfTheClassAndASampleThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = new Ab186SealedSlot { Share = l.Map(v => v) }; return S.Hold(h.Share!.Sample()); });
+
+    // S4126. A generic method writes a pending cell into a static abstract property of an interface through its type parameter. The block samples the static property of the class.
+    public static Cell<int> Ab186AStaticAbstractPropertyWrittenThroughATypeParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186WriteStatic<Ab186StaticSlot>(l.Map(v => v)); return S.Hold(Ab186StaticSlot.Share!.Sample()); });
+
+    // S4127. The block writes a pending cell into the static property of a class. A generic method samples the static abstract property of the interface through its type parameter.
+    public static Cell<int> Ab186AStaticAbstractPropertyReadThroughATypeParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186StaticRead.Share = l.Map(v => v); return S.Hold(Ab186ReadStatic<Ab186StaticRead>()); });
+
+    // S4128. A readonly field has an object from its initializer. The block writes a pending cell into it through an interface, and samples through the class after a cast.
+    public static Cell<int> Ab186AReadonlyFieldWrittenThroughTheInterfaceAndReadThroughTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186Field.Share = l.Map(v => v); return S.Hold(((Ab186SealedSlot)Ab186Field).Share!.Sample()); });
+
+    // S4129. A readonly field has an object from its initializer. The block writes a pending cell into it through the class after a cast, and samples through an interface.
+    public static Cell<int> Ab186AReadonlyFieldWrittenThroughTheClassAndReadThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ((Ab186SealedSlot)Ab186SecondField).Share = l.Map(v => v); return S.Hold(Ab186SecondField.Share!.Sample()); });
+
+    // S4130. A readonly field has an object from its initializer. The block writes a pending cell through an interface, then a plain cell through the class, and samples through the interface.
+    public static Cell<int> Ab186AReadonlyFieldPlainThroughTheClassAfterAPendingCellThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186ThirdField.Share = l.Map(v => v); ((Ab186SealedSlot)Ab186ThirdField).Share = Plain; return S.Hold(Ab186ThirdField.Share!.Sample()); });
+
+    // S4131. A get-only property has an object from its initializer. The block writes a pending cell into it through an interface, and samples through the class after a cast.
+    public static Cell<int> Ab186AGetOnlyPropertyWrittenThroughTheInterfaceAndReadThroughTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186Property.Share = l.Map(v => v); Ab186SealedSlot s = (Ab186SealedSlot)Ab186Property; return S.Hold(s.Share!.Sample()); });
+
+    // S4132. A get-only property has an object from its initializer. The block writes a pending cell through an interface, then a plain cell through the class, and samples through the interface.
+    public static Cell<int> Ab186AGetOnlyPropertyPlainThroughTheClassAfterAPendingCellThroughTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186SecondProperty.Share = l.Map(v => v); Ab186SealedSlot s = (Ab186SealedSlot)Ab186SecondProperty; s.Share = Plain; return S.Hold(Ab186SecondProperty.Share!.Sample()); });
+
+    // S4133. A readonly field has an object with an override from its initializer. The block writes a pending cell through the virtual property, and samples the override after a cast.
+    public static Cell<int> Ab186AReadonlyFieldWrittenThroughTheVirtualAndReadThroughTheOverride() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186VirtualField.Share = l.Map(v => v); return S.Hold(((Ab186OverrideSlot)Ab186VirtualField).Share!.Sample()); });
+
+    // S4134. A library gives an object that the walk does not know. The block writes a pending cell into it through an interface, and samples through the class after a cast.
+    public static Cell<int> Ab186AnObjectOfALibraryWrittenThroughTheInterfaceAndReadThroughTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186SlotLine.Last().Share = l.Map(v => v); return S.Hold(((Ab186SealedSlot)Ab186SlotLine.Last()).Share!.Sample()); });
+
+    // S4135. A class has a property with the name of the interface property, and does not implement the interface. The pattern of the class is false, thus the block does not sample. A control.
+    public static Cell<int> Ab186APropertyWithTheNameOfAnInterfacePropertyIsADifferentProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186SecondSlotLine.Last(); h.Share = l.Map(v => v); if (h is Ab186UnrelatedSlot o) { return S.Hold(o.Share!.Sample()); } return S.Hold(0); });
+
+    // S4136. A class gets an interface, and the property of its base class implements the interface property. The block makes an object, writes a pending cell through the interface, and samples through the class.
+    public static Cell<int> Ab186NewObjectOfAClassWhoseBasePropertyImplementsTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = new Ab186LateSlot(); h.Share = l.Map(v => v); Ab186LateSlot d = (Ab186LateSlot)h; return S.Hold(d.Share!.Sample()); });
+
+    // S4137. The block writes a pending cell through an override, and then a plain cell through the virtual property. The virtual property is the override, thus the sample reads the plain cell.
+    public static Cell<int> Ab186PlainThroughTheVirtualAfterAPendingCellThroughTheOverride() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186VirtualSlot b = Ab186VirtualAt(3); Ab186OverrideSlot d = (Ab186OverrideSlot)b; d.Share = l.Map(v => v); b.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S4138. One branch writes a pending cell through an override, and the other branch writes a plain cell through the virtual property. The first branch runs, and the block samples through the virtual property.
+    public static Cell<int> Ab186PendingThroughTheOverrideInABranchAndPlainThroughTheVirtualInTheOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab186VirtualSlot b = Ab186VirtualAt(4); Ab186OverrideSlot d = (Ab186OverrideSlot)b; if (!Never) { d.Share = l.Map(v => v); } else { b.Share = Plain; } return S.Hold(b.Share!.Sample()); });
+
+    // S4139. A class overrides an abstract property, and the override implements the interface property. The block writes a pending cell through the interface, and samples through the class after a cast.
+    public static Cell<int> Ab186AnOverrideThatImplementsTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb186Slot h = Ab186AbstractImplAt(0); h.Share = l.Map(v => v); Ab186AbstractImplSlot d = (Ab186AbstractImplSlot)h; return S.Hold(d.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -24847,6 +25051,194 @@ public static class Shapes
 
         public static object Echo(object value) => value;
     }
+
+    public interface IAb186Slot
+    {
+        Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab186SealedSlot : IAb186Slot
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public class Ab186OpenSlot : IAb186Slot
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab186DerivedSlot : Ab186OpenSlot;
+
+    public class Ab186VirtualSlot
+    {
+        public virtual Cell<int>? Share { get; set; }
+
+        public void SetShare(Cell<int> share) => this.Share = share;
+    }
+
+    public sealed class Ab186OverrideSlot : Ab186VirtualSlot
+    {
+        public override Cell<int>? Share { get; set; }
+    }
+
+    public class Ab186MiddleSlot : Ab186VirtualSlot
+    {
+        public override Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab186LeafSlot : Ab186MiddleSlot
+    {
+        public override Cell<int>? Share { get; set; }
+    }
+
+    public abstract class Ab186AbstractSlot
+    {
+        public abstract Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab186ConcreteSlot : Ab186AbstractSlot
+    {
+        public override Cell<int>? Share { get; set; }
+    }
+
+    public class Ab186PlainBase
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab186PlainDerived : Ab186PlainBase;
+
+    public sealed class Ab186HidingSlot : Ab186PlainBase
+    {
+        public new Cell<int>? Share { get; set; }
+    }
+
+    public interface IAb186Generic<T>
+    {
+        Cell<T>? Share { get; set; }
+    }
+
+    public sealed class Ab186GenericSealed : IAb186Generic<int>
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public class Ab186GenericOpen<T> : IAb186Generic<T>
+    {
+        public Cell<T>? Share { get; set; }
+    }
+
+    private static readonly Ab186SealedSlot[] Ab186Slots =
+        [new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new()];
+
+    private static readonly Ab186SealedSlot[] Ab186Sealeds = [new(), new(), new(), new()];
+
+    private static readonly Ab186OverrideSlot[] Ab186Virtuals = [new(), new(), new(), new(), new()];
+
+    private static readonly Ab186HidingSlot[] Ab186Hidings = [new(), new()];
+
+    private static readonly Ab186OpenSlot[] Ab186Opens = [new()];
+
+    private static readonly Ab186DerivedSlot[] Ab186Deriveds = [new()];
+
+    private static readonly Ab186LeafSlot[] Ab186Leaves = [new()];
+
+    private static readonly Ab186ConcreteSlot[] Ab186Concretes = [new()];
+
+    private static readonly Ab186PlainDerived[] Ab186PlainDeriveds = [new()];
+
+    private static readonly Ab186GenericSealed[] Ab186Generics = [new()];
+
+    private static readonly Ab186GenericOpen<int>[] Ab186GenericOpens = [new()];
+
+    private static IAb186Slot Ab186SlotAt(int at) => Ab186Slots[at];
+
+    private static Ab186SealedSlot Ab186SealedAt(int at) => Ab186Sealeds[at];
+
+    private static Ab186VirtualSlot Ab186VirtualAt(int at) => Ab186Virtuals[at];
+
+    private static Ab186PlainBase Ab186HidingAt(int at) => Ab186Hidings[at];
+
+    private static IAb186Slot Ab186OpenAt(int at) => Ab186Opens[at];
+
+    private static IAb186Slot Ab186DerivedAt(int at) => Ab186Deriveds[at];
+
+    private static Ab186VirtualSlot Ab186LeafAt(int at) => Ab186Leaves[at];
+
+    private static Ab186AbstractSlot Ab186AbstractAt(int at) => Ab186Concretes[at];
+
+    private static Ab186PlainBase Ab186PlainAt(int at) => Ab186PlainDeriveds[at];
+
+    private static IAb186Generic<int> Ab186GenericAt(int at) => Ab186Generics[at];
+
+    private static IAb186Generic<int> Ab186GenericOpenAt(int at) => Ab186GenericOpens[at];
+
+    private static int Ab186Read(Ab186SealedSlot slot) => slot.Share!.Sample();
+
+    private static void Ab186Write(IAb186Slot slot, Cell<int> share) => slot.Share = share;
+
+    public interface IAb186Static
+    {
+        static abstract Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab186StaticSlot : IAb186Static
+    {
+        public static Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab186StaticRead : IAb186Static
+    {
+        public static Cell<int>? Share { get; set; }
+    }
+
+    private static void Ab186WriteStatic<T>(Cell<int> share)
+        where T : IAb186Static => T.Share = share;
+
+    private static int Ab186ReadStatic<T>()
+        where T : IAb186Static => T.Share!.Sample();
+
+    private static readonly IAb186Slot Ab186Field = new Ab186SealedSlot();
+
+    private static readonly IAb186Slot Ab186SecondField = new Ab186SealedSlot();
+
+    private static readonly IAb186Slot Ab186ThirdField = new Ab186SealedSlot();
+
+    private static IAb186Slot Ab186Property { get; } = new Ab186SealedSlot();
+
+    private static IAb186Slot Ab186SecondProperty { get; } = new Ab186SealedSlot();
+
+    private static readonly Ab186VirtualSlot Ab186VirtualField = new Ab186OverrideSlot();
+
+    public interface IAb186Marker;
+
+    public abstract class Ab186UnrelatedSlot : IAb186Marker
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static readonly ILine<IAb186Slot> Ab186SlotLine = Ab186LineOf(new Ab186SealedSlot());
+
+    private static readonly ILine<IAb186Slot> Ab186SecondSlotLine = Ab186LineOf(new Ab186SealedSlot());
+
+    private static ILine<IAb186Slot> Ab186LineOf(IAb186Slot first)
+    {
+        ILine<IAb186Slot> line = NoBody.Line<IAb186Slot>();
+        line.Put(first);
+
+        return line;
+    }
+
+    public sealed class Ab186LateSlot : Ab186PlainBase, IAb186Slot;
+
+    public sealed class Ab186AbstractImplSlot : Ab186AbstractSlot, IAb186Slot
+    {
+        public override Cell<int>? Share { get; set; }
+    }
+
+    private static readonly Ab186AbstractImplSlot[] Ab186AbstractImpls = [new()];
+
+    private static IAb186Slot Ab186AbstractImplAt(int at) => Ab186AbstractImpls[at];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
