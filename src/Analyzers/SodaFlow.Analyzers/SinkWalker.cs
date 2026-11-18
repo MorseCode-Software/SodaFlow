@@ -4369,6 +4369,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 initializer.Expressions.Any(element => this.IsCarrier(argument: element, seen: seen)),
             _ when type is IArrayTypeSymbol array && this.region.Symbols.IsCarrierType(array.ElementType) =>
                 this.evaluator.CanBePending(value),
+            // ToArray and ToList copy the elements of their receiver.
+            InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ToArray" or "ToList" } copied
+            } copy when this.region.SymbolOf(copy) is IMethodSymbol method && CopiesItsReceiver(method) =>
+                this.IsCarrier(argument: copied.Expression, seen: seen),
             IdentifierNameSyntax name => this.region.SymbolOf(name) is ILocalSymbol local
                                          && this.HoldsACarrier(local: local, seen: seen, use: name),
             _ => false
@@ -4383,12 +4389,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// <remarks>
     ///     The check reads each value that the block of the local gives it, in
     ///     the order of the code. These are the initializer, an assignment, an
-    ///     assignment to an element, and a call of <c>Array.Fill</c>. A statement
-    ///     of the block that runs before the use replaces the values that it
-    ///     writes over. An assignment replaces each value, and an assignment to
-    ///     an element at a constant index replaces the value of that element.
-    ///     Each other value stays. The check does not see a value from a
-    ///     parameter, or from a call that fills the array.
+    ///     assignment to an element, and a call of <c>Array.Fill</c>. For a
+    ///     list, they are also an <c>Add</c>, an <c>Insert</c>, and an
+    ///     <c>AddRange</c>. A statement of the block that runs before the use
+    ///     replaces the values that it writes over. An assignment replaces each
+    ///     value, and an assignment to an element at a constant index replaces
+    ///     the value of that element. Each other value stays. The check does
+    ///     not see a value from a parameter, or from a call that fills the
+    ///     array.
     /// </remarks>
     /// <param name="local">The local.</param>
     /// <param name="seen">The locals that the check read before.</param>
@@ -4478,6 +4486,26 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     }
 
                     break;
+                // Insert moves the elements after its index. Thus, its name of the local counts as a use.
+                case InvocationExpressionSyntax
+                    {
+                        Expression: MemberAccessExpressionSyntax
+                        {
+                            Name.Identifier.ValueText: "Add" or "Insert" or "AddRange", Expression: var list
+                        },
+                        ArgumentList.Arguments: var added
+                    } call
+                    when IsTheLocal(list)
+                         && this.region.SymbolOf(call) is IMethodSymbol method
+                         && PutsIntoAList(method):
+                    if (method.Name != "Insert")
+                    {
+                        targets.Add(LoopStateEvaluator.Unwrapped(list));
+                    }
+
+                    others.AddRange(added.Select(static argument => argument.Expression));
+
+                    break;
                 case IdentifierNameSyntax name when !targets.Contains(name) && IsTheLocal(name):
                     moved = true;
 
@@ -4520,6 +4548,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             && name.Identifier.ValueText == local.Name
             && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(name), y: local);
     }
+
+    // List<T>.ToArray, and Enumerable.ToArray and ToList.
+    private static bool CopiesItsReceiver(IMethodSymbol method) =>
+        method.Name is "ToArray" or "ToList"
+        && (method.ReducedFrom ?? method).ContainingType.OriginalDefinition.ToDisplayString()
+            is "System.Collections.Generic.List<T>" or "System.Linq.Enumerable";
+
+    // Add, Insert, and AddRange of List<T>.
+    private static bool PutsIntoAList(IMethodSymbol method) =>
+        method is { Name: "Add" or "Insert" or "AddRange" }
+        && method.ContainingType.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.List<T>";
 
     private int? ConstantIndexOf(ElementAccessExpressionSyntax element) =>
         element.ArgumentList.Arguments is { Count: 1 } arguments

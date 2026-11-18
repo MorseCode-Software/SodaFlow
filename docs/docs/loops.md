@@ -427,8 +427,10 @@ Some reads that throw it does not see:
   puts in order: a statement of the block that runs before the call and sets the local again, or
   sets an element at a constant index, replaces what was there, so a plain cell set over the value
   clears it. A put in a branch or a loop, or after other code used the local, only adds to what was
-  there. The same holds for a local of type `object`. A value that reaches the array another way,
-  such as through a parameter, a method of yours, or `ToArray` of a list, gets no report at all.
+  there. The same holds for a local of type `object`. A `ToArray` or a `ToList` of such a local, or
+  of a local `List<T>`, counts as the local, and an `Add`, an `Insert`, or an `AddRange` of that
+  list counts as a put. A value that reaches the array another way, such as through a parameter or a
+  method of yours, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
 - A member that the platform calls from a method that is not in its table of common methods.

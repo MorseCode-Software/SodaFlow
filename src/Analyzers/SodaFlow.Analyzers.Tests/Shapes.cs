@@ -19459,6 +19459,54 @@ public static class Shapes
     public static Cell<int> Ab193NumberSetBeforeALocalFunctionThatRunsFirst() =>
         Cell.Loop<int>().WithoutCaptures(l => { object[] given = [l.Map(v => v)]; object? read = Run(); given[0] = 0; return S.Hold(0); object? Run() => typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given); });
 
+    // S4387. A list of objects in a local holds a pending cell, and reflection runs a method that samples it with the array that ToArray gives.
+    public static Cell<int> Ag91ListOfObjectsGivenByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> given = [l.Map(v => v)]; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given.ToArray()); return S.Hold(0); });
+
+    // S4388. Add puts a pending cell into a list of objects, and reflection runs a method that samples it with the array that ToArray gives.
+    public static Cell<int> Ag91ListAddGivenByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> given = []; given.Add(l.Map(v => v)); object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given.ToArray()); return S.Hold(0); });
+
+    // S4389. Insert puts a pending cell into a list of objects, and reflection runs a method that samples it with the array that ToArray gives.
+    public static Cell<int> Ag91ListInsertGivenByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> given = []; given.Insert(0, l.Map(v => v)); object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given.ToArray()); return S.Hold(0); });
+
+    // S4390. AddRange puts a pending cell into a list of objects, and reflection runs a method that samples it with the array that ToArray gives.
+    public static Cell<int> Ag91ListAddRangeGivenByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> given = []; given.AddRange([l.Map(v => v)]); object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, given.ToArray()); return S.Hold(0); });
+
+    // S4391. An array of objects in a local holds a pending cell. ToList and then ToArray copy it, and reflection runs a method that samples it with the copy.
+    public static Cell<int> Ag91ArrayCopiedByToListAndToArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object[] first = [l.Map(v => v)]; object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, first.ToList().ToArray()); return S.Hold(0); });
+
+    // S4392. Insert puts a plain cell before the pending cell of a list of objects, and the block puts a plain cell into the first element. Reflection runs a method that samples the second with the array that ToArray gives.
+    public static Cell<int> Ag91ListInsertBeforeAPlainCellIsSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> given = [l.Map(v => v)]; given.Insert(0, Plain); given[0] = Plain; object? read = typeof(Ab193Reads).GetMethod(nameof(Ab193Reads.ReadSecond))!.Invoke(null, given.ToArray()); return S.Hold(0); });
+
+    // S4393. A list of objects holds a pending cell that a method of the code gives back as an object. Reflection runs a method that does not sample with the array that ToArray gives. A control.
+    public static Cell<int> Ag91ListOfAnEchoGivenByReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> given = [Ab185Fills.Echo(l.Map(v => v))]; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given.ToArray()); return S.Hold(0); });
+
+    // S4394. The block puts a plain cell into the element of a list of objects that held a pending cell. Reflection runs a method that does not sample with the array that ToArray gives. A control.
+    public static Cell<int> Ag91ListElementSetToAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> given = [l.Map(v => v)]; given[0] = Plain; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given.ToArray()); return S.Hold(0); });
+
+    // S4395. Add puts a plain cell into a list of objects that holds a pending cell, which a method of the code gives back as an object. Reflection runs a method that samples the plain cell. A control.
+    public static Cell<int> Ag91ListAddOfAPlainCellAfterAnEcho() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> given = [Ab185Fills.Echo(l.Map(v => v))]; given.Add(Plain); object? read = typeof(Ab193Reads).GetMethod(nameof(Ab193Reads.ReadSecond))!.Invoke(null, given.ToArray()); return S.Hold(0); });
+
+    // S4396. Add puts a pending cell into a second list. The first list holds a pending cell that a method of the code gives back as an object, and reflection runs a method that does not sample with its array. A control.
+    public static Cell<int> Ag91ListAddIntoASecondList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<object> given = [Ab185Fills.Echo(l.Map(v => v))]; List<object> other = []; other.Add(l.Map(v => v)); object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given.ToArray()); return S.Hold(other.Count); });
+
+    // S4397. A list of the code has an Add of its own, which puts in what a method of the code gives back as an object. The list holds an echo, and its Add gets a pending cell. Reflection runs a method that does not sample with the array that ToArray of the list gives. A control.
+    public static Cell<int> Ag91ListOfTheCodeWithItsOwnAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag91EchoList given = [Ab185Fills.Echo(l.Map(v => v))]; given.Add(l.Map(v => v)); object? kept = typeof(Ag91EchoList).GetMethod(nameof(Ag91EchoList.KeepTwo))!.Invoke(null, given.ToArray()); return S.Hold(0); });
+
+    // S4398. A list of the code has a ToArray of its own with a parameter, which gives what a method of the code gives back as an object. The list holds a pending cell, and reflection runs a method that does not sample with that array. A control.
+    public static Cell<int> Ag91ListOfTheCodeWithItsOwnToArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag91EchoArrayList given = [l.Map(v => v)]; object? kept = typeof(Ab185Arrays).GetMethod(nameof(Ab185Arrays.Keep))!.Invoke(null, given.ToArray(given[0])); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -26657,6 +26705,18 @@ public static class Shapes
         public static int ReadFirst(Cell<int> first, object second) => first.Sample() + (second == null ? 0 : 1);
 
         public static int ReadSecond(object first, Cell<int> second) => second.Sample() + (first == null ? 0 : 1);
+    }
+
+    public sealed class Ag91EchoList : List<object>
+    {
+        public static object KeepTwo(object first, object second) => first == second ? first : second;
+
+        public new void Add(object item) => base.Add(Ab185Fills.Echo(item));
+    }
+
+    public sealed class Ag91EchoArrayList : List<object>
+    {
+        public object[] ToArray(object first) => [Ab185Fills.Echo(first)];
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

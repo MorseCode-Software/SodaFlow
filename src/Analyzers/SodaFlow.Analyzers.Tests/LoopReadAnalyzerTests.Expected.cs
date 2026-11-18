@@ -2854,6 +2854,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab193PendingCellSetAfterTheCallInALoop"] = ["SF1003"],
             ["Ab193PlainCellSetWithACompoundAssignmentOverAPendingCell"] = ["SF1003"],
             ["Ab193PlainCellSetAtAVariableIndex"] = ["SF1003"],
-            ["Ab193NumberSetBeforeALocalFunctionThatRunsFirst"] = ["SF1003"]
+            ["Ab193NumberSetBeforeALocalFunctionThatRunsFirst"] = ["SF1003"],
+            ["Ag91ListOfObjectsGivenByReflection"] = ["SF1003"],
+            ["Ag91ListAddGivenByReflection"] = ["SF1003"],
+            ["Ag91ListInsertGivenByReflection"] = ["SF1003"],
+            ["Ag91ListAddRangeGivenByReflection"] = ["SF1003"],
+            ["Ag91ArrayCopiedByToListAndToArray"] = ["SF1003"],
+            ["Ag91ListInsertBeforeAPlainCellIsSet"] = ["SF1003"]
         };
 }
