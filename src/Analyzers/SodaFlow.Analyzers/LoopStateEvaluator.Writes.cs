@@ -1631,6 +1631,18 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode? turn,
         ExpressionSyntax? from = null)
     {
+        if (owner is MemberAccessExpressionSyntax or IdentifierNameSyntax
+            && this.region.SymbolOf(owner) is IFieldSymbol { Type.IsValueType: true } field)
+        {
+            this.WritesInPlace(
+                owner: owner,
+                field: field,
+                member: member,
+                state: state,
+                replaces: replaces,
+                turn: turn);
+        }
+
         // A write through a name with ref is a write through its location, read at this time.
         ExpressionSyntax? written = owner;
 
@@ -1758,6 +1770,41 @@ internal sealed partial class LoopStateEvaluator
                     .. before.Select(one =>
                         (one.Object, one.Before, After: this.region.Objects.StateOf(one.Object) ?? one.Before))
                 ]);
+    }
+
+    // A field of a value type is a location in the object that holds it. Thus, a write to a member
+    // of that field changes the value in the location, and not a copy of it. The holder gets the
+    // value of the field with the new state of the member. A static field has no holder. Each
+    // other field with no owner in the code is a field of the object that the code is in.
+    private void WritesInPlace(
+        ExpressionSyntax owner,
+        IFieldSymbol field,
+        ISymbol member,
+        LoopState state,
+        bool replaces,
+        SyntaxNode? turn)
+    {
+        if (this.Eval(owner) is not { Members: { } parts } value)
+        {
+            return;
+        }
+
+        LoopState changed = value.WithMembers(parts.With(member: member, state: state));
+        ExpressionSyntax? holder = (owner as MemberAccessExpressionSyntax)?.Expression;
+
+        if (!field.IsStatic && holder is null or ThisExpressionSyntax)
+        {
+            this.SetMember(member: field, state: changed, replaces: replaces);
+        }
+        else
+        {
+            this.SetMemberOf(
+                owner: field.IsStatic ? null : holder,
+                member: field,
+                state: changed,
+                replaces: replaces,
+                turn: turn);
+        }
     }
 
     /// <summary>

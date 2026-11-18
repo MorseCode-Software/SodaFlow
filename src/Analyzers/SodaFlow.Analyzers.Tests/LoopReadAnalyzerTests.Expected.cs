@@ -2819,6 +2819,15 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab202ParameterGetsAnElementAndThenASecondObject"] = ["SF1001"],
             ["Ab202LocalFunctionGetsTheElementAsAnArgument"] = ["SF1001"],
             ["Ab202LocalFunctionReadsThePendingElement"] = ["SF1001"],
-            ["Ab202LocalFunctionInALambdaGetsAnElement"] = ["SF1001"]
+            ["Ab202LocalFunctionInALambdaGetsAnElement"] = ["SF1001"],
+            ["Ag92F6StructFieldWrittenThroughTheElement"] = ["SF1001"],
+            ["Ag92F6StructFieldOfALocal"] = ["SF1001"],
+            ["Ag92F6StaticStructField"] = ["SF1001"],
+            ["Ag92F6StructFieldOfThis"] = ["SF1004"],
+            ["Ag92F6StructFieldOfThisWithNoQualifier"] = ["SF1001"],
+            ["Ag92F6StructFieldInAStructField"] = ["SF1001"],
+            ["Ag92F6StaticStructFieldOfAType"] = ["SF1001"],
+            ["Ag92F6ClassFieldOfALocal"] = ["SF1001"],
+            ["Ag92F6StaticStructFieldWrittenInAMethod"] = ["SF1001"]
         };
 }

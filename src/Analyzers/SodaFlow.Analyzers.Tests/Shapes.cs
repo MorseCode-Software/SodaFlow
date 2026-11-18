@@ -19251,6 +19251,54 @@ public static class Shapes
     public static Cell<int> Ab202LocalFunctionInALambdaGetsAnElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] arr = [new SettableSlot { Share = Plain }]; Action outer = () => { Put(); void Put() { SettableSlot p = arr[0]; p.Share = l.Map(q => q); } }; outer(); return S.Hold(arr[0].Share!.Sample()); });
 
+    // S4335. The block writes a struct with a plain cell into a field of an element, and then a pending cell into the member of that struct through the element.
+    public static Cell<int> Ag92F6StructFieldWrittenThroughTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Boxed[] a = [new Ag92Boxed()]; a[0].Value = new SlotValue { Share = Plain }; a[0].Value.Share = l.Map(v => v); return S.Hold(a[0].Value.Share!.Sample()); });
+
+    // S4336. The same through a local object.
+    public static Cell<int> Ag92F6StructFieldOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Boxed b = new(); b.Value = new SlotValue { Share = Plain }; b.Value.Share = l.Map(v => v); return S.Hold(b.Value.Share!.Sample()); });
+
+    // S4337. The same through a static field of a struct type.
+    public static Cell<int> Ag92F6StaticStructField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Static = new SlotValue { Share = Plain }; Ag92Static.Share = l.Map(v => v); return S.Hold(Ag92Static.Share!.Sample()); });
+
+    // S4338. A method of an object writes a struct with a plain cell into its field, then a pending cell into the member of that struct through this.
+    public static Cell<int> Ag92F6StructFieldOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Boxed b = new(); int got = b.SetThenRead(l.Map(v => v)); return S.Hold(got); });
+
+    // S4339. The same with no this, and the block samples through the object.
+    public static Cell<int> Ag92F6StructFieldOfThisWithNoQualifier() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Boxed b = new(); b.SetWithNoQualifier(l.Map(v => v)); return S.Hold(b.Value.Share!.Sample()); });
+
+    // S4340. A struct field of a struct field of a local object gets a pending cell in its member.
+    public static Cell<int> Ag92F6StructFieldInAStructField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Nested n = new(); n.Outer.Value = new SlotValue { Share = Plain }; n.Outer.Value.Share = l.Map(v => v); return S.Hold(n.Outer.Value.Share!.Sample()); });
+
+    // S4341. The block writes a struct with a pending cell into a field, and then a plain cell into its member. A control.
+    public static Cell<int> Ag92F6StructFieldMemberGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Boxed b = new(); b.Value = new SlotValue { Share = l.Map(v => v) }; b.Value.Share = Plain; return S.Hold(b.Value.Share!.Sample()); });
+
+    // S4342. A local gets a copy of the struct field, and the block writes a pending cell through the copy. A control.
+    public static Cell<int> Ag92F6CopyOfAStructFieldWritten() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Boxed b = new(); b.Value = new SlotValue { Share = Plain }; SlotValue v = b.Value; v.Share = l.Map(v => v); return S.Hold(b.Value.Share!.Sample()); });
+
+    // S4343. The block writes a pending cell into the member of the struct field of a second object. A control.
+    public static Cell<int> Ag92F6StructFieldOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Boxed b = new(); Ag92Boxed c = new(); b.Value = new SlotValue { Share = Plain }; c.Value = new SlotValue { Share = Plain }; c.Value.Share = l.Map(v => v); return S.Hold(b.Value.Share!.Sample()); });
+
+    // S4344. The same through a static field of a struct type, named through its type.
+    public static Cell<int> Ag92F6StaticStructFieldOfAType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Shapes.Ag92StaticByType = new SlotValue { Share = Plain }; Shapes.Ag92StaticByType.Share = l.Map(v => v); return S.Hold(Shapes.Ag92StaticByType.Share!.Sample()); });
+
+    // S4345. A field of a class type of a local object gets an object with a plain cell, and then a pending cell into its member. A control.
+    public static Cell<int> Ag92F6ClassFieldOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Boxing b = new(); b.Slot = new SettableSlot { Share = Plain }; b.Slot.Share = l.Map(v => v); return S.Hold(b.Slot.Share!.Sample()); });
+
+    // S4346. A method of an object writes a struct with a plain cell into a static field with no owner in the code, and then a pending cell into its member. The block samples through the field.
+    public static Cell<int> Ag92F6StaticStructFieldWrittenInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new Ag92StaticWriter().Write(l.Map(v => v)); return S.Hold(Ag92StaticOfAMethod.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -26335,6 +26383,55 @@ public static class Shapes
     private static SettableSlot Ab201ClassField = new();
 
     private static readonly SettableSlot[] Ab201Unseen = [new() { Share = Plain }, new() { Share = Plain }];
+
+    private static SlotValue Ag92Static;
+
+    public sealed class Ag92Boxed
+    {
+        public SlotValue Value;
+
+        public int SetThenRead(Cell<int> pending)
+        {
+            this.Value = new SlotValue { Share = Plain };
+            this.Value.Share = pending;
+
+            return this.Value.Share!.Sample();
+        }
+
+        public void SetWithNoQualifier(Cell<int> pending)
+        {
+            Value = new SlotValue { Share = Plain };
+            Value.Share = pending;
+        }
+    }
+
+    public sealed class Ag92Nested
+    {
+        public Ag92Holder Outer;
+    }
+
+    public struct Ag92Holder
+    {
+        public SlotValue Value;
+    }
+
+    public static SlotValue Ag92StaticByType;
+
+    public sealed class Ag92Boxing
+    {
+        public SettableSlot? Slot;
+    }
+
+    private static SlotValue Ag92StaticOfAMethod;
+
+    public sealed class Ag92StaticWriter
+    {
+        public void Write(Cell<int> pending)
+        {
+            Ag92StaticOfAMethod = new SlotValue { Share = Plain };
+            Ag92StaticOfAMethod.Share = pending;
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
