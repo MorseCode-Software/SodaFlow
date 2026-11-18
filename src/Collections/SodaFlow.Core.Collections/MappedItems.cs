@@ -74,9 +74,14 @@ public sealed class MappedItems<TResult> : IDisposable
     ///     </para>
     ///     <para>
     ///         A call in a callback, such as a listener or an eviction callback, makes
-    ///         <see cref="Items" /> empty in a transaction after the current one. The
-    ///         same occurs when the transaction of the call fails. Until then,
+    ///         <see cref="Items" /> empty in a transaction after the current one. No
+    ///         transaction on a different thread runs between the two. Until then,
     ///         <see cref="Items" /> keeps the objects that this call released.
+    ///     </para>
+    ///     <para>
+    ///         When the transaction of the call fails, <see cref="Items" /> becomes
+    ///         empty in a transaction after the failure. A transaction on a different
+    ///         thread can run first.
     ///     </para>
     ///     <para>
     ///         The call runs in the transaction that is open, or in a new one. Thus,

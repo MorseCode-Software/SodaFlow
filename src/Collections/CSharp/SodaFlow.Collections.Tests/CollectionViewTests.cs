@@ -2316,6 +2316,58 @@ public sealed class CollectionViewTests
         await Assert.That(mapped.Items.Sample()).IsEmpty();
     }
 
+    // A disposal in a callback empties the items in a posted action, before the transaction frees the
+    // lock. Before, the send waited for the release of the lock. A different thread that waited for
+    // the lock then read the released rows about one time in four. Thus, the test does this many
+    // times, and a miss is improbable.
+    [Test]
+    public async Task ADisposalInACallbackEmptiesTheItemsBeforeATransactionOnADifferentThread()
+    {
+        const int rounds = 50;
+        List<int> countsThatTheReaderSaw = [];
+
+        for (int round = 0; round < rounds; round++)
+        {
+            StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+                Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+            ReactiveCollection<int, ItemIdentity, ItemState> collection =
+                Create(edits: edits, TestUtil.Item(number: 1, name: "one", score: 10));
+
+            MappedItems<string> mapped = collection.Map(project: static key => "row " + key);
+
+            _ = mapped.Items.Sample();
+
+            int seen = -1;
+
+            Thread reader =
+                new(() => seen = Transaction.Run(() => mapped.Items.Sample().Count)) { IsBackground = true };
+
+            IListener listener =
+                collection.KeysCell.Updates()
+                    .ListenStrong(_ =>
+                    {
+                        mapped.Dispose();
+                        reader.Start();
+
+                        // The reader waits for the lock that this transaction holds.
+                        SpinWait.SpinUntil(
+                            condition: () => (reader.ThreadState & ThreadState.WaitSleepJoin) != 0,
+                            timeout: Watchdog);
+                    });
+
+            edits.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
+
+            await Assert.That(reader.Join(Watchdog)).IsTrue();
+
+            listener.Unlisten();
+            countsThatTheReaderSaw.Add(seen);
+        }
+
+        await Assert.That(countsThatTheReaderSaw.Distinct())
+            .IsEquivalentTo(expected: [0], ordering: CollectionOrdering.Matching);
+    }
+
     // Before, the disposal released the rows with no lock. Thus, a transaction on a different thread
     // can change the same caches at the same time. Here a transaction on a different thread holds the
     // lock, and the disposal must wait for it.

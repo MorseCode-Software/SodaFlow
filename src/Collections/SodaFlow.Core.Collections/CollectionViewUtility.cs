@@ -781,14 +781,18 @@ internal static class CollectionViewUtility
         // release wins over a change of the keys in it.
         //
         // In a callback, the sink refuses the send, and a caller can dispose a projection in a listener
-        // or in an eviction callback. Thus, the send occurs after the transaction, as in the disposal
-        // of an asynchronous map. Until then, the items keep the released objects. Before, a stream
-        // that was not a sink got the send directly. In a callback, that put a second firing of the
-        // merge into the transaction. A cell that read the items and a different cell then got an
+        // or in an eviction callback. Thus, the send occurs in a posted action. Until then, the items
+        // keep the released objects. The post runs after the commit, while the transaction holds the
+        // lock. Thus, no transaction on a different thread can read the items before the send. A send
+        // after the release of the lock let a different thread read them first. Before that, a
+        // stream that was not a sink got the send directly. In a callback, that put a second firing of
+        // the merge into the transaction. A cell that read the items and a different cell then got an
         // earlier value of the different cell.
         //
         // A transaction that fails discards the send, but the cache stays released. Thus, the discard
-        // sends again after that transaction.
+        // sends again after that transaction. A failure also drops a post and calls its failure
+        // action, which does the same. After a failure, the transaction cannot receive a send. Thus,
+        // that send must wait for the release of the lock.
         return new MappedItems<TResult>(
             items: items,
             dispose: () =>
@@ -804,7 +808,9 @@ internal static class CollectionViewUtility
 
                         if (trans.InCallback > 0)
                         {
-                            SendAfterTheTransaction(releases);
+                            TransactionInternal.PostImpl(
+                                action: () => releases.SendImpl(UnitInternal.Value),
+                                onFailure: _ => SendAfterTheTransaction(releases));
 
                             return UnitInternal.Value;
                         }
