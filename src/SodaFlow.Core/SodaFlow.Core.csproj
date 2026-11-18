@@ -19,6 +19,7 @@
         <AssemblyName>SodaFlow.Core</AssemblyName>
         <RootNamespace>SodaFlow</RootNamespace>
         <PackageIcon>SodaFlow.png</PackageIcon>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <!--
             This package ships as SodaFlow.Core and had no documentation file at all. The types a
             consumer actually holds through the C# and F# wrappers - Stream, Cell, Behavior,
@@ -94,6 +95,7 @@
         <None Include="..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
             <Link>SodaFlow.png</Link>
         </None>
+        <None Include="README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
     <ItemGroup>

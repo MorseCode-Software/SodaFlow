@@ -13,6 +13,7 @@
         <Title>SodaFlow Collections for F#</Title>
         <Description>SodaFlow Reactive Collections library for F#.</Description>
         <PackageIcon>SodaFlow.png</PackageIcon>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -55,6 +56,7 @@
         <None Include="..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
             <Link>SodaFlow.png</Link>
         </None>
+        <None Include="README.md" Pack="true" PackagePath="\"/>
         <None Include="PackageReleaseNotes.md"/>
     </ItemGroup>
 

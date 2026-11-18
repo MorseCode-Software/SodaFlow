@@ -17,6 +17,7 @@
         <Title>SodaFlow Collections for C#</Title>
         <Description>SodaFlow Reactive Collections library for C#.</Description>
         <PackageIcon>SodaFlow.png</PackageIcon>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <AssemblyName>SodaFlow.Collections</AssemblyName>
         <RootNamespace>SodaFlow.Collections</RootNamespace>
         <Nullable>enable</Nullable>
@@ -55,6 +56,7 @@
         <None Include="..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
             <Link>SodaFlow.png</Link>
         </None>
+        <None Include="README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
     <ItemGroup>
