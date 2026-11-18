@@ -222,6 +222,9 @@ project that references `SodaFlow` runs it, with no step of its own. To remove i
 `ExcludeAssets="analyzers"` on that reference. The analyzer does not check F#, because a Roslyn
 analyzer runs in the C# compiler only. In F#, the exception at run time is the check.
 
+The same analyzer also has `SF2001`, a rule for a listener that nothing holds. [Listener
+lifetimes](lifetimes.md#the-mistake-that-fails-silently) describes it.
+
 The analyzer reads the code that runs while a loop is open: the function that you give a loop
 block or a forward reference. That function can be a lambda, an anonymous method, or a method of
 your project given by name. When that code calls your own methods, constructors, local functions,

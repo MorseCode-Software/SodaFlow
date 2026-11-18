@@ -245,7 +245,6 @@ internal static class OperatorTable
             "ListenOnce",
             "ListenOnceAsync",
             "Send",
-            "Unlisten",
             "Loop",
             "Fold",
             "FoldByIdentity",
@@ -718,7 +717,7 @@ internal static class OperatorTable
             "Fold" or "FoldByIdentity" => OperatorRule.FoldCollection,
             "CreateBindableAction" => OperatorRule.BindableAction,
             "Create" when method.ContainingType.Name == "ReactiveCollection" => OperatorRule.CollectionCreate,
-            "Defer" or "Split" or "At" or "Post" or "Listen" or "ListenOnce" or "ListenOnceAsync" or "Send" or "Unlisten" or "Loop" => OperatorRule.Break,
+            "Defer" or "Split" or "At" or "Post" or "Listen" or "ListenOnce" or "ListenOnceAsync" or "Send" or "Loop" => OperatorRule.Break,
             _ => OperatorRule.Default
         };
     }

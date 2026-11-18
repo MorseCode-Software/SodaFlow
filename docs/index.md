@@ -22,7 +22,7 @@ IListener l = c.Listen(Console.WriteLine);
 s.Send(2);   // prints 2
 s.Send(9);   // prints 9
 
-l.Unlisten();
+l.Dispose();
 ```
 
 SodaFlow is based on [Sodium](https://github.com/SodiumFRP/sodium), the Functional Reactive

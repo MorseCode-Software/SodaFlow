@@ -12,8 +12,8 @@ that never die leak, also silently. Neither throws.
 
 `Listen` returns an `IListener`. The handler runs for as long as you hold that listener, and no
 longer. The listener keeps the graph that it observes in memory, and nothing but your reference
-keeps the listener. `IListener` is an `IDisposable`: `Unlisten()` and `Dispose()` do the same
-thing, and each stops the handler immediately.
+keeps the listener. `IListener` is an `IDisposable`, and `Dispose()` stops the handler immediately.
+It takes the place of `unlisten` in Sodium. In F#, `Listener.unlisten` calls it.
 
 Hold the listener in a field of the object that owns the subscription:
 
@@ -42,9 +42,11 @@ listener until the firing that you wait for.
 > the result. Code that calls `Listen` and discards the result compiles, and it is
 > [the mistake that fails silently](#the-mistake-that-fails-silently). Rename `IWeakListener`
 > to `IListener`, and the weak and strong forms of `Listener.Empty`, `CreateComposite`, and
-> `Append` to the plain ones. In F#, the same applies to `listenStrong`, `listenOnceStrong`, and
-> their `S` and `C` aliases, and the `WeakListener` and `StrongListener` modules are now
-> `Listener`.
+> `Append` to the plain ones. `Unlisten()` is gone also, because `Dispose()` does the same thing.
+> Change each call to `Dispose()`, and a type that implements `IListener` renames its `Unlisten`.
+> In F#, the same applies to `listenStrong`, `listenOnceStrong`, and their `S` and `C` aliases,
+> and the `WeakListener` and `StrongListener` modules are now `Listener`. `Listener.unlisten`
+> and `unlistenL` stay, and they call `Dispose()`.
 
 ## Waiting for one firing
 
@@ -90,6 +92,34 @@ test usually ends before a collection, so it passes. A long session does not.
 Hold the listener for exactly as long as you want the subscription to live. `ListenOnce` is the
 same method with a shorter lifetime: hold its listener until the firing arrives, or call
 `ListenOnceAsync`.
+
+In C#, the analyzer in the `SodaFlow` package reports this mistake as `SF2001`, a warning. It
+reports a call to `Listen` or `ListenOnce` whose result is dropped: a statement of the call alone,
+a discard, or a local that no later code reads. A local that later code reads, a field, a return
+value, an argument, an element of a collection, and a local that a lambda captures all count as
+held. So does a `using` declaration, which holds the listener to the end of its block. The rule
+sees no further than that: where the listener goes into an object, a list, or a
+lambda that nothing holds, it stops at a collection all the same, and the rule does not report it.
+
+The IDE offers two fixes for `SF2001`. Choose the one whose lifetime is right for the handler:
+
+- **Keep the listener in a field.** The fix adds a private field and puts the listener in it, so
+  the handler runs as long as the object lives. The IDE offers it in an instance member of a class
+  or a record class. A static field holds the listener for the life of the process, thus the IDE
+  does not offer the fix in a static member.
+- **Hold the listener to the end of the block with `using`.** The fix makes a `using` declaration,
+  so the handler runs to the end of the block and then stops. The IDE offers it for a statement in
+  a block, in C# 8 or later.
+
+A test that drops a listener on purpose says so with a pragma and a reason:
+
+```csharp
+#pragma warning disable SF2001 // The test proves that a dropped listener stops.
+s.Listen(seen.Add);
+#pragma warning restore SF2001
+```
+
+F# has no analyzer in the build, so in F# this stays a matter of care.
 
 ## When the framework gives you no teardown hook
 

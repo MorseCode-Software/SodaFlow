@@ -28,7 +28,7 @@ public sealed class StreamTests
         List<int> @out = [];
         IListener l = s.Listen(@out.Add);
         s.Send(5);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
         s.Send(6);
         await Assert.That(@out).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
@@ -194,7 +194,7 @@ public sealed class StreamTests
         IListener l = m.Listen(@out.Add);
         s.Send(5);
         s.Send(3);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ["7", "5"], ordering: CollectionOrdering.Matching);
     }
 
@@ -208,7 +208,7 @@ public sealed class StreamTests
         s1.Send(7);
         s2.Send(9);
         s1.Send(8);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [7, 9, 8], ordering: CollectionOrdering.Matching);
     }
 
@@ -255,7 +255,7 @@ public sealed class StreamTests
             s1.Send(60);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [60, 9, 90, 90, 90], ordering: CollectionOrdering.Matching);
     }
 
@@ -268,7 +268,7 @@ public sealed class StreamTests
         IListener l = s.OrElse(s2).Listen(@out.Add);
         s.Send(7);
         s.Send(9);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [7, 9], ordering: CollectionOrdering.Matching);
     }
 
@@ -281,7 +281,7 @@ public sealed class StreamTests
         IListener l = s2.OrElse(s).Listen(@out.Add);
         s.Send(7);
         s.Send(9);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [14, 18], ordering: CollectionOrdering.Matching);
     }
 
@@ -295,7 +295,7 @@ public sealed class StreamTests
         s1.Send(7);
         s2.Send(9);
         s1.Send(8);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [7, 9, 8], ordering: CollectionOrdering.Matching);
     }
 
@@ -328,7 +328,7 @@ public sealed class StreamTests
         });
 
         b.Send("b");
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: ["a,b,c", "a,c", "b"], ordering: CollectionOrdering.Matching);
     }
@@ -342,7 +342,7 @@ public sealed class StreamTests
         IListener l = s.Merge(s2: s2, f: static (x, y) => x + y).Listen(@out.Add);
         s.Send(7);
         s.Send(9);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [21, 27], ordering: CollectionOrdering.Matching);
     }
 
@@ -364,7 +364,7 @@ public sealed class StreamTests
             s.Send(40);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 48], ordering: CollectionOrdering.Matching);
     }
 
@@ -393,7 +393,7 @@ public sealed class StreamTests
             s.Send(10);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [15, 40], ordering: CollectionOrdering.Matching);
     }
 
@@ -406,7 +406,7 @@ public sealed class StreamTests
         s.Send('H');
         s.Send('o');
         s.Send('I');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ['H', 'I'], ordering: CollectionOrdering.Matching);
     }
 
@@ -421,7 +421,7 @@ public sealed class StreamTests
         s.Send(Maybe.Some("peach"));
         s.Send(Maybe.None);
         s.Send(Maybe.Some("pear"));
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: ["tomato", "peach", "pear"], ordering: CollectionOrdering.Matching);
@@ -442,7 +442,7 @@ public sealed class StreamTests
         s.Send("2");
         s.Send(string.Empty);
         s.Send("3");
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
@@ -462,8 +462,8 @@ public sealed class StreamTests
         s.Send("tomato");
         s.Send("2");
 
-        l1.Unlisten();
-        l2.Unlisten();
+        l1.Dispose();
+        l2.Dispose();
 
         await Assert.That(chosen).IsEquivalentTo(expected: mapped, ordering: CollectionOrdering.Matching);
         await Assert.That(chosen).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
@@ -477,7 +477,7 @@ public sealed class StreamTests
         IListener l = s.Choose(static _ => Maybe<int>.None).Listen(@out.Add);
         s.Send("1");
         s.Send("2");
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
@@ -504,9 +504,9 @@ public sealed class StreamTests
         IListener l3 = sc.Listen(out3.Add);
         sa.Send(2);
         sa.Send(52);
-        l3.Unlisten();
-        l2.Unlisten();
-        l.Unlisten();
+        l3.Dispose();
+        l2.Dispose();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
         await Assert.That(out2).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
         await Assert.That(out3).IsEquivalentTo(expected: [2, 10], ordering: CollectionOrdering.Matching);
@@ -535,9 +535,9 @@ public sealed class StreamTests
         IListener l3 = cc.Listen(out3.Add);
         ca.Send(2);
         ca.Send(52);
-        l3.Unlisten();
-        l2.Unlisten();
-        l.Unlisten();
+        l3.Dispose();
+        l2.Dispose();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 0, 5], ordering: CollectionOrdering.Matching);
         await Assert.That(out2).IsEquivalentTo(expected: [2, 0, 5], ordering: CollectionOrdering.Matching);
         await Assert.That(out3).IsEquivalentTo(expected: [4, 0, 10], ordering: CollectionOrdering.Matching);
@@ -555,7 +555,7 @@ public sealed class StreamTests
         sc.Send('O');
         cGate.Send(true);
         sc.Send('I');
-        l.Unlisten();
+        l.Dispose();
 
         // char?[] rather than char[]: this collection holds char?, and TUnit compares element
         // types where NUnit coerced them.
@@ -614,7 +614,7 @@ public sealed class StreamTests
         s.Send(4);
         s.Send(2);
         s.Send(2);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(
@@ -635,7 +635,7 @@ public sealed class StreamTests
         s.Send(4);
         s.Send(2);
         s.Send(2);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [2, 4, 2, 4, 2], ordering: CollectionOrdering.Matching);
     }
 
@@ -675,7 +675,7 @@ public sealed class StreamTests
 
         b.Send(4);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [2, 3, 4], ordering: CollectionOrdering.Matching);
     }
@@ -701,7 +701,7 @@ public sealed class StreamTests
         sa.Send(1);
         sa.Send(2);
         sa.Send(3);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: [115, 122, 125, 127, 130], ordering: CollectionOrdering.Matching);
@@ -719,7 +719,7 @@ public sealed class StreamTests
         sa.Send(1);
         sa.Send(2);
         sa.Send(3);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: [100, 105, 112, 113, 115, 118], ordering: CollectionOrdering.Matching);
@@ -762,7 +762,7 @@ public sealed class StreamTests
             b.Send(1);
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out)
             .IsEquivalentTo(expected: ["3/1", "13/2", "15/3"], ordering: CollectionOrdering.Matching);
@@ -793,7 +793,7 @@ public sealed class StreamTests
             b.Send(1);
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [0, 3, 13, 15], ordering: CollectionOrdering.Matching);
     }
@@ -807,7 +807,7 @@ public sealed class StreamTests
         s.Send('A');
         s.Send('B');
         s.Send('C');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ['A'], ordering: CollectionOrdering.Matching);
     }
 
@@ -821,7 +821,7 @@ public sealed class StreamTests
         s.Send('C');
         s.Send('B');
         s.Send('A');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [' ', 'C', 'B', 'A'], ordering: CollectionOrdering.Matching);
     }
 
@@ -835,7 +835,7 @@ public sealed class StreamTests
         s.Send('C');
         s.Send('B');
         s.Send('A');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [' ', 'C', 'B'], ordering: CollectionOrdering.Matching);
     }
 
@@ -849,7 +849,7 @@ public sealed class StreamTests
         s.Send('C');
         s.Send('B');
         s.Send('A');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ['C', 'B', 'A'], ordering: CollectionOrdering.Matching);
     }
 
@@ -863,7 +863,7 @@ public sealed class StreamTests
         s.Send('C');
         s.Send('B');
         s.Send('A');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ['C', 'B', 'A'], ordering: CollectionOrdering.Matching);
     }
 
@@ -901,8 +901,8 @@ public sealed class StreamTests
         // Only the stream fires. This gives the current value of the cell.
         c1.Send(4);
 
-        l1.Unlisten();
-        l2.Unlisten();
+        l1.Dispose();
+        l2.Dispose();
 
         await Assert.That(snapshot)
             .IsEquivalentTo(expected: ["2,10", "3,20", "4,40"], ordering: CollectionOrdering.Matching);
@@ -952,8 +952,8 @@ public sealed class StreamTests
             });
         }
 
-        l1.Unlisten();
-        l2.Unlisten();
+        l1.Dispose();
+        l2.Dispose();
 
         await Assert.That(actual.Count).IsGreaterThan(0);
         await Assert.That(actual).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
@@ -1100,7 +1100,7 @@ public sealed class StreamTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         await Assert.That(lift5.Count).IsGreaterThan(0);
@@ -1145,7 +1145,7 @@ public sealed class StreamTests
         {
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         List<(Maybe<int>, Maybe<string>)> expected =
         [
@@ -1236,7 +1236,7 @@ public sealed class StreamTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         await Assert.That(expected4.Count).IsGreaterThan(0);
@@ -1560,7 +1560,7 @@ public sealed class StreamTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         foreach ((string name, List<string> actual, List<string> expected) in checks)
@@ -1716,7 +1716,7 @@ public sealed class StreamTests
 
         foreach (IListener listener in listeners)
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         foreach ((string name, List<string> actual, List<string> expected) in checks)
@@ -1770,7 +1770,7 @@ public sealed class StreamTests
             c2.Send(20);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [11, 22], ordering: CollectionOrdering.Matching);
     }
 
@@ -1789,7 +1789,7 @@ public sealed class StreamTests
         });
 
         s.Send(2);
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [101, 102], ordering: CollectionOrdering.Matching);
     }
 
@@ -1819,7 +1819,7 @@ public sealed class StreamTests
             c1.Send(3);
         });
 
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: [220, 320], ordering: CollectionOrdering.Matching);
     }
 
@@ -1909,7 +1909,7 @@ public sealed class StreamTests
 
             s.Send(1);
 
-            l.Unlisten();
+            l.Dispose();
 
             s.Send(2);
         }))();
@@ -1934,7 +1934,7 @@ public sealed class StreamTests
 
             s.Send(1);
 
-            l.Unlisten();
+            l.Dispose();
 
             s.Send(2);
         }))();
@@ -1959,12 +1959,12 @@ public sealed class StreamTests
 
             s.Send(1);
 
-            l.Unlisten();
-            l.Unlisten();
+            l.Dispose();
+            l.Dispose();
 
             s.Send(2);
 
-            l.Unlisten();
+            l.Dispose();
         }))();
 
         s.Send(3);
@@ -1987,12 +1987,12 @@ public sealed class StreamTests
 
             s.Send(1);
 
-            l.Unlisten();
-            l.Unlisten();
+            l.Dispose();
+            l.Dispose();
 
             s.Send(2);
 
-            l.Unlisten();
+            l.Dispose();
         }))();
 
         s.Send(3);
@@ -2010,7 +2010,7 @@ public sealed class StreamTests
         s.Send('A');
         s.Send('B');
         s.Send('C');
-        l.Unlisten();
+        l.Dispose();
         await Assert.That(@out).IsEquivalentTo(expected: ['A'], ordering: CollectionOrdering.Matching);
     }
 
@@ -2020,7 +2020,7 @@ public sealed class StreamTests
         StreamSink<char> s = Stream.CreateSink<char>();
         List<char> @out = [];
         IListener l = s.ListenOnce(@out.Add);
-        l.Unlisten();
+        l.Dispose();
         s.Send('A');
         await Assert.That(@out).IsEmpty();
     }
@@ -2391,8 +2391,8 @@ public sealed class StreamTests
         a.Send(3);
         await Task.Delay(2500);
 
-        l2.Unlisten();
-        l.Unlisten();
+        l2.Dispose();
+        l.Dispose();
     }
 
     [Test]
@@ -2414,7 +2414,7 @@ public sealed class StreamTests
         streamSink.Send(4);
         streamSink.Send(7);
         streamSink.Send(8);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [3, 9, 18, 28], ordering: CollectionOrdering.Matching);
     }
@@ -2432,7 +2432,7 @@ public sealed class StreamTests
         List<int> @out = [];
         IListener l = stream.Listen(@out.Add);
         streamSink.Send(2);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [3, 4, 5], ordering: CollectionOrdering.Matching);
     }
@@ -2458,7 +2458,7 @@ public sealed class StreamTests
             List<int> @out = [];
             IListener l = stream.Listen(@out.Add);
             s.Send(0);
-            l.Unlisten();
+            l.Dispose();
 
             await Assert.That(@out)
                 .IsEquivalentTo(expected: [depth], ordering: CollectionOrdering.Matching)
@@ -2469,7 +2469,7 @@ public sealed class StreamTests
         List<int> shallowOut = [];
         IListener shallowListener = shallowSink.Map(static v => v + 1).Listen(shallowOut.Add);
         shallowSink.Send(1);
-        shallowListener.Unlisten();
+        shallowListener.Dispose();
 
         await Assert.That(shallowOut).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
     }

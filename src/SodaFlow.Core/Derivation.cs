@@ -183,10 +183,7 @@ internal sealed class MapDerivation<TSource, T> : IDerivation<T>, IStreamAction<
         this.core.Arrive(trans: trans, value: this.f(value));
 
     /// <inheritdoc />
-    public void Unlisten() => this.target.Unlisten();
-
-    /// <inheritdoc />
-    public void Dispose() => this.Unlisten();
+    public void Dispose() => this.target.Unlisten();
 
     /// <inheritdoc />
     public IListenerWithWeakReference GetListenerWithWeakReference() => this.target;

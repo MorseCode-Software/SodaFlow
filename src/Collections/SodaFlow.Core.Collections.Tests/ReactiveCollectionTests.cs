@@ -87,8 +87,8 @@ public sealed class ReactiveCollectionTests
         edits.Send(TestUtil.Score(key: 1, score: 11));
         edits.Send(TestUtil.Remove(2));
 
-        shapeListener.Unlisten();
-        snapshotListener.Unlisten();
+        shapeListener.Dispose();
+        snapshotListener.Dispose();
 
         // The update is not structural, thus only the two structural edits come to the shape cell,
         // and the three edits come to the snapshot.
@@ -114,7 +114,7 @@ public sealed class ReactiveCollectionTests
         // A removal of a key that the collection does not have resolves to no change.
         edits.Send(TestUtil.Remove(99));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(fired).IsEmpty();
     }
@@ -202,7 +202,7 @@ public sealed class ReactiveCollectionTests
             updates.Send(TestUtil.Score(key: 1, score: 11));
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(changes.Count).IsEqualTo(1);
         await Assert.That(changes[0].After.Count).IsEqualTo(2);
@@ -279,7 +279,7 @@ public sealed class ReactiveCollectionTests
 
         edits.Send(TestUtil.Remove(1));
 
-        l.Unlisten();
+        l.Dispose();
 
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
@@ -384,7 +384,7 @@ public sealed class ReactiveCollectionTests
 
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
-        l.Unlisten();
+        l.Dispose();
 
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
@@ -420,7 +420,7 @@ public sealed class ReactiveCollectionTests
         edits.Send(TestUtil.Score(key: 1, score: 20));
         edits.Send(TestUtil.Score(key: 1, score: 30));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(changes.Count).IsEqualTo(2);
 

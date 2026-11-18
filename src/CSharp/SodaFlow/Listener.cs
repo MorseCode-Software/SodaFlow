@@ -17,7 +17,7 @@ public static class Listener
 {
     /// <summary>
     ///     A listener which is not listening to anything, and whose
-    ///     <see cref="IListener.Unlisten" /> does nothing.
+    ///     <see cref="System.IDisposable.Dispose" /> does nothing.
     /// </summary>
     /// <remarks>
     ///     Useful as the identity for <see cref="Append" />, and as the result of a
@@ -26,11 +26,11 @@ public static class Listener
     public static readonly IListener Empty = ListenerInternal.EmptyImpl;
 
     /// <summary>
-    ///     Combines some listeners into one which unlistens all of them.
+    ///     Combines some listeners into one which stops all of them.
     /// </summary>
     /// <param name="listeners">The listeners to put together.</param>
     /// <returns>
-    ///     A listener whose <see cref="IListener.Unlisten" /> unlistens each listener
+    ///     A listener whose <see cref="System.IDisposable.Dispose" /> stops each listener
     ///     in <paramref name="listeners" />.
     /// </returns>
     /// <remarks>
@@ -42,11 +42,11 @@ public static class Listener
         ListenerInternal.CreateCompositeImpl(listeners);
 
     /// <summary>
-    ///     Combines two listeners into one which unlistens the two.
+    ///     Combines two listeners into one which stops the two.
     /// </summary>
     /// <param name="listener1">The first listener.</param>
     /// <param name="listener2">The second listener.</param>
-    /// <returns>A listener which unlistens the two given listeners.</returns>
+    /// <returns>A listener which stops the two given listeners.</returns>
     /// <remarks>
     ///     A convenience over <see cref="CreateComposite" /> for two listeners.
     /// </remarks>

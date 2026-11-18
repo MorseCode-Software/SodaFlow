@@ -523,7 +523,7 @@ public sealed class DenotationalSemanticsTests
         }
         finally
         {
-            l?.Unlisten();
+            l?.Dispose();
         }
 
         return @out;

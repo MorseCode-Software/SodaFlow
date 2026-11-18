@@ -137,7 +137,7 @@ public static class CellExtensionMethods
     /// <summary>
     ///     Listen for updates to the value of this cell. The listener from this call
     ///     listens while the caller keeps it. A call to
-    ///     <see cref="IListener.Unlisten" /> or a disposal stops the listener, and the
+    ///     <see cref="IDisposable.Dispose" /> stops the listener, and the
     ///     listener also stops when a GC collects it. This is an OPERATIONAL mechanism
     ///     for interfacing between the world of I/O and FRP.
     /// </summary>
@@ -146,8 +146,7 @@ public static class CellExtensionMethods
     /// <param name="handler">The handler to run with each value.</param>
     /// <returns>
     ///     An <see cref="IListener" />. Keep it for as long as the handler must run.
-    ///     A call to its <see cref="IListener.Unlisten" /> or a disposal of it stops
-    ///     the listener.
+    ///     A call to its <see cref="IDisposable.Dispose" /> stops the listener.
     /// </returns>
     /// <remarks>
     ///     <para>

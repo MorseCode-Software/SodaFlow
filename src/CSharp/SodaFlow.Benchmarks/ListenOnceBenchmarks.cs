@@ -40,22 +40,22 @@ public class ListenOnceBenchmarks
     /// <summary>
     ///     Attaches a plain listener and removes it.
     /// </summary>
-    [Benchmark(Baseline = true, Description = "Listen, attach and Unlisten")]
-    public void Listen() => this.sink.Listen(Handler).Unlisten();
+    [Benchmark(Baseline = true, Description = "Listen, attach and Dispose")]
+    public void Listen() => this.sink.Listen(Handler).Dispose();
 
     /// <summary>
     ///     Attaches a one-shot listener and removes it before it fires.
     /// </summary>
-    [Benchmark(Description = "ListenOnce, attach and Unlisten")]
-    public void ListenOnce() => this.sink.ListenOnce(Handler).Unlisten();
+    [Benchmark(Description = "ListenOnce, attach and Dispose")]
+    public void ListenOnce() => this.sink.ListenOnce(Handler).Dispose();
 
     /// <summary>
     ///     Attaches a one-shot listener in an open transaction, which the listener
     ///     then uses.
     /// </summary>
-    [Benchmark(Description = "ListenOnce in a transaction, attach and Unlisten")]
+    [Benchmark(Description = "ListenOnce in a transaction, attach and Dispose")]
     public void ListenOnceInATransaction() =>
-        Transaction.RunVoid(() => this.sink.ListenOnce(Handler).Unlisten());
+        Transaction.RunVoid(() => this.sink.ListenOnce(Handler).Dispose());
 
     /// <summary>
     ///     Attaches a one-shot listener and sends one value, which removes it.

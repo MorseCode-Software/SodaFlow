@@ -202,7 +202,7 @@ public sealed class KeyEqualityComparerTests
         edits.Send(Score(key: "abc", score: 2));
         edits.Send(CollectionEdit<string, NamedIdentity, NamedState>.Remove("aBc"));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(newStatesHasCanonicalKey)
             .IsEquivalentTo(expected: [true, false], ordering: CollectionOrdering.Matching);
@@ -242,7 +242,7 @@ public sealed class KeyEqualityComparerTests
 
         edits.Send(Score(key: "abc", score: 2));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(newStatesHasCanonicalKey)
             .IsEquivalentTo(expected: [true], ordering: CollectionOrdering.Matching);
@@ -309,7 +309,7 @@ public sealed class KeyEqualityComparerTests
 
         edits.Send(Score(key: "AbC", score: 2));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(scores).IsEquivalentTo(expected: [1, 2], ordering: CollectionOrdering.Matching);
     }

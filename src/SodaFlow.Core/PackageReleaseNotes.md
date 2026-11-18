@@ -9,7 +9,7 @@ each value, however many cells start from the sample, and runs again after a tra
 pure and must not send. A sample that forces itself, which a loop that is not closed can cause, now throws an
 InvalidOperationException whose message says so; before, Lazy<T> reported a ValueFactory that accessed its own Value.
 
-BREAKING: IListener has one member, Unlisten. GetListenerWithWeakReference is gone from it, and the
+BREAKING: GetListenerWithWeakReference is gone from IListener, and the
 IListenerWithWeakReference that it returned is internal. The weak view lets the library stop the listeners attached to a
 stream once the stream is collected, without keeping the stream alive to do so. That is the library's own work, and a
 caller that implemented IListener, as the composite factories invite, had to write a method whose contract was the
@@ -17,13 +17,15 @@ library's. Every listener the library makes still has its weak view, now behind 
 attaches only that interface, so the compiler checks that each attached listener has one.
 
 BREAKING: the strong listener is removed, and one kind of listener is left. IStrongListener and IWeakListener are gone,
-and IListener is an IDisposable whose Dispose does what Unlisten does. A listener listens while a caller holds it, it
+and IListener is an IDisposable. Its Unlisten is gone, because Dispose did the same thing. Thus, a call to Unlisten
+changes to Dispose. A listener listens while a caller holds it, it
 keeps the stream that it monitors in memory, and the garbage collector removes it after no caller holds it.
 ListenStrongImpl and ListenOnceStrongImpl, which the language packages gave as ListenStrong and ListenOnceStrong, are
 removed with the strong and weak composite and empty listeners. ListenImpl, ListenOnceImpl, the composite, and the empty
 listener give an IListener. A strong listener that a caller dropped continued for as long as a source of its stream
 lived, and nothing could stop it after that. A caller that used one must keep its listener, in a field or in a using
-statement, and a type that implements IListener must add Dispose. The keep-alive sets stay for the one-shot listener of
+statement, and a type that implements IListener renames its Unlisten to Dispose. The keep-alive sets stay for the
+one-shot listener of
 ListenOnceAsync, because an await has no place to keep a listener. Where a note below names ListenStrong in a
 measurement, the measurement is from before this removal, and the benchmark of that name now attaches the listener that
 is left.
@@ -114,6 +116,21 @@ and that switches onto its own output, is an example. A walk with a visited set 
 ends where the loop comes back. A switch that selects a new inner walks again for each wait that passes it, and changes
 only the roots that changed. Thus, a cancellation releases the wait from every root, also after a switch in its loop
 moved out of the loop. All keep-alive sets share one lock, so two threads in one loop cannot block each other. The memory tests pin both loops.
+
+Changed: the keep-alive set of a loop goes to the roots of the stream that closes the loop at the first wait in the set.
+Before, it went there at the close of the loop. A set with no wait keeps nothing alive. A loop that a switch feeds had a
+registration from its close. Each move of that switch walked from the registration two times, with no wait in the graph.
+Now, a graph with no wait from ListenOnceAsync gives no set to a root, and its switches walk nothing. A set can get its
+first target in the middle of a walk, and each walk uses the same collections. Thus, the set goes to a queue, and the
+call that holds the lock gives it to the roots when its walks are clear. One set can be the first target of a second
+set, thus that call continues until the queue is empty. A chain of loops does not make the stack deeper. A set stays in
+the roots after its last wait leaves. The memory tests pin each way to a first target, and a chain of 20,000 loops. They
+also pin a loop with no wait: no root holds its set, and no switch holds it.
+Measured in the blotter benchmarks on .NET 10, with four runs on each side, by the fastest run of each side. At 10,000
+orders, a reverse of the sort took 2,250 µs and takes 2,020 µs. A page forward and back took 2,311 µs and takes 2,089
+µs, and the life of an order took 2,038 µs and takes 1,934 µs. For a tick, a search, and a change of the sort column,
+the two sides differ less than two runs of one side. The build of a blotter of 1,000 orders allocated 2,765 KB, and
+allocates 2,714 KB. A change of the view allocates what it did.
 
 Changed: a throw from the body of Transaction.Run or RunVoid fails the transaction that the call opened. Before, the
 transaction still closed: the sends made before the throw ran, every cell they reached took its new value, and the
@@ -433,7 +450,7 @@ Fixed: MutableListener.SetListener stops the listener it replaces, and ClearList
 documentation on both language surfaces said they did. Before, each only changed the field, so a caller who followed
 the documentation kept every listener it replaced, and the only code that did not leak was the library's own
 SwitchB and SwitchS, which stopped the old listener by hand. A set of the listener that is already the target stops
-nothing. Unlisten is unchanged.
+nothing. The stop of the MutableListener itself does not change.
 
 Fixed: a cell with a lazy initial value, a looped cell, the state of AccumLazy or CollectLazy, and the first value of
 a bindable no longer keep a value from a transaction that failed after its sample phase. The sample phase, which runs
@@ -534,7 +551,7 @@ OnceImpl loses a branch that could never run. What it does is unchanged.
 Removed: the internal NoListener type, which nothing uses any more. No released version of any package here calls it.
 
 Added: the internal IRootableListener and ListenOnceRootableImpl, which gives one. It is a one-shot listener that is
-weak until Root is called and is held by the stream after that, until its first firing or Unlisten. A Root after either
+weak until Root is called and is held by the stream after that, until its first firing or its Dispose. A Root after either
 of those does nothing. SodaFlow.FSharp's listenOnceAsync uses it so that an async that never runs leaves no listener
 behind.
 

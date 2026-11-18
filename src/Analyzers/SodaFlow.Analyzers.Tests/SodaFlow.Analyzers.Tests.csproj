@@ -30,14 +30,18 @@
     -->
     <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0"/>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4"/>
         <PackageReference Include="TUnit" Version="1.66.27"/>
     </ItemGroup>
 
     <ItemGroup>
         <Compile Include="AnalyzerHarness.cs"/>
+        <Compile Include="CodeFixHarness.cs"/>
         <Compile Include="EnumerableQueriesTests.cs"/>
         <Compile Include="LibraryAssembliesTests.cs"/>
+        <Compile Include="ListenerAnalyzerTests.cs"/>
+        <Compile Include="ListenerCodeFixTests.cs"/>
         <Compile Include="LoopReadAnalyzerTests.cs"/>
         <Compile Include="LoopReadAnalyzerTests.Expected.cs"/>
         <Compile Include="LoopStateTests.cs"/>
@@ -47,8 +51,10 @@
     </ItemGroup>
 
     <!--
-        The shapes are test data, not code of this project: the harness compiles the file at test
+        The shapes are test data, not code of this project: the harness compiles each file at test
         time, against the library assemblies this project references, and the analyzer reads it.
+        Compiling them here would hold files that are meant to trip every rule to the build's own
+        warnings. Each is a .cs file so that an editor reads it as C#.
         Compiling it here would hold a file that is meant to trip every rule to the build's own
         warnings. It is a .cs file so that an editor reads it as C#.
 
@@ -57,6 +63,7 @@
         no source for it.
     -->
     <ItemGroup>
+        <None Include="ListenerShapes.cs" CopyToOutputDirectory="PreserveNewest"/>
         <None Include="Shapes.cs" CopyToOutputDirectory="PreserveNewest"/>
         <None Include="ShapesNoBody.cs" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
@@ -67,6 +74,7 @@
     -->
     <ItemGroup>
         <ProjectReference Include="..\SodaFlow.Analyzers\SodaFlow.Analyzers.csproj"/>
+        <ProjectReference Include="..\SodaFlow.Analyzers.CodeFixes\SodaFlow.Analyzers.CodeFixes.csproj"/>
         <ProjectReference Include="..\..\SodaFlow.Core\SodaFlow.Core.csproj"/>
         <ProjectReference Include="..\..\CSharp\SodaFlow\SodaFlow.csproj"/>
         <ProjectReference Include="..\..\CSharp\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
