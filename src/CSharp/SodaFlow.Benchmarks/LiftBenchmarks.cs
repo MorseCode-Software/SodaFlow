@@ -49,15 +49,15 @@ public class LiftBenchmarks
     private readonly CellSink<int> switchSecond = Cell.CreateSink(0);
     private readonly CellSink<Cell<int>> switchOuter;
 
-    private IStrongListener? twoListener;
-    private IStrongListener? sixListener;
-    private IStrongListener? listListener;
-    private IStrongListener? bothListener;
-    private IStrongListener? applyListener;
-    private IStrongListener? mergeFunctionListener;
-    private IStrongListener? snapshotListener;
-    private IStrongListener? mergeListener;
-    private IStrongListener? switchListener;
+    private IListener? twoListener;
+    private IListener? sixListener;
+    private IListener? listListener;
+    private IListener? bothListener;
+    private IListener? applyListener;
+    private IListener? mergeFunctionListener;
+    private IListener? snapshotListener;
+    private IListener? mergeListener;
+    private IListener? switchListener;
 
     private int value;
 
@@ -70,7 +70,7 @@ public class LiftBenchmarks
         this.twoListener =
             this.a.Lift(c2: this.b, f: static (x, y) => x + y)
                 .Updates()
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
 
@@ -83,7 +83,7 @@ public class LiftBenchmarks
                     c6: this.f,
                     f: static (x, y, z, u, v, w) => x + y + z + u + v + w)
                 .Updates()
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
 
@@ -91,46 +91,46 @@ public class LiftBenchmarks
             new List<Cell<int>> { this.listA, this.b, this.c, this.d, this.e, this.f }
                 .Lift()
                 .Updates()
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
 
         this.bothListener =
             this.bothA.Lift(c2: this.bothB, f: static (x, y) => x + y)
                 .Updates()
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
 
         this.applyListener =
             this.applyArgument.Apply(this.applyFunction)
                 .Updates()
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
 
         this.mergeFunctionListener =
             this.mergeFunctionLeft.Merge(s2: this.mergeFunctionRight, f: static (x, y) => x + y)
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
 
         this.snapshotListener =
             this.snapshotSource.SnapshotLatest(c: this.snapshotCell, f: static (x, y) => x + y)
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
 
         this.mergeListener =
             this.mergeLeft.Merge(this.mergeRight)
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
 
         this.switchListener =
             this.switchOuter.SwitchC()
                 .Updates()
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
     }

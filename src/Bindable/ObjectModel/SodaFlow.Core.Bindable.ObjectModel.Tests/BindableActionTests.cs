@@ -144,7 +144,7 @@ public sealed class BindableActionTests
 
         using IBindableAction<int> a = Action(sink);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             a.Execute(42);
 
@@ -160,7 +160,7 @@ public sealed class BindableActionTests
 
         using IBindableAction<int> a = Action(sink: sink, isEnabled: Cell.Constant(false));
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             a.Execute(1);
 
@@ -181,7 +181,7 @@ public sealed class BindableActionTests
 
         using IBindableAction<int> a = sink.ToBindableActionImpl(isEnabledCell: enabled, scheduler: scheduler);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             enabled.Send(false);
 
@@ -209,7 +209,7 @@ public sealed class BindableActionTests
 
         using IBindableAction<int> a = Action(sink: sink, isEnabled: enabled);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             Transaction.RunVoid(() =>
             {
@@ -233,7 +233,7 @@ public sealed class BindableActionTests
 
         using IBindableAction<int> a = Action(sink: sink, isEnabled: enabled);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             Transaction.RunVoid(() =>
             {
@@ -295,7 +295,7 @@ public sealed class BindableActionTests
 
         IBindableAction<int> a = Action(sink);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             a.Dispose();
             a.Execute(1);

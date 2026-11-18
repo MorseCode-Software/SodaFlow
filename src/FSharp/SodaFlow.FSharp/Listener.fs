@@ -4,10 +4,10 @@ namespace SodaFlow
 ///     Stopping listeners, and combining some of them into one.
 /// </summary>
 /// <remarks>
-///     A listener is the handle returned by <c>Stream.listen</c>, <c>Stream.listenStrong</c> and
-///     their cell equivalents. This module operates on the general <c>IListener</c>. See
-///     <c>WeakListener</c> and <c>StrongListener</c> for the versions that give
-///     <c>IWeakListener</c> and <c>IStrongListener</c>.
+///     A listener is the handle returned by <c>Stream.listen</c>, <c>Stream.listenOnce</c>, and
+///     <c>Cell.listen</c>. It listens while the caller keeps it, and it keeps the stream that it
+///     monitors in memory. Keep the handle in a field of the object that listens, and the two go out
+///     of memory together. It is <c>IDisposable</c>, thus <c>use</c> can keep it and stop it.
 /// </remarks>
 module Listener =
     open System.Runtime.CompilerServices
@@ -39,36 +39,8 @@ module Listener =
     ///     This code reads the list at this moment, and does not monitor it for a change.
     /// </remarks>
     [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let fromList listeners =
-        ListenerInternal.CreateCompositeImpl listeners
-
-    /// <summary>
-    ///     Combines a list of weak listeners into one weak listener which stops all of them.
-    /// </summary>
-    /// <param name="listeners">The listeners to make into one listener.</param>
-    /// <returns>An <c>IWeakListener</c> whose <c>unlisten</c> stops each listener in the list.</returns>
-    /// <remarks>
-    ///     Like the listeners it combines, the result does not keep the observed streams alive.
-    /// </remarks>
-    [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let fromWeakList listeners =
-        ListenerInternal.CreateWeakCompositeImpl listeners
-
-    /// <summary>
-    ///     Combines a list of strong listeners into one strong listener which stops all of them.
-    /// </summary>
-    /// <param name="listeners">The listeners to make into one listener.</param>
-    /// <returns>
-    ///     An <c>IStrongListener</c> whose <c>unlisten</c> stops each listener in the list, and
-    ///     and a disposal does the same.
-    /// </returns>
-    /// <remarks>
-    ///     As the listeners in it do, the result keeps the monitored streams in memory until a call
-    ///     stops it, or a disposal stops it.
-    /// </remarks>
-    [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let fromStrongList listeners =
-        ListenerInternal.CreateStrongCompositeImpl listeners
+    let fromList (listeners: #IListener list) : IListener =
+        ListenerInternal.CreateCompositeImpl listeners :> IListener
 
     /// <summary>
     ///     Combines a sequence of listeners into one which stops all of them.
@@ -80,24 +52,6 @@ module Listener =
     ///     and a sequence that reads one time is also correct.
     /// </remarks>
     let fromSeq listeners = List.ofSeq listeners |> fromList
-    /// <summary>
-    ///     Combines a sequence of weak listeners into one weak listener which stops all of them.
-    /// </summary>
-    /// <param name="listeners">The listeners to make into one listener.</param>
-    /// <returns>An <c>IWeakListener</c> whose <c>unlisten</c> stops each listener in the sequence.</returns>
-    /// <remarks>
-    ///     This code enumerates the sequence one time, immediately.
-    /// </remarks>
-    let fromWeakSeq listeners = List.ofSeq listeners |> fromWeakList
-    /// <summary>
-    ///     Combines a sequence of strong listeners into one strong listener which stops all of them.
-    /// </summary>
-    /// <param name="listeners">The listeners to make into one listener.</param>
-    /// <returns>An <c>IStrongListener</c> whose <c>unlisten</c> stops each listener in the sequence.</returns>
-    /// <remarks>
-    ///     This code enumerates the sequence one time, immediately.
-    /// </remarks>
-    let fromStrongSeq listeners = List.ofSeq listeners |> fromStrongList
 
     /// <summary>
     ///     Puts two listeners together into one listener that stops the two.
@@ -108,118 +62,4 @@ module Listener =
     /// <remarks>
     ///     A convenience over <c>fromList</c> for two listeners.
     /// </remarks>
-    let append l1 l2 = fromList (l1 :: l2 :: [])
-
-/// <summary>
-///     Stopping and combining weak listeners, preserving the <c>IWeakListener</c> type.
-/// </summary>
-/// <remarks>
-///     A weak listener, the handle from <c>Stream.listen</c>, does not keep the stream that it
-///     monitors in memory. The listener stops when a GC collects that stream, thus this is the
-///     correct selection where there is no clear moment to stop the listener. Keep the handle in a
-///     field of the object that listens, and the two go out of memory together.
-///
-///     Everything here also works through <c>Listener</c>, which is the same operation typed more
-///     loosely.
-/// </remarks>
-module WeakListener =
-    open System.Runtime.CompilerServices
-
-    /// <summary>
-    ///     Stops listening.
-    /// </summary>
-    /// <param name="listener">The listener to stop.</param>
-    /// <remarks>
-    ///     A second call is safe. Each call after the first does nothing.
-    /// </remarks>
-    let unlisten (listener: IWeakListener) = listener.Unlisten()
-
-    /// <summary>
-    ///     A weak listener which is not listening to anything, and whose <c>unlisten</c> does nothing.
-    /// </summary>
-    let empty = ListenerInternal.EmptyWeakImpl
-
-    /// <summary>
-    ///     Combines a list of weak listeners into one weak listener which stops all of them.
-    /// </summary>
-    /// <param name="listeners">The listeners to make into one listener.</param>
-    /// <returns>A weak listener whose <c>unlisten</c> stops each listener in the list.</returns>
-    [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let fromList listeners =
-        ListenerInternal.CreateWeakCompositeImpl listeners
-
-    /// <summary>
-    ///     Combines a sequence of weak listeners into one weak listener which stops all of them.
-    /// </summary>
-    /// <param name="listeners">The listeners to make into one listener.</param>
-    /// <returns>A weak listener whose <c>unlisten</c> stops each listener in the sequence.</returns>
-    /// <remarks>
-    ///     This code enumerates the sequence one time, immediately.
-    /// </remarks>
-    let fromSeq listeners = List.ofSeq listeners |> fromList
-
-    /// <summary>
-    ///     Puts two weak listeners together into one weak listener that stops the two.
-    /// </summary>
-    /// <param name="l1">The first listener.</param>
-    /// <param name="l2">The second listener.</param>
-    /// <returns>A weak listener that stops the two given listeners.</returns>
-    let append l1 l2 = fromList (l1 :: l2 :: [])
-
-/// <summary>
-///     Stopping and combining strong listeners, preserving the <c>IStrongListener</c> type.
-/// </summary>
-/// <remarks>
-///     A strong listener is the handle from <c>Stream.listenStrong</c>. It keeps the stream that it
-///     monitors in memory for as long as code can get to the handle. It is <c>IDisposable</c>, thus
-///     <c>use</c> can stop it.
-///
-///     Everything here also works through <c>Listener</c>, which is the same operation typed more
-///     loosely.
-/// </remarks>
-module StrongListener =
-    open System.Runtime.CompilerServices
-
-    /// <summary>
-    ///     Stops listening.
-    /// </summary>
-    /// <param name="listener">The listener to stop.</param>
-    /// <remarks>
-    ///     A second call is safe and does nothing. A disposal of the listener has the same result.
-    /// </remarks>
-    let unlisten (listener: IStrongListener) = listener.Unlisten()
-
-    /// <summary>
-    ///     A strong listener which is not listening to anything, and whose <c>unlisten</c> does nothing.
-    /// </summary>
-    let empty = ListenerInternal.EmptyStrongImpl
-
-    /// <summary>
-    ///     Combines a list of strong listeners into one strong listener which stops all of them.
-    /// </summary>
-    /// <param name="listeners">The listeners to make into one listener.</param>
-    /// <returns>
-    ///     A strong listener whose <c>unlisten</c> stops each listener in the list. A disposal does the
-    ///     same.
-    /// </returns>
-    [<MethodImpl(MethodImplOptions.NoInlining)>]
-    let fromList listeners =
-        ListenerInternal.CreateStrongCompositeImpl listeners
-
-    /// <summary>
-    ///     Combines a sequence of strong listeners into one strong listener which stops all of them.
-    /// </summary>
-    /// <param name="listeners">The listeners to make into one listener.</param>
-    /// <returns>A strong listener whose <c>unlisten</c> stops each listener in the sequence.</returns>
-    /// <remarks>
-    ///     This code enumerates the sequence one time, immediately.
-    /// </remarks>
-    let fromSeq listeners = List.ofSeq listeners |> fromList
-
-    /// <summary>
-    ///     Puts two strong listeners together into one strong listener that stops the two.
-    /// </summary>
-    /// <param name="l1">The first listener.</param>
-    /// <param name="l2">The second listener.</param>
-    /// <returns>A strong listener that stops the two given listeners.</returns>
     let append l1 l2 = fromList (l1 :: l2 :: [])

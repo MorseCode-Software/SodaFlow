@@ -169,7 +169,7 @@ internal sealed class RederivedViewShape : IKeyedCollectionViewShape
                 threshold: threshold,
                 view: view,
                 listener: view.Updates()
-                    .ListenStrong(static _ =>
+                    .Listen(static _ =>
                     {
                     }));
         });
@@ -307,7 +307,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
                 edits: edits,
                 threshold: threshold,
                 view: view,
-                listener: view.KeyChangesStream.ListenStrong(static _ =>
+                listener: view.KeyChangesStream.Listen(static _ =>
                 {
                 }));
         });
@@ -400,7 +400,7 @@ internal sealed class RootOnlyViewShape : IKeyedCollectionViewShape
             return new RootOnlyViewShape(
                 edits: edits,
                 collection: collection,
-                listener: collection.KeyChangesStream.ListenStrong(static _ =>
+                listener: collection.KeyChangesStream.Listen(static _ =>
                 {
                 }));
         });
@@ -506,7 +506,7 @@ internal sealed class RederivedPageShape : IKeyedPagingShape
                 offset: offset,
                 page: page,
                 listener: page.Updates()
-                    .ListenStrong(static _ =>
+                    .Listen(static _ =>
                     {
                     }));
         });
@@ -588,7 +588,7 @@ internal sealed class ChainedPageShape : IKeyedPagingShape
                 edits: edits,
                 offset: offset,
                 page: page,
-                listener: page.KeyChangesStream.ListenStrong(static _ =>
+                listener: page.KeyChangesStream.Listen(static _ =>
                 {
                 }));
         });

@@ -34,7 +34,7 @@ module private Types =
                 let _cell8 = createCell ()
                 let _cell9 = createCell ()
                 currentValue <- constantLazyC (cell |> sampleLazyC)
-                let l = cell |> updatesC |> listenStrongS (fun v -> this.CurrentValue <- v)
+                let l = cell |> updatesC |> listenS (fun v -> this.CurrentValue <- v)
                 (cell, l))
 
         member private _.L = l
@@ -135,7 +135,7 @@ type ``Performance Tests``() =
                     runT (fun () ->
                         objectsAndIsSelected
                         |> mapC (Seq.where snd >> Seq.length)
-                        |> listenStrongC out.Add)
+                        |> listenC out.Add)
 
                  runT (fun () ->
                      objects

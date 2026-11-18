@@ -213,7 +213,7 @@ internal sealed class SortLevelsShape
                 edits: edits,
                 order: orderCell,
                 view: view,
-                listener: view.KeyChangesStream.ListenStrong(static _ =>
+                listener: view.KeyChangesStream.Listen(static _ =>
                 {
                 }));
         });

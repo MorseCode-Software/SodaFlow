@@ -13,7 +13,7 @@ public sealed class StreamTests
 {
     [Test]
     [Skip("Requires dotMemory.")]
-    public async Task TestListenStrong()
+    public async Task TestListen()
     {
         int? listenerCount = null;
         int? listenerCount2 = null;
@@ -40,7 +40,7 @@ public sealed class StreamTests
             ((Action)(() =>
             {
                 // ReSharper disable once UnusedVariable
-                IListener listener = m.ListenStrong(@out.Add);
+                IListener listener = m.Listen(@out.Add);
 
                 dotMemory.Check(memory =>
                     listenerCount2 = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
@@ -107,7 +107,7 @@ public sealed class StreamTests
 
             ((Action)(() =>
             {
-                IListener listener = m.ListenStrong(@out.Add);
+                IListener listener = m.Listen(@out.Add);
 
                 listener.Unlisten();
 
@@ -172,7 +172,7 @@ public sealed class StreamTests
                 Stream<string> m = s.Map(static x => (x + 2).ToString());
                 List<string> @out = [];
 
-                listener = m.ListenStrong(@out.Add);
+                listener = m.Listen(@out.Add);
 
                 dotMemory.Check(memory =>
                     duringListenerCount =
@@ -213,7 +213,7 @@ public sealed class StreamTests
 
         ((Action)(() =>
         {
-            IListener l = m.ListenStrong(@out.Add);
+            IListener l = m.Listen(@out.Add);
 
             dotMemory.Check(memory =>
                 duringListenerCount = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
@@ -266,7 +266,7 @@ public sealed class StreamTests
             Stream<string> m =
                 s.Map(static x => x + 2).Map(static x => 2 * x).Map(static x => x + 1).Map(static x => x.ToString());
 
-            IListener l = m.ListenStrong(@out.Add);
+            IListener l = m.Listen(@out.Add);
 
             dotMemory.Check(memory =>
                 duringStreamCount =

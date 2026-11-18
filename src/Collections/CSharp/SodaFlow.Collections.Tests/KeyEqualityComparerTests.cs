@@ -193,7 +193,7 @@ public sealed class KeyEqualityComparerTests
         List<bool> removedHasCanonicalKey = [];
 
         IListener l =
-            collection.ItemChangesStream.ListenStrong(change =>
+            collection.ItemChangesStream.Listen(change =>
             {
                 newStatesHasCanonicalKey.Add(change.NewStates.ContainsKey("ABC"));
                 removedHasCanonicalKey.Add(change.Removed.Contains("ABC"));
@@ -237,7 +237,7 @@ public sealed class KeyEqualityComparerTests
         List<bool> newStatesHasCanonicalKey = [];
 
         IListener l =
-            view.ItemChangesStream.ListenStrong(change =>
+            view.ItemChangesStream.Listen(change =>
                 newStatesHasCanonicalKey.Add(change.NewStates.ContainsKey("ABC")));
 
         edits.Send(Score(key: "abc", score: 2));
@@ -305,7 +305,7 @@ public sealed class KeyEqualityComparerTests
 
         IListener l =
             collection.StateCell("abc")
-                .ListenStrong(state => scores.Add(state.Match(onSome: static s => s.Score, onNone: static () => -1)));
+                .Listen(state => scores.Add(state.Match(onSome: static s => s.Score, onNone: static () => -1)));
 
         edits.Send(Score(key: "AbC", score: 2));
 

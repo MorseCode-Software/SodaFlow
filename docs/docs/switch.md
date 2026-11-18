@@ -86,7 +86,7 @@ CellSink<Stream<int>> which = Cell.CreateSink<Stream<int>>(fromA);
 
 Stream<int> selected = which.SwitchS();
 
-using (selected.ListenStrong(v => Console.WriteLine($"got {v}")))
+using (selected.Listen(v => Console.WriteLine($"got {v}")))
 {
     // One transaction: switch to B and fire both. The switch has not taken
     // effect yet, so this prints "got 1" — A's value, not B's.
@@ -110,9 +110,8 @@ selected inner value are both tied to the lifetime of the stream or cell `Switch
 they are released when the result is.
 
 What `Switch` does *not* do is unlisten anything you created. A subscription you make inside a
-branch follows the ordinary rules — `ListenStrong` roots it in the source's keep-alive set, so it
-outlives the branch and keeps firing; `Listen` lives as long as you hold the reference. The
-outer cell moving off a branch does not release it. If a subscription should not survive its
+branch follows the ordinary rule: it lives as long as you hold the listener. The outer cell
+moving off a branch does not release it. If a subscription should not survive its
 branch, its lifetime has to be tied to something that ends with the branch. See
 [Listener lifetimes](lifetimes.md).
 

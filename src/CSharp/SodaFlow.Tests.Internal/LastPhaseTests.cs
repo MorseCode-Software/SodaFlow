@@ -220,7 +220,7 @@ public sealed class LastPhaseTests
             .WithMessage("abort");
 
         List<int> @out = [];
-        IListener l = s.ListenStrong(@out.Add);
+        IListener l = s.Listen(@out.Add);
         s.Send(2);
         l.Unlisten();
 

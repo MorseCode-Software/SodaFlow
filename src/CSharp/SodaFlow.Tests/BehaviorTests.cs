@@ -26,7 +26,7 @@ public sealed class BehaviorTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Cell<int> c = s.Hold(0);
         List<int> @out = [];
-        IListener l = c.ListenStrong(@out.Add);
+        IListener l = c.Listen(@out.Add);
         s.Send(2);
         s.Send(9);
         l.Unlisten();
@@ -38,7 +38,7 @@ public sealed class BehaviorTests
     {
         CellSink<string?> c = Cell.CreateSink<string?>(string.Empty);
         List<string?> @out = [];
-        IListener l = c.ListenStrong(@out.Add);
+        IListener l = c.Listen(@out.Add);
         c.Send("0");
         c.Send(null);
         c.Send("1");
@@ -54,7 +54,7 @@ public sealed class BehaviorTests
         StreamSink<int> s = Stream.CreateSink<int>();
         Cell<int> c = s.Hold(0);
         List<int> @out = [];
-        IListener l = c.Updates().ListenStrong(@out.Add);
+        IListener l = c.Updates().Listen(@out.Add);
         s.Send(2);
         s.Send(9);
         l.Unlisten();
@@ -67,7 +67,7 @@ public sealed class BehaviorTests
         BehaviorSink<int> b = Behavior.CreateSink(0);
         StreamSink<long> trigger = Stream.CreateSink<long>();
         List<string> @out = [];
-        IListener l = trigger.Snapshot(b: b, f: static (x, y) => x + " " + y).ListenStrong(@out.Add);
+        IListener l = trigger.Snapshot(b: b, f: static (x, y) => x + " " + y).Listen(@out.Add);
         trigger.Send(100L);
         b.Send(2);
         trigger.Send(200L);
@@ -81,11 +81,11 @@ public sealed class BehaviorTests
     }
 
     [Test]
-    public async Task TestListenStrong()
+    public async Task TestListen()
     {
         CellSink<int> c = Cell.CreateSink(9);
         List<int> @out = [];
-        IListener l = c.ListenStrong(@out.Add);
+        IListener l = c.Listen(@out.Add);
         c.Send(2);
         c.Send(7);
         l.Unlisten();
@@ -131,7 +131,7 @@ public sealed class BehaviorTests
     {
         CellSink<int> c = Cell.CreateSink(9);
         List<int> @out = [];
-        IListener l = c.Updates().ListenStrong(@out.Add);
+        IListener l = c.Updates().Listen(@out.Add);
         c.Send(2);
         c.Send(7);
         l.Unlisten();
@@ -143,7 +143,7 @@ public sealed class BehaviorTests
     {
         CellSink<int> c = Cell.CreateSink(9);
         List<int> @out = [];
-        IListener l = Transaction.Run(() => c.Values().ListenStrong(@out.Add));
+        IListener l = Transaction.Run(() => c.Values().Listen(@out.Add));
         c.Send(2);
         c.Send(7);
         l.Unlisten();
@@ -164,7 +164,7 @@ public sealed class BehaviorTests
                 c.Send(5);
 
                 return c.Values()
-                    .ListenStrong(_ => l2 ??= c.Values().ListenStrong(@out.Add));
+                    .Listen(_ => l2 ??= c.Values().Listen(@out.Add));
             });
 
         c.Send(2);
@@ -239,7 +239,7 @@ public sealed class BehaviorTests
             Transaction.Run(() =>
             {
                 return listCell.Values()
-                    .ListenStrong(c =>
+                    .Listen(c =>
                         Transaction.Post(() =>
                         {
                             if (c.Count > 0)
@@ -261,7 +261,7 @@ public sealed class BehaviorTests
                     .Map(static c =>
                         c.Select(static o => o.RemoveStream.MapTo(new[] { o })).Merge(static (x, y) => [.. x, .. y]))
                     .SwitchS()
-                    .ListenStrong(o => Transaction.Post(() => removeItemsStreamSink.Send(o))));
+                    .Listen(o => Transaction.Post(() => removeItemsStreamSink.Send(o))));
 
         IListener l4 =
             Transaction.Run(() =>
@@ -276,7 +276,7 @@ public sealed class BehaviorTests
                     // ReSharper restore UseIndexFromEndExpression
                     .SwitchS()
                     .Filter(static v => v)
-                    .ListenStrong(_ => Transaction.Post(() => addItemStreamSink.Send((Number1: 0, Number2: 0)))));
+                    .Listen(_ => Transaction.Post(() => addItemStreamSink.Send((Number1: 0, Number2: 0)))));
 
         List<IReadOnlyList<(int Number1, int Number2)>>
             @out = [];
@@ -289,7 +289,7 @@ public sealed class BehaviorTests
                                 f: static (number1, number2) => (Number1: number1, Number2: number2)))
                         .Lift())
                 .SwitchC()
-                .ListenStrong(@out.Add);
+                .Listen(@out.Add);
 
         addItemStreamSink.Send((Number1: 5, Number2: 2));
         addItemStreamSink.Send((Number1: 9, Number2: 2));
@@ -431,7 +431,7 @@ public sealed class BehaviorTests
             Cell.Loop<int>().WithoutCaptures(cellLoop => s.Snapshot(c: cellLoop, f: static (x, y) => x + y).Hold(1));
 
         List<int> @out = [];
-        IListener l = cell.ListenStrong(@out.Add);
+        IListener l = cell.Listen(@out.Add);
         s.Send(3);
         s.Send(4);
         s.Send(7);
@@ -466,7 +466,7 @@ public sealed class BehaviorTests
 #pragma warning restore SF1002 // The cycle is the subject of this test.
 
             List<int> @out = [];
-            IListener l = cell.ListenStrong(@out.Add);
+            IListener l = cell.Listen(@out.Add);
             s.Send(3);
             s.Send(4);
             s.Send(7);
@@ -511,7 +511,7 @@ public sealed class BehaviorTests
                     }));
 
         List<int> values = [];
-        IListener l = @out.ListenStrong(values.Add);
+        IListener l = @out.Listen(values.Add);
         evens.Send(2);
         evens.Send(4);
         odds.Send(3);
@@ -556,7 +556,7 @@ public sealed class BehaviorTests
                         .Hold([]));
 
         List<int> @out = [];
-        IListener l = cell.ListenStrong(c => @out.Add(c.Count));
+        IListener l = cell.Listen(c => @out.Add(c.Count));
         TestObject t1 = new(n1: 1, n2: 1);
         addStreamSink.Send(t1);
         TestObject t2 = new(n1: 2, n2: 2);
@@ -584,7 +584,7 @@ public sealed class BehaviorTests
     {
         CellSink<int> c = Cell.CreateSink(9);
         List<int> @out = [];
-        IListener l = Transaction.Run(() => c.Values().ListenStrong(@out.Add));
+        IListener l = Transaction.Run(() => c.Values().Listen(@out.Add));
         c.Send(2);
         c.Send(7);
         l.Unlisten();
@@ -596,7 +596,7 @@ public sealed class BehaviorTests
     {
         CellSink<int> c = Cell.CreateSink(9);
         List<int> @out = [];
-        IListener l = c.Values().ListenStrong(@out.Add);
+        IListener l = c.Values().Listen(@out.Add);
         c.Send(2);
         c.Send(7);
         l.Unlisten();
@@ -608,7 +608,7 @@ public sealed class BehaviorTests
     {
         BehaviorSink<int> b = Behavior.CreateSink(9);
         List<int> @out = [];
-        IListener l = Transaction.Run(() => Operational.Value(b).Map(static x => x + 100).ListenStrong(@out.Add));
+        IListener l = Transaction.Run(() => Operational.Value(b).Map(static x => x + 100).Listen(@out.Add));
         b.Send(2);
         b.Send(7);
         l.Unlisten();
@@ -620,7 +620,7 @@ public sealed class BehaviorTests
     {
         CellSink<int> c = Cell.CreateSink(9);
         List<int> @out = [];
-        IListener l = Transaction.Run(() => c.Values().Map(static x => x + 100).ListenStrong(@out.Add));
+        IListener l = Transaction.Run(() => c.Values().Map(static x => x + 100).Listen(@out.Add));
         c.Send(2);
         c.Send(7);
         l.Unlisten();
@@ -638,7 +638,7 @@ public sealed class BehaviorTests
             Transaction.Run(() =>
                 Operational.Value(b1)
                     .Merge(s2: Operational.Value(b2), f: static (x, y) => x + y)
-                    .ListenStrong(@out.Add));
+                    .Listen(@out.Add));
 
         b1.Send(1);
         b2.Send(4);
@@ -661,7 +661,7 @@ public sealed class BehaviorTests
         List<int> @out = [];
 
         IListener l =
-            Transaction.Run(() => c1.Values().Merge(s2: c2.Values(), f: static (x, y) => x + y).ListenStrong(@out.Add));
+            Transaction.Run(() => c1.Values().Merge(s2: c2.Values(), f: static (x, y) => x + y).Listen(@out.Add));
 
         c1.Send(1);
         c2.Send(4);
@@ -681,7 +681,7 @@ public sealed class BehaviorTests
     {
         BehaviorSink<int> b = Behavior.CreateSink(9);
         List<int> @out = [];
-        IListener l = Transaction.Run(() => Operational.Value(b).Filter(static x => x % 2 != 0).ListenStrong(@out.Add));
+        IListener l = Transaction.Run(() => Operational.Value(b).Filter(static x => x % 2 != 0).Listen(@out.Add));
         b.Send(2);
         b.Send(7);
         l.Unlisten();
@@ -693,7 +693,7 @@ public sealed class BehaviorTests
     {
         CellSink<int> c = Cell.CreateSink(9);
         List<int> @out = [];
-        IListener l = Transaction.Run(() => c.Values().Filter(static x => x % 2 != 0).ListenStrong(@out.Add));
+        IListener l = Transaction.Run(() => c.Values().Filter(static x => x % 2 != 0).Listen(@out.Add));
         c.Send(2);
         c.Send(7);
         l.Unlisten();
@@ -705,7 +705,7 @@ public sealed class BehaviorTests
     {
         BehaviorSink<int> b = Behavior.CreateSink(9);
         List<int> @out = [];
-        IListener l = Transaction.Run(() => Operational.Value(b).Once().ListenStrong(@out.Add));
+        IListener l = Transaction.Run(() => Operational.Value(b).Once().Listen(@out.Add));
         b.Send(2);
         b.Send(7);
         l.Unlisten();
@@ -717,7 +717,7 @@ public sealed class BehaviorTests
     {
         CellSink<int> c = Cell.CreateSink(9);
         List<int> @out = [];
-        IListener l = Transaction.Run(() => c.Values().Once().ListenStrong(@out.Add));
+        IListener l = Transaction.Run(() => c.Values().Once().Listen(@out.Add));
         c.Send(2);
         c.Send(7);
         l.Unlisten();
@@ -731,7 +731,7 @@ public sealed class BehaviorTests
         List<int> @out = [];
         Stream<int> value = Operational.Value(b);
         b.Send(8);
-        IListener l = value.ListenStrong(@out.Add);
+        IListener l = value.Listen(@out.Add);
         b.Send(2);
         b.Send(7);
         l.Unlisten();
@@ -745,7 +745,7 @@ public sealed class BehaviorTests
         List<int> @out = [];
         Stream<int> value = c.Values();
         c.Send(8);
-        IListener l = value.ListenStrong(@out.Add);
+        IListener l = value.Listen(@out.Add);
         c.Send(2);
         c.Send(7);
         l.Unlisten();
@@ -757,7 +757,7 @@ public sealed class BehaviorTests
     {
         CellSink<int> c = Cell.CreateSink(6);
         List<string> @out = [];
-        IListener l = c.Map(static x => x.ToString()).ListenStrong(@out.Add);
+        IListener l = c.Map(static x => x.ToString()).Listen(@out.Add);
         c.Send(8);
         l.Unlisten();
         await Assert.That(@out).IsEquivalentTo(expected: ["6", "8"], ordering: CollectionOrdering.Matching);
@@ -770,7 +770,7 @@ public sealed class BehaviorTests
         List<string> @out = [];
         Cell<string> cm = c.Map(static x => x.ToString());
         c.Send(2);
-        IListener l = cm.ListenStrong(@out.Add);
+        IListener l = cm.Listen(@out.Add);
         c.Send(8);
         l.Unlisten();
         await Assert.That(@out).IsEquivalentTo(expected: ["2", "8"], ordering: CollectionOrdering.Matching);
@@ -781,7 +781,7 @@ public sealed class BehaviorTests
     {
         CellSink<int> c = Cell.CreateSink(2);
         List<int> @out = [];
-        IListener l = Transaction.Run(() => c.Calm().ListenStrong(@out.Add));
+        IListener l = Transaction.Run(() => c.Calm().Listen(@out.Add));
         c.Send(2);
         c.Send(2);
         c.Send(4);
@@ -799,7 +799,7 @@ public sealed class BehaviorTests
     {
         CellSink<int> c = Cell.CreateSink(2);
         List<int> @out = [];
-        IListener l = Transaction.Run(() => c.Calm().ListenStrong(@out.Add));
+        IListener l = Transaction.Run(() => c.Calm().Listen(@out.Add));
         c.Send(4);
         c.Send(2);
         c.Send(4);
@@ -816,7 +816,7 @@ public sealed class BehaviorTests
         CellSink<Func<long, string>> cf = Cell.CreateSink<Func<long, string>>(static x => "1 " + x);
         CellSink<long> ca = Cell.CreateSink(5L);
         List<string> @out = [];
-        IListener l = ca.Apply(cf).ListenStrong(@out.Add);
+        IListener l = ca.Apply(cf).Listen(@out.Add);
         cf.Send(static x => "12 " + x);
         ca.Send(6L);
         l.Unlisten();
@@ -831,7 +831,7 @@ public sealed class BehaviorTests
         CellSink<int> c1 = Cell.CreateSink(1);
         CellSink<long> c2 = Cell.CreateSink(5L);
         List<string> @out = [];
-        IListener l = c1.Lift(c2: c2, f: static (x, y) => x + " " + y).ListenStrong(@out.Add);
+        IListener l = c1.Lift(c2: c2, f: static (x, y) => x + " " + y).Listen(@out.Add);
         c1.Send(12);
         c2.Send(6L);
         l.Unlisten();
@@ -848,7 +848,7 @@ public sealed class BehaviorTests
         Cell<int> c5 = c1.Map(static x => x * 5);
         Cell<string> c = c3.Lift(c2: c5, f: static (x, y) => x + " " + y);
         List<string> @out = [];
-        IListener l = c.ListenStrong(@out.Add);
+        IListener l = c.Listen(@out.Add);
         c1.Send(2);
         l.Unlisten();
         await Assert.That(@out).IsEquivalentTo(expected: ["3 5", "6 10"], ordering: CollectionOrdering.Matching);
@@ -867,7 +867,7 @@ public sealed class BehaviorTests
             });
 
         List<int> @out = [];
-        IListener l = c1.Lift(c2: c2, f: static (x, y) => x + y).ListenStrong(@out.Add);
+        IListener l = c1.Lift(c2: c2, f: static (x, y) => x + y).Listen(@out.Add);
         l.Unlisten();
         await Assert.That(@out).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
     }
@@ -879,7 +879,7 @@ public sealed class BehaviorTests
         Cell<int> h = s.Hold(0);
         Stream<string> pair = s.Snapshot(c: h, f: static (a, b) => a + " " + b);
         List<string> @out = [];
-        IListener l = pair.ListenStrong(@out.Add);
+        IListener l = pair.Listen(@out.Add);
         s.Send(2);
         s.Send(3);
         l.Unlisten();
@@ -904,7 +904,7 @@ public sealed class BehaviorTests
         Cell<Cell<char>> csw = ssc.Map(static s => s.Sw).FilterSome().Hold(ca);
         Cell<char> co = csw.SwitchC();
         List<char> @out = [];
-        IListener l = co.ListenStrong(@out.Add);
+        IListener l = co.Listen(@out.Add);
         ssc.Send(new Sc(a: Maybe.Some('B'), b: Maybe.Some('b'), sw: Maybe.None));
         ssc.Send(new Sc(a: Maybe.Some('C'), b: Maybe.Some('c'), sw: Maybe.Some(cb)));
         ssc.Send(new Sc(a: Maybe.Some('D'), b: Maybe.Some('d'), sw: Maybe.None));
@@ -935,7 +935,7 @@ public sealed class BehaviorTests
         CellSink<Sc2> csc = Cell.CreateSink(sc1);
         Cell<int> co = csc.Map(static b => b.C.AsCell()).SwitchC();
         List<int> @out = [];
-        IListener l = co.ListenStrong(@out.Add);
+        IListener l = co.Listen(@out.Add);
         Sc2 sc2 = new(3);
         Sc2 sc3 = new(4);
         Sc2 sc4 = new(7);
@@ -987,7 +987,7 @@ public sealed class BehaviorTests
                     return x;
                 });
 
-        IListener l = mapped.ListenStrong(static _ => { });
+        IListener l = mapped.Listen(static _ => { });
         calls.Clear();
         selector.Send(deep);
         l.Unlisten();
@@ -1011,7 +1011,7 @@ public sealed class BehaviorTests
         StreamSink<int> second = Stream.CreateSink<int>();
         CellSink<Stream<int>> selected = Cell.CreateSink(first.AsStream());
         List<int> @out = [];
-        IListener l = selected.SwitchS().ListenStrong(@out.Add);
+        IListener l = selected.SwitchS().Listen(@out.Add);
 
         first.Send(1);
         selected.Send(second);
@@ -1031,7 +1031,7 @@ public sealed class BehaviorTests
         CellSink<int> second = Cell.CreateSink(10);
         CellSink<Cell<int>> selected = Cell.CreateSink(first.AsCell());
         List<int> @out = [];
-        IListener l = selected.SwitchC().ListenStrong(@out.Add);
+        IListener l = selected.SwitchC().Listen(@out.Add);
 
         selected.Send(second);
         first.Send(2);
@@ -1052,7 +1052,7 @@ public sealed class BehaviorTests
         Cell<Stream<char>> csw = sss.Map(static s => s.Sw).FilterSome().Hold(sa);
         Stream<char> so = csw.SwitchS();
         List<char> @out = [];
-        IListener l = so.ListenStrong(@out.Add);
+        IListener l = so.Listen(@out.Add);
         sss.Send(new Ss(a: 'A', b: 'a', sw: Maybe.None));
         sss.Send(new Ss(a: 'B', b: 'b', sw: Maybe.None));
         sss.Send(new Ss(a: 'C', b: 'c', sw: Maybe.Some(sb)));
@@ -1082,7 +1082,7 @@ public sealed class BehaviorTests
         BehaviorSink<Ss2> bss = Behavior.CreateSink(ss1);
         Stream<int> so = bss.Map(static b => b.S.AsStream()).SwitchS();
         List<int> @out = [];
-        IListener l = so.ListenStrong(@out.Add);
+        IListener l = so.Listen(@out.Add);
         Ss2 ss2 = new();
         Ss2 ss3 = new();
         Ss2 ss4 = new();
@@ -1123,7 +1123,7 @@ public sealed class BehaviorTests
 
         Cell<int> sum = cellSinks.Lift().Map(static v => v.Sum());
         List<int> @out = [];
-        IListener l = sum.ListenStrong(@out.Add);
+        IListener l = sum.Listen(@out.Add);
         cellSinks[4].Send(5);
         cellSinks[5].Send(5);
 
@@ -1153,7 +1153,7 @@ public sealed class BehaviorTests
         Cell<string> lifted = a.Lift(c2: b, c3: c, f: static (x, y, z) => x + "/" + y + "/" + z);
 
         List<string> @out = [];
-        IListener l = lifted.ListenStrong(@out.Add);
+        IListener l = lifted.Listen(@out.Add);
 
         // All three at the same time: one firing, all new.
         Transaction.RunVoid(() =>
@@ -1192,7 +1192,7 @@ public sealed class BehaviorTests
         Cell<string> lifted = a.Lift(c2: b, f: static (x, y) => x + "/" + y);
 
         List<string> @out = [];
-        IListener l = lifted.ListenStrong(@out.Add);
+        IListener l = lifted.Listen(@out.Add);
 
         a.Send(2);
         b.Send(20);
@@ -1221,7 +1221,7 @@ public sealed class BehaviorTests
 
         Cell<int> sum = cellSinks.Lift().Map(static v => v.Sum());
         List<int> @out = [];
-        IListener l = sum.ListenStrong(@out.Add);
+        IListener l = sum.Listen(@out.Add);
 
         // Each cell at the same time.
         Transaction.RunVoid(() =>
@@ -1269,7 +1269,7 @@ public sealed class BehaviorTests
             });
 
         List<int> @out = [];
-        IListener l = c.ListenStrong(@out.Add);
+        IListener l = c.Listen(@out.Add);
         s[4].Send(5);
         s[5].Send(5);
 
@@ -1307,7 +1307,7 @@ public sealed class BehaviorTests
 
         Cell<int> sum = cellSinks.Lift().Map(static v => v.Sum());
         List<int> @out = [];
-        IListener l = sum.ListenStrong(@out.Add);
+        IListener l = sum.Listen(@out.Add);
         cellSinks[4].Send(5);
         cellSinks[5].Send(5);
 
@@ -1333,7 +1333,7 @@ public sealed class BehaviorTests
 
         Cell<int> sum = cellSinks.Lift().Map(static v => v.Sum());
         List<int> @out = [];
-        IListener l = sum.ListenStrong(@out.Add);
+        IListener l = sum.Listen(@out.Add);
 
         for (int i = 0; i < 100; i++)
         {
@@ -1376,7 +1376,7 @@ public sealed class BehaviorTests
             Transaction.Run(() =>
             {
                 cellSinks[4].Send(5);
-                IListener lLocal = sum.ListenStrong(@out.Add);
+                IListener lLocal = sum.Listen(@out.Add);
                 cellSinks[5].Send(5);
                 return lLocal;
             });
@@ -1410,7 +1410,7 @@ public sealed class BehaviorTests
                 .Captures;
 
         List<int> output = [];
-        IListener l = c.ListenStrong(output.Add);
+        IListener l = c.Listen(output.Add);
 
         c1.Send(2);
         c2.Send(12);
@@ -1446,7 +1446,7 @@ public sealed class BehaviorTests
                 .Captures;
 
         List<int> output = [];
-        IListener l = b.ListenStrong(output.Add);
+        IListener l = b.Listen(output.Add);
 
         b1.Send(2);
         b2.Send(12);
@@ -1483,7 +1483,7 @@ public sealed class BehaviorTests
                 c2Local.Send(12);
                 sLocal.Send(c2Local);
 
-                IListener lLocal = cLocal.ListenStrong(output.Add);
+                IListener lLocal = cLocal.Listen(output.Add);
 
                 return (c1Local, c2Local, sLocal, lLocal);
             });
@@ -1523,7 +1523,7 @@ public sealed class BehaviorTests
                 c2Local.Send(12);
                 sLocal.Send(c2Local);
 
-                IListener lLocal = cLocal.ListenStrong(output.Add);
+                IListener lLocal = cLocal.Listen(output.Add);
 
                 return (c1Local, c2Local, sLocal, lLocal);
             });
@@ -1564,7 +1564,7 @@ public sealed class BehaviorTests
 
                 Stream<int> cLocal = sLocal.SwitchS();
 
-                IListener lLocal = cLocal.ListenStrong(output.Add);
+                IListener lLocal = cLocal.Listen(output.Add);
 
                 return (c1Local, c2Local, sLocal, lLocal);
             });
@@ -1598,10 +1598,10 @@ public sealed class BehaviorTests
         Behavior<IReadOnlyList<int>> c = v.Map(static oo => oo.Select(static o => o.Value).Lift()).SwitchB();
 
         List<IReadOnlyList<int>> streamOutput = [];
-        IListener l = Operational.Updates(c).ListenStrong(streamOutput.Add);
+        IListener l = Operational.Updates(c).Listen(streamOutput.Add);
 
         List<IReadOnlyList<int>> behaviorOutput = [];
-        IListener l2 = Transaction.Run(() => Operational.Value(c).ListenStrong(behaviorOutput.Add));
+        IListener l2 = Transaction.Run(() => Operational.Value(c).Listen(behaviorOutput.Add));
 
         list1[2].Value.Send(12);
         list2[1].Value.Send(16);
@@ -1663,10 +1663,10 @@ public sealed class BehaviorTests
             v.Map(static oo => oo.Select(static o => o.Value).Lift()).Map(static o => o).SwitchB();
 
         List<IReadOnlyList<int>> streamOutput = [];
-        IListener l = Operational.Updates(c).ListenStrong(streamOutput.Add);
+        IListener l = Operational.Updates(c).Listen(streamOutput.Add);
 
         List<IReadOnlyList<int>> behaviorOutput = [];
-        IListener l2 = Transaction.Run(() => Operational.Value(c).ListenStrong(behaviorOutput.Add));
+        IListener l2 = Transaction.Run(() => Operational.Value(c).Listen(behaviorOutput.Add));
 
         list1[2].Value.Send(12);
         list2[1].Value.Send(16);

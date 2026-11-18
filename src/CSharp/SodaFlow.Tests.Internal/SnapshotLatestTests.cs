@@ -25,7 +25,7 @@ public sealed class SnapshotLatestTests
         List<int> @out = [];
 
         IListener l =
-            s.SnapshotLatestImpl(b1: b1, b2: b2, f: static (a, v1, v2) => a + v1 + v2).ListenStrong(@out.Add);
+            s.SnapshotLatestImpl(b1: b1, b2: b2, f: static (a, v1, v2) => a + v1 + v2).Listen(@out.Add);
 
         b2.Reads = 0;
 

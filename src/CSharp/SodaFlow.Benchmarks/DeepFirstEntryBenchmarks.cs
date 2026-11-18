@@ -33,8 +33,8 @@ public class DeepFirstEntryBenchmarks
     private readonly StreamSink<int> sink = Stream.CreateSink<int>();
     private readonly StreamSink<int> deepSink = Stream.CreateSink<int>();
 
-    private IStrongListener? listener;
-    private IStrongListener? deepListener;
+    private IListener? listener;
+    private IListener? deepListener;
 
     /// <summary>
     ///     The number of maps in the chain of streams that the merge reads.
@@ -50,7 +50,7 @@ public class DeepFirstEntryBenchmarks
     public void Setup()
     {
         this.listener =
-            this.sink.ListenStrong(static _ =>
+            this.sink.Listen(static _ =>
             {
             });
 
@@ -65,7 +65,7 @@ public class DeepFirstEntryBenchmarks
                 }
 
                 return chain.OrElse(this.deepSink)
-                    .ListenStrong(static _ =>
+                    .Listen(static _ =>
                     {
                     });
             });

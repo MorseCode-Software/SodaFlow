@@ -87,13 +87,13 @@ type ``Timer Tests``() =
 
             let l =
                 Transaction.run (fun () ->
-                    StrongListener.fromList
-                        [ timers.Time |> Operational.updates |> Stream.listenStrong times.Add
-                          timers.At(Cell.constant (Some 10)) |> Stream.listenStrong alarms.Add
-                          timers.At(Cell.constant (Some 11)) |> Stream.listenStrong alarms.Add ])
+                    Listener.fromList
+                        [ timers.Time |> Operational.updates |> Stream.listen times.Add
+                          timers.At(Cell.constant (Some 10)) |> Stream.listen alarms.Add
+                          timers.At(Cell.constant (Some 11)) |> Stream.listen alarms.Add ])
 
             advanceTo implementation 12
-            l |> StrongListener.unlisten
+            l |> Listener.unlisten
 
             do! Expect.Sequence([ 10; 11 ], alarms)
             do! Expect.Sequence([ 10; 11; 12 ], times)
@@ -110,13 +110,13 @@ type ``Timer Tests``() =
 
             let l =
                 Transaction.run (fun () ->
-                    StrongListener.fromList
-                        [ timers.Time |> Operational.updates |> Stream.listenStrong times.Add
-                          timers.At(Cell.constant (Some 10)) |> Stream.listenStrong alarms.Add ])
+                    Listener.fromList
+                        [ timers.Time |> Operational.updates |> Stream.listen times.Add
+                          timers.At(Cell.constant (Some 10)) |> Stream.listen alarms.Add ])
 
             advanceTo implementation 12
             implementation.FireHeldBackTimer()
-            l |> StrongListener.unlisten
+            l |> Listener.unlisten
 
             do! Expect.Sequence([ 10 ], alarms)
             // The transaction that brings the event sends no time, because the clock reads 12, as before.
@@ -134,14 +134,14 @@ type ``Timer Tests``() =
             let timers = timerSystem :> ITimerSystem<int>
             let deadline = sinkC (Some 10)
             let alarms = List<int>()
-            let l = timers.At deadline |> Stream.listenStrong alarms.Add
+            let l = timers.At deadline |> Stream.listen alarms.Add
 
             let thrower =
                 deadline
                 |> updatesC
                 |> Stream.map id
                 |> Stream.map id
-                |> Stream.listenStrong (fun d ->
+                |> Stream.listen (fun d ->
                     if d = Some 20 then
                         raise (InvalidOperationException "The test fails this transaction."))
 
@@ -153,8 +153,8 @@ type ``Timer Tests``() =
             do! Expect.Sequence([ 10 ], alarms)
 
             advanceTo implementation 25
-            thrower |> StrongListener.unlisten
-            l |> StrongListener.unlisten
+            thrower |> Listener.unlisten
+            l |> Listener.unlisten
 
             do! Expect.Sequence([ 10 ], alarms)
         }
@@ -170,12 +170,12 @@ type ``Timer Tests``() =
             let alarms = List<int>()
 
             let l =
-                Transaction.run (fun () -> timers.At(Cell.constant (Some 10)) |> Stream.listenStrong alarms.Add)
+                Transaction.run (fun () -> timers.At(Cell.constant (Some 10)) |> Stream.listen alarms.Add)
 
             advanceTo implementation 5
             timers.Dispose()
             advanceTo implementation 12
-            l |> StrongListener.unlisten
+            l |> Listener.unlisten
 
             do! Expect.True implementation.Stopped
             do! Expect.Equal(5, timers.Time |> Behavior.sample)
@@ -196,13 +196,13 @@ type ``Timer Tests``() =
 
             let timers = timerSystem :> ITimerSystem<DateTime>
             let times = List<DateTime>()
-            let l = timers.Time |> Operational.updates |> Stream.listenStrong times.Add
+            let l = timers.Time |> Operational.updates |> Stream.listen times.Add
 
             for step in 1..5 do
                 now <- start.AddTicks(int64 step * 4L * TimeSpan.TicksPerMillisecond / 10L)
                 Transaction.run (fun () -> ())
 
-            l |> StrongListener.unlisten
+            l |> Listener.unlisten
 
             do! Expect.Sequence([ start.AddMilliseconds 1.0; start.AddMilliseconds 2.0 ], times)
             do! Expect.Equal(start.AddMilliseconds 2.0, timers.Time |> Behavior.sample)
@@ -234,10 +234,10 @@ type ``Timer Tests``() =
             let timers = timerSystem :> ITimerSystem<int>
             let times = List<int>()
 
-            let l = timers.Time |> Operational.updates |> Stream.listenStrong times.Add
+            let l = timers.Time |> Operational.updates |> Stream.listen times.Add
             advanceTo implementation 12
             advanceTo implementation 5
-            l |> StrongListener.unlisten
+            l |> Listener.unlisten
 
             do! Expect.Sequence([ 12; 5 ], times)
         }
@@ -250,13 +250,15 @@ type ``Timer Tests``() =
             let time = ts.Time
             let l = List<DateTime>()
 
-            Transaction.run (fun () ->
-                let now = time |> Behavior.sample
-                let a1 = ts.At(Cell.constant (Some(now.AddMilliseconds(99.0))))
-                let a2 = ts.At(Cell.constant (Some(now.AddMilliseconds(100.0))))
-                let a3 = ts.At(Cell.constant (Some(now.AddMilliseconds(100.0))))
-                let m = Stream.orElseAll [ a1; a2; a3 ]
-                m |> Stream.listenStrong (fun v -> lock l (fun () -> l.Add v)) |> ignore)
+            // The listener holds the alarms. Thus, the test keeps it until the end.
+            use _listener =
+                Transaction.run (fun () ->
+                    let now = time |> Behavior.sample
+                    let a1 = ts.At(Cell.constant (Some(now.AddMilliseconds(99.0))))
+                    let a2 = ts.At(Cell.constant (Some(now.AddMilliseconds(100.0))))
+                    let a3 = ts.At(Cell.constant (Some(now.AddMilliseconds(100.0))))
+                    let m = Stream.orElseAll [ a1; a2; a3 ]
+                    m |> Stream.listen (fun v -> lock l (fun () -> l.Add v)))
 
             // This waits for the alarms, and does not use a constant window. The alarms are 99ms and 100ms
             // in the future. Thus, a constant sleep of 200ms left approximately 100ms of margin, and a CI
@@ -298,7 +300,7 @@ type ``Timer Tests``() =
                 Transaction.run (fun () ->
                     keys
                     |> Time.debounce timers (fun now -> now + 10)
-                    |> Stream.listenStrong seen.Add)
+                    |> Stream.listen seen.Add)
 
             keys |> StreamSink.send "a"
             advanceTo 3
@@ -317,7 +319,7 @@ type ``Timer Tests``() =
             advanceTo 26
             do! Expect.Sequence([ "abc"; "z" ], seen)
 
-            l |> StrongListener.unlisten
+            l |> Listener.unlisten
         }
 
 type ``System Clock Timer System Tests``() =
@@ -333,7 +335,7 @@ type ``System Clock Timer System Tests``() =
             let alarms = List<DateTime>()
 
             let listener =
-                timers.At(Cell.constant (Some(now.AddMinutes 5.0))) |> Stream.listenStrong alarms.Add
+                timers.At(Cell.constant (Some(now.AddMinutes 5.0))) |> Stream.listen alarms.Add
 
             Transaction.run (fun () -> ())
 

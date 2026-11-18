@@ -21,8 +21,8 @@ public sealed class NodeTests
         CellSink<int> cell = Cell.CreateSink(1);
         CellSink<Stream<int>> selector = Cell.CreateSink(Stream.Never<int>());
 
-        using IStrongListener l1 = cell.ListenStrong(static _ => { });
-        using IStrongListener l2 = selector.SwitchS().ListenStrong(static _ => { });
+        using IListener l1 = cell.Listen(static _ => { });
+        using IListener l2 = selector.SwitchS().Listen(static _ => { });
 
         await Assert.That(Node.RankZero.Entries).IsNull();
         await Assert.That(Node.RankZero.Rank).IsEqualTo(0);

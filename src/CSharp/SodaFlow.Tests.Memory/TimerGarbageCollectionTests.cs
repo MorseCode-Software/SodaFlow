@@ -58,7 +58,7 @@ public sealed class TimerGarbageCollectionTests
         // the cell, or to the listener that At made over it.
         Stream<int> alarm = this.CreateAlarmAndDropTheCell(10);
 
-        using (alarm.ListenStrong(@out.Add))
+        using (alarm.Listen(@out.Add))
         {
             // This is a test only if an alarm was set. Without this line it also succeeds
             // where At does nothing at all.
@@ -119,7 +119,7 @@ public sealed class TimerGarbageCollectionTests
 
         Stream<int> alarm = Transaction.Run(() => this.timers.At(cell));
 
-        using (alarm.ListenStrong(@out.Add))
+        using (alarm.Listen(@out.Add))
         {
             // No code but At holds the listener it made. The alarm holds it, because At
             // attaches it, and the caller holds the alarm. Remove the attached listener and this
