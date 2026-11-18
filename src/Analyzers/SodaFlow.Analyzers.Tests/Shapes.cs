@@ -20223,6 +20223,134 @@ public static class Shapes
     public static Cell<int> Ag92F3OwnRunSynchronouslyIsAMethod() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; Ag92Runner run = new() { Slot = s, Next = l.Map(v => v) }; run.RunSynchronously(); return S.Hold(s.Share!.Sample()); });
 
+    // S4578. A span is a view of the array, filled after the write.
+    public static Cell<int> Ag92F2SpanOfTheArrayFilledAfterTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[0]]; Span<SettableSlot> view = a.AsSpan(); a[0].Share = Plain; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4579. A span of the array, and an element of the span gets a new object.
+    public static Cell<int> Ag92X2SpanElementSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[1]]; Span<SettableSlot> view = a; a[0].Share = Plain; view[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4580. A span that a constructor makes from the array, filled.
+    public static Cell<int> Ag92F2NewSpanFilled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[2]]; Span<SettableSlot> view = new Span<SettableSlot>(a); a[0].Share = Plain; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4581. A memory of the array, whose span is filled.
+    public static Cell<int> Ag92F2MemorySpanFilled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[3]]; Memory<SettableSlot> m = a.AsMemory(); a[0].Share = Plain; m.Span.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4582. A segment of the array, and an element of the segment gets a new object.
+    public static Cell<int> Ag92F2SegmentElementSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[4]]; ArraySegment<SettableSlot> segment = a; a[0].Share = Plain; segment[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4583. A span of a part of the array, filled.
+    public static Cell<int> Ag92F2SliceFilled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[5], Ag92Views[6]]; Span<SettableSlot> view = a.AsSpan(0, 1); a[0].Share = Plain; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4584. A second array is copied into the span.
+    public static Cell<int> Ag92F2ArrayCopiedIntoTheSpan() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[7]]; Span<SettableSlot> view = a; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; from.CopyTo(view); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4585. A span of a second array is copied into the span.
+    public static Cell<int> Ag92F2SpanCopiedIntoTheSpan() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[8]]; Span<SettableSlot> view = a; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; from.AsSpan().CopyTo(view); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4586. A read-only span of a second array is copied into the span.
+    public static Cell<int> Ag92F2ReadOnlySpanCopiedIntoTheSpan() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[9]]; Span<SettableSlot> view = a; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; ReadOnlySpan<SettableSlot> source = from; a[0].Share = Plain; source.CopyTo(view); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4587. A segment of a second array is copied into a segment of the array.
+    public static Cell<int> Ag92F2SegmentCopiedIntoASegment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[10]]; ArraySegment<SettableSlot> segment = new ArraySegment<SettableSlot>(a); SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; new ArraySegment<SettableSlot>(from).CopyTo(segment); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4588. A second array is copied into the array itself.
+    public static Cell<int> Ag92F2ArrayCopiedIntoTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[11]]; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; from.CopyTo(a, 0); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4589. A list is copied into the array.
+    public static Cell<int> Ag92F2ListCopiedIntoTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[12]]; List<SettableSlot> from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; from.CopyTo(a); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4590. A range of a span of the array, filled.
+    public static Cell<int> Ag92F2RangeOfASpanFilled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[13]]; Span<SettableSlot> view = a.AsSpan()[0..1]; a[0].Share = Plain; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4591. A slice of a span of the array, filled.
+    public static Cell<int> Ag92F2SliceOfASpanFilled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[14]]; Span<SettableSlot> whole = a; Span<SettableSlot> part = whole.Slice(0, 1); a[0].Share = Plain; part.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4592. An element of the span of a memory of the array gets a new object.
+    public static Cell<int> Ag92F2MemoryElementSetThroughItsSpan() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[15]]; Memory<SettableSlot> m = a; a[0].Share = Plain; m.Span[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4593. A local got the element, and then an element of the span gets a new object.
+    public static Cell<int> Ag92F2SpanElementSetAfterALocalGotIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[16]]; Span<SettableSlot> view = a; SettableSlot x = a[0]; x.Share = Plain; view[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4594. The span of the array is filled, with no write before.
+    public static Cell<int> Ag92F2SpanFilledWithNoWriteBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[17]]; Span<SettableSlot> view = a; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4595. A span that the code makes at the call, filled.
+    public static Cell<int> Ag92F2SpanFilledWhereTheCodeMakesIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[18]]; a[0].Share = Plain; a.AsSpan().Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4596. A method makes a span of the array of its parameter and sets an element.
+    public static Cell<int> Ag92F2SpanOfAParameterSetInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[19]]; a[0].Share = Plain; Ag92PutFirst(a, new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4597. A span of the array is filled, and the read goes through the span.
+    public static Cell<int> Ag92F2SpanFilledThenReadThroughIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot { Share = Plain }]; Span<SettableSlot> view = a; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(view[0].Share!.Sample()); });
+
+    // S4598. A span from the second element. Its first element is the second element of the array.
+    public static Cell<int> Ag92F2SliceElementSetAtItsOwnPosition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot { Share = Plain }, new SettableSlot { Share = Plain }]; Span<SettableSlot> view = a.AsSpan(1); view[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[1].Share!.Sample()); });
+
+    // S4599. A span of a second array is filled. The read is of the first array.
+    public static Cell<int> Ag92F2SpanOfASecondArrayFilled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[20]]; SettableSlot[] b = [Ag92Views[21]]; Span<SettableSlot> view = b; a[0].Share = Plain; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4600. The span is filled before the write of a plain cell.
+    public static Cell<int> Ag92F2SpanFilledBeforeThePlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[22]]; Span<SettableSlot> view = a; view.Fill(new SettableSlot { Share = l.Map(v => v) }); a[0].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S4601. The local of the span gets a span of a second array before the fill.
+    public static Cell<int> Ag92F2SpanThatGetsASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[23]]; SettableSlot[] b = [Ag92Views[24]]; Span<SettableSlot> view = a; view = b; a[0].Share = Plain; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4602. The local of the array gets a second array after the code made the span.
+    public static Cell<int> Ag92F2ArrayThatGetsASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[25]]; Span<SettableSlot> view = a; a = [new SettableSlot { Share = Plain }]; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4603. A span of the whole array is a view of each position. The read is at a position with a plain cell.
+    public static Cell<int> Ag92F2WholeSpanReadAtAPlainPosition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot { Share = Plain }, new SettableSlot { Share = l.Map(v => v) }]; Span<SettableSlot> view = a; return S.Hold(view[0].Share!.Sample()); });
+
+    // S4604. A range of an array is a second array. Its span is filled.
+    public static Cell<int> Ag92F2RangeOfTheArrayIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[26]]; Span<SettableSlot> view = a[0..1]; a[0].Share = Plain; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4605. An AsSpan of the code gives a span of a second array.
+    public static Cell<int> Ag92F2OwnAsSpanIsOfASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[27]]; Span<SettableSlot> view = a.AsSpan("elsewhere"); a[0].Share = Plain; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4606. An object of the code gets the array, and its conversion gives a span of a second array.
+    public static Cell<int> Ag92F2ConversionOfAnObjectThatGetsTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[28]]; Span<SettableSlot> view = new Ag92Wrapper(a); a[0].Share = Plain; view.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4607. A property Span of an extension block gives a span of a second array.
+    public static Cell<int> Ag92F2OwnSpanPropertyIsOfASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[29]]; a[0].Share = Plain; a.Span.Fill(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4608. A lambda fills the span of a memory of the array, after the local of the array gets a second array.
+    public static Cell<int> Ag92F2MemoryInALambdaAfterTheArrayGetsASecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Views[30]]; Memory<SettableSlot> m = a; Action fill = () => m.Span.Fill(new SettableSlot { Share = l.Map(v => v) }); a = [new SettableSlot { Share = Plain }]; fill(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4609. A local of a type of the code gets a copy of the array, and converts to a span of that copy. A second array is copied into it.
+    public static Cell<int> Ag92F2CopyOfTheArrayInALocalOfItsOwnType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ag92Copied[0]]; Ag92Copy copy = a; SettableSlot[] from = [new SettableSlot { Share = l.Map(v => v) }]; a[0].Share = Plain; from.CopyTo(copy); return S.Hold(a[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -28156,6 +28284,47 @@ public static class Shapes
         public Cell<int>? Next { get; init; }
 
         public void RunSynchronously() => this.Slot!.Share = this.Next;
+    }
+
+    private static readonly SettableSlot[] Ag92Views =
+    [
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(),
+        new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new(), new()
+    ];
+
+    private static readonly SettableSlot[] Ag92Elsewhere = [new()];
+
+    private static void Ag92PutFirst(SettableSlot[] all, SettableSlot value)
+    {
+        Span<SettableSlot> view = all;
+        view[0] = value;
+    }
+
+    private static Span<SettableSlot> AsSpan(this SettableSlot[] all, string name) =>
+        Ag92Elsewhere.AsSpan(start: 0, length: Math.Min(val1: all.Length, val2: name.Length));
+
+    extension(SettableSlot[] all)
+    {
+        public Span<SettableSlot> Span => Ag92Elsewhere.AsSpan(start: 0, length: all.Length);
+    }
+
+    public sealed class Ag92Wrapper(SettableSlot[] all)
+    {
+        public SettableSlot[] All { get; } = all;
+
+        public static implicit operator Span<SettableSlot>(Ag92Wrapper wrapper) =>
+            Ag92Elsewhere.AsSpan(start: 0, length: wrapper.All.Length);
+    }
+
+    private static readonly SettableSlot[] Ag92Copied = [new()];
+
+    public sealed class Ag92Copy(SettableSlot[] items)
+    {
+        private readonly SettableSlot[] items = items;
+
+        public static implicit operator Ag92Copy(SettableSlot[] all) => new([.. all]);
+
+        public static implicit operator Span<SettableSlot>(Ag92Copy copy) => copy.items;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

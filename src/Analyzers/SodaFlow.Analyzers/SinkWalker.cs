@@ -2176,6 +2176,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.evaluator.GetsAState(collection: element.Expression, put: state);
                 }
 
+                // An element of a view of a local array is an element of that array.
+                if (this.evaluator.TheArrayOfAViewOf(element) is { } viewed)
+                {
+                    this.evaluator.PutsThroughAView(array: viewed, value: from, state: state);
+                }
+
                 return;
         }
 
@@ -2766,6 +2772,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 else
                 {
                     this.evaluator.CanChangeItsArguments(method: method, arguments: arguments, receiver: receiver);
+                    this.evaluator.PutsThroughViews(method: method, receiver: receiver, arguments: arguments);
                 }
 
                 if (receiver != null && method.ReducedFrom == null)

@@ -1186,19 +1186,7 @@ internal sealed partial class LoopStateEvaluator
 
         // The walk reads a node one time, and the value keeps the state from that read. A second
         // read of the same node does not see a change that came after the first.
-        LoopState own =
-            this.OnlyObjectsThatWentIn(
-                expression: expression,
-                state: this.OnlyObjectsOfItsType(
-                    expression: expression,
-                    state: this.Now(this.Captured(expression: expression, state: this.EvalUncached(expression)))));
-
-        if (this.Frame.KeptAt.Count > 0)
-        {
-            own = own.Join(this.KeptThrough(expression));
-        }
-
-        LoopState state = this.Refreshed(expression: expression, state: own);
+        LoopState state = this.EvalNow(expression: expression, own: out LoopState own);
 
         if (!ReferenceEquals(objA: own, objB: state) && own.Objects.Contains(MadeObject.Unknown))
         {
@@ -1213,6 +1201,25 @@ internal sealed partial class LoopStateEvaluator
         this.memo[expression] = state;
 
         return state;
+    }
+
+    // The state of an expression at this time, which Eval keeps for the node. Own is the state
+    // before the store refreshed it.
+    private LoopState EvalNow(ExpressionSyntax expression, out LoopState own)
+    {
+        own =
+            this.OnlyObjectsThatWentIn(
+                expression: expression,
+                state: this.OnlyObjectsOfItsType(
+                    expression: expression,
+                    state: this.Now(this.Captured(expression: expression, state: this.EvalUncached(expression)))));
+
+        if (this.Frame.KeptAt.Count > 0)
+        {
+            own = own.Join(this.KeptThrough(expression));
+        }
+
+        return this.Refreshed(expression: expression, state: own);
     }
 
     /// <summary>
@@ -1934,7 +1941,11 @@ internal sealed partial class LoopStateEvaluator
                 known.Join(this.TypeState(expression)),
             ElementAccessExpressionSyntax e => this.FollowExpression(e) is { } indexed
                 ? indexed.State.Join(this.TypeState(expression))
-                : ElementOf(collection: this.Eval(e.Expression), type: this.region.TypeOf(expression))
+                : ElementOf(
+                        collection: this.TheArrayOfAViewOf(e) is { } viewed
+                            ? this.EvalNow(expression: viewed, own: out _)
+                            : this.Eval(e.Expression),
+                        type: this.region.TypeOf(expression))
                     .Join(this.TypeState(expression)),
             // A lambda is a value. Its code runs when something calls it.
             AnonymousFunctionExpressionSyntax function =>

@@ -2971,6 +2971,27 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag92F3TaskRunByAMethod"] = ["SF1001"],
             ["Ag92F3TaskWritesAPendingCell"] = ["SF1001"],
             ["Ag92F3TaskSamplesAndWaitThrows"] = ["SF1001"],
-            ["Ag92F3OwnRunSynchronouslyIsAMethod"] = ["SF1001"]
+            ["Ag92F3OwnRunSynchronouslyIsAMethod"] = ["SF1001"],
+            ["Ag92F2SpanOfTheArrayFilledAfterTheWrite"] = ["SF1001"],
+            ["Ag92X2SpanElementSet"] = ["SF1001"],
+            ["Ag92F2NewSpanFilled"] = ["SF1001"],
+            ["Ag92F2MemorySpanFilled"] = ["SF1001"],
+            ["Ag92F2SegmentElementSet"] = ["SF1001"],
+            ["Ag92F2SliceFilled"] = ["SF1001"],
+            ["Ag92F2ArrayCopiedIntoTheSpan"] = ["SF1001"],
+            ["Ag92F2SpanCopiedIntoTheSpan"] = ["SF1001"],
+            ["Ag92F2ReadOnlySpanCopiedIntoTheSpan"] = ["SF1001"],
+            ["Ag92F2SegmentCopiedIntoASegment"] = ["SF1001"],
+            ["Ag92F2ArrayCopiedIntoTheArray"] = ["SF1001"],
+            ["Ag92F2ListCopiedIntoTheArray"] = ["SF1001"],
+            ["Ag92F2RangeOfASpanFilled"] = ["SF1001"],
+            ["Ag92F2SliceOfASpanFilled"] = ["SF1001"],
+            ["Ag92F2MemoryElementSetThroughItsSpan"] = ["SF1001"],
+            ["Ag92F2SpanElementSetAfterALocalGotIt"] = ["SF1001"],
+            ["Ag92F2SpanFilledWithNoWriteBefore"] = ["SF1001"],
+            ["Ag92F2SpanFilledWhereTheCodeMakesIt"] = ["SF1001"],
+            ["Ag92F2SpanOfAParameterSetInAMethod"] = ["SF1001"],
+            ["Ag92F2SpanFilledThenReadThroughIt"] = ["SF1001"],
+            ["Ag92F2SliceElementSetAtItsOwnPosition"] = ["SF1001"]
         };
 }

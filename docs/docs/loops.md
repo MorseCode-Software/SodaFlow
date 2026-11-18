@@ -299,7 +299,12 @@ The analyzer follows a value made from the placeholder through the code of your 
   element apart, so `cells[0]`, `cells[^1]`, and `cells.ElementAt(1)` are each one element. A
   `Dictionary` that you write with constant keys and no comparer, and that the code then only
   reads, keeps the value of each key apart, so `cells["total"]` is that one value. `Array.Fill`
-  puts its value into each element that it fills, as an assignment to that element would. A write
+  puts its value into each element that it fills, as an assignment to that element would. A
+  `Span<T>`, `ReadOnlySpan<T>`, `Memory<T>`, `ReadOnlyMemory<T>`, or `ArraySegment<T>` that a method
+  makes from an array in one of its locals or parameters, with an implicit conversion, `AsSpan`,
+  `AsMemory`, a constructor, `Slice`, or a range, is another name for the elements of that array,
+  as long as neither name gets a second value. `Fill`, a write to an element, and `CopyTo` into it
+  put their values into the array, and so does `CopyTo` into the array itself. A write
   to a member through an element of a local array, `List<T>`, or `Dictionary` created with no
   comparer, at a constant index or key or at an index in a local, replaces what an earlier write
   gave that member. So does a write through a local that got that element, and a later read
@@ -455,6 +460,16 @@ Some reads that throw it does not see:
   later.
 - A new element that code puts into an array or a list through a local that got it from a field,
   read through the field.
+- A write through a span, a memory, or a segment that a method gets as a parameter, that
+  `CollectionsMarshal` or `MemoryMarshal` makes, or that a lambda or a local function uses, and a
+  write through a `ref` local of one of its elements. The write does not reach the array. Neither
+  does `Array.Copy`.
+- A write to a member through `this` in a method, when the code also reaches that object through
+  another name, such as an element of an array that holds `this`. A read through the other name
+  still sees the value from before the write.
+- A write in the function of a `Map` or a `Lift` that a `Sample` of the result runs. The analyzer
+  reads that function for the values that it reads, not for the values that it writes. A function
+  that you give to `Map` or `Lift` should have no side effects in any case.
 - A member that the platform calls from a method that is not in its table of common methods.
 - A converter of serializer options that you do not create in the call, a converter that a
   `JsonConverterFactory` makes, the settings of Json.NET, and an object more than three levels
