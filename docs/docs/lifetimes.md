@@ -100,6 +100,17 @@ value, an argument, an element of a collection, and a local that a lambda captur
 held. So does a `using` declaration, which holds the listener to the end of its block. The rule
 sees no further than that: where the listener goes into an object, a list, or a
 lambda that nothing holds, it stops at a collection all the same, and the rule does not report it.
+
+The IDE offers two fixes for `SF2001`. Choose the one whose lifetime is right for the handler:
+
+- **Keep the listener in a field.** The fix adds a private field and puts the listener in it, so
+  the handler runs as long as the object lives. The IDE offers it in an instance member of a class
+  or a record class. A static field holds the listener for the life of the process, thus the IDE
+  does not offer the fix in a static member.
+- **Hold the listener to the end of the block with `using`.** The fix makes a `using` declaration,
+  so the handler runs to the end of the block and then stops. The IDE offers it for a statement in
+  a block, in C# 8 or later.
+
 A test that drops a listener on purpose says so with a pragma and a reason:
 
 ```csharp
