@@ -25723,6 +25723,30 @@ public static class Shapes
     public static Cell<int> Ab255AwaitUsingCallsAnInternalDisposeAsync() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using Ab255InternalDisposal t = new(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
 
+    // S5952. An await calls IsCompleted of the awaiter of a custom awaitable in the call, and IsCompleted samples a pending member.
+    public static Cell<int> R4CsCustomAwaiterIsCompletedReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new R4CsReady(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S5953. An await calls GetAwaiter of a custom awaitable in the call, and GetAwaiter samples a pending member.
+    public static Cell<int> R4CsCustomGetAwaiterReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new R4CsReadsOnAwait(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S5954. An await calls an extension GetAwaiter in the call, and it samples a pending member of the object.
+    public static Cell<int> R4CsExtensionGetAwaiterReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new R4CsAwaitedTally(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S5955. The awaiter of a custom awaitable is not complete, and nothing completes it. Thus, GetResult, which samples, never runs.
+    public static Cell<int> Ab256GetResultOfAnAwaiterThatIsNotCompleteRunsLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new Ab256Pending(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S5956. Control: IsCompleted of the awaiter of a custom awaitable samples a plain cell.
+    public static Cell<int> Ab256AwaiterOfAPlainCellReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new R4CsReady(Plain); Kept.Add(1); }; run().Wait(0); return S.Hold(0); });
+
+    // S5957. An async helper awaits a custom awaitable of the cell that it gets, and IsCompleted of the awaiter samples that cell.
+    public static Cell<int> Ab256CustomAwaitInAHelperReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab256AwaitReady(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -36943,6 +36967,24 @@ public static class Shapes
             return ValueTask.CompletedTask;
         }
     }
+
+    public sealed class Ab256Pending(Cell<int> share)
+    {
+        public Ab256PendingAwaiter GetAwaiter() => new(share);
+    }
+
+    public sealed class Ab256PendingAwaiter(Cell<int> share) : System.Runtime.CompilerServices.INotifyCompletion
+    {
+        public bool IsCompleted => false;
+
+        public void GetResult() => Kept.Add(share.Sample());
+
+        public void OnCompleted(Action continuation)
+        {
+        }
+    }
+
+    private static async Task Ab256AwaitReady(Cell<int> c) => await new R4CsReady(c);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

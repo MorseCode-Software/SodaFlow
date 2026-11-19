@@ -1,5 +1,6 @@
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
@@ -101,6 +102,51 @@ internal sealed partial class LoopStateEvaluator
         member is IPropertySymbol { Name: "Result" } property && SodaFlowSymbols.IsTask(property.ContainingType)
             ? this.ResultOfTheFunctions(access: name, written: name, task: task, value: property.Type)
             : LoopState.None;
+
+    /// <summary>
+    ///     The calls that an await makes with no call syntax: <c>GetAwaiter</c>
+    ///     of the value, <c>IsCompleted</c> of the awaiter, and <c>GetResult</c>
+    ///     of the awaiter. Only a method of this compilation has a body to read.
+    /// </summary>
+    /// <remarks>
+    ///     The await calls <c>GetResult</c> in the call only when the task is
+    ///     complete. Otherwise, the continuation calls it later.
+    /// </remarks>
+    /// <param name="awaited">The await.</param>
+    public Followed? FollowAwaiter(AwaitExpressionSyntax awaited)
+    {
+        if (!this.region.Symbols.DeclaresAwaiters
+            || this.region.ModelFor(awaited).GetAwaitExpressionInfo(awaited)
+                is not { GetAwaiterMethod: { } start } info)
+        {
+            return null;
+        }
+
+        LoopState value = this.Self(awaited.Expression);
+
+        // An extension method gets the value as its argument.
+        Followed? awaiter =
+            start.IsStatic
+                ? this.FollowImplied(
+                    call: awaited,
+                    member: (start.ReducedFrom ?? start).OriginalDefinition,
+                    owner: null,
+                    arguments: [(awaited.Expression, value)])
+                : this.FollowImplied(call: awaited, member: start, owner: value, arguments: []);
+
+        LoopState state = awaiter?.State ?? LoopState.None;
+
+        return Both(
+            first: Both(
+                first: awaiter,
+                second: info.IsCompletedProperty?.GetMethod is { } test
+                    ? this.FollowImplied(call: awaited, member: test, owner: state, arguments: [])
+                    : null),
+            second: info.GetResultMethod is { } result
+                    && CompleteTasks.IsComplete(region: this.region, task: awaited.Expression)
+                ? this.FollowImplied(call: awaited, member: result, owner: state, arguments: [])
+                : null);
+    }
 
     // True when each method that a call of the member can run on the object gives only complete
     // tasks. Only a method of this compilation can give true. A member of an interface that the

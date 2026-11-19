@@ -331,6 +331,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     public override void VisitAwaitExpression(AwaitExpressionSyntax node)
     {
         base.VisitAwaitExpression(node);
+        this.Report(this.evaluator.FollowAwaiter(node));
 
         if (this.LaterAfter(node) is { } part)
         {

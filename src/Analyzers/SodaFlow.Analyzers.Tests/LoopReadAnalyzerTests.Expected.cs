@@ -3834,6 +3834,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab255AwaitUsingDisposesTheFirstResourceAfterACompleteTask"] = ["SF1005"],
             ["Ab255AwaitUsingOfAnInterfaceCallsItsDisposeAsync"] = ["SF1005"],
             ["Ab255AwaitUsingOfAnInterfaceLocalCallsTheInterfaceMember"] = ["SF1005"],
-            ["Ab255AwaitUsingCallsAnInternalDisposeAsync"] = ["SF1005"]
+            ["Ab255AwaitUsingCallsAnInternalDisposeAsync"] = ["SF1005"],
+            ["R4CsCustomAwaiterIsCompletedReads"] = ["SF1005"],
+            ["R4CsCustomGetAwaiterReads"] = ["SF1005"],
+            ["R4CsExtensionGetAwaiterReads"] = ["SF1004"],
+            ["Ab256CustomAwaitInAHelperReads"] = ["SF1004"]
         };
 }

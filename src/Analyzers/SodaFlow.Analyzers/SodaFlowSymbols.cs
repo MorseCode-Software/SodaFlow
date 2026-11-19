@@ -106,6 +106,7 @@ internal sealed class SodaFlowSymbols
     private readonly ConcurrentDictionary<SyntaxTree, ImmutableHashSet<string>> definedSymbols = new();
 
     private readonly Lazy<bool> declaresAdd;
+    private readonly Lazy<bool> declaresAwaiters;
     private readonly Lazy<bool> declaresConversions;
     private readonly Lazy<bool> declaresDeconstruct;
     private readonly Lazy<bool> declaresDispose;
@@ -139,6 +140,7 @@ internal sealed class SodaFlowSymbols
                 .ToImmutableHashSet<IAssemblySymbol>(SymbolEqualityComparer.Default);
 
         this.declaresAdd = Declares(compilation: compilation, name: "Add");
+        this.declaresAwaiters = Declares(compilation: compilation, name: "GetAwaiter");
 
         this.declaresConversions =
             new Lazy<bool>(() =>
@@ -245,6 +247,12 @@ internal sealed class SodaFlowSymbols
     ///     binding.
     /// </remarks>
     public bool DeclaresAdd => this.declaresAdd.Value;
+
+    /// <summary>
+    ///     True when the compilation declares a <c>GetAwaiter</c> method. An
+    ///     await calls it, and then the members of the awaiter that it gives.
+    /// </summary>
+    public bool DeclaresAwaiters => this.declaresAwaiters.Value;
 
     /// <summary>
     ///     True when the compilation declares a conversion operator. The walk
