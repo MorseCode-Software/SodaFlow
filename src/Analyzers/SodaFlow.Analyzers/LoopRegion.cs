@@ -35,6 +35,17 @@ internal sealed class LoopRegion(
     // make.
     private readonly Dictionary<ISymbol, LoopState> fields = new(SymbolEqualityComparer.Default);
 
+    // For each key of the fields: the number of the writes to a member at the last state that it got.
+    private readonly Dictionary<ISymbol, int> lastWrites = new(SymbolEqualityComparer.Default);
+
+    // For each member: each write through a name that gave the field its state. The record has the
+    // name, the objects of the store that the owner can be, and the number of the write.
+    private readonly Dictionary<ISymbol, List<NamedWrite>> writesThroughNames =
+        new(SymbolEqualityComparer.Default);
+
+    // Each two names that an assignment made two names of one value, from Links.
+    private readonly List<NameLink> links = [];
+
     // True when a key of the fields is a property of an interface: see FieldState.
     private bool hasInterfaceFields;
 
@@ -218,6 +229,8 @@ internal sealed class LoopRegion(
 
         this.fields[key] =
             this.fields.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
+
+        this.lastWrites[key] = this.MemberWrites;
 
         this.hasInterfaceFields |= key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
     }
@@ -439,6 +452,66 @@ internal sealed class LoopRegion(
 
     /// <summary>Records a write to a member of an object.</summary>
     public void AddAMemberWrite() => this.MemberWrites++;
+
+    /// <summary>
+    ///     Records a write to a member through a name, when the write gave the
+    ///     field its state now. See <see cref="WritesThroughNamesOf" />.
+    /// </summary>
+    /// <param name="member">The member.</param>
+    /// <param name="name">The name of the owner, or null when the walk cannot read it again.</param>
+    /// <param name="objects">The objects of the store that the owner can be.</param>
+    public void NotesAWriteThroughAName(ISymbol member, NameKey? name, ImmutableArray<MadeObject> objects)
+    {
+        ISymbol key = member.OriginalDefinition;
+
+        if (name == null || this.LastWriteOf(key) != this.MemberWrites)
+        {
+            return;
+        }
+
+        if (!this.writesThroughNames.TryGetValue(key: key, value: out List<NamedWrite>? writes))
+        {
+            writes = [];
+            this.writesThroughNames[key] = writes;
+        }
+
+        writes.Add(new NamedWrite(name: name.Value, objects: objects, at: this.MemberWrites));
+    }
+
+    /// <summary>
+    ///     Each write to a member through a name that went to the field, from
+    ///     <see cref="NotesAWriteThroughAName" />.
+    /// </summary>
+    public IReadOnlyList<NamedWrite> WritesThroughNamesOf(ISymbol member) =>
+        this.writesThroughNames.TryGetValue(key: member.OriginalDefinition, value: out List<NamedWrite>? writes)
+            ? writes
+            : [];
+
+    /// <summary>Records that an assignment made two names of one value.</summary>
+    public void Links(NameLink link) => this.links.Add(link);
+
+    /// <summary>
+    ///     Takes away each link of a name that gets a different value. An element
+    ///     or a field of a name that gets a different value is in a different
+    ///     object then.
+    /// </summary>
+    public void TakesAwayTheLinksOf(NameKey name)
+    {
+        if (this.links.Count > 0)
+        {
+            this.links.RemoveAll(link => link.One.IsIn(name) || link.Other.IsIn(name));
+        }
+    }
+
+    /// <summary>Each link from <see cref="Links" /> that is still in the record.</summary>
+    public IReadOnlyList<NameLink> AllLinks => this.links;
+
+    /// <summary>
+    ///     The value of <see cref="MemberWrites" /> when a field last got a state
+    ///     from <see cref="SetField" />. -1 for a field with no state.
+    /// </summary>
+    public int LastWriteOf(ISymbol field) =>
+        this.lastWrites.TryGetValue(key: field.OriginalDefinition, value: out int at) ? at : -1;
 
     /// <summary>
     ///     Counts one more callee body that the walk reads only because the callee

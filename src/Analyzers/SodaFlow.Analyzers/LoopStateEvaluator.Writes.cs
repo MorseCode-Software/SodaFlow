@@ -506,6 +506,8 @@ internal sealed partial class LoopStateEvaluator
 
             this.locals[other] =
                 known.WithMembers(had.With(member: member, state: only ? state : had.StateOf(member).Join(state)));
+
+            this.NotesAChangeTo(other);
         }
     }
 
@@ -1818,6 +1820,8 @@ internal sealed partial class LoopStateEvaluator
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
         this.region.AddAMemberWrite();
+        this.NotesAnOwnWrite(written);
+        this.NotesAnOwnWrite(owner);
 
         // A field is a location that a parameter with ref can be a name of.
         if (member is IFieldSymbol)
@@ -1886,6 +1890,7 @@ internal sealed partial class LoopStateEvaluator
                 isReadInTheCaller: isReadInTheCaller);
 
             this.Frame.LastWrite = null;
+            this.region.NotesAWriteThroughAName(member: member, name: this.NameKeyOf(written), objects: has.Objects);
 
             this.GivesTheOtherNames(
                 owner: owner,
@@ -1920,6 +1925,7 @@ internal sealed partial class LoopStateEvaluator
             isKnown: isKnown,
             isReadInTheCaller: false);
 
+        this.region.NotesAWriteThroughAName(member: member, name: this.NameKeyOf(written), objects: has.Objects);
         this.GivesTheOtherNames(owner: owner, at: owner, member: member, state: state, replaces: replaces, turn: turn);
 
         this.Frame.LastWrite =

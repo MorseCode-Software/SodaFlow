@@ -2243,6 +2243,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // A local of a value with no object is a name of the element or the field that gets it.
         this.evaluator.NotesALocalOfALocation(location: target, value: value, replaces: replaces);
         this.evaluator.NotesNamesOfOneObject(target: target, value: value, replaces: replaces);
+        this.evaluator.NotesALinkOfALocation(location: target, value: value, replaces: replaces);
 
         if (target is IdentifierNameSyntax
             && this.region.SymbolOf(target) is { } named and (ILocalSymbol or IParameterSymbol))

@@ -69,6 +69,7 @@
         <Compile Include="LoopStateEvaluator.Escapes.cs"/>
         <Compile Include="LoopStateEvaluator.Implied.cs"/>
         <Compile Include="LoopStateEvaluator.Names.cs"/>
+        <Compile Include="LoopStateEvaluator.LaterWrites.cs"/>
         <Compile Include="LoopStateEvaluator.OlderObjects.cs"/>
         <Compile Include="LoopStateEvaluator.Overrides.cs"/>
         <Compile Include="LoopStateEvaluator.Platform.cs"/>
@@ -87,6 +88,9 @@
         <Compile Include="MadeObject.cs"/>
         <Compile Include="NameOfAnObject.cs"/>
         <Compile Include="NamesOfOneObject.cs"/>
+        <Compile Include="NamedWrite.cs"/>
+        <Compile Include="NameKey.cs"/>
+        <Compile Include="NameLink.cs"/>
         <Compile Include="ObjectStore.cs"/>
         <Compile Include="OperatorTable.cs"/>
         <Compile Include="OverrideIndex.cs"/>

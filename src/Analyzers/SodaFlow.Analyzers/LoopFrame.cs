@@ -301,6 +301,12 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public int NamesWritesSeen { get; set; }
 
     /// <summary>
+    ///     The number of the writes to a member in the region, for each name of
+    ///     this code. The number is from the last write through that name.
+    /// </summary>
+    public Dictionary<ISymbol, int> OwnWriteOf { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
     ///     For a local of this code that got an element at a location that the
     ///     walk can read again: the expression of that element.
     /// </summary>

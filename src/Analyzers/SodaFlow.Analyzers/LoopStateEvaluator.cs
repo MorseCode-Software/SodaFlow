@@ -310,6 +310,8 @@ internal sealed partial class LoopStateEvaluator
 
         this.locals[local] =
             this.locals.TryGetValue(key: local, value: out LoopState? existing) ? existing.Join(state) : state;
+
+        this.NotesAChangeTo(local);
     }
 
     // Records the collection of a local that has one value. The value is one new object of the
@@ -873,6 +875,11 @@ internal sealed partial class LoopStateEvaluator
         this.NotesASecondName(local: local, value: value, replaces: replaces);
         this.NotesANameOfALocation(local: local, value: value, replaces: replaces);
         this.NotesANameOfAnElement(local: local, value: value);
+
+        if (KeepsItsObject(local))
+        {
+            this.NotesALink(name: new NameKey(of: local, owner: null, index: -1), value: value, replaces: replaces);
+        }
 
         // A name with ref gets its location here. Each other assignment to the name is an
         // assignment to that location, and the name keeps it.
@@ -2337,6 +2344,13 @@ internal sealed partial class LoopStateEvaluator
                         {
                             through = through.Join(field);
                         }
+
+                        through = through.Join(
+                            this.WrittenAfterItsOwner(
+                                owner: ownerExpression,
+                                has: owner,
+                                member: symbol,
+                                field: field));
 
                         // The members are of each object that the owner can be. An owner that the
                         // store does not know has a member that the store does not know.
