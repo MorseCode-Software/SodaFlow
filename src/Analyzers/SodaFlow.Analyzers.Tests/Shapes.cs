@@ -25507,6 +25507,26 @@ public static class Shapes
     public static Cell<int> R4SmpWritesThroughASecondName() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; SettableSlot t = s; Cell<int> w = Plain.Map(v => { t.Share = p; return v; }); int n = w.Sample(); return S.Hold(s.Share!.Sample() + n); });
 
+    // S5898. A map function puts the pending cell into the element of a local array that it captures. The block writes a plain cell, samples the map, and reads the element. The V10 probe of AB219.
+    public static Cell<int> R4SmpAb219LocalArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new()]; Cell<int> p = l.Map(v => v); Cell<int> w = Plain.Map(v => { a[0].Share = p; return v; }); a[0].Share = p; a[0].Share = Plain; int n = w.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5899. The same, with no pending write by the block before.
+    public static Cell<int> R4SmpAb219LocalArrayOnlyTheFunctionWritesPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new()]; Cell<int> p = l.Map(v => v); Cell<int> w = Plain.Map(v => { a[0].Share = p; return v; }); a[0].Share = Plain; int n = w.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5900. A map function puts the pending cell into the element of a local list that it captures. The block writes a plain cell, samples the map, and reads the element.
+    public static Cell<int> R4SmpAb219LocalList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [new()]; Cell<int> p = l.Map(v => v); Cell<int> w = Plain.Map(v => { a[0].Share = p; return v; }); a[0].Share = Plain; int n = w.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5901. A map function puts a new element with the pending cell into a local array that it captures.
+    public static Cell<int> R4SmpAb219PutsANewElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new()]; Cell<int> p = l.Map(v => v); Cell<int> w = Plain.Map(v => { a[0] = new SettableSlot { Share = p }; return v; }); a[0].Share = Plain; int n = w.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5902. The V10 form, with the map sampled in a helper.
+    public static Cell<int> R4SmpAb219SampledInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new()]; Cell<int> p = l.Map(v => v); Cell<int> w = Plain.Map(v => { a[0].Share = p; return v; }); a[0].Share = Plain; int n = ReadIt(w); return S.Hold(a[0].Share!.Sample() + n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

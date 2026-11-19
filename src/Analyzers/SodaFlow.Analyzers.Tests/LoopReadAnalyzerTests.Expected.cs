@@ -3807,6 +3807,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4SmpWritesSampledInATransaction"] = ["SF1001"],
             ["R4SmpWritesSampledThroughASecondNameOfTheCell"] = ["SF1001"],
             ["R4SmpWritesThroughACallInTheFunction"] = ["SF1001"],
-            ["R4SmpWritesThroughASecondName"] = ["SF1001"]
+            ["R4SmpWritesThroughASecondName"] = ["SF1001"],
+            ["R4SmpAb219LocalArray"] = ["SF1001"],
+            ["R4SmpAb219LocalArrayOnlyTheFunctionWritesPending"] = ["SF1001"],
+            ["R4SmpAb219LocalList"] = ["SF1001"],
+            ["R4SmpAb219PutsANewElement"] = ["SF1001"],
+            ["R4SmpAb219SampledInAHelper"] = ["SF1001"]
         };
 }
