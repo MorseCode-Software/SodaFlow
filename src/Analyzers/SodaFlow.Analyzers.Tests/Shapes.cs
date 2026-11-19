@@ -20815,6 +20815,30 @@ public static class Shapes
     public static Cell<int> Ab217SampleOfAMapThatWritesTheElementBetween() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab217Mapped; Cell<int> pending = l.Map(v => v); Cell<int> w = Plain.Map(v => { Ab217Mapped[0].Share = pending; return v; }); Ab217SetMapped(pending); a[0].Share = Plain; int n = w.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
 
+    // S4726. A map of a collection has an eviction handler that samples the placeholder. The block reads the items, and then calls Dispose, which runs the handler for the object that the map built.
+    public static Cell<int> Ab216DisposeAfterAReadOfTheItems() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; m.Dispose(); return S.Hold(n); });
+
+    // S4727. The same, but a using declaration calls Dispose at the end of the block.
+    public static Cell<int> Ab216UsingOfAMapAfterAReadOfTheItems() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            using MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample()));
+            return S.Hold(m.Items.Sample().Count);
+        });
+
+    // S4728. The same as S4726, but the handler samples a plain cell.
+    public static Cell<int> Ab216DisposeWithAHandlerThatSamplesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(Plain.Sample())); int n = m.Items.Sample().Count; m.Dispose(); return S.Hold(n); });
+
+    // S4729. The same as S4726, but the block only calls Dispose on the map. The map built no object, thus the handler does not run.
+    public static Cell<int> Ab216DisposeBeforeAReadOfTheItems() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); m.Dispose(); return S.Hold(0); });
+
+    // S4730. The block calls Dispose on a map that no local keeps. The map built no object.
+    public static Cell<int> Ab216DisposeOfAMapThatNoLocalKeeps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())).Dispose(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

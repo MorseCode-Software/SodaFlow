@@ -218,8 +218,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     }
 
     // The Dispose that a using calls on its resource. An object of this compilation has a body to
-    // read. The Dispose of a bindable action of the library reads its enablement cell, as a call of
-    // that Dispose in the code does.
+    // read. The Dispose of a bindable action of the library reads its enablement cell. The Dispose
+    // of a map of a collection runs its eviction handler. A call of that Dispose in the code does
+    // the same.
     private void CheckDisposed(ExpressionSyntax resource)
     {
         if (this.evaluator.FollowDispose(resource) is { } followed)
@@ -228,6 +229,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
             return;
         }
+
+        this.Report(this.evaluator.FollowEvictionsOfADispose(map: resource, dispose: resource));
 
         LoopState state = this.evaluator.Eval(resource);
 
@@ -2975,6 +2978,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     && symbols.IsBindableAction(this.region.TypeOf(receiver))))
             {
                 this.CheckRead(node: node, owner: receiver, name: method.Name);
+            }
+
+            // The Dispose of a map of a collection runs its eviction handler in the call.
+            if (operatorName == "Dispose" && kind == CalleeKind.Library)
+            {
+                this.Report(this.evaluator.FollowEvictionsOfADispose(map: receiver, dispose: node));
             }
         }
 

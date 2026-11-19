@@ -216,6 +216,28 @@ internal sealed class OperatorTableTests
     }
 
     /// <summary>
+    ///     A read of the value does not run a function that a result runs at its
+    ///     <c>Dispose</c>. Thus, each such function is also in the table of the
+    ///     functions that the operator keeps.
+    /// </summary>
+    [Test]
+    public async Task EachFunctionRunAtDisposeIsKeptBesideTheValue()
+    {
+        IReadOnlyList<(string Method, string Parameter)> atDispose =
+        [
+            .. OperatorTable.RunAtDispose
+                .SelectMany(static row => row.Value.Select(parameter => (Method: row.Key, Parameter: parameter)))
+        ];
+
+        await Assert.That(atDispose).Contains(("Map", "onEvicted"));
+
+        await Assert.That(atDispose.Where(static function =>
+                !IsListed(table: OperatorTable.KeptBesideTheValue, function: function)))
+            .IsEmpty()
+            .Because("each function run at Dispose is in KeptBesideTheValue");
+    }
+
+    /// <summary>
     ///     A comparer is an object whose members the library calls. Each
     ///     parameter of a public method that gets a comparer has to say when the
     ///     library calls it. This test fails for a new one until it does. A

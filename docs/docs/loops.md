@@ -256,7 +256,9 @@ is quiet.
   value is thus harmless in a cell that you only keep. If you sample that cell in the block, or
   close the loop with it, the analyzer reports the sample or the close. Collection views work the
   same way. Their predicates, selectors, sort orders, and comparers run when something reads the
-  view.
+  view. The eviction handler of a `Map` on a collection runs when a key leaves the view, and in a
+  call of `Dispose` for each object the map built. The analyzer reads the handler at a `Dispose`
+  in the block, unless the code uses the map for nothing but that `Dispose`.
 - **A call that the compiler removes.** A call of a method with `[Conditional]`, such as
   `Debug.WriteLine` in a release build, does not run, and neither do its arguments, when the build
   defines none of its symbols.

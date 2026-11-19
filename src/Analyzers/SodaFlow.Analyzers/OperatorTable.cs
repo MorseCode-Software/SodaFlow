@@ -349,8 +349,10 @@ internal static class OperatorTable
             "CanExecuteChanged",
             "PropertyChanged",
             // Execute of ICommand and Dispose of IDisposable. Each reads the enablement of a bindable
-            // action, and the walk checks that read. Each other Dispose releases listeners. Execute of
-            // an AsyncMapStatus reads its cell in a transaction of its own, after the close.
+            // action, and the walk checks that read. Each other Dispose releases listeners. The Dispose
+            // of a map of a collection also runs a function of RunAtDispose, and the walk follows that
+            // function. Execute of an AsyncMapStatus reads its cell in a transaction of its own, after
+            // the close.
             "Dispose",
             "Execute",
             // The sort orders of a collection. Each keeps its function for a view that sorts by it.
@@ -561,6 +563,31 @@ internal static class OperatorTable
         ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
             .Add(key: "Map", value: ImmutableHashSet.Create("onEvicted"))
             .Add(key: "Create", value: ImmutableHashSet.Create("getGroup", "groupComparer"));
+
+    /// <summary>
+    ///     The functions that the result of an operator runs in a call of its
+    ///     <c>Dispose</c>. The map of a collection calls <c>onEvicted</c> for
+    ///     each object that it built. Thus, a <c>Dispose</c> in the block runs that
+    ///     function in the block.
+    /// </summary>
+    /// <remarks>
+    ///     Each function here is also in <see cref="KeptBesideTheValue" />,
+    ///     because no read of the value runs it. The completeness test in the
+    ///     analyzer's tests checks that.
+    /// </remarks>
+    public static readonly ImmutableDictionary<string, ImmutableHashSet<string>> RunAtDispose =
+        ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
+            .Add(key: "Map", value: ImmutableHashSet.Create("onEvicted"));
+
+    /// <summary>
+    ///     True for a parameter that gets a function which the result of the
+    ///     method runs in a call of its <c>Dispose</c>.
+    /// </summary>
+    public static bool IsRunAtDispose(IMethodSymbol method, IParameterSymbol parameter) =>
+        RunAtDispose.TryGetValue(
+            key: LoopStateEvaluator.OperatorName(method),
+            value: out ImmutableHashSet<string>? parameters)
+        && parameters.Contains(parameter.Name);
 
     /// <summary>
     ///     True for an operator that computes the current value of its result

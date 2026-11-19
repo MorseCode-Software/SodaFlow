@@ -1057,6 +1057,95 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The run of the functions that a map of a collection calls in its
+    ///     <c>Dispose</c>. The map calls its eviction handler for each object that
+    ///     it built. The map is a local that no code writes, and that <c>Map</c>
+    ///     made, or the call of <c>Map</c> itself.
+    /// </summary>
+    /// <remarks>
+    ///     A map builds its objects at the first read of its items, or at the end
+    ///     of the transaction, which is after the close. Thus, a map that the code
+    ///     uses only to call <c>Dispose</c> built no object in the block, and its
+    ///     handler does not run. For each other map, the walk does not know if the
+    ///     map built an object before the call. Thus, it follows the handler as if
+    ///     the map did. A map that a different transaction made is not a local of
+    ///     the block, and the walk does not follow its handler.
+    /// </remarks>
+    /// <param name="map">The expression of the map.</param>
+    /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
+    public Followed? FollowEvictionsOfADispose(ExpressionSyntax map, SyntaxNode dispose)
+    {
+        if (this.ValueOfALocalThatNoCodeWrites(Unwrapped(map)) is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Map" }
+            } creation
+            || this.region.SymbolOf(creation) is not IMethodSymbol method
+            || !this.region.Symbols.IsSodaFlow(method)
+            || !this.CanHaveBuiltAnObject(creation))
+        {
+            return null;
+        }
+
+        // The handler gets each object that the projection gave.
+        LoopState objects = this.Eval(map).Content;
+
+        return creation.ArgumentList.Arguments
+            .Select((argument, position) =>
+                (argument.Expression,
+                    Parameter: ParameterFor(method: method, argument: argument, position: position)))
+            .Where(argument =>
+                argument.Parameter is { } parameter && OperatorTable.IsRunAtDispose(method: method, parameter: parameter))
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, argument) =>
+                {
+                    LoopState handler = this.Eval(argument.Expression);
+
+                    return Callables(state: handler, parameter: argument.Parameter)
+                        .Aggregate(
+                            seed: all,
+                            func: (found, function) =>
+                                Both(
+                                    first: found,
+                                    second: this.FollowFunction(
+                                        call: dispose,
+                                        name: NameOf(argument.Expression),
+                                        function: function,
+                                        target: handler,
+                                        arguments: default,
+                                        each: (map, objects, ManyTimes: true))));
+                });
+    }
+
+    // True when code can read the items of the map that the call makes. That is so when a local
+    // keeps the map, and the code uses that local for more than a call of Dispose. A map that no
+    // local keeps, or whose local only gets Dispose, gives its items to no code.
+    private bool CanHaveBuiltAnObject(SyntaxNode creation)
+    {
+        SyntaxNode? above = creation.Parent;
+
+        while (above is ParenthesizedExpressionSyntax or CastExpressionSyntax)
+        {
+            above = above.Parent;
+        }
+
+        if (above is not EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
+            || this.region.ModelFor(declarator).GetDeclaredSymbol(declarator) is not ILocalSymbol local)
+        {
+            return false;
+        }
+
+        // With no block to search, the walk cannot see each use of the local.
+        return NamesOf(local: local, declarator: declarator, region: this.region) is not { } names
+               || names.Any(static name =>
+                   name.Parent is not MemberAccessExpressionSyntax
+                   {
+                       Name.Identifier.ValueText: "Dispose", Parent: InvocationExpressionSyntax
+                   } access
+                   || access.Expression != name);
+    }
+
+    /// <summary>
     ///     The state of what a function returns, for a function that the code
     ///     gives by its name to a map or a lift. The function is a local function,
     ///     a lambda in a local, or a method. Each parameter gets the state at its
