@@ -64,6 +64,49 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The state of what the functions in the cell of an apply return. Each
+    ///     function gets the value of the receiver.
+    /// </summary>
+    /// <remarks>
+    ///     The functions are in the content of the cell, and not at the call.
+    ///     The operator runs them at a time that the walk does not know. Thus,
+    ///     an evaluator that changes nothing reads them, as for a named function.
+    /// </remarks>
+    private LoopState AppliedContent(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        ExpressionSyntax? receiver,
+        LoopState receiverState,
+        LoopState functionCell)
+    {
+        if (functionCell.Content.Functions.IsEmpty
+            || !this.HoldsContent(method)
+            || invocation.ArgumentList.Arguments.FirstOrDefault(argument => argument.Expression != receiver)
+                is not { } written)
+        {
+            return LoopState.None;
+        }
+
+        LoopStateEvaluator quiet = this.Quiet();
+        ImmutableArray<LoopState> given = ImmutableArray.Create(receiverState.Content);
+
+        return functionCell.Content.Functions.Aggregate(
+            seed: LoopState.None,
+            func: (all, function) =>
+                all.Join(
+                    quiet.FollowFunction(
+                            call: invocation,
+                            name: NameOf(written.Expression),
+                            function: function,
+                            target: functionCell.Content,
+                            arguments: default,
+                            each: (written.Expression, LoopState.None, ManyTimes: true),
+                            byPosition: given)
+                        ?.State
+                    ?? LoopState.None));
+    }
+
+    /// <summary>
     ///     The values that a hold or an accumulation holds. The initial value is
     ///     one. A hold gets the values of its stream after the close, and an
     ///     accumulation gets what its function returns then. A collect keeps no

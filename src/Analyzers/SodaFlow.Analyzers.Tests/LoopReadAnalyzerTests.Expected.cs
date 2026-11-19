@@ -3971,6 +3971,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab237UsingOfATimerSystemStopsAClockThatReads"] = ["SF1005"],
             ["Ab237SystemClockTimerSystemCallsItsFunctionOfTheTime"] = ["SF1001"],
             ["R4ApiMapAsyncResultOfALinkedCellReachesASwitchedHold"] = ["SF1002"],
-            ["Ab235ConstructOfALinkedCellReachesASwitchedHold"] = ["SF1002"]
+            ["Ab235ConstructOfALinkedCellReachesASwitchedHold"] = ["SF1002"],
+            ["R4ApiApplyOfABehaviorFunctionThatReturnsALinkedCell"] = ["SF1002"],
+            ["R4ApiApplyOfAFunctionThatReturnsALinkedCell"] = ["SF1002"],
+            ["Ab227ApplyOfAFunctionThatReturnsItsLinkedValue"] = ["SF1002"],
+            ["Ab227ApplyOfAFunctionInALocal"] = ["SF1002"],
+            ["Ab227StaticApplyOfAFunctionThatReturnsALinkedCell"] = ["SF1002"]
         };
 }

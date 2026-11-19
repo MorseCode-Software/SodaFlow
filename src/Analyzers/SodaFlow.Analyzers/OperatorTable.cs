@@ -75,7 +75,8 @@ internal enum OperatorRule
 
     /// <summary>
     ///     A cell or behavior from cells or behaviors. Pending and linked when
-    ///     any input is.
+    ///     any input is, and the content is what the functions in the cell of
+    ///     functions return.
     /// </summary>
     Combine,
 

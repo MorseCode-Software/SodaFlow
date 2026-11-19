@@ -2615,7 +2615,13 @@ internal sealed partial class LoopStateEvaluator
                     pending: inputs.Pending,
                     linked: inputs.Linked,
                     contentPending: false,
-                    contentLinked: false),
+                    contentLinked: false).WithContent(
+                    this.AppliedContent(
+                        invocation: invocation,
+                        method: method,
+                        receiver: receiver,
+                        receiverState: receiverState,
+                        functionCell: firstArgument)),
                 OperatorRule.LiftValue => new LoopState(
                     pending: inputs.Pending,
                     linked: inputs.Linked,

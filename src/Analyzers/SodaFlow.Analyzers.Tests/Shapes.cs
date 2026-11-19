@@ -27663,6 +27663,30 @@ public static class Shapes
     public static Cell<int> Ab235FromValueOfTheCodeIsNoResult() =>
         ((Func<Cell<int>>)(() => { List<Exception> caught = []; Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> src = Stream.CreateSink<int>(); StreamSink<Cell<int>> results = Stream.CreateSink<Cell<int>>(); StreamSink<Exception> errors = Stream.CreateSink<Exception>(); Kept.Add(errors.Listen(caught.Add)); Cell<Cell<int>> h = results.Hold(Plain); Kept.Add(src.MapAsync(results: results, errors: errors, handleException: caught.Add, operation: (_, f, _) => Task.FromResult(f.FromValue(Ab235Results.FromValue(l.Map(v => v)))), strategy: AsyncConcurrencyStrategy.Parallel())); src.Send(1); return h.SwitchC(); }); R4ApiRethrow(caught); return c; }))();
 
+    // S6437. Apply of a behavior runs the function that its behavior holds. That function returns a linked cell, and the switch of the result as the close selects it.
+    public static Cell<int> R4ApiApplyOfABehaviorFunctionThatReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => Plain.AsBehavior().Apply(Behavior.Constant<Func<int, Cell<int>>>(_ => l.Map(v => v))).SwitchC());
+
+    // S6438. Apply runs the function that its cell holds. That function returns a cell linked to the placeholder, and the switch of the result as the close selects it.
+    public static Cell<int> R4ApiApplyOfAFunctionThatReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => Plain.Apply(Cell.Constant<Func<int, Cell<int>>>(_ => l.Map(v => v))).SwitchC());
+
+    // S6439. Apply gives the value of its receiver to the function in its cell. The function returns that value, which is a linked cell. Thus, the switch of the result as the close is a cycle.
+    public static Cell<int> Ab227ApplyOfAFunctionThatReturnsItsLinkedValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => Cell.Constant(l.Map(v => v)).Apply(Cell.Constant<Func<Cell<int>, Cell<int>>>(c => c)).SwitchC());
+
+    // S6440. Control: the function in the cell of the apply returns the value of the receiver, which has no link. Thus, the switch of the result as the close is not a cycle.
+    public static Cell<int> Ab227ApplyOfAFunctionThatReturnsItsPlainValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => Cell.Constant(Plain).Apply(Cell.Constant<Func<Cell<int>, Cell<int>>>(c => c)).SwitchC());
+
+    // S6441. The function in the cell of the apply comes from a local. It returns a linked cell, and the switch of the result as the close selects it.
+    public static Cell<int> Ab227ApplyOfAFunctionInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int, Cell<int>> f = _ => l.Map(v => v); return Plain.Apply(Cell.Constant(f)).SwitchC(); });
+
+    // S6442. A static call of Apply runs the function in its cell also. The function returns a linked cell, and the switch of the result as the close selects it.
+    public static Cell<int> Ab227StaticApplyOfAFunctionThatReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => CellExtensionMethods.Apply(Plain, Cell.Constant<Func<int, Cell<int>>>(_ => l.Map(v => v))).SwitchC());
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
