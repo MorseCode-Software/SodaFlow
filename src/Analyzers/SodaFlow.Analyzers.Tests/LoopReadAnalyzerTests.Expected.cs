@@ -3838,6 +3838,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4CsCustomAwaiterIsCompletedReads"] = ["SF1005"],
             ["R4CsCustomGetAwaiterReads"] = ["SF1005"],
             ["R4CsExtensionGetAwaiterReads"] = ["SF1004"],
-            ["Ab256CustomAwaitInAHelperReads"] = ["SF1004"]
+            ["Ab256CustomAwaitInAHelperReads"] = ["SF1004"],
+            ["R4CsAwaitForeachDisposesAsyncNow"] = ["SF1005"],
+            ["R4CsAwaitForeachWithCancellationRunsTheBodyNow"] = ["SF1001"],
+            ["Ab258AwaitForeachOverAnEnumeratorThatMovesNowRunsTheBodyNow"] = ["SF1001"],
+            ["Ab258CodeAfterAnEnumeratorThatEndsNowRunsNow"] = ["SF1001"],
+            ["Ab258AwaitForeachWithCancellationAndConfigureAwaitRunsTheBodyNow"] = ["SF1001"]
         };
 }

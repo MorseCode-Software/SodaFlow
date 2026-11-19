@@ -520,7 +520,10 @@ Some reads that throw it does not see:
 - Code after an `await` of a task that is already complete when the analyzer cannot tell that it
   is. That code runs in the block, and the analyzer reads it as code that runs later. The same
   goes for the body of an `await foreach` over a sequence other than a call of your own async
-  iterator, and over one whose first `yield return` is not at the top level of its body. The
+  iterator, also through `WithCancellation` or `ConfigureAwait`, or an enumerator object of yours
+  whose `MoveNextAsync` returns only complete tasks, and over an iterator whose first
+  `yield return` is not at the top level of its body. The analyzer reads the `DisposeAsync` of the
+  enumerator at the end of such a loop as code that runs later too. The
   analyzer knows the complete tasks that the platform makes, such as `Task.CompletedTask` and
   `Task.FromResult`, a local, a `readonly` field, or a get-only property whose initializer is such
   a task, and a method of your own that returns only such tasks.

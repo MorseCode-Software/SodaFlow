@@ -25747,6 +25747,38 @@ public static class Shapes
     public static Cell<int> Ab256CustomAwaitInAHelperReads() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab256AwaitReady(l.Map(v => v)).Wait(0); return S.Hold(0); });
 
+    // S5958. An await foreach over a sequence with no item disposes its enumerator in the call, and DisposeAsync samples a pending member.
+    public static Cell<int> R4CsAwaitForeachDisposesAsyncNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new R4CsAsyncEmpty(l.Map(v => v))) { Kept.Add(n); } }; run().Wait(0); return S.Hold(0); });
+
+    // S5959. An await foreach over an async iterator with no await, through WithCancellation, runs its body in the call, which samples.
+    public static Cell<int> R4CsAwaitForeachWithCancellationRunsTheBodyNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in R4CsNowItems().WithCancellation(CancellationToken.None)) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S5960. An await foreach over an enumerator object whose MoveNextAsync is complete runs its body in the call, and the body samples.
+    public static Cell<int> Ab258AwaitForeachOverAnEnumeratorThatMovesNowRunsTheBodyNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new Ab258OneNow()) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S5961. An await foreach over an enumerator object whose MoveNextAsync never completes runs no body, and the body samples.
+    public static Cell<int> Ab258AwaitForeachOverAnEnumeratorThatNeverMovesRunsLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new Ab258NeverMoves()) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S5962. The DisposeAsync of the enumerator of an await foreach never completes, and the code after the loop samples later.
+    public static Cell<int> Ab258CodeAfterADisposeAsyncThatNeverCompletesRunsLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new Ab258NeverDisposed()) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5963. Control: the enumerator of an await foreach moves and disposes with complete tasks, and the code after the loop samples now.
+    public static Cell<int> Ab258CodeAfterAnEnumeratorThatEndsNowRunsNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new Ab258OneNow()) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5964. An await foreach over an async iterator through WithCancellation and then ConfigureAwait runs its body in the call.
+    public static Cell<int> Ab258AwaitForeachWithCancellationAndConfigureAwaitRunsTheBodyNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in R4CsNowItems().WithCancellation(CancellationToken.None).ConfigureAwait(false)) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S5965. A WithCancellation of the code gives a different sequence, whose first item never comes. Thus, the body never runs.
+    public static Cell<int> Ab258AWithCancellationOfTheCodeIsADifferentSequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (long n in Ab258NowLongs().WithCancellation(CancellationToken.None)) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -36986,6 +37018,71 @@ public static class Shapes
 
     private static async Task Ab256AwaitReady(Cell<int> c) => await new R4CsReady(c);
 
+    public sealed class Ab258OneNow : IAsyncEnumerable<int>
+    {
+        public IAsyncEnumerator<int> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            new Ab258OneNowWalker();
+    }
+
+    public sealed class Ab258OneNowWalker : IAsyncEnumerator<int>
+    {
+        private bool done;
+
+        public int Current => 1;
+
+        public ValueTask<bool> MoveNextAsync()
+        {
+            bool more = !this.done;
+            this.done = true;
+
+            return ValueTask.FromResult(more);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    public sealed class Ab258NeverMoves : IAsyncEnumerable<int>
+    {
+        public IAsyncEnumerator<int> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            new Ab258NeverMovesWalker();
+    }
+
+    public sealed class Ab258NeverMovesWalker : IAsyncEnumerator<int>
+    {
+        public int Current => 1;
+
+        public ValueTask<bool> MoveNextAsync() => new(R4CsNeverBool.Task);
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    public sealed class Ab258NeverDisposed : IAsyncEnumerable<int>
+    {
+        public IAsyncEnumerator<int> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            new Ab258NeverDisposedWalker();
+    }
+
+    public sealed class Ab258NeverDisposedWalker : IAsyncEnumerator<int>
+    {
+        public int Current => 1;
+
+        public ValueTask<bool> MoveNextAsync() => ValueTask.FromResult(false);
+
+        public ValueTask DisposeAsync() => new(R2NeverDone.Task);
+    }
+
+    private static async IAsyncEnumerable<long> Ab258NowLongs()
+    {
+        yield return 1;
+    }
+
+    public static async IAsyncEnumerable<long> Ab258LaterLongs()
+    {
+        await R2NeverDone.Task;
+
+        yield return 1;
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -36994,6 +37091,10 @@ public static class Shapes
 
 file static class Helpers
 {
+    // A WithCancellation of this code. It gives a sequence other than the one that it gets.
+    public static IAsyncEnumerable<long> WithCancellation(this IAsyncEnumerable<long> items, CancellationToken token) =>
+        Shapes.Ab258LaterLongs();
+
     public static Shapes.R4CsDoneAwaiter GetAwaiter(this Shapes.R4CsAwaitedTally t)
     {
         _ = t.Read();

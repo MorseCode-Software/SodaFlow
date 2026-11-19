@@ -148,10 +148,15 @@ internal sealed partial class LoopStateEvaluator
                 : null);
     }
 
-    // True when each method that a call of the member can run on the object gives only complete
-    // tasks. Only a method of this compilation can give true. A member of an interface that the
-    // object does not resolve gives false.
-    private bool GivesOnlyCompleteTasks(LoopState owner, IMethodSymbol member)
+    /// <summary>
+    ///     True when each method that a call of the member can run on the object
+    ///     gives only complete tasks. Only a method of this compilation can give
+    ///     true. A member of an interface that the object does not resolve gives
+    ///     false.
+    /// </summary>
+    /// <param name="owner">The state of the object.</param>
+    /// <param name="member">The member that the code calls.</param>
+    public bool GivesOnlyCompleteTasks(LoopState owner, IMethodSymbol member)
     {
         IMethodSymbol[] actual = [.. owner.Members?.Resolve(member.OriginalDefinition).OfType<IMethodSymbol>() ?? []];
 

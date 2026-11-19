@@ -351,13 +351,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     ? (block, awaited.Span.End)
                     : null,
             CommonForEachStatementSyntax loop when loop.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword) =>
-                this.LaterAfterEachItem(loop),
+                this.LaterAfterEachItem(loop: loop, enumerator: null),
             _ => null
         };
 
-    private void AwaitsEachItem(SyntaxNode node)
+    private void AwaitsEachItem(CommonForEachStatementSyntax node, LoopState? enumerator)
     {
-        if (this.LaterAfter(node) is { } part)
+        if (node.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword)
+            && this.LaterAfterEachItem(loop: node, enumerator: enumerator) is { } part)
         {
             this.later.Add(part);
         }
@@ -365,14 +366,33 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     // An await foreach awaits each MoveNextAsync. The body runs in the call only for an item that
     // the sequence gives in the call. The code after the loop runs in the call only when each item
-    // comes in the call.
-    private (SyntaxNode Block, int From)? LaterAfterEachItem(CommonForEachStatementSyntax loop)
+    // comes in the call, and the task of DisposeAsync is complete.
+    private (SyntaxNode Block, int From)? LaterAfterEachItem(CommonForEachStatementSyntax loop, LoopState? enumerator)
     {
-        (bool first, bool each) = CompleteTasks.ItemsComeAtOnce(region: this.region, sequence: loop.Expression);
+        (bool first, bool each) =
+            enumerator != null
+                ? this.EnumeratorGivesAtOnce(loop: loop, enumerator: enumerator)
+                : CompleteTasks.ItemsComeAtOnce(region: this.region, sequence: loop.Expression);
 
         return !each && PartAround(loop) is { } block
             ? (block, first ? loop.Statement.Span.End : loop.Statement.SpanStart)
             : null;
+    }
+
+    // An enumerator object of this compilation gives each item in the call when each MoveNextAsync
+    // that it can run gives only complete tasks.
+    private (bool First, bool Each) EnumeratorGivesAtOnce(CommonForEachStatementSyntax loop, LoopState enumerator)
+    {
+        ForEachStatementInfo calls = this.region.ModelFor(loop).GetForEachStatementInfo(loop);
+
+        bool each =
+            calls.MoveNextMethod is { } next && this.evaluator.GivesOnlyCompleteTasks(owner: enumerator, member: next);
+
+        return (
+            each,
+            each
+            && (calls.DisposeMethod is not { } dispose
+                || this.evaluator.GivesOnlyCompleteTasks(owner: enumerator, member: dispose)));
     }
 
     // The largest block or switch section that always runs the statement of the await to its end.
@@ -577,7 +597,6 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         this.Visit(node.Expression);
         this.RunQueries(node.Expression);
-        this.AwaitsEachItem(node);
 
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
@@ -587,6 +606,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         LoopState enumerated = this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState);
         LoopState elements = ofTheCollection.Join(enumerated);
+        this.AwaitsEachItem(node: node, enumerator: enumeratorState);
 
         // The first turn has the first element, when the walk knows the positions. Thus, an await
         // that stops the first turn stops it before a later element.
@@ -688,11 +708,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         this.Visit(node.Expression);
         this.RunQueries(node.Expression);
-        this.AwaitsEachItem(node);
 
         LoopState ofTheCollection = this.evaluator.Eval(node.Expression).AsElement;
         LoopState enumerated = this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState);
         LoopState elements = ofTheCollection.Join(enumerated);
+        this.AwaitsEachItem(node: node, enumerator: enumeratorState);
 
         IMethodSymbol? method =
             this.region.Symbols.DeclaresDeconstruct
@@ -1031,7 +1051,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         enumeratorState = null;
 
-        if (!this.region.Symbols.DeclaresEnumerators
+        if (!(node.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword)
+                ? this.region.Symbols.DeclaresAsyncEnumerators
+                : this.region.Symbols.DeclaresEnumerators)
             || this.region.ModelFor(node).GetForEachStatementInfo(node) is not { GetEnumeratorMethod: { } start } calls)
         {
             return LoopState.None;
@@ -1100,7 +1122,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         if (enumerator == null
             || this.RunsLaterAt(node.Span.End - 1)
-            || !this.region.Symbols.DeclaresDispose
+            || !(node.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword)
+                ? this.region.Symbols.DeclaresDisposeAsync
+                : this.region.Symbols.DeclaresDispose)
             || this.region.ModelFor(node).GetForEachStatementInfo(node).DisposeMethod is not { } dispose)
         {
             return;

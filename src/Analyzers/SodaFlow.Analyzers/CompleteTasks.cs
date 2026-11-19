@@ -178,7 +178,7 @@ internal static class CompleteTasks
     /// <param name="sequence">The sequence that the await foreach enumerates.</param>
     public static (bool First, bool Each) ItemsComeAtOnce(LoopRegion region, ExpressionSyntax sequence)
     {
-        if (Unwrapped(sequence) is not InvocationExpressionSyntax call
+        if (UnwrappedSequence(region: region, sequence: sequence) is not InvocationExpressionSyntax call
             || region.SymbolOf(call) is not IMethodSymbol method
             || (method.ReducedFrom ?? method).OriginalDefinition
             is not
@@ -220,6 +220,33 @@ internal static class CompleteTasks
                 .All(node => DoesNotWait(region: region, node: node, visiting: visiting));
 
         return (first, false);
+    }
+
+    // The sequence that WithCancellation gets. The await foreach enumerates that sequence, and
+    // gives the token to its GetAsyncEnumerator.
+    private static ExpressionSyntax UnwrappedSequence(LoopRegion region, ExpressionSyntax sequence)
+    {
+        while (true)
+        {
+            ExpressionSyntax written = Unwrapped(sequence);
+
+            if (written is not InvocationExpressionSyntax
+                {
+                    Expression: MemberAccessExpressionSyntax
+                    {
+                        Name.Identifier.ValueText: "WithCancellation"
+                    } cancelable
+                } call
+                || region.SymbolOf(call) is not IMethodSymbol
+                {
+                    ContainingType.Name: "TaskAsyncEnumerableExtensions" or "ConfiguredCancelableAsyncEnumerable"
+                })
+            {
+                return written;
+            }
+
+            sequence = cancelable.Expression;
+        }
     }
 
     private static bool ReturnsOnlyCompleteTasks(LoopRegion region, SyntaxNode body, HashSet<ISymbol> visiting)

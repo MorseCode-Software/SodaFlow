@@ -1283,6 +1283,131 @@ internal sealed partial class LoopReadAnalyzerTests
     }
 
     /// <summary>
+    ///     An await foreach calls <c>GetAsyncEnumerator</c>, and
+    ///     <c>DisposeAsync</c> of the enumerator at the end. The analyzer reads
+    ///     each one only in a compilation that declares a method with that name.
+    ///     The shapes file also declares <c>GetEnumerator</c> and <c>Dispose</c>,
+    ///     and these sources do not. In the first, the enumerator samples the
+    ///     pending cell. In the second, its <c>DisposeAsync</c> does.
+    /// </summary>
+    [Test]
+    public async Task AnAsyncEnumeratorIsReadInACompilationThatDeclaresNoEnumerator()
+    {
+        const string start =
+            """
+            using System;
+            using System.Collections.Generic;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> ByAnAwaitForeach() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Func<Task> run = async () =>
+                        {
+                            await foreach (int item in new Items(l.Map(v => v)))
+                            {
+                                Kept.Add(item);
+                            }
+                        };
+
+                        run().Wait(0);
+
+                        return S.Hold(0);
+                    });
+
+                public sealed class Items(Cell<int> share) : IAsyncEnumerable<int>
+                {
+                    private readonly Cell<int> share = share;
+
+                    public IAsyncEnumerator<int> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+                    {
+                        Kept.Add(this.share.Sample());
+
+                        return new Walker();
+                    }
+                }
+
+                public sealed class Walker : IAsyncEnumerator<int>
+                {
+                    public int Current => 1;
+
+                    public ValueTask<bool> MoveNextAsync() => ValueTask.FromResult(false);
+
+                    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+                }
+            }
+            """;
+
+        const string end =
+            """
+            using System;
+            using System.Collections.Generic;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> ByAnAwaitForeach() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Func<Task> run = async () =>
+                        {
+                            await foreach (int item in new Items(l.Map(v => v)))
+                            {
+                                Kept.Add(item);
+                            }
+                        };
+
+                        run().Wait(0);
+
+                        return S.Hold(0);
+                    });
+
+                public sealed class Items(Cell<int> share) : IAsyncEnumerable<int>
+                {
+                    private readonly Cell<int> share = share;
+
+                    public IAsyncEnumerator<int> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+                        new Walker(this.share);
+                }
+
+                public sealed class Walker(Cell<int> share) : IAsyncEnumerator<int>
+                {
+                    private readonly Cell<int> share = share;
+
+                    public int Current => 1;
+
+                    public ValueTask<bool> MoveNextAsync() => ValueTask.FromResult(false);
+
+                    public ValueTask DisposeAsync()
+                    {
+                        Kept.Add(this.share.Sample());
+
+                        return ValueTask.CompletedTask;
+                    }
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: start, assemblyName: "OnlyAGetAsyncEnumerator", images: []))
+            .IsEquivalentTo(["SF1005"]);
+
+        await Assert.That(await RulesIn(source: end, assemblyName: "OnlyADisposeAsyncOfAnEnumerator", images: []))
+            .IsEquivalentTo(["SF1005"]);
+    }
+
+    /// <summary>
     ///     A block can be the name of a method with no body, as a method of an
     ///     interface is. The analyzer has no code to read for that block, and it
     ///     reports nothing. The method that runs returns and reads nothing.
