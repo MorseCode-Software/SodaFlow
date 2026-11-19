@@ -33,6 +33,7 @@
 #addin nuget:?package=Cake.Issues&version=6.0.0
 #addin nuget:?package=Cake.Issues.Sarif&version=6.0.0
 
+using System.Globalization;
 using System.Xml.Linq;
 
 var target = Argument("target", "Default");
@@ -61,6 +62,9 @@ var inspectionDirectory = Directory("./inspection");
 // Deliberately not inspectionDirectory: that one is cleaned at the start of every inspection,
 // which is exactly what must not happen to this.
 var inspectionCacheDirectory = Directory("./.inspectcode-cache");
+// Where Time-Analyzer puts the worktree of its baseline, the analyzer files, and the results.
+var timingDirectory = Directory("./analyzer-timing");
+var timingProject = File("./src/Analyzers/SodaFlow.Analyzers.Timing/SodaFlow.Analyzers.Timing.csproj");
 // The canonical inspection settings, and the only ones CI reads. Rider pairs a .DotSettings file
 // with the solution beside it, so every solution needs a copy of its own; CI is under no such
 // constraint and points every inspection here. The copies therefore exist for the editor alone,
@@ -286,6 +290,159 @@ Task("Verify-Native-Aot")
         throw new CakeException($"The native AOT check app failed {exitCode} of its checks. Its output is above.");
     }
 });
+
+// The time of the loop analyzer of this tree against the time of the analyzer of another commit,
+// over the same code. The app src/Analyzers/SodaFlow.Analyzers.Timing does the measurement; this
+// target builds the two analyzers and runs the app. .github/workflows/analyzer-timing.yml runs it on
+// a pull request, with the base of the pull request as the baseline.
+//
+// There are three sides. "base" is the analyzer of the baseline. "candidate" is the analyzer of this
+// tree. "control" is a second copy of the base analyzer, thus its difference from the base is noise
+// only. The check fails when the candidate is slower than the base by more than the threshold and
+// the floor, or when the control is. See Comparison.cs in the app for the statistics.
+//
+// Each round is a new process, and all three sides run in it, in turns. DOTNET_TieredPGO=0, because
+// with profile-guided optimization the JIT can make different code for the same method from one
+// process to the next.
+//
+// The defaults come from the calibration on GitHub runners; the pull request that added this
+// target has the numbers.
+Task("Time-Analyzer")
+    .Description("Compares the time of the loop analyzer of this tree with that of --baseline=<ref>.")
+    .Does(() =>
+{
+    var baseline = Argument("baseline", "origin/main");
+    var rounds = Argument("rounds", 6);
+    var runs = Argument("runs", 8);
+    var warmUp = Argument("warm-up", 2);
+    var thresholdPercent = Argument("threshold-percent", 10.0);
+    var floorMilliseconds = Argument("floor-ms", 2.0);
+
+    var root = MakeAbsolute(timingDirectory);
+    var baselineTree = root.Combine("baseline");
+    var results = root.Combine("results");
+    var sides = root.Combine("sides");
+
+    RemoveBaselineTree(baselineTree);
+    EnsureDirectoryExists(root);
+    CleanDirectory(root);
+
+    try
+    {
+        Git($"worktree add --detach \"{baselineTree.FullPath}\" {baseline}");
+
+        // The baseline gets only its analyzer built. The code that the analyzers read, and the
+        // libraries it compiles against, come from this tree, thus both sides read the same code.
+        var analyzerProject = "src/Analyzers/SodaFlow.Analyzers/SodaFlow.Analyzers.csproj";
+        var analyzerOutput = $"src/Analyzers/SodaFlow.Analyzers/bin/{configuration}/netstandard2.0/SodaFlow.Analyzers.dll";
+        var build = new DotNetBuildSettings { Configuration = configuration };
+
+        DotNetBuild(baselineTree.CombineWithFilePath(analyzerProject).FullPath, build);
+
+        // The analyzer tests reference the candidate analyzer and every library, thus their output
+        // has the assemblies that the workloads compile against.
+        DotNetBuild("./src/Analyzers/SodaFlow.Analyzers.Tests/SodaFlow.Analyzers.Tests.csproj", build);
+        DotNetBuild(timingProject.Path.FullPath, build);
+
+        var baseFile = baselineTree.CombineWithFilePath(analyzerOutput);
+        var sideFiles = new[]
+        {
+            (Name: "base", Source: baseFile),
+            (Name: "candidate", Source: MakeAbsolute(File($"./{analyzerOutput}").Path)),
+            (Name: "control", Source: baseFile),
+        };
+
+        foreach (var side in sideFiles)
+        {
+            var folder = sides.Combine(side.Name);
+            EnsureDirectoryExists(folder);
+            CopyFileToDirectory(side.Source, folder);
+        }
+
+        EnsureDirectoryExists(results);
+        var tool = MakeAbsolute(File($"./src/Analyzers/SodaFlow.Analyzers.Timing/bin/{configuration}/net10.0/SodaFlow.Analyzers.Timing.dll"));
+        var references = MakeAbsolute(Directory($"./src/Analyzers/SodaFlow.Analyzers.Tests/bin/{configuration}/net10.0"));
+
+        for (var round = 1; round <= rounds; round++)
+        {
+            var arguments = new ProcessArgumentBuilder()
+                .AppendQuoted(tool.FullPath)
+                .Append("measure")
+                .Append("--repository").AppendQuoted(MakeAbsolute(Directory(".")).FullPath)
+                .Append("--references").AppendQuoted(references.FullPath)
+                .Append("--round").Append(round.ToString(CultureInfo.InvariantCulture))
+                .Append("--warm-up").Append(warmUp.ToString(CultureInfo.InvariantCulture))
+                .Append("--runs").Append(runs.ToString(CultureInfo.InvariantCulture))
+                .Append("--output").AppendQuoted(results.CombineWithFilePath($"round-{round}.tsv").FullPath);
+
+            foreach (var side in sideFiles)
+            {
+                arguments.Append("--side").AppendQuoted(
+                    $"{side.Name}={sides.Combine(side.Name).CombineWithFilePath("SodaFlow.Analyzers.dll").FullPath}");
+            }
+
+            Information("Round {0} of {1}.", round, rounds);
+
+            var measured = StartProcess(
+                "dotnet",
+                new ProcessSettings
+                {
+                    Arguments = arguments,
+                    EnvironmentVariables = new Dictionary<string, string> { ["DOTNET_TieredPGO"] = "0" },
+                });
+
+            if (measured != 0)
+            {
+                throw new Exception($"Round {round} of the analyzer timing failed (exit {measured}).");
+            }
+        }
+
+        var compared = StartProcess(
+            "dotnet",
+            new ProcessSettings
+            {
+                Arguments = new ProcessArgumentBuilder()
+                    .AppendQuoted(tool.FullPath)
+                    .Append("compare")
+                    .Append("--results").AppendQuoted(results.FullPath)
+                    .Append("--threshold-percent").Append(thresholdPercent.ToString(CultureInfo.InvariantCulture))
+                    .Append("--floor-ms").Append(floorMilliseconds.ToString(CultureInfo.InvariantCulture))
+                    .Append("--summary").AppendQuoted(root.CombineWithFilePath("summary.md").FullPath),
+            });
+
+        if (compared != 0)
+        {
+            throw new Exception(
+                "The loop analyzer of this tree is slower than that of the baseline, or the run was too "
+                + "noisy to decide. The table above says which. A noisy run can be run again.");
+        }
+    }
+    finally
+    {
+        RemoveBaselineTree(baselineTree);
+    }
+});
+
+// A worktree of an earlier run that stopped before its end is still registered with git. Thus, the
+// target removes it with git and not only from the disk.
+void RemoveBaselineTree(DirectoryPath tree)
+{
+    if (DirectoryExists(tree))
+    {
+        Git($"worktree remove --force \"{tree.FullPath}\"");
+    }
+
+    Git("worktree prune");
+}
+
+void Git(string arguments)
+{
+    var exitCode = StartProcess("git", new ProcessSettings { Arguments = arguments });
+    if (exitCode != 0)
+    {
+        throw new Exception($"git {arguments} failed (exit {exitCode}).");
+    }
+}
 
 // compiler(line): RuleId: text - the shape a compiler error takes, because it is the shape an
 // editor, a log reader and a person all already know how to scan.

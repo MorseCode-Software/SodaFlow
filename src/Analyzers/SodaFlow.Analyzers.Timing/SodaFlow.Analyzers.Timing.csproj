@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+        The target Time-Analyzer of build.cake runs this app. It times the loop analyzer of two
+        commits over the same code, and fails when the newer analyzer is slower than the noise
+        allows. net10.0, as the tests, thus CI needs no other runtime.
+    -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>14</LangVersion>
+        <Nullable>enable</Nullable>
+        <InvariantGlobalization>true</InvariantGlobalization>
+    </PropertyGroup>
+
+    <!--
+        The name starts with SodaFlow.Analyzers, thus src/Directory.Build.targets does not attach the
+        analyzer to this project. The app loads each analyzer that it times from a path.
+    -->
+    <PropertyGroup>
+        <AssemblyName>SodaFlow.Analyzers.Timing</AssemblyName>
+        <RootNamespace>SodaFlow.Analyzers.Timing</RootNamespace>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <!--
+        The compiler that compiles the code that the analyzer reads, at the version of the analyzer
+        tests. It is later than the Roslyn of the analyzer, as the compiler of a consumer is. Each
+        analyzer that the app loads uses this copy of Roslyn.
+    -->
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="Arguments.cs"/>
+        <Compile Include="Comparison.cs"/>
+        <Compile Include="Measurement.cs"/>
+        <Compile Include="Program.cs"/>
+        <Compile Include="Sample.cs"/>
+        <Compile Include="Workload.cs"/>
+    </ItemGroup>
+
+</Project>
