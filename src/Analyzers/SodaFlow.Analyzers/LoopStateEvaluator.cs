@@ -2469,6 +2469,11 @@ internal sealed partial class LoopStateEvaluator
         // what the analyzer can see.
         if (!this.region.Symbols.IsSodaFlow(method))
         {
+            if (this.StateOfADelegateCall(invocation: invocation, method: method) is { } functions)
+            {
+                return functions;
+            }
+
             CalleeKind kind = this.Classify(call: invocation, method: method);
 
             LoopState result =

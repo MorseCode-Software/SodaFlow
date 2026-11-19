@@ -3894,6 +3894,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab241BlockInALocalDelegateWithAnAddedLambda"] = ["SF1003"],
             ["Ab241BlockMadeByAConversionOfACreation"] = ["SF1003"],
             ["Ab252MarkInALocalThatGetsASecondValue"] = ["SF1003"],
-            ["Ab252LocalWithNoMarkGivenAway"] = ["SF1003"]
+            ["Ab252LocalWithNoMarkGivenAway"] = ["SF1003"],
+            ["R4LimDelegateRunThroughItsInvocationList"] = ["SF1001"],
+            ["R4LimDelegatesJoinedByCombineAndInvoked"] = ["SF1001"],
+            ["Ab245DelegatesOfAnArrayJoinedByCombineAndInvoked"] = ["SF1001"]
         };
 }

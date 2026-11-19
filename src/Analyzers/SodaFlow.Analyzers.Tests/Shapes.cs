@@ -26055,6 +26055,30 @@ public static class Shapes
     public static Cell<int> Ab252LocalWithNoMarkGivenAway() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m = l.Map(v => v); IBag<Cell<int>> bag = NoBody.Bag<Cell<int>>(); bag.Put(m.Map(v => v)); return S.Hold(0); });
 
+    // S6035. The block runs each function of GetInvocationList of a delegate that has a function that samples.
+    public static Cell<int> R4LimDelegateRunThroughItsInvocationList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action both = first + (() => Kept.Add(l.Sample())); foreach (Delegate one in both.GetInvocationList()) { ((Action)one)(); } return S.Hold(0); });
+
+    // S6036. Delegate.Combine joins a plain function and a function that samples, and the block invokes the result.
+    public static Cell<int> R4LimDelegatesJoinedByCombineAndInvoked() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l.Sample()); Action both = (Action)Delegate.Combine(first, second)!; both(); return S.Hold(0); });
+
+    // S6037. Delegate.Combine gets an array of a plain function and a function that samples, and the block invokes the result.
+    public static Cell<int> Ab245DelegatesOfAnArrayJoinedByCombineAndInvoked() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l.Sample()); Action both = (Action)Delegate.Combine(new Delegate[] { first, second })!; both(); return S.Hold(0); });
+
+    // S6038. Delegate.Combine joins two plain functions, and the block invokes the result. A control.
+    public static Cell<int> Ab245PlainDelegatesJoinedByCombineAndInvoked() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l.Map(v => v)); Action both = (Action)Delegate.Combine(first, second)!; both(); return S.Hold(0); });
+
+    // S6039. The block runs each function of GetInvocationList of a delegate of plain functions. A control.
+    public static Cell<int> Ab245PlainDelegateRunThroughItsInvocationList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action both = first + (() => Kept.Add(l.Map(v => v))); foreach (Delegate one in both.GetInvocationList()) { ((Action)one)(); } return S.Hold(0); });
+
+    // S6040. A method of the project named Combine gets a plain function and a function that samples, and returns the plain one. The block invokes the result.
+    public static Cell<int> Ab245CombineOfTheProjectRunsItsBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l.Sample()); Ab245Delegates.Combine(first, second)(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -37440,6 +37464,11 @@ public static class Shapes
 
         public static implicit operator Func<LoopedCell<int>, Cell<int>>(Ab241BlockMaker maker) =>
             static _ => S.Hold(0);
+    }
+
+    public static class Ab245Delegates
+    {
+        public static Action Combine(Action first, Action second) => first;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

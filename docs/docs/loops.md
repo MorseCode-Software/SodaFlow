@@ -332,7 +332,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   member of an extension block, and a static member of an interface called through a type
   parameter.
 - Events and delegates: the handlers added with `+=` run where the event is raised, and a delegate
-  made with `+` runs each of its functions.
+  made with `+` or `Delegate.Combine` runs each of its functions. Each element of the
+  `GetInvocationList()` of a delegate is one of those functions.
 - Loops: each pass of a `for`, `foreach`, `while`, or `do`, of a `goto` back to a label, or of a
   `goto case` or `goto default` back to an earlier section of a `switch`, is read until a pass adds
   nothing new.
