@@ -1678,6 +1678,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         write: node));
             }
 
+            // A bindable raises its events in an action that it posts to its scheduler, which runs
+            // it after the transaction. Thus, a send in a handler gives content to the sink after
+            // the close.
+            if (node.IsKind(SyntaxKind.AddAssignmentExpression)
+                && node.Left is MemberAccessExpressionSyntax { Expression: var bindable }
+                && (this.region.Symbols.IsBindable(this.region.TypeOf(bindable))
+                    || this.IsABindableAction(value: bindable, state: this.evaluator.Eval(bindable))))
+            {
+                this.evaluator.RunsAfterTheTransaction(node.Right);
+            }
+
             // The indexer of a dictionary of the platform calls a member of the key. The first key
             // of an empty dictionary has no second key to compare it with.
             if (node.Left is ElementAccessExpressionSyntax keyed)

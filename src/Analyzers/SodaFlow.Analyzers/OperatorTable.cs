@@ -342,7 +342,8 @@ internal static class OperatorTable
             "ShapeCell",
             "SnapshotCell",
             // The cell of a bindable, and the members of a bindable action, which CreateBindableAction
-            // gives their own state. An event of a bindable keeps its handler and reads no cell.
+            // gives their own state. An event of a bindable keeps its handler and reads no cell. The
+            // walk reads the handler after the transaction, where the bindable raises the event.
             "Cell",
             "FiringsStream",
             "IsEnabledCell",

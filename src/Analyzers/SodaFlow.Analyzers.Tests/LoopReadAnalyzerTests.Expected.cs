@@ -3955,6 +3955,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4ApiDisposeOfMappedItemsThroughIDisposable"] = ["SF1001"],
             ["Ab238UsingOfALocalOfIDisposableThatHasABindableAction"] = ["SF1001"],
             ["R4ApiActionExecuteSendsALinkedCellIntoASwitchedSink"] = ["SF1002"],
-            ["R4ApiActionExecuteThroughICommandSendsALinkedCell"] = ["SF1002"]
+            ["R4ApiActionExecuteThroughICommandSendsALinkedCell"] = ["SF1002"],
+            ["R4ApiActionDisposeRaisesAHandlerThatSendsALinkedCell"] = ["SF1002"],
+            ["R4ApiOneWayChangeHandlerSendsALinkedCellAfterTheClose"] = ["SF1002"],
+            ["Ab233HandlerOfACommandThatIsABindableAction"] = ["SF1002"]
         };
 }

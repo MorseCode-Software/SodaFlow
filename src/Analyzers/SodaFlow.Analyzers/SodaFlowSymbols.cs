@@ -1127,6 +1127,17 @@ internal sealed class SodaFlowSymbols
         && !IsListenerName(named.OriginalDefinition.Name);
 
     /// <summary>
+    ///     True for a bindable of the library, as a bindable action or a one-way
+    ///     bindable is, or for a type that implements one. A bindable raises its
+    ///     events in an action that it posts to its scheduler.
+    /// </summary>
+    public bool IsBindable(ITypeSymbol? type) =>
+        type != null && (this.IsBindableInterface(type) || type.AllInterfaces.Any(this.IsBindableInterface));
+
+    private bool IsBindableInterface(ITypeSymbol type) =>
+        type.OriginalDefinition.Name == "IBindable" && this.IsSodaFlow(type);
+
+    /// <summary>
     ///     True for a bindable action of the library, or for a type that
     ///     implements one. Its Dispose reads the enablement cell, and the Dispose of
     ///     a bindable value does not.

@@ -27535,6 +27535,26 @@ public static class Shapes
     public static Cell<int> Ab232ExecuteWithNoParameterOfACodeObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab232Job job = new(l.Map(v => v)); job.Execute(); return S.Hold(job.Runs); });
 
+    // S6405. Dispose of an enabled bindable action posts its CanExecuteChanged handlers to the immediate scheduler. The handler sends a linked cell into a sink whose switched hold is the close.
+    public static Cell<int> R4ApiActionDisposeRaisesAHandlerThatSendsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Cell.Constant(true)); a.CanExecuteChanged += (_, _) => s.Send(l.Map(v => v)); a.Dispose(); return s.Hold(Plain).SwitchC(); });
+
+    // S6406. A one-way bindable raises PropertyChanged after an update of its cell, after the close. The handler sends a linked cell into a sink whose switched hold is the close.
+    public static Cell<int> R4ApiOneWayChangeHandlerSendsALinkedCellAfterTheClose() =>
+        ((Func<Cell<int>>)(() => { CellSink<int> src = Cell.CreateSink(1); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<int> b = R2ApiFactory.CreateOneWay(src); b.PropertyChanged += (_, _) => s.Send(l.Map(v => v)); Kept.Add(b); return s.Hold(Plain).SwitchC(); }); src.Send(2); return c; }))();
+
+    // S6407. A handler of an event of a collection of the platform sends a linked cell into a sink whose switched hold is the close. Nothing raises the event, thus the handler does not run.
+    public static Cell<int> Ab233HandlerOfAnEventOfThePlatformThatNothingRaises() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); System.Collections.ObjectModel.ObservableCollection<int> items = []; items.CollectionChanged += (_, _) => s.Send(l.Map(v => v)); Kept.Add(items); return s.Hold(Plain).SwitchC(); });
+
+    // S6408. The same as the Dispose of a bindable action that raises a handler, but the action is in a local of ICommand.
+    public static Cell<int> Ab233HandlerOfACommandThatIsABindableAction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); System.Windows.Input.ICommand a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Cell.Constant(true)); a.CanExecuteChanged += (_, _) => s.Send(l.Map(v => v)); ((IDisposable)a).Dispose(); return s.Hold(Plain).SwitchC(); });
+
+    // S6409. The code removes a handler that it never added from the CanExecuteChanged of a bindable action. Thus, the handler does not run, and its send of a linked cell does not happen.
+    public static Cell<int> Ab233RemovedHandlerOfABindableAction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Cell.Constant(true)); a.CanExecuteChanged -= (_, _) => s.Send(l.Map(v => v)); a.Dispose(); return s.Hold(Plain).SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
