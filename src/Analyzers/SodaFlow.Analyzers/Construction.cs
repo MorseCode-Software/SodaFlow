@@ -27,10 +27,16 @@ namespace SodaFlow.Analyzers;
 ///     True when a member is a part of a pair of the platform. A join of two
 ///     states asks for it each time, thus the object keeps the answer.
 /// </param>
+/// <param name="hasInterfaceMembers">
+///     True when a write named a property of an interface. A read of a
+///     property of a class asks for it before it looks for such a key: see
+///     <see cref="StateImplementedTogether" />.
+/// </param>
 internal sealed class Construction(
     in ImmutableDictionary<ISymbol, LoopState> members,
     in ImmutableArray<INamedTypeSymbol> types,
-    in bool hasParts)
+    in bool hasParts,
+    in bool hasInterfaceMembers)
 {
     private readonly ImmutableDictionary<ISymbol, LoopState> members = members;
 
@@ -38,12 +44,15 @@ internal sealed class Construction(
     // that type with its type arguments, which the definition does not have.
     private readonly ImmutableArray<INamedTypeSymbol> types = types;
 
+    private readonly bool hasInterfaceMembers = hasInterfaceMembers;
+
     /// <summary>An object with no member that the evaluator knows.</summary>
     public static Construction Empty { get; } =
         new(
             members: ImmutableDictionary.Create<ISymbol, LoopState>(SymbolEqualityComparer.Default),
             types: ImmutableArray<INamedTypeSymbol>.Empty,
-            hasParts: false);
+            hasParts: false,
+            hasInterfaceMembers: false);
 
     /// <summary>
     ///     An object of the given type, with no member that the evaluator knows.
@@ -53,14 +62,23 @@ internal sealed class Construction(
 
     /// <summary>An object of the given type, with the members that its constructor set.</summary>
     public static Construction Of(ImmutableDictionary<ISymbol, LoopState> members, INamedTypeSymbol type) =>
-        new(members: members, types: ImmutableArray.Create(type), hasParts: members.Keys.Any(IsPart));
+        new(
+            members: members,
+            types: ImmutableArray.Create(type),
+            hasParts: members.Keys.Any(IsPart),
+            hasInterfaceMembers: members.Keys.Any(IsOfAnInterface));
 
     /// <summary>An object with no type that the evaluator knows, with the given members.</summary>
     public static Construction Of(ImmutableDictionary<ISymbol, LoopState> members) =>
-        new(members: members, types: ImmutableArray<INamedTypeSymbol>.Empty, hasParts: members.Keys.Any(IsPart));
+        new(
+            members: members,
+            types: ImmutableArray<INamedTypeSymbol>.Empty,
+            hasParts: members.Keys.Any(IsPart),
+            hasInterfaceMembers: members.Keys.Any(IsOfAnInterface));
 
     /// <summary>An object of the same types, with no member that the evaluator knows.</summary>
-    public Construction WithNoState => new(members: Empty.members, types: this.types, hasParts: false);
+    public Construction WithNoState =>
+        new(members: Empty.members, types: this.types, hasParts: false, hasInterfaceMembers: false);
 
     /// <summary>True when the evaluator knows a state for one member or more.</summary>
     public bool HasState => this.members.Values.Any(static state => !state.IsNone);
@@ -80,6 +98,9 @@ internal sealed class Construction(
     public bool HasParts { get; } = hasParts;
 
     private static bool IsPart(ISymbol member) => SodaFlowSymbols.HoldsParts(member.ContainingType);
+
+    private static bool IsOfAnInterface(ISymbol member) =>
+        member is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
 
     /// <summary>
     ///     This object, where each part that a second state does not know has
@@ -104,7 +125,11 @@ internal sealed class Construction(
 
         return filled == null
             ? this
-            : new Construction(members: filled.ToImmutable(), types: this.types, hasParts: this.HasParts);
+            : new Construction(
+                members: filled.ToImmutable(),
+                types: this.types,
+                hasParts: this.HasParts,
+                hasInterfaceMembers: this.hasInterfaceMembers);
     }
 
     /// <summary>The state of each member that the evaluator knows.</summary>
@@ -121,11 +146,190 @@ internal sealed class Construction(
     ///     The same object after an initializer sets one member. The new state
     ///     replaces the state from the constructor.
     /// </summary>
+    /// <remarks>
+    ///     The write sets the member that <see cref="Resolve" /> finds for a read
+    ///     of the same name. It also sets each alias of that member that the
+    ///     object has.
+    /// </remarks>
     public Construction With(ISymbol member, LoopState state) =>
         new(
-            members: this.members.SetItem(key: KeyOf(member), value: state),
+            // Most writes name the member that a read finds. Such a write does not call Resolve.
+            members: this.IsItsOwnMember(member)
+                ? SetWithTheAliases(members: this.members, key: KeyOf(member), state: state)
+                : this.SetEachResolved(member: member, state: state),
             types: this.types,
-            hasParts: this.HasParts || IsPart(member));
+            hasParts: this.HasParts || IsPart(member),
+            hasInterfaceMembers: this.hasInterfaceMembers || IsOfAnInterface(member));
+
+    private ImmutableDictionary<ISymbol, LoopState> SetEachResolved(ISymbol member, LoopState state) =>
+        this.Resolve(member)
+            .Aggregate(
+                seed: this.members,
+                func: (set, actual) => SetWithTheAliases(members: set, key: KeyOf(actual), state: state));
+
+    private static ImmutableDictionary<ISymbol, LoopState> SetWithTheAliases(
+        ImmutableDictionary<ISymbol, LoopState> members,
+        ISymbol key,
+        LoopState state)
+    {
+        ImmutableDictionary<ISymbol, LoopState> set = members.SetItem(key: key, value: state);
+
+        // Most writes stop here: the object has no member, or the member cannot have an alias.
+        return members.IsEmpty || !CanHaveAnAlias(key)
+            ? set
+            : SetTheAliases(members: members, set: set, key: key, state: state);
+    }
+
+    private static ImmutableDictionary<ISymbol, LoopState> SetTheAliases(
+        ImmutableDictionary<ISymbol, LoopState> members,
+        ImmutableDictionary<ISymbol, LoopState> set,
+        ISymbol key,
+        LoopState state) =>
+        members.Keys
+            .Where(other => AreAliases(first: other, second: key))
+            .Aggregate(seed: set, func: (aliased, other) => aliased.SetItem(key: other, value: state));
+
+    /// <summary>
+    ///     The state of a key, joined with the state of each alias of the key.
+    ///     The function gives each state from its key and the state that the
+    ///     dictionary has for that key.
+    /// </summary>
+    /// <remarks>
+    ///     A write keys a state with the member that the code names. A read can
+    ///     name an alias of that member. The alias is a second key for the same
+    ///     location. The last argument is false for a key that the object of the
+    ///     read cannot have.
+    /// </remarks>
+    public static LoopState StateWithTheAliases(
+        IReadOnlyDictionary<ISymbol, LoopState> states,
+        ISymbol key,
+        Func<ISymbol, LoopState, LoopState> stateOf,
+        Func<ISymbol, bool>? canHave = null)
+    {
+        LoopState? own = states.TryGetValue(key: key, value: out LoopState? found) ? found : null;
+        LoopState state = own != null ? stateOf(arg1: key, arg2: own) : LoopState.None;
+
+        // Most reads stop here: no different key has a state, or the member cannot have an alias.
+        return states.Count <= (own != null ? 1 : 0) || !CanHaveAnAlias(key)
+            ? state
+            : JoinTheAliases(states: states, key: key, own: own, state: state, stateOf: stateOf, canHave: canHave);
+    }
+
+    private static LoopState JoinTheAliases(
+        IReadOnlyDictionary<ISymbol, LoopState> states,
+        ISymbol key,
+        LoopState? own,
+        LoopState state,
+        Func<ISymbol, LoopState, LoopState> stateOf,
+        Func<ISymbol, bool>? canHave) =>
+        states
+            .Where(pair =>
+                !ReferenceEquals(objA: pair.Value, objB: own)
+                && AreAliases(first: pair.Key, second: key)
+                && (canHave == null || canHave(pair.Key)))
+            .Aggregate(seed: state, func: (joined, pair) => joined.Join(stateOf(arg1: pair.Key, arg2: pair.Value)));
+
+    /// <summary>
+    ///     The join of the states of each property that one property of a type
+    ///     in the compilation implements with the key. One of the two is of an
+    ///     interface. The function gives each state from its key and the state
+    ///     that the dictionary has for that key.
+    /// </summary>
+    /// <remarks>
+    ///     The walk does not know the type of an object that a call gives. A
+    ///     write through an interface and a read through a second name then use
+    ///     two keys for one location. The second name is a second interface, or a
+    ///     base class that does not have the interface. The write keeps its key,
+    ///     thus the read joins the two states. The fifth argument is true when a
+    ///     key of the states is of an interface. The last argument is false for
+    ///     a key that the object of the read cannot have.
+    /// </remarks>
+    public static LoopState StateImplementedTogether(
+        IReadOnlyDictionary<ISymbol, LoopState> states,
+        ISymbol key,
+        Func<ISymbol, LoopState, LoopState> stateOf,
+        ImplementationIndex implementations,
+        bool hasInterfaceMembers,
+        Func<ISymbol, bool>? canHave = null) =>
+        // Most reads stop here: no different key has a state, or no key can be such a property.
+        states.Count <= (states.ContainsKey(key) ? 1 : 0)
+        || !CanBeImplementedTogether(key: key, with: hasInterfaceMembers)
+            ? LoopState.None
+            : JoinImplementedTogether(
+                states: states,
+                key: key,
+                stateOf: stateOf,
+                implementations: implementations,
+                canHave: canHave);
+
+    // A property of an interface can have such a key. A property of a class can have one only when
+    // a key is of an interface and the class is not sealed. A derived class then gives the property
+    // to that interface.
+    private static bool CanBeImplementedTogether(ISymbol key, bool with) =>
+        key is IPropertySymbol { ContainingType: var type }
+        && (type.TypeKind == TypeKind.Interface || (with && type is { TypeKind: TypeKind.Class, IsSealed: false }));
+
+    private static LoopState JoinImplementedTogether(
+        IReadOnlyDictionary<ISymbol, LoopState> states,
+        ISymbol key,
+        Func<ISymbol, LoopState, LoopState> stateOf,
+        ImplementationIndex implementations,
+        Func<ISymbol, bool>? canHave) =>
+        states
+            .Where(pair =>
+                // One property implements two properties only when the two have its name. The test of the
+                // name comes first, thus a key with a different name does not make the index.
+                pair.Key is IPropertySymbol other
+                && other.Name == key.Name
+                && implementations.AreTogether(first: other, second: key)
+                && (canHave == null || canHave(other)))
+            .Aggregate(
+                seed: LoopState.None,
+                func: (joined, pair) => joined.Join(stateOf(arg1: pair.Key, arg2: pair.Value)));
+
+    // Only a property can have an alias. It is a property of an interface, an abstract property, a
+    // virtual property, an override, or a property of a type that has an interface.
+    private static bool CanHaveAnAlias(ISymbol key) =>
+        key is IPropertySymbol property
+        && (property.IsVirtual
+            || property.IsAbstract
+            || property.IsOverride
+            || property.ContainingType.AllInterfaces.Length > 0);
+
+    // Two properties are aliases when one access on one object can find the two. This is true when
+    // one overrides the other, or when the two override one property. It is true also for a
+    // property of an interface and the property that implements it in its own type.
+    private static bool AreAliases(ISymbol first, ISymbol second) =>
+        first is IPropertySymbol
+        && !SymbolEqualityComparer.Default.Equals(x: first, y: second)
+        && (SymbolEqualityComparer.Default.Equals(x: RootOf(first), y: RootOf(second))
+            || Implements(contract: first, member: second)
+            || Implements(contract: second, member: first));
+
+    private static bool Implements(ISymbol contract, ISymbol member) =>
+        contract.ContainingType is { TypeKind: TypeKind.Interface } face
+        && member.ContainingType is { } owner
+        && owner.AllInterfaces.Any(one =>
+            SymbolEqualityComparer.Default.Equals(x: one.OriginalDefinition, y: face.OriginalDefinition))
+        && SymbolEqualityComparer.Default.Equals(
+            x: RootOf(ResolveIn(type: owner, member: contract)),
+            y: RootOf(member));
+
+    /// <summary>
+    ///     The definition of the property at the base of each override of the
+    ///     property. It is the property itself when it is not an override.
+    /// </summary>
+    public static ISymbol RootOf(ISymbol member)
+    {
+        ISymbol root = member;
+
+        while (root is IPropertySymbol { OverriddenProperty: { } overridden })
+        {
+            root = overridden;
+        }
+
+        return root.OriginalDefinition;
+    }
 
     /// <summary>
     ///     True when the evaluator knows the type of this object, and an object of
@@ -212,17 +416,65 @@ internal sealed class Construction(
     public IEnumerable<IPropertySymbol> Properties =>
         this.types.SelectMany(PropertiesOf).Distinct<IPropertySymbol>(SymbolEqualityComparer.Default);
 
-    private static IEnumerable<IPropertySymbol> PropertiesOf(INamedTypeSymbol type)
+    /// <summary>
+    ///     The fields of the type of this object and of its base types that this
+    ///     compilation declares. A serializer reads some of them.
+    /// </summary>
+    public IEnumerable<IFieldSymbol> Fields =>
+        this.types.SelectMany(FieldsOf).Distinct<IFieldSymbol>(SymbolEqualityComparer.Default);
+
+    /// <summary>The types of this object. A value that is one of two objects has two.</summary>
+    public IEnumerable<INamedTypeSymbol> Types => this.types;
+
+    /// <summary>
+    ///     The properties of a type and of its base types that this compilation
+    ///     declares.
+    /// </summary>
+    public static IEnumerable<IPropertySymbol> PropertiesOf(INamedTypeSymbol type) =>
+        MembersOf<IPropertySymbol>(type);
+
+    /// <summary>
+    ///     The fields of a type and of its base types that this compilation
+    ///     declares.
+    /// </summary>
+    public static IEnumerable<IFieldSymbol> FieldsOf(INamedTypeSymbol type) => MembersOf<IFieldSymbol>(type);
+
+    private static IEnumerable<T> MembersOf<T>(INamedTypeSymbol type)
+        where T : ISymbol
     {
         for (INamedTypeSymbol? current = type;
              current is { DeclaringSyntaxReferences.Length: > 0 };
              current = current.BaseType)
         {
-            foreach (IPropertySymbol property in current.GetMembers().OfType<IPropertySymbol>())
+            foreach (T member in current.GetMembers().OfType<T>())
             {
-                yield return property;
+                yield return member;
             }
         }
+    }
+
+    /// <summary>
+    ///     The instance property with the name that each type of this object
+    ///     has. It is the property of the type itself, or of the nearest base
+    ///     type that declares one. A read through <c>dynamic</c> binds to it.
+    /// </summary>
+    public IEnumerable<IPropertySymbol> PropertiesNamed(string name) =>
+        this.types
+            .Select(type => PropertyNamed(type: type, name: name))
+            .OfType<IPropertySymbol>()
+            .Distinct<IPropertySymbol>(SymbolEqualityComparer.Default);
+
+    private static IPropertySymbol? PropertyNamed(INamedTypeSymbol type, string name)
+    {
+        for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
+        {
+            if (current.GetMembers(name).OfType<IPropertySymbol>().FirstOrDefault() is { } property)
+            {
+                return property;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>True for a tuple that the code wrote with parentheses.</summary>
@@ -298,7 +550,7 @@ internal sealed class Construction(
     public bool Has(ISymbol member) => this.members.ContainsKey(KeyOf(member));
 
     public LoopState StateOf(ISymbol member) =>
-        this.members.TryGetValue(key: KeyOf(member), value: out LoopState? state) ? state : LoopState.None;
+        StateWithTheAliases(states: this.members, key: KeyOf(member), stateOf: static (_, state) => state);
 
     /// <summary>The same object, with the state of each member changed.</summary>
     public Construction Select(Func<LoopState, LoopState> change)
@@ -310,7 +562,11 @@ internal sealed class Construction(
             changed[pair.Key] = change(pair.Value);
         }
 
-        return new Construction(members: changed.ToImmutable(), types: this.types, hasParts: this.HasParts);
+        return new Construction(
+            members: changed.ToImmutable(),
+            types: this.types,
+            hasParts: this.HasParts,
+            hasInterfaceMembers: this.hasInterfaceMembers);
     }
 
     /// <summary>
@@ -320,13 +576,17 @@ internal sealed class Construction(
     ///     gives the member of each type.
     /// </summary>
     public IEnumerable<ISymbol> Resolve(ISymbol member) =>
-        this.types.IsEmpty
-        || (member.ContainingType?.TypeKind != TypeKind.Interface
-            && member is { IsAbstract: false, IsVirtual: false, IsOverride: false })
+        this.IsItsOwnMember(member)
             ? [member]
             : this.OwnersOf(member)
                 .Select(type => ResolveIn(type: type, member: member))
                 .Distinct(SymbolEqualityComparer.Default);
+
+    // True when a read finds the member that the code names: see Resolve.
+    private bool IsItsOwnMember(ISymbol member) =>
+        this.types.IsEmpty
+        || (member.ContainingType?.TypeKind != TypeKind.Interface
+            && member is { IsAbstract: false, IsVirtual: false, IsOverride: false });
 
     /// <summary>
     ///     The same object, as a value of the given type. Of two objects, only
@@ -345,7 +605,11 @@ internal sealed class Construction(
 
         return owners.Length == this.types.Length
             ? this
-            : new Construction(members: this.members, types: owners, hasParts: this.HasParts);
+            : new Construction(
+                members: this.members,
+                types: owners,
+                hasParts: this.HasParts,
+                hasInterfaceMembers: this.hasInterfaceMembers);
     }
 
     // Of two objects, only the one whose type has the member can be the object that the code
@@ -369,9 +633,21 @@ internal sealed class Construction(
     ///     base type. For a value that is one of two objects, it is the join of
     ///     the states of the member of each.
     /// </summary>
-    public LoopState StateThrough(ISymbol member) =>
+    /// <remarks>
+    ///     The state of each property that the compilation implements together
+    ///     with the member is in the join also: see
+    ///     <see cref="StateImplementedTogether" />.
+    /// </remarks>
+    public LoopState StateThrough(ISymbol member, ImplementationIndex implementations) =>
         this.Resolve(member)
-            .Aggregate(seed: LoopState.None, func: (joined, actual) => joined.Join(this.StateOf(actual)));
+            .Aggregate(seed: LoopState.None, func: (joined, actual) => joined.Join(this.StateOf(actual)))
+            .Join(
+                StateImplementedTogether(
+                    states: this.members,
+                    key: KeyOf(member),
+                    stateOf: static (_, state) => state,
+                    implementations: implementations,
+                    hasInterfaceMembers: this.hasInterfaceMembers));
 
     private static ISymbol ResolveIn(INamedTypeSymbol type, ISymbol member)
     {
@@ -469,7 +745,8 @@ internal sealed class Construction(
             types: first.types
                 .Union<INamedTypeSymbol>(second: second.types, comparer: SymbolEqualityComparer.Default)
                 .ToImmutableArray(),
-            hasParts: first.HasParts || second.HasParts);
+            hasParts: first.HasParts || second.HasParts,
+            hasInterfaceMembers: first.hasInterfaceMembers || second.hasInterfaceMembers);
     }
 
     // An element of a tuple has a name in the code and a position in the type. The position is

@@ -13,8 +13,9 @@ namespace SodaFlow.Analyzers;
 /// <remarks>
 ///     The answer is true for a task that the platform gives complete. It is
 ///     also true for a method of this compilation that gives only such tasks,
-///     and for a local with one such value. For each other task, the answer is
-///     false, and the walk stops at the await.
+///     and for a local with one such value. A readonly field and a get-only
+///     property with such an initializer count also. For each other task, the
+///     answer is false, and the walk stops at the await.
 /// </remarks>
 internal static class CompleteTasks
 {
@@ -47,6 +48,8 @@ internal static class CompleteTasks
         return symbol switch
         {
             ILocalSymbol local => HasOneCompleteValue(region: region, local: local, visiting: visiting),
+            IFieldSymbol { IsReadOnly: true } or IPropertySymbol { IsReadOnly: true } =>
+                HasACompleteInitializer(region: region, member: symbol.OriginalDefinition, visiting: visiting),
             IMethodSymbol method when written is InvocationExpressionSyntax call =>
                 SodaFlowSymbols.IsTask(method.ContainingType)
                     ? IsCompleteFromThePlatform(region: region, method: method, call: call, visiting: visiting)
@@ -138,18 +141,77 @@ internal static class CompleteTasks
     }
 
     private static bool NeverWaits(LoopRegion region, SyntaxNode body, HashSet<ISymbol> visiting) =>
-        OwnNodesOf(body)
-            .All(node =>
-                node switch
-                {
-                    AwaitExpressionSyntax awaited =>
-                        IsComplete(region: region, task: awaited.Expression, visiting: visiting),
-                    // An await in a foreach or in a using waits for a task that the walk does not see.
-                    CommonForEachStatementSyntax each => !each.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
-                    UsingStatementSyntax used => !used.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
-                    LocalDeclarationStatementSyntax local => !local.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
-                    _ => true
-                });
+        OwnNodesOf(body).All(node => DoesNotWait(region: region, node: node, visiting: visiting));
+
+    private static bool DoesNotWait(LoopRegion region, SyntaxNode node, HashSet<ISymbol> visiting) =>
+        node switch
+        {
+            AwaitExpressionSyntax awaited => IsComplete(region: region, task: awaited.Expression, visiting: visiting),
+            // An await in a foreach or in a using waits for a task that the walk does not see.
+            CommonForEachStatementSyntax each => !each.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
+            UsingStatementSyntax used => !used.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
+            LocalDeclarationStatementSyntax local => !local.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
+            _ => true
+        };
+
+    /// <summary>
+    ///     Says which items of an await foreach come in the call, before the call
+    ///     can stop.
+    /// </summary>
+    /// <remarks>
+    ///     The sequence is a call of an async iterator of this compilation. Each
+    ///     item comes in the call when the iterator awaits only complete tasks.
+    ///     The first item comes in the call when a yield return at the first level
+    ///     of the body has no other await before it. A goto can skip that yield
+    ///     return. Thus, a body with a label gets the answer false.
+    /// </remarks>
+    /// <param name="region">The region, for the symbols of the code.</param>
+    /// <param name="sequence">The sequence that the await foreach enumerates.</param>
+    public static (bool First, bool Each) ItemsComeAtOnce(LoopRegion region, ExpressionSyntax sequence)
+    {
+        if (Unwrapped(sequence) is not InvocationExpressionSyntax call
+            || region.SymbolOf(call) is not IMethodSymbol method
+            || (method.ReducedFrom ?? method).OriginalDefinition
+            is not
+            {
+                IsAsync: true, IsVirtual: false, IsAbstract: false, IsOverride: false, DeclaringSyntaxReferences.Length: 1
+            } definition)
+        {
+            return (false, false);
+        }
+
+        BlockSyntax? body =
+            definition.DeclaringSyntaxReferences[0].GetSyntax() switch
+            {
+                MethodDeclarationSyntax declared => declared.Body,
+                LocalFunctionStatementSyntax declared => declared.Body,
+                _ => null
+            };
+
+        if (body == null)
+        {
+            return (false, false);
+        }
+
+        HashSet<ISymbol> visiting = new(SymbolEqualityComparer.Default) { definition };
+
+        if (NeverWaits(region: region, body: body, visiting: visiting))
+        {
+            return (true, true);
+        }
+
+        StatementSyntax? yielded =
+            body.Statements.FirstOrDefault(static statement => statement.IsKind(SyntaxKind.YieldReturnStatement));
+
+        bool first =
+            yielded != null
+            && !OwnNodesOf(body).Any(static node => node is LabeledStatementSyntax)
+            && OwnNodesOf(body)
+                .Where(node => node.SpanStart < yielded.Span.End)
+                .All(node => DoesNotWait(region: region, node: node, visiting: visiting));
+
+        return (first, false);
+    }
 
     private static bool ReturnsOnlyCompleteTasks(LoopRegion region, SyntaxNode body, HashSet<ISymbol> visiting)
     {
@@ -168,6 +230,20 @@ internal static class CompleteTasks
     private static IEnumerable<SyntaxNode> OwnNodesOf(SyntaxNode body) =>
         body.DescendantNodesAndSelf(static node =>
             node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax));
+
+    // The region gives the initializer of a member only when no constructor can write the member.
+    private static bool HasACompleteInitializer(LoopRegion region, ISymbol member, HashSet<ISymbol> visiting)
+    {
+        if (region.InitializerOf(member) is not { } value || !visiting.Add(member))
+        {
+            return false;
+        }
+
+        bool complete = IsComplete(region: region, task: value, visiting: visiting);
+        visiting.Remove(member);
+
+        return complete;
+    }
 
     // A local with an initializer and no other write has the value of that initializer at each
     // read. The search for a write is by the name, in the function that declares the local.

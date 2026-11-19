@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -102,6 +103,8 @@ internal sealed class SodaFlowSymbols
     private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
         new(SymbolEqualityComparer.Default);
 
+    private readonly ConcurrentDictionary<SyntaxTree, ImmutableHashSet<string>> definedSymbols = new();
+
     private readonly Lazy<bool> declaresAdd;
     private readonly Lazy<bool> declaresConversions;
     private readonly Lazy<bool> declaresDeconstruct;
@@ -111,11 +114,13 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresOperators;
     private readonly Lazy<PlatformCallbacks> declaredCallbacks;
     private readonly Lazy<bool> declaresCompare;
+    private readonly Lazy<DeclaredCode> declaredCode;
     private readonly Lazy<bool> declaresPlatformMembers;
     private readonly Lazy<bool> declaresRecords;
     private readonly Lazy<bool> declaresSlice;
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
+    private readonly Lazy<IMethodSymbol?> formattableToString;
     private readonly ImmutableHashSet<IAssemblySymbol> library;
 
     /// <summary>
@@ -159,6 +164,7 @@ internal sealed class SodaFlowSymbols
 
         // Compare of a comparer, which a collection of the platform that keeps the comparer calls.
         this.declaresCompare = Declares(compilation: compilation, name: "Compare");
+        this.declaredCode = new Lazy<DeclaredCode>(() => DeclaredCode.Of(compilation));
 
         this.declaresPlatformMembers =
             new Lazy<bool>(() =>
@@ -199,11 +205,21 @@ internal sealed class SodaFlowSymbols
                 .OfType<IMethodSymbol>()
                 .FirstOrDefault(static method => method.Parameters.IsEmpty);
 
+        this.formattableToString =
+            new Lazy<IMethodSymbol?>(() =>
+                compilation.GetTypeByMetadataName("System.IFormattable")
+                    ?.GetMembers("ToString")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(static method => method.Parameters.Length == 2));
+
         this.DisposableDispose =
             compilation.GetSpecialType(SpecialType.System_IDisposable)
                 .GetMembers("Dispose")
                 .OfType<IMethodSymbol>()
                 .FirstOrDefault();
+
+        this.Overrides = new OverrideIndex(compilation);
+        this.Implementations = new ImplementationIndex(compilation);
     }
 
     /// <summary>
@@ -240,6 +256,12 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>True when the compilation declares an operator or a conversion.</summary>
     public bool DeclaresOperators => this.declaresOperators.Value;
+
+    /// <summary>
+    ///     The members of the compilation that run code where a lambda shows no
+    ///     call. The walk reads the declarations one time, at the first question.
+    /// </summary>
+    public DeclaredCode DeclaredCode => this.declaredCode.Value;
 
     /// <summary>
     ///     True when the compilation declares a member that code of the platform
@@ -287,6 +309,12 @@ internal sealed class SodaFlowSymbols
     /// <summary><c>ToString</c> of <c>object</c>, which an interpolation calls.</summary>
     public IMethodSymbol? ObjectToString { get; }
 
+    /// <summary>
+    ///     <c>ToString</c> of <c>IFormattable</c>, which an interpolation calls on
+    ///     an object that implements it.
+    /// </summary>
+    public IMethodSymbol? FormattableToString => this.formattableToString.Value;
+
     /// <summary><c>Equals</c> of <c>object</c>, with one parameter.</summary>
     public IMethodSymbol? ObjectEquals { get; }
 
@@ -295,6 +323,12 @@ internal sealed class SodaFlowSymbols
 
     /// <summary><c>Dispose</c> of <c>IDisposable</c>, which a <c>using</c> calls.</summary>
     public IMethodSymbol? DisposableDispose { get; }
+
+    /// <summary>The methods that an override in the compilation replaces.</summary>
+    public OverrideIndex Overrides { get; }
+
+    /// <summary>The properties of interfaces that one property of a type implements together.</summary>
+    public ImplementationIndex Implementations { get; }
 
     // Each gate from Declares is only for speed. A search for a member that the compilation does
     // not declare finds no body to read, thus a true value changes no rule. An explicit member of
@@ -373,14 +407,25 @@ internal sealed class SodaFlowSymbols
         };
 
     /// <summary>
-    ///     True for <c>System.Lazy</c>. It keeps the function that makes its
-    ///     value, and runs that function at the first read of <c>Value</c>.
+    ///     True for <c>System.Lazy</c> and <c>System.Threading.ThreadLocal</c>.
+    ///     Each keeps the function that makes its value, and runs that function
+    ///     at the first read of <c>Value</c>. A <c>ThreadLocal</c> runs it again
+    ///     on each other thread.
     /// </summary>
     public static bool IsLazy(ITypeSymbol? type) =>
         type?.OriginalDefinition is INamedTypeSymbol
         {
             Name: "Lazy",
             ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+        }
+        or INamedTypeSymbol
+        {
+            Name: "ThreadLocal",
+            ContainingNamespace:
+            {
+                Name: "Threading",
+                ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+            }
         };
 
     /// <summary>
@@ -572,34 +617,186 @@ internal sealed class SodaFlowSymbols
     private static bool IsLinqToXml(ISymbol type) => type.ContainingNamespace?.ToDisplayString() == "System.Xml.Linq";
 
     /// <summary>
-    ///     True for a serializer that writes the public fields of an object, and
-    ///     thus the elements of a tuple. <c>System.Text.Json</c> writes only
-    ///     properties, unless an option says differently.
-    /// </summary>
-    public static bool WritesFields(IMethodSymbol serializer) =>
-        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() != "System.Text.Json";
-
-    /// <summary>
     ///     True for a property that the serializer reads. It is public, it is
     ///     not an indexer, and it has no attribute that tells a serializer to
     ///     ignore it. <c>XmlSerializer</c> reads only a property that it can also
     ///     set.
     /// </summary>
-    public static bool IsSerialized(IPropertySymbol property, IMethodSymbol serializer) =>
-        property is
-        {
-            IsStatic: false,
-            IsIndexer: false,
-            DeclaredAccessibility: Accessibility.Public,
-            GetMethod.DeclaredAccessibility: Accessibility.Public
-        }
-        && (serializer.ContainingType?.Name != "XmlSerializer"
+    public static bool IsSerialized(IPropertySymbol property, IMethodSymbol serializer, SerializerOptions options) =>
+        property is { IsStatic: false, IsIndexer: false, GetMethod: not null }
+        && (property is
+            {
+                DeclaredAccessibility: Accessibility.Public,
+                GetMethod.DeclaredAccessibility: Accessibility.Public
+            }
+            || IsIncluded(member: property, serializer: serializer))
+        && ((serializer.ContainingType?.Name != "XmlSerializer" && !options.SkipsReadOnlyProperties)
             || property.SetMethod is { DeclaredAccessibility: Accessibility.Public })
-        && !property.GetAttributes()
+        && !IsIgnored(property);
+
+    /// <summary>
+    ///     True for a field that the serializer writes. It is public, and the
+    ///     serializer writes fields, or it has the attribute that includes it.
+    /// </summary>
+    public static bool IsSerialized(IFieldSymbol field, IMethodSymbol serializer, SerializerOptions options) =>
+        field is { IsStatic: false, IsConst: false, IsImplicitlyDeclared: false }
+        && ((field.DeclaredAccessibility == Accessibility.Public
+             && options.WritesFields
+             && !(field.IsReadOnly && options.SkipsReadOnlyFields))
+            || IsIncluded(member: field, serializer: serializer))
+        && !IsIgnored(field);
+
+    // A condition on JsonIgnore reads the value before it decides.
+    private static bool IsIgnored(ISymbol member) =>
+        member.GetAttributes()
             .Any(static attribute =>
                 attribute.AttributeClass?.Name is "JsonIgnoreAttribute" or "XmlIgnoreAttribute"
-                // A condition on JsonIgnore reads the value before it decides.
                 && attribute.NamedArguments.IsEmpty);
+
+    /// <summary>
+    ///     The converter that a <c>JsonConverter</c> attribute of a member or a
+    ///     type names, of <c>System.Text.Json</c> or of Json.NET.
+    /// </summary>
+    public static INamedTypeSymbol? ConverterOf(ISymbol member) =>
+        member.GetAttributes()
+            .Where(static attribute =>
+                attribute.AttributeClass is { Name: "JsonConverterAttribute" } found
+                && found.ContainingNamespace?.ToDisplayString()
+                    is "System.Text.Json.Serialization"
+                    or "Newtonsoft.Json")
+            .Select(static attribute => attribute.ConstructorArguments.FirstOrDefault().Value)
+            .OfType<INamedTypeSymbol>()
+            .FirstOrDefault();
+
+    /// <summary>
+    ///     The method of a converter that writes a value: <c>Write</c> for
+    ///     <c>System.Text.Json</c> and <c>WriteJson</c> for Json.NET. It gets the
+    ///     value as its second parameter. Null when the code has no such method.
+    /// </summary>
+    public static IMethodSymbol? WriteOf(INamedTypeSymbol converter, IMethodSymbol serializer)
+    {
+        string name = WritesTheDeclaredType(serializer) ? "Write" : "WriteJson";
+
+        for (INamedTypeSymbol? current = converter;
+             current is { DeclaringSyntaxReferences.Length: > 0 };
+             current = current.BaseType)
+        {
+            if (current.GetMembers(name)
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(static write => write is { IsAbstract: false, Parameters.Length: 3 })
+                is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     The type that a converter of <c>System.Text.Json</c> writes: the type
+    ///     argument of its base type <c>JsonConverter</c>.
+    /// </summary>
+    public static ITypeSymbol? HandledBy(INamedTypeSymbol converter)
+    {
+        for (INamedTypeSymbol? current = converter; current != null; current = current.BaseType)
+        {
+            if (current is { Name: "JsonConverter", TypeArguments.Length: 1 }
+                && current.ContainingNamespace?.ToDisplayString() == "System.Text.Json.Serialization")
+            {
+                return current.TypeArguments[0];
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     True for a call of a conditional method that the compiler removes from
+    ///     the tree. No condition of the method is a symbol that the tree defines.
+    ///     The compiler then also removes the receiver and the arguments.
+    /// </summary>
+    /// <remarks>
+    ///     A <c>#define</c> must come before the first token of a file, thus it
+    ///     applies to each call. The walk ignores an <c>#undef</c>, which keeps a
+    ///     call that the compiler can remove. That is the careful side.
+    /// </remarks>
+    public bool IsRemovedFrom(SyntaxTree tree, IMethodSymbol method)
+    {
+        if (!method.IsConditional)
+        {
+            return false;
+        }
+
+        // An override has the conditions of the method that it overrides.
+        string[] conditions =
+        [
+            .. Overridden(method)
+                .SelectMany(static declared => declared.GetAttributes())
+                .Where(static attribute =>
+                    attribute.AttributeClass is { Name: "ConditionalAttribute", ContainingNamespace: { } space }
+                    && space.ToDisplayString() == "System.Diagnostics")
+                .Select(static attribute => attribute.ConstructorArguments.FirstOrDefault().Value)
+                .OfType<string>()
+        ];
+
+        ImmutableHashSet<string> defined =
+            this.definedSymbols.GetOrAdd(
+                key: tree,
+                valueFactory: static found =>
+                    found.Options.PreprocessorSymbolNames
+                        .Concat(
+                            found.GetRoot()
+                                .GetFirstToken(includeZeroWidth: true)
+                                .LeadingTrivia
+                                .Select(static trivia => trivia.GetStructure())
+                                .OfType<DefineDirectiveTriviaSyntax>()
+                                .Select(static directive => directive.Name.ValueText))
+                        .ToImmutableHashSet(StringComparer.Ordinal));
+
+        return !conditions.Any(defined.Contains);
+
+        static IEnumerable<IMethodSymbol> Overridden(IMethodSymbol first)
+        {
+            for (IMethodSymbol? current = first; current != null; current = current.OverriddenMethod)
+            {
+                yield return current;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     True for a member that the serializer writes at each accessibility:
+    ///     one with <c>JsonInclude</c> for <c>System.Text.Json</c>, and one with
+    ///     <c>JsonProperty</c> for Json.NET.
+    /// </summary>
+    private static bool IsIncluded(ISymbol member, ISymbol serializer) =>
+        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() is { } library
+        && member.GetAttributes()
+            .Any(attribute =>
+                attribute.AttributeClass is { } found
+                && (found.Name, found.ContainingNamespace?.ToDisplayString(), library)
+                is ("JsonIncludeAttribute", "System.Text.Json.Serialization", "System.Text.Json")
+                or ("JsonPropertyAttribute", "Newtonsoft.Json", "Newtonsoft.Json"));
+
+    /// <summary>
+    ///     True for <c>System.Text.Json</c>. It writes the properties of the type
+    ///     that the call or the property names, and not those of the type of the
+    ///     object.
+    /// </summary>
+    public static bool WritesTheDeclaredType(IMethodSymbol serializer) =>
+        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() == "System.Text.Json";
+
+    /// <summary>
+    ///     True for a type with <c>JsonDerivedType</c> or <c>JsonPolymorphic</c>.
+    ///     <c>System.Text.Json</c> then writes the properties of the type of the
+    ///     object.
+    /// </summary>
+    public static bool IsPolymorphic(ISymbol type) =>
+        type.GetAttributes()
+            .Any(static attribute =>
+                attribute.AttributeClass is { Name: "JsonDerivedTypeAttribute" or "JsonPolymorphicAttribute" } found
+                && found.ContainingNamespace?.ToDisplayString() == "System.Text.Json.Serialization");
 
     /// <summary>
     ///     True for a member of <c>System.Activator</c>, or of a type in

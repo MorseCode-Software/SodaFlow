@@ -11,6 +11,9 @@ namespace SodaFlow.Analyzers;
 // The part of the evaluator for a write to a member of an object, and for what a write through a name replaces.
 internal sealed partial class LoopStateEvaluator
 {
+    // The location or the first name that EvalAgainForAUse reads now.
+    private ExpressionSyntax? readForAUse;
+
     /// <summary>
     ///     Records the state of a member of the object that the code is in, at
     ///     its initializer or assignment.
@@ -135,11 +138,17 @@ internal sealed partial class LoopStateEvaluator
     ///     name of that value, and not a copy. Each read and each write of a
     ///     member through the second name then goes through the first name. That
     ///     is true while no code gives one of the two names a value. A function
-    ///     can run at a different time, thus the code of a function gets a first
-    ///     name only for a local of its own. One run of the function makes such
-    ///     a local, and the two names are one value in that run.
+    ///     can run at a different time. Thus, a record holds in the run of the
+    ///     code that made it. It holds also in each caller after the call of
+    ///     that run, and in each run that such code calls after the record. It
+    ///     holds in no other run.
     /// </remarks>
-    private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written)
+    private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written) =>
+        this.TheFirstNameOf(written: written, at: written);
+
+    // The same, with the first name read at a given use. The location of a name with ref needs
+    // it: the walk reads that location again at each use of the name with ref.
+    private ExpressionSyntax? TheFirstNameOf(ExpressionSyntax written, SyntaxNode at)
     {
         if (this.Frame.FirstNameOf.Count == 0)
         {
@@ -154,17 +163,10 @@ internal sealed partial class LoopStateEvaluator
         {
             if (Unwrapped(use) is not IdentifierNameSyntax name
                 || this.region.SymbolOf(name) is not { } second
-                || (this.function != null && !IsDeclaredIn(local: second, code: this.function))
                 || !this.Frame.FirstNameOf.TryGetValue(key: second, value: out ExpressionSyntax? first)
-                || FunctionOf(written) is not { } code
+                || this.WindowsOfTheRecordOf(first: first, at: at) is not (var windows, var ran)
                 || this.region.SymbolOf(first) is not { } firstName
-                || new[] { firstName, second }.Any(one =>
-                    this.GetsAValue(
-                        name: one,
-                        code: code,
-                        after: first.Span.End,
-                        before: written.SpanStart,
-                        orAFunctionUsesIt: false)))
+                || this.GetsAValueIn(windows: windows, ran: ran, names: [firstName, second], use: at))
             {
                 break;
             }
@@ -174,6 +176,79 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return found;
+    }
+
+    // Reads a location or a first name again for a use. TheFirstNameOf followed each record that
+    // holds at that use. A record that it did not follow can hold at the location itself, because
+    // the location comes before the use. Thus, the read of the location follows no record.
+    private LoopState EvalAgainForAUse(ExpressionSyntax location)
+    {
+        ExpressionSyntax? outer = this.readForAUse;
+        this.readForAUse = location;
+        LoopState state = this.EvalAgain(location);
+        this.readForAUse = outer;
+
+        return state;
+    }
+
+    // The parts of code that run between the record of a first name and a use, and the functions
+    // whose run made the record. A lambda or a local function that a call runs can give a local
+    // of the code around it a value. That record starts at the end of the call, in the code that
+    // has the call. The code of the record is the run of the use, or a caller of that run. Then,
+    // the parts continue through each run that a call starts, up to the use.
+    private (ImmutableArray<(SyntaxNode Code, int After, int Before)> Windows, ImmutableArray<SyntaxNode> Ran)?
+        WindowsOfTheRecordOf(ExpressionSyntax first, SyntaxNode at)
+    {
+        SyntaxNode start = first;
+        ImmutableArray<SyntaxNode> ran = ImmutableArray<SyntaxNode>.Empty;
+
+        LoopStateEvaluator code =
+            this.Frame.RunThatNamed.TryGetValue(key: first, value: out LoopStateEvaluator? run) ? run : this;
+
+        // The calls from the run of the use up to the code of the block, which has no call.
+        List<CallOfThisCode> calls = [];
+
+        for (CallOfThisCode? up = this.call; up != null; up = up.Caller.call)
+        {
+            calls.Add(up);
+        }
+
+        while (code.call is { } call && !calls.Contains(call))
+        {
+            if (code.function is { } function)
+            {
+                ran = ran.Add(function);
+            }
+
+            start = call.Site;
+            code = call.Caller;
+        }
+
+        List<(SyntaxNode Code, int After, int Before)> windows = [];
+        int? after = start.Span.End;
+
+        // Each call between them runs after the code before it in its run, and so do its arguments.
+        for (int level = code.call is { } met ? calls.IndexOf(met) : calls.Count; level > 0; level--)
+        {
+            SyntaxNode site = calls[level - 1].Site;
+
+            if (FunctionOf(site) is not { } caller)
+            {
+                return null;
+            }
+
+            windows.Add((caller, after ?? caller.SpanStart, site.Span.End));
+            after = null;
+        }
+
+        if (FunctionOf(at) is not { } use)
+        {
+            return null;
+        }
+
+        windows.Add((use, after ?? use.SpanStart, at.SpanStart));
+
+        return (windows.ToImmutableArray(), ran);
     }
 
     // True for a name whose own state can be without a write through a second name of its value.
@@ -210,20 +285,25 @@ internal sealed partial class LoopStateEvaluator
             this.Frame.FirstNameOf.Remove(second);
         }
 
+        // A function can give a local of the code around it a value. For that code, the assignment
+        // is sure only when each call of the function up to that code always runs. A local of the
+        // function itself has the same rule. At a different call, a write through its first name
+        // only joins the state of the first name.
+        bool sure = replaces && (this.function == null || this.call is { AlwaysRuns: true });
+
         // After an assignment that is not sure to run, the local can be a second name.
         if (this.Frame.FirstNameOf.TryGetValue(key: local, value: out ExpressionSyntax? first))
         {
             this.Frame.FirstNameOf.Remove(local);
 
-            if (!replaces && this.region.SymbolOf(first) is { } firstName)
+            if (!sure && this.region.SymbolOf(first) is { } firstName)
             {
                 this.Frame.WasOneOfTwoNames.Add(local);
                 this.Frame.WasOneOfTwoNames.Add(firstName);
             }
         }
 
-        if ((this.function != null && !IsDeclaredIn(local: local, code: this.function))
-            || !KeepsItsObject(local)
+        if (!KeepsItsObject(local)
             || Unwrapped(value) is not IdentifierNameSyntax name
             || this.region.SymbolOf(name) is not ((ILocalSymbol or IParameterSymbol) and { } from)
             || !KeepsItsObject(from)
@@ -235,9 +315,10 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
-        if (replaces)
+        if (sure)
         {
             this.Frame.FirstNameOf[local] = name;
+            this.Frame.RunThatNamed[name] = this;
         }
         else
         {
@@ -264,6 +345,7 @@ internal sealed partial class LoopStateEvaluator
         }
 
         this.Frame.ReadFrom.Remove(local);
+        this.Frame.GaveTo.Remove(local);
 
         if (replaces
             && this.function == null
@@ -277,6 +359,68 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
+    /// <summary>
+    ///     Records that a local is a name of the location that gets its value.
+    ///     The location is an element with a constant index, or a field, as for
+    ///     <see cref="NotesANameOfALocation" />. The local and the location have one
+    ///     value with no object of the store after the assignment.
+    /// </summary>
+    /// <remarks>
+    ///     The local keeps the location that it got its value from. Thus, this
+    ///     record is apart from that one.
+    /// </remarks>
+    /// <param name="location">The target of the assignment.</param>
+    /// <param name="value">The expression of the value.</param>
+    /// <param name="replaces">True when the location then has only this value.</param>
+    public void NotesALocalOfALocation(SyntaxNode location, ExpressionSyntax value, bool replaces)
+    {
+        if (this.quiet
+            || !replaces
+            || this.function != null
+            || location is not (ElementAccessExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax)
+            || Unwrapped(value) is not IdentifierNameSyntax name
+            || this.region.SymbolOf(name) is not ILocalSymbol { RefKind: RefKind.None } local
+            || this.LocationKeyOf((ExpressionSyntax)location) == null
+            || this.region.TypeOf(name) is not { } type
+            || !this.CanBeAnObject(type)
+            || !IsOfNoObjectOfTheStore(this.Eval(name)))
+        {
+            return;
+        }
+
+        this.Frame.GaveTo[local] = (ExpressionSyntax)location;
+    }
+
+    /// <summary>
+    ///     The state of a local that got the value of a field, with the state
+    ///     that the field has now.
+    /// </summary>
+    /// <remarks>
+    ///     The local and the field are two names of one value with no object of
+    ///     the store. An array that a static field holds is such a value. A put
+    ///     into an element through the field changes the state of the field.
+    ///     That is true also for a put that a callee does. Thus, a read of the
+    ///     local gets that state also.
+    ///     A call that gives the field a different value is the one that the
+    ///     record does not see. Then, the local gets more states than it has,
+    ///     and the result is a report and not a miss.
+    /// </remarks>
+    private LoopState WithItsField(ISymbol local, SyntaxNode use, LoopState state) =>
+        this.TheFieldThatItNames(local) is { } field
+        && this.IsStillTheLocationOf(name: local, location: field, use: use, aCallCounts: false)
+            ? state.Join(this.EvalAgain(field))
+            : state;
+
+    // The field that a local got its value from, as NotesANameOfALocation records it. Null for a
+    // local that got no value of a field.
+    private ExpressionSyntax? TheFieldThatItNames(ISymbol local) =>
+        this.Frame.ReadFrom.Count > 0
+        && this.Frame.ReadFrom.TryGetValue(key: local, value: out ExpressionSyntax? field)
+        && Unwrapped(field) is IdentifierNameSyntax or MemberAccessExpressionSyntax
+        && this.LocationKeyOf(field) is { Index: < 0 }
+            ? field
+            : null;
+
     // True for a value whose members only a name keeps. The value is no object, or an object that
     // the store does not know.
     private static bool IsOfNoObjectOfTheStore(LoopState value) =>
@@ -286,7 +430,9 @@ internal sealed partial class LoopStateEvaluator
     // name of that location has now. The local is a name of the same value.
     private LoopState WithTheOtherNames(ISymbol local, ExpressionSyntax? from, LoopState state)
     {
-        if (this.Frame.ReadFrom.Count == 0 || from == null || !IsOfNoObjectOfTheStore(state))
+        if ((this.Frame.ReadFrom.Count == 0 && this.Frame.GaveTo.Count == 0)
+            || from == null
+            || !IsOfNoObjectOfTheStore(state))
         {
             return state;
         }
@@ -312,7 +458,11 @@ internal sealed partial class LoopStateEvaluator
         bool replaces,
         SyntaxNode? turn)
     {
-        if (this.Frame.ReadFrom.Count == 0 || this.quiet || this.function != null || owner == null || at == null)
+        if ((this.Frame.ReadFrom.Count == 0 && this.Frame.GaveTo.Count == 0)
+            || this.quiet
+            || this.function != null
+            || owner == null
+            || at == null)
         {
             return;
         }
@@ -322,19 +472,25 @@ internal sealed partial class LoopStateEvaluator
                 ? local
                 : null;
 
-        ExpressionSyntax? location =
+        // A local can be a name of the location that it got its value from, and of the location
+        // that got its value.
+        ExpressionSyntax?[] locations =
             self == null
-                ? owner
-                : this.Frame.ReadFrom.TryGetValue(key: self, value: out ExpressionSyntax? read)
-                    ? read
-                    : null;
+                ? [owner]
+                :
+                [
+                    this.Frame.ReadFrom.TryGetValue(key: self, value: out ExpressionSyntax? read) ? read : null,
+                    this.Frame.GaveTo.TryGetValue(key: self, value: out ExpressionSyntax? gave) ? gave : null
+                ];
 
-        if (location == null
-            || this.TheOtherNamesOf(location: location, at: at, self: self) is not { Length: > 0 } others
-            || (self != null && !this.IsStillTheLocationOf(name: self, location: location, use: at)))
-        {
-            return;
-        }
+        ISymbol[] others =
+        [
+            .. locations
+                .OfType<ExpressionSyntax>()
+                .Where(location => self == null || this.IsStillTheLocationOf(name: self, location: location, use: at))
+                .SelectMany(location => this.TheOtherNamesOf(location: location, at: at, self: self))
+                .Distinct(SymbolEqualityComparer.Default)
+        ];
 
         foreach (ISymbol other in others)
         {
@@ -365,6 +521,7 @@ internal sealed partial class LoopStateEvaluator
         return
         [
             .. this.Frame.ReadFrom
+                .Concat(this.Frame.GaveTo)
                 .Where(pair =>
                     !SymbolEqualityComparer.Default.Equals(x: pair.Key, y: self)
                     && IsTheSameLocation(one: this.LocationKeyOf(pair.Value), other: key)
@@ -521,8 +678,13 @@ internal sealed partial class LoopStateEvaluator
 
     // True when a local is still a name of the location that it got its value from, at a use. No
     // code between the two gave the local, the array, the field, or the owner a value. No code
-    // between them can give the location itself a value.
-    private bool IsStillTheLocationOf(ISymbol name, ExpressionSyntax location, SyntaxNode use)
+    // between them can give the location itself a value. The last argument is false where a call
+    // of code of this compilation does not count as such code: see WithItsField.
+    private bool IsStillTheLocationOf(
+        ISymbol name,
+        ExpressionSyntax location,
+        SyntaxNode use,
+        bool aCallCounts = true)
     {
         if (FunctionOf(location) is not { } code
             || FunctionOf(use) != code
@@ -541,15 +703,38 @@ internal sealed partial class LoopStateEvaluator
                && !code.DescendantNodes(TextSpan.FromBounds(start: after, end: before))
                    .Any(node => node.SpanStart > after
                                 && node.SpanStart < before
-                                && this.CanChangeTheLocation(node: node, key: key));
+                                && this.CanChangeTheLocation(
+                                    node: node,
+                                    key: key,
+                                    name: name,
+                                    aCallCounts: aCallCounts));
     }
 
     // True for code that can give a location a value. It is an assignment, a deconstruction, or a
     // use with ref of the location. It is a call that gets the array or the owner, or a call of a
     // delegate or of a local function. For a location in a field, each call of code of this
-    // compilation can change it also.
-    private bool CanChangeTheLocation(SyntaxNode node, (ISymbol Of, ISymbol? Owner, int Index) key)
+    // compilation can change it also. An assignment of the name itself keeps the name a name of
+    // the location.
+    private bool CanChangeTheLocation(
+        SyntaxNode node,
+        (ISymbol Of, ISymbol? Owner, int Index) key,
+        ISymbol name,
+        bool aCallCounts)
     {
+        if (GivesAValue(node) && this.IsAnAssignmentOf(target: node, name: name))
+        {
+            return false;
+        }
+
+        // An assignment to a name with ref is an assignment to its location. A location that the
+        // walk cannot read again can be this one.
+        if (node is IdentifierNameSyntax aliased && GivesAValue(aliased))
+        {
+            return this.region.SymbolOf(aliased) is ILocalSymbol { RefKind: not RefKind.None } named
+                   && (!this.Frame.LocationOf.TryGetValue(key: named, value: out ExpressionSyntax? location)
+                       || IsTheSameLocation(one: this.LocationKeyOf(location), other: key));
+        }
+
         (ExpressionSyntax? receiver, ArgumentListSyntax? arguments) =
             node switch
             {
@@ -574,10 +759,18 @@ internal sealed partial class LoopStateEvaluator
 
         return (receiver != null && this.IsAPartOf(expression: receiver, key: key))
                || arguments.Arguments.Any(argument => this.IsAPartOf(expression: argument.Expression, key: key))
-               || (this.region.SymbolOf(node) is IMethodSymbol method
+               || (aCallCounts
+                   && this.region.SymbolOf(node) is IMethodSymbol method
                    && (method.MethodKind is MethodKind.DelegateInvoke or MethodKind.LocalFunction
                        || (key is { Owner: null, Of: IFieldSymbol } && !method.DeclaringSyntaxReferences.IsEmpty)));
     }
+
+    // True for the target of an assignment whose value is the given name.
+    private bool IsAnAssignmentOf(SyntaxNode target, ISymbol name) =>
+        target.Parent is AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment
+        && assignment.Left == target
+        && Unwrapped(assignment.Right) is IdentifierNameSyntax value
+        && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(value), y: name);
 
     // True for an expression that is the array or the owner of a location. A call that gets the
     // value of a field cannot give the field a value, thus the field itself is no such part.
@@ -672,7 +865,9 @@ internal sealed partial class LoopStateEvaluator
     // caller: see Leave.
     private void PutsIntoALocation(ISymbol? field, ArgumentSyntax? index, LoopState state, ExpressionSyntax? owner)
     {
-        if (this.quiet || state.Objects.IsEmpty || this.bound.Count == 0)
+        // A read through the parameter can get each value that has a state, as it gets an object. A
+        // pending cell or a function is such a value.
+        if (this.quiet || state is { IsNone: true, Objects.IsEmpty: true } || this.bound.Count == 0)
         {
             return;
         }
@@ -888,17 +1083,25 @@ internal sealed partial class LoopStateEvaluator
                     before: int.MaxValue,
                     orAFunctionUsesIt: false));
 
+    // True for a static field. A local with ref for it reads the field again at each use. Thus, it
+    // gets each value that code gives the field after the declaration.
+    private bool IsAStaticField(ExpressionSyntax location) =>
+        Unwrapped(location) is (IdentifierNameSyntax or MemberAccessExpressionSyntax) and var named
+        && this.region.SymbolOf(named) is IFieldSymbol { IsStatic: true };
+
     // True for the expression of a location that TheLocationOf can give. That is a local, an
-    // element of an array in a local, or a field of an object in a local or of this object.
+    // element of an array in a local, or a field of an object in a local or of this object. An
+    // element of a view of such an array is one also.
     private bool IsALocationThatTheWalkCanReadAgain(ExpressionSyntax location) =>
         Unwrapped(location) switch
         {
             IdentifierNameSyntax name => this.region.SymbolOf(name) is { } local && KeepsItsObject(local),
             ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element =>
-                Unwrapped(element.Expression) is IdentifierNameSyntax array
-                && this.region.SymbolOf(array) is { } local
-                && KeepsItsObject(local)
-                && this.region.TypeOf(array) is IArrayTypeSymbol
+                ((Unwrapped(element.Expression) is IdentifierNameSyntax array
+                  && this.region.SymbolOf(array) is { } local
+                  && KeepsItsObject(local)
+                  && this.region.TypeOf(array) is IArrayTypeSymbol)
+                 || this.TheArrayOfAViewOf(element) != null)
                 && (indexes[0].Expression is LiteralExpressionSyntax
                     || (indexes[0].Expression is IdentifierNameSyntax index
                         && this.region.SymbolOf(index) is { } number
@@ -1007,8 +1210,9 @@ internal sealed partial class LoopStateEvaluator
     ///         The location is a local of the code, or an event of a local that
     ///         has a new object. Each other use of the location adds a value,
     ///         removes a value, or calls it. Each add and each remove of the
-    ///         lambda has no loop, branch, or function around it. No code runs
-    ///         between the first add and the remove.
+    ///         lambda has no loop, branch, or function around it. For an event,
+    ///         code between the first add and the remove must not get to the
+    ///         object.
     ///     </para>
     /// </remarks>
     /// <param name="remove">The assignment with <c>-=</c>.</param>
@@ -1085,29 +1289,156 @@ internal sealed partial class LoopStateEvaluator
             first ??= start;
         }
 
-        // The remove takes away the last occurrence. No code runs between the first add and the
-        // remove, because a call can copy the delegate into its location again.
+        // The remove takes away the last occurrence. A call between the first add and the remove
+        // can copy the delegate into its location again, but only through a name of the location.
+        // Code names a local location only to add, remove, or call: see UsesOfTheLocation. For an
+        // event, see OnlyTheEventReaches.
         if (count != 1
             || first == null
-            || code.DescendantNodes(descendIntoChildren: node =>
-                    node == code || node is not AnonymousFunctionExpressionSyntax)
-                .Any(node =>
-                    node.SpanStart >= first.Span.End
-                    && node.Span.End <= remove.SpanStart
-                    && !node.AncestorsAndSelf().Any(ofTheLambda.Contains)
-                    && node is InvocationExpressionSyntax
-                        or BaseObjectCreationExpressionSyntax
-                        or AssignmentExpressionSyntax
-                        or AwaitExpressionSyntax
-                        or PrefixUnaryExpressionSyntax
-                        or PostfixUnaryExpressionSyntax
-                        or ElementAccessExpressionSyntax
-                        or MemberAccessExpressionSyntax))
+            || (start == null
+                && code.DescendantNodes(descendIntoChildren: node =>
+                        node == code || node is not AnonymousFunctionExpressionSyntax)
+                    .Any(node =>
+                        node.SpanStart >= first.Span.End
+                        && node.Span.End <= remove.SpanStart
+                        && !node.AncestorsAndSelf().Any(ofTheLambda.Contains)
+                        && node is InvocationExpressionSyntax
+                            or BaseObjectCreationExpressionSyntax
+                            or AssignmentExpressionSyntax
+                            or AwaitExpressionSyntax
+                            or PrefixUnaryExpressionSyntax
+                            or PostfixUnaryExpressionSyntax
+                            or ElementAccessExpressionSyntax
+                            or MemberAccessExpressionSyntax)
+                && !this.OnlyTheEventReaches(remove: remove, changes: changes)))
         {
             return null;
         }
 
         return this.Eval(remove.Left).WithoutFunctionsOf(lambda);
+    }
+
+    // True when code before a remove from an event of a local object gets to the object only to add
+    // or remove a handler. Thus, no code between the add and the remove can copy the handlers. The
+    // constructor must keep the object: see KeepsItsObject.
+    private bool OnlyTheEventReaches(AssignmentExpressionSyntax remove, ICollection<SyntaxNode> changes)
+    {
+        if (Unwrapped(remove.Left) is not MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner }
+            || this.region.SymbolOf(owner) is not ILocalSymbol local
+            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax { Initializer.Value: BaseObjectCreationExpressionSyntax made }
+            || this.region.SymbolOf(made) is not IMethodSymbol constructor
+            || !this.KeepsItsObject(constructor)
+            || FunctionOf(remove) is not { } code)
+        {
+            return false;
+        }
+
+        return code.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(use => use.SpanStart < remove.SpanStart
+                          && use.Identifier.ValueText == local.Name
+                          && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local))
+            .All(use => use.Parent is MemberAccessExpressionSyntax { Parent: AssignmentExpressionSyntax change }
+                        && changes.Contains(change));
+    }
+
+    // True when no constructor that a creation runs can give the new object to other code. Each
+    // constructor of the chain must be in this compilation, or be the constructor of object. A
+    // constructor with no syntax is one that the compiler adds. It calls the base constructor with
+    // no arguments.
+    private bool KeepsItsObject(IMethodSymbol constructor)
+    {
+        HashSet<IMethodSymbol> read = new(SymbolEqualityComparer.Default);
+
+        while (read.Add(constructor))
+        {
+            if (constructor.ContainingType.SpecialType == SpecialType.System_Object)
+            {
+                return true;
+            }
+
+            SyntaxNode? declared = constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+
+            if ((declared == null && !constructor.IsImplicitlyDeclared)
+                || (declared is ConstructorDeclarationSyntax written && this.CanGiveItsObject(written)))
+            {
+                return false;
+            }
+
+            SyntaxNode? chain =
+                declared switch
+                {
+                    ConstructorDeclarationSyntax own => own.Initializer,
+                    TypeDeclarationSyntax type =>
+                        type.BaseList?.Types.OfType<PrimaryConstructorBaseTypeSyntax>().FirstOrDefault(),
+                    _ => null
+                };
+
+            if ((chain != null
+                    ? this.region.SymbolOf(chain)
+                    : constructor.ContainingType.BaseType?.InstanceConstructors.FirstOrDefault(static first =>
+                        first.Parameters.IsEmpty)) is not IMethodSymbol next)
+            {
+                return false;
+            }
+
+            constructor = next;
+        }
+
+        return false;
+    }
+
+    // True when the code of a constructor can give its object to other code. The code names this
+    // other than to get to a member, or it names a member of the object that runs code. A lambda
+    // or a local function that keeps this also names it or a member of the object.
+    private bool CanGiveItsObject(BaseMethodDeclarationSyntax constructor)
+    {
+        INamedTypeSymbol? type = this.region.ModelFor(constructor).GetDeclaredSymbol(constructor)?.ContainingType;
+
+        return type == null
+               || constructor.DescendantNodes()
+                   .Any(node => node switch
+                   {
+                       ThisExpressionSyntax =>
+                           node.Parent is not MemberAccessExpressionSyntax access || access.Expression != node,
+                       SimpleNameSyntax name =>
+                           this.region.SymbolOf(name)
+                               is { IsStatic: false } member and (IMethodSymbol or IPropertySymbol or IEventSymbol)
+                           && !KeepsOnlyAValue(member)
+                           && IsAMemberOf(member: member, type: type),
+                       _ => false
+                   });
+    }
+
+    // True for a member that only keeps a value. Such a member is a property whose accessors have
+    // no code, or an event with a field for its handlers.
+    private static bool KeepsOnlyAValue(ISymbol member) =>
+        member switch
+        {
+            IEventSymbol => SodaFlowSymbols.IsFieldLikeEvent(member),
+            IPropertySymbol property =>
+                !property.DeclaringSyntaxReferences.IsEmpty
+                && property.DeclaringSyntaxReferences.All(static reference =>
+                    reference.GetSyntax() is PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: { } list }
+                    && list.Accessors.All(static accessor => accessor is { Body: null, ExpressionBody: null })),
+            _ => false
+        };
+
+    // True for a member of a type or of one of its base types.
+    private static bool IsAMemberOf(ISymbol member, INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? part = type; part != null; part = part.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(
+                    x: part.OriginalDefinition,
+                    y: member.ContainingType?.OriginalDefinition))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // The assignments with += and -= of a delegate location of this run of the code, and, for a
@@ -1254,106 +1585,6 @@ internal sealed partial class LoopStateEvaluator
                         or SyntaxKind.PostDecrementExpression
                 });
     }
-
-    // Records a write through an element for WrittenThroughItsElement. Each other write to a
-    // member takes the record away.
-    // The second argument is the owner as the code has it at the write. A name with ref there
-    // has its location as the first argument.
-    private void NotesAWriteThroughAnElement(
-        ExpressionSyntax? owner,
-        SyntaxNode? at,
-        ISymbol member,
-        LoopState state,
-        bool replaces)
-    {
-        this.Frame.LastElementWrite = null;
-
-        if (replaces
-            && !this.quiet
-            && this.function == null
-            && state is { Members: null, Objects.IsEmpty: true }
-            && IsALocation(member)
-            && owner != null
-            && at != null
-            && Unwrapped(owner) is ElementAccessExpressionSyntax element
-            && this.CollectionAndIndexOf(element) is (var collection, var index)
-            && at.FirstAncestorOrSelf<AssignmentExpressionSyntax>() is { } assignment
-            && FunctionOf(at) is { } code)
-        {
-            this.Frame.LastElementWrite =
-                new WriteThroughAnElement(
-                    collection: collection,
-                    index: index,
-                    member: member.OriginalDefinition,
-                    code: code,
-                    end: assignment.Span.End,
-                    state: state,
-                    writes: this.region.MemberWrites);
-        }
-    }
-
-    // The local of the collection and the index of an element access with one index. The index
-    // is a constant number or a local.
-    private (ISymbol Collection, object Index)? CollectionAndIndexOf(ElementAccessExpressionSyntax element)
-    {
-        if (element.ArgumentList.Arguments.Count != 1
-            || Unwrapped(element.Expression) is not IdentifierNameSyntax name
-            || this.region.SymbolOf(name) is not { } collection
-            || !KeepsItsObject(collection))
-        {
-            return null;
-        }
-
-        ExpressionSyntax written = element.ArgumentList.Arguments[0].Expression;
-
-        object? index =
-            this.region.ModelFor(written).GetConstantValue(written) is { HasValue: true, Value: int number }
-                ? number
-                : written is IdentifierNameSyntax && this.region.SymbolOf(written) is ILocalSymbol or IParameterSymbol
-                    ? this.region.SymbolOf(written)
-                    : null;
-
-        return index == null ? null : (collection, index);
-    }
-
-    /// <summary>
-    ///     The state of a read of a member through an element, when the last
-    ///     write through that element gave the member its value. Null for each
-    ///     other read.
-    /// </summary>
-    /// <remarks>
-    ///     The element is one object for the write and the read when no code runs
-    ///     between the two. Thus, the code has no call, no creation, and no
-    ///     assignment between them. No write to a member came after that write.
-    /// </remarks>
-    private LoopState? WrittenThroughItsElement(MemberAccessExpressionSyntax read) =>
-        !this.quiet
-        && this.function == null
-        && this.Frame.LastElementWrite is { } last
-        && last.Writes == this.region.MemberWrites
-        && Unwrapped(read.Expression) is var owner
-        && Unwrapped(this.TheLocationOf(owner) ?? owner) is ElementAccessExpressionSyntax element
-        && owner.SpanStart >= last.End
-        && FunctionOf(owner) == last.Code
-        && this.CollectionAndIndexOf(element) is (var collection, var index)
-        && SymbolEqualityComparer.Default.Equals(x: collection, y: last.Collection)
-        && (index is ISymbol local
-            ? last.Index is ISymbol before && SymbolEqualityComparer.Default.Equals(x: local, y: before)
-            : index.Equals(last.Index))
-        && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(read)?.OriginalDefinition, y: last.Member)
-        && !last.Code.DescendantNodes()
-            .Any(node =>
-                node.SpanStart >= last.End
-                && node.Span.End <= owner.SpanStart
-                && (node is InvocationExpressionSyntax
-                        or BaseObjectCreationExpressionSyntax
-                        or AssignmentExpressionSyntax
-                    || node.Kind() is SyntaxKind.PreIncrementExpression
-                        or SyntaxKind.PreDecrementExpression
-                        or SyntaxKind.PostIncrementExpression
-                        or SyntaxKind.PostDecrementExpression))
-            ? last.State.Join(this.TypeState(read))
-            : null;
 
     // True for the body of a loop statement. A lambda that a callee runs for each element has a
     // turn also, and this rule is only for a loop statement.
@@ -1557,10 +1788,27 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode? turn,
         ExpressionSyntax? from = null)
     {
+        if (owner is MemberAccessExpressionSyntax or IdentifierNameSyntax
+            && this.region.SymbolOf(owner) is IFieldSymbol { Type.IsValueType: true } field)
+        {
+            this.WritesInPlace(
+                owner: owner,
+                field: field,
+                member: member,
+                state: state,
+                replaces: replaces,
+                turn: turn);
+        }
+
         // A write through a name with ref is a write through its location, read at this time.
         ExpressionSyntax? written = owner;
 
-        if (owner != null && (this.TheLocationOf(owner) ?? this.TheFirstNameOf(owner)) is { } location)
+        // The location can be a second name. Its first name holds from the code that gave the
+        // location its value up to this write.
+        if (owner != null
+            && (this.TheLocationOf(owner) is { } named
+                ? this.TheFirstNameOf(written: named, at: owner) ?? named
+                : this.TheFirstNameOf(owner)) is { } location)
         {
             this.EvalAgain(location);
             owner = location;
@@ -1606,7 +1854,7 @@ internal sealed partial class LoopStateEvaluator
             from: from,
             sure: replaces && isKnown);
 
-        this.NotesAWriteThroughAnElement(owner: owner, at: written, member: member, state: state, replaces: replaces);
+        this.NotesAWriteAtAnElement(written: written, member: member, state: state, replaces: replaces);
 
         if (!replaces
             || isThroughALocation
@@ -1679,6 +1927,41 @@ internal sealed partial class LoopStateEvaluator
                     .. before.Select(one =>
                         (one.Object, one.Before, After: this.region.Objects.StateOf(one.Object) ?? one.Before))
                 ]);
+    }
+
+    // A field of a value type is a location in the object that holds it. Thus, a write to a member
+    // of that field changes the value in the location, and not a copy of it. The holder gets the
+    // value of the field with the new state of the member. A static field has no holder. Each
+    // other field with no owner in the code is a field of the object that the code is in.
+    private void WritesInPlace(
+        ExpressionSyntax owner,
+        ISymbol field,
+        ISymbol member,
+        LoopState state,
+        bool replaces,
+        SyntaxNode? turn)
+    {
+        if (this.Eval(owner) is not { Members: { } parts } value)
+        {
+            return;
+        }
+
+        LoopState changed = value.WithMembers(parts.With(member: member, state: state));
+        ExpressionSyntax? holder = (owner as MemberAccessExpressionSyntax)?.Expression;
+
+        if (!field.IsStatic && holder is null or ThisExpressionSyntax)
+        {
+            this.SetMember(member: field, state: changed, replaces: replaces);
+        }
+        else
+        {
+            this.SetMemberOf(
+                owner: field.IsStatic ? null : holder,
+                member: field,
+                state: changed,
+                replaces: replaces,
+                turn: turn);
+        }
     }
 
     /// <summary>
@@ -1794,11 +2077,12 @@ internal sealed partial class LoopStateEvaluator
         return whole;
     }
 
-    // Each object that the literal of the local of a foreach, or an Add before the foreach, put into
-    // the list. Such an Add is a statement at the first level of the block of the local. EndsEach
-    // uses the result only for a foreach that always runs in its function, in no loop. Thus, no
-    // goto jumps over such an Add, and the Add ran before the foreach. No use of the local takes an
-    // object out. The result has only objects that this code made one time and that the store has.
+    // Each object that the literal of the local of a foreach, or a put before the foreach, put into
+    // the list. Such a put is an Add, an Insert, or an AddRange of a literal: see APutOf. It is a
+    // statement at the first level of the block of the local. EndsEach uses the result only for a
+    // foreach that always runs in its function, in no loop. Thus, no goto jumps over such a put,
+    // and the put ran before the foreach. No use of the local removes an object. The result has
+    // only objects that this code made one time and that the store has.
     private IEnumerable<MadeObject> PutOneTimeBefore(CommonForEachStatementSyntax loop)
     {
         if (this.region.SymbolOf(Unwrapped(loop.Expression)) is not ILocalSymbol local
@@ -1812,8 +2096,9 @@ internal sealed partial class LoopStateEvaluator
         return written
             .Concat(
                 uses.Where(use => use.SpanStart < loop.SpanStart)
-                    .Select(use => this.AddedBy(use: use, scope: scope))
-                    .OfType<ExpressionSyntax>())
+                    .SelectMany(use => this.APutOf(use) is (var put, var statement) && statement.Parent == scope
+                        ? put
+                        : []))
             .Select(this.TheOneObjectOf)
             .OfType<MadeObject>()
             .Where(made => made is { Turn: null, IsOfTurnsBefore: false }
@@ -1930,6 +2215,20 @@ internal sealed partial class LoopStateEvaluator
     private static bool KeepsItsObject(ISymbol name) =>
         name is ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol { RefKind: RefKind.None };
 
+    // True for a local or a parameter of a value type with no ref. It has a copy of the value that
+    // it gets. Thus, it is no second name of an element, as CanBeAnObject says for a location.
+    private static bool HasACopy(ISymbol name) =>
+        name is ILocalSymbol { RefKind: RefKind.None, Type.IsValueType: true }
+            or IParameterSymbol { RefKind: RefKind.None, Type.IsValueType: true };
+
+    // True for a name with ref of a value type that gets a value with no ref. The assignment
+    // copies the value into the location of the name. Thus, the name is no second name of the
+    // element that it copies, and it keeps its location.
+    private static bool CopiesIntoItsLocation(ISymbol name, ExpressionSyntax value) =>
+        value is not RefExpressionSyntax
+        && name is ILocalSymbol { RefKind: not RefKind.None, Type.IsValueType: true }
+            or IParameterSymbol { RefKind: not RefKind.None, Type.IsValueType: true };
+
     // True for a member that is a location and no code: a field, or a property whose accessors
     // have no body. A read of it gives the value of the last write to it.
     private static bool IsALocation(ISymbol member) =>
@@ -2039,12 +2338,31 @@ internal sealed partial class LoopStateEvaluator
     // function that uses the name can change the object of the name also, and the last argument
     // says if that use is such code.
     private bool GetsAValue(ISymbol name, SyntaxNode code, int after, int before, bool orAFunctionUsesIt) =>
+        this.GetsAValue(
+            name: name,
+            code: code,
+            after: after,
+            before: before,
+            orAFunctionUsesIt: orAFunctionUsesIt,
+            ran: ImmutableArray<SyntaxNode>.Empty,
+            aFunctionCanRun: true);
+
+    // The same, with no use in the given functions. They ran before the first position. A use in
+    // a function counts only when a function can run between the two positions.
+    private bool GetsAValue(
+        ISymbol name,
+        SyntaxNode code,
+        int after,
+        int before,
+        bool orAFunctionUsesIt,
+        ImmutableArray<SyntaxNode> ran,
+        bool aFunctionCanRun) =>
         code.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Any(use =>
                 use.Identifier.ValueText == name.Name
-                && (FunctionOf(use) != code
-                    ? orAFunctionUsesIt || GivesAValue(use)
+                && (FunctionOf(use) is { } function && function != code
+                    ? aFunctionCanRun && (orAFunctionUsesIt || GivesAValue(use)) && !ran.Contains(function)
                     : use.SpanStart > after && use.SpanStart < before && GivesAValue(use))
                 && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: name));
 
@@ -2257,8 +2575,9 @@ internal sealed partial class LoopStateEvaluator
             }
 
             // The value has two names, or it had them. A read through the other name can be one
-            // that does not see the state of this name. Thus, the region keeps the write also.
-            if (this.IsOneOfTwoNames(holder))
+            // that does not see the state of this name. Thus, the region keeps the write also. A
+            // second call can give an object that a call gave, which is a second name of it too.
+            if (this.IsOneOfTwoNames(holder) || CanBeAnOlderObject(has))
             {
                 this.SetField(field: member, state: state);
             }

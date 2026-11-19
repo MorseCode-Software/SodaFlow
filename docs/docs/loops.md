@@ -256,11 +256,20 @@ is quiet.
   value is thus harmless in a cell that you only keep. If you sample that cell in the block, or
   close the loop with it, the analyzer reports the sample or the close. Collection views work the
   same way. Their predicates, selectors, sort orders, and comparers run when something reads the
-  view.
+  view. The eviction handler of a `Map` on a collection runs when a key leaves the view, and in a
+  call of `Dispose` for each object the map built. The analyzer reads the handler at a `Dispose`
+  in the block, unless the code uses the map for nothing but that `Dispose`.
+- **A call that the compiler removes.** A call of a method with `[Conditional]`, such as
+  `Debug.WriteLine` in a release build, does not run, and neither do its arguments, when the build
+  defines none of its symbols.
 - **A sample of a `Hold` with a plain initial value.** A read in the block gives the initial
   value, because a firing of the stream comes after the close. That is also true for a hold that
   the block makes, after a send into its sink in the block: the hold takes the sent value only at
-  the end of the transaction. The same goes for an `Accum` and for a cell sink.
+  the end of the transaction. The same goes for an `Accum` and for a cell sink. It also goes for a
+  read through a `Map`, a `Lift`, a `Calm`, or an `AsCell` of such a hold, through a bindable of
+  it, and through a `Cell.ConstantLazy` of its `SampleLazy`: each of these takes its first value
+  from the hold at the read. A switch of the hold is different: it takes the sent value at the end
+  of the transaction.
 
 ### Code the analyzer cannot read
 
@@ -292,7 +301,21 @@ The analyzer follows a value made from the placeholder through the code of your 
 - Locals, tuples, deconstructions, patterns, `out` and `ref` arguments, and the fields that the
   block sets.
 - Collections, arrays, and dictionaries. A list or an array that you write as a literal keeps each
-  element apart, so `cells[0]` is that one element.
+  element apart, so `cells[0]`, `cells[^1]`, and `cells.ElementAt(1)` are each one element. A
+  `Dictionary` that you write with constant keys and no comparer, and that the code then only
+  reads, keeps the value of each key apart, so `cells["total"]` is that one value. `Array.Fill`
+  puts its value into each element that it fills, as an assignment to that element would. A
+  `Span<T>`, `ReadOnlySpan<T>`, `Memory<T>`, `ReadOnlyMemory<T>`, or `ArraySegment<T>` that a method
+  makes from an array in one of its locals or parameters, with an implicit conversion, `AsSpan`,
+  `AsMemory`, a constructor, `Slice`, or a range, is another name for the elements of that array,
+  as long as neither name gets a second value. `Fill`, a write to an element or through a `ref`
+  local of an element, and `CopyTo` into it put their values into the array, and so do `CopyTo`
+  into the array itself and `Array.Copy`. A write to a member through an element of a local array,
+  `List<T>`, or `Dictionary` created with no comparer, at a constant index or key or at an index in
+  a local, replaces what an earlier write gave that member. So does a write through a local that got
+  that element, and a later read through either one sees only the last value. A local that gets the
+  array or the list in a field sees each element that code puts in through the field later, also in
+  a method, until the local or the field gets a different value.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a
@@ -300,27 +323,57 @@ The analyzer follows a value made from the placeholder through the code of your 
   parameter.
 - Events and delegates: the handlers added with `+=` run where the event is raised, and a delegate
   made with `+` runs each of its functions.
-- Loops: each pass of a `for`, `foreach`, `while`, or `do`, or of a `goto` back to a label, is read
-  until a pass adds nothing new.
+- Loops: each pass of a `for`, `foreach`, `while`, or `do`, of a `goto` back to a label, or of a
+  `goto case` or `goto default` back to an earlier section of a `switch`, is read until a pass adds
+  nothing new.
 - Sinks: a value that the block sends into a sink reaches each value made from that sink, also one
-  made before the send, such as a `Hold` of the sink or a switch of that hold. So does a value
-  sent in a function that `Transaction.Post` runs after the transaction: a lambda, a local
-  function, a method that you give to `Post` by its name, or a post inside a posted function.
-- Members that C# calls with no call syntax: an indexer, an operator, a conversion, a setter, an
-  event accessor, `Deconstruct`, `ToString` in an interpolated string, `Dispose` at the end of a
-  `using` or a `foreach`, the enumerator of a `foreach`, the `Add` of a collection initializer or
-  a collection expression, the `Create` method of a `CollectionBuilder`, `Count` and `Slice` for
-  an index from the end, a range, or a list pattern, the `ToString` and the copy constructor of a
-  record, and the `==` of each element of a tuple comparison.
+  made before the send, such as a `Hold` of the sink or a switch of that hold. So does a value sent
+  in a function that `Transaction.Post` runs after the transaction: a lambda, a local function, a
+  method that you give to `Post` by its name, or a post inside a posted function. The same holds for
+  an action that you post to `BindingScheduler.Immediate`, and for a write to the `Value` of a
+  two-way bindable of a sink, which sends the value into that sink after the transaction.
+- Members that C# calls with no call syntax: an indexer, an operator, a conversion, also of each
+  element of a spread, `operator true` or `operator false` before a user-defined `||` or `&&`, a
+  setter, an event accessor, `Deconstruct`, `ToString` in an interpolated string that the code
+  formats at once, which is the `ToString` of `IFormattable` for a value that implements it,
+  `Dispose` at the end of a `using` or a `foreach`, the enumerator of a `foreach`, the `Add` of a
+  collection initializer or a collection expression, the `Create` method of a `CollectionBuilder`,
+  `Count` and `Slice` for an index from the end, a range, or a list pattern, the `ToString` and the
+  copy constructor of a record, the `ToString` of each value that a record or a tuple prints, and
+  the `==` of each element of a tuple comparison.
 - Members that the platform calls for you: `CompareTo` in a sort, `Equals` and `GetHashCode` in a
   search, a set, or a dictionary, a comparer that you give a collection, and `ToString` in
   `string.Join` or `string.Format`.
+- Members that SodaFlow calls for you: `CompareTo` of each sort value of a collection view that
+  sorts with no comparer, at the first read of the view, and `Equals` of the comparer of a two-way
+  bindable, when you write its `Value`.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
-  and the function of a `Lazy<T>` where something reads its `Value`. An `async` method or lambda
-  runs in the block up to its first `await` of a task that may not be complete, and the rest of it
-  runs later. An async iterator runs nothing until something enumerates it.
-- The serializers of `System.Text.Json`, Json.NET, and `XmlSerializer`, and LINQ to XML, which
-  call your getters and enumerate your sequences.
+  the function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`, and the
+  function of a `Task` that you create with `new` where `RunSynchronously` runs it. The `Result` of
+  such a task, and `GetResult` of its awaiter, have the value that the function returns, however
+  the task runs. A query expression over a type whose methods run their function in the call, such
+  as `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. Where the code takes
+  only one item from the call of an iterator, with `First`, `FirstOrDefault`, `Any()` with no
+  predicate, or a `foreach` that leaves the loop in its first pass on every path, the iterator runs
+  only up to its first `yield return` and the `finally` blocks around it. An `async` method or
+  lambda runs in the block up to its first `await` of a task that may not be complete, and the rest
+  of it runs later. That holds for an `await` in a `switch` section or in the header of a
+  `foreach`, `switch`, `while`, or `using` too. The `Dispose` at the end of a `using` or a
+  `foreach` runs later as well when such an `await` comes before it in its scope. An
+  `await foreach` runs its body in the block only for an item that the sequence gives at once, and
+  the code after it only when every item comes at once. An async iterator runs nothing until
+  something enumerates it. A method of `SodaFlow.Functional` that gets a task and returns one, such
+  as the `Map` of a `Task<Maybe<T>>`, awaits that task first, so its function runs in the block
+  only when the analyzer knows that the task is complete.
+- The serializers of `System.Text.Json`, Json.NET, and `XmlSerializer`, and LINQ to XML, which call
+  your getters and enumerate your sequences. `System.Text.Json` writes the properties of the type
+  that the call or the property names, unless that type is `object` or has `[JsonDerivedType]`, and
+  the others write those of the object. The analyzer also reads a non-public member with
+  `[JsonInclude]` or with the `[JsonProperty]` of Json.NET, the public fields where the serializer
+  writes them, and a converter that a `[JsonConverter]` or the `Converters` of the options names.
+  It reads `IncludeFields`, `IgnoreReadOnlyProperties`, and `IgnoreReadOnlyFields` where you create
+  the options in the call. It reads the object that you give the serializer and the objects up to
+  three levels inside it.
 
 ### Its limits
 
@@ -331,41 +384,145 @@ careful side, so it can report a read that does not throw:
   holds one pending cell and one plain cell then reports a read of either.
 - A `foreach` that sets a member of each item does not clear a pending value when the `foreach`
   runs inside another loop. It can also leave the value for a list that the code changes in a way
-  other than `Add`, or that gets an `Add` under a condition with no loop that adds on every pass.
+  other than `Add`, `Insert`, or `AddRange`, or that gets an item under a condition with no loop
+  that adds on every pass, and for an item that an `AddRange` of anything but a literal put in.
+- Serializer options that you do not create in the call, such as options in a local or a field,
+  count as options that write public fields and read-only properties.
+- A sample in the function of a task that `RunSynchronously` runs gets `SF1001`, although the task
+  keeps the exception and the code after the call goes on. Only a later `Wait` or `Result` throws.
+- The `Result` of a task that you create with `new` has the value that its function returns even
+  where no code runs the task. Such a `Result` waits forever, and the code after it does not run.
+- A method that writes a member through an object that the analyzer does not know, such as an
+  element of an array in a static field, can have written that member of any such object. So a
+  read of the member through an element whose object the analyzer does not know, or through a
+  local that got such an element, after a call that wrote that member, also gets what the call
+  wrote. That is so even when the call wrote a
+  different object.
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
-  calls, and an `Equals` that only two equal hash codes call, are reads of this kind.
+  calls, and an `Equals` that only two equal hash codes call, are reads of this kind. Only a
+  condition that is a constant is read for what it says: the analyzer skips the branch of an `if`
+  that the constant rules out, and the body of a `while` whose condition is the constant `false`.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
-  one.
+  one. An element counts as one object from a write through it to a read through it only in a
+  straight line: in one function, with no loop, `goto` label, or `switch` section around the read
+  alone, and with nothing between them but reads, writes to locals, fields, and properties with no
+  body, and calls of the platform or SodaFlow that get neither the collection nor a function other
+  than a lambda written there. When the collection is a local that got the array or the list in a
+  field, a call of one of your methods can come between too, if its body holds only such code. That
+  body can call one more method of yours of the same kind. A new value for the collection, the
+  index, or the element ends it, and so does a sample or a `Send`.
+- The objects that calls of your methods return share one state for each member, where the
+  analyzer did not see the object made. A write to a member through the result of one call adds to
+  what writes through other calls gave that member, and does not replace it, because the analyzer
+  cannot tell whether two calls give the same object, even two calls with the same text. So a plain
+  value written into `Find(id).Cell` after a pending one still reports a read of `Find(id).Cell`.
+  A local that holds the result is one object: writes through the local replace each other, and a
+  read through it sees only them. Such a write still goes into the shared state, so a read through a
+  second call, or through a local of a second call with no value of its own, sees it, even where the
+  two calls give different objects. The state is shared across the names of one property as well: a
+  property of a class and the interface properties that it implements, or two interface properties
+  that one property of a class in your project implements. A pending value written through one name
+  then reaches a read through another name on the result of any call. The exception is a call of a
+  method that is not virtual and whose body only returns an expression of a sealed type: the
+  analyzer then knows the type of the result, and a name that this type does not have does not
+  reach it.
 - A handler removed with `-=` still counts as a handler of the event, unless the code adds and
-  removes that one lambda in a straight line, with nothing between the add and the remove.
+  removes that one handler in a straight line. The handler must be a local that holds one lambda,
+  and the code must add it to and remove it from a local delegate, or an event of a local that
+  holds an object made with `new`. A local delegate can have any code between the add and the
+  remove. An event of such an object can too, as long as no code before the remove uses the
+  object other than to add or remove handlers, and no constructor that `new` runs passes `this`
+  on. Otherwise, nothing can come between the add and the remove. An event of `this`, of a field,
+  or of a parameter never qualifies.
 - A sample of a hold gives only the initial value where the hold is made and sampled in the
   transaction of the block: in the block's own code, in a function that `Transaction.Run` runs, in
   the function of a `Map` of a `Cell.Constant`, or in a local function, lambda, or method that such
-  code calls or passes to a call that runs it there. A lambda written at a call counts only where
-  the call is one of those two, a method of your own, a method of an array or a `List<T>`, or a
-  LINQ method that runs it in the call. A LINQ query such as `Select` counts only where the same
+  code calls or passes to a call that runs it there. A read through a `Map`, a `Lift`, a `Calm`, an
+  `AsCell`, a bindable, or a `Cell.ConstantLazy` of a `SampleLazy` counts where the same read of the
+  hold counts. A lambda written at a call counts only where the call is one of those two, a method
+  of your own, a method of an array or a `List<T>` that runs it, such as `ForEach`, `Find`, or
+  `Sort`, or a LINQ method that runs it in the call. A method that only keeps the lambda, such as
+  `Add` or `Array.Fill`, does not count. A LINQ query such as `Select` counts only where the same
   code enumerates it in the transaction: a `First` or a `ToList` on it, a `foreach` over it, or a
   local that holds it and that only such code reads. A hold that a method reads from its own object
   counts where the code made that object with `new` and gave it the hold in the constructor of a
   positional record, or in a readonly field or a get-only property that a primary constructor sets.
-  A sample in a lambda written at any other call, such as a `Map` of a stream, or of a hold kept in
-  a list or in a member that code can set again, gets each value sent into the sink as well. A
-  close with such a sample can then get `SF1002`, although the sample runs before the end of the
-  transaction.
+  A hold that the code reads from a list that you write as a literal, at a constant index, counts as
+  the hold itself. So does a sample in the function of a `Lazy<T>` whose `Value` the code of the
+  transaction reads. A sample in a lambda written at any other call, such as a `Map` of a stream, or
+  of a hold kept in a member that code can set again, in a list that code can change, or in a list
+  at an index that is not a constant, gets each value sent into the sink as well. A close with such
+  a sample can then get `SF1002`, although the sample runs before the end of the transaction.
 
 Some reads that throw it does not see:
 
 - Reflection, such as `Activator.CreateInstance` or `MethodInfo.Invoke`. A value made from the
-  placeholder that you pass to one of these gets `SF1003`.
+  placeholder that you pass to one of these gets `SF1003`. The analyzer follows two literal forms:
+  `typeof(T).GetMethod("M").Invoke(obj, [a])`, where `T` and its base types have one public method
+  named `M`, which is not generic and not virtual and takes those arguments, and
+  `Activator.CreateInstance(typeof(T), a)`, where one public constructor of `T` takes that many
+  arguments. The name can be a string or a `nameof`, and the arguments must be written in the call,
+  one by one or as an array or a collection expression. Arguments in an array held in a local are
+  not followed, and a value there gets `SF1003` when the local's own block puts it in: in the
+  declaration, by an assignment to the local or to an element, or by `Array.Fill`. It reads those
+  puts in order: a statement of the block that runs before the call and sets the local again, or
+  sets an element at a constant index, replaces what was there, so a plain cell set over the value
+  clears it. A put in a branch or a loop, or after other code used the local, only adds to what was
+  there. The same holds for a local of type `object`. A `ToArray` or a `ToList` of such a local, or
+  of a local `List<T>`, counts as the local, and an `Add`, an `Insert`, or an `AddRange` of that
+  list counts as a put. A parameter that gets such an array counts as what each call of its method
+  gives it, and the analyzer then reads what that method puts into it. A method of yours that gets
+  such an array, and sets one of its elements to one of its own parameters, counts as a put of what
+  the call gives that parameter. A value that reaches the array another way, such as a value that
+  the method makes itself or that a call inside it puts there, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
+- A new element that code puts into an array or a list through a local that got it from a field,
+  read through the field.
+- A write through a span, a memory, or a segment that a method gets as a parameter, that
+  `CollectionsMarshal` or `MemoryMarshal` makes, or that a lambda or a local function uses. The
+  write does not reach the array.
+- A write to a member through `this` in a method, when the code also reaches that object through
+  another name, such as an element of an array that holds `this`. A read through the other name
+  still sees the value from before the write.
+- A write in the function of a `Map` or a `Lift` that a `Sample` of the result runs. The analyzer
+  reads that function for the values that it reads, not for the values that it writes. A function
+  that you give to `Map` or `Lift` should have no side effects in any case.
 - A member that the platform calls from a method that is not in its table of common methods.
-- A serializer with options or a converter of its own.
-- A function that a constructor from outside your project keeps, other than a `Lazy<T>` or the
-  comparer of a platform collection.
+- A converter of serializer options that you do not create in the call, a converter that a
+  `JsonConverterFactory` makes, the settings of Json.NET, and an object more than three levels
+  inside the one that you give a serializer.
+- An interpolated string that becomes a `FormattableString` or an `IFormattable` and that code
+  formats later. It calls no `ToString` where you write it, and the analyzer reads none there. The
+  analyzer does read the `ToString` calls where `FormattableString.Invariant` gets the string.
+- A function given to a `Map`, a `Lift`, or a collection view that reads a value only through an
+  implicit conversion of your own, with no cast and no call in the function, or only through a
+  compound assignment operator, such as `operator +=`, that a type of yours declares.
+- A function that a constructor from outside your project keeps, other than a `Lazy<T>`, a
+  `ThreadLocal<T>`, the comparer of a platform collection, or a `Task` that `RunSynchronously` runs.
+  The analyzer does not read what the function of a task does where `Start` runs it on another
+  thread, although it sees the value that the function gives to `Result`. It does not see that
+  value for a task from `Task.Run` or `Task.Factory.StartNew`.
 - Code after an `await` of a task that is already complete when the analyzer cannot tell that it
-  is. That code runs in the block, and the analyzer reads it as code that runs later.
-- A chain of your own calls more than four calls deep. There, the analyzer reports `SF1003` at the
-  call where it stops.
-- A virtual method, if the analyzer did not see the object built: it reads the method that the
-  code names, not an override.
+  is. That code runs in the block, and the analyzer reads it as code that runs later. The same
+  goes for the body of an `await foreach` over a sequence other than a call of your own async
+  iterator, and over one whose first `yield return` is not at the top level of its body. The
+  analyzer knows the complete tasks that the platform makes, such as `Task.CompletedTask` and
+  `Task.FromResult`, a local, a `readonly` field, or a get-only property whose initializer is such
+  a task, and a method of your own that returns only such tasks.
+- Two calls of your methods that give the same object, in two cases. A read through a local that
+  has a value of its own, written through that local, does not see a later write through a second
+  call. And when a method returns a sealed class, the result of a call that comes before the first
+  write through a result of a call counts as a new object, so a read through it does not see that
+  write.
+- A chain of your own calls more than six calls deep. There, the analyzer reports `SF1003` at the
+  call where it stops. The same happens past a budget of 512 bodies of methods, constructors,
+  getters, and lambdas that it reads for one block, at the call that would go over it.
+- A method that calls itself, directly or through other methods. The analyzer reads such a call,
+  and stops at a later one that gives the method the same kind of values in its arguments and in
+  the members of its object as a call that it is still reading. There, it reports `SF1003` for a
+  value made from the placeholder, as it does at the depth limit.
+- A virtual method called on an object that the analyzer did not see built, where your project
+  overrides the method in a class that the object can be. The analyzer cannot tell which body
+  runs, so a value made from the placeholder that you pass to it gets `SF1003`. A call with no
+  receiver, inside a method of such an object, still reads only the method that the code names.

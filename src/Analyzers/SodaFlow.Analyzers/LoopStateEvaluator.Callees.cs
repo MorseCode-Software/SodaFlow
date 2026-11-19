@@ -150,17 +150,28 @@ internal sealed partial class LoopStateEvaluator
             && this.region is { HasFields: false, Objects.ChangedAStaticObject: false }
             && bindings.All(static binding => binding.State.IsNone);
 
+        // A lambda or a local function reads the locals of its code, which each call can change.
+        // Thus, only a callee with a frame of its own stops at a call in its own code.
+        int? recursive =
+            definer == null && !noState
+                ? this.ShapeOfACallAgain(body: body, bindings: bindings, members: members)
+                : null;
+
         switch (noState)
         {
             case true when !this.ReadsForObjects(
                 bindings: bindings,
                 returnsAFunction: returnsAFunction || returnsAnObject):
                 return Followed.Nothing;
-            case false when this.depth >= MaxInlineDepth || !this.region.TryEnter():
+            case false when this.depth >= MaxInlineDepth
+                            || (recursive is { } shape && this.region.WalksAgainWith(body: body, shape: shape))
+                            || !this.region.TryEnter():
                 this.DoesNotRead(call: call, name: name, members: members);
 
                 return null;
         }
+
+        this.region.StartsAWalkOf(body: body, shape: recursive);
 
         MadeObject? self = definer == null && owner != null ? this.TheOneCollectionOf(owner) : null;
 
@@ -199,6 +210,13 @@ internal sealed partial class LoopStateEvaluator
 
         List<Finding> found = [];
         SinkWalker walker = inner.ReadBy(new SinkWalker(region: this.region, evaluator: inner, sink: found.Add));
+
+        // An iterator that the code stops after its first item runs to its first yield return.
+        if (this.TakesOneItem(call))
+        {
+            walker.TakesOneItem();
+        }
+
         int before = manyTimes ? inner.ShapeOfWhatALoopLeaves(body) : 0;
         walker.Visit(body);
         found.AddRange(inner.Frame.TakeUnread());
@@ -252,6 +270,8 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
+        this.region.EndsAWalk();
+
         if (started != null)
         {
             this.region.EndsACallOf(started);
@@ -277,6 +297,24 @@ internal sealed partial class LoopStateEvaluator
 
         return after;
     }
+
+    // True when the code enumerates the result of a call for one item and then stops. First,
+    // FirstOrDefault, and Any of Enumerable with no other argument do that. A foreach whose body
+    // ends the loop on each path does that also.
+    private bool TakesOneItem(SyntaxNode call) =>
+        call.Parent switch
+        {
+            MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "First" or "FirstOrDefault" or "Any",
+                Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } next
+            } =>
+                this.region.SymbolOf(next) is IMethodSymbol method
+                && SodaFlowSymbols.IsLinqEnumerable((method.ReducedFrom ?? method).OriginalDefinition.ContainingType),
+            CommonForEachStatementSyntax loop =>
+                SinkWalker.EndsTheLoopOnEachPath(loop: loop, body: loop.Statement),
+            _ => false
+        };
 
     // Takes away the state of each local and each parameter that the given function declares,
     // before a call of that function. A local that a function in it reads keeps its state. That
@@ -334,6 +372,50 @@ internal sealed partial class LoopStateEvaluator
         (returnsAFunction || bindings.Any(static binding => !binding.State.Objects.IsEmpty))
         && this.depth < MaxInlineDepth
         && this.region.TryEnterForObjects();
+
+    /// <summary>
+    ///     True for a call of a method that gets a task that can be not complete.
+    ///     The method is of a package with no graph, and returns a task. Such a
+    ///     method awaits the task before it runs a function that it gets. Thus,
+    ///     the function runs after the call.
+    /// </summary>
+    /// <param name="call">The call.</param>
+    /// <param name="method">The callee.</param>
+    public bool WaitsBeforeItsFunctions(InvocationExpressionSyntax call, IMethodSymbol method)
+    {
+        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        if (definition.ContainingAssembly is not { } assembly
+            || !SodaFlowSymbols.PackagesWithNoGraph.Contains(assembly.Name)
+            || definition.ReturnType is not INamedTypeSymbol returned
+            || !SodaFlowSymbols.IsTask(returned))
+        {
+            return false;
+        }
+
+        // The receiver of an extension method is the argument of its first parameter.
+        ExpressionSyntax? receiver =
+            method.ReducedFrom != null
+                ? ReceiverOf(symbols: this.region.Symbols, invocation: call, method: method)
+                : null;
+
+        IEnumerable<ExpressionSyntax> tasks =
+            call.ArgumentList.Arguments
+                .Where((argument, position) =>
+                    ParameterFor(method: method, argument: argument, position: position)?.Type
+                        is INamedTypeSymbol type
+                    && SodaFlowSymbols.IsTask(type))
+                .Select(static argument => argument.Expression);
+
+        if (receiver != null
+            && definition.Parameters[0].Type is INamedTypeSymbol owner
+            && SodaFlowSymbols.IsTask(owner))
+        {
+            tasks = tasks.Append(receiver);
+        }
+
+        return tasks.Any(task => !CompleteTasks.IsComplete(region: this.region, task: task));
+    }
 
     /// <summary>
     ///     The evaluator for the body of a callee, with each parameter bound to
@@ -476,6 +558,7 @@ internal sealed partial class LoopStateEvaluator
                 site: call));
 
         inner.Frame.CanBeUnseen.UnionWith(unseen);
+        inner.definer = definer;
 
         // A function of this code, and a member of this object, run on the object that this code
         // is in.
@@ -753,6 +836,29 @@ internal sealed partial class LoopStateEvaluator
         return (TaggedMembers(state), state);
     }
 
+    // The members of the object of this code that a member of an interface names. A default method
+    // of an interface names the member of the interface, but the object has the member of its
+    // class. The members of the object give its classes.
+    private IEnumerable<ISymbol> ImplementationsOnThis(ISymbol member) =>
+        member.ContainingType is { TypeKind: TypeKind.Interface }
+            ? this.thisMembers.Keys
+                .Select(static key => key.ContainingType)
+                .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)
+                .Select(type => type.FindImplementationForInterfaceMember(member))
+                .OfType<ISymbol>()
+                .Distinct(SymbolEqualityComparer.Default)
+            : [];
+
+    // The state of a member of an interface on the object of this code: see ImplementationsOnThis.
+    private LoopState OfTheImplementationsOnThis(ISymbol member) =>
+        this.ImplementationsOnThis(member)
+            .Aggregate(
+                seed: LoopState.None,
+                func: (joined, found) =>
+                    this.thisMembers.TryGetValue(key: found.OriginalDefinition, value: out LoopState? own)
+                        ? joined.Join(own)
+                        : joined);
+
     private static Dictionary<ISymbol, LoopState> TaggedMembers(LoopState owner)
     {
         Dictionary<ISymbol, LoopState> members = new(SymbolEqualityComparer.Default);
@@ -836,6 +942,208 @@ internal sealed partial class LoopStateEvaluator
             argument.Expression is AnonymousFunctionExpressionSyntax)
             ? this.LambdaContent(invocation: invocation, parameterState: parameterState)
             : this.ContentOfANamedFunction(invocation: invocation, given: ImmutableArray.Create(parameterState));
+
+    /// <summary>
+    ///     True when a sort with no comparer compares sort values whose
+    ///     <c>CompareTo</c> reads a pending value. The default comparer calls
+    ///     <c>CompareTo</c> of each value that the selector returns, at the first
+    ///     read of the view. This evaluator must be a quiet one.
+    /// </summary>
+    /// <remarks>
+    ///     The walk follows a <c>CompareTo</c> that the type of the sort value
+    ///     declares in this compilation. A sort value of a type of the platform
+    ///     reads no value of the graph.
+    /// </remarks>
+    private bool SortValuesReadPending(InvocationExpressionSyntax invocation, IMethodSymbol method, LoopState given)
+    {
+        // The parameter of the definition has the type parameter of the sort value. The method of the
+        // call has the type that the selector returns.
+        if (method.Parameters.FirstOrDefault(static each => each.Name == "selector")?.Type is not
+            INamedTypeSymbol { DelegateInvokeMethod.ReturnType: INamedTypeSymbol sortValue })
+        {
+            return false;
+        }
+
+        IMethodSymbol[] compareTo =
+        [
+            .. sortValue.GetMembers("CompareTo")
+                .OfType<IMethodSymbol>()
+                .Where(static member => member.Parameters.Length == 1 && !member.DeclaringSyntaxReferences.IsEmpty)
+        ];
+
+        return compareTo.Length > 0
+               && invocation.ArgumentList.Arguments
+                   .Where((argument, position) =>
+                       ParameterFor(method: method, argument: argument, position: position) is { Name: "selector" })
+                   .Select(static argument => argument.Expression)
+                   .Any(ComparesPending);
+
+        bool ComparesPending(ExpressionSyntax written)
+        {
+            LoopState functions = this.Eval(written);
+
+            return Callables(state: functions, parameter: null)
+                .Select(function =>
+                    this.FollowFunction(
+                            call: invocation,
+                            name: NameOf(written),
+                            function: function,
+                            target: functions,
+                            arguments: default,
+                            each: (written, given, ManyTimes: true))
+                        ?.State
+                    ?? LoopState.None)
+                .Any(value =>
+                    compareTo.Any(member =>
+                        this.FollowImplied(call: written, member: member, owner: value, arguments: [(written, value)])
+                            ?.Findings.Any(static finding => !finding.Escape) == true));
+        }
+    }
+
+    /// <summary>
+    ///     The run of <c>Equals</c> of the comparer of a two-way bindable. Its
+    ///     setter compares the value that it has with the value written, in the
+    ///     call. The bindable is a local that no code writes, and that
+    ///     <c>CreateTwoWay</c> made with a comparer.
+    /// </summary>
+    /// <param name="bindable">The expression of the bindable.</param>
+    /// <param name="value">The value that the code writes.</param>
+    /// <param name="write">The assignment.</param>
+    public Followed? FollowComparerOfAWrite(ExpressionSyntax bindable, ExpressionSyntax value, SyntaxNode write)
+    {
+        if ((this.region.Symbols.DeclaredCallbacks & PlatformCallbacks.Equals) == PlatformCallbacks.None
+            || this.ValueOfALocalThatNoCodeWrites(Unwrapped(bindable)) is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "CreateTwoWay" }
+            } creation
+            || this.region.SymbolOf(creation) is not IMethodSymbol method
+            || !this.region.Symbols.IsSodaFlow(method))
+        {
+            return null;
+        }
+
+        LoopState written = this.Eval(value);
+
+        return creation.ArgumentList.Arguments
+            .Select((argument, position) =>
+                (argument.Expression,
+                    Parameter: ParameterFor(method: method, argument: argument, position: position)))
+            .Where(argument =>
+                argument.Parameter is { } parameter
+                && OperatorTable.IsComparerAtAWrite(method: method, parameter: parameter))
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, argument) =>
+                {
+                    LoopState comparer = this.Eval(argument.Expression);
+
+                    // The setter calls Equals only, and not GetHashCode.
+                    return Callables(state: comparer, parameter: argument.Parameter)
+                        .Where(static function =>
+                            function.Declaration is MethodDeclarationSyntax { Identifier.ValueText: "Equals" })
+                        .Aggregate(
+                            seed: all,
+                            func: (found, function) =>
+                                Both(
+                                    first: found,
+                                    second: this.FollowFunction(
+                                        call: write,
+                                        name: "Equals",
+                                        function: function,
+                                        target: comparer,
+                                        arguments: default,
+                                        each: (value, written, ManyTimes: false))));
+                });
+    }
+
+    /// <summary>
+    ///     The run of the functions that a map of a collection calls in its
+    ///     <c>Dispose</c>. The map calls its eviction handler for each object that
+    ///     it built. The map is a local that no code writes, and that <c>Map</c>
+    ///     made, or the call of <c>Map</c> itself.
+    /// </summary>
+    /// <remarks>
+    ///     A map builds its objects at the first read of its items, or at the end
+    ///     of the transaction, which is after the close. Thus, a map that the code
+    ///     uses only to call <c>Dispose</c> built no object in the block, and its
+    ///     handler does not run. For each other map, the walk does not know if the
+    ///     map built an object before the call. Thus, it follows the handler as if
+    ///     the map did. A map that a different transaction made is not a local of
+    ///     the block, and the walk does not follow its handler.
+    /// </remarks>
+    /// <param name="map">The expression of the map.</param>
+    /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
+    public Followed? FollowEvictionsOfADispose(ExpressionSyntax map, SyntaxNode dispose)
+    {
+        if (this.ValueOfALocalThatNoCodeWrites(Unwrapped(map)) is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Map" }
+            } creation
+            || this.region.SymbolOf(creation) is not IMethodSymbol method
+            || !this.region.Symbols.IsSodaFlow(method)
+            || !this.CanHaveBuiltAnObject(creation))
+        {
+            return null;
+        }
+
+        // The handler gets each object that the projection gave.
+        LoopState objects = this.Eval(map).Content;
+
+        return creation.ArgumentList.Arguments
+            .Select((argument, position) =>
+                (argument.Expression,
+                    Parameter: ParameterFor(method: method, argument: argument, position: position)))
+            .Where(argument =>
+                argument.Parameter is { } parameter && OperatorTable.IsRunAtDispose(method: method, parameter: parameter))
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, argument) =>
+                {
+                    LoopState handler = this.Eval(argument.Expression);
+
+                    return Callables(state: handler, parameter: argument.Parameter)
+                        .Aggregate(
+                            seed: all,
+                            func: (found, function) =>
+                                Both(
+                                    first: found,
+                                    second: this.FollowFunction(
+                                        call: dispose,
+                                        name: NameOf(argument.Expression),
+                                        function: function,
+                                        target: handler,
+                                        arguments: default,
+                                        each: (map, objects, ManyTimes: true))));
+                });
+    }
+
+    // True when code can read the items of the map that the call makes. That is so when a local
+    // keeps the map, and the code uses that local for more than a call of Dispose. A map that no
+    // local keeps, or whose local only gets Dispose, gives its items to no code.
+    private bool CanHaveBuiltAnObject(SyntaxNode creation)
+    {
+        SyntaxNode? above = creation.Parent;
+
+        while (above is ParenthesizedExpressionSyntax or CastExpressionSyntax)
+        {
+            above = above.Parent;
+        }
+
+        if (above is not EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
+            || this.region.ModelFor(declarator).GetDeclaredSymbol(declarator) is not ILocalSymbol local)
+        {
+            return false;
+        }
+
+        // With no block to search, the walk cannot see each use of the local.
+        return NamesOf(local: local, declarator: declarator, region: this.region) is not { } names
+               || names.Any(static name =>
+                   name.Parent is not MemberAccessExpressionSyntax
+                   {
+                       Name.Identifier.ValueText: "Dispose", Parent: InvocationExpressionSyntax
+                   } access
+                   || access.Expression != name);
+    }
 
     /// <summary>
     ///     The state of what a function returns, for a function that the code

@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -12,14 +14,162 @@ internal sealed partial class LoopStateEvaluator
 {
     // The expression of the element that a read by a constant index gives, for a collection that
     // keeps its positions. For an array with two dimensions, the first index gives a row, and the
-    // row contains the element.
+    // row contains the element. A dictionary in a local gives the value of a constant key: see
+    // ValuesByKeyOf.
     private ExpressionSyntax? PositionOf(ElementAccessExpressionSyntax access) =>
         this.ElementsOf(access.Expression) is { } all
-        && this.region.ModelFor(access).GetConstantValue(access.ArgumentList.Arguments[0].Expression)
-            is { Value: int index and >= 0 }
-        && index < all.Count
-            ? all[index]
+            ? this.PositionIn(index: access.ArgumentList.Arguments[0].Expression, count: all.Count) is { } index
+                ? all[index]
+                : null
+            : this.ValueOfAKey(access);
+
+    // The state of the expression of an element. The expression can be in the code of a definer of
+    // this function. That code read it, and a second read here makes a second object for a
+    // creation. Thus, the state is the one that the definer gave it.
+    private LoopState StateAtAPosition(ExpressionSyntax position)
+    {
+        for (LoopStateEvaluator? outer = this.definer; outer != null; outer = outer.definer)
+        {
+            if (outer.memo.TryGetValue(key: position, value: out LoopState? known))
+            {
+                return known;
+            }
+        }
+
+        return this.Eval(position);
+    }
+
+    // The position that a constant index gives in a collection with a number of elements. An index
+    // from the end, ^k, gives the position count - k. Null for an index that is not in the collection.
+    private int? PositionIn(SyntaxNode index, int count)
+    {
+        if (index is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.IndexExpression } fromTheEnd)
+        {
+            return this.region.ModelFor(fromTheEnd).GetConstantValue(fromTheEnd.Operand) is { Value: int back and > 0 }
+                   && back <= count
+                ? count - back
+                : null;
+        }
+
+        return this.region.ModelFor(index).GetConstantValue(index) is { Value: int at and >= 0 } && at < count
+            ? at
             : null;
+    }
+
+    // The value that a read by a constant key gives, for a dictionary in a local whose initializer
+    // gave that key a value. Null for each other read.
+    private ExpressionSyntax? ValueOfAKey(ElementAccessExpressionSyntax access)
+    {
+        if (access.ArgumentList.Arguments.Count != 1
+            || this.region.SymbolOf(access.Expression) is not ILocalSymbol local)
+        {
+            return null;
+        }
+
+        if (!this.Frame.ValuesByKey.TryGetValue(
+                key: local,
+                value: out IReadOnlyDictionary<object, ExpressionSyntax>? known))
+        {
+            known = this.ValuesByKeyOf(local);
+            this.Frame.ValuesByKey[local] = known;
+        }
+
+        return known != null
+               && KeyOf(this.region.ModelFor(access).GetConstantValue(access.ArgumentList.Arguments[0].Expression))
+                   is { } key
+               && known.TryGetValue(key: key, value: out ExpressionSyntax? value)
+            ? value
+            : null;
+    }
+
+    // The value expression for each constant key of the initializer that made a dictionary in a local,
+    // when no code can change the dictionary. Each use of the local in its block must be a read: see
+    // IsARead. The dictionary must be a Dictionary of the platform with the default comparer, and its
+    // keys must have the type of a constant. Null for each other local.
+    private IReadOnlyDictionary<object, ExpressionSyntax>? ValuesByKeyOf(ISymbol local)
+    {
+        if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax
+                {
+                    Initializer.Value: BaseObjectCreationExpressionSyntax
+                    {
+                        ArgumentList: null or { Arguments.Count: 0 }, Initializer: { } initializer
+                    } made
+                } declarator
+            || this.region.TypeOf(made)
+                is not INamedTypeSymbol { Name: "Dictionary", TypeArguments: { Length: 2 } types } dictionary
+            || !SodaFlowSymbols.IsPlatform(dictionary)
+            || !IsATypeOfConstantKeys(types[0])
+            || declarator.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
+        {
+            return null;
+        }
+
+        Dictionary<object, ExpressionSyntax> values = [];
+        SemanticModel model = this.region.ModelFor(made);
+
+        foreach (ExpressionSyntax element in initializer.Expressions)
+        {
+            switch (element)
+            {
+                // A second value for a key replaces the first.
+                case AssignmentExpressionSyntax
+                    {
+                        Left: ImplicitElementAccessSyntax { ArgumentList.Arguments: { Count: 1 } keys },
+                        Right: not InitializerExpressionSyntax and var value
+                    }
+                    when KeyOf(model.GetConstantValue(keys[0].Expression)) is { } key:
+                    values[key] = value;
+
+                    break;
+                // Add throws an exception for a second value of a key.
+                case InitializerExpressionSyntax { Expressions: { Count: 2 } pair }
+                    when KeyOf(model.GetConstantValue(pair[0])) is { } key && !values.ContainsKey(key):
+                    values[key] = pair[1];
+
+                    break;
+                default:
+                    return null;
+            }
+        }
+
+        return scope.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(name => name.Identifier.ValueText == local.Name
+                           && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(name), y: local))
+            .All(this.IsARead)
+            ? values
+            : null;
+    }
+
+    // The key that a constant gives. Each integer and each char is a decimal. Thus, two constants of
+    // two types give the same key when the conversion to the type of the key gives one value.
+    private static object? KeyOf(Optional<object?> constant) =>
+        constant switch
+        {
+            { HasValue: true, Value: string or bool } => constant.Value,
+            { HasValue: true, Value: char letter } => (decimal)letter,
+            { HasValue: true, Value: sbyte or byte or short or ushort or int or uint or long or ulong } =>
+                Convert.ToDecimal(value: constant.Value, provider: CultureInfo.InvariantCulture),
+            _ => null
+        };
+
+    // A type whose values the default comparer finds equal only when they are the same constant. An
+    // object can have an int and a long that are not equal, and a double has more than one zero.
+    private static bool IsATypeOfConstantKeys(ITypeSymbol key) =>
+        key.TypeKind == TypeKind.Enum
+        || key.SpecialType
+            is SpecialType.System_String
+            or SpecialType.System_Boolean
+            or SpecialType.System_Char
+            or SpecialType.System_SByte
+            or SpecialType.System_Byte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_UInt32
+            or SpecialType.System_Int64
+            or SpecialType.System_UInt64;
 
     // The positions that the store has for the one collection that an expression is. The code of
     // the block gives the positions of a local whose each use is a read: see ElementsOf. The
@@ -32,18 +182,46 @@ internal sealed partial class LoopStateEvaluator
 
     // The value of the element that a read by a constant index gives, from the positions of the
     // store. The value came into this code as its collection did, as each other element.
-    private LoopState? AtAStorePosition(ElementAccessExpressionSyntax access)
+    private LoopState? AtAStorePosition(ElementAccessExpressionSyntax access) =>
+        access.ArgumentList.Arguments.Count == 1
+            ? this.AtAStorePosition(collection: access.Expression, index: access.ArgumentList.Arguments[0].Expression)
+            : null;
+
+    // The same for the collection and the index of an ElementAt.
+    private LoopState? AtAStorePosition(ExpressionSyntax collection, SyntaxNode index)
     {
-        if (access.ArgumentList.Arguments.Count != 1
-            || this.StorePositionsOf(access.Expression) is not (_, var all)
-            || this.ConstantIndexOf(access.ArgumentList.Arguments[0]) is not { } index
-            || index >= all.Length)
+        if (this.StorePositionsOf(collection) is not (_, var all)
+            || this.PositionIn(index: index, count: all.Length) is not { } at)
         {
             return null;
         }
 
-        return this.Eval(access.Expression).Origin is { } origin ? all[index].From(origin) : all[index];
+        return this.Eval(collection).Origin is { } origin ? all[at].From(origin) : all[at];
     }
+
+    /// <summary>
+    ///     The state of the element that <c>ElementAt</c> or
+    ///     <c>ElementAtOrDefault</c> of the platform gives for a constant index.
+    ///     The walk must know the positions of the collection. Null for each
+    ///     other call.
+    /// </summary>
+    /// <remarks>
+    ///     An index that is not in the collection gives no state. Then, the call
+    ///     throws an exception or gives the default value.
+    /// </remarks>
+    private LoopState? AtThePositionOfACall(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
+        invocation is
+        {
+            ArgumentList.Arguments: { Count: 1 } arguments,
+            Expression: MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "ElementAt" or "ElementAtOrDefault"
+            } call
+        }
+        && method.ReducedFrom is { ContainingType: { } queries }
+        && SodaFlowSymbols.IsLinqEnumerable(queries)
+            ? this.AtAStorePosition(collection: call.Expression, index: arguments[0].Expression)
+            : null;
 
     /// <summary>
     ///     The state of the first element of a collection, and the number of
@@ -659,13 +837,69 @@ internal sealed partial class LoopStateEvaluator
             ? (arguments[0].Expression, statement)
             : null;
 
-    // True for a local that a literal made, when each use of it is a read or an Add statement. That
-    // Add is of a list of the platform. Thus, no code can take an element out of the collection.
+    // True for a local that a literal made, when each use of it is a read or a put: see APutOf.
+    // Thus, no code can remove an element from the collection.
     private bool OnlyGetsAdds(ExpressionSyntax collection) =>
         Unwrapped(collection) is IdentifierNameSyntax name
         && this.region.SymbolOf(name) is ILocalSymbol local
         && this.LiteralOf(local) is (_, var uses)
-        && uses.All(use => this.IsARead(use) || this.AnAddOf(use) != null);
+        && uses.All(use => this.IsARead(use) || this.APutOf(use) != null);
+
+    // The values that a statement puts into a list of the platform, with the statement. The name is
+    // the name of the list in that statement. The statement is an Add, an Insert, or an AddRange, and
+    // none of them removes an element. Only an AddRange of a literal gives its values. Null for
+    // each other use of the name.
+    private (IReadOnlyList<ExpressionSyntax> Put, ExpressionStatementSyntax Statement)? APutOf(SyntaxNode use)
+    {
+        if (this.AnAddOf(use) is (var added, var statement))
+        {
+            return ([added], statement);
+        }
+
+        if (use.Parent is not MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "Insert" or "AddRange",
+                Parent: InvocationExpressionSyntax { Parent: ExpressionStatementSyntax put } call
+            } access
+            || access.Expression != use
+            || this.region.SymbolOf(call)
+                is not IMethodSymbol { ReducedFrom: null, ContainingType: { Name: "List" } owner } method
+            || !SodaFlowSymbols.IsPlatform(owner))
+        {
+            return null;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = call.ArgumentList.Arguments;
+
+        if (method.Name == "Insert")
+        {
+            return (
+                [
+                    .. arguments
+                        .Where((argument, position) =>
+                            SodaFlowSymbols.ParameterOf(callee: method, argument: argument, position: position)?.Name
+                            == "item")
+                        .Select(static argument => argument.Expression)
+                ],
+                put);
+        }
+
+        return arguments.Count == 1
+            ? (Unwrapped(arguments[0].Expression) switch
+                {
+                    CollectionExpressionSyntax written
+                        when written.Elements.All(static element => element is ExpressionElementSyntax) =>
+                        [
+                            .. written.Elements.Cast<ExpressionElementSyntax>()
+                                .Select(static element => element.Expression)
+                        ],
+                    ArrayCreationExpressionSyntax { Initializer: { } initializer } => [.. initializer.Expressions],
+                    ImplicitArrayCreationExpressionSyntax implied => [.. implied.Initializer.Expressions],
+                    _ => []
+                },
+                put)
+            : null;
+    }
 
     // The elements of the literal that made a local, and each name of the local in its block.
     private (IReadOnlyList<ExpressionSyntax> Elements, IEnumerable<IdentifierNameSyntax> Uses)? LiteralOf(

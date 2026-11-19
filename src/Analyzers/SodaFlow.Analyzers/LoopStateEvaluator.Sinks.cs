@@ -35,9 +35,21 @@ internal sealed partial class LoopStateEvaluator
 
         ExpressionSyntax cell = Unwrapped(receiver);
 
+        // An element of a literal list at a constant index is the expression of that element.
+        while (cell is ElementAccessExpressionSyntax { ArgumentList.Arguments.Count: 1 } access
+               && this.PositionOf(access) is { } element)
+        {
+            cell = Unwrapped(element);
+        }
+
         if (this.InitialOfAHoldIn(cell: cell, reader: this, read: read) is { } initial)
         {
             return this.Eval(initial);
+        }
+
+        if (this.FirstValueThrough(cell: cell, read: read) is { } first)
+        {
+            return first;
         }
 
         // A member of the object of a method. The code of the call that runs the method made the
@@ -73,6 +85,121 @@ internal sealed partial class LoopStateEvaluator
             ? null
             : initial;
     }
+
+    // The value that a read in the transaction gives for an operator of a hold of the block. A map,
+    // a lift, and a calm cell compute their first value from the value of the input, at the first
+    // read. A cell as a cell is its receiver. A bindable reads its cell, and a constant of a lazy
+    // sample forces the sample at the read. A switch takes the sent cell at the end of the
+    // transaction, thus it is not such an operator. Null for each other cell.
+    private LoopState? FirstValueThrough(ExpressionSyntax cell, SyntaxNode read)
+    {
+        if (this.ValueOfALocalThatNoCodeWrites(cell) is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Name.Identifier.ValueText: "Map" or "Calm" or "AsCell" or "AsBehavior" or "Lift" or "ConstantLazy"
+                    or "CreateOneWay" or "CreateTwoWay"
+                }
+            } call
+            || this.region.SymbolOf(call) is not IMethodSymbol method
+            || !this.region.Symbols.IsSodaFlow(method))
+        {
+            return null;
+        }
+
+        SodaFlowSymbols symbols = this.region.Symbols;
+        ExpressionSyntax? input = ReceiverOf(symbols: symbols, invocation: call, method: method);
+        SeparatedSyntaxList<ArgumentSyntax> arguments = call.ArgumentList.Arguments;
+
+        return OperatorTable.Rule(
+                symbols: symbols,
+                method: method,
+                receiverType: input == null ? null : this.region.TypeOf(input)) switch
+            {
+                OperatorRule.SameValues => this.InitialOfAHoldOfTheBlock(read: read, receiver: input),
+                OperatorRule.MapValue => this.InitialOfAHoldOfTheBlock(read: read, receiver: input) is { } value
+                    ? this.MappedContent(invocation: call, parameterState: value)
+                    : null,
+                OperatorRule.LiftValue when input != null =>
+                    this.LiftedFirstValue(lift: call, method: method, receiver: input, read: read),
+                OperatorRule.ConstantLazy =>
+                    arguments.FirstOrDefault()?.Expression is { } given
+                    && this.ValueOfALocalThatNoCodeWrites(Unwrapped(given)) is InvocationExpressionSyntax
+                    {
+                        Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "SampleLazy" }
+                    } lazy
+                    && this.region.SymbolOf(lazy) is IMethodSymbol sample
+                    && symbols.IsSodaFlow(sample)
+                        ? this.InitialOfAHoldOfTheBlock(
+                            read: read,
+                            receiver: ReceiverOf(symbols: symbols, invocation: lazy, method: sample))
+                        : null,
+                OperatorRule.Default when method.Name is "CreateOneWay" or "CreateTwoWay" =>
+                    arguments
+                        .Where((argument, position) =>
+                            symbols.IsCellOrBehaviorType(
+                                ParameterFor(method: method, argument: argument, position: position)?.Type))
+                        .Select(argument => this.InitialOfAHoldOfTheBlock(read: read, receiver: argument.Expression))
+                        .FirstOrDefault(),
+                _ => null
+            };
+    }
+
+    // The value that a read in the transaction gives for a lift with a hold of the block as an
+    // input. Each such input gives its initial value, and each other input gives what it holds.
+    // Null when no input is such a hold.
+    private LoopState? LiftedFirstValue(
+        InvocationExpressionSyntax lift,
+        IMethodSymbol method,
+        ExpressionSyntax receiver,
+        SyntaxNode read)
+    {
+        if (!this.HoldsContent(method))
+        {
+            return null;
+        }
+
+        bool anyInitial = false;
+        LoopState receiverState = First(receiver);
+
+        List<LoopState> argumentStates =
+        [
+            .. lift.ArgumentList.Arguments
+                .Where(argument => argument.Expression != receiver)
+                .Select(argument => First(argument.Expression))
+        ];
+
+        return anyInitial
+            ? this.LiftedContent(
+                invocation: lift,
+                receiver: receiver,
+                receiverState: receiverState,
+                argumentStates: argumentStates)
+            : null;
+
+        LoopState First(ExpressionSyntax input)
+        {
+            if (this.InitialOfAHoldOfTheBlock(read: read, receiver: input) is not { } initial)
+            {
+                return this.EvalArgument(argument: input, runsNow: false);
+            }
+
+            anyInitial = true;
+
+            return initial.AsContent;
+        }
+    }
+
+    // The value of a local that no code writes. Each other expression is itself. The read of a
+    // hold checks that the code of the transaction made the hold.
+    private ExpressionSyntax ValueOfALocalThatNoCodeWrites(ExpressionSyntax cell) =>
+        cell is IdentifierNameSyntax name
+        && this.region.SymbolOf(name) is ILocalSymbol { DeclaringSyntaxReferences.Length: 1 } local
+        && local.DeclaringSyntaxReferences[0].GetSyntax()
+            is VariableDeclaratorSyntax { Initializer.Value: { } value } declarator
+        && NamesOf(local: local, declarator: declarator, region: this.region)?.Any(IsWritten) == false
+            ? Unwrapped(value)
+            : cell;
 
     // The initial value of the hold, of the accumulation, or of the cell sink that a call makes.
     // Null for each other expression.
@@ -180,6 +307,70 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
+    /// <summary>
+    ///     True for the immediate scheduler of the bindables, which runs a posted
+    ///     action after the transaction. That is <c>BindingScheduler.Immediate</c>,
+    ///     a value of the type <c>ImmediateBindingScheduler</c>, or a local that
+    ///     no code writes and that has one of them.
+    /// </summary>
+    /// <param name="scheduler">The expression of the scheduler.</param>
+    public bool IsTheImmediateScheduler(ExpressionSyntax scheduler)
+    {
+        ExpressionSyntax value = this.ValueOfALocalThatNoCodeWrites(Unwrapped(scheduler));
+
+        return (this.region.SymbolOf(value) is IPropertySymbol
+                       { Name: "Immediate", ContainingType.Name: "BindingScheduler" } immediate
+                   && this.region.Symbols.IsSodaFlow(immediate))
+               || (this.region.TypeOf(value) is { Name: "ImmediateBindingScheduler" } type
+                   && this.region.Symbols.IsSodaFlow(type));
+    }
+
+    /// <summary>
+    ///     Reads a write to a two-way bindable of a sink as a send of the value
+    ///     into that sink after the transaction. The setter posts that send, as
+    ///     <c>Transaction.Post</c> does. The bindable is a local that no code
+    ///     writes, and that <c>CreateTwoWay</c> made.
+    /// </summary>
+    /// <param name="bindable">The expression of the bindable.</param>
+    /// <param name="value">The value that the code writes.</param>
+    /// <param name="write">The assignment.</param>
+    public void PostsAWrite(ExpressionSyntax bindable, ExpressionSyntax value, SyntaxNode write)
+    {
+        if ((this.quiet && !this.region.ReadsCodeAfterTheTransaction)
+            || this.ValueOfALocalThatNoCodeWrites(Unwrapped(bindable)) is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "CreateTwoWay" }
+            } creation
+            || this.region.SymbolOf(creation) is not IMethodSymbol method
+            || !this.region.Symbols.IsSodaFlow(method))
+        {
+            return;
+        }
+
+        // The write of a bindable of a cell sink sends into that sink. The write of a bindable of
+        // a cell sends into its sink of edits.
+        ExpressionSyntax? sink =
+            creation.ArgumentList.Arguments
+                .Where((argument, position) =>
+                    ParameterFor(method: method, argument: argument, position: position)?.Type is INamedTypeSymbol
+                    {
+                        OriginalDefinition.Name: "CellSink" or "StreamSink"
+                    } type
+                    && this.region.Symbols.IsSodaFlow(type))
+                .Select(static argument => argument.Expression)
+                .FirstOrDefault();
+
+        if (sink == null)
+        {
+            return;
+        }
+
+        LoopState content = this.Eval(value).AsContent;
+        LoopStateEvaluator later = this.Quiet();
+
+        this.region.ReadAfterTheTransaction(function: write, read: () => later.Sends(sink: sink, content: content));
+    }
+
     // True when a node runs only in the transaction of the block. That is the code of the block,
     // and a function in it that the library or the platform runs only in the call. The function of
     // a map of a constant cell is such a function also, because the transaction computes the first
@@ -224,13 +415,25 @@ internal sealed partial class LoopStateEvaluator
     // call.
     private bool IsReadForACallInTheTransaction(SyntaxNode function)
     {
-        if (this.call is not { Caller: var caller, Site: InvocationExpressionSyntax site }
+        if (this.call is not { Caller: var caller, Site: var site }
             || (function is MethodDeclarationSyntax ? this.function != null : function != this.function))
         {
             return false;
         }
 
-        return caller.RunsTheFunctionInTheCall(site) && caller.RunsInTheTransaction(site);
+        // The first read of the Value of a Lazy runs its function. Each read before it is in the
+        // transaction also, because the code of the transaction made the hold that the function
+        // reads.
+        return site switch
+        {
+            InvocationExpressionSyntax invocation => caller.RunsTheFunctionInTheCall(invocation)
+                                                     && caller.RunsInTheTransaction(invocation),
+            MemberAccessExpressionSyntax or MemberBindingExpressionSyntax =>
+                caller.region.SymbolOf(site) is IPropertySymbol property
+                && SodaFlowSymbols.IsLazyValue(property)
+                && caller.RunsInTheTransaction(site),
+            _ => false
+        };
     }
 
     // True when a call runs in the call a function that the walk follows from it. A call of a
@@ -315,8 +518,9 @@ internal sealed partial class LoopStateEvaluator
 
     // True when a method of the platform runs a function that it gets only in the call. A method
     // of Enumerable that is not a query runs it, and so does a query that the code enumerates at
-    // once. So does each method of an array and of a List. Each other method can keep the function
-    // for a later time, as CancellationToken.Register does.
+    // once. So does a method of an array or of a List that runs its function, as ForEach and Find
+    // do. Each other method can keep the function for a later time, as Add, Array.Fill, and
+    // CancellationToken.Register do.
     private bool RunsOnlyInTheCallOfThePlatform(ExpressionSyntax call, IMethodSymbol method)
     {
         INamedTypeSymbol type = (method.ReducedFrom ?? method).OriginalDefinition.ContainingType;
@@ -326,9 +530,12 @@ internal sealed partial class LoopStateEvaluator
             return !SodaFlowSymbols.MakesQuery(method) || this.IsEnumeratedAtOnce(call);
         }
 
-        return type.SpecialType == SpecialType.System_Array
-               || (type is { Name: "List", Arity: 1 }
-                   && type.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic");
+        // BinarySearch gets a comparer and no function, thus no lambda is its argument.
+        return method.Name is "ForEach" or "Find" or "FindAll" or "FindIndex" or "FindLast" or "FindLastIndex"
+                   or "Exists" or "TrueForAll" or "RemoveAll" or "ConvertAll" or "Sort"
+               && (type.SpecialType == SpecialType.System_Array
+                   || (type is { Name: "List", Arity: 1 }
+                       && type.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"));
     }
 
     // True when the code of the transaction enumerates the result of a call. A method of

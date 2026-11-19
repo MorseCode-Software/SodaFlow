@@ -68,6 +68,12 @@ internal enum OperatorRule
     SameValues,
 
     /// <summary>
+    ///     The receiver itself, as <c>AsStreamSink</c> gives. The result has the
+    ///     state and the objects of the receiver.
+    /// </summary>
+    Receiver,
+
+    /// <summary>
     ///     A cell or behavior from cells or behaviors. Pending and linked when
     ///     any input is.
     /// </summary>
@@ -162,8 +168,9 @@ internal enum OperatorRule
     FoldCollection,
 
     /// <summary>
-    ///     A defer or a split. Its firings come in a new transaction, thus it has
-    ///     no link. It fires the values of its stream, or their elements.
+    ///     A defer, a split, or a debounce. Its firings come in a new transaction,
+    ///     thus it has no link. It fires the values of its stream, or their
+    ///     elements.
     /// </summary>
     Later,
 
@@ -203,6 +210,7 @@ internal static class OperatorTable
             "AsCell",
             "AsBehavior",
             "AsStream",
+            "AsStreamSink",
             "SwitchC",
             "SwitchB",
             "SwitchS",
@@ -257,9 +265,8 @@ internal static class OperatorTable
     /// </remarks>
     public static readonly ImmutableHashSet<string> DefaultIsSound =
         ImmutableHashSet.Create(
-            // A stream or sink with no inputs.
+            // A stream with no inputs.
             "Never",
-            "AsStreamSink",
             // The cells and streams of a reactive collection. Their input is the collection, which is
             // not a placeholder.
             "FromAdds",
@@ -342,8 +349,10 @@ internal static class OperatorTable
             "CanExecuteChanged",
             "PropertyChanged",
             // Execute of ICommand and Dispose of IDisposable. Each reads the enablement of a bindable
-            // action, and the walk checks that read. Each other Dispose releases listeners. Execute of
-            // an AsyncMapStatus reads its cell in a transaction of its own, after the close.
+            // action, and the walk checks that read. Each other Dispose releases listeners. The Dispose
+            // of a map of a collection also runs a function of RunAtDispose, and the walk follows that
+            // function. Execute of an AsyncMapStatus reads its cell in a transaction of its own, after
+            // the close.
             "Dispose",
             "Execute",
             // The sort orders of a collection. Each keeps its function for a view that sorts by it.
@@ -362,11 +371,7 @@ internal static class OperatorTable
             "ThenByIdentityDescending",
             // Listeners from listeners. A listener holds no value and has no state.
             "Append",
-            "AppendStrong",
-            "AppendWeak",
             "CreateComposite",
-            "CreateStrongComposite",
-            "CreateWeakComposite",
             // IsActive of a transaction reads no cell. OnStart keeps its function for the start of
             // each transaction after this one.
             "IsActive",
@@ -385,6 +390,7 @@ internal static class OperatorTable
             "Capture",
             "CheckAccess",
             "Immediate",
+            "Instance",
             // The map of a stream through a task. MapAsync keeps its function for a firing, and its
             // status has the state of its inputs. The strategies, the results, and the status of
             // one item are data.
@@ -456,8 +462,9 @@ internal static class OperatorTable
     ///     the public methods of the library with a delegate parameter. A run of
     ///     each method with a function that samples a loop is the source of this
     ///     list.
-    ///     The exceptions are <c>Debounce</c>, <c>MapAsync</c>, <c>OnStart</c>,
-    ///     <c>SetTimer</c>, and <c>Start</c>, whose documentation is the source.
+    ///     The exceptions are <c>Construct</c>, <c>Debounce</c>, <c>MapAsync</c>,
+    ///     <c>OnStart</c>, <c>SetTimer</c>, and <c>Start</c>, whose documentation
+    ///     is the source.
     /// </remarks>
     public static readonly ImmutableHashSet<string> FunctionsAfterTheCall =
         ImmutableHashSet.Create(
@@ -471,6 +478,7 @@ internal static class OperatorTable
             "Choose",
             "Collect",
             "CollectLazy",
+            "Construct",
             "Create",
             "CreateSink",
             "CreateStreamSink",
@@ -500,35 +508,86 @@ internal static class OperatorTable
             "ThenByIdentityDescending",
             "Update");
 
-    // The operators whose function computes the current value of the result. Map, Lift, and
-    // Defer are for a cell, a behavior, and a lazy sample. Apply runs the function that its cell
-    // holds. The filters and the sorts are the views of a collection. The next eight make a sort
-    // order. A view that sorts by that order runs the function of the order, and the pending state
-    // of the order tells the view so. The last three get a comparer or a key selector, which the
-    // collection calls at its first read.
-    private static readonly ImmutableHashSet<string> ValueFromFunction =
-        ImmutableHashSet.Create(
-            "Map",
-            "Lift",
-            "Apply",
-            "Defer",
-            "Filter",
-            "FilterByIdentity",
-            "SortBy",
-            "SortByDescending",
-            "SortByIdentity",
-            "SortByIdentityDescending",
-            "By",
-            "ByIdentity",
-            "ThenBy",
-            "ThenByDescending",
-            "ThenByIdentity",
-            "ThenByIdentityDescending",
-            "ByDescending",
-            "ByIdentityDescending",
-            "ByKey",
-            "SortByKey",
-            "Create");
+    /// <summary>
+    ///     The operators whose function computes the current value of the
+    ///     result, each with the parameters that get that function.
+    /// </summary>
+    /// <remarks>
+    ///     <c>Map</c>, <c>Lift</c>, and <c>Defer</c> are for a cell, a behavior,
+    ///     and a lazy sample. <c>Apply</c> runs the function that its cell holds.
+    ///     The filters and the sorts are the views of a collection. The
+    ///     <c>By</c> and <c>ThenBy</c> operators make a sort order. A view that
+    ///     sorts by that order runs the function of the order, and the pending
+    ///     state of the order tells the view so. A comparer and the key selector
+    ///     of a collection are functions also, which the collection calls at its
+    ///     first read. A function parameter that is not in this table is in
+    ///     <see cref="KeptBesideTheValue" />. The completeness test in the
+    ///     analyzer's tests holds the two tables to the public methods.
+    /// </remarks>
+    public static readonly ImmutableDictionary<string, ImmutableHashSet<string>> ValueFromFunction =
+        ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
+            .Add(key: "Map", value: ImmutableHashSet.Create("f", "project"))
+            .Add(key: "Lift", value: ImmutableHashSet.Create("f"))
+            .Add(key: "Apply", value: ImmutableHashSet.Create("bf", "cf"))
+            .Add(key: "Defer", value: ImmutableHashSet.Create("f"))
+            .Add(key: "Filter", value: ImmutableHashSet.Create("predicate", "predicateCell"))
+            .Add(key: "FilterByIdentity", value: ImmutableHashSet.Create("predicate", "predicateCell"))
+            .Add(key: "SortBy", value: ImmutableHashSet.Create("selector", "sortComparer", "keyComparer"))
+            .Add(key: "SortByDescending", value: ImmutableHashSet.Create("selector"))
+            .Add(key: "SortByIdentity", value: ImmutableHashSet.Create("selector", "sortComparer", "keyComparer"))
+            .Add(key: "SortByIdentityDescending", value: ImmutableHashSet.Create("selector"))
+            .Add(key: "By", value: ImmutableHashSet.Create("selector", "sortComparer", "keyComparer"))
+            .Add(key: "ByIdentity", value: ImmutableHashSet.Create("selector", "sortComparer", "keyComparer"))
+            .Add(key: "ThenBy", value: ImmutableHashSet.Create("selector", "sortComparer"))
+            .Add(key: "ThenByDescending", value: ImmutableHashSet.Create("selector"))
+            .Add(key: "ThenByIdentity", value: ImmutableHashSet.Create("selector", "sortComparer"))
+            .Add(key: "ThenByIdentityDescending", value: ImmutableHashSet.Create("selector"))
+            .Add(key: "ByDescending", value: ImmutableHashSet.Create("selector"))
+            .Add(key: "ByIdentityDescending", value: ImmutableHashSet.Create("selector"))
+            .Add(key: "ByKey", value: ImmutableHashSet.Create("keyComparer"))
+            .Add(key: "SortByKey", value: ImmutableHashSet.Create("keyComparer"))
+            .Add(key: "Create", value: ImmutableHashSet.Create("keySelector", "keyEqualityComparer"));
+
+    /// <summary>
+    ///     The function parameters of an operator in
+    ///     <see cref="ValueFromFunction" /> that do not compute the value. The
+    ///     operator keeps such a function for a later time. Thus, a read in it does
+    ///     not make the result pending.
+    /// </summary>
+    /// <remarks>
+    ///     The map of a collection runs <c>onEvicted</c> when a key leaves the view
+    ///     or at <c>Dispose</c>. A queue per group runs <c>getGroup</c> and
+    ///     compares the groups at each admission of an item.
+    /// </remarks>
+    public static readonly ImmutableDictionary<string, ImmutableHashSet<string>> KeptBesideTheValue =
+        ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
+            .Add(key: "Map", value: ImmutableHashSet.Create("onEvicted"))
+            .Add(key: "Create", value: ImmutableHashSet.Create("getGroup", "groupComparer"));
+
+    /// <summary>
+    ///     The functions that the result of an operator runs in a call of its
+    ///     <c>Dispose</c>. The map of a collection calls <c>onEvicted</c> for
+    ///     each object that it built. Thus, a <c>Dispose</c> in the block runs that
+    ///     function in the block.
+    /// </summary>
+    /// <remarks>
+    ///     Each function here is also in <see cref="KeptBesideTheValue" />,
+    ///     because no read of the value runs it. The completeness test in the
+    ///     analyzer's tests checks that.
+    /// </remarks>
+    public static readonly ImmutableDictionary<string, ImmutableHashSet<string>> RunAtDispose =
+        ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
+            .Add(key: "Map", value: ImmutableHashSet.Create("onEvicted"));
+
+    /// <summary>
+    ///     True for a parameter that gets a function which the result of the
+    ///     method runs in a call of its <c>Dispose</c>.
+    /// </summary>
+    public static bool IsRunAtDispose(IMethodSymbol method, IParameterSymbol parameter) =>
+        RunAtDispose.TryGetValue(
+            key: LoopStateEvaluator.OperatorName(method),
+            value: out ImmutableHashSet<string>? parameters)
+        && parameters.Contains(parameter.Name);
 
     /// <summary>
     ///     True for an operator that computes the current value of its result
@@ -539,15 +598,79 @@ internal static class OperatorTable
     /// <remarks>
     ///     A sort order has no current value. It is pending because a view that
     ///     sorts by it runs its function, at the first read of the view. A comparer
-    ///     that such an operator gets is a function of the operator also.
+    ///     that such an operator gets is a function of the operator also. Only
+    ///     an argument for which <see cref="ComputesValue" /> is true can make the
+    ///     result pending.
     /// </remarks>
     public static bool ComputesValueWithFunction(
         SodaFlowSymbols symbols,
         IMethodSymbol method,
         ITypeSymbol? receiverType) =>
-        ValueFromFunction.Contains(LoopStateEvaluator.OperatorName(method))
+        ValueFromFunction.ContainsKey(LoopStateEvaluator.OperatorName(method))
         && !symbols.IsStreamType(receiverType)
         && !symbols.IsStreamType(method.ReturnType);
+
+    /// <summary>
+    ///     The comparers that the library calls when code writes to its result.
+    ///     The setter of a two-way bindable compares the value written with the
+    ///     value that it has, in the call of the setter. The walk follows
+    ///     <c>Equals</c> of such a comparer at the write.
+    /// </summary>
+    public static readonly ImmutableDictionary<string, ImmutableHashSet<string>> ComparersAtAWrite =
+        ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
+            .Add(key: "CreateTwoWay", value: ImmutableHashSet.Create("comparer"));
+
+    /// <summary>
+    ///     The comparers that the library calls only at an update of an input,
+    ///     which comes after the close. A calm cell compares each new value with
+    ///     the last, and a one-way bindable compares at each refresh. A read in
+    ///     such a comparer is not a read in the block.
+    /// </summary>
+    /// <remarks>
+    ///     The analyzer does not read this table. The completeness test in the
+    ///     analyzer's tests checks that each comparer parameter of the library is
+    ///     in one table. That is this one, <see cref="ComparersAtAWrite" />, or a
+    ///     table of an operator that computes its value.
+    /// </remarks>
+    public static readonly ImmutableDictionary<string, ImmutableHashSet<string>> ComparersAtAnUpdate =
+        ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
+            .Add(key: "Calm", value: ImmutableHashSet.Create("comparer"))
+            .Add(key: "CreateOneWay", value: ImmutableHashSet.Create("comparer"));
+
+    /// <summary>
+    ///     True for a parameter that gets a comparer which the library calls when
+    ///     code writes to the result of the method.
+    /// </summary>
+    public static bool IsComparerAtAWrite(IMethodSymbol method, IParameterSymbol parameter) =>
+        ComparersAtAWrite.TryGetValue(
+            key: LoopStateEvaluator.OperatorName(method),
+            value: out ImmutableHashSet<string>? parameters)
+        && parameters.Contains(parameter.Name);
+
+    /// <summary>
+    ///     True for a sort by a selector with no comparer of the sort values. The
+    ///     collection compares those values with the default comparer, which calls
+    ///     <c>CompareTo</c> of each value at the first read of the view.
+    /// </summary>
+    public static bool SortsWithTheDefaultComparer(IMethodSymbol method) =>
+        ValueFromFunction.TryGetValue(
+            key: LoopStateEvaluator.OperatorName(method),
+            value: out ImmutableHashSet<string>? parameters)
+        && parameters.Contains("selector")
+        && method.Parameters.Any(static parameter => parameter.Name == "selector")
+        && method.Parameters.All(static parameter => parameter.Name != "sortComparer");
+
+    /// <summary>
+    ///     False for an argument of an operator in
+    ///     <see cref="ValueFromFunction" /> that does not get the function that
+    ///     computes the value. True for an argument with no parameter.
+    /// </summary>
+    public static bool ComputesValue(IMethodSymbol method, IParameterSymbol? parameter) =>
+        parameter == null
+        || (ValueFromFunction.TryGetValue(
+                key: LoopStateEvaluator.OperatorName(method),
+                value: out ImmutableHashSet<string>? parameters)
+            && parameters.Contains(parameter.Name));
 
     /// <summary>
     ///     True for a parameter that gets a cell of sort orders. A view sorts by
@@ -598,6 +721,7 @@ internal static class OperatorTable
             "Calm" when stream => OperatorRule.StreamFromReceiver,
             "Lift" => OperatorRule.LiftValue,
             "Calm" or "AsCell" or "AsBehavior" or "AsStream" => OperatorRule.SameValues,
+            "AsStreamSink" => OperatorRule.Receiver,
             "Apply" => OperatorRule.Combine,
             "SwitchC" or "SwitchB" => OperatorRule.SwitchValue,
             "SwitchS" => OperatorRule.SwitchStream,
@@ -616,11 +740,11 @@ internal static class OperatorTable
                 OperatorRule.StreamFromReceiver,
             "Merge" or "OrElse" when ofStreams => OperatorRule.MergeStreams,
             "Defer" when method.ContainingType.Name == "LazySample" => OperatorRule.DeferLazy,
-            "Defer" or "Split" when ofStreams => OperatorRule.Later,
+            "Defer" or "Split" or "Debounce" when ofStreams => OperatorRule.Later,
             "Fold" or "FoldByIdentity" => OperatorRule.FoldCollection,
             "CreateBindableAction" => OperatorRule.BindableAction,
             "Create" when method.ContainingType.Name == "ReactiveCollection" => OperatorRule.CollectionCreate,
-            "Defer" or "Split" or "At" or "Debounce" or "Post" or "Listen" or "ListenOnce" or "ListenOnceAsync" or "Send" or "Loop" => OperatorRule.Break,
+            "Defer" or "Split" or "At" or "Post" or "Listen" or "ListenOnce" or "ListenOnceAsync" or "Send" or "Loop" => OperatorRule.Break,
             _ => OperatorRule.Default
         };
     }

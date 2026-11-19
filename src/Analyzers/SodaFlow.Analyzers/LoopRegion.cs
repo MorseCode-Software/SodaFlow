@@ -34,6 +34,12 @@ internal sealed class LoopRegion(
     // object. Such a field is a static field, or a field of an object that the block did not
     // make.
     private readonly Dictionary<ISymbol, LoopState> fields = new(SymbolEqualityComparer.Default);
+
+    // True when a key of the fields is a property of an interface: see FieldState.
+    private bool hasInterfaceFields;
+
+    // The results of calls whose callee the walk read, and which no creation gave.
+    private readonly HashSet<MadeObject> olderObjects = [];
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Dictionary<ISymbol, ExpressionSyntax?> initializerOf = new(SymbolEqualityComparer.Default);
     private readonly Action<Diagnostic> report = report;
@@ -61,6 +67,10 @@ internal sealed class LoopRegion(
 
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
+
+    // The callee bodies that the walk reads now, from the first call. A body that the walk reads
+    // in a read of the same body has the shape of its call also.
+    private readonly List<(SyntaxNode Body, int? Shape)> walks = [];
 
     // The key is a lambda or a local function that the walk read for a call. The value has the
     // locals and the parameters that a function in it reads or writes.
@@ -140,6 +150,18 @@ internal sealed class LoopRegion(
     /// <summary>True when the code set a field to a value with a state.</summary>
     public bool HasFields => this.fields.Count > 0;
 
+    /// <summary>
+    ///     Keeps the objects as results of calls that a second call can give
+    ///     also. See <see cref="IsAnOlderObject" />.
+    /// </summary>
+    public void NotesOlderObjects(ImmutableArray<MadeObject> objects) => this.olderObjects.UnionWith(objects);
+
+    /// <summary>
+    ///     True for the result of a call whose callee the walk read and which no
+    ///     creation in that callee gave.
+    /// </summary>
+    public bool IsAnOlderObject(MadeObject one) => this.olderObjects.Contains(one);
+
     /// <summary>A number for what the fields say, from <see cref="LoopState.Shape" />.</summary>
     public int ShapeOfFields =>
         this.fields.Aggregate(
@@ -151,10 +173,26 @@ internal sealed class LoopRegion(
     ///     The state of a field that the code set while the loop is open. The
     ///     field is the origin of that state, in each frame that reads it.
     /// </summary>
-    public LoopState FieldState(ISymbol field) =>
-        this.fields.TryGetValue(key: field.OriginalDefinition, value: out LoopState? state)
-            ? state.From(field.OriginalDefinition)
-            : LoopState.None;
+    /// <param name="field">The field.</param>
+    /// <param name="canHave">
+    ///     False for a key that the object of the read cannot have. See
+    ///     <see cref="Construction.StateWithTheAliases" /> and
+    ///     <see cref="Construction.StateImplementedTogether" />.
+    /// </param>
+    public LoopState FieldState(ISymbol field, Func<ISymbol, bool>? canHave = null) =>
+        Construction.StateWithTheAliases(
+                states: this.fields,
+                key: field.OriginalDefinition,
+                stateOf: static (key, state) => state.From(key),
+                canHave: canHave)
+            .Join(
+                Construction.StateImplementedTogether(
+                    states: this.fields,
+                    key: field.OriginalDefinition,
+                    stateOf: static (key, state) => state.From(key),
+                    implementations: this.Symbols.Implementations,
+                    hasInterfaceMembers: this.hasInterfaceFields,
+                    canHave: canHave));
 
     /// <summary>
     ///     Records a value that the code gives to a field. The walk does not know
@@ -173,6 +211,8 @@ internal sealed class LoopRegion(
 
         this.fields[key] =
             this.fields.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
+
+        this.hasInterfaceFields |= key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
     }
 
     private SemanticModel ModelFor(SyntaxTree tree)
@@ -295,6 +335,13 @@ internal sealed class LoopRegion(
             : null;
 
     /// <summary>
+    ///     The operator of the code that converts a value of the first type to
+    ///     the second one. Null when no such operator makes that conversion.
+    /// </summary>
+    public IMethodSymbol? ConversionOperator(ITypeSymbol from, ITypeSymbol to) =>
+        this.compilation.ClassifyConversion(source: from, destination: to).MethodSymbol;
+
+    /// <summary>
     ///     True when the compiler converts the first type to the second one with
     ///     no cast. No operator converts an interface. Thus, each value of a first
     ///     type that is an interface is then a value of the second type.
@@ -381,6 +428,49 @@ internal sealed class LoopRegion(
 
     /// <summary>Records the end of the read that <see cref="StartsACallOf" /> started.</summary>
     public void EndsACallOf(SyntaxNode function) => this.activeFunctions.Remove(function);
+
+    /// <summary>
+    ///     True when the walk reads the given body now. A call of that body is
+    ///     then a call of a method in its own code.
+    /// </summary>
+    public bool Walks(SyntaxNode body)
+    {
+        foreach ((SyntaxNode walked, int? _) in this.walks)
+        {
+            if (walked == body)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     True when the walk reads the given body now for a call in its own
+    ///     code, and that call has the given shape.
+    /// </summary>
+    public bool WalksAgainWith(SyntaxNode body, int shape)
+    {
+        foreach ((SyntaxNode walked, int? itsShape) in this.walks)
+        {
+            if (walked == body && itsShape == shape)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Records the start of the read of a callee body. The shape is that of
+    ///     a call in the code of the same body, and null for a different call.
+    /// </summary>
+    public void StartsAWalkOf(SyntaxNode body, int? shape) => this.walks.Add((body, shape));
+
+    /// <summary>Records the end of the last read that <see cref="StartsAWalkOf" /> started.</summary>
+    public void EndsAWalk() => this.walks.RemoveAt(this.walks.Count - 1);
 
     /// <summary>
     ///     The locals and the parameters that a function in the given function

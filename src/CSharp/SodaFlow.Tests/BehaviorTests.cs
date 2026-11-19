@@ -1289,8 +1289,8 @@ public sealed class BehaviorTests
 
     // Each call opens one loop and closes it on the sink with the same index. The lift and the sum
     // go in the innermost call, where all of the loops are open. A count of loops that is known only
-    // at run time can thus use the block form. The analyzer follows a chain of four calls only.
-    // AsCell() tells it that the deeper calls do not read the loop before it closes.
+    // at run time can thus use the block form. The analyzer stops at a call of this method in its
+    // own code. AsCell() tells it that the deeper calls do not read the loop before it closes.
     private static Cell<int> SumOfLoops(IReadOnlyList<CellSink<int>> sinks, IReadOnlyList<Cell<int>> loops) =>
         loops.Count == sinks.Count
             ? loops.Lift().Map(static v => v.Sum())

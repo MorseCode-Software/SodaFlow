@@ -86,6 +86,12 @@ internal sealed partial class LoopStateEvaluator
                 return this.FollowPrintedMembers(printed: printed, record: definition.ContainingType, owner: owner);
             case { Name: "Deconstruct", IsImplicitlyDeclared: true, ContainingType.IsRecord: true } when owner != null:
                 return this.FollowRecordParts(call: call, deconstruct: definition, owner: owner);
+            // The ToString of a tuple calls the ToString of each item.
+            case { Name: "ToString", Parameters.IsEmpty: true }
+                when owner is { Members.IsTuple: true } && call is ExpressionSyntax printed:
+                return owner.Members.TupleElements.Aggregate(
+                    seed: (Followed?)null,
+                    func: (all, item) => Both(first: all, second: this.FollowToStringOf(call: printed, value: item)));
         }
 
         if (!this.region.Symbols.IsSodaFlow(definition) && BodyOf(definition) is { } body)
@@ -156,26 +162,72 @@ internal sealed partial class LoopStateEvaluator
 
             result =
                 type.GetMembers()
-                    .OfType<IPropertySymbol>()
-                    .Where(static property =>
-                        property is
-                        {
-                            IsStatic: false,
-                            IsIndexer: false,
-                            IsOverride: false,
-                            DeclaredAccessibility: Accessibility.Public,
-                            GetMethod: not null
-                        })
+                    .Where(static member =>
+                        member is IPropertySymbol
+                            {
+                                IsStatic: false,
+                                IsIndexer: false,
+                                IsOverride: false,
+                                DeclaredAccessibility: Accessibility.Public,
+                                GetMethod: not null
+                            }
+                            or IFieldSymbol { IsStatic: false, DeclaredAccessibility: Accessibility.Public })
                     .Aggregate(
                         seed: result,
-                        func: (all, property) =>
+                        func: (all, member) =>
                             Both(
                                 first: all,
-                                second: this.FollowGetterOn(access: printed, written: property, owner: owner)));
+                                second: this.FollowPrinted(printed: printed, member: member, owner: owner)));
         }
 
         return result;
     }
+
+    // PrintMembers reads the value of each member, and calls the ToString of that value.
+    private Followed? FollowPrinted(ExpressionSyntax printed, ISymbol member, LoopState owner)
+    {
+        Followed? getter =
+            member is IPropertySymbol property
+                ? this.FollowGetterOn(access: printed, written: property, owner: owner)
+                : null;
+
+        return Both(
+            first: getter,
+            second: this.FollowToStringOf(
+                call: printed,
+                value: getter?.State
+                       ?? StateOfAMember(
+                           owner: owner,
+                           member: member,
+                           implementations: this.region.Symbols.Implementations)));
+    }
+
+    /// <summary>
+    ///     The <c>ToString</c> of <c>object</c> on a value that a record prints,
+    ///     or on an item of a tuple. Such a value has no node of its own. Thus,
+    ///     the walk does not keep the result for the node, as
+    ///     <see cref="FollowImplied" /> does.
+    /// </summary>
+    /// <remarks>
+    ///     A record that holds itself has a state that holds an earlier state of
+    ///     the record. A state does not hold itself. Thus, the walk through the
+    ///     printed values always ends.
+    /// </remarks>
+    private Followed? FollowToStringOf(SyntaxNode call, LoopState value) =>
+        this.region.Symbols.ObjectToString is { } toString && value.Members is { } members
+            ? members.Resolve(toString)
+                .OfType<IMethodSymbol>()
+                .Aggregate(
+                    seed: (Followed?)null,
+                    func: (all, actual) =>
+                        Both(
+                            first: all,
+                            second: this.FollowImpliedDefinition(
+                                call: call,
+                                definition: actual.OriginalDefinition,
+                                owner: value,
+                                arguments: [])))
+            : null;
 
     /// <summary>
     ///     The <c>Deconstruct</c> that the compiler writes for a record. It gives
@@ -218,7 +270,13 @@ internal sealed partial class LoopStateEvaluator
                     : null;
 
             LoopState part =
-                getter?.State ?? (member == null ? LoopState.None : StateOfAMember(owner: owner, member: member));
+                getter?.State
+                ?? (member == null
+                    ? LoopState.None
+                    : StateOfAMember(
+                        owner: owner,
+                        member: member,
+                        implementations: this.region.Symbols.Implementations));
 
             result =
                 new Followed(
@@ -238,7 +296,7 @@ internal sealed partial class LoopStateEvaluator
     ///     getter of the code runs. A property pattern and the
     ///     <c>Deconstruct</c> of a record read a member this way.
     /// </summary>
-    public static LoopState StateOfAMember(LoopState owner, ISymbol member)
+    public static LoopState StateOfAMember(LoopState owner, ISymbol member, ImplementationIndex implementations)
     {
         if (owner.Members == null)
         {
@@ -253,7 +311,8 @@ internal sealed partial class LoopStateEvaluator
 
         if (owner.Members.CanOwn(member))
         {
-            return owner.Members.StateThrough(member).FromIfUnknown(owner.Origin);
+            return owner.Members.StateThrough(member: member, implementations: implementations)
+                .FromIfUnknown(owner.Origin);
         }
 
         // The members are those of an object that the owner contains, as a pair of the platform
@@ -386,6 +445,23 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
+    /// <summary>
+    ///     The conversion that a spread makes on each element, when the
+    ///     collection has a different type of element. An operator of this
+    ///     compilation can make it. No node names that conversion.
+    /// </summary>
+    public Followed? FollowSpreadConversion(CollectionExpressionSyntax collection, ExpressionSyntax spread) =>
+        this.region.Symbols.DeclaresConversions
+        && SodaFlowSymbols.ElementTypeOf(this.region.TypeOf(spread)) is { } from
+        && SodaFlowSymbols.ElementTypeOf(this.region.TypeOf(collection)) is { } to
+        && this.region.ConversionOperator(from: from, to: to) is { } conversion
+            ? this.FollowImplied(
+                call: spread,
+                member: conversion,
+                owner: null,
+                arguments: [(spread, ElementOf(collection: this.Eval(spread), type: from))])
+            : null;
+
     // The method that the CollectionBuilder attribute of a type names: a static method of the
     // builder type, with one parameter, the span of the elements.
     private static IMethodSymbol? BuilderOf(ISymbol type) =>
@@ -439,6 +515,10 @@ internal sealed partial class LoopStateEvaluator
                 when this.region.Symbols.DeclaresOperators || this.region.Symbols.DeclaresToString =>
                 this.region.SymbolOf(binary) switch
                 {
+                    IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } operation
+                        when binary.IsKind(SyntaxKind.LogicalAndExpression)
+                             || binary.IsKind(SyntaxKind.LogicalOrExpression) =>
+                        this.FollowShortCircuit(binary: binary, operation: operation),
                     IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } operation =>
                         this.FollowOperator(call: binary, operation: operation, operands: [binary.Left, binary.Right]),
                     // A concatenation calls ToString on an operand that is not a string.
@@ -474,6 +554,23 @@ internal sealed partial class LoopStateEvaluator
                     operands: [compound.Left, compound.Right]),
             _ => null
         };
+
+    /// <summary>
+    ///     A user-defined <c>&amp;&amp;</c> or <c>||</c>. It calls
+    ///     <c>operator false</c> or <c>operator true</c> of the type of its
+    ///     operator on the left operand. It then calls the operator, unless that
+    ///     test decides the result. No node names the test.
+    /// </summary>
+    private Followed? FollowShortCircuit(BinaryExpressionSyntax binary, ISymbol operation) =>
+        Both(
+            first: operation.ContainingType
+                    .GetMembers(binary.IsKind(SyntaxKind.LogicalAndExpression) ? "op_False" : "op_True")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(static test => test.Parameters.Length == 1)
+                is { } test
+                ? this.FollowOperator(call: binary.Left, operation: test, operands: [binary.Left])
+                : null,
+            second: this.FollowOperator(call: binary, operation: operation, operands: [binary.Left, binary.Right]));
 
     /// <summary>
     ///     The operators that a tuple equality calls, one for each pair of
@@ -624,6 +721,19 @@ internal sealed partial class LoopStateEvaluator
             ? this.FollowOperator(call: expression, operation: conversion, operands: [expression])
             : null;
 
+    // The value that the code holds where the compiler converts an expression with an operator of
+    // this compilation. That is the result of the operator, and not the value that it gets. The
+    // walk asks at the places where SinkWalker asks. Thus, the two get the one result of
+    // FollowImplied for the call.
+    private LoopState? ConvertedBy(ExpressionSyntax expression, LoopState value) =>
+        expression.Parent is not ParenthesizedExpressionSyntax
+        && !SinkWalker.NeverConverts(expression)
+        && this.region.ConversionOf(expression) is { } conversion
+        && this.FollowImplied(call: expression, member: conversion, owner: null, arguments: [(expression, value)])
+            is { } converted
+            ? converted.State
+            : null;
+
     /// <summary>
     ///     The call of <c>operator true</c> or <c>operator false</c> that a
     ///     condition makes on its value. No node names that operator, thus the
@@ -646,15 +756,75 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
     /// <summary>
-    ///     The call of <c>ToString</c> that an interpolation or a concatenation
-    ///     makes on an object of this compilation.
+    ///     The call of <c>ToString</c> that a concatenation makes on an object of
+    ///     this compilation.
     /// </summary>
-    public Followed? FollowToString(ExpressionSyntax written) =>
+    private Followed? FollowToString(ExpressionSyntax written) =>
         this.region.Symbols is { ObjectToString: { } toString } symbols
         && (symbols.DeclaresToString || symbols.DeclaresRecords)
         && this.Self(written) is { Members: not null } owner
             ? this.FollowImplied(call: written, member: toString, owner: owner, arguments: [])
             : null;
+
+    /// <summary>
+    ///     The call of <c>ToString</c> that an interpolation makes on its value,
+    ///     when the interpolated string formats it now.
+    /// </summary>
+    public Followed? FollowInterpolation(InterpolationSyntax interpolation)
+    {
+        if (this.region.Symbols is not { ObjectToString: { } toString } symbols
+            || !(symbols.DeclaresToString || symbols.DeclaresRecords)
+            || this.Self(interpolation.Expression) is not { Members: { } members } owner
+            || interpolation.Parent is not InterpolatedStringExpressionSyntax whole
+            || !this.FormatsNow(whole))
+        {
+            return null;
+        }
+
+        ExpressionSyntax value = interpolation.Expression;
+
+        // The formatter calls the ToString of IFormattable on an object that implements it, and the
+        // ToString of object on each other object. Of two objects, the walk reads each one.
+        if (symbols is not { DeclaresToString: true, FormattableToString: { } formattable }
+            || !members.Is(formattable.ContainingType))
+        {
+            return this.FollowImplied(call: value, member: toString, owner: owner, arguments: []);
+        }
+
+        Construction formatted = members.Narrow(formattable.ContainingType);
+
+        Followed? result =
+            this.FollowImplied(call: value, member: formattable, owner: owner.WithMembers(formatted), arguments: []);
+
+        return ReferenceEquals(objA: formatted, objB: members)
+            ? result
+            : Both(
+                first: result,
+                second: this.FollowImplied(call: value, member: toString, owner: owner, arguments: []));
+    }
+
+    // A FormattableString or an IFormattable keeps the values of the interpolated string, and
+    // formats nothing at this point. A method of FormattableString that gets it formats it now.
+    private bool FormatsNow(SyntaxNode whole) =>
+        this.region.ModelFor(whole).GetOperation(whole)?.Parent is not IConversionOperation
+        {
+            Type:
+            {
+                Name: "FormattableString" or "IFormattable",
+                ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+            }
+        } kept
+        || kept.Parent is IArgumentOperation
+        {
+            Parent: IInvocationOperation
+            {
+                TargetMethod.ContainingType:
+                {
+                    Name: "FormattableString",
+                    ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+                }
+            }
+        };
 
     /// <summary>
     ///     The call of <c>Dispose</c> that a <c>using</c> makes on an object of
@@ -754,7 +924,10 @@ internal sealed partial class LoopStateEvaluator
             this.region.SymbolOf(access) switch
             {
                 IPropertySymbol { GetMethod: { } getter } => getter,
-                IMethodSymbol { DeclaringSyntaxReferences.IsEmpty: false } slice => slice,
+                // The symbol of an element that the code converts can be the conversion, which is not
+                // a Slice.
+                IMethodSymbol { DeclaringSyntaxReferences.IsEmpty: false, MethodKind: MethodKind.Ordinary } slice =>
+                    slice,
                 _ => null
             };
 

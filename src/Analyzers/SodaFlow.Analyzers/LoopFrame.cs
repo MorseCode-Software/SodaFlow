@@ -45,6 +45,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<ISymbol, ExpressionSyntax> FirstNameOf { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     For the expression of each first name in <see cref="FirstNameOf" />:
+    ///     the evaluator of the code that made the record. For a lambda or a
+    ///     local function, that is one run of it.
+    /// </summary>
+    public Dictionary<ExpressionSyntax, LoopStateEvaluator> RunThatNamed { get; } = [];
+
+    /// <summary>
     ///     Each name that was one of two names of a value with no object. The
     ///     walk does not know now that the two names are one value.
     /// </summary>
@@ -57,6 +64,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     ///     one value.
     /// </summary>
     public Dictionary<ISymbol, ExpressionSyntax> ReadFrom { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     For a local whose value with no object of the store went into a
+    ///     location: the expression of that location. The local is a name of
+    ///     that location also, as a local of <see cref="ReadFrom" /> is.
+    /// </summary>
+    public Dictionary<ISymbol, ExpressionSyntax> GaveTo { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
     ///     The objects that code with no body keeps, for an owner that is a
@@ -148,6 +162,15 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     ///     does not. A local that no code asked about is not here.
     /// </summary>
     public Dictionary<ISymbol, IReadOnlyList<ExpressionSyntax>?> Positions { get; } =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     For a local of this code whose dictionary keeps the value of each
+    ///     constant key of its initializer: the expression of each such value.
+    ///     Null for a local whose dictionary does not. A local that no code asked
+    ///     about is not here.
+    /// </summary>
+    public Dictionary<ISymbol, IReadOnlyDictionary<object, ExpressionSyntax>?> ValuesByKey { get; } =
         new(SymbolEqualityComparer.Default);
 
     /// <summary>
@@ -251,11 +274,33 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<SyntaxNode, (MadeObject List, MadeObject? Added)> AddsOfEachTurn { get; } = [];
 
     /// <summary>
-    ///     The last write to a member through an element of a collection in the
-    ///     code of this frame, when that write always runs. Null when the last
-    ///     write was not such a write.
+    ///     The state of each member of an element at a location that the walk
+    ///     can read again. The last sure write through that location gave it, and
+    ///     each write after that one that can be to the same object added to it.
     /// </summary>
-    public WriteThroughAnElement? LastElementWrite { get; set; }
+    public List<ElementMemberWrite> ElementMemberWrites { get; } = [];
+
+    /// <summary>
+    ///     The number of writes to a member in the region when the code of this
+    ///     frame last wrote to a member. A different number at a read means a write
+    ///     that <see cref="ElementMemberWrites" /> does not have.
+    /// </summary>
+    public int MemberWritesSeen { get; set; }
+
+    /// <summary>
+    ///     For a local of this code that got an element at a location that the
+    ///     walk can read again: the expression of that element.
+    /// </summary>
+    public Dictionary<ISymbol, ElementAccessExpressionSyntax> NamesOfElements { get; } =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     For a local or a parameter: each use of it in the code of this frame.
+    ///     A use has its position, true when it gives the name a value, and true
+    ///     when a function in that code has it.
+    /// </summary>
+    public Dictionary<ISymbol, (SyntaxNode Code, ImmutableArray<(int Position, bool Gives, bool InAFunction)> Uses)>
+        UsesOfNames { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
     ///     The last write to a member through a name in the code of this frame,

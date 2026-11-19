@@ -53,6 +53,15 @@ public static class NoBody
         (List<T>)holder.GetType().GetProperty(property)!.GetValue(holder)!;
 }
 
+// A base class whose constructor puts each new object into a static list. The analyzer has no
+// body to read for that constructor.
+public class NoBodyListing
+{
+    public static readonly List<NoBodyListing> All = [];
+
+    public NoBodyListing() => All.Add(this);
+}
+
 // A method with the name of a query of the platform, for a list of arrays only. It gives the last
 // array, and the analyzer has no body to learn that from.
 public static class NoBodyQueries
@@ -133,6 +142,26 @@ public interface IKeeper<T, TBox>
     void Swap(T first);
 
     List<T> Made();
+}
+
+// A type with the name of ThreadLocal of the platform, in a namespace of its own. It keeps its
+// function and does not run it.
+public static class Ag85Own
+{
+    public sealed class ThreadLocal<T>(Func<T> make)
+    {
+        public Func<T> Make { get; } = make;
+
+        public T Value => default!;
+    }
+}
+
+// A method with the name of Array.Fill of the platform. It puts nothing into the array.
+public static class Ab184Own
+{
+    public static void Fill<T>(T[] array, T value)
+    {
+    }
 }
 
 internal sealed class Filler<T> : IFiller<T>
