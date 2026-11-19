@@ -27419,6 +27419,18 @@ public static class Shapes
     public static Cell<int> R4PairAb212PlainThroughLocalAfterPendingThroughField() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4PairK14; R4PairK14[0].Share = l.Map(v => v); a[0].Share = Plain; return S.Hold(R4PairK14[0].Share!.Sample()); });
 
+    // S6376. Carried AB214: The probe E1c of AB214.
+    public static Cell<int> R4PairAb214BlockWritesThroughTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4PairJ2; R4PairJ2[0].Share = l.Map(v => v); R4PairJ2[0].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6377. Carried AB214: The probe E1 of AB214: a method writes the pending cell through the field, the block writes a plain cell through the field, and a call comes before the read through the local.
+    public static Cell<int> R4PairAb214WriteThroughTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4PairJ1; R4PairSetJ1(l.Map(v => v)); R4PairJ1[0].Share = Plain; R4PairKeep(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S6378. Carried AB214: The probe E1b of AB214.
+    public static Cell<int> R4PairAb214WriteThroughTheFieldNoCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4PairJ1b; R4PairSetJ1b(l.Map(v => v)); R4PairJ1b[0].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
