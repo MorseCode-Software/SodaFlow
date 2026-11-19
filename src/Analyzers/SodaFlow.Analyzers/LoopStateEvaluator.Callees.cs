@@ -598,7 +598,7 @@ internal sealed partial class LoopStateEvaluator
         LoopState result,
         IEnumerable<Finding> found,
         IEnumerable<(QueryValue Query, IReadOnlyList<Finding> Found)> leaving,
-        IReadOnlyList<(ITypeSymbol? Type, LoopState State)> thrown)
+        IEnumerable<(ITypeSymbol? Type, LoopState State)> thrown)
     {
         Dictionary<ISymbol, Binding> byParameter = new(SymbolEqualityComparer.Default);
 
