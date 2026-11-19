@@ -320,7 +320,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   `AsMemory`, a constructor, `Slice`, or a range, is another name for the elements of that array,
   as long as neither name gets a second value. `Fill`, a write to an element or through a `ref`
   local of an element, and `CopyTo` into it put their values into the array, and so do `CopyTo`
-  into the array itself and `Array.Copy`. A write to a member through an element of a local array,
+  into the array itself and `Array.Copy`. Where each step from the array to the view starts at a
+  constant, as `AsSpan(1)` or `[1..]` does, a write to an element at a constant index and a `Fill`
+  reach only the elements of the array that they write. Otherwise, they reach every element. A write to a member through an element of a local array,
   `List<T>`, or `Dictionary` created with no comparer, at a constant index or key or at an index in
   a local, replaces what an earlier write gave that member. So does a write through a local that got
   that element, and a later read through either one sees only the last value. A local that gets the

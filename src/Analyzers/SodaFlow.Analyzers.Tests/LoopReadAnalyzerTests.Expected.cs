@@ -3904,6 +3904,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4LimThisVirtualCallOfAnUnseenObjectReads"] = ["SF1004"],
             ["Ab244BareVirtualCallInALambdaOfANewObjectReads"] = ["SF1004"],
             ["Ab244BareVirtualCallTwoCallsDeepReads"] = ["SF1004"],
-            ["Ab244BareVirtualCallOfAnUnseenObjectWhoseBaseReads"] = ["SF1004"]
+            ["Ab244BareVirtualCallOfAnUnseenObjectWhoseBaseReads"] = ["SF1004"],
+            ["Ab253SpanOfALengthFillWritesTheSecondElement"] = ["SF1001"],
+            ["Ab253SliceOfASpanFromAnOffsetWritesTheThirdElement"] = ["SF1001"],
+            ["Ab253SpanFromAnOffsetThatIsNotAConstantWritesTheSecondElement"] = ["SF1001"],
+            ["Ab253SpanOfARangeFromTheEndWritesTheLastElement"] = ["SF1001"]
         };
 }

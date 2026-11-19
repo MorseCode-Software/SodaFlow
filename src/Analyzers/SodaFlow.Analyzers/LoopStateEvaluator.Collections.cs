@@ -367,12 +367,19 @@ internal sealed partial class LoopStateEvaluator
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
 
+        // A call that makes a view of an array, such as AsSpan, changes no element. A put through the
+        // view reaches the array: see PutsThroughAView.
+        if (IsAView(method.ReturnType))
+        {
+            return;
+        }
+
         if (receiver != null
             && method.ReducedFrom != null
             && definition.Parameters.Length > 0
             && CanChangeAValueOf(definition.Parameters[0]))
         {
-            this.CanHoldMore(receiver);
+            this.CanHoldMoreThrough(receiver);
         }
 
         for (int i = 0; i < arguments.Count; i++)
@@ -380,8 +387,20 @@ internal sealed partial class LoopStateEvaluator
             if (ParameterFor(method: method, argument: arguments[i], position: i) is { } parameter
                 && CanChangeAValueOf(parameter))
             {
-                this.CanHoldMore(arguments[i].Expression);
+                this.CanHoldMoreThrough(arguments[i].Expression);
             }
+        }
+    }
+
+    // The same as CanHoldMore. A view of a local array is a name of the elements of that array, as
+    // Reverse of a span changes them. Thus, the array can hold more also.
+    private void CanHoldMoreThrough(ExpressionSyntax collection)
+    {
+        this.CanHoldMore(collection);
+
+        if (IsAView(this.region.TypeOf(collection)) && this.TheArrayOfAView(collection) is { } array)
+        {
+            this.CanHoldMore(array);
         }
     }
 

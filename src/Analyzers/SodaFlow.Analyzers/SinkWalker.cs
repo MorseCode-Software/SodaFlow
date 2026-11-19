@@ -2308,7 +2308,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 // An element of a view of a local array is an element of that array.
                 if (this.evaluator.TheArrayOfAViewOf(element) is { } viewed)
                 {
+                    (MadeObject Made, ImmutableArray<LoopState> All, int First, int Count)? before =
+                        element.ArgumentList.Arguments is { Count: 1 } indexes
+                            ? this.evaluator.PositionsThroughAView(
+                                array: viewed,
+                                view: element.Expression,
+                                index: indexes[0],
+                                replaces: replaces,
+                                turn: turn)
+                            : null;
+
                     this.evaluator.PutsThroughAView(array: viewed, value: from, state: state);
+                    this.evaluator.HasTheValueThroughAView(before: before, value: from, state: state);
                 }
 
                 return;
@@ -2900,8 +2911,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 }
                 else
                 {
+                    // Only Fill of a view can give positions, thus only it needs where the call runs.
+                    (bool always, SyntaxNode? itsTurn) =
+                        method.Name == "Fill" ? this.WhereACallRuns(node) : (false, null);
+
                     this.evaluator.CanChangeItsArguments(method: method, arguments: arguments, receiver: receiver);
-                    this.evaluator.PutsThroughViews(method: method, receiver: receiver, arguments: arguments);
+
+                    this.evaluator.PutsThroughViews(
+                        method: method,
+                        receiver: receiver,
+                        arguments: arguments,
+                        replaces: always,
+                        turn: itsTurn);
                 }
 
                 if (receiver != null && method.ReducedFrom == null)

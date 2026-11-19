@@ -26111,6 +26111,46 @@ public static class Shapes
     public static Cell<int> Ab244BareVirtualCallOfAnUnseenObjectWhoseBaseReads() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab244UnseenBaseReaders[0].RunBare(l.Map(v => v))); return S.Hold(0); });
 
+    // S6049. A segment that starts at 1 gets the pending cell at its index 0. The block samples the array's index 0.
+    public static Cell<int> R4LimSegmentWithAnOffsetLeavesTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; ArraySegment<Cell<int>> g = new(a, 1, 1); g[0] = l.Map(v => v); Kept.Add(a[0].Sample()); return S.Hold(0); });
+
+    // S6050. A span from the second element of an array gets the pending cell at its index 0. The block samples the array's index 0.
+    public static Cell<int> R4LimSpanFromAnOffsetLeavesTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; Span<Cell<int>> sp = a.AsSpan(1); sp[0] = l.Map(v => v); Kept.Add(a[0].Sample()); return S.Hold(0); });
+
+    // S6051. A span of a range from 1 gets the pending cell at its index 0. The block samples the array's index 0.
+    public static Cell<int> R4LimSpanOfARangeLeavesTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; Span<Cell<int>> sp = a.AsSpan()[1..]; sp[0] = l.Map(v => v); Kept.Add(a[0].Sample()); return S.Hold(0); });
+
+    // S6052. Fill of a slice from 1 puts the pending cell into the array's index 1. The block samples the array's index 0.
+    public static Cell<int> R4LimSpanSliceFillLeavesTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; a.AsSpan().Slice(1, 1).Fill(l.Map(v => v)); Kept.Add(a[0].Sample()); return S.Hold(0); });
+
+    // S6053. Fill of a span of the first two elements puts the pending cell there. The block samples the third element.
+    public static Cell<int> Ab253SpanOfALengthFillLeavesTheLastElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain, Plain]; a.AsSpan(0, 2).Fill(l.Map(v => v)); Kept.Add(a[2].Sample()); return S.Hold(0); });
+
+    // S6054. Fill of a span of the first two elements puts the pending cell there. The block samples the second element.
+    public static Cell<int> Ab253SpanOfALengthFillWritesTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain, Plain]; a.AsSpan(0, 2).Fill(l.Map(v => v)); Kept.Add(a[1].Sample()); return S.Hold(0); });
+
+    // S6055. A slice from 1 of a span from 1 gets the pending cell at its index 0, which is the array index 2.
+    public static Cell<int> Ab253SliceOfASpanFromAnOffsetWritesTheThirdElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain, Plain]; Span<Cell<int>> sp = a.AsSpan(1).Slice(1); sp[0] = l.Map(v => v); Kept.Add(a[2].Sample()); return S.Hold(0); });
+
+    // S6056. A slice from 1 of a span from 1 gets the pending cell at its index 0. The block samples the array index 1.
+    public static Cell<int> Ab253SliceOfASpanFromAnOffsetLeavesTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain, Plain]; Span<Cell<int>> sp = a.AsSpan(1).Slice(1); sp[0] = l.Map(v => v); Kept.Add(a[1].Sample()); return S.Hold(0); });
+
+    // S6057. A span from an offset that is not a constant, and is 1 here, gets the pending cell at its index 0. The block samples the array index 1.
+    public static Cell<int> Ab253SpanFromAnOffsetThatIsNotAConstantWritesTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; int k = Kept.Count >= 0 ? 1 : 0; Span<Cell<int>> sp = a.AsSpan(k); sp[0] = l.Map(v => v); Kept.Add(a[1].Sample()); return S.Hold(0); });
+
+    // S6058. A span of a range from the end gets the pending cell at its index 0, which is the last element.
+    public static Cell<int> Ab253SpanOfARangeFromTheEndWritesTheLastElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; Span<Cell<int>> sp = a.AsSpan()[^1..]; sp[0] = l.Map(v => v); Kept.Add(a[1].Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
