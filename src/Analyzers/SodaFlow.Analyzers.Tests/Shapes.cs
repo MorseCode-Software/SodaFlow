@@ -27411,6 +27411,10 @@ public static class Shapes
     public static Cell<int> R4PairAb209ReverseReadLocalOfElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R4PairUnseen[2]]; SettableSlot d = R4PairUnseen[3]; a[0] = d; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(q.Share!.Sample()); });
 
+    // S6374. Carried AB210: The probe N2 of AB210.
+    public static Cell<int> R4PairAb210StoreObjectInElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R4PairUnseen[4]]; SettableSlot d = new(); a[0] = d; d.Share = l.Map(v => v); a[0].Share = Plain; return S.Hold(d.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
