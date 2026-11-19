@@ -162,7 +162,7 @@ internal sealed partial class LoopStateEvaluator
     private void GivesTheCallersANewObject(
         (ISymbol Of, ISymbol? Owner, object? Index) name,
         SyntaxNode at,
-        List<(ISymbol Member, int End, LoopState State)> members)
+        IReadOnlyCollection<(ISymbol Member, int End, LoopState State)> members)
     {
         (ISymbol Of, ISymbol? Owner, object? Index)? named = name;
         SyntaxNode use = at;
@@ -195,7 +195,7 @@ internal sealed partial class LoopStateEvaluator
                         code: caller,
                         from: use.Span.End));
 
-                one.Members.AddRange(members.Select(each => (each.Member, use.Span.End, each.State)));
+                one.Members.AddRange(members.Select(each => each with { End = use.Span.End }));
                 call.Caller.Frame.NamesOfOneObject.Add(one);
             }
         }
