@@ -3976,6 +3976,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4ApiApplyOfAFunctionThatReturnsALinkedCell"] = ["SF1002"],
             ["Ab227ApplyOfAFunctionThatReturnsItsLinkedValue"] = ["SF1002"],
             ["Ab227ApplyOfAFunctionInALocal"] = ["SF1002"],
-            ["Ab227StaticApplyOfAFunctionThatReturnsALinkedCell"] = ["SF1002"]
+            ["Ab227StaticApplyOfAFunctionThatReturnsALinkedCell"] = ["SF1002"],
+            ["R4ApiAccumLazyOfADeferThatReturnsALinkedCell"] = ["SF1002"],
+            ["R4ApiConstantLazyOfADeferThatReturnsALinkedCell"] = ["SF1002"],
+            ["R4ApiHoldLazyOfADeferThatReturnsALinkedCell"] = ["SF1002"],
+            ["Ab228DeferOfAFunctionInALocal"] = ["SF1002"],
+            ["Ab228MapOfADeferThatReturnsALinkedCell"] = ["SF1002"]
         };
 }

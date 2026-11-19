@@ -2739,7 +2739,10 @@ internal sealed partial class LoopStateEvaluator
                     pending: firstArgument.Pending,
                     linked: false,
                     contentPending: false,
-                    contentLinked: false),
+                    contentLinked: false).WithContent(
+                    this.HoldsContent(method)
+                        ? this.MappedContent(invocation: invocation, parameterState: LoopState.None)
+                        : LoopState.None),
                 // A defer, a split, and a debounce fire in a new transaction. Thus, they have no link,
                 // and fire what their stream fires, or each element of it.
                 OperatorRule.Later => LoopState.None.WithContent(source.Content.AsOneOfItsElements),

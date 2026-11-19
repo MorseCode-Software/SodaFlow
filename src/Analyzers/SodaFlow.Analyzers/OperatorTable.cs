@@ -158,7 +158,10 @@ internal enum OperatorRule
     /// </summary>
     CollectionCreate,
 
-    /// <summary>A deferred function. Pending when the function reads a pending value.</summary>
+    /// <summary>
+    ///     A deferred function. Pending when the function reads a pending value,
+    ///     and the content is what the function returns.
+    /// </summary>
     DeferLazy,
 
     /// <summary>

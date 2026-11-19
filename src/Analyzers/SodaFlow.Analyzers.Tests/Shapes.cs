@@ -27687,6 +27687,26 @@ public static class Shapes
     public static Cell<int> Ab227StaticApplyOfAFunctionThatReturnsALinkedCell() =>
         Cell.Loop<int>().WithoutCaptures(l => CellExtensionMethods.Apply(Plain, Cell.Constant<Func<int, Cell<int>>>(_ => l.Map(v => v))).SwitchC());
 
+    // S6443. An accumulation whose initial state is a deferred lazy sample of a linked cell gives that cell to the switch as the close.
+    public static Cell<int> R4ApiAccumLazyOfADeferThatReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => Stream.Never<int>().AccumLazy(LazySample.Defer(() => l.Map(v => v)), (_, c) => c).SwitchC());
+
+    // S6444. A constant of a deferred lazy sample gets the cell that the function returns, which is linked. The switch of it as the close is a cycle.
+    public static Cell<int> R4ApiConstantLazyOfADeferThatReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => Cell.ConstantLazy(LazySample.Defer(() => l.Map(v => v))).SwitchC());
+
+    // S6445. A hold whose initial value is a deferred lazy sample of a linked cell gives that cell to the switch as the close.
+    public static Cell<int> R4ApiHoldLazyOfADeferThatReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => Stream.Never<Cell<int>>().HoldLazy(LazySample.Defer(() => l.Map(v => v))).SwitchC());
+
+    // S6446. The function of a deferred lazy sample comes from a local. It returns a linked cell, and the switch of a constant of the sample as the close selects it.
+    public static Cell<int> Ab228DeferOfAFunctionInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>> f = () => l.Map(v => v); return Cell.ConstantLazy(LazySample.Defer(f)).SwitchC(); });
+
+    // S6447. A map of a deferred lazy sample gets the cell that the function of the sample returns, which is linked. The switch of a constant of the map as the close is a cycle.
+    public static Cell<int> Ab228MapOfADeferThatReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => Cell.ConstantLazy(LazySample.Defer(() => l.Map(v => v)).Map(c => c)).SwitchC());
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
