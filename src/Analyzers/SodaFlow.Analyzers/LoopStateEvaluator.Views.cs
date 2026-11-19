@@ -337,7 +337,7 @@ internal sealed partial class LoopStateEvaluator
             ? (begins, length == null ? null : Constant(length))
             : null;
 
-        int? Constant(ExpressionSyntax expression) =>
+        int? Constant(SyntaxNode expression) =>
             this.region.ModelFor(expression).GetConstantValue(expression) is { Value: int number and >= 0 }
                 ? number
                 : null;
