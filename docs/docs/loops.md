@@ -360,8 +360,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   predicate, or a `foreach` that leaves the loop in its first pass on every path, the iterator runs
   only up to its first `yield return` and the `finally` blocks around it. An `async` method or
   lambda runs in the block up to its first `await` of a task that may not be complete, and the rest
-  of it runs later. That holds for an `await` in a `switch` section or in the header of a
-  `foreach`, `switch`, `while`, or `using` too. The `Dispose` at the end of a `using` or a
+  of it runs later. That holds for an `await` in a `switch` section, in a `finally` block, in the
+  condition of a `do`, or in the header of a `for`, `foreach`, `switch`, `while`, or `using` too.
+  The `Dispose` at the end of a `using` or a
   `foreach` runs later as well when such an `await` comes before it in its scope. An
   `await foreach` runs its body in the block only for an item that the sequence gives at once, and
   the code after it only when every item comes at once. An async iterator runs nothing until

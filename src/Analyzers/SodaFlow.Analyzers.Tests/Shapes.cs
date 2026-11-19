@@ -25623,6 +25623,46 @@ public static class Shapes
     public static Cell<int> Ab218HelperSamplesAPropertyBetween() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab218A9; Ab218Put(Ab218A9, l.Map(v => v)); a[0].Share = Plain; int n = Ab218ReadHeldProperty(); return S.Hold(a[0].Share!.Sample() + n); });
 
+    // S5927. An await in the condition of a do statement stops the call after the first turn, and the code after the loop samples later.
+    public static Cell<int> R4CsAwaitInADoCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { do { Kept.Add(1); } while (await R4CsNeverBool.Task); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5928. An await in a finally block stops the call. The finally always runs, so the code after the try runs later.
+    public static Cell<int> R4CsAwaitInAFinallyBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { Kept.Add(1); } finally { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5929. An await in the condition of a for statement stops the call, and the code after the loop samples the placeholder later.
+    public static Cell<int> R4CsAwaitInAForCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (; await R4CsNeverBool.Task;) { Kept.Add(1); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5930. An await in the declaration of a for statement stops the call, and the code after the loop samples the placeholder later.
+    public static Cell<int> R4CsAwaitInAForDeclaration() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = await R4CsNeverInt.Task; i < 1; i++) { Kept.Add(i); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5931. An await in an initializer of a for statement stops the call, and the code after the loop samples the placeholder later.
+    public static Cell<int> Ab257AwaitInAForInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { int i; for (i = await R4CsNeverInt.Task; i < 1; i++) { Kept.Add(i); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5932. Control: an await in the iterator of a for statement runs after the first turn, and that turn samples the placeholder now.
+    public static Cell<int> Ab257AwaitInAForIteratorAfterATurnThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 2; i += await R4CsNeverInt.Task) { Kept.Add(l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S5933. Control: the body of a do statement runs before the await of its condition, and the body samples the placeholder now.
+    public static Cell<int> Ab257AwaitInADoConditionAfterABodyThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { do { Kept.Add(l.Sample()); } while (await R4CsNeverBool.Task); }; run().Wait(0); return S.Hold(0); });
+
+    // S5934. Control: the second operand of an && in a for condition does not run, and the code after the loop samples now.
+    public static Cell<int> Ab257AwaitThatAForConditionSkips() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (; Plain.Sample() > 100 && await R4CsNeverBool.Task;) { Kept.Add(1); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5935. An await in a finally block of a try with a catch stops the call, and the code after the try samples later.
+    public static Cell<int> Ab257AwaitInAFinallyBlockOfATryWithACatch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { Kept.Add(1); } catch (InvalidOperationException) { Kept.Add(2); } finally { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5936. Control: an await in a catch block runs only when the try throws, and the code after the try samples now.
+    public static Cell<int> Ab257AwaitInACatchBlockBeforeARead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { Kept.Add(1); } catch (InvalidOperationException) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

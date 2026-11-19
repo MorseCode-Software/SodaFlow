@@ -3821,6 +3821,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab218HelperSamplesAMapThatPutsBetween"] = ["SF1001"],
             ["Ab218StringOfAnObjectThatPutsBetween"] = ["SF1001"],
             ["Ab218TwoHelpersSampleAMapThatPutsBetween"] = ["SF1001"],
-            ["Ab225ViewPredicateReadsWhatItWroteForAnItemBefore"] = ["SF1001"]
+            ["Ab225ViewPredicateReadsWhatItWroteForAnItemBefore"] = ["SF1001"],
+            ["Ab257AwaitInAForIteratorAfterATurnThatReads"] = ["SF1001"],
+            ["Ab257AwaitInADoConditionAfterABodyThatReads"] = ["SF1001"],
+            ["Ab257AwaitThatAForConditionSkips"] = ["SF1001"],
+            ["Ab257AwaitInACatchBlockBeforeARead"] = ["SF1001"]
         };
 }

@@ -352,9 +352,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return block?.DescendantNodes().OfType<LabeledStatementSyntax>().Any() == false ? block : null;
     }
 
-    // The statement that always runs an expression of its header before its other parts. That
-    // expression is the collection of a foreach, the value of a switch, the first condition of a
-    // while, or the resource of a using. Null for each other expression.
+    // The statement that always runs an expression of its header. That expression is the collection
+    // of a foreach, the value of a switch, or the resource of a using. It is also the first
+    // condition of a while or a for, the condition of a do, and each initializer of a for. Null for
+    // each other expression.
     private static StatementSyntax? HeaderOf(SyntaxNode expression)
     {
         SyntaxNode child = expression;
@@ -368,6 +369,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 case SwitchStatementSyntax choice:
                     return choice.Expression == child ? choice : null;
                 case WhileStatementSyntax loop:
+                    return loop.Condition == child ? loop : null;
+                case ForStatementSyntax loop:
+                    return loop.Declaration == child
+                           || loop.Condition == child
+                           || (child is ExpressionSyntax initializer && loop.Initializers.Contains(initializer))
+                        ? loop
+                        : null;
+                case DoStatementSyntax loop:
                     return loop.Condition == child ? loop : null;
                 case UsingStatementSyntax used:
                     return used.Expression == child || used.Declaration == child ? used : null;
@@ -390,8 +399,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     // True when each run of a statement runs a part of it to its end. A do runs its body one time at
     // least. A try runs its block. With a catch clause, the code after the try can run when the
-    // block stops before the await. Thus, only a try with no catch clause counts. A switch section
-    // runs its statements in their order, as a block does.
+    // block stops before the await. Thus, only a try with no catch clause counts. A try always runs
+    // its finally block, also with a catch clause. A switch section runs its statements in their
+    // order, as a block does.
     private static bool RunsToItsEnd(SyntaxNode statement, SyntaxNode part) =>
         statement switch
         {
@@ -401,9 +411,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 or LockStatementSyntax
                 or CheckedStatementSyntax
                 or UnsafeStatementSyntax
-                or FixedStatementSyntax => true,
+                or FixedStatementSyntax
+                or FinallyClauseSyntax => true,
             DoStatementSyntax loop => loop.Statement == part,
-            TryStatementSyntax attempt => attempt.Block == part && attempt.Catches.Count == 0,
+            TryStatementSyntax attempt =>
+                (attempt.Block == part && attempt.Catches.Count == 0) || attempt.Finally == part,
             _ => false
         };
 
