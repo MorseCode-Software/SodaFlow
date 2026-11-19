@@ -25615,6 +25615,10 @@ public static class Shapes
     public static Cell<int> Ab218TwoHelpersSampleAMapThatPutsBetween() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab218A8; Cell<int> p = l.Map(v => v); Cell<int> w = Plain.Map(v => { Ab218Put(Ab218A8, p); return v; }); a[0].Share = Plain; int n = ReadViaOne(w); return S.Hold(a[0].Share!.Sample() + n); });
 
+    // S5925. A predicate of a view samples a captured local and then gives it a second captured local, which the block sets pending after it builds the view. The predicate for the second item reads what the first one wrote.
+    public static Cell<int> Ab225ViewPredicateReadsWhatItWroteForAnItemBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = Plain; Cell<int> c = Plain; ReactiveCollection<int, ItemId, int> view = TwoItems().Filter(predicate: (_, state) => { int r = c.Sample(); c = p; return state > r; }); p = l.Map(v => v); return S.Hold(view.KeysCell.Sample().Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
