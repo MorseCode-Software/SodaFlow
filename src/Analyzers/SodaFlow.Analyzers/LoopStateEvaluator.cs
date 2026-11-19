@@ -5108,27 +5108,28 @@ internal sealed partial class LoopStateEvaluator
 
         while (true)
         {
-            if (current is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access })
+            switch (current)
             {
-                if (access.Name.Identifier.ValueText is "AsCell" or "AsBehavior")
-                {
-                    return true;
-                }
+                case InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access }:
+                    if (access.Name.Identifier.ValueText is "AsCell" or "AsBehavior")
+                    {
+                        return true;
+                    }
 
-                current = Unwrapped(access.Expression);
-            }
-            else if (current is IdentifierNameSyntax name
-                     && this.region.SymbolOf(name) is ILocalSymbol local
-                     && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                         is VariableDeclaratorSyntax { Initializer.Value: { } initial } declarator
-                     && FunctionOf(declarator) is { } code
-                     && this.HasOneValueIn(name: local, code: code))
-            {
-                current = Unwrapped(initial);
-            }
-            else
-            {
-                return false;
+                    current = Unwrapped(access.Expression);
+
+                    break;
+                case IdentifierNameSyntax name
+                    when this.region.SymbolOf(name) is ILocalSymbol local
+                         && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                             is VariableDeclaratorSyntax { Initializer.Value: { } initial } declarator
+                         && FunctionOf(declarator) is { } code
+                         && this.HasOneValueIn(name: local, code: code):
+                    current = Unwrapped(initial);
+
+                    break;
+                default:
+                    return false;
             }
         }
     }
