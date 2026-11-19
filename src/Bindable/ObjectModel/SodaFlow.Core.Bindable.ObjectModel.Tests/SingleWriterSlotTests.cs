@@ -1,3 +1,5 @@
+using System;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions;
@@ -59,6 +61,71 @@ public sealed class SingleWriterSlotTests
         await Assert.That(torn).IsEqualTo(0).Because("each read is a value that one write stored in full");
         await Assert.That(wentBack).IsEqualTo(0).Because("a later read never gives an earlier value");
         await Assert.That(slot.Read()).IsEqualTo(Wide.Of(writes));
+    }
+
+    // In the test above, a reader reads again only when a read and a write occur at the same time.
+    // Thus, a run can complete with no read again, and the coverage of that path changes from one
+    // run to the next. This test makes the counter odd, as a write that is not complete does.
+    // Thus, each read must read again. The counter is private, and the test sets it by reflection,
+    // because the slot has no other procedure to stop a write in the middle.
+    [Test]
+    public async Task AReaderThatFindsAWriteInProgressReadsAgainUntilTheWriteCompletes()
+    {
+        SingleWriterSlot<int> slot = new();
+        slot.Write(7);
+
+        // This read also compiles Read before the reader starts. Thus, the reader does not wait for it.
+        int first = slot.Read();
+
+        FieldInfo version =
+            typeof(SingleWriterSlot<int>).GetField(
+                name: "version",
+                bindingAttr: BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("The slot has no field with the name version.");
+
+        int even = version.GetValue(slot) is int value
+            ? value
+            : throw new InvalidOperationException("The version of the slot is not an int.");
+
+        version.SetValue(obj: slot, value: even + 1);
+
+        TaskCompletionSource<bool> entered = new();
+        TaskCompletionSource<int> read = new();
+
+        Thread reader =
+            new(() =>
+            {
+                entered.TrySetResult(true);
+                read.TrySetResult(slot.Read());
+            }) { IsBackground = true, Name = "reader" };
+
+        reader.Start();
+
+        // After the reader sets entered, its only wait is the sleep that SpinWait does after many
+        // spins. Thus, a reader in the wait state has read again one or more times.
+        for (int polls = 0;
+             !(entered.Task.IsCompleted && (reader.ThreadState & ThreadState.WaitSleepJoin) != 0);
+             polls++)
+        {
+            if (polls == 30_000)
+            {
+                throw new InvalidOperationException("The reader did not wait in 30,000 polls.");
+            }
+
+            Thread.Sleep(1);
+        }
+
+        bool returnedDuringTheWrite = read.Task.IsCompleted;
+        version.SetValue(obj: slot, value: even + 2);
+        reader.Join();
+
+        await Assert.That(first).IsEqualTo(7);
+
+        await Assert.That(returnedDuringTheWrite)
+            .IsFalse()
+            .Because("a read does not complete while a write is in progress");
+
+        await Assert.That(await read.Task).IsEqualTo(7);
     }
 
     [Test]
