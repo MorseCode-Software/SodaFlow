@@ -27515,6 +27515,26 @@ public static class Shapes
     public static Cell<int> Ab238ExtensionDisposeOfMappedItems() =>
         Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; m.Dispose(times: 0); return S.Hold(n); });
 
+    // S6400. Execute of a bindable action posts a send of its parameter into the firings sink. The parameter is linked, and the switch of a hold of the sink as the close then selects it.
+    public static Cell<int> R4ApiActionExecuteSendsALinkedCellIntoASwitchedSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>> a = R2ApiFactory.CreateBindableAction(fire, Cell.Constant(true)); a.Execute(l.Map(v => v)); return sw; });
+
+    // S6401. The same as the Execute of a bindable action, but through ICommand.
+    public static Cell<int> R4ApiActionExecuteThroughICommandSendsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); System.Windows.Input.ICommand a = R2ApiFactory.CreateBindableAction(fire, Cell.Constant(true)); a.Execute(l.Map(v => v)); return sw; });
+
+    // S6402. An extension method of this code with the name Execute gets a bindable action as IBindable. It is not the Execute of the action, and it sends nothing.
+    public static Cell<int> Ab232ExtensionExecuteOfABindableActionSendsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); SodaFlow.Bindable.ObjectModel.IBindable a = R2ApiFactory.CreateBindableAction(fire, Cell.Constant(true)); a.Execute(l.Map(v => v)); return sw; });
+
+    // S6403. Execute of a bindable action posts a send of a linked cell into the firings sink. The close is a hold of the sink with no switch, thus it is not a cycle.
+    public static Cell<int> Ab232ActionExecuteSendsALinkedCellIntoAHeldSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = fire.Hold(Plain); SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>> a = R2ApiFactory.CreateBindableAction(fire, Cell.Constant(true)); a.Execute(l.Map(v => v)); return h.Map(c => 0); });
+
+    // S6404. A method of this code with the name Execute and no parameter. It is not the Execute of a bindable action, and it samples nothing.
+    public static Cell<int> Ab232ExecuteWithNoParameterOfACodeObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab232Job job = new(l.Map(v => v)); job.Execute(); return S.Hold(job.Runs); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -39096,6 +39116,16 @@ public static class Shapes
 
     private static void Ab223Put5(Cell<int> share) => Ab223Fa5[0] = new SettableSlot { Share = share };
 
+    // An object of this code with an Execute that has no parameter. It keeps a cell and counts its runs.
+    public sealed class Ab232Job(Cell<int> kept)
+    {
+        public Cell<int> Kept { get; } = kept;
+
+        public int Runs { get; private set; }
+
+        public void Execute() => this.Runs++;
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -39104,6 +39134,11 @@ public static class Shapes
 
 file static class Helpers
 {
+    // An extension method of this code with the name Execute. It does nothing.
+    public static void Execute(this SodaFlow.Bindable.ObjectModel.IBindable bindable, Cell<int> parameter)
+    {
+    }
+
     // An extension method of this code with the name Dispose. It disposes its receiver only for a
     // count above zero.
     public static void Dispose(this IDisposable disposable, int times)

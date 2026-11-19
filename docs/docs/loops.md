@@ -363,6 +363,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   method that you give to `Post` by its name, or a post inside a posted function. The same holds for
   an action that you post to `BindingScheduler.Immediate`, and for a write to the `Value` of a
   two-way bindable of a sink, which sends the value into that sink after the transaction.
+  `Execute` of a bindable action sends its parameter into the sink of its firings after the
+  transaction in the same way.
 - Members that C# calls with no call syntax: an indexer, an operator, a conversion, also of each
   element of a spread and of each element of a tuple that the code converts to a different tuple
   type or deconstructs, `operator true` or `operator false` before a user-defined `||` or `&&`, a

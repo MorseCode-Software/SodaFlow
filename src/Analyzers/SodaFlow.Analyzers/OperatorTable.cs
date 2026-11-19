@@ -351,8 +351,9 @@ internal static class OperatorTable
             // Execute of ICommand and Dispose of IDisposable. Each reads the enablement of a bindable
             // action, and the walk checks that read. Each other Dispose releases listeners. The Dispose
             // of a map of a collection also runs a function of RunAtDispose, and the walk follows that
-            // function. Execute of an AsyncMapStatus reads its cell in a transaction of its own, after
-            // the close.
+            // function. Execute of a bindable action also posts a send of its parameter, which the
+            // walk reads after the transaction. Execute of an AsyncMapStatus reads its cell in a
+            // transaction of its own, after the close.
             "Dispose",
             "Execute",
             // The sort orders of a collection. Each keeps its function for a view that sorts by it.

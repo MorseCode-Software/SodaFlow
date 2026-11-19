@@ -328,18 +328,23 @@ internal sealed partial class LoopStateEvaluator
     /// <summary>
     ///     Reads a write to a two-way bindable of a sink as a send of the value
     ///     into that sink after the transaction. The setter posts that send, as
-    ///     <c>Transaction.Post</c> does. The bindable is a local that no code
-    ///     writes, and that <c>CreateTwoWay</c> made.
+    ///     <c>Transaction.Post</c> does. <c>Execute</c> of a bindable action posts
+    ///     a send of its parameter into the sink of its firings also. The bindable
+    ///     is a local that no code writes, and that <c>CreateTwoWay</c> or
+    ///     <c>CreateBindableAction</c> made.
     /// </summary>
     /// <param name="bindable">The expression of the bindable.</param>
-    /// <param name="value">The value that the code writes.</param>
-    /// <param name="write">The assignment.</param>
+    /// <param name="value">The value that the code writes, or the parameter of <c>Execute</c>.</param>
+    /// <param name="write">The assignment, or the call of <c>Execute</c>.</param>
     public void PostsAWrite(ExpressionSyntax bindable, ExpressionSyntax value, SyntaxNode write)
     {
         if ((this.quiet && !this.region.ReadsCodeAfterTheTransaction)
             || this.ValueOfALocalThatNoCodeWrites(Unwrapped(bindable)) is not InvocationExpressionSyntax
             {
-                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "CreateTwoWay" }
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Name.Identifier.ValueText: "CreateTwoWay" or "CreateBindableAction"
+                }
             } creation
             || this.region.SymbolOf(creation) is not IMethodSymbol method
             || !this.region.Symbols.IsSodaFlow(method))
@@ -348,7 +353,7 @@ internal sealed partial class LoopStateEvaluator
         }
 
         // The write of a bindable of a cell sink sends into that sink. The write of a bindable of
-        // a cell sends into its sink of edits.
+        // a cell sends into its sink of edits. An action sends into its sink of firings.
         ExpressionSyntax? sink =
             creation.ArgumentList.Arguments
                 .Where((argument, position) =>

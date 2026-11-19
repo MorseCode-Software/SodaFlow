@@ -3148,6 +3148,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             {
                 this.Report(this.evaluator.FollowEvictionsOfADispose(map: receiver, dispose: node));
             }
+
+            // Execute of a bindable action posts a send of its parameter into the sink of its
+            // firings. An extension method with the same name is not that Execute.
+            if (operatorName == "Execute" && method.ReducedFrom == null && arguments.Count == 1)
+            {
+                this.evaluator.PostsAWrite(bindable: receiver, value: arguments[0].Expression, write: node);
+            }
         }
 
         return;
