@@ -27971,6 +27971,62 @@ public static class Shapes
     public static Cell<int> Ab249ReadAfterAnAwaitOfADelayOfAFieldNamedZero() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab249ReadAfterADelayOfAnotherZero(l.Map(v => v))); return S.Hold(0); });
 
+    // S6514. ElementAt(0) stops an iterator at its first yield, and the iterator samples only after that yield.
+    public static Cell<int> R4CsIteratorElementAtZeroStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4CsOneThenRead(l.Map(v => v)).ElementAt(0)); return S.Hold(0); });
+
+    // S6515. First on a Select of an iterator stops the iterator at its first yield, and it samples only after that yield.
+    public static Cell<int> R4CsIteratorFirstThroughASelectStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4CsOneThenRead(l.Map(v => v)).Select(n => n + 1).First()); return S.Hold(0); });
+
+    // S6516. A goto out of a foreach in its first pass stops the iterator at its first yield.
+    public static Cell<int> R4CsIteratorGotoOutInTheFirstPassStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (int n in R4CsOneThenRead(l.Map(v => v))) { Kept.Add(n); goto Done; } Done: return S.Hold(0); });
+
+    // S6517. Take(1) stops an iterator at its first yield, and the iterator samples its parameter only after that yield.
+    public static Cell<int> R4CsIteratorTakeOneStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4CsOneThenRead(l.Map(v => v)).Take(1).ToList()); return S.Hold(0); });
+
+    // S6518. ElementAt 0 of an iterator whose second item samples.
+    public static Cell<int> R4LimElementAtZeroOfAnIteratorRunsToTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimTwoItems(l.Map(v => v)).ElementAt(0)); return S.Hold(0); });
+
+    // S6519. Take of one item from an iterator whose second item samples, with ToList.
+    public static Cell<int> R4LimTakeOneOfAnIteratorRunsToTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimTwoItems(l.Map(v => v)).Take(1).ToList()); return S.Hold(0); });
+
+    // S6520. ElementAtOrDefault 0 of an iterator whose second item samples.
+    public static Cell<int> Ab251ElementAtOrDefaultZeroOfAnIteratorRunsToTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimTwoItems(l.Map(v => v)).ElementAtOrDefault(0)); return S.Hold(0); });
+
+    // S6521. Take of two items from an iterator whose second item samples, with ToList.
+    public static Cell<int> Ab251TakeTwoOfAnIteratorReadsTheSecondItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimTwoItems(l.Map(v => v)).Take(2).ToList()); return S.Hold(0); });
+
+    // S6522. ElementAt 1 of an iterator whose second item samples.
+    public static Cell<int> Ab251ElementAtOneOfAnIteratorReadsTheSecondItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimTwoItems(l.Map(v => v)).ElementAt(1)); return S.Hold(0); });
+
+    // S6523. First of a Where of an iterator asks for the second item, which samples.
+    public static Cell<int> Ab251FirstOfAWhereOfAnIteratorReadsTheSecondItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimTwoItems(l.Map(v => v)).Where(n => n > 1).First()); return S.Hold(0); });
+
+    // S6524. ToList of a Select of an iterator reads each item, and the second item samples.
+    public static Cell<int> Ab251ToListOfASelectOfAnIteratorReadsTheSecondItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimTwoItems(l.Map(v => v)).Select(n => n + 1).ToList()); return S.Hold(0); });
+
+    // S6525. Take of one item from a Select of an iterator whose second item samples.
+    public static Cell<int> Ab251TakeOneOfASelectOfAnIteratorRunsToTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimTwoItems(l.Map(v => v)).Select(n => n + 1).Take(1).ToList()); return S.Hold(0); });
+
+    // S6526. A goto case out of a foreach in its first pass stops the iterator at its first yield.
+    public static Cell<int> Ab251GotoCaseOutOfAForeachStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { switch (Kept.Count > -1 ? 1 : 2) { case 1: foreach (int n in R4LimTwoItems(l.Map(v => v))) { Kept.Add(n); goto case 2; } break; case 2: break; } return S.Hold(0); });
+
+    // S6527. A goto back to a label in the body of a foreach does not start a second pass, and the body breaks after its second run.
+    public static Cell<int> Ab251GotoBackInsideTheBodyStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (int n in R4LimTwoItems(l.Map(v => v))) { int k = 0; again: k++; Kept.Add(n); if (k > 1) { break; } goto again; } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

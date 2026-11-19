@@ -302,8 +302,9 @@ internal sealed partial class LoopStateEvaluator
     }
 
     // True when the code enumerates the result of a call for one item and then stops. First,
-    // FirstOrDefault, and Any of Enumerable with no other argument do that. A foreach whose body
-    // ends the loop on each path does that also.
+    // FirstOrDefault, and Any of Enumerable with no other argument do that. Take of one item and
+    // the element at the first position do that also. A Select gives one item for each item that
+    // the code takes from it. A foreach whose body ends the loop on each path takes one item also.
     private bool TakesOneItem(SyntaxNode call) =>
         call.Parent switch
         {
@@ -311,13 +312,29 @@ internal sealed partial class LoopStateEvaluator
             {
                 Name.Identifier.ValueText: "First" or "FirstOrDefault" or "Any",
                 Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } next
+            } => this.IsOfEnumerable(next),
+            MemberAccessExpressionSyntax
+            {
+                Name: { Identifier.ValueText: "Take" or "ElementAt" or "ElementAtOrDefault" } name,
+                Parent: InvocationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } next
             } =>
-                this.region.SymbolOf(next) is IMethodSymbol method
-                && SodaFlowSymbols.IsLinqEnumerable((method.ReducedFrom ?? method).OriginalDefinition.ContainingType),
+                this.region.ModelFor(next).GetConstantValue(arguments[0].Expression)
+                    is { HasValue: true, Value: int value }
+                && value == (name.Identifier.ValueText == "Take" ? 1 : 0)
+                && this.IsOfEnumerable(next),
+            MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "Select",
+                Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 1 } next
+            } => this.IsOfEnumerable(next) && this.TakesOneItem(next),
             CommonForEachStatementSyntax loop =>
                 SinkWalker.EndsTheLoopOnEachPath(loop: loop, body: loop.Statement),
             _ => false
         };
+
+    private bool IsOfEnumerable(SyntaxNode call) =>
+        this.region.SymbolOf(call) is IMethodSymbol method
+        && SodaFlowSymbols.IsLinqEnumerable((method.ReducedFrom ?? method).OriginalDefinition.ContainingType);
 
     // Takes away the state of each local and each parameter that the given function declares,
     // before a call of that function. A local that a function in it reads keeps its state. That

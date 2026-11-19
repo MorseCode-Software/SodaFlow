@@ -4026,6 +4026,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4CsAwaitOfAnExpressionBodiedPropertyThatIsComplete"] = ["SF1001"],
             ["R4LimReadAfterAnAwaitOfADelayOfZeroTime"] = ["SF1004"],
             ["R4LimReadAfterAnAwaitOfAPropertyWithABody"] = ["SF1004"],
-            ["Ab249ReadAfterAnAwaitOfAGetterWithABlockBody"] = ["SF1004"]
+            ["Ab249ReadAfterAnAwaitOfAGetterWithABlockBody"] = ["SF1004"],
+            ["Ab251TakeTwoOfAnIteratorReadsTheSecondItem"] = ["SF1004"],
+            ["Ab251ElementAtOneOfAnIteratorReadsTheSecondItem"] = ["SF1004"],
+            ["Ab251FirstOfAWhereOfAnIteratorReadsTheSecondItem"] = ["SF1004"],
+            ["Ab251ToListOfASelectOfAnIteratorReadsTheSecondItem"] = ["SF1004"]
         };
 }

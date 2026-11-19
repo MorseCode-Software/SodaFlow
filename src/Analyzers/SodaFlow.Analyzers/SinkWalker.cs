@@ -1097,11 +1097,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                          != turn);
 
     // True for a statement that ends the loop around it on each path. Each branch ends with a
-    // break, a return, or a throw. A break in a block or in an if is for that loop.
+    // break, a return, a throw, or a goto. A break in a block or in an if is for that loop. A goto
+    // leaves the body, or goes to a label in it. In the two cases, control does not come to the
+    // end of the body, and only a continue starts the next turn.
     private static bool EndsTheLoop(StatementSyntax statement) =>
         statement switch
         {
-            BreakStatementSyntax or ReturnStatementSyntax or ThrowStatementSyntax => true,
+            BreakStatementSyntax or ReturnStatementSyntax or ThrowStatementSyntax or GotoStatementSyntax => true,
             YieldStatementSyntax yield => yield.IsKind(SyntaxKind.YieldBreakStatement),
             BlockSyntax { Statements: { Count: > 0 } statements } => EndsTheLoop(statements.Last()),
             IfStatementSyntax { Else: { } otherwise } choice =>

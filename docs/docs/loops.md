@@ -406,8 +406,12 @@ The analyzer follows a value made from the placeholder through the code of your 
   the task runs. A query expression over a type whose methods run their function in the call, such
   as `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. Where the code takes
   only one item from the call of an iterator, with `First`, `FirstOrDefault`, `Any()` with no
-  predicate, or a `foreach` that leaves the loop in its first pass on every path, the iterator runs
-  only up to its first `yield return` and the `finally` blocks around it. An `async` method or
+  predicate, `Take(1)`, `ElementAt(0)`, or `ElementAtOrDefault(0)`, also after a `Select`, or with
+  a `foreach` that leaves the loop in its first pass on every path, by a `break`, a `return`, a
+  `throw`, or a `goto`, the iterator runs only up to its first `yield return` and the `finally`
+  blocks around it. The analyzer still reads the whole iterator where the code moves its enumerator
+  by hand, where a method of yours gets the call and takes one item, and where `Zip` stops at the
+  end of a shorter sequence. An `async` method or
   lambda runs in the block up to its first `await` of a task that may not be complete, and the rest
   of it runs later. That holds for an `await` in a `switch` section, in a `finally` block, in the
   condition of a `do`, or in the header of a `for`, `foreach`, `switch`, `while`, or `using` too.
