@@ -333,6 +333,15 @@ The analyzer follows a value made from the placeholder through the code of your 
   index in a local that gets only a constant is that constant index. A local that gets the array or
   the list in a field sees each element that code puts in through the field later, also in a method,
   until the local or the field gets a different value.
+- Names of one object. Where one name gets its object from another, as in `a[0] = d`,
+  `box.Slot = Shared`, or `var slots = SharedSlots`, the two are names of one object from there. A
+  name is a local, a parameter, a static field, a field of the object in a local, or an element of a
+  local collection or of an array in a static field, at a constant index or at an index in a local.
+  A write to a field or a property with no body through any of the names replaces what earlier
+  writes through all of them gave that member, and a read through any of them sees the last value,
+  while each name keeps the object. A write in a method that the block calls counts as well, where
+  the block always calls the method one time and the method writes through a static field, an
+  element of an array in one, or a parameter whose argument is such a name.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a
@@ -447,9 +456,12 @@ careful side, so it can report a read that does not throw:
   nor a function other than a lambda written there. When the collection is a local that got the
   array or the list in a field, a call of one of your methods can come between too, if its body
   holds only such code. That body can call one more method of yours of the same kind. A new value
-  for the collection, the index, or the element ends it, and so does a read that runs a function
-  you wrote: a sample, a `Value`, or a `CanExecute` of a cell whose function the analyzer saw you
-  give it, or the `Value` of a `Lazy<T>` whose function it knows.
+  for the collection, the index, or the element ends it, and so does a read that runs a function you
+  wrote: a sample, a `Value`, or a `CanExecute` of a cell whose function the analyzer saw you give
+  it, or the `Value` of a `Lazy<T>` whose function it knows. Names of one object hold the same way,
+  from the assignment that makes them one, and a call of one of your methods with such a body can
+  come between them if it gives none of the names a new object. A conversion of your own makes a new
+  object, so it gives no second name.
 - The objects that calls of your methods return share one state for each member, where the
   analyzer did not see the object made. A write to a member through the result of one call adds to
   what writes through other calls gave that member, and does not replace it, because the analyzer

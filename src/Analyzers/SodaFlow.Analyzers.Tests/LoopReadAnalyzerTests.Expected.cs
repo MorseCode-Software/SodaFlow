@@ -3925,6 +3925,24 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab220PlainThroughAnObjectOfAnotherTurn"] = ["SF1001"],
             ["Ab220PlainThroughAnArrayObjectOfAnotherTurn"] = ["SF1001"],
             ["Ab220PlainThroughTheLocalInAMapThatDoesNotRun"] = ["SF1001"],
-            ["Ab220PlainThroughTheLocalThenTheElementChanges"] = ["SF1001"]
+            ["Ab220PlainThroughTheLocalThenTheElementChanges"] = ["SF1001"],
+            ["Ab221PlainThroughALocalAfterAMethodMovesTheField"] = ["SF1001"],
+            ["Ab221PlainThroughALocalOfASecondArray"] = ["SF1001"],
+            ["Ab221PlainThroughALocalWithASecondObject"] = ["SF1001"],
+            ["Ab221PlainThroughAParameterWithASecondObject"] = ["SF1001"],
+            ["Ab221PlainThroughALocalAfterTheFieldGetsAnotherObject"] = ["SF1001"],
+            ["Ab221PlainInAMethodThatAMapCalls"] = ["SF1001"],
+            ["Ab221PlainInAMethodAfterAPut"] = ["SF1001"],
+            ["Ab221PlainAfterACallThatThrowsReadInACatch"] = ["SF1001"],
+            ["Ab221PlainThroughTheLocalAfterACallThatThrows"] = ["SF1001"],
+            ["Ab221PlainThroughALocalThatAnElementGotInABranch"] = ["SF1001"],
+            ["Ab221PlainThroughALocalInABranch"] = ["SF1001"],
+            ["Ab221PlainThroughALocalThatALambdaChanges"] = ["SF1001"],
+            ["Ab221PlainThroughALocalAfterAMethodPutsIntoTheArray"] = ["SF1001"],
+            ["Ab221PendingThroughAFieldAfterTheParameterReadThroughTheField"] = ["SF1001"],
+            ["Ab221PlainInAMethodAfterAnArgumentMovesTheField"] = ["SF1001"],
+            ["Ab221PlainInAMethodInABranch"] = ["SF1001"],
+            ["Ab221PendingThroughAPartOfATupleField"] = ["SF1001"],
+            ["Ab221PlainReadInALoopAfterAMethodPutsIntoTheArray"] = ["SF1001"]
         };
 }

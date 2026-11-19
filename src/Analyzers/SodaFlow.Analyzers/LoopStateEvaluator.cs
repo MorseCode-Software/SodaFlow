@@ -1961,6 +1961,7 @@ internal sealed partial class LoopStateEvaluator
                     Construction.Of(this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default))),
             InvocationExpressionSyntax inv => this.WithTheResultOfATask(read: inv, state: this.EvalInvocation(inv)),
             ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => this.EvalCreation(expression),
+            MemberAccessExpressionSyntax read when this.WrittenThroughANameOfItsObject(read) is { } written => written,
             MemberAccessExpressionSyntax read when this.WrittenThroughItsName(read) is { } written => written,
             MemberAccessExpressionSyntax read when this.WrittenAtItsElement(read) is { } written => written,
             IdentifierNameSyntax

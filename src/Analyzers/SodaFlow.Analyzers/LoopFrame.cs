@@ -288,6 +288,19 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public int MemberWritesSeen { get; set; }
 
     /// <summary>
+    ///     The names that hold one object, each with the state of the members
+    ///     that sure writes through the names gave.
+    /// </summary>
+    public List<NamesOfOneObject> NamesOfOneObject { get; } = [];
+
+    /// <summary>
+    ///     The number of writes to a member in the region when the code of this
+    ///     frame last wrote to a member. A different number at a read means a write
+    ///     that <see cref="NamesOfOneObject" /> does not have.
+    /// </summary>
+    public int NamesWritesSeen { get; set; }
+
+    /// <summary>
     ///     For a local of this code that got an element at a location that the
     ///     walk can read again: the expression of that element.
     /// </summary>
