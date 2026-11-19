@@ -822,6 +822,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             this.Visit(initializer);
         }
 
+        // A loop whose condition is the constant false runs no turn.
+        if (node.Condition != null && this.ConstantOf(node.Condition) == false)
+        {
+            this.Visit(node.Condition);
+
+            return;
+        }
+
         int before = this.evaluator.ShapeOfWhatALoopLeaves(node.Statement);
         this.Visit(node.Condition);
         this.Visit(node.Statement);
@@ -853,10 +861,30 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.Visit(always ? node.Statement : node.Else);
     }
 
-    // The value of a condition that is a constant. Null for each other condition. Only names,
-    // literals, and operators can make a constant. Thus, the walk asks the compiler only about
-    // such a condition.
-    private bool? ConstantOf(SyntaxNode condition) =>
+    // An arm that a constant condition rules out never runs, as a branch of an if does not.
+    public override void VisitConditionalExpression(ConditionalExpressionSyntax node)
+    {
+        if (this.ConstantOf(node.Condition) is not { } always)
+        {
+            base.VisitConditionalExpression(node);
+
+            return;
+        }
+
+        this.Visit(node.Condition);
+        this.Visit(always ? node.WhenTrue : node.WhenFalse);
+    }
+
+    private bool? ConstantOf(SyntaxNode condition) => ConstantOf(region: this.region, condition: condition);
+
+    /// <summary>
+    ///     The value of a condition that is a constant. Null for each other
+    ///     condition. Only names, literals, and operators can make a constant.
+    ///     Thus, the walk asks the compiler only about such a condition.
+    /// </summary>
+    /// <param name="region">The region, for the semantic model.</param>
+    /// <param name="condition">The condition.</param>
+    public static bool? ConstantOf(LoopRegion region, SyntaxNode condition) =>
         condition.DescendantNodesAndSelf()
             .All(static part =>
                 part
@@ -866,7 +894,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     or ParenthesizedExpressionSyntax
                     or PrefixUnaryExpressionSyntax
                     or BinaryExpressionSyntax)
-        && this.region.ModelFor(condition).GetConstantValue(condition) is { Value: bool value }
+        && region.ModelFor(condition).GetConstantValue(condition) is { Value: bool value }
             ? value
             : null;
 
@@ -999,7 +1027,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // true for the first read also. When it changes no location that is older than the turn,
         // the second turn is the same as the first one.
         HashSet<int> left = [before];
-        bool hasOneTurn = EndsTheLoopOnEachPath(loop: loop, body: body);
+
+        // A do whose condition is the constant false runs one turn.
+        bool hasOneTurn =
+            EndsTheLoopOnEachPath(loop: loop, body: body)
+            || (loop is DoStatementSyntax { Condition: var last } && this.ConstantOf(last) == false);
 
         // A value can come to its read only after two or more turns. The walk reads the loop again
         // while a read gives a location a new state. The locals of the body keep the state of the

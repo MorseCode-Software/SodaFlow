@@ -1894,7 +1894,11 @@ internal sealed partial class LoopStateEvaluator
                 this.Eval(s.Operand),
             BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } b => this.Eval(b.Left),
             BinaryExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceExpression } b => this.OneOf([b.Left, b.Right]),
-            ConditionalExpressionSyntax c => this.OneOf([c.WhenTrue, c.WhenFalse]),
+            // An arm that a constant condition rules out gives no value.
+            ConditionalExpressionSyntax c =>
+                SinkWalker.ConstantOf(region: this.region, condition: c.Condition) is { } always
+                    ? this.Eval(always ? c.WhenTrue : c.WhenFalse)
+                    : this.OneOf([c.WhenTrue, c.WhenFalse]),
             // The value of an assignment is the value that its target gets. A coalescing assignment
             // gives the value that its target had, when that value is not null.
             AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } a => this.Eval(a.Right),

@@ -4018,6 +4018,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4LimXmlSerializerWritesAPropertyThatJsonIgnores"] = ["SF1005"],
             ["Ab242SystemTextJsonReadsAPropertyIgnoredNever"] = ["SF1005"],
             ["Ab242JsonNetWritesAPropertyThatXmlIgnores"] = ["SF1005"],
-            ["Ab242XmlSerializerWritesAPropertyThatJsonNetIgnores"] = ["SF1005"]
+            ["Ab242XmlSerializerWritesAPropertyThatJsonNetIgnores"] = ["SF1005"],
+            ["Ab250ReadInAConstantTrueConditional"] = ["SF1001"],
+            ["Ab250ReadInAForWithAConstantTrueCondition"] = ["SF1001"],
+            ["Ab250ForWithAConstantFalseConditionRunsItsInitializer"] = ["SF1001"],
+            ["Ab250DoWithAConstantTrueConditionReadsTheSecondTurn"] = ["SF1001"]
         };
 }

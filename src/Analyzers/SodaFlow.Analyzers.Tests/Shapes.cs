@@ -27915,6 +27915,38 @@ public static class Shapes
     public static Cell<int> Ab242XmlSerializerWritesAPropertyThatJsonNetIgnores() =>
         Cell.Loop<int>().WithoutCaptures(l => { new XmlSerializer(typeof(Ab242XmlJsonNetIgnored)).Serialize(TextWriter.Null, new Ab242XmlJsonNetIgnored(l.Map(v => v))); return S.Hold(0); });
 
+    // S6500. A do with the constant false as its condition runs one turn, so the sample sees the plain cell of the start.
+    public static Cell<int> R4CsDoWhileFalseRunsOneTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; do { Kept.Add(c.Sample()); c = l.Map(v => v); } while (false); return S.Hold(0); });
+
+    // S6501. A read in the branch of a conditional expression that the constant false rules out.
+    public static Cell<int> R4LimReadInAConstantFalseConditional() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimOff ? l.Sample() : 0); return S.Hold(0); });
+
+    // S6502. A read in the body of a for whose condition is the constant false.
+    public static Cell<int> R4LimReadInAForWithAConstantFalseCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (; R4LimOff;) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S6503. A conditional expression whose condition is the constant false has the value of its second arm, a cell with no link.
+    public static Cell<int> Ab250ValueOfAConstantFalseConditional() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = R4LimOff ? l.Map(v => v) : Plain; Kept.Add(c.Sample()); return S.Hold(0); });
+
+    // S6504. A read in the first arm of a conditional expression whose condition is the constant true.
+    public static Cell<int> Ab250ReadInAConstantTrueConditional() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimOn ? l.Sample() : 0); return S.Hold(0); });
+
+    // S6505. A for whose condition is the constant true runs its body, which samples and then breaks.
+    public static Cell<int> Ab250ReadInAForWithAConstantTrueCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (; R4LimOn;) { Kept.Add(l.Sample()); break; } return S.Hold(0); });
+
+    // S6506. A for whose condition is the constant false still runs its initializer, which samples.
+    public static Cell<int> Ab250ForWithAConstantFalseConditionRunsItsInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (Kept.Add(l.Sample()); R4LimOff;) { } return S.Hold(0); });
+
+    // S6507. A do whose condition is the constant true runs a second turn, which samples the pending cell that the first turn set.
+    public static Cell<int> Ab250DoWithAConstantTrueConditionReadsTheSecondTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int k = 0; do { Kept.Add(c.Sample()); c = l.Map(v => v); k++; if (k == 2) { break; } } while (R4LimOn); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

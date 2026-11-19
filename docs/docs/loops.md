@@ -471,7 +471,10 @@ careful side, so it can report a read that does not throw:
   function of a `Merge`, which runs only when both streams fire in one transaction: what it returns
   counts as a value of the merge even where only one stream fires. Only a
   condition that is a constant is read for what it says: the analyzer skips the branch of an `if`
-  that the constant rules out, and the body of a `while` whose condition is the constant `false`.
+  and the arm of a `?:` that the constant rules out, the body of a `while` or a `for` whose
+  condition is the constant `false`, and the second turn of a `do` whose condition is the constant
+  `false`. It still reads a `switch` section that a constant rules out, and the code after an `if`
+  on a constant whose branch always returns.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
   one. An element counts as one object from a write through it to a read through it only in a
   straight line: in one function, with no loop, `goto` label, or `switch` section around the read
