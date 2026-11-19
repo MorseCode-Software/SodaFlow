@@ -3049,6 +3049,19 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab208ALocalOfACallThatReturnsTheSealedClass"] = ["SF1001"],
             ["Ab208TwoLocalsOfCallsThatReturnTheSealedClass"] = ["SF1001"],
             ["Ab208ACallAndALocalOfASecondCallOfTheSealedClass"] = ["SF1001"],
-            ["Ab208ACallAndALocalOfASecondCall"] = ["SF1001"]
+            ["Ab208ACallAndALocalOfASecondCall"] = ["SF1001"],
+            ["Ab213MethodWritesAfterThePlainWrite"] = ["SF1001"],
+            ["Ab213MethodWritesBeforeAndAfterThePlainWrite"] = ["SF1001"],
+            ["Ab213SecondMethodWritesAfterThePlainWrite"] = ["SF1001"],
+            ["Ab213PlainWriteInABranch"] = ["SF1001"],
+            ["Ab213PlainWriteToTheOtherElement"] = ["SF1001"],
+            ["Ab213PlainWriteToASecondMember"] = ["SF1001"],
+            ["Ab213LambdaWritesAfterThePlainWrite"] = ["SF1001"],
+            ["Ab213MethodPutsAfterThePlainWrite"] = ["SF1001"],
+            ["Ab213MethodReversesTheArray"] = ["SF1001"],
+            ["Ab213MethodReversesTheArrayTwoCallsDown"] = ["SF1001"],
+            ["Ab213MethodPutsThroughASpan"] = ["SF1001"],
+            ["Ab213MethodPutsThroughASecondField"] = ["SF1001"],
+            ["Ab213MethodRunsALambdaThatPuts"] = ["SF1001"]
         };
 }

@@ -406,13 +406,20 @@ internal sealed partial class LoopStateEvaluator
     ///     and the result is a report and not a miss.
     /// </remarks>
     private LoopState WithItsField(ISymbol local, SyntaxNode use, LoopState state) =>
+        this.TheFieldThatItNames(local) is { } field
+        && this.IsStillTheLocationOf(name: local, location: field, use: use, aCallCounts: false)
+            ? state.Join(this.EvalAgain(field))
+            : state;
+
+    // The field that a local got its value from, as NotesANameOfALocation records it. Null for a
+    // local that got no value of a field.
+    private ExpressionSyntax? TheFieldThatItNames(ISymbol local) =>
         this.Frame.ReadFrom.Count > 0
         && this.Frame.ReadFrom.TryGetValue(key: local, value: out ExpressionSyntax? field)
         && Unwrapped(field) is IdentifierNameSyntax or MemberAccessExpressionSyntax
         && this.LocationKeyOf(field) is { Index: < 0 }
-        && this.IsStillTheLocationOf(name: local, location: field, use: use, aCallCounts: false)
-            ? state.Join(this.EvalAgain(field))
-            : state;
+            ? field
+            : null;
 
     // True for a value whose members only a name keeps. The value is no object, or an object that
     // the store does not know.

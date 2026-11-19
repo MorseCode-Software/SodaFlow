@@ -405,8 +405,10 @@ careful side, so it can report a read that does not throw:
   straight line: in one function, with no loop, `goto` label, or `switch` section around the read
   alone, and with nothing between them but reads, writes to locals, fields, and properties with no
   body, and calls of the platform or SodaFlow that get neither the collection nor a function other
-  than a lambda written there. A new value for the collection, the index, or the element ends it,
-  and so does a sample or a `Send`.
+  than a lambda written there. When the collection is a local that got the array or the list in a
+  field, a call of one of your methods can come between too, if its body holds only such code. That
+  body can call one more method of yours of the same kind. A new value for the collection, the
+  index, or the element ends it, and so does a sample or a `Send`.
 - The objects that calls of your methods return share one state for each member, where the
   analyzer did not see the object made. A write to a member through the result of one call adds to
   what writes through other calls gave that member, and does not replace it, because the analyzer

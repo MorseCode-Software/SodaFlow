@@ -13,6 +13,13 @@ namespace SodaFlow.Analyzers;
 internal sealed partial class LoopStateEvaluator
 {
     /// <summary>
+    ///     How many calls deep <see cref="CanStandBetween" /> reads the code of a
+    ///     method. A deeper call counts as code that can change the element. The
+    ///     result is then a report and not a miss.
+    /// </summary>
+    private const int MaxCalleesBetween = 2;
+
+    /// <summary>
     ///     Records a write to a member for <see cref="WrittenAtItsElement" />.
     ///     A sure write through an element at a location that the walk can read
     ///     again gives that member of the location only the new state.
@@ -110,6 +117,13 @@ internal sealed partial class LoopStateEvaluator
     ///     Null when no record is for the read, or when code between the write
     ///     and the read can change the element.
     /// </summary>
+    /// <remarks>
+    ///     A local that got the array or the list of a field also gets the state
+    ///     of the field at a read: see WithItsField. That state keeps each write
+    ///     through the field, also a write that this record replaced. Thus, for
+    ///     such a local, a call of code of this compilation can come between,
+    ///     when <see cref="CanStandBetween" /> permits its code.
+    /// </remarks>
     private LoopState? WrittenAtItsElement(MemberAccessExpressionSyntax read)
     {
         if (this.Frame.ElementMemberWrites.Count == 0
@@ -133,7 +147,8 @@ internal sealed partial class LoopStateEvaluator
                     code: code,
                     after: Math.Min(val1: write.End, val2: at.From),
                     before: read.Expression.SpanStart,
-                    use: read))
+                    use: read,
+                    callees: this.TheFieldThatItNames(at.Collection) != null ? MaxCalleesBetween : 0))
             is { } found
             ? found.State.Join(this.TypeState(read))
             : null;
@@ -281,13 +296,15 @@ internal sealed partial class LoopStateEvaluator
     // label between the two, and the scan takes no label. No code between the two can give the
     // collection, the index, or the local a value. A function that uses one of them can run
     // between, thus no function can use them. Each node between must be one that
-    // CannotChangeTheElement allows.
+    // CannotChangeTheElement allows. The last argument is how many calls deep the scan reads code
+    // of this compilation: see CanStandBetween.
     private bool KeepsTheElement(
         (ISymbol Collection, object Index, ISymbol? Name, int From) at,
         SyntaxNode code,
         int after,
         int before,
-        SyntaxNode use)
+        SyntaxNode use,
+        int callees = 0)
     {
         if (after > before
             || use.Ancestors()
@@ -314,7 +331,7 @@ internal sealed partial class LoopStateEvaluator
         return code.DescendantNodes(TextSpan.FromBounds(start: after, end: before))
             .All(node => node.SpanStart < after
                          || node.Span.End > before
-                         || this.CannotChangeTheElement(node: node, collection: type));
+                         || this.CannotChangeTheElement(node: node, collection: type, callees: callees));
     }
 
     // True for a node that cannot change an element of a collection of the given type, and that
@@ -322,10 +339,11 @@ internal sealed partial class LoopStateEvaluator
     // is a call that CannotChangeItsCollection allows, or a read of a name, a member, or an element
     // with no code. Statements, declarations, literals, and lambdas that it is part of are such
     // nodes also. Each other node is not, such as a creation, an operator, or a loop.
-    private bool CannotChangeTheElement(SyntaxNode node, ITypeSymbol collection) =>
+    private bool CannotChangeTheElement(SyntaxNode node, ITypeSymbol collection, int callees) =>
         node switch
         {
-            InvocationExpressionSyntax call => this.CannotChangeItsCollection(call: call, collection: collection),
+            InvocationExpressionSyntax call =>
+                this.CannotChangeItsCollection(call: call, collection: collection, callees: callees),
             AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment =>
                 this.region.SymbolOf(assignment.Left) switch
                 {
@@ -385,23 +403,30 @@ internal sealed partial class LoopStateEvaluator
         this.TheArrayOfAViewOf(element) != null && this.Eval(element).Objects.Contains(MadeObject.Unknown);
 
     // True for a call that cannot change an element of a collection of the given type, and that
-    // runs no code of the project. The method has no body to read and no override. A method of
-    // the platform calls no member of an object for it: see PlatformCallers. A method of SodaFlow
-    // reads no cell and sends nothing. The call cannot get the collection or a view of it, and it
-    // gets no function other than a lambda that the code writes there. RunSynchronously runs the
-    // function of its task.
-    private bool CannotChangeItsCollection(InvocationExpressionSyntax call, ITypeSymbol collection)
+    // runs no code of the project. A method of this compilation passes only where CanStandBetween
+    // permits its code. The method has no override. A method with no body to read is of the
+    // platform or SodaFlow. A method of the platform calls no member of an object for it: see
+    // PlatformCallers. A method of SodaFlow reads no cell and sends nothing. The call cannot get
+    // the collection or a view of it, and it gets no function other than a lambda that the code
+    // writes there. RunSynchronously runs the function of its task.
+    private bool CannotChangeItsCollection(InvocationExpressionSyntax call, ITypeSymbol collection, int callees)
     {
-        if (this.region.SymbolOf(call) is not IMethodSymbol method
-            || !(method.ReducedFrom ?? method).DeclaringSyntaxReferences.IsEmpty
-            || method.MethodKind is not (MethodKind.Ordinary or MethodKind.ReducedExtension)
-            || method.IsVirtual
-            || method.IsAbstract
-            || method.IsOverride
-            || IsRunSynchronously(method)
-            || (this.region.Symbols.IsSodaFlow(method)
-                ? method.Name == "Send" || SodaFlowSymbols.ReadMembers.Contains(method.Name)
-                : !SodaFlowSymbols.IsPlatform(method) || PlatformCallers.Of(method) != PlatformCallbacks.None))
+        if (this.region.SymbolOf(call) is not IMethodSymbol
+            {
+                MethodKind: MethodKind.Ordinary or MethodKind.ReducedExtension,
+                IsVirtual: false,
+                IsAbstract: false,
+                IsOverride: false
+            } method
+            || ((method.ReducedFrom ?? method).DeclaringSyntaxReferences.IsEmpty
+                ? IsRunSynchronously(method)
+                  || (this.region.Symbols.IsSodaFlow(method)
+                      ? method.Name == "Send" || SodaFlowSymbols.ReadMembers.Contains(method.Name)
+                      : !SodaFlowSymbols.IsPlatform(method) || PlatformCallers.Of(method) != PlatformCallbacks.None)
+                : !this.CanStandBetween(
+                    method: method.ReducedFrom ?? method,
+                    collection: collection,
+                    callees: callees)))
         {
             return false;
         }
@@ -417,6 +442,21 @@ internal sealed partial class LoopStateEvaluator
                    || (this.region.TypeOf(argument.Expression) is not { TypeKind: TypeKind.Delegate }
                        && this.CannotBeTheCollection(value: argument.Expression, collection: collection)));
     }
+
+    // True for a method of this compilation whose body can come between a write through an
+    // element and a read itself. Then, a call of it changes the element no more than its code does
+    // at the call. A call in that body goes one more call deep. The only element in the body is an
+    // element of an array, with no code. The other tests of an element read the frame of this
+    // code, and the body has no part in that frame.
+    private bool CanStandBetween(IMethodSymbol method, ITypeSymbol collection, int callees) =>
+        callees > 0
+        && method.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is MethodDeclarationSyntax declaration
+        && (declaration.Body ?? (SyntaxNode?)declaration.ExpressionBody?.Expression) is { } body
+        && body.DescendantNodesAndSelf()
+            .All(node => node is ElementAccessExpressionSyntax element
+                ? this.region.SymbolOf(element) == null
+                : this.CannotChangeTheElement(node: node, collection: collection, callees: callees - 1));
 
     // True for a value that cannot be a collection of the given type, or a view of its elements. No
     // conversion goes between the two types, and the value is not a span, a memory, or a segment of

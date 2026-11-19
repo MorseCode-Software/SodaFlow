@@ -20711,6 +20711,98 @@ public static class Shapes
     public static Cell<int> Ab208OnlyAPlainCellThroughALocalOfACall() =>
         Cell.Loop<int>().WithoutCaptures(l => { IAb208Slot first = Ab208SlotAt(9); first.Share = Plain; return S.Hold(Ab208SlotAt(9).Share!.Sample()); });
 
+    // S4700. A method writes a pending cell through the field before the block writes a plain cell. A call that writes no member comes after the plain write.
+    public static Cell<int> Ag92F1MethodWritesBeforeThePlainWriteAndACallComesAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ag92FieldedEarly; Ag92SetFieldedEarly(l.Map(v => v)); a[0].Share = Plain; Ag92Keep(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4701. The same with two calls after the plain write.
+    public static Cell<int> Ab213TwoCallsAfterThePlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Twice; Ab213SetTwice(l.Map(v => v)); a[0].Share = Plain; Ab213Keep(Plain); Ab213Keep(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4702. A lambda writes the pending cell through the field before the plain write.
+    public static Cell<int> Ab213LambdaWritesBeforeThePlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Lambda; Action w = () => Ab213Lambda[0].Share = l.Map(v => v); w(); a[0].Share = Plain; Ab213Keep(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4703. The read goes through a local that gets the element after the call.
+    public static Cell<int> Ab213ReadThroughALocalOfTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Named; Ab213SetNamed(l.Map(v => v)); a[0].Share = Plain; Ab213Keep(Plain); SettableSlot x = a[0]; return S.Hold(x.Share!.Sample()); });
+
+    // S4704. The plain write goes through a local of the element, and the read goes through the array.
+    public static Cell<int> Ab213PlainWriteThroughALocalOfTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Through; Ab213SetThrough(l.Map(v => v)); SettableSlot x = a[0]; x.Share = Plain; Ab213Keep(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4705. A method puts a new element with a pending cell through the field before the plain write.
+    public static Cell<int> Ab213MethodPutsBeforeThePlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213PutEarly; Ab213PutEarlyElement(l.Map(v => v)); a[0].Share = Plain; Ab213Keep(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4706. The method writes the first element, and the block writes and reads the second one.
+    public static Cell<int> Ab213MethodWritesTheOtherElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Pair; Ab213SetPairFirst(l.Map(v => v)); a[1].Share = Plain; Ab213Keep(Plain); return S.Hold(a[1].Share!.Sample()); });
+
+    // S4707. The block writes a pending cell and then a plain cell through the local, and a call comes after.
+    public static Cell<int> Ab213BlockWritesPendingThenPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Own; a[0].Share = l.Map(v => v); a[0].Share = Plain; Ab213Keep(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4708. The call after the plain write goes to a method with a block body.
+    public static Cell<int> Ab213CalleeWithABlockBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Block; Ab213SetBlock(l.Map(v => v)); a[0].Share = Plain; Ab213KeepInABlock(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4709. The method that the call goes to calls a second method.
+    public static Cell<int> Ab213CalleeThatCallsASecondMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Second; Ab213SetSecond(l.Map(v => v)); a[0].Share = Plain; Ab213KeepThroughASecond(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4710. The method writes the pending cell after the plain write, and a call comes between.
+    public static Cell<int> Ab213MethodWritesAfterThePlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Late; a[0].Share = Plain; Ab213Keep(Plain); Ab213SetLate(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4711. A method writes before and after the plain write.
+    public static Cell<int> Ab213MethodWritesBeforeAndAfterThePlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Again; Ab213SetAgain(l.Map(v => v)); a[0].Share = Plain; Ab213Keep(Plain); Ab213SetAgain(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4712. A second method writes after the plain write, through the method that wrote before.
+    public static Cell<int> Ab213SecondMethodWritesAfterThePlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Nested; Ab213SetNested(l.Map(v => v)); a[0].Share = Plain; Ab213Keep(Plain); Ab213SetNestedThrough(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4713. The plain write is only in a branch.
+    public static Cell<int> Ab213PlainWriteInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Branch; Ab213SetBranch(l.Map(v => v)); if (Never) { a[0].Share = Plain; } Ab213Keep(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4714. The plain write goes to the second element.
+    public static Cell<int> Ab213PlainWriteToTheOtherElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Other; Ab213SetOtherFirst(l.Map(v => v)); a[1].Share = Plain; Ab213Keep(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4715. The plain write goes to a second member.
+    public static Cell<int> Ab213PlainWriteToASecondMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag92Pair[] a = Ab213Pairs; Ab213SetPairsShare(l.Map(v => v)); a[0].Second = Plain; Ab213Keep(Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4716. A lambda writes the pending cell through the field after the plain write.
+    public static Cell<int> Ab213LambdaWritesAfterThePlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213LateLambda; Ab213SetLateLambda(l.Map(v => v)); a[0].Share = Plain; Action w = () => Ab213LateLambda[0].Share = l.Map(v => v); w(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4717. A method puts a new element with a pending cell through the field after the plain write.
+    public static Cell<int> Ab213MethodPutsAfterThePlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213PutLate; a[0].Share = Plain; Ab213Keep(Plain); Ab213PutLateElement(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4718. A method reverses the array of the field after the plain write, and the pending cell is in the second element.
+    public static Cell<int> Ab213MethodReversesTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Reversed; Ab213SetReversedSecond(l.Map(v => v)); a[0].Share = Plain; Ab213Reverse(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4719. The same with the call of Array.Reverse two calls down.
+    public static Cell<int> Ab213MethodReversesTheArrayTwoCallsDown() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213ReversedDeep; Ab213SetReversedDeepSecond(l.Map(v => v)); a[0].Share = Plain; Ab213ReverseDeepOuter(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4720. A method puts a new element through a span of the field after a pending write and the plain write.
+    public static Cell<int> Ab213MethodPutsThroughASpan() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Spanned; Ab213SetSpanned(l.Map(v => v)); a[0].Share = Plain; Ab213PutThroughASpan(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4721. A method puts an object with a pending cell through a second field of the array, after a pending write and the plain write.
+    public static Cell<int> Ab213MethodPutsThroughASecondField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Aliased; Ab213SetAliased(l.Map(v => v)); Ab213SetAliasedObject(l.Map(v => v)); a[0].Share = Plain; Ab213PutThroughTheAlias(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S4722. A method runs a lambda that puts a new element with a pending cell through the field, after the plain write.
+    public static Cell<int> Ab213MethodRunsALambdaThatPuts() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Run; Ab213SetRun(l.Map(v => v)); a[0].Share = Plain; Ab213RunIt(() => Ab213Run[0] = new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -28884,6 +28976,129 @@ public static class Shapes
     private static IAb208Second Ab208TwoAsSecondAt(int at) => Ab208Twos[at];
 
     private static void Ab208WriteSlot(IAb208Slot slot, Cell<int> share) => slot.Share = share;
+
+    private static readonly SettableSlot[] Ag92FieldedEarly = [new()];
+
+    private static void Ag92SetFieldedEarly(Cell<int> share) => Ag92FieldedEarly[0].Share = share;
+
+    private static readonly List<Cell<int>> Ab213Kept = [];
+
+    private static void Ab213Keep(Cell<int> share) => Ab213Kept.Add(share);
+
+    private static void Ab213KeepInABlock(Cell<int> share)
+    {
+        Ab213Kept.Add(share);
+    }
+
+    private static void Ab213KeepThroughASecond(Cell<int> share) => Ab213KeepInABlock(share);
+
+    private static readonly SettableSlot[] Ab213Twice = [new()];
+
+    private static void Ab213SetTwice(Cell<int> share) => Ab213Twice[0].Share = share;
+
+    private static readonly SettableSlot[] Ab213Lambda = [new()];
+
+    private static readonly SettableSlot[] Ab213Named = [new()];
+
+    private static void Ab213SetNamed(Cell<int> share) => Ab213Named[0].Share = share;
+
+    private static readonly SettableSlot[] Ab213Through = [new()];
+
+    private static void Ab213SetThrough(Cell<int> share) => Ab213Through[0].Share = share;
+
+    private static readonly SettableSlot[] Ab213PutEarly = [new()];
+
+    private static void Ab213PutEarlyElement(Cell<int> share) => Ab213PutEarly[0] = new SettableSlot { Share = share };
+
+    private static readonly SettableSlot[] Ab213Pair = [new(), new()];
+
+    private static void Ab213SetPairFirst(Cell<int> share) => Ab213Pair[0].Share = share;
+
+    private static readonly SettableSlot[] Ab213Own = [new()];
+
+    private static readonly SettableSlot[] Ab213Block = [new()];
+
+    private static void Ab213SetBlock(Cell<int> share) => Ab213Block[0].Share = share;
+
+    private static readonly SettableSlot[] Ab213Second = [new()];
+
+    private static void Ab213SetSecond(Cell<int> share) => Ab213Second[0].Share = share;
+
+    private static readonly SettableSlot[] Ab213Late = [new()];
+
+    private static void Ab213SetLate(Cell<int> share) => Ab213Late[0].Share = share;
+
+    private static readonly SettableSlot[] Ab213Again = [new()];
+
+    private static void Ab213SetAgain(Cell<int> share) => Ab213Again[0].Share = share;
+
+    private static readonly SettableSlot[] Ab213Nested = [new()];
+
+    private static void Ab213SetNested(Cell<int> share) => Ab213Nested[0].Share = share;
+
+    private static void Ab213SetNestedThrough(Cell<int> share) => Ab213SetNested(share);
+
+    private static readonly SettableSlot[] Ab213Branch = [new()];
+
+    private static void Ab213SetBranch(Cell<int> share) => Ab213Branch[0].Share = share;
+
+    private static readonly SettableSlot[] Ab213Other = [new(), new()];
+
+    private static void Ab213SetOtherFirst(Cell<int> share) => Ab213Other[0].Share = share;
+
+    private static readonly Ag92Pair[] Ab213Pairs = [new()];
+
+    private static void Ab213SetPairsShare(Cell<int> share) => Ab213Pairs[0].Share = share;
+
+    private static readonly SettableSlot[] Ab213LateLambda = [new()];
+
+    private static void Ab213SetLateLambda(Cell<int> share) => Ab213LateLambda[0].Share = share;
+
+    private static readonly SettableSlot[] Ab213PutLate = [new()];
+
+    private static void Ab213PutLateElement(Cell<int> share) => Ab213PutLate[0] = new SettableSlot { Share = share };
+
+    private static readonly SettableSlot[] Ab213Reversed = [new(), new()];
+
+    private static void Ab213SetReversedSecond(Cell<int> share) => Ab213Reversed[1].Share = share;
+
+    private static void Ab213Reverse() => Array.Reverse(Ab213Reversed);
+
+    private static readonly SettableSlot[] Ab213ReversedDeep = [new(), new()];
+
+    private static void Ab213SetReversedDeepSecond(Cell<int> share) => Ab213ReversedDeep[1].Share = share;
+
+    private static void Ab213ReverseDeep() => Array.Reverse(Ab213ReversedDeep);
+
+    private static void Ab213ReverseDeepOuter() => Ab213ReverseDeep();
+
+    private static readonly SettableSlot[] Ab213Spanned = [new()];
+
+    private static void Ab213SetSpanned(Cell<int> share) => Ab213Spanned[0].Share = share;
+
+    private static void Ab213PutThroughASpan(Cell<int> share)
+    {
+        Span<SettableSlot> span = Ab213Spanned;
+        span[0] = new SettableSlot { Share = share };
+    }
+
+    private static readonly SettableSlot[] Ab213Aliased = [new()];
+
+    private static readonly SettableSlot[] Ab213Alias = Ab213Aliased;
+
+    private static readonly SettableSlot Ab213AliasedObject = new();
+
+    private static void Ab213SetAliased(Cell<int> share) => Ab213Aliased[0].Share = share;
+
+    private static void Ab213SetAliasedObject(Cell<int> share) => Ab213AliasedObject.Share = share;
+
+    private static void Ab213PutThroughTheAlias() => Ab213Alias[0] = Ab213AliasedObject;
+
+    private static readonly SettableSlot[] Ab213Run = [new()];
+
+    private static void Ab213SetRun(Cell<int> share) => Ab213Run[0].Share = share;
+
+    private static void Ab213RunIt(Action act) => act();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
