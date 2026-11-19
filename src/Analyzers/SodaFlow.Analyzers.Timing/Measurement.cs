@@ -137,8 +137,26 @@ internal static class Measurement
                     concurrentAnalysis: false,
                     logAnalyzerExecutionTime: true));
 
-        ImmutableArray<Diagnostic> diagnostics =
-            await withAnalyzers.GetAnalyzerDiagnosticsAsync(CancellationToken.None).ConfigureAwait(false);
+        // The analysis goes one file at a time, and not over the full compilation in one call. In one
+        // call, the driver also compiles the code on a different thread while the analyzer runs.
+        // On GitHub runners, 80% of the passes over SodaFlow.Tests then took from 33 ms to 293 ms.
+        // An analyzer that did each walk two times did not always show as slower. A probable cause is
+        // that the time of the analyzer includes waits for the other thread, but no test examined it.
+        // One file at a time, the same pass took about 22 ms, and the noise was 3% or less. The
+        // analyzer with two walks then showed as 34% to 40% slower.
+        ImmutableArray<Diagnostic> diagnostics = [];
+
+        foreach (SyntaxTree tree in withAnalyzers.Compilation.SyntaxTrees)
+        {
+            ImmutableArray<Diagnostic> found =
+                await withAnalyzers.GetAnalyzerSemanticDiagnosticsAsync(
+                        model: withAnalyzers.Compilation.GetSemanticModel(tree),
+                        filterSpan: null,
+                        cancellationToken: CancellationToken.None)
+                    .ConfigureAwait(false);
+
+            diagnostics = diagnostics.AddRange(found);
+        }
 
         long after = GC.GetTotalAllocatedBytes(precise: true);
         int collected = GC.CollectionCount(generation: 0) - collections;

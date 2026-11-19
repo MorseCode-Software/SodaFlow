@@ -305,18 +305,23 @@ Task("Verify-Native-Aot")
 // with profile-guided optimization the JIT can make different code for the same method from one
 // process to the next.
 //
-// The defaults come from the calibration on GitHub runners; the pull request that added this
-// target has the numbers.
+// The defaults come from a calibration on ubuntu-latest and windows-latest, with three jobs for
+// each runner in which all three sides were one analyzer. With 4 rounds of 6 passes, the largest
+// difference that noise made was 2.5% on SodaFlow.Tests and on the view models, and 3.0% or
+// 0.06 ms on the two small workloads. Thus, the threshold is 5%, and the floor of 0.25 ms keeps a
+// workload of 1 to 3 ms from failing on noise. An analyzer that did each walk two times was 34% to
+// 40% slower on SodaFlow.Tests and on the view models. The pull request that added this target has
+// the full numbers.
 Task("Time-Analyzer")
     .Description("Compares the time of the loop analyzer of this tree with that of --baseline=<ref>.")
     .Does(() =>
 {
     var baseline = Argument("baseline", "origin/main");
-    var rounds = Argument("rounds", 6);
-    var runs = Argument("runs", 8);
+    var rounds = Argument("rounds", 4);
+    var runs = Argument("runs", 6);
     var warmUp = Argument("warm-up", 2);
-    var thresholdPercent = Argument("threshold-percent", 10.0);
-    var floorMilliseconds = Argument("floor-ms", 2.0);
+    var thresholdPercent = Argument("threshold-percent", 5.0);
+    var floorMilliseconds = Argument("floor-ms", 0.25);
 
     var root = MakeAbsolute(timingDirectory);
     var baselineTree = root.Combine("baseline");
