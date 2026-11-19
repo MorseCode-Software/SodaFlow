@@ -3875,6 +3875,23 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab254ThrowInALambdaThatAHelperRuns"] = ["SF1001"],
             ["Ab254ThrowTwoCallsDeep"] = ["SF1001"],
             ["Ab254ThrowInAConstructor"] = ["SF1001"],
-            ["Ab254ThrowInTheFunctionOfALazy"] = ["SF1001"]
+            ["Ab254ThrowInTheFunctionOfALazy"] = ["SF1001"],
+            ["R4LimBlockInACastClosesWithItself"] = ["SF1002"],
+            ["R4LimBlockInACastSamples"] = ["SF1001"],
+            ["R4LimBlockInADelegateCreationSamples"] = ["SF1001"],
+            ["R4LimBlockInALocalDelegateGivenTwoValues"] = ["SF1001"],
+            ["R4LimBlockInParenthesesSamples"] = ["SF1001"],
+            ["R4LimForwardReferenceBlockInACastSamples"] = ["SF1001"],
+            ["Ab241BlockInParenthesesOfACastSamples"] = ["SF1001"],
+            ["Ab241BlockInALocalDelegateMadeByACastSamples"] = ["SF1001"],
+            ["Ab241BlockInADelegateCreationOfALocalSamples"] = ["SF1001"],
+            ["Ab241BlockInAFieldSamples"] = ["SF1003"],
+            ["Ab241BlockAsAParameterSamples"] = ["SF1003"],
+            ["Ab241BlockOfAConditionalSamples"] = ["SF1003"],
+            ["Ab241BlockInALocalDelegateGivenAValueInAnIf"] = ["SF1003"],
+            ["Ab241BlockInALocalDelegateGivenAValueAfterALabel"] = ["SF1003"],
+            ["Ab241BlockInALocalDelegateReadInALambdaGivenAValueLater"] = ["SF1003"],
+            ["Ab241BlockInALocalDelegateWithAnAddedLambda"] = ["SF1003"],
+            ["Ab241BlockMadeByAConversionOfACreation"] = ["SF1003"]
         };
 }

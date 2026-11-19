@@ -25955,6 +25955,86 @@ public static class Shapes
     public static Cell<int> Ab254CatchOfASiblingTypeGetsNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { try { throw new Ab254LeftFault(l.Map(v => v)); } catch (Ab254RightFault e) { Kept.Add(e.Share.Sample()); } catch (Ab254LeftFault) { Kept.Add(1); } return S.Hold(0); });
 
+    // S6010. The block is a lambda in a cast, and it closes the loop with a Map of the placeholder.
+    public static Cell<int> R4LimBlockInACastClosesWithItself() =>
+        Cell.Loop<int>().WithoutCaptures((Func<LoopedCell<int>, Cell<int>>)(l => l.Map(v => v)));
+
+    // S6011. The block is a lambda in a cast, and it samples the placeholder.
+    public static Cell<int> R4LimBlockInACastSamples() =>
+        Cell.Loop<int>().WithoutCaptures((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }));
+
+    // S6012. The block is a lambda in a creation of a delegate, and it samples the placeholder.
+    public static Cell<int> R4LimBlockInADelegateCreationSamples() =>
+        Cell.Loop<int>().WithoutCaptures(new Func<LoopedCell<int>, Cell<int>>(l => { Kept.Add(l.Sample()); return S.Hold(0); }));
+
+    // S6013. The block is a local delegate that gets a second lambda, which samples the placeholder.
+    public static Cell<int> R4LimBlockInALocalDelegateGivenTwoValues() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S6014. The block is a lambda in parentheses, and it samples the placeholder.
+    public static Cell<int> R4LimBlockInParenthesesSamples() =>
+        Cell.Loop<int>().WithoutCaptures((l => { Kept.Add(l.Sample()); return S.Hold(0); }));
+
+    // S6015. The block of a forward reference is a lambda in a cast, and it samples the reference.
+    public static Cell<int> R4LimForwardReferenceBlockInACastSamples() =>
+        ForwardReference<StoringRow>.WithoutCaptures((Func<LoopedCell<StoringRow>, StoringRow>)(r => { Kept.Add(r.Sample()); return new StoringRow(Plain); })).Cell;
+
+    // S6016. The block is a lambda in parentheses in a cast in parentheses, and it samples the placeholder.
+    public static Cell<int> Ab241BlockInParenthesesOfACastSamples() =>
+        Cell.Loop<int>().WithoutCaptures(((Func<LoopedCell<int>, Cell<int>>)((l => { Kept.Add(l.Sample()); return S.Hold(0); }))));
+
+    // S6017. The block is a lambda in a cast, and it does not sample. A control.
+    public static Cell<int> Ab241BlockInACastDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Map(v => v)); return S.Hold(0); }));
+
+    // S6018. The block is a local delegate whose only value is a lambda in a cast, and it samples the placeholder.
+    public static Cell<int> Ab241BlockInALocalDelegateMadeByACastSamples() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = (Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S6019. The block is a creation of a delegate from a local delegate whose only value is a lambda that samples.
+    public static Cell<int> Ab241BlockInADelegateCreationOfALocalSamples() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; return Cell.Loop<int>().WithoutCaptures(new Func<LoopedCell<int>, Cell<int>>(block)); }))();
+
+    // S6020. The block is a static field with a lambda that samples. The walk has no body to read.
+    public static Cell<int> Ab241BlockInAFieldSamples() =>
+        Cell.Loop<int>().WithoutCaptures(Ab241SamplingBlock);
+
+    // S6021. The block is a parameter of a lambda, and the call gives it a lambda that samples. The walk has no body to read.
+    public static Cell<int> Ab241BlockAsAParameterSamples() =>
+        ((Func<Func<LoopedCell<int>, Cell<int>>, Cell<int>>)(block => Cell.Loop<int>().WithoutCaptures(block)))(l => { Kept.Add(l.Sample()); return S.Hold(0); });
+
+    // S6022. The block is one of two lambdas of a conditional expression, and one samples. The walk has no one body to read.
+    public static Cell<int> Ab241BlockOfAConditionalSamples() =>
+        Cell.Loop<int>().WithoutCaptures(Kept.Count >= 0 ? l => { Kept.Add(l.Sample()); return S.Hold(0); } : l => S.Hold(1));
+
+    // S6023. A local delegate gets a lambda that samples in an if before the block runs. The walk does not know which value the local has.
+    public static Cell<int> Ab241BlockInALocalDelegateGivenAValueInAnIf() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); if (Kept.Count >= 0) { block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; } return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S6024. A local delegate gets a lambda that samples after the statement of the block. The block has the lambda of the declaration, which does not sample.
+    public static Cell<int> Ab241BlockInALocalDelegateGivenAValueAfterTheBlock() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); Cell<int> made = Cell.Loop<int>().WithoutCaptures(block); block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; Kept.Add(block); return made; }))();
+
+    // S6025. A local delegate gets a lambda that does not sample after a label that a goto runs again. The block runs with that lambda, and the walk does not know the order.
+    public static Cell<int> Ab241BlockInALocalDelegateGivenAValueAfterALabel() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; int n = 0; again: if (n++ > 0) { return Cell.Loop<int>().WithoutCaptures(block); } block = l => S.Hold(0); goto again; }))();
+
+    // S6026. A lambda uses a local delegate as the block, and the local gets a lambda that samples before the lambda runs. The walk does not know the order.
+    public static Cell<int> Ab241BlockInALocalDelegateReadInALambdaGivenAValueLater() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); Func<Cell<int>> make = () => Cell.Loop<int>().WithoutCaptures(block); block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; return make(); }))();
+
+    // S6027. A local delegate that samples gets a second lambda with +=. The block runs both, and the walk does not read two.
+    public static Cell<int> Ab241BlockInALocalDelegateWithAnAddedLambda() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; block += l => S.Hold(0); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S6028. The block is a creation of a class that converts to the delegate with an operator. The lambda in the creation is not the block.
+    public static Cell<int> Ab241BlockMadeByAConversionOfACreation() =>
+        Cell.Loop<int>().WithoutCaptures(new Ab241BlockMaker(l => { Kept.Add(l.Sample()); return S.Hold(0); }));
+
+    // S6029. The block is an anonymous method with no parameters, which cannot read the placeholder.
+    public static Cell<int> Ab241BlockAsAnAnonymousMethodWithNoParameters() =>
+        Cell.Loop<int>().WithoutCaptures(delegate { return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -37326,6 +37406,21 @@ public static class Shapes
     public sealed class Ab254LeftFault(Cell<int> share) : Ab254BaseFault(share);
 
     public sealed class Ab254RightFault(Cell<int> share) : Ab254BaseFault(share);
+
+    private static readonly Func<LoopedCell<int>, Cell<int>> Ab241SamplingBlock =
+        l =>
+        {
+            Kept.Add(l.Sample());
+            return S.Hold(0);
+        };
+
+    public sealed class Ab241BlockMaker
+    {
+        public Ab241BlockMaker(Func<LoopedCell<int>, Cell<int>> kept) => Kept.Add(kept);
+
+        public static implicit operator Func<LoopedCell<int>, Cell<int>>(Ab241BlockMaker maker) =>
+            static _ => S.Hold(0);
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

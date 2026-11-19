@@ -1457,8 +1457,9 @@ internal sealed partial class LoopReadAnalyzerTests
 
     /// <summary>
     ///     A block can be the name of a method with no body, as a method of an
-    ///     interface is. The analyzer has no code to read for that block, and it
-    ///     reports nothing. The method that runs returns and reads nothing.
+    ///     interface is. The analyzer has no code to read for that block. Thus,
+    ///     it reports SF1003 at the block, because an implementation can read the
+    ///     placeholder. The method that runs here returns and reads nothing.
     /// </summary>
     [Test]
     public async Task AMethodWithNoBodyIsNoBlockToRead()
@@ -1487,7 +1488,7 @@ internal sealed partial class LoopReadAnalyzerTests
             """;
 
         await Assert.That(await RulesIn(source: source, assemblyName: "OnlyAnInterfaceBlock", images: []))
-            .IsEmpty();
+            .IsEquivalentTo(["SF1003"]);
     }
 
     /// <summary>

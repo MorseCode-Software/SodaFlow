@@ -227,8 +227,12 @@ lifetimes](lifetimes.md#the-mistake-that-fails-silently) describes it.
 
 The analyzer reads the code that runs while a loop is open: the function that you give a loop
 block or a forward reference. That function can be a lambda, an anonymous method, or a method of
-your project given by name. When that code calls your own methods, constructors, local functions,
-or property getters, the analyzer reads them too.
+your project given by name, also in parentheses, in a cast, or in `new Func<...>(...)`. It can also
+be a local that holds such a function, from its declaration or from the last assignment before the
+block, where both are statements of one block. A block whose function the analyzer cannot find
+this way, such as a delegate from a field or a parameter, or a local that gets its function under a
+condition, gets `SF1003`, because none of its code is checked. When that code calls your own
+methods, constructors, local functions, or property getters, the analyzer reads them too.
 
 ### The rules
 
@@ -239,7 +243,7 @@ is quiet.
 | --- | --- | --- |
 | `SF1001` | `Sample()`, the `Value` of a bindable, a write to the `Value` of a two-way bindable, or `CanExecute`, `Execute`, or `Dispose` of a bindable action, on a value made from the placeholder, in the block. | Use `SampleLazy` or a lazy form, or move the read into a callback. |
 | `SF1002` | A loop whose definition links to its own placeholder, with no hold that it samples, `Operational.Defer`, or timer between them. This throws `DependencyCycleException`, at the close or when a switch selects the loop. With `ForwardReference`, the same holds for a member of the object that is defined by reading that member back through the reference, for example with `SwitchC`. | Put a hold that the definition samples, `Operational.Defer`, or a timer in the cycle. |
-| `SF1003` | A value made from the placeholder that goes to code the analyzer cannot read, and that can read the value. | If that code does not read the value before the close, [mark the argument](#code-the-analyzer-cannot-read). |
+| `SF1003` | A value made from the placeholder that goes to code the analyzer cannot read, and that can read the value. Also a block whose function the analyzer cannot read. | If that code does not read the value before the close, [mark the argument](#code-the-analyzer-cannot-read). |
 | `SF1004` | A method, constructor, local function, or lambda of your project that reads a value it gets from the block. Reported at the argument. | As for `SF1001`, in that code. |
 | `SF1005` | A call that reads a pending member of an object built in the block. Also a helper that reads a field the block set, or a lambda that your code kept and the block runs. Reported at the call. | Make the call after the block, or in a callback. |
 | `SF1006` | A loop whose initial value reads the loop, through a lazy sample of it or a `Map` whose function samples it. With `ForwardReference`, a member that is read back while it is still pending, so that the first read of the member needs its own value. | Give the loop an initial value that does not read the loop. |
