@@ -4148,6 +4148,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab268ReadonlyFieldStructChangesInItsConstructor"] = ["SF1001"],
             ["Ab268RefLocalStructChanges"] = ["SF1001"],
             ["Ab268ReadonlyFieldStructChangesInAnInitAccessor"] = ["SF1001"],
-            ["Ab268ReadonlyFieldOfAClassChanges"] = ["SF1001"]
+            ["Ab268ReadonlyFieldOfAClassChanges"] = ["SF1001"],
+            ["Ag96RefFromACallWhoseLocationGetsAnObjectInALoop"] = ["SF1001"],
+            ["Ag96RefFromACallWhoseLocationGetsAnObjectFromThePlatformInALoop"] = ["SF1001"],
+            ["Ag96RefOfALocalThatGetsAnObjectInAForeach"] = ["SF1001"],
+            ["Ag96RefMovedAtTheEndOfAForeach"] = ["SF1001"]
         };
 }

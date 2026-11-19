@@ -28675,6 +28675,22 @@ public static class Shapes
     public static Cell<int> Ab268ReadonlyFieldOfAClassChanges() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab268Built b = new(Plain); b.PutInTheBox(l.Map(v => v)); Kept.Add(b.BoxShare.Sample()); return S.Hold(0); });
 
+    // S6690. A ref local gets its location from a call, and the end of the loop body gives that location the second object. The second turn writes the plain cell to the second object, and the first object keeps the pending cell.
+    public static Cell<int> Ag96RefFromACallWhoseLocationGetsAnObjectInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = Plain }; SettableSlot b = new() { Share = Plain }; SettableSlot first = a; Cell<int> c = l.Map(v => v); ref SettableSlot r = ref Ag96Pick(ref a); foreach (int i in new[] { 0, 1 }) { r.Share = c; c = Plain; a = b; } Kept.Add(first.Share!.Sample()); Kept.Add(b); return S.Hold(0); });
+
+    // S6691. The same, and a platform method gives the location the second object.
+    public static Cell<int> Ag96RefFromACallWhoseLocationGetsAnObjectFromThePlatformInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = Plain }; SettableSlot b = new() { Share = Plain }; SettableSlot first = a; Cell<int> c = l.Map(v => v); ref SettableSlot r = ref Ag96Pick(ref a); foreach (int i in new[] { 0, 1 }) { r.Share = c; c = Plain; System.Threading.Volatile.Write(ref a, b); } Kept.Add(first.Share!.Sample()); Kept.Add(b); return S.Hold(0); });
+
+    // S6692. A ref local of a local, and the end of a foreach body gives the local the second object.
+    public static Cell<int> Ag96RefOfALocalThatGetsAnObjectInAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = Plain }; SettableSlot b = new() { Share = Plain }; SettableSlot first = a; Cell<int> c = l.Map(v => v); ref SettableSlot r = ref a; foreach (int i in new[] { 0, 1 }) { r.Share = c; c = Plain; a = b; } Kept.Add(first.Share!.Sample()); Kept.Add(b); return S.Hold(0); });
+
+    // S6693. A ref local is moved to the second object at the end of a foreach body.
+    public static Cell<int> Ag96RefMovedAtTheEndOfAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = Plain }; SettableSlot b = new() { Share = Plain }; SettableSlot first = a; Cell<int> c = l.Map(v => v); ref SettableSlot r = ref a; foreach (int i in new[] { 0, 1 }) { r.Share = c; c = Plain; r = ref b; } Kept.Add(first.Share!.Sample()); Kept.Add(b); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40761,6 +40777,8 @@ public static class Shapes
     {
         public Ab268Other(Ab268Built b, Cell<int> c) => b.Open.Set(c);
     }
+
+    private static ref SettableSlot Ag96Pick(ref SettableSlot s) => ref s;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
