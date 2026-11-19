@@ -2909,6 +2909,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                     this.evaluator.Fills(method: method, arguments: arguments, replaces: always, turn: itsTurn);
                 }
+                else if (LoopStateEvaluator.IsArrayReverse(method: method, arguments: arguments))
+                {
+                    (bool always, SyntaxNode? itsTurn) = this.WhereACallRuns(node);
+
+                    this.evaluator.Reverses(arguments: arguments, replaces: always, turn: itsTurn);
+                }
                 else
                 {
                     // Only Fill of a view can give positions, thus only it needs where the call runs.

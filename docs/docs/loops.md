@@ -313,8 +313,10 @@ The analyzer follows a value made from the placeholder through the code of your 
 - Collections, arrays, and dictionaries. A list or an array that you write as a literal keeps each
   element apart, so `cells[0]`, `cells[^1]`, and `cells.ElementAt(1)` are each one element. A
   `Dictionary` that you write with constant keys and no comparer, and that the code then only
-  reads, keeps the value of each key apart, so `cells["total"]` is that one value. `Array.Fill`
-  puts its value into each element that it fills, as an assignment to that element would. A
+  reads, keeps the value of each key apart, so `cells["total"]` is that one value. A key of the type
+  `object` has the type of its constant too, so the `int` 1 and the `long` 1 are two keys.
+  `Array.Fill` puts its value into each element that it fills, as an assignment to that element
+  would, and `Array.Reverse` of a whole array moves each element to the other end. A
   `Span<T>`, `ReadOnlySpan<T>`, `Memory<T>`, `ReadOnlyMemory<T>`, or `ArraySegment<T>` that a method
   makes from an array in one of its locals or parameters, with an implicit conversion, `AsSpan`,
   `AsMemory`, a constructor, `Slice`, or a range, is another name for the elements of that array,
@@ -324,7 +326,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   constant, as `AsSpan(1)` or `[1..]` does, a write to an element at a constant index and a `Fill`
   reach only the elements of the array that they write. Otherwise, they reach every element. A write to a member through an element of a local array,
   `List<T>`, or `Dictionary` created with no comparer, at a constant index or key or at an index in
-  a local, replaces what an earlier write gave that member. So does a write through a local that got
+  a local, replaces what an earlier write gave that member. An index in a local that gets only a
+  constant is that constant index. So does a write through a local that got
   that element, and a later read through either one sees only the last value. A local that gets the
   array or the list in a field sees each element that code puts in through the field later, also in
   a method, until the local or the field gets a different value.
@@ -414,6 +417,8 @@ careful side, so it can report a read that does not throw:
   count as options that write public fields and read-only properties.
 - A sample in the function of a task that `RunSynchronously` runs gets `SF1001`, although the task
   keeps the exception and the code after the call goes on. Only a later `Wait` or `Result` throws.
+  The same holds for a sample before the first `await` of an `async` local function or lambda whose
+  task nothing waits for.
 - The function of a `Map`, a `Lift`, a collection view, or a `LazySample.Defer` also counts with
   the values that it read where you built the cell. If it read a pending value there, the first
   read of the cell gets a report, even when the code gave that capture or member a plain value

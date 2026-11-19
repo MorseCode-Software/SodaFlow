@@ -26159,6 +26159,34 @@ public static class Shapes
     public static Cell<int> Ab244BareVirtualCallThroughALocalOfThisReads() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab244SelfRunnerReader().RunThroughSelf(l.Map(v => v))); return S.Hold(0); });
 
+    // S6061. Array.Reverse moves the plain cell of an array literal to the back.
+    public static Cell<int> R4LimArrayReverseMovesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, l.Map(v => v)]; Array.Reverse(a); Kept.Add(a[1].Sample()); return S.Hold(0); });
+
+    // S6062. A dictionary of object keys has the int 1 and the long 1. The block reads the long key, which has the plain cell.
+    public static Cell<int> R4LimDictionaryObjectKeysOfTwoTypesReadThePlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<object, Cell<int>> d = new() { [1] = l.Map(v => v), [1L] = Plain }; Kept.Add(d[1L].Sample()); return S.Hold(0); });
+
+    // S6063. A member of element i gets a pending cell and then a plain cell, with no change to i.
+    public static Cell<int> R4LimMemberWriteAtALocalIndexThatStays() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new(), new()]; int i = 0; a[i].Share = l.Map(v => v); a[i].Share = Plain; Kept.Add(a[0].Share!.Sample()); return S.Hold(0); });
+
+    // S6064. Array.Reverse runs under a condition, and moves the pending cell of an array literal to the front.
+    public static Cell<int> Ag95ArrayReverseUnderAConditionMovesThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, l.Map(v => v)]; if (Kept.Count >= 0) { Array.Reverse(a); } Kept.Add(a[0].Sample()); return S.Hold(0); });
+
+    // S6065. A dictionary of object keys has the enum value Sunday and the int 0. The block reads the int key, which has the plain cell.
+    public static Cell<int> Ag95DictionaryObjectKeysOfAnEnumAndAnIntReadThePlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<object, Cell<int>> d = new() { [DayOfWeek.Sunday] = l.Map(v => v), [0] = Plain }; Kept.Add(d[0].Sample()); return S.Hold(0); });
+
+    // S6066. A dictionary of object keys has two strings. The block reads the key with the pending cell.
+    public static Cell<int> Ag95DictionaryObjectKeysOfStringsReadThePending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<object, Cell<int>> d = new() { ["a"] = l.Map(v => v), ["b"] = Plain }; Kept.Add(d["a"].Sample()); return S.Hold(0); });
+
+    // S6067. A local index gets a second value, 0. A member of element i gets a pending cell, and a member of element 1 gets a plain cell. The block reads through element i.
+    public static Cell<int> Ag95MemberWriteAtALocalIndexWithASecondValueReadThroughTheIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new(), new()]; int i = 1; i = 0; a[i].Share = l.Map(v => v); a[1].Share = Plain; Kept.Add(a[i].Share!.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

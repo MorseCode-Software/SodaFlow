@@ -75,11 +75,30 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return known != null
-               && KeyOf(this.region.ModelFor(access).GetConstantValue(access.ArgumentList.Arguments[0].Expression))
+               && this.KeyOf(key: access.ArgumentList.Arguments[0].Expression, ofObjects: HasObjectKeys(local))
                    is { } key
                && known.TryGetValue(key: key, value: out ExpressionSyntax? value)
             ? value
             : null;
+    }
+
+    // True for a dictionary whose keys are objects. See KeyOf.
+    private static bool HasObjectKeys(ISymbol local) =>
+        local is ILocalSymbol { Type: INamedTypeSymbol { TypeArguments: { Length: 2 } keyAndValue } }
+        && keyAndValue[0].SpecialType == SpecialType.System_Object;
+
+    // The key that a constant gives in a dictionary. A key of the type object is a boxed value. Its
+    // Equals is true only for a value of the same type, thus the key has the type of the constant.
+    private object? KeyOf(ExpressionSyntax key, bool ofObjects)
+    {
+        SemanticModel model = this.region.ModelFor(key);
+        Optional<object?> constant = model.GetConstantValue(key);
+
+        return ofObjects
+            ? constant is { HasValue: true, Value: { } value } && model.GetTypeInfo(key).Type is { } type
+                ? (type.ToDisplayString(), value)
+                : null
+            : KeyOf(constant);
     }
 
     // The value expression for each constant key of the initializer that made a dictionary in a local,
@@ -99,14 +118,14 @@ internal sealed partial class LoopStateEvaluator
             || this.region.TypeOf(made)
                 is not INamedTypeSymbol { Name: "Dictionary", TypeArguments: { Length: 2 } types } dictionary
             || !SodaFlowSymbols.IsPlatform(dictionary)
-            || !IsATypeOfConstantKeys(types[0])
+            || !(IsATypeOfConstantKeys(types[0]) || HasObjectKeys(local))
             || declarator.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
         {
             return null;
         }
 
         Dictionary<object, ExpressionSyntax> values = [];
-        SemanticModel model = this.region.ModelFor(made);
+        bool ofObjects = HasObjectKeys(local);
 
         foreach (ExpressionSyntax element in initializer.Expressions)
         {
@@ -118,13 +137,13 @@ internal sealed partial class LoopStateEvaluator
                         Left: ImplicitElementAccessSyntax { ArgumentList.Arguments: { Count: 1 } keys },
                         Right: not InitializerExpressionSyntax and var value
                     }
-                    when KeyOf(model.GetConstantValue(keys[0].Expression)) is { } key:
+                    when this.KeyOf(key: keys[0].Expression, ofObjects: ofObjects) is { } key:
                     values[key] = value;
 
                     break;
                 // Add throws an exception for a second value of a key.
                 case InitializerExpressionSyntax { Expressions: { Count: 2 } pair }
-                    when KeyOf(model.GetConstantValue(pair[0])) is { } key && !values.ContainsKey(key):
+                    when this.KeyOf(key: pair[0], ofObjects: ofObjects) is { } key && !values.ContainsKey(key):
                     values[key] = pair[1];
 
                     break;

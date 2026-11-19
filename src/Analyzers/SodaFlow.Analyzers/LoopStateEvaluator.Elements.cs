@@ -234,11 +234,22 @@ internal sealed partial class LoopStateEvaluator
             ?? (Unwrapped(index) is IdentifierNameSyntax
                 && this.region.SymbolOf(index) is { } local and (ILocalSymbol or IParameterSymbol)
                 && KeepsItsObject(local)
-                    ? local
+                    ? this.ConstantOfALocal(local) ?? local
                     : null);
 
         return key == null ? null : (collection, key);
     }
+
+    // The key of the constant that a local gets in its declaration, when it gets no other value. An
+    // index in such a local is the same index as that constant.
+    private object? ConstantOfALocal(ISymbol local) =>
+        local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is VariableDeclaratorSyntax { Initializer.Value: { } initial } declarator
+        && FunctionOf(declarator) is { } code
+        && KeyOf(this.region.ModelFor(initial).GetConstantValue(initial)) is { } key
+        && this.HasOneValueIn(name: local, code: code)
+            ? key
+            : null;
 
     // True for a collection whose read of one index runs no code of the project and gives the
     // element that the last put there gave. It is an array with one dimension, a List, or a
