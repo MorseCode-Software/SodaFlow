@@ -439,7 +439,15 @@ paging back and forth over the same rows free.
 
 `onEvicted` is where anything a row owns gets released, and disposing the `MappedItems` releases
 everything still held, including the rows that never left and so were never evicted. A projection
-that builds bindables needs both halves of that or it leaks the ones still on screen.
+that builds bindables needs both halves of that or it leaks the ones still on screen. After the
+dispose, the projection never runs again and `Items` goes empty in the same transaction, so a list
+that is still bound to it, such as a view that outlives its view model, shows nothing that was
+released. A dispose from inside a callback, such as a listener or the `onEvicted` of another
+projection, empties `Items` in the transaction just after, because SodaFlow does not let a callback
+send into the transaction it runs in. That transaction runs before the lock is let go, so no other
+thread sees the released rows. Work that the first transaction posted before the dispose, such as
+the refresh of a binding, runs first and does see them. A dispose whose transaction fails also
+empties `Items` after the failure, and there a transaction on another thread can come first.
 
 F# has `map` and `mapWith`, the second taking the bound and the eviction callback.
 

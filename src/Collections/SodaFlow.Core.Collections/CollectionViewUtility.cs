@@ -780,10 +780,78 @@ internal static class CollectionViewUtility
                 onEvicted: onEvicted,
                 keyEqualityComparer: collection.Root.KeyEqualityComparer);
 
+        // The disposal sends here.
+        StreamSink<UnitInternal> releases = new();
+
+        // One transaction, thus the first value and the first update use one version of the keys.
+        Cell<IReadOnlyList<TResult>> items =
+            TransactionInternal.RunImpl(() =>
+                releases.MapToImpl<IReadOnlyList<TResult>>([])
+                    .OrElseImpl(collection.KeysCell.UpdatesImpl.MapImpl(cache.ProjectUnlessReleased).FilterSomeInternal())
+                    .HoldLazyImpl(
+                        collection.KeysCell.SampleLazyMappedImpl(keys =>
+                            cache.ProjectUnlessReleased(keys)
+                                .Match(
+                                    onSome: static projected => projected,
+                                    onNone: static () => []))));
+
+        // The release runs at the call and not in the graph. Thus, the eviction callback runs where the
+        // caller runs, as before. The transaction stops a change of the keys on a different thread
+        // during the release.
+        //
+        // Outside a callback, the send makes the items empty in the transaction of the call. The
+        // release wins over a change of the keys in it.
+        //
+        // In a callback, the sink refuses the send, and a caller can dispose a projection in a listener
+        // or in an eviction callback. Thus, the send occurs in a posted action. Until then, the items
+        // keep the released objects. The post runs after the commit, while the transaction holds the
+        // lock. Thus, no transaction on a different thread can read the items before the send. A send
+        // after the release of the lock let a different thread read them first. Before that, a
+        // stream that was not a sink got the send directly. In a callback, that put a second firing of
+        // the merge into the transaction. A cell that read the items and a different cell then got an
+        // earlier value of the different cell.
+        //
+        // A transaction that fails discards the send, but the cache stays released. Thus, the discard
+        // sends again after that transaction. A failure also drops a post and calls its failure
+        // action, which does the same. After a failure, the transaction cannot receive a send. Thus,
+        // that send must wait for the release of the lock.
         return new MappedItems<TResult>(
-            items: collection.KeysCell.MapImpl(cache.Project),
-            dispose: cache.ReleaseAll);
+            items: items,
+            dispose: () =>
+                TransactionInternal.Apply(
+                    code: static (trans, _, state) =>
+                    {
+                        if (!state.Cache.Release())
+                        {
+                            return UnitInternal.Value;
+                        }
+
+                        StreamSink<UnitInternal> releases = state.Releases;
+
+                        if (trans.InCallback > 0)
+                        {
+                            TransactionInternal.PostImpl(
+                                action: () => releases.SendImpl(UnitInternal.Value),
+                                onFailure: _ => SendAfterTheTransaction(releases));
+
+                            return UnitInternal.Value;
+                        }
+
+                        trans.Last(
+                            commit: static () =>
+                            {
+                            },
+                            discard: () => SendAfterTheTransaction(releases));
+
+                        releases.SendImpl(UnitInternal.Value);
+
+                        return UnitInternal.Value;
+                    },
+                    state: (Cache: cache, Releases: releases)));
     }
+
+    private static void SendAfterTheTransaction(StreamSink<UnitInternal> releases) =>
+        TransactionInternal.AfterReleaseImpl(() => releases.SendImpl(UnitInternal.Value));
 
     #endregion
 

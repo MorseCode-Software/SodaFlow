@@ -13,6 +13,24 @@ constant is almost always an arithmetic slip in the caller, and the view is buil
 overloads still clamp, because a throw there would fail whichever transaction moved the cell; the documentation now
 says so. An offset past the end still gives an empty page on both.
 
+Fixed: disposing a MappedItems did not stop the projection. Dispose released every object the projection held and
+emptied its cache, but Items was still a map of the keys, so the next change of the keys ran the projection again for
+every key in the view and kept the new objects where nothing would release them. A list still bound to Items, such as
+a view that outlives its view model, went on rebuilding rows for a view model that was gone. Now the projection never
+runs after Dispose, and Items becomes empty in the transaction of the Dispose, so a list still bound to it shows
+nothing that was released. Dispose also runs in a transaction, the open one or a new one, where before it cleared the
+caches with no lock while a transaction on another thread could be changing them. The eviction callback for the
+objects it releases therefore runs inside that transaction, so a send it makes joins that transaction rather than
+starting one of its own. A Dispose inside a callback, such as a listener, a map, or the eviction callback of another
+projection, empties Items in the transaction just after it instead, because a callback cannot send into its own
+transaction; until then Items still holds the released objects. That transaction runs before the transaction lock is
+released, so a transaction on another thread never sees them. A Dispose whose transaction fails also empties Items after
+the failure, where it would otherwise keep the released objects for good; there a transaction on another thread can run
+first. Tests cover a later change of the keys; a Dispose before an edit, after it, or in a listener or a map in the same
+transaction, each with a check that a cell of the items and the keys agrees with both; a Dispose in the eviction
+callback of another projection; a Dispose in a listener while another thread waits for the lock; a Dispose whose
+transaction fails; and a Dispose that waits for a transaction on another thread. Each failed on the previous code.
+
 Fixed: the cache of per-key cells compares keys as the collection does. It used the default comparer, so on a
 collection keyed with a comparer such as StringComparer.OrdinalIgnoreCase, a key asked for in two spellings got two
 cells, each with its own node chain and subscription; both were correct, since the changes they read use the
