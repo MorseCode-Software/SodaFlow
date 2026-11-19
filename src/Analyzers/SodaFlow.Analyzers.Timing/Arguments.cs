@@ -17,7 +17,10 @@ internal sealed class Arguments
     private Arguments(ImmutableDictionary<string, ImmutableArray<string>> values) => this.values = values;
 
     /// <summary>Reads the options that follow the command.</summary>
-    /// <param name="arguments">The text of each option, such as "--runs" and then "10".</param>
+    /// <param name="arguments">
+    ///     The text of each option, such as "--runs" and then
+    ///     "10".
+    /// </param>
     /// <returns>The options.</returns>
     public static Arguments Parse(IReadOnlyList<string> arguments)
     {
@@ -28,14 +31,15 @@ internal sealed class Arguments
 
         IEnumerable<(string Name, string Value)> pairs =
             Enumerable.Range(start: 0, count: arguments.Count / 2)
-                .Select(index => (Name: arguments[index * 2], Value: arguments[(index * 2) + 1]));
+                .Select(index => (Name: arguments[index * 2], Value: arguments[index * 2 + 1]));
 
         return new Arguments(
             pairs
-                .Select(static pair => pair.Name.StartsWith("--", StringComparison.Ordinal)
-                    ? pair
-                    : throw new ArgumentException($"An option name must start with \"--\": {pair.Name}"))
-                .GroupBy(static pair => pair.Name[2..], StringComparer.Ordinal)
+                .Select(static pair =>
+                    pair.Name.StartsWith(value: "--", comparisonType: StringComparison.Ordinal)
+                        ? pair
+                        : throw new ArgumentException($"An option name must start with \"--\": {pair.Name}"))
+                .GroupBy(keySelector: static pair => pair.Name[2..], comparer: StringComparer.Ordinal)
                 .ToImmutableDictionary(
                     keySelector: static group => group.Key,
                     elementSelector: static group => group.Select(static pair => pair.Value).ToImmutableArray(),
@@ -46,7 +50,7 @@ internal sealed class Arguments
     /// <param name="name">The name of the option, with no "--".</param>
     /// <returns>The values, in the order of the command line. There can be none.</returns>
     public ImmutableArray<string> All(string name) =>
-        this.values.TryGetValue(name, out ImmutableArray<string> found) ? found : [];
+        this.values.TryGetValue(key: name, value: out ImmutableArray<string> found) ? found : [];
 
     /// <summary>Gives the one value of an option that must occur one time.</summary>
     /// <param name="name">The name of the option, with no "--".</param>
@@ -62,11 +66,12 @@ internal sealed class Arguments
     /// <summary>Gives the one value of an option as an integer.</summary>
     /// <param name="name">The name of the option, with no "--".</param>
     /// <returns>The number.</returns>
-    public int Integer(string name) => int.Parse(this.One(name), NumberStyles.None, CultureInfo.InvariantCulture);
+    public int Integer(string name) =>
+        int.Parse(s: this.One(name), style: NumberStyles.None, provider: CultureInfo.InvariantCulture);
 
     /// <summary>Gives the one value of an option as a number.</summary>
     /// <param name="name">The name of the option, with no "--".</param>
     /// <returns>The number.</returns>
     public double Number(string name) =>
-        double.Parse(this.One(name), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture);
+        double.Parse(s: this.One(name), style: NumberStyles.AllowDecimalPoint, provider: CultureInfo.InvariantCulture);
 }

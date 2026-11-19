@@ -15,8 +15,8 @@ using Microsoft.CodeAnalysis.Diagnostics.Telemetry;
 namespace SodaFlow.Analyzers.Timing;
 
 /// <summary>
-///     One round of the timing: one process that times each analyzer over each
-///     workload.
+///     One round of the timing: one process that times each analyzer over
+///     each workload.
 /// </summary>
 internal static class Measurement
 {
@@ -28,8 +28,14 @@ internal static class Measurement
     /// <summary>Times each analyzer over each workload, and gives each pass.</summary>
     /// <param name="sides">The name and the analyzer file of each side.</param>
     /// <param name="repository">The root of the repository, which has the workloads.</param>
-    /// <param name="references">The folder of the library assemblies and the TUnit assemblies.</param>
-    /// <param name="round">The number of the round. It sets the first order of the sides.</param>
+    /// <param name="references">
+    ///     The folder of the library assemblies and the TUnit
+    ///     assemblies.
+    /// </param>
+    /// <param name="round">
+    ///     The number of the round. It sets the first order of the
+    ///     sides.
+    /// </param>
     /// <param name="warmUp">The passes of each side that the round does not record.</param>
     /// <param name="runs">The passes of each side that the round records.</param>
     /// <returns>The recorded passes.</returns>
@@ -43,7 +49,7 @@ internal static class Measurement
     {
         ImmutableArray<(string Name, Func<DiagnosticAnalyzer> Create)> loaded =
         [
-            .. sides.Select(static side => (side.Name, Load(side.Name, side.Path)))
+            .. sides.Select(static side => (side.Name, Load(name: side.Name, path: side.Path)))
         ];
 
         List<Sample> samples = [];
@@ -89,12 +95,14 @@ internal static class Measurement
     private static Func<DiagnosticAnalyzer> Load(string name, string path)
     {
         AssemblyLoadContext context = new(name: name, isCollectible: false);
+
         Type type =
-            context.LoadFromAssemblyPath(Path.GetFullPath(path)).GetType(AnalyzerTypeName, throwOnError: true)
+            context.LoadFromAssemblyPath(Path.GetFullPath(path)).GetType(name: AnalyzerTypeName, throwOnError: true)
             ?? throw new InvalidOperationException($"{path} has no {AnalyzerTypeName}.");
 
-        return () => (DiagnosticAnalyzer)(Activator.CreateInstance(type)
-                                          ?? throw new InvalidOperationException($"No {AnalyzerTypeName}."));
+        return () =>
+            (DiagnosticAnalyzer)(Activator.CreateInstance(type)
+                                 ?? throw new InvalidOperationException($"No {AnalyzerTypeName}."));
     }
 
     private static async Task<Sample> Time(
@@ -122,8 +130,8 @@ internal static class Measurement
         // One thread, thus the time of one analyzer callback does not include the time of a different callback.
         CompilationWithAnalyzers withAnalyzers =
             compilation.WithAnalyzers(
-                [analyzer],
-                new CompilationWithAnalyzersOptions(
+                analyzers: [analyzer],
+                analysisOptions: new CompilationWithAnalyzersOptions(
                     options: new AnalyzerOptions([]),
                     onAnalyzerException: null,
                     concurrentAnalysis: false,
@@ -142,7 +150,9 @@ internal static class Measurement
         }
 
         AnalyzerTelemetryInfo telemetry =
-            await withAnalyzers.GetAnalyzerTelemetryInfoAsync(analyzer, CancellationToken.None).ConfigureAwait(false);
+            await withAnalyzers
+                .GetAnalyzerTelemetryInfoAsync(analyzer: analyzer, cancellationToken: CancellationToken.None)
+                .ConfigureAwait(false);
 
         return new Sample(
             Workload: workload,

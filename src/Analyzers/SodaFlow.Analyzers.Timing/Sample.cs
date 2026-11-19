@@ -6,11 +6,23 @@ namespace SodaFlow.Analyzers.Timing;
 /// <summary>One pass of one analyzer over one workload.</summary>
 /// <param name="Workload">The name of the workload.</param>
 /// <param name="Round">The round, which is one process.</param>
-/// <param name="Run">The position of the pass in the round, after the warm-up passes.</param>
+/// <param name="Run">
+///     The position of the pass in the round, after the warm-up
+///     passes.
+/// </param>
 /// <param name="Side">The name of the analyzer.</param>
-/// <param name="Milliseconds">The time in the analyzer, as the telemetry of Roslyn gives it.</param>
-/// <param name="AllocatedBytes">The bytes that the process allocated in the pass, the driver included.</param>
-/// <param name="Collections">The collections of the garbage collector in the pass. Usually there are none.</param>
+/// <param name="Milliseconds">
+///     The time in the analyzer, as the telemetry of Roslyn
+///     gives it.
+/// </param>
+/// <param name="AllocatedBytes">
+///     The bytes that the process allocated in the pass,
+///     the driver included.
+/// </param>
+/// <param name="Collections">
+///     The collections of the garbage collector in the pass.
+///     Usually there are none.
+/// </param>
 /// <param name="Diagnostics">The number of diagnostics that the analyzer reported.</param>
 internal sealed record Sample(
     string Workload,
@@ -32,17 +44,25 @@ internal sealed record Sample(
     public static Sample Parse(string line) =>
         line.Split('\t') switch
         {
-            [var workload, var round, var run, var side, var milliseconds, var bytes, var collections,
-                var diagnostics] =>
+            [
+                    var workload,
+                    var round,
+                    var run,
+                    var side,
+                    var milliseconds,
+                    var bytes,
+                    var collections,
+                    var diagnostics
+                ] =>
                 new Sample(
                     Workload: workload,
-                    Round: int.Parse(round, CultureInfo.InvariantCulture),
-                    Run: int.Parse(run, CultureInfo.InvariantCulture),
+                    Round: int.Parse(s: round, provider: CultureInfo.InvariantCulture),
+                    Run: int.Parse(s: run, provider: CultureInfo.InvariantCulture),
                     Side: side,
-                    Milliseconds: double.Parse(milliseconds, CultureInfo.InvariantCulture),
-                    AllocatedBytes: long.Parse(bytes, CultureInfo.InvariantCulture),
-                    Collections: int.Parse(collections, CultureInfo.InvariantCulture),
-                    Diagnostics: int.Parse(diagnostics, CultureInfo.InvariantCulture)),
+                    Milliseconds: double.Parse(s: milliseconds, provider: CultureInfo.InvariantCulture),
+                    AllocatedBytes: long.Parse(s: bytes, provider: CultureInfo.InvariantCulture),
+                    Collections: int.Parse(s: collections, provider: CultureInfo.InvariantCulture),
+                    Diagnostics: int.Parse(s: diagnostics, provider: CultureInfo.InvariantCulture)),
             _ => throw new FormatException($"A line of samples must have eight fields: {line}")
         };
 
@@ -50,12 +70,12 @@ internal sealed record Sample(
     /// <returns>The line.</returns>
     public string ToLine() =>
         string.Join(
-            '\t',
+            separator: '\t',
             this.Workload,
             this.Round.ToString(CultureInfo.InvariantCulture),
             this.Run.ToString(CultureInfo.InvariantCulture),
             this.Side,
-            this.Milliseconds.ToString("R", CultureInfo.InvariantCulture),
+            this.Milliseconds.ToString(format: "R", provider: CultureInfo.InvariantCulture),
             this.AllocatedBytes.ToString(CultureInfo.InvariantCulture),
             this.Collections.ToString(CultureInfo.InvariantCulture),
             this.Diagnostics.ToString(CultureInfo.InvariantCulture));

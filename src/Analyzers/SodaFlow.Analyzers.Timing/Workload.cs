@@ -10,11 +10,14 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace SodaFlow.Analyzers.Timing;
 
 /// <summary>
-///     Code that the analyzer reads: the source files of one or more projects,
-///     compiled as one assembly.
+///     Code that the analyzer reads: the source files of one or more
+///     projects, compiled as one assembly.
 /// </summary>
 /// <param name="Name">The name in the results.</param>
-/// <param name="Projects">The project files, relative to the root of the repository.</param>
+/// <param name="Projects">
+///     The project files, relative to the root of the
+///     repository.
+/// </param>
 internal sealed record Workload(string Name, ImmutableArray<string> Projects)
 {
     // The assembly name of the compiled workload. The analyzer does not check an assembly of the
@@ -23,8 +26,8 @@ internal sealed record Workload(string Name, ImmutableArray<string> Projects)
     private const string AssemblyName = "Timing.Workload";
 
     /// <summary>
-    ///     The workloads of the check. Each one was in the timing by hand of
-    ///     the analyzer, before this check existed.
+    ///     The workloads of the check. Each one was in the timing by hand of the
+    ///     analyzer, before this check existed.
     /// </summary>
     public static ImmutableArray<Workload> All { get; } =
     [
@@ -48,13 +51,16 @@ internal sealed record Workload(string Name, ImmutableArray<string> Projects)
     /// </summary>
     /// <param name="repository">The root of the repository.</param>
     /// <param name="references">
-    ///     A folder with the library assemblies and the TUnit assemblies. The
-    ///     output of the analyzer tests has all of them.
+    ///     A folder with the library assemblies and the TUnit
+    ///     assemblies. The output of the analyzer tests has all of them.
     /// </param>
     /// <returns>The compilation, which has no errors.</returns>
     public CSharpCompilation Compile(string repository, string references)
     {
-        ImmutableArray<string> projects = [.. this.Projects.Select(project => Path.Combine(repository, project))];
+        ImmutableArray<string> projects =
+        [
+            .. this.Projects.Select(project => Path.Combine(path1: repository, path2: project))
+        ];
 
         ImmutableHashSet<string> ownAssemblies =
         [
@@ -70,17 +76,21 @@ internal sealed record Workload(string Name, ImmutableArray<string> Projects)
             .. projects
                 .SelectMany(static project => SourceFiles(project))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Select(file => CSharpSyntaxTree.ParseText(
-                    text: File.ReadAllText(file),
-                    options: parseOptions,
-                    path: file))
+                .Select(file =>
+                    CSharpSyntaxTree.ParseText(
+                        text: File.ReadAllText(file),
+                        options: parseOptions,
+                        path: file))
         ];
 
         CSharpCompilation compilation =
             CSharpCompilation.Create(
                 assemblyName: AssemblyName,
                 syntaxTrees: trees,
-                references: [.. PlatformReferences(), .. LibraryReferences(references, ownAssemblies)],
+                references:
+                [
+                    .. PlatformReferences(), .. LibraryReferences(folder: references, ownAssemblies: ownAssemblies)
+                ],
                 options: new CSharpCompilationOptions(
                     outputKind: OutputKind.DynamicallyLinkedLibrary,
                     nullableContextOptions: NullableContextOptions.Enable,
@@ -110,21 +120,26 @@ internal sealed record Workload(string Name, ImmutableArray<string> Projects)
             .Descendants("Compile")
             .Select(static item => (string?)item.Attribute("Include"))
             .OfType<string>()
-            .Select(include => Path.GetFullPath(Path.Combine(folder, include)));
+            // MSBuild accepts a backslash on each system, but .NET on Linux does not.
+            .Select(static include => include.Replace(oldChar: '\\', newChar: Path.DirectorySeparatorChar))
+            .Select(include => Path.GetFullPath(Path.Combine(path1: folder, path2: include)));
     }
 
     private static IEnumerable<MetadataReference> PlatformReferences() =>
         ((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") ?? string.Empty)
-        .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+        .Split(separator: Path.PathSeparator, options: StringSplitOptions.RemoveEmptyEntries)
         .Select(static path => MetadataReference.CreateFromFile(path));
 
     private static IEnumerable<MetadataReference> LibraryReferences(
         string folder,
         ImmutableHashSet<string> ownAssemblies) =>
-        Directory.GetFiles(folder, "*.dll")
-            .Where(static path => Path.GetFileName(path).StartsWith("SodaFlow", StringComparison.Ordinal)
-                                  || Path.GetFileName(path).StartsWith("TUnit", StringComparison.Ordinal))
-            .Where(static path => !Path.GetFileName(path).StartsWith("SodaFlow.Analyzers", StringComparison.Ordinal))
+        Directory.GetFiles(path: folder, searchPattern: "*.dll")
+            .Where(static path =>
+                Path.GetFileName(path).StartsWith(value: "SodaFlow", comparisonType: StringComparison.Ordinal)
+                || Path.GetFileName(path).StartsWith(value: "TUnit", comparisonType: StringComparison.Ordinal))
+            .Where(static path =>
+                !Path.GetFileName(path)
+                    .StartsWith(value: "SodaFlow.Analyzers", comparisonType: StringComparison.Ordinal))
             // A workload does not reference the assembly of its own source. SodaFlow.Core is one.
             .Where(path => !ownAssemblies.Contains(Path.GetFileNameWithoutExtension(path)))
             .Order(StringComparer.Ordinal)

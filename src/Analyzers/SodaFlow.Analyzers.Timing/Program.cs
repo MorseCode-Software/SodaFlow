@@ -8,14 +8,14 @@ namespace SodaFlow.Analyzers.Timing;
 
 /// <summary>
 ///     Times the loop analyzer of two commits. The target Time-Analyzer of
-///     build.cake runs the command "measure" for each round in a new process,
-///     and then the command "compare".
+///     build.cake runs the command "measure" for each round in a new process, and
+///     then the command "compare".
 /// </summary>
-internal static class Program
+file static class Program
 {
     private static async Task<int> Main(string[] arguments)
     {
-        Arguments options = Arguments.Parse(arguments.Skip(1).ToImmutableArray());
+        Arguments options = Arguments.Parse([.. arguments.Skip(1)]);
 
         return arguments.FirstOrDefault() switch
         {
@@ -29,11 +29,13 @@ internal static class Program
     {
         ImmutableArray<(string Name, string Path)> sides =
         [
-            .. options.All("side").Select(static side => side.Split('=', count: 2) switch
-            {
-                [var name, var path] => (Name: name, Path: path),
-                _ => throw new ArgumentException($"A side must be name=path: {side}")
-            })
+            .. options.All("side")
+                .Select(static side =>
+                    side.Split(separator: '=', count: 2) switch
+                    {
+                        [var name, var path] => (Name: name, Path: path),
+                        _ => throw new ArgumentException($"A side must be name=path: {side}")
+                    })
         ];
 
         ImmutableArray<Sample> samples =
@@ -58,7 +60,7 @@ internal static class Program
     {
         ImmutableArray<Sample> samples =
         [
-            .. Directory.GetFiles(options.One("results"), "*.tsv")
+            .. Directory.GetFiles(path: options.One("results"), searchPattern: "*.tsv")
                 .Order(StringComparer.Ordinal)
                 .SelectMany(static file => File.ReadLines(file).Skip(1))
                 .Select(Sample.Parse)
@@ -79,7 +81,7 @@ internal static class Program
                 thresholdPercent: thresholdPercent,
                 floorMilliseconds: floorMilliseconds);
 
-        File.WriteAllText(options.One("summary"), report);
+        File.WriteAllText(path: options.One("summary"), contents: report);
         Console.WriteLine(report);
 
         return results.Any(static result => result.Verdict.Fails) ? 1 : 0;
