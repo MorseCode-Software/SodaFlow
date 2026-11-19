@@ -3989,6 +3989,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab229MergeFunctionKeepsTheSecondLinkedSend"] = ["SF1002"],
             ["Ab229MergeFunctionKeepsTheSecondRowWithALinkedCell"] = ["SF1002"],
             ["Ab229MergeOfAListKeepsTheSecondRowWithALinkedCell"] = ["SF1002"],
-            ["Ab229MergeFunctionKeepsTheFirstRowWithALinkedCell"] = ["SF1002"]
+            ["Ab229MergeFunctionKeepsTheFirstRowWithALinkedCell"] = ["SF1002"],
+            ["R4ApiLiftOfAListOfCellsHoldingALinkedCell"] = ["SF1002"],
+            ["Ab231StaticLiftOfAListOfCellsHoldingALinkedCell"] = ["SF1002"],
+            ["Ab231LiftOfAListWhoseSecondCellHoldsALinkedCell"] = ["SF1002"],
+            ["Ab231LiftOfAListOfCellsHoldingAPendingCellSampled"] = ["SF1001"]
         };
 }

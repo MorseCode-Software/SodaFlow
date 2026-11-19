@@ -58,6 +58,13 @@ internal sealed partial class LoopStateEvaluator
         ImmutableArray<LoopState> inputs =
             (receiver != null ? given.Prepend(receiverState.Content) : given).ToImmutableArray();
 
+        // Each lift with a function has an input for the function. A lift with no function is a lift
+        // of a list of cells, and its value is the list of their values.
+        if (inputs.Length == 1)
+        {
+            return inputs[0];
+        }
+
         return lambda == null
             ? this.ContentOfANamedFunction(invocation: invocation, given: inputs)
             : this.EvalLambdaResult(lambda: lambda, boundParameters: inputs);

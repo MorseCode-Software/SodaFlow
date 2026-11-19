@@ -27739,6 +27739,22 @@ public static class Shapes
     public static Cell<int> Ab229MergeFunctionKeepsTheFirstRowWithALinkedCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> a = Stream.CreateSink<RecordRow>(); StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = a.Merge(b, (x, _) => x).Hold(new RecordRow(Plain)); a.Send(new RecordRow(l.Map(v => v))); b.Send(new RecordRow(Plain)); return h.Map(r => r.Share).SwitchC(); });
 
+    // S6456. A lift of a list of cells gives the linked cell that the constant in it holds. The switch of the first value as the close selects it.
+    public static Cell<int> R4ApiLiftOfAListOfCellsHoldingALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => new[] { Cell.Constant(l.Map(v => v)) }.Lift().Map(xs => xs[0]).SwitchC());
+
+    // S6457. A static call of the lift of a list of cells with no function gives the linked cell that the constant in it holds. The switch of the first value as the close selects it.
+    public static Cell<int> Ab231StaticLiftOfAListOfCellsHoldingALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => CellExtensionMethods.Lift(new[] { Cell.Constant(l.Map(v => v)) }).Map(xs => xs[0]).SwitchC());
+
+    // S6458. The second cell of the list holds a linked cell. The switch of the second value of the lift as the close selects it.
+    public static Cell<int> Ab231LiftOfAListWhoseSecondCellHoldsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => new[] { Cell.Constant(Plain), Cell.Constant(l.Map(v => v)) }.Lift().Map(xs => xs[1]).SwitchC());
+
+    // S6459. A sample of the value of a lift of a list in the block gives the cell that the constant holds, which is pending. Thus, a sample of that cell throws.
+    public static Cell<int> Ab231LiftOfAListOfCellsHoldingAPendingCellSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int v = new[] { Cell.Constant(l.Map(v => v)) }.Lift().Sample()[0].Sample(); return S.Hold(v); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
