@@ -27339,7 +27339,7 @@ public static class Shapes
     public static Cell<int> Ab221PlainThroughALocalAfterTheFieldGetsAnotherObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4PairBox h = new(); R4PairBox h2 = h; SettableSlot d = new(); SettableSlot e = new(); h.Slot = d; e.Share = l.Map(v => v); h2.Slot = e; d.Share = Plain; return S.Hold(h.Slot.Share!.Sample()); });
 
-    // S6356. AB221: a local gets a static field. A pending cell goes in through the field, an element of a local array gets a second object, and a plain cell goes in through the local. The read is through the field.
+    // S6356. AB221: a local gets a static field. A pending cell goes in through the field, and an element of a local array gets a second object. A plain cell then goes in through the local. The read is through the field.
     public static Cell<int> Ab221PlainThroughALocalOfAStaticFieldAfterAPut() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R4PairSpare]; SettableSlot d = Ab221Field; Ab221Field.Share = l.Map(v => v); a[0] = Ab221Spare; d.Share = Plain; return S.Hold(Ab221Field.Share!.Sample()); });
 
@@ -27359,11 +27359,11 @@ public static class Shapes
     public static Cell<int> Ab221PlainInAMethodThroughAParameter() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R4PairSpare]; a[0] = d; a[0].Share = l.Map(v => v); Ab221SetParameter(d, Plain); return S.Hold(a[0].Share!.Sample()); });
 
-    // S6361. AB221: a pending cell goes in through a local of a new object, and a plain cell through the same local in a try block, after a call that throws. The catch block reads through the local.
+    // S6361. AB221: in a try block, a pending cell goes in through a local of a new object. A call that throws comes next, and then a plain cell through the same local. The read is through the local, after the catch block.
     public static Cell<int> Ab221PlainAfterACallThatThrowsReadInACatch() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); try { d.Share = l.Map(v => v); Ab221Throw(); d.Share = Plain; } catch (InvalidOperationException) { } return S.Hold(d.Share!.Sample()); });
 
-    // S6362. AB221: an element of a local array gets a local. A pending cell goes in through the element, and a plain cell through the local in a try block, after a call that throws. The catch block reads through the element.
+    // S6362. AB221: an element of a local array gets a local. In a try block, a pending cell goes in through the element. A call that throws comes next, and then a plain cell through the local. The read is through the element, after the catch block.
     public static Cell<int> Ab221PlainThroughTheLocalAfterACallThatThrows() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R4PairSpare]; a[0] = d; try { a[0].Share = l.Map(v => v); Ab221Throw(); d.Share = Plain; } catch (InvalidOperationException) { } return S.Hold(a[0].Share!.Sample()); });
 
@@ -27387,7 +27387,7 @@ public static class Shapes
     public static Cell<int> Ab221PendingThroughAFieldAfterTheParameterReadThroughTheField() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab221Twice; Ab221SetBoth(d, Plain, l.Map(v => v)); return S.Hold(Ab221Twice.Share!.Sample()); });
 
-    // S6368. AB221: a static field gets a new object, and a local gets the field. A pending cell goes in through the local. The block calls a method with two arguments: the first is a call that gives the field a second object, and the second is the field. The method gives its second parameter a plain cell. The read is through the local.
+    // S6368. AB221: a static field gets a new object, and a local gets the field. A pending cell goes in through the local. The block calls a method with two arguments. The first argument is a call that gives the field a second object, and the second argument is the field. The method gives its second parameter a plain cell. The read is through the local.
     public static Cell<int> Ab221PlainInAMethodAfterAnArgumentMovesTheField() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab221Moved2 = new SettableSlot(); SettableSlot d = Ab221Moved2; d.Share = l.Map(v => v); Ab221SetSecond(Ab221Move2(), Ab221Moved2, Plain); return S.Hold(d.Share!.Sample()); });
 
@@ -27399,7 +27399,7 @@ public static class Shapes
     public static Cell<int> Ab221PendingThroughAPartOfATupleField() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab221Pair h = new(); h.Both = (Plain, 0); h.Both.First = l.Map(v => v); return S.Hold(h.Both.First!.Sample()); });
 
-    // S6371. AB221: an element of a local array gets a local whose object has a plain cell. In each turn of a loop, the code reads through the element, gives the local a plain cell, and a method puts into the element a second object, which has a pending cell.
+    // S6371. AB221: an element of a local array gets a local whose object has a plain cell. In each turn of a loop, the code reads through the element and gives the local a plain cell. Then a method puts into the element a second object, which has a pending cell.
     public static Cell<int> Ab221PlainReadInALoopAfterAMethodPutsIntoTheArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot e = new(); e.Share = l.Map(v => v); SettableSlot[] a = [R4PairSpare]; a[0] = d; int read = 0; foreach (int k in Ab221Two) { read = a[0].Share!.Sample(); d.Share = Plain; Ab221PutInto(a, e); } return S.Hold(read); });
 
