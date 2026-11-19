@@ -3856,6 +3856,15 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4CsDynamicTruthReads"] = ["SF1004"],
             ["Ab261DynamicCompoundAssignmentCallsTheSetter"] = ["SF1005"],
             ["Ab261DynamicIndexerWriteCallsTheSetter"] = ["SF1005"],
-            ["Ab261DynamicNegationReads"] = ["SF1004"]
+            ["Ab261DynamicNegationReads"] = ["SF1004"],
+            ["R4CsAnonymousTypeEqualsCallsEqualsOfAMember"] = ["SF1005"],
+            ["R4CsAnonymousTypeToStringCallsToStringOfAMember"] = ["SF1005"],
+            ["R4CsRecordEqualityCallsEqualsOfAMember"] = ["SF1005"],
+            ["R4CsRecordInAHashSetCallsGetHashCodeOfAMember"] = ["SF1005"],
+            ["R4CsRecordStructEqualityCallsEqualsOfAMember"] = ["SF1005"],
+            ["Ab260RecordInequalityCallsEqualsOfAMember"] = ["SF1005"],
+            ["Ab260RecordEqualityComparesTheMemberOfABaseRecord"] = ["SF1005"],
+            ["Ab260AnonymousTypeGetHashCodeCallsGetHashCodeOfAMember"] = ["SF1005"],
+            ["Ab260RecordEqualityCallsTheTypedEqualsOfAMember"] = ["SF1005"]
         };
 }

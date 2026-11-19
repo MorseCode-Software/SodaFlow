@@ -1408,6 +1408,54 @@ internal sealed partial class LoopReadAnalyzerTests
     }
 
     /// <summary>
+    ///     The compiler writes the <c>==</c> of a record, and no declaration of
+    ///     the code names it. This source declares a record and no operator or
+    ///     <c>ToString</c>. The <c>==</c> calls the <c>Equals</c> of each member,
+    ///     and that <c>Equals</c> samples the pending cell.
+    /// </summary>
+    [Test]
+    public async Task TheEqualityOfARecordIsReadInACompilationThatDeclaresNoOperator()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> ByTheEqualityOfARecord() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Pair a = new(new Alike(l.Map(v => v)));
+                        Pair b = new(new Alike(Plain));
+                        Kept.Add(a == b);
+
+                        return S.Hold(0);
+                    });
+
+                public sealed record Pair(Alike A);
+
+                public sealed class Alike(Cell<int> share)
+                {
+                    private readonly Cell<int> share = share;
+
+                    public override bool Equals(object? obj) =>
+                        obj is Alike other && other.share.Sample() == this.share.Sample();
+
+                    public override int GetHashCode() => 1;
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyARecord", images: []))
+            .IsEquivalentTo(["SF1005"]);
+    }
+
+    /// <summary>
     ///     A block can be the name of a method with no body, as a method of an
     ///     interface is. The analyzer has no code to read for that block, and it
     ///     reports nothing. The method that runs returns and reads nothing.

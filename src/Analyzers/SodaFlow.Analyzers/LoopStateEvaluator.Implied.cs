@@ -86,6 +86,31 @@ internal sealed partial class LoopStateEvaluator
                 return this.FollowPrintedMembers(printed: printed, record: definition.ContainingType, owner: owner);
             case { Name: "Deconstruct", IsImplicitlyDeclared: true, ContainingType.IsRecord: true } when owner != null:
                 return this.FollowRecordParts(call: call, deconstruct: definition, owner: owner);
+            case
+            {
+                IsImplicitlyDeclared: true,
+                ContainingType.IsRecord: true,
+                Name: "Equals" or "GetHashCode" or "op_Equality" or "op_Inequality"
+            }:
+                return this.FollowMemberEquality(
+                    call: call,
+                    definition: definition,
+                    owner: owner,
+                    arguments: arguments);
+            // The symbol of a member of an anonymous type is the member of object.
+            case { Name: "Equals" or "GetHashCode", ContainingType.SpecialType: SpecialType.System_Object }
+                when owner is { Members.IsAnonymous: true }:
+                return this.FollowMemberEquality(
+                    call: call,
+                    definition: definition,
+                    owner: owner,
+                    arguments: arguments);
+            case { Name: "ToString", Parameters.IsEmpty: true }
+                when owner is { Members.IsAnonymous: true } && call is ExpressionSyntax printed:
+                return owner.Members.Members.Aggregate(
+                    seed: (Followed?)null,
+                    func: (all, property) =>
+                        Both(first: all, second: this.FollowToStringOf(call: printed, value: property.Value)));
             // The ToString of a tuple calls the ToString of each item.
             case { Name: "ToString", Parameters.IsEmpty: true }
                 when owner is { Members.IsTuple: true } && call is ExpressionSyntax printed:
@@ -132,6 +157,134 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return result;
+    }
+
+    /// <summary>
+    ///     <c>Equals</c>, <c>GetHashCode</c>, <c>==</c>, and <c>!=</c> that the
+    ///     compiler writes for a record or an anonymous type. Each one compares or
+    ///     hashes each field with <c>EqualityComparer&lt;T&gt;.Default</c>, which
+    ///     calls <c>Equals</c> or <c>GetHashCode</c> of the value of the field.
+    /// </summary>
+    /// <remarks>
+    ///     The <c>Equals</c> of the field gets the value of the same field of the
+    ///     other object. An <c>Equals</c> of the record that the code writes is
+    ///     the <c>Equals</c> that the other members call.
+    /// </remarks>
+    private Followed? FollowMemberEquality(
+        SyntaxNode call,
+        IMethodSymbol definition,
+        LoopState? owner,
+        IEnumerable<(ExpressionSyntax Written, LoopState State)> arguments)
+    {
+        (ExpressionSyntax Written, LoopState State)[] given = [.. arguments];
+
+        LoopState? self = owner;
+        (ExpressionSyntax Written, LoopState State)? other = given.Length == 1 ? given[0] : null;
+
+        // The operators get the two objects as their arguments.
+        if (definition.IsStatic)
+        {
+            self = given.Length == 2 ? given[0].State : null;
+            other = given.Length == 2 ? given[1] : null;
+        }
+
+        bool hashes = definition.Name == "GetHashCode";
+
+        if (self?.Members is not { } members)
+        {
+            return null;
+        }
+
+        INamedTypeSymbol type = definition.ContainingType;
+
+        if (!hashes
+            && type.IsRecord
+            && other is { } argument
+            && type.GetMembers("Equals")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(method =>
+                        method is { IsImplicitlyDeclared: false, Parameters.Length: 1 }
+                        && SymbolEqualityComparer.Default.Equals(x: method.Parameters[0].Type, y: type))
+                is { } written)
+        {
+            return this.FollowImpliedDefinition(call: call, definition: written, owner: self, arguments: [argument]);
+        }
+
+        return ComparedMembersOf(type: type, members: members)
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, field) =>
+                    Both(
+                        first: all,
+                        second: this.FollowFieldEquality(
+                            call: call,
+                            value: StateOfAMember(
+                                owner: self,
+                                member: field,
+                                implementations: this.region.Symbols.Implementations),
+                            other: other is { } compared
+                                ? (compared.Written,
+                                    StateOfAMember(
+                                        owner: compared.State,
+                                        member: field,
+                                        implementations: this.region.Symbols.Implementations))
+                                : null,
+                            hashes: hashes)));
+    }
+
+    // The members that the equality of a record compares. Each field gives its property, or itself
+    // when it has no property. The fields of each base record count also. An anonymous type
+    // compares each property.
+    private static IEnumerable<ISymbol> ComparedMembersOf(INamedTypeSymbol type, Construction members)
+    {
+        if (members.IsAnonymous)
+        {
+            return members.Members.Select(static pair => pair.Key);
+        }
+
+        List<ISymbol> fields = [];
+
+        for (INamedTypeSymbol? record = type; record is { IsRecord: true }; record = record.BaseType)
+        {
+            fields.AddRange(
+                record.GetMembers()
+                    .OfType<IFieldSymbol>()
+                    .Where(static field => !field.IsStatic)
+                    .Select(static field => field.AssociatedSymbol ?? field));
+        }
+
+        return fields;
+    }
+
+    // EqualityComparer<T>.Default calls Equals of IEquatable<T> when the type of the field has it,
+    // and Equals of object otherwise. It calls GetHashCode of object. The members of the object
+    // resolve Equals of object to the Equals with one parameter that the type declares. That is
+    // also the Equals of IEquatable<T>. Only an object of this compilation has a member to read.
+    private Followed? FollowFieldEquality(
+        LoopState value,
+        SyntaxNode call,
+        (ExpressionSyntax Written, LoopState State)? other,
+        bool hashes)
+    {
+        IMethodSymbol? member = hashes ? this.region.Symbols.ObjectGetHashCode : this.region.Symbols.ObjectEquals;
+
+        if (member == null || value.Members is not { } members)
+        {
+            return null;
+        }
+
+        return members.Resolve(member)
+            .OfType<IMethodSymbol>()
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, actual) =>
+                    Both(
+                        first: all,
+                        second: this.FollowImpliedDefinition(
+                            call: call,
+                            definition: actual.OriginalDefinition,
+                            owner: value,
+                            arguments: hashes || other is not { } compared ? [] : [compared])));
     }
 
     /// <summary>
@@ -511,8 +664,13 @@ internal sealed partial class LoopStateEvaluator
                 when (this.region.Symbols.DeclaresIndexers || this.region.Symbols.DeclaresSlice)
                      && ConditionalReceiver(binding) is { } owner =>
                 this.FollowIndexer(access: binding, owner: owner, indexes: binding.ArgumentList),
+            // The == and != of a record are operators that no declaration names.
             BinaryExpressionSyntax binary
-                when this.region.Symbols.DeclaresOperators || this.region.Symbols.DeclaresToString =>
+                when this.region.Symbols.DeclaresOperators
+                     || this.region.Symbols.DeclaresToString
+                     || (this.region.Symbols.DeclaresRecords
+                         && (binary.IsKind(SyntaxKind.EqualsExpression)
+                             || binary.IsKind(SyntaxKind.NotEqualsExpression))) =>
                 this.region.SymbolOf(binary) switch
                 {
                     IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } operation

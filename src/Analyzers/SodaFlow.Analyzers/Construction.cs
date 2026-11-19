@@ -477,6 +477,10 @@ internal sealed class Construction(
         return null;
     }
 
+    /// <summary>True for an object of an anonymous type.</summary>
+    public bool IsAnonymous =>
+        !this.members.IsEmpty && this.members.Keys.All(static key => key.ContainingType is { IsAnonymousType: true });
+
     /// <summary>True for a tuple that the code wrote with parentheses.</summary>
     public bool IsTuple =>
         !this.members.IsEmpty && this.members.Keys.All(static key => key.ContainingType is { IsTupleType: true });

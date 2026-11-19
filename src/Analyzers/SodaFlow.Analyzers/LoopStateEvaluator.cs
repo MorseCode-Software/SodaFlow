@@ -3510,6 +3510,23 @@ internal sealed partial class LoopStateEvaluator
                 : null;
         }
 
+        // An anonymous type has an Equals, a GetHashCode, and a ToString that the compiler writes. The
+        // symbol of a call of one is the member of object.
+        if (method is
+            {
+                ContainingType.SpecialType: SpecialType.System_Object,
+                Name: "Equals" or "GetHashCode" or "ToString"
+            }
+            && invocation.Expression is MemberAccessExpressionSyntax { Expression: var receiver }
+            && this.Self(receiver) is { Members.IsAnonymous: true } anonymous)
+        {
+            return this.FollowImplied(
+                call: invocation,
+                member: method,
+                owner: anonymous,
+                arguments: [.. arguments.Select(argument => (argument.Expression, this.Eval(argument.Expression)))]);
+        }
+
         if (this.region.Symbols.IsSodaFlow(method))
         {
             return OperatorTable.FunctionsInTheCall.Contains(OperatorName(method))

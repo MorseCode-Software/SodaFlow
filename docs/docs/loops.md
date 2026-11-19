@@ -345,7 +345,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   knows that the awaiter is complete, the enumerator of a `foreach`, the `Add` of a
   collection initializer or a collection expression, the `Create` method of a `CollectionBuilder`,
   `Count` and `Slice` for an index from the end, a range, or a list pattern, the `ToString` and the
-  copy constructor of a record, the `ToString` of each value that a record or a tuple prints, and
+  copy constructor of a record, the `ToString` of each value that a record or a tuple prints, the
+  `Equals` or `GetHashCode` of each member that the `Equals`, `GetHashCode`, `==`, and `!=` of a
+  record or an anonymous type call, the `ToString` of each value that an anonymous type prints, and
   the `==` of each element of a tuple comparison.
 - A value of the type `dynamic` whose object the analyzer saw made. It reads the method, the getter
   or the setter, the indexer, the operator, the implicit conversion, or the `operator true` or

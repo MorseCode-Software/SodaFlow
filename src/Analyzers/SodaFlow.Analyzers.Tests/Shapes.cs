@@ -25847,6 +25847,54 @@ public static class Shapes
     public static Cell<int> Ab261DynamicOperationsOnAPlainObjectReadNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(Plain); d.Level = 1; int x = d + d[0]; long y = d; if (d) { Kept.Add(y); } Kept.Add(l.Map(v => v)); return S.Hold(x); });
 
+    // S5983. The Equals of an anonymous type calls the Equals of each member, and that Equals samples a pending member.
+    public static Cell<int> R4CsAnonymousTypeEqualsCallsEqualsOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var a = new { A = new Alike(l.Map(v => v)) }; var b = new { A = new Alike(Plain) }; Kept.Add(a.Equals(b)); return S.Hold(0); });
+
+    // S5984. The ToString of an anonymous type calls the ToString of each member, and that ToString samples a pending member.
+    public static Cell<int> R4CsAnonymousTypeToStringCallsToStringOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var a = new { T = new Titled(l.Map(v => v)) }; string s = $"n{a}"; return S.Hold(s.Length); });
+
+    // S5985. The == of a record calls its Equals, which calls the Equals of each member, and that Equals samples a pending member.
+    public static Cell<int> R4CsRecordEqualityCallsEqualsOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); R4CsAlikeRecord b = new(new Alike(Plain)); Kept.Add(a == b); return S.Hold(0); });
+
+    // S5986. A HashSet calls the GetHashCode of a record, which calls the GetHashCode of each member, and that samples.
+    public static Cell<int> R4CsRecordInAHashSetCallsGetHashCodeOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { HashSet<R4CsHashedRecord> set = [new(new Hashed(l.Map(v => v)))]; Kept.Add(set); return S.Hold(0); });
+
+    // S5987. The == of a record struct calls the Equals of each member, and that Equals samples a pending member.
+    public static Cell<int> R4CsRecordStructEqualityCallsEqualsOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeValue a = new(new Alike(l.Map(v => v))); R4CsAlikeValue b = new(new Alike(Plain)); Kept.Add(a == b); return S.Hold(0); });
+
+    // S5988. A record writes its own Equals, which reads nothing. The == of the record calls only that Equals.
+    public static Cell<int> Ab260RecordWithItsOwnEqualsReadsOnlyThatEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab260OwnEquals a = new(new Alike(l.Map(v => v))); Ab260OwnEquals b = new(new Alike(Plain)); Kept.Add(a == b); return S.Hold(0); });
+
+    // S5989. The != of a record calls its Equals, which calls the Equals of each member, and that Equals samples a pending member.
+    public static Cell<int> Ab260RecordInequalityCallsEqualsOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); R4CsAlikeRecord b = new(new Alike(Plain)); Kept.Add(a != b); return S.Hold(0); });
+
+    // S5990. The == of a derived record compares the member of its base record, and the Equals of that member samples.
+    public static Cell<int> Ab260RecordEqualityComparesTheMemberOfABaseRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab260Derived a = new(new Alike(l.Map(v => v)), 1); Ab260Derived b = new(new Alike(Plain), 1); Kept.Add(a == b); return S.Hold(0); });
+
+    // S5991. Control: the == of a record compares members whose Equals samples plain cells.
+    public static Cell<int> Ab260RecordEqualsWithPlainMembersReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(Plain)); R4CsAlikeRecord b = new(new Alike(Plain)); Kept.Add(a == b); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S5992. The GetHashCode of an anonymous type calls the GetHashCode of each member, and that GetHashCode samples a pending member.
+    public static Cell<int> Ab260AnonymousTypeGetHashCodeCallsGetHashCodeOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var a = new { H = new Hashed(l.Map(v => v)) }; Kept.Add(a.GetHashCode()); return S.Hold(0); });
+
+    // S5993. The == of a record compares a member whose type is IEquatable, with its typed Equals. Only that Equals samples.
+    public static Cell<int> Ab260RecordEqualityCallsTheTypedEqualsOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab260TypedRecord a = new(new Ab260Typed(l.Map(v => v))); Ab260TypedRecord b = new(new Ab260Typed(Plain)); Kept.Add(a == b); return S.Hold(0); });
+
+    // S5994. The == of a record compares a member whose type is IEquatable with its typed Equals, and not with the Equals of object, which samples.
+    public static Cell<int> Ab260RecordEqualityDoesNotCallTheObjectEqualsOfATypedMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab260TypedOnlyRecord a = new(new Ab260TypedOnly(l.Map(v => v))); Ab260TypedOnlyRecord b = new(new Ab260TypedOnly(Plain)); Kept.Add(a == b); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -37150,6 +37198,39 @@ public static class Shapes
 
         yield return 1;
     }
+
+    public sealed record Ab260OwnEquals(Alike A)
+    {
+        public bool Equals(Ab260OwnEquals? other) => other != null;
+
+        public override int GetHashCode() => 0;
+    }
+
+    public record Ab260Base(Alike A);
+
+    public sealed record Ab260Derived(Alike A, int N) : Ab260Base(A);
+
+    public sealed class Ab260Typed(Cell<int> share) : IEquatable<Ab260Typed>
+    {
+        public bool Equals(Ab260Typed? other) => share.Sample() > 0;
+
+        public override bool Equals(object? obj) => false;
+
+        public override int GetHashCode() => 1;
+    }
+
+    public sealed record Ab260TypedRecord(Ab260Typed T);
+
+    public sealed class Ab260TypedOnly(Cell<int> share) : IEquatable<Ab260TypedOnly>
+    {
+        public bool Equals(Ab260TypedOnly? other) => other != null;
+
+        public override bool Equals(object? obj) => share.Sample() > 0;
+
+        public override int GetHashCode() => 1;
+    }
+
+    public sealed record Ab260TypedOnlyRecord(Ab260TypedOnly T);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
