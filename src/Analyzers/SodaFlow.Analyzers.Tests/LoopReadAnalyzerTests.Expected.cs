@@ -4152,6 +4152,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag96RefFromACallWhoseLocationGetsAnObjectInALoop"] = ["SF1001"],
             ["Ag96RefFromACallWhoseLocationGetsAnObjectFromThePlatformInALoop"] = ["SF1001"],
             ["Ag96RefOfALocalThatGetsAnObjectInAForeach"] = ["SF1001"],
-            ["Ag96RefMovedAtTheEndOfAForeach"] = ["SF1001"]
+            ["Ag96RefMovedAtTheEndOfAForeach"] = ["SF1001"],
+            ["R4CsGenericNewRunsTheConstructor"] = ["SF1005"],
+            ["Ab267GenericNewThroughTwoHelpersRunsTheConstructor"] = ["SF1005"],
+            ["Ab267GenericNewOfAClassTypeArgumentRunsTheConstructor"] = ["SF1005"]
         };
 }

@@ -350,8 +350,8 @@ The analyzer follows a value made from the placeholder through the code of your 
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a
-  member of an extension block, and a static member of an interface called through a type
-  parameter.
+  member of an extension block, a static member of an interface called through a type parameter,
+  and the constructor that `new T()` runs, where the call says the type of `T`.
 - Events and delegates: the handlers added with `+=` run where the event is raised, and a delegate
   made with `+` or `Delegate.Combine` runs each of its functions. Each element of the
   `GetInvocationList()` of a delegate is one of those functions.

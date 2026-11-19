@@ -4094,9 +4094,12 @@ internal sealed partial class LoopStateEvaluator
                 arguments: arguments?.Arguments ?? default)
             : null;
 
-    // The constructor that the creation of a type parameter runs, when the call of this code says
-    // which class the type parameter is. Such a creation has no arguments.
-    private IMethodSymbol? ConstructorOfATypeArgument(SyntaxNode creation) =>
+    /// <summary>
+    ///     The constructor that the creation of a type parameter runs, when the
+    ///     call of this code says which class the type parameter is. Such a
+    ///     creation has no arguments.
+    /// </summary>
+    public IMethodSymbol? ConstructorOfATypeArgument(SyntaxNode creation) =>
         creation is ExpressionSyntax made
         && this.TypeArgumentFor(this.region.TypeOf(made)) is INamedTypeSymbol actual
             ? actual.InstanceConstructors.FirstOrDefault(static constructor => constructor.Parameters.IsEmpty)
@@ -4229,18 +4232,39 @@ internal sealed partial class LoopStateEvaluator
     {
         ImmutableDictionary<ISymbol, ITypeSymbol> all = definer?.call?.TypeArguments ?? NoTypeArguments;
 
-        if (this.region.SymbolOf(call) is not IMethodSymbol { TypeArguments.IsEmpty: false } method)
+        if (this.region.SymbolOf(call) is not IMethodSymbol method)
         {
             return all;
         }
 
-        ImmutableArray<ITypeParameterSymbol> parameters =
-            (method.ReducedFrom ?? method).OriginalDefinition.TypeParameters;
+        all = this.WithTypeArguments(
+            all: all,
+            parameters: (method.ReducedFrom ?? method).OriginalDefinition.TypeParameters,
+            given: method.TypeArguments);
 
-        for (int i = 0; i < parameters.Length && i < method.TypeArguments.Length; i++)
+        // A member of a generic type gets the type arguments of that type, as in Factory<T>.Make().
+        for (INamedTypeSymbol? type = method.ContainingType;
+             type is { IsGenericType: true };
+             type = type.ContainingType)
         {
-            ITypeSymbol given = method.TypeArguments[i];
-            all = all.SetItem(key: parameters[i], value: this.TypeArgumentFor(given) ?? given);
+            all = this.WithTypeArguments(
+                all: all,
+                parameters: type.OriginalDefinition.TypeParameters,
+                given: type.TypeArguments);
+        }
+
+        return all;
+    }
+
+    // The type arguments with the type that each parameter gets.
+    private ImmutableDictionary<ISymbol, ITypeSymbol> WithTypeArguments(
+        ImmutableDictionary<ISymbol, ITypeSymbol> all,
+        ImmutableArray<ITypeParameterSymbol> parameters,
+        ImmutableArray<ITypeSymbol> given)
+    {
+        for (int i = 0; i < parameters.Length && i < given.Length; i++)
+        {
+            all = all.SetItem(key: parameters[i], value: this.TypeArgumentFor(given[i]) ?? given[i]);
         }
 
         return all;

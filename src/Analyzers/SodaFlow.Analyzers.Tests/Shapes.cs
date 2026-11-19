@@ -28691,6 +28691,22 @@ public static class Shapes
     public static Cell<int> Ag96RefMovedAtTheEndOfAForeach() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = Plain }; SettableSlot b = new() { Share = Plain }; SettableSlot first = a; Cell<int> c = l.Map(v => v); ref SettableSlot r = ref a; foreach (int i in new[] { 0, 1 }) { r.Share = c; c = Plain; r = ref b; } Kept.Add(first.Share!.Sample()); Kept.Add(b); return S.Hold(0); });
 
+    // S6694. new T() of a generic helper runs the constructor of the type argument, which samples a field that the block set.
+    public static Cell<int> R4CsGenericNewRunsTheConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsSource = l.Map(v => v); Kept.Add(R4CsMake<R4CsReadsTheSource>()); R4CsSource = Plain; return S.Hold(0); });
+
+    // S6695. new T() of a generic helper that a second generic helper calls runs the constructor of the type argument of the first call.
+    public static Cell<int> Ab267GenericNewThroughTwoHelpersRunsTheConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsSource = l.Map(v => v); Kept.Add(Ab267MakeThrough<R4CsReadsTheSource>()); R4CsSource = Plain; return S.Hold(0); });
+
+    // S6696. new T() of a generic helper runs the constructor of the type argument, and the block set the field to the plain cell first.
+    public static Cell<int> Ab267GenericNewAfterThePlainCellReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsSource = Plain; Kept.Add(R4CsMake<R4CsReadsTheSource>()); return S.Hold(0); });
+
+    // S6697. new T() in a static method of a generic class runs the constructor of the type argument of the class.
+    public static Cell<int> Ab267GenericNewOfAClassTypeArgumentRunsTheConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsSource = l.Map(v => v); Kept.Add(Ab267Factory<R4CsReadsTheSource>.Make()); R4CsSource = Plain; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40779,6 +40795,15 @@ public static class Shapes
     }
 
     private static ref SettableSlot Ag96Pick(ref SettableSlot s) => ref s;
+
+    private static T Ab267MakeThrough<T>()
+        where T : new() => R4CsMake<T>();
+
+    public static class Ab267Factory<T>
+        where T : new()
+    {
+        public static T Make() => new T();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

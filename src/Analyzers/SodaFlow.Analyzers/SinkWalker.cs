@@ -3407,7 +3407,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         BaseArgumentListSyntax? arguments,
         SyntaxNode? initializer)
     {
-        if (this.region.SymbolOf(node) is not IMethodSymbol constructor)
+        // The creation of a type parameter has no constructor symbol. It runs the constructor of
+        // the type argument, when the call of this code says that type.
+        if ((this.region.SymbolOf(node) as IMethodSymbol ?? this.evaluator.ConstructorOfATypeArgument(node))
+            is not { } constructor)
         {
             this.Visit(arguments);
             this.Visit(initializer);
