@@ -45,6 +45,7 @@
         <Compile Include="AssemblyInfo.cs"/>
         <Compile Include="CalleeKind.cs"/>
         <Compile Include="CompleteTasks.cs"/>
+        <Compile Include="ComputedValue.cs"/>
         <Compile Include="DeclaredCode.cs"/>
         <Compile Include="ElementMemberWrite.cs"/>
         <Compile Include="Construction.cs"/>
@@ -60,6 +61,7 @@
         <Compile Include="LoopState.cs"/>
         <Compile Include="LoopStateEvaluator.Callees.cs"/>
         <Compile Include="LoopStateEvaluator.Collections.cs"/>
+        <Compile Include="LoopStateEvaluator.Computed.cs"/>
         <Compile Include="LoopStateEvaluator.Content.cs"/>
         <Compile Include="LoopStateEvaluator.Elements.cs"/>
         <Compile Include="LoopStateEvaluator.Escapes.cs"/>

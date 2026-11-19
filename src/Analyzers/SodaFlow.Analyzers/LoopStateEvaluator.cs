@@ -2779,6 +2779,16 @@ internal sealed partial class LoopStateEvaluator
             state = state.WithPending(true);
         }
 
+        state = this.WithTheComputedValue(
+            state: state,
+            rule: rule,
+            invocation: invocation,
+            method: method,
+            receiverType: receiverType,
+            receiverState: receiverState,
+            firstArgument: firstArgument,
+            inputs: inputs);
+
         if (this.region.ReadsBack)
         {
             state = this.WithReadBack(

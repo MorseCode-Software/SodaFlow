@@ -25271,6 +25271,162 @@ public static class Shapes
     public static Cell<int> R4CsMutableFieldStructChanges() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4CsThawed.Set(l.Map(v => v)); Kept.Add(R4CsThawed.Share.Sample()); return S.Hold(0); });
 
+    // S5839. A map of a behavior whose function samples a captured local that the block sets pending after.
+    public static Cell<int> R4SmpBehaviorMapReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Behavior<int> w = Behavior.Constant(1).Map(v => v + c.Sample()); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5840. The Value of a bindable of the map, read after the block sets the captured local pending.
+    public static Cell<int> R4SmpBindableReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<int> b = R2ApiFactory.CreateOneWay(Plain.Map(v => v + c.Sample())); c = l.Map(v => v); return S.Hold(b.Value); });
+
+    // S5841. CanExecute of an action whose enablement samples a captured local that the block sets pending after it makes the action.
+    public static Cell<int> R4SmpCanExecuteReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Plain.Map(v => c.Sample() > 0)); c = l.Map(v => v); return S.Hold(a.CanExecute(null) ? 1 : 0); });
+
+    // S5842. A map function samples a captured local. The block gives the local the placeholder after it builds the map, and closes the loop with the map.
+    public static Cell<int> R4SmpCloseWithAMapThatReadsALocalSetToTheLoopAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); c = l; return w; });
+
+    // S5843. A ConstantLazy of a deferred lazy sample whose function samples a captured local. The block sets it pending after it makes the cell.
+    public static Cell<int> R4SmpDeferredReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Cell.ConstantLazy(LazySample.Defer(() => c.Sample())); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5844. A helper builds a map over its own local, gives the local the cell that it gets, and samples the map.
+    public static Cell<int> R4SmpHelperBuildsSetsAndSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R4SmpBuildSetSample(l.Map(v => v))));
+
+    // S5845. A helper builds the map over a member of the object it gets. The block sets the member pending after the call.
+    public static Cell<int> R4SmpHelperMapReadsAMemberSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; Cell<int> w = R4SmpMapOverShare(s); s.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5846. A HoldLazy of a deferred lazy sample whose function samples a captured local. The block sets the local pending after it makes the hold, and samples the hold.
+    public static Cell<int> R4SmpHoldLazyDeferReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> h = Stream.Never<int>().HoldLazy(LazySample.Defer(() => c.Sample())); c = l.Map(v => v); return S.Hold(h.Sample()); });
+
+    // S5847. A ConstantLazy of a map of a lazy sample, whose function samples a captured local that the block sets pending after.
+    public static Cell<int> R4SmpLazyMapReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Cell.ConstantLazy(Plain.SampleLazy().Map(v => v + c.Sample())); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5848. A three-way lift whose function samples a captured local that the block sets pending after.
+    public static Cell<int> R4SmpLift3ReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Lift(Plain, Plain, (x, y, z) => x + y + z + c.Sample()); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5849. A lift function samples a captured local that the block sets pending after it builds the lift.
+    public static Cell<int> R4SmpLiftReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Lift(Plain, (x, y) => x + y + c.Sample()); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5850. A map of the map, sampled after the block sets the captured local pending.
+    public static Cell<int> R4SmpMapOfAMapReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()).Map(v => v + 1); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5851. A map gets a method by its name, and the method samples a static field. The block sets the field pending after it builds the map.
+    public static Cell<int> R4SmpNamedFunctionReadsAFieldSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4SmpF20 = Plain; Cell<int> w = Plain.Map(R4SmpAddF20); R4SmpF20 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5852. An object keeps a map over a member of the object that its constructor gets. The block sets the member pending after it builds the object, and calls a method that samples the map.
+    public static Cell<int> R4SmpObjectMapReadsAMemberSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; R4SmpReader r = new(s); s.Share = l.Map(v => v); return S.Hold(r.Read()); });
+
+    // S5853. The block samples the map in a transaction, after it sets the captured local pending.
+    public static Cell<int> R4SmpReadsALocalSampledInATransaction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); c = l.Map(v => v); return S.Hold(Transaction.Run(() => w.Sample())); });
+
+    // S5854. The block samples the map through a second name of the cell, after it sets the captured local pending.
+    public static Cell<int> R4SmpReadsALocalSampledThroughASecondNameOfTheCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); Cell<int> w2 = w; c = l.Map(v => v); return S.Hold(w2.Sample()); });
+
+    // S5855. A map function samples a captured local. The block gives the local the pending cell after it builds the map, and then samples the map.
+    public static Cell<int> R4SmpReadsALocalSetPendingAfterTheMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5856. The block sets the captured local pending in a branch that runs, after it builds the map.
+    public static Cell<int> R4SmpReadsALocalSetPendingInABranchAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); if (!Never) { c = l.Map(v => v); } return S.Hold(w.Sample()); });
+
+    // S5857. A helper samples the map after the block sets the captured local pending.
+    public static Cell<int> R4SmpReadsALocalSetPendingSampledInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); c = l.Map(v => v); return S.Hold(ReadIt(w)); });
+
+    // S5858. A map function calls a local function that samples a captured local. The block sets it pending after it builds the map.
+    public static Cell<int> R4SmpReadsALocalThroughALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int Read() => c.Sample(); Cell<int> w = Plain.Map(v => v + Read()); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5859. A map function samples a member of a captured object. The block puts the pending cell into the member after it builds the map.
+    public static Cell<int> R4SmpReadsAMemberSetPendingAfterTheMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; Cell<int> w = Plain.Map(v => v + s.Share!.Sample()); s.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5860. A helper puts the pending cell into the member after the block builds the map.
+    public static Cell<int> R4SmpReadsAMemberSetPendingByAHelperAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; Cell<int> w = Plain.Map(v => v + s.Share!.Sample()); R4SmpPut(s, l.Map(v => v)); return S.Hold(w.Sample()); });
+
+    // S5861. The same, with the pending cell put in through a second name of the object.
+    public static Cell<int> R4SmpReadsAMemberSetPendingThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; SettableSlot t = s; Cell<int> w = Plain.Map(v => v + s.Share!.Sample()); t.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5862. A map function samples a static field. The block gives the field the pending cell after it builds the map.
+    public static Cell<int> R4SmpReadsAStaticFieldSetPendingAfterTheMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4SmpC6 = Plain; Cell<int> w = Plain.Map(v => v + R4SmpC6.Sample()); R4SmpC6 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5863. A map function samples an element of a captured array. The block puts the pending cell in after it builds the map.
+    public static Cell<int> R4SmpReadsAnElementSetPendingAfterTheMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain]; Cell<int> w = Plain.Map(v => v + a[0].Sample()); a[0] = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5864. A map function samples an element of a captured array. The block puts the pending cell in through a second name of the array.
+    public static Cell<int> R4SmpReadsAnElementSetPendingThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain]; Cell<int>[] b = a; Cell<int> w = Plain.Map(v => v + a[0].Sample()); b[0] = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5865. A view sorted by a captured local: the comparer samples it. The block sets it pending after it builds the view, and reads the keys.
+    public static Cell<int> R4SmpViewPredicateReadsAMemberSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; ReactiveCollection<int, ItemId, int> view = Items().Filter(predicate: (_, state) => state > s.Share!.Sample()); s.Share = l.Map(v => v); return S.Hold(view.KeysCell.Sample().Count); });
+
+    // S5866. A predicate of a view samples a captured local. The block gives the local the pending cell after it builds the view, and reads the keys.
+    public static Cell<int> R4SmpViewReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; ReactiveCollection<int, ItemId, int> view = Items().Filter(predicate: (_, state) => state > c.Sample()); c = l.Map(v => v); return S.Hold(view.KeysCell.Sample().Count); });
+
+    // S5867. A calm cell of a map whose function samples a captured local that the block sets pending after.
+    public static Cell<int> Ab225CalmOfAMapReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()).Calm(); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5868. A ConstantLazy of the lazy sample of a map whose function samples a captured local that the block sets pending after.
+    public static Cell<int> Ab225SampleLazyOfAMapReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Cell.ConstantLazy(Plain.Map(v => v + c.Sample()).SampleLazy()); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5869. A lift of a map whose function samples a captured local that the block sets pending after. The function of the lift reads only its parameters.
+    public static Cell<int> Ab225LiftOfAMapReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()).Lift(Plain, (a, b) => a + b); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5870. An Apply on a map whose function samples a captured local that the block sets pending after.
+    public static Cell<int> Ab225ApplyOnAMapReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()).Apply(Cell.Constant<Func<int, int>>(v => v + 1)); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5871. The first sample of the map is in a branch that does not run. The block then sets the captured local pending and samples the map again, which runs the function.
+    public static Cell<int> Ab225FirstReadThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = Never ? w.Sample() : 0; c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S5872. A second map samples the first one in its function, and the block only keeps the second map. The block then sets the captured local pending and samples the first map.
+    public static Cell<int> Ab225AMapThatSamplesTheMapBeforeTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); Cell<int> u = Plain.Map(v => v + w.Sample()); Kept.Add(u); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5873. A map of a constant of an object samples a member of the object that it gets. The block sets the member pending after it builds the map.
+    public static Cell<int> Ab225MapOfAnObjectReadsAMemberSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; Cell<int> w = Cell.Constant(s).Map(x => x.Share!.Sample()); s.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5874. A method builds a map whose function samples a member through this. It then sets the member to the pending cell that it gets, and samples the map.
+    public static Cell<int> Ab225MapReadsAMemberThroughThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab225Holder().BuildSetAndRead(l.Map(v => v))));
+
+    // S5875. A map whose function reads only its parameter and a type. The block samples it. A control.
+    public static Cell<int> Ab225MapThatReadsOnlyItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> w = Plain.Map(v => Math.Max(v, 0)); return S.Hold(w.Sample()); });
+
+    // S5876. An Apply of a constant cell of a function that samples a captured local. The block sets the local pending after it builds the cell.
+    public static Cell<int> Ab225ApplyOfACellOfAFunctionReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Apply(Cell.Constant<Func<int, int>>(v => v + c.Sample())); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S5877. The eviction handler of a map of a collection samples a captured local that the block sets pending after. The read of the items does not run the handler. A control.
+    public static Cell<int> Ab225EvictionHandlerDoesNotRunAtTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(c.Sample())); c = l.Map(v => v); return S.Hold(m.Items.Sample().Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -36376,6 +36532,19 @@ public static class Shapes
         private readonly Cell<int> cell = cell;
 
         public int Read() => this.cell.Sample();
+    }
+
+    public sealed class Ab225Holder
+    {
+        private Cell<int> share = Cell.Constant(0);
+
+        public int BuildSetAndRead(Cell<int> pending)
+        {
+            Cell<int> w = Cell.Constant(1).Map(v => v + this.share.Sample());
+            this.share = pending;
+
+            return w.Sample();
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

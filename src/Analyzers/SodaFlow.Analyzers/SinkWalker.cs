@@ -4213,6 +4213,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// <summary>A member that reads the current value of an owner with the given state.</summary>
     private void CheckRead(SyntaxNode node, LoopState state, string name)
     {
+        // The first read of a cell runs the functions that calculate its value.
+        if (!state.Computed.IsEmpty)
+        {
+            state =
+                this.evaluator.AtTheFirstRead(
+                    read: node,
+                    state: state,
+                    always: this.WhereACallRuns(node).InItsFunction);
+        }
+
         if (!state.Pending)
         {
             return;

@@ -254,8 +254,10 @@ is quiet.
 - **The function of a `Map` or `Lift` of a cell**, until something reads the cell. The function
   runs at the first read of the cell, not when you build it. A function that samples a looped
   value is thus harmless in a cell that you only keep. If you sample that cell in the block, or
-  close the loop with it, the analyzer reports the sample or the close. Collection views work the
-  same way. Their predicates, selectors, sort orders, and comparers run when something reads the
+  close the loop with it, the analyzer reports the sample or the close. It reads the function at
+  that first read, with the values that the function reads then, so a capture or a member that
+  becomes pending after you build the cell counts too. A second read of the cell does not run the
+  function again. Collection views work the same way. Their predicates, selectors, sort orders, and comparers run when something reads the
   view. The eviction handler of a `Map` on a collection runs when a key leaves the view, and in a
   call of `Dispose` for each object the map built. The analyzer reads the handler at a `Dispose`
   in the block, unless the code uses the map for nothing but that `Dispose`.
@@ -390,6 +392,10 @@ careful side, so it can report a read that does not throw:
   count as options that write public fields and read-only properties.
 - A sample in the function of a task that `RunSynchronously` runs gets `SF1001`, although the task
   keeps the exception and the code after the call goes on. Only a later `Wait` or `Result` throws.
+- The function of a `Map`, a `Lift`, a collection view, or a `LazySample.Defer` also counts with
+  the values that it read where you built the cell. If it read a pending value there, the first
+  read of the cell gets a report, even when the code gave that capture or member a plain value
+  before the read.
 - The `Result` of a task that you create with `new` has the value that its function returns even
   where no code runs the task. Such a `Result` waits forever, and the code after it does not run.
 - A method that writes a member through an object that the analyzer does not know, such as an

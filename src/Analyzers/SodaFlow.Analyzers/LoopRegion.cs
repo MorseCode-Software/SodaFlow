@@ -569,7 +569,8 @@ internal sealed class LoopRegion(
                         location: closing.GetLocation(),
                         this.PlaceholderName));
             }
-            else if (state.Pending)
+            // The close reads the value. A function that calculates the value can read a pending value.
+            else if (state.Pending || evaluator.AtTheFirstRead(read: closing, state: state, always: false).Pending)
             {
                 // A pending close with no link is a lazy sample of the loop in its own initial
                 // value. That sample forces itself at the end of the transaction.
