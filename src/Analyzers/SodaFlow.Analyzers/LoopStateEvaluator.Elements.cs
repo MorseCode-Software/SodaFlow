@@ -538,35 +538,24 @@ internal sealed partial class LoopStateEvaluator
             IFieldSymbol => true,
             IPropertySymbol property => property.DeclaringSyntaxReferences.IsEmpty || IsAMemberLocation(property),
             IParameterSymbol parameter when of.First =>
-                ArgumentFor(call: of.Call, method: of.Method, parameter: parameter) is { } argument
+                TheArgumentFor(call: of.Call, method: of.Method, parameter: parameter) is { } argument
                 && this.RunsNoFunctionThatTheWalkKnows(owner: argument, callee: null),
             _ => false
         };
 
         // The argument of a call for a parameter of the method that it calls. The receiver of an
         // extension method is the argument for its first parameter.
-        static ExpressionSyntax? ArgumentFor(
+        static ExpressionSyntax? TheArgumentFor(
             InvocationExpressionSyntax call,
             IMethodSymbol method,
-            IParameterSymbol parameter)
-        {
-            if (method.ReducedFrom != null && parameter.Ordinal == 0)
-            {
-                return (call.Expression as MemberAccessExpressionSyntax)?.Expression;
-            }
-
-            SeparatedSyntaxList<ArgumentSyntax> arguments = call.ArgumentList.Arguments;
-
-            for (int i = 0; i < arguments.Count; i++)
-            {
-                if (ParameterFor(method: method, argument: arguments[i], position: i)?.Name == parameter.Name)
-                {
-                    return arguments[i].Expression;
-                }
-            }
-
-            return null;
-        }
+            IParameterSymbol parameter) =>
+            method.ReducedFrom != null && parameter.Ordinal == 0
+                ? (call.Expression as MemberAccessExpressionSyntax)?.Expression
+                : call.ArgumentList.Arguments
+                    .Where((argument, position) =>
+                        ParameterFor(method: method, argument: argument, position: position)?.Name == parameter.Name)
+                    .Select(static argument => argument.Expression)
+                    .FirstOrDefault();
     }
 
     // True for a value that cannot be a collection of the given type, or a view of its elements. No
