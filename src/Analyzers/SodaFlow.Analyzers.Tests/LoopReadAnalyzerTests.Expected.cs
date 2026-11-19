@@ -4161,6 +4161,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab262StringFormatFallsBackWhenTryFormatFails"] = ["SF1005"],
             ["Ab262AppendFormatCallsTryFormat"] = ["SF1005"],
             ["Ab262InterpolationWithAnAlignmentCallsTryFormat"] = ["SF1005"],
-            ["Ab262StringJoinCallsThePlainToString"] = ["SF1005", "SF1005"]
+            ["Ab262StringJoinCallsThePlainToString"] = ["SF1005", "SF1005"],
+            ["R4CsCustomInterpolatedStringHandlerReads"] = ["SF1004"],
+            ["Ab263CustomHandlerReadsTheSecondValue"] = ["SF1004"]
         };
 }

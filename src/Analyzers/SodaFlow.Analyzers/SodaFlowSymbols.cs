@@ -113,6 +113,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresDisposeAsync;
     private readonly Lazy<bool> declaresEnumerators;
     private readonly Lazy<bool> declaresAsyncEnumerators;
+    private readonly Lazy<bool> declaresHandlers;
     private readonly Lazy<bool> declaresIndexers;
     private readonly Lazy<bool> declaresOperators;
     private readonly Lazy<PlatformCallbacks> declaredCallbacks;
@@ -155,6 +156,7 @@ internal sealed class SodaFlowSymbols
         this.declaresDisposeAsync = Declares(compilation: compilation, name: "DisposeAsync");
         this.declaresEnumerators = Declares(compilation: compilation, name: "GetEnumerator");
         this.declaresAsyncEnumerators = Declares(compilation: compilation, name: "GetAsyncEnumerator");
+        this.declaresHandlers = Declares(compilation: compilation, name: "AppendFormatted");
         this.declaresIndexers = Declares(compilation: compilation, name: "this[]");
         this.declaresSlice = Declares(compilation: compilation, name: "Slice");
         this.declaresToString = Declares(compilation: compilation, name: "ToString");
@@ -285,6 +287,12 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>True when the compilation declares a <c>GetAsyncEnumerator</c> method.</summary>
     public bool DeclaresAsyncEnumerators => this.declaresAsyncEnumerators.Value;
+
+    /// <summary>
+    ///     True when the compilation declares an <c>AppendFormatted</c> method.
+    ///     An interpolated string handler has one.
+    /// </summary>
+    public bool DeclaresHandlers => this.declaresHandlers.Value;
 
     /// <summary>True when the compilation declares an indexer.</summary>
     public bool DeclaresIndexers => this.declaresIndexers.Value;

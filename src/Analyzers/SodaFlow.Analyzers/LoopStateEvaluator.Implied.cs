@@ -1078,10 +1078,30 @@ internal sealed partial class LoopStateEvaluator
 
     /// <summary>
     ///     The call of <c>ToString</c> that an interpolation makes on its value,
-    ///     when the interpolated string formats it now.
+    ///     when the interpolated string formats it now. A handler of this
+    ///     compilation gets the value in its <c>AppendFormatted</c>.
     /// </summary>
     public Followed? FollowInterpolation(InterpolationSyntax interpolation)
     {
+        // An interpolated string handler of this compilation gets the value in its AppendFormatted,
+        // which formats it, and the platform does not. Only the string of a handler has a part for
+        // each call of the handler.
+        if (this.region.Symbols.DeclaresHandlers
+            && interpolation.Parent is InterpolatedStringExpressionSyntax handled
+            && this.region.ModelFor(handled).GetOperation(handled) is IInterpolatedStringOperation content
+            && content.Parts
+                    .OfType<IInterpolatedStringAppendOperation>()
+                    .FirstOrDefault(part => interpolation.Span.Contains(part.Syntax.Span))
+                    ?.AppendCall
+                is IInvocationOperation { TargetMethod: { DeclaringSyntaxReferences.IsEmpty: false } append })
+        {
+            return this.FollowImplied(
+                call: interpolation,
+                member: append,
+                owner: LoopState.None,
+                arguments: [(interpolation.Expression, this.Eval(interpolation.Expression))]);
+        }
+
         // A KeyValuePair, a DictionaryEntry, or a Tuple object prints the ToString of each part. Its
         // state has the objects of the parts, as the state of a container has them.
         if (this.region.Symbols is { ObjectToString: not null, DeclaresToString: true }

@@ -28739,6 +28739,22 @@ public static class Shapes
     public static Cell<int> Ab262StringJoinCallsThePlainToString() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4CsPlainToStringFormatted f = new(l.Map(v => v)); string s = string.Join(",", f, f); return S.Hold(s.Length); });
 
+    // S6706. An interpolated string handler of the code gets each value in its AppendFormatted, which samples the cell.
+    public static Cell<int> R4CsCustomInterpolatedStringHandlerReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsLog($"n{l.Map(v => v)}"); return S.Hold(0); });
+
+    // S6707. An interpolated string handler of the code gets the plain cell, which it samples.
+    public static Cell<int> Ab263CustomHandlerOfThePlainCellReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsLog($"n{Plain}"); return S.Hold(0); });
+
+    // S6708. An interpolated string handler of the code keeps each value and calls no ToString, which alone samples.
+    public static Cell<int> Ab263CustomHandlerCallsNoToString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab263Quiet($"n{new Titled(l.Map(v => v))}"); return S.Hold(0); });
+
+    // S6709. An interpolated string handler of the code gets the value of a second interpolation, and samples it.
+    public static Cell<int> Ab263CustomHandlerReadsTheSecondValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsLog($"n{Plain} and {l.Map(v => v)}"); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40849,6 +40865,26 @@ public static class Shapes
 
             return false;
         }
+    }
+
+    [System.Runtime.CompilerServices.InterpolatedStringHandler]
+    public ref struct Ab263QuietHandler
+    {
+        public Ab263QuietHandler(int literalLength, int formattedCount)
+        {
+        }
+
+        public void AppendLiteral(string literal)
+        {
+        }
+
+        public void AppendFormatted<T>(T value)
+        {
+        }
+    }
+
+    private static void Ab263Quiet(Ab263QuietHandler message)
+    {
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
