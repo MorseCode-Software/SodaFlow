@@ -4005,6 +4005,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab230FromUpdatesOfAMapToATransformThatReturnsALinkedCell"] = ["SF1002"],
             ["Ab230FromUpdatesOfAMapToPairs"] = ["SF1002"],
             ["Ab239UpdatesOfAMapOfASinkThatGetsASend"] = ["SF1002"],
-            ["R4ApiUpdatesOfAHoldWithALinkedInitialValue"] = ["SF1002"]
+            ["R4ApiUpdatesOfAHoldWithALinkedInitialValue"] = ["SF1002"],
+            ["R4LimKeyValuePairInAnInterpolatedString"] = ["SF1005"],
+            ["R4LimKeyValuePairToStringReadsTheValue"] = ["SF1005"],
+            ["Ab247KeyValuePairToStringReadsTheKey"] = ["SF1005"],
+            ["Ab247TupleObjectInAnInterpolatedString"] = ["SF1005"],
+            ["Ab247DictionaryEntryInAnInterpolatedString"] = ["SF1005"],
+            ["Ab247DictionaryEntryToStringReadsTheValue"] = ["SF1005"]
         };
 }

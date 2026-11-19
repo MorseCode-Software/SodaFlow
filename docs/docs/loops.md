@@ -389,8 +389,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   or the setter, the indexer, the operator, the implicit conversion, or the `operator true` or
   `operator false` that the runtime binder finds on the type of that object.
 - Members that the platform calls for you: `CompareTo` in a sort, `Equals` and `GetHashCode` in a
-  search, a set, or a dictionary, a comparer that you give a collection, and `ToString` in
-  `string.Join` or `string.Format`.
+  search, a set, or a dictionary, a comparer that you give a collection, `ToString` in
+  `string.Join` or `string.Format`, and the `ToString` of each part that a `KeyValuePair`, a
+  `DictionaryEntry`, or a `Tuple` object prints.
 - Members that SodaFlow calls for you: `CompareTo` of each sort value of a collection view that
   sorts with no comparer, at the first read of the view, and `Equals` of the comparer of a two-way
   bindable, when you write its `Value`. `RunTimersTo` of a clock built on

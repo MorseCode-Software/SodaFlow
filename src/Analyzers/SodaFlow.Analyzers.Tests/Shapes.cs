@@ -27851,6 +27851,38 @@ public static class Shapes
     public static Cell<int> Ab239UpdatesOfAMapOfASinkThatGetsASend() =>
         Cell.Loop<int>().WithoutCaptures(l => { CellSink<int> c = Cell.CreateSink(0); Cell<Cell<int>> h = c.Map(_ => l.Map(v => v)).Updates().Hold(Plain); c.Send(1); return h.SwitchC(); });
 
+    // S6484. An interpolated string of a KeyValuePair calls ToString of its value, which samples.
+    public static Cell<int> R4LimKeyValuePairInAnInterpolatedString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); KeyValuePair<int, Tally> p = new(1, t); string text = $"{p}"; Kept.Add(text); return S.Hold(0); });
+
+    // S6485. ToString of a KeyValuePair calls ToString of its value, which samples.
+    public static Cell<int> R4LimKeyValuePairToStringReadsTheValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); KeyValuePair<int, Tally> p = new(1, t); Kept.Add(p.ToString()); return S.Hold(0); });
+
+    // S6486. ToString of a KeyValuePair calls ToString of its key, which samples.
+    public static Cell<int> Ab247KeyValuePairToStringReadsTheKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<Titled, int> p = new(new Titled(l.Map(v => v)), 1); Kept.Add(p.ToString()); return S.Hold(0); });
+
+    // S6487. An interpolated string of a Tuple object calls ToString of its second item, which samples.
+    public static Cell<int> Ab247TupleObjectInAnInterpolatedString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tuple<int, Titled> t = Tuple.Create(1, new Titled(l.Map(v => v))); string text = $"{t}"; Kept.Add(text); return S.Hold(0); });
+
+    // S6488. An interpolated string of a KeyValuePair calls ToString of its value, which samples a cell with no link.
+    public static Cell<int> Ab247KeyValuePairOfAPlainValueInAnInterpolatedString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<int, Titled> p = new(1, new Titled(Plain)); string text = $"{p}"; Kept.Add(text); return S.Hold(0); });
+
+    // S6489. An interpolated string of a DictionaryEntry calls ToString of its value, which samples.
+    public static Cell<int> Ab247DictionaryEntryInAnInterpolatedString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DictionaryEntry e = new(1, new Titled(l.Map(v => v))); string text = $"{e}"; Kept.Add(text); return S.Hold(0); });
+
+    // S6490. ToString of a DictionaryEntry calls ToString of its value, which samples.
+    public static Cell<int> Ab247DictionaryEntryToStringReadsTheValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DictionaryEntry e = new(1, new Titled(l.Map(v => v))); Kept.Add(e.ToString()!); return S.Hold(0); });
+
+    // S6491. A FormattableString keeps a KeyValuePair whose value samples in ToString, and formats nothing in the block.
+    public static Cell<int> Ab247KeyValuePairInAFormattableString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<int, Titled> p = new(1, new Titled(l.Map(v => v))); FormattableString f = $"{p}"; Kept.Add(f); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

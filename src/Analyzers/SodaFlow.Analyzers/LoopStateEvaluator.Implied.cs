@@ -357,9 +357,9 @@ internal sealed partial class LoopStateEvaluator
 
     /// <summary>
     ///     The <c>ToString</c> of <c>object</c> on a value that a record prints,
-    ///     or on an item of a tuple. Such a value has no node of its own. Thus,
-    ///     the walk does not keep the result for the node, as
-    ///     <see cref="FollowImplied" /> does.
+    ///     on an item of a tuple, or on a part of a pair. Such a value has no
+    ///     node of its own. Thus, the walk does not keep the result for the
+    ///     node, as <see cref="FollowImplied" /> does.
     /// </summary>
     /// <remarks>
     ///     A record that holds itself has a state that holds an earlier state of
@@ -1082,6 +1082,16 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     public Followed? FollowInterpolation(InterpolationSyntax interpolation)
     {
+        // A KeyValuePair, a DictionaryEntry, or a Tuple object prints the ToString of each part. Its
+        // state has the objects of the parts, as the state of a container has them.
+        if (this.region.Symbols is { ObjectToString: not null, DeclaresToString: true }
+            && interpolation.Parent is InterpolatedStringExpressionSyntax printed
+            && SodaFlowSymbols.HoldsParts(this.region.TypeOf(interpolation.Expression))
+            && this.FormatsNow(printed))
+        {
+            return this.FollowToStringOf(call: interpolation.Expression, value: this.Eval(interpolation.Expression));
+        }
+
         if (this.region.Symbols is not { ObjectToString: { } toString } symbols
             || !(symbols.DeclaresToString || symbols.DeclaresRecords)
             || this.Self(interpolation.Expression) is not { Members: { } members } owner
