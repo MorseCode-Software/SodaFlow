@@ -13,6 +13,19 @@ namespace SodaFlow.Tests;
 public sealed class CellTests
 {
     [Test]
+    public async Task AsStreamSinkIsThatSinkAndASendThroughItReachesTheHold()
+    {
+        CellStreamSink<int> sink = Cell.CreateStreamSink<int>();
+        StreamSink<int> asStreamSink = sink.AsStreamSink();
+        Cell<int> held = sink.Hold(0);
+
+        asStreamSink.Send(4);
+
+        await Assert.That(asStreamSink).IsSameReferenceAs(sink);
+        await Assert.That(held.Sample()).IsEqualTo(4);
+    }
+
+    [Test]
     public async Task AsCellOnAPlainCellIsThatCell()
     {
         Cell<int> c = Cell.Constant(1);
