@@ -333,7 +333,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   which object that is. A later read through the element or the local sees only the last value. An
   index in a local that gets only a constant is that constant index. A local that gets the array or
   the list in a field sees each element that code puts in through the field later, also in a method,
-  until the local or the field gets a different value.
+  until the local or the field gets a different value. The other way also holds: a read through the
+  field sees an element that code puts in at an index through such a local.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, or `var slots = SharedSlots`, the two are names of one object from there. A
   name is a local, a parameter, a static field, a field of the object in a local, or an element of a
@@ -572,8 +573,8 @@ Some reads that throw it does not see:
 - A function that the block sends into a sink, where an `Apply` of that sink, or a
   `CollectionEdit.FromUpdates` of it, runs it. The analyzer does not read what such a function
   returns, so a cycle through its result gets no `SF1002`.
-- A new element that code puts into an array or a list through a local that got it from a field,
-  read through the field.
+- A new element that code adds to a list with `Add` through a local that got the list from a
+  field, read through the field.
 - A write through a span, a memory, or a segment that a method gets as a parameter, that
   `CollectionsMarshal` or `MemoryMarshal` makes, or that a lambda or a local function uses. The
   write does not reach the array.

@@ -4106,6 +4106,20 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4PairStaticFieldPlainThenFieldArrayReadThirdAndACall"] = ["SF1001"],
             ["R4PairStaticFieldPlainThenFieldArrayReadThirdSecondInAMethod"] = ["SF1001"],
             ["R4PairStaticFieldPlainThenInstanceFieldReadThirdReversed"] = ["SF1001"],
-            ["R4PairThisLocalPlainThenFieldArrayReadLocalThroughACall"] = ["SF1001"]
+            ["R4PairThisLocalPlainThenFieldArrayReadLocalThroughACall"] = ["SF1001"],
+            ["R4PairAb211PutThroughLocalReadField"] = ["SF1001"],
+            ["R4PairPutPendingPutByArrayLocalReadFieldArray"] = ["SF1001"],
+            ["R4PairPutPendingPutByArrayLocalReadFieldArrayAndACall"] = ["SF1001"],
+            ["R4PairPutPendingPutByArrayLocalReadFieldArrayInAMethod"] = ["SF1001"],
+            ["R4PairPutPlainPutThenPendingMemberByArrayLocalReadFieldArray"] = ["SF1001"],
+            ["R4PairPutPlainPutThenPendingMemberByArrayLocalReadFieldArrayAndACall"] = ["SF1001"],
+            ["R4PairPutPlainPutThenPendingMemberByArrayLocalReadFieldArrayInAMethod"] = ["SF1001"],
+            ["R4PairPutPlainPutThenPendingPutByArrayLocalReadFieldArray"] = ["SF1001"],
+            ["R4PairPutPlainPutThenPendingPutByArrayLocalReadFieldArrayAndACall"] = ["SF1001"],
+            ["R4PairPutPlainPutThenPendingPutByArrayLocalReadFieldArrayInAMethod"] = ["SF1001"],
+            ["Ab211PlainPutThroughTheFieldInABranch"] = ["SF1001"],
+            ["Ab211PlainPutThroughTheFieldAtASecondIndex"] = ["SF1001"],
+            ["Ab211PlainPutThroughTheFieldInALambdaThatDoesNotRun"] = ["SF1001"],
+            ["Ab211PutOfAStructThroughALocal"] = ["SF1001"]
         };
 }

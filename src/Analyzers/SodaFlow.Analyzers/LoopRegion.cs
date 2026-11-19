@@ -46,6 +46,11 @@ internal sealed class LoopRegion(
     // Each two names that an assignment made two names of one value, from Links.
     private readonly List<NameLink> links = [];
 
+    // For a field that holds an array: each put into an element through a local that got the array,
+    // with the constant index or -1. See PutsThroughLocalsOf.
+    private readonly Dictionary<ISymbol, List<(int Index, LoopState Held)>> putsThroughLocals =
+        new(SymbolEqualityComparer.Default);
+
     // True when a key of the fields is a property of an interface: see FieldState.
     private bool hasInterfaceFields;
 
@@ -505,6 +510,52 @@ internal sealed class LoopRegion(
 
     /// <summary>Each link from <see cref="Links" /> that is still in the record.</summary>
     public IReadOnlyList<NameLink> AllLinks => this.links;
+
+    /// <summary>
+    ///     Records a put into an element of the array of a field, through a local
+    ///     that got the array.
+    /// </summary>
+    /// <param name="field">The field.</param>
+    /// <param name="index">The constant index, or -1.</param>
+    /// <param name="held">The state of the array with the value in it.</param>
+    public void AddAPutThroughALocal(ISymbol field, int index, LoopState held)
+    {
+        ISymbol key = field.OriginalDefinition;
+
+        if (!this.putsThroughLocals.TryGetValue(key: key, value: out List<(int Index, LoopState Held)>? puts))
+        {
+            puts = [];
+            this.putsThroughLocals[key] = puts;
+        }
+
+        puts.Add((index, held));
+    }
+
+    /// <summary>
+    ///     Takes away each put through a local at the given index of the array of
+    ///     a field. A sure put through the field there replaces them.
+    /// </summary>
+    public void ReplacesThePutsThroughLocals(ISymbol field, int index)
+    {
+        if (this.putsThroughLocals.TryGetValue(
+                key: field.OriginalDefinition,
+                value: out List<(int Index, LoopState Held)>? puts))
+        {
+            puts.RemoveAll(put => put.Index == index);
+        }
+    }
+
+    /// <summary>
+    ///     The state of the array of a field from the puts through a local that
+    ///     got it, from <see cref="AddAPutThroughALocal" />.
+    /// </summary>
+    public LoopState PutsThroughLocalsOf(ISymbol field) =>
+        this.putsThroughLocals.Count > 0
+        && this.putsThroughLocals.TryGetValue(
+            key: field.OriginalDefinition,
+            value: out List<(int Index, LoopState Held)>? puts)
+            ? puts.Aggregate(seed: LoopState.None, func: static (all, put) => all.Join(put.Held))
+            : LoopState.None;
 
     /// <summary>
     ///     The value of <see cref="MemberWrites" /> when a field last got a state

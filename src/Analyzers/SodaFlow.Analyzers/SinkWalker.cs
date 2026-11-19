@@ -2351,6 +2351,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             case ElementAccessExpressionSyntax element:
                 this.evaluator.ForgetsThePositionsOf(element.Expression);
                 this.evaluator.Absorb(target: element.Expression, state: state);
+                this.evaluator.PutsThroughALocalOfAField(element: element, state: state, replaces: replaces);
                 this.evaluator.PutsIntoALocation(field: null, element: element, state: state);
 
                 if (this.region.SymbolOf(element) is IPropertySymbol { DeclaringSyntaxReferences.IsEmpty: true })

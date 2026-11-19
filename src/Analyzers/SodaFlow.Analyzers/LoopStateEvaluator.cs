@@ -2272,11 +2272,13 @@ internal sealed partial class LoopStateEvaluator
                 }
 
                 // A field that the code set while the loop is open, on an object that the walk does
-                // not know.
+                // not know. A put through a local that got the array of the field is a put into the
+                // field also.
                 LoopState field =
-                    this.region.HasFields
+                    (this.region.HasFields
                         ? this.region.FieldState(field: symbol, canHave: this.KeysOfTheResult(expression))
-                        : LoopState.None;
+                        : LoopState.None)
+                    .Join(this.region.PutsThroughLocalsOf(symbol));
 
                 // A member of this object, in a constructor the evaluator follows, has the state the
                 // constructor gave it.
