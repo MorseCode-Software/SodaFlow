@@ -13,33 +13,35 @@ on:
       - 'logo/**'
       - '.config/dotnet-tools.json'
       - '.github/workflows/docs.yml'
+  # Pull requests have no path filter, so that the check of the build job can be required. GitHub waits
+  # for a required check of a workflow that a path filter skips, and the pull request never merges.
+  # samples.yml has no filter for the same cause. A push to main keeps its filter: only a change to the
+  # site needs a deploy.
   pull_request:
-    paths:
-      - 'docs/**'
-      - 'src/**'
-      - 'logo/**'
-      - '.config/dotnet-tools.json'
-      - '.github/workflows/docs.yml'
   workflow_dispatch:
 
+# The deploy job adds the two permissions that GitHub Pages needs. The build job, which each pull request
+# runs, gets only this.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# Never let two publishes race. In-progress runs are allowed to finish so a deploy is not left
-# half-applied.
+# A group for each ref, so that a run of a pull request cannot cancel a run of main. GitHub cancels a run
+# that waits in a group when a newer run comes into that group. With one group for each run, a pull
+# request cancelled the deploy of main that waited. A newer push to a pull request cancels its older run.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # The job name is the status check name, which the ruleset requires. A rename needs a matching ruleset
+  # change.
   build:
+    name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           # 6.0 for the net6.0 target the docs are generated against, 8.0 to run DocFX itself.
           dotnet-version: |
@@ -77,7 +79,7 @@ jobs:
       # v4 of this action stopped including hidden files in the artifact. Checked rather than
       # assumed: a local docfx build writes no dotfile at all under docs/_site, so there is
       # nothing here for that change to drop.
-      - uses: actions/upload-pages-artifact@v5
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: docs/_site
 
@@ -86,9 +88,17 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    # Never let two publishes race. In-progress runs are allowed to finish so a deploy is not left
+    # half-applied.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
