@@ -27467,15 +27467,15 @@ public static class Shapes
     public static Cell<int> R4PairPutPendingPutThenPlainPutByFieldArrayReadArrayLocalInAMethod() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = R4PairFa1229; R4PairPutFa1229(l.Map(v => v)); fa[0] = new SettableSlot { Share = Plain }; return S.Hold(fa[0].Share!.Sample()); });
 
-    // S6388. AB223: a local gets the array of a static field. A pending cell goes in through an element of the field, and a new object with a plain cell goes into the element through the local only in a branch that does not run. The read is through the element of the local.
+    // S6388. AB223: a local gets the array of a static field. A pending cell goes in through an element of the field. A new object with a plain cell goes into the element through the local, only in a branch that does not run. The read is through the element of the local.
     public static Cell<int> Ab223PlainPutInABranch() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab223Fa1; Ab223Fa1[0].Share = l.Map(v => v); if (Ab220No) { fa[0] = new SettableSlot { Share = Plain }; } return S.Hold(fa[0].Share!.Sample()); });
 
-    // S6389. AB223: a local gets the array of a static field. A new object with a plain cell goes into an element through the local, and then a pending cell through the same element of the field. The read is through the element of the local.
+    // S6389. AB223: a local gets the array of a static field. A new object with a plain cell goes into an element through the local. Then a pending cell goes in through the same element of the field. The read is through the element of the local.
     public static Cell<int> Ab223PendingThroughTheFieldAfterAPlainPut() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab223Fa2; fa[0] = new SettableSlot { Share = Plain }; Ab223Fa2[0].Share = l.Map(v => v); return S.Hold(fa[0].Share!.Sample()); });
 
-    // S6390. AB223: a local gets the array of a static field. A new object with a plain cell goes into an element through the local, and then a new object with a pending cell through the same element of the field. The read is through the element of the local.
+    // S6390. AB223: a local gets the array of a static field. A new object with a plain cell goes into an element through the local. Then a new object with a pending cell goes into the same element through the field. The read is through the element of the local.
     public static Cell<int> Ab223PendingPutThroughTheFieldAfterAPlainPut() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab223Fa3; fa[0] = new SettableSlot { Share = Plain }; Ab223Fa3[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(fa[0].Share!.Sample()); });
 
@@ -27483,7 +27483,7 @@ public static class Shapes
     public static Cell<int> Ab223PlainPutInAMethodThatThenPutsAgain() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab223Fa4; Ab223Other.Share = l.Map(v => v); Ab223PutThenMove(Plain); return S.Hold(fa[0].Share!.Sample()); });
 
-    // S6392. AB223: a local gets the array of a static field. A pending cell goes in through an element of the field. A method puts into the element a new object with a plain cell, and the block calls it only in a branch that does not run. The read is through the element of the local.
+    // S6392. AB223: a local gets the array of a static field. A pending cell goes in through an element of the field. A method puts into the element a new object with a plain cell. The block calls the method only in a branch that does not run. The read is through the element of the local.
     public static Cell<int> Ab223PlainPutInAMethodInABranch() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab223Fa5; Ab223Fa5[0].Share = l.Map(v => v); if (Ab220No) { Ab223Put5(Plain); } return S.Hold(fa[0].Share!.Sample()); });
 
