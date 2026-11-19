@@ -283,11 +283,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         LoopState state = this.evaluator.Eval(resource);
 
-        if (state.Pending && this.region.Symbols.IsBindableAction(this.region.TypeOf(resource)))
+        if (state.Pending && this.IsABindableAction(value: resource, state: state))
         {
             this.CheckRead(node: resource, state: state, name: "Dispose");
         }
     }
+
+    // True for a value that is a bindable action. A local of IDisposable or of IBindable can have
+    // one. Thus, the parts that the action carries tell it also, and not only the type.
+    private bool IsABindableAction(ExpressionSyntax value, LoopState state) =>
+        this.region.Symbols.IsBindableAction(this.region.TypeOf(value))
+        || state.Members?.Members.Any(member => this.region.Symbols.IsBindableAction(member.Key.ContainingType))
+        == true;
 
     public override void VisitUsingStatement(UsingStatementSyntax node)
     {
@@ -3129,13 +3136,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 || (operatorName == "Execute" && kind is CalleeKind.Mover or CalleeKind.Unknown)
                 || (operatorName == "Dispose"
                     && kind != CalleeKind.Body
-                    && symbols.IsBindableAction(this.region.TypeOf(receiver))))
+                    && this.IsABindableAction(value: receiver, state: this.evaluator.Eval(receiver))))
             {
                 this.CheckRead(node: node, owner: receiver, name: method.Name);
             }
 
-            // The Dispose of a map of a collection runs its eviction handler in the call.
-            if (operatorName == "Dispose" && kind == CalleeKind.Library)
+            // The Dispose of a map of a collection runs its eviction handler in the call. The code
+            // can call it through IDisposable. An extension method with the same name is not that
+            // Dispose.
+            if (operatorName == "Dispose" && method.ReducedFrom == null)
             {
                 this.Report(this.evaluator.FollowEvictionsOfADispose(map: receiver, dispose: node));
             }

@@ -1092,7 +1092,18 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
     public Followed? FollowEvictionsOfADispose(ExpressionSyntax map, SyntaxNode dispose)
     {
-        if (this.ValueOfALocalThatNoCodeWrites(Unwrapped(map)) is not InvocationExpressionSyntax
+        ExpressionSyntax value = this.ValueOfALocalThatNoCodeWrites(Unwrapped(map));
+
+        // A local of IDisposable can have the map of a different local. The declaration of each
+        // local is before its value, thus the search ends.
+        while (value is IdentifierNameSyntax name
+               && this.ValueOfALocalThatNoCodeWrites(name) is var earlier
+               && earlier.SpanStart < name.SpanStart)
+        {
+            value = earlier;
+        }
+
+        if (value is not InvocationExpressionSyntax
             {
                 Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Map" }
             } creation

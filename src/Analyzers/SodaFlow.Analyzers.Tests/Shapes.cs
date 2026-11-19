@@ -27487,6 +27487,34 @@ public static class Shapes
     public static Cell<int> Ab223PlainPutInAMethodInABranch() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab223Fa5; Ab223Fa5[0].Share = l.Map(v => v); if (Ab220No) { Ab223Put5(Plain); } return S.Hold(fa[0].Share!.Sample()); });
 
+    // S6393. The same as the Dispose of a bindable action through IDisposable, but through IBindable.
+    public static Cell<int> R4ApiDisposeOfABindableActionThroughIBindable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindable b = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); b.Dispose(); return S.Hold(0); });
+
+    // S6394. Dispose of a bindable action reads its enablement. The action is in a local of IDisposable, and the enablement is pending.
+    public static Cell<int> R4ApiDisposeOfABindableActionThroughIDisposable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDisposable d = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); d.Dispose(); return S.Hold(0); });
+
+    // S6395. A view model disposes each object in a list of IDisposable. The list holds a bindable action whose enablement is pending.
+    public static Cell<int> R4ApiDisposeOfBindableActionsInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IDisposable> owned = [R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0))]; foreach (IDisposable d in owned) { d.Dispose(); } return S.Hold(0); });
+
+    // S6396. A map of a collection is in a local of IDisposable. Its Dispose runs the eviction handler for each object that it built, and the handler samples the placeholder.
+    public static Cell<int> R4ApiDisposeOfMappedItemsThroughIDisposable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; IDisposable d = m; d.Dispose(); return S.Hold(n); });
+
+    // S6397. A using statement disposes a local of IDisposable. The local has a bindable action whose enablement is pending.
+    public static Cell<int> Ab238UsingOfALocalOfIDisposableThatHasABindableAction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDisposable d = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); using (d) { } return S.Hold(0); });
+
+    // S6398. A using statement disposes a local of IDisposable that has a one-way bindable over a pending cell. That Dispose reads no cell.
+    public static Cell<int> Ab238UsingOfALocalOfIDisposableThatHasAOneWayBindable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDisposable d = R2ApiFactory.CreateOneWay(l.Map(v => v)); using (d) { } return S.Hold(0); });
+
+    // S6399. An extension method of this code with the name Dispose gets a map of a collection. It does not dispose the map for a count of zero, thus the eviction handler does not run.
+    public static Cell<int> Ab238ExtensionDisposeOfMappedItems() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; m.Dispose(times: 0); return S.Hold(n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -39076,6 +39104,16 @@ public static class Shapes
 
 file static class Helpers
 {
+    // An extension method of this code with the name Dispose. It disposes its receiver only for a
+    // count above zero.
+    public static void Dispose(this IDisposable disposable, int times)
+    {
+        if (times > 0)
+        {
+            disposable.Dispose();
+        }
+    }
+
     // A WithCancellation of this code. It gives a sequence other than the one that it gets.
     public static IAsyncEnumerable<long> WithCancellation(this IAsyncEnumerable<long> items, CancellationToken token) =>
         Shapes.Ab258LaterLongs();

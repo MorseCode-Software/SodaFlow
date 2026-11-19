@@ -3948,6 +3948,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab223PendingThroughTheFieldAfterAPlainPut"] = ["SF1001"],
             ["Ab223PendingPutThroughTheFieldAfterAPlainPut"] = ["SF1001"],
             ["Ab223PlainPutInAMethodThatThenPutsAgain"] = ["SF1001"],
-            ["Ab223PlainPutInAMethodInABranch"] = ["SF1001"]
+            ["Ab223PlainPutInAMethodInABranch"] = ["SF1001"],
+            ["R4ApiDisposeOfABindableActionThroughIBindable"] = ["SF1001"],
+            ["R4ApiDisposeOfABindableActionThroughIDisposable"] = ["SF1001"],
+            ["R4ApiDisposeOfBindableActionsInAList"] = ["SF1001"],
+            ["R4ApiDisposeOfMappedItemsThroughIDisposable"] = ["SF1001"],
+            ["Ab238UsingOfALocalOfIDisposableThatHasABindableAction"] = ["SF1001"]
         };
 }
