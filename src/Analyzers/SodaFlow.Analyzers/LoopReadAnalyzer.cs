@@ -120,8 +120,11 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         if (BlockOf(written: written, model: model) is not (var placeholder, var body))
         {
             // A block with no body to read gets no check. The report says so, as for a callee that the
-            // walk cannot see. A function with no parameter cannot read the placeholder.
-            if (FunctionIn(written: written, model: model) is not AnonymousFunctionExpressionSyntax)
+            // walk cannot see. A function with no parameter cannot read the placeholder. A block of the
+            // library can give the function of its caller to its own block. That is not such a block,
+            // because the walk checks the function at the call of the caller.
+            if (FunctionIn(written: written, model: model) is not AnonymousFunctionExpressionSyntax
+                && !SymbolEqualityComparer.Default.Equals(x: method.ContainingAssembly, y: model.Compilation.Assembly))
             {
                 ITypeSymbol? looped =
                     (model.GetTypeInfo(written).ConvertedType as INamedTypeSymbol)?.DelegateInvokeMethod?.Parameters
