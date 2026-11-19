@@ -27555,6 +27555,22 @@ public static class Shapes
     public static Cell<int> Ab233RemovedHandlerOfABindableAction() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Cell.Constant(true)); a.CanExecuteChanged -= (_, _) => s.Send(l.Map(v => v)); a.Dispose(); return s.Hold(Plain).SwitchC(); });
 
+    // S6410. The same as the scheduler of a synchronization context, but the scheduler is in a field of the interface type, as a view model gets it.
+    public static Cell<int> R4ApiSendPostedToASchedulerInAField() =>
+        ((Func<Cell<int>>)(() => { Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); R4ApiQueuedScheduler.Post(() => s.Send(l.Map(v => v))); return s.Hold(Plain).SwitchC(); }); R4ApiQueue.Drain(); return c; }))();
+
+    // S6411. A scheduler of a synchronization context posts an action to its context after the transaction. The context runs it after the close, and it sends a linked cell into a sink whose switched hold is the close.
+    public static Cell<int> R4ApiSendPostedToASchedulerOfAQueuedContext() =>
+        ((Func<Cell<int>>)(() => { Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); SodaFlow.Bindable.ObjectModel.IBindingScheduler scheduler = new SodaFlow.Bindable.ObjectModel.SynchronizationContextBindingScheduler(R4ApiQueue); scheduler.Post(() => s.Send(l.Map(v => v))); return s.Hold(Plain).SwitchC(); }); R4ApiQueue.Drain(); return c; }))();
+
+    // S6412. The same as the post to a scheduler in a field, but the posted action sends a cell with no link.
+    public static Cell<int> Ab234PlainSendPostedToASchedulerInAField() =>
+        ((Func<Cell<int>>)(() => { Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); R4ApiQueuedScheduler.Post(() => s.Send(Plain)); return s.Hold(Plain).SwitchC(); }); R4ApiQueue.Drain(); return c; }))();
+
+    // S6413. A scheduler of a synchronization context runs a posted action after the close. The action samples the placeholder, which has its value then.
+    public static Cell<int> Ab234SamplePostedToASchedulerOfAQueuedContext() =>
+        ((Func<Cell<int>>)(() => { Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { R4ApiQueuedScheduler.Post(() => Kept.Add(l.Sample())); return S.Hold(0); }); R4ApiQueue.Drain(); return c; }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

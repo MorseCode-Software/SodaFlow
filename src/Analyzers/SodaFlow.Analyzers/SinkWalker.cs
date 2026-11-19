@@ -2853,13 +2853,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.evaluator.RunsAfterTheTransaction(action.Expression);
                 }
 
-                // The immediate scheduler of a bindable runs a posted action after the transaction,
-                // as Transaction.Post does. Each other scheduler keeps the action for a time that the
-                // walk does not know.
+                // A scheduler of a bindable runs a posted action after the transaction, as
+                // Transaction.Post does. The contract of IBindingScheduler.Post forbids a run while a
+                // transaction is open. Each Post of the library with a receiver is that Post.
                 if (receiver != null
                     && method.Name == "Post"
-                    && arguments.Count == 1
-                    && this.evaluator.IsTheImmediateScheduler(receiver))
+                    && arguments.Count == 1)
                 {
                     this.evaluator.RunsAfterTheTransaction(arguments[0].Expression);
                 }

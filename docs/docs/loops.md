@@ -361,7 +361,7 @@ The analyzer follows a value made from the placeholder through the code of your 
   made before the send, such as a `Hold` of the sink or a switch of that hold. So does a value sent
   in a function that `Transaction.Post` runs after the transaction: a lambda, a local function, a
   method that you give to `Post` by its name, or a post inside a posted function. The same holds for
-  an action that you post to `BindingScheduler.Immediate`, and for a write to the `Value` of a
+  an action that you post to any `IBindingScheduler`, and for a write to the `Value` of a
   two-way bindable of a sink, which sends the value into that sink after the transaction.
   `Execute` of a bindable action sends its parameter into the sink of its firings after the
   transaction in the same way. A handler that you add to an event of a bindable runs after the

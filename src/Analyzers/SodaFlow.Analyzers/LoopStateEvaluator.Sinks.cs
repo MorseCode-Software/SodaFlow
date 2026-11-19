@@ -308,24 +308,6 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     True for the immediate scheduler of the bindables, which runs a posted
-    ///     action after the transaction. That is <c>BindingScheduler.Immediate</c>,
-    ///     a value of the type <c>ImmediateBindingScheduler</c>, or a local that
-    ///     no code writes and that has one of them.
-    /// </summary>
-    /// <param name="scheduler">The expression of the scheduler.</param>
-    public bool IsTheImmediateScheduler(ExpressionSyntax scheduler)
-    {
-        ExpressionSyntax value = this.ValueOfALocalThatNoCodeWrites(Unwrapped(scheduler));
-
-        return (this.region.SymbolOf(value) is IPropertySymbol
-                       { Name: "Immediate", ContainingType.Name: "BindingScheduler" } immediate
-                   && this.region.Symbols.IsSodaFlow(immediate))
-               || (this.region.TypeOf(value) is { Name: "ImmediateBindingScheduler" } type
-                   && this.region.Symbols.IsSodaFlow(type));
-    }
-
-    /// <summary>
     ///     Reads a write to a two-way bindable of a sink as a send of the value
     ///     into that sink after the transaction. The setter posts that send, as
     ///     <c>Transaction.Post</c> does. <c>Execute</c> of a bindable action posts

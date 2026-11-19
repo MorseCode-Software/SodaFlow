@@ -3958,6 +3958,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4ApiActionExecuteThroughICommandSendsALinkedCell"] = ["SF1002"],
             ["R4ApiActionDisposeRaisesAHandlerThatSendsALinkedCell"] = ["SF1002"],
             ["R4ApiOneWayChangeHandlerSendsALinkedCellAfterTheClose"] = ["SF1002"],
-            ["Ab233HandlerOfACommandThatIsABindableAction"] = ["SF1002"]
+            ["Ab233HandlerOfACommandThatIsABindableAction"] = ["SF1002"],
+            ["R4ApiSendPostedToASchedulerInAField"] = ["SF1002"],
+            ["R4ApiSendPostedToASchedulerOfAQueuedContext"] = ["SF1002"]
         };
 }
