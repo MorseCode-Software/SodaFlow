@@ -729,7 +729,7 @@ internal sealed partial class LoopStateEvaluator
                 {
                     // An AsCell() at the argument is the assertion of the caller that nothing reads the
                     // value. The analyzer reports a read that it can see, whatever the caller asserted.
-                    if (finding.Escape && IsAsserted(binding.Argument))
+                    if (finding.Escape && this.IsAsserted(binding.Argument))
                     {
                         continue;
                     }

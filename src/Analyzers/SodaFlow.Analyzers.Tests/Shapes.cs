@@ -26035,6 +26035,26 @@ public static class Shapes
     public static Cell<int> Ab241BlockAsAnAnonymousMethodWithNoParameters() =>
         Cell.Loop<int>().WithoutCaptures(delegate { return S.Hold(0); });
 
+    // S6030. A mark on the placeholder covers a Map of the mark that the block gives to code with no body.
+    public static Cell<int> R4LimMarkOnThePlaceholderCoversAMapGivenAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m = l.AsCell(); IBag<Cell<int>> bag = NoBody.Bag<Cell<int>>(); bag.Put(m.Map(v => v)); return S.Hold(0); });
+
+    // S6031. A local holds the mark on the placeholder, and the block gives the local to code with no body.
+    public static Cell<int> R4LimMarkOnThePlaceholderInALocalGivenAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m = l.AsCell(); IBag<Cell<int>> bag = NoBody.Bag<Cell<int>>(); bag.Put(m); return S.Hold(0); });
+
+    // S6032. A local holds the mark on the placeholder and then gets a Map of the placeholder, and the block gives the local to code with no body.
+    public static Cell<int> Ab252MarkInALocalThatGetsASecondValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m = l.AsCell(); m = l.Map(v => v); IBag<Cell<int>> bag = NoBody.Bag<Cell<int>>(); bag.Put(m); return S.Hold(0); });
+
+    // S6033. A local holds the mark on the placeholder, and a lambda that the block runs gives the local to code with no body.
+    public static Cell<int> Ab252MarkInALocalGivenAwayInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m = l.AsCell(); IBag<Cell<int>> bag = NoBody.Bag<Cell<int>>(); Action put = () => bag.Put(m); put(); return S.Hold(0); });
+
+    // S6034. A local holds a Map of the placeholder with no mark, and the block gives a Map of the local to code with no body. A control.
+    public static Cell<int> Ab252LocalWithNoMarkGivenAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m = l.Map(v => v); IBag<Cell<int>> bag = NoBody.Bag<Cell<int>>(); bag.Put(m.Map(v => v)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

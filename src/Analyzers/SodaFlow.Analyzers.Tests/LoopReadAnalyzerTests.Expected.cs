@@ -3892,6 +3892,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab241BlockInALocalDelegateGivenAValueAfterALabel"] = ["SF1003"],
             ["Ab241BlockInALocalDelegateReadInALambdaGivenAValueLater"] = ["SF1003"],
             ["Ab241BlockInALocalDelegateWithAnAddedLambda"] = ["SF1003"],
-            ["Ab241BlockMadeByAConversionOfACreation"] = ["SF1003"]
+            ["Ab241BlockMadeByAConversionOfACreation"] = ["SF1003"],
+            ["Ab252MarkInALocalThatGetsASecondValue"] = ["SF1003"],
+            ["Ab252LocalWithNoMarkGivenAway"] = ["SF1003"]
         };
 }

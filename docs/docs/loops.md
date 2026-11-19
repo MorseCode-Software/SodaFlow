@@ -110,7 +110,8 @@ Where a placeholder goes to code that wants the plain type, `AsStream`, `AsCell`
 convert it without a cast. The plain types have the same three methods, which return their
 receiver. The [loop analyzer](#the-loop-analyzer) reads them as a mark: put the mark at the
 argument it is about, as in `new Row(amount.Lift(total, …).AsCell())`. A mark on the placeholder
-itself covers every value made from it.
+itself covers every value made from it. So does a mark in a local that gets no other value, such as
+`var marked = placeholder.AsCell();`.
 
 ## Reading a looped value
 

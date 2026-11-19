@@ -4607,7 +4607,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         ImmutableHashSet<(ISymbol Name, LoopStateEvaluator At)> seen,
         LoopStateEvaluator at)
     {
-        if (LoopStateEvaluator.IsAsserted(argument))
+        if (at.IsAsserted(argument))
         {
             return false;
         }
