@@ -27403,6 +27403,14 @@ public static class Shapes
     public static Cell<int> Ab221PlainReadInALoopAfterAMethodPutsIntoTheArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot e = new(); e.Share = l.Map(v => v); SettableSlot[] a = [R4PairSpare]; a[0] = d; int read = 0; foreach (int k in Ab221Two) { read = a[0].Share!.Sample(); d.Share = Plain; Ab221PutInto(a, e); } return S.Hold(read); });
 
+    // S6372. Carried AB209: The probe N1a of AB209.
+    public static Cell<int> R4PairAb209ReverseReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R4PairUnseen[0]]; SettableSlot d = R4PairUnseen[1]; a[0] = d; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6373. Carried AB209: The probe N1b of AB209.
+    public static Cell<int> R4PairAb209ReverseReadLocalOfElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R4PairUnseen[2]]; SettableSlot d = R4PairUnseen[3]; a[0] = d; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
