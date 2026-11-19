@@ -4138,6 +4138,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab215PutThroughALocalInACallee"] = ["SF1001"],
             ["R4CsCodeAfterACompleteCustomAwaitRunsNow"] = ["SF1001"],
             ["Ab256GetResultOfACompleteAwaiterReads"] = ["SF1005"],
-            ["Ab249CodeAfterAnAwaiterWithABlockGetterRunsNow"] = ["SF1001"]
+            ["Ab249CodeAfterAnAwaiterWithABlockGetterRunsNow"] = ["SF1001"],
+            ["R4CsNullConditionalAssignmentCallsTheSetter"] = ["SF1005"],
+            ["R4CsNullConditionalAssignmentWritesTheMember"] = ["SF1001"],
+            ["Ab266NullConditionalIndexerAssignmentCallsTheSetter"] = ["SF1005"],
+            ["Ab266NullConditionalElementAssignmentWritesTheElement"] = ["SF1001"],
+            ["Ab266NullConditionalAssignmentInABranchKeepsThePendingCell"] = ["SF1001"],
+            ["Ab266NullConditionalAssignmentThroughAMemberWritesTheInnerObject"] = ["SF1001"]
         };
 }

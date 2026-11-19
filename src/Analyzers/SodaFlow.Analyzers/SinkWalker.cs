@@ -1755,6 +1755,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             {
                 MemberAccessExpressionSyntax member => (member.Expression, null),
                 ElementAccessExpressionSyntax element => (element.Expression, element.ArgumentList),
+                // The owner of a null-conditional assignment is the value before the mark.
+                MemberBindingExpressionSyntax binding => (LoopStateEvaluator.ConditionalReceiver(binding), null),
+                ElementBindingExpressionSyntax binding =>
+                    (LoopStateEvaluator.ConditionalReceiver(binding), binding.ArgumentList),
                 _ => ((ExpressionSyntax?)null, (BracketedArgumentListSyntax?)null)
             };
 
@@ -1850,6 +1854,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.Visit(element.Expression);
                 this.Visit(element.ArgumentList);
                 break;
+            // The owner of a null-conditional assignment is before the mark, and the walk reads it
+            // there.
+            case MemberBindingExpressionSyntax:
+                break;
+            case ElementBindingExpressionSyntax binding:
+                this.Visit(binding.ArgumentList);
+                break;
             default:
                 this.Visit(node.Left);
                 break;
@@ -1924,6 +1935,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return assignment.Parent switch
         {
             ExpressionStatementSyntax statement => this.AlwaysRunsAt(place: statement, turn: out turn),
+            // A null-conditional assignment runs when its owner is not null. Each object that the
+            // owner can name then gets the write.
+            ConditionalAccessExpressionSyntax { Parent: ExpressionStatementSyntax statement } conditional
+                when conditional.WhenNotNull == assignment =>
+                this.AlwaysRunsAt(place: statement, turn: out turn),
             // The expression that is the body of a function is the one statement of that function.
             ArrowExpressionClauseSyntax clause => this.AlwaysRunsAt(place: clause, turn: out turn),
             AnonymousFunctionExpressionSyntax lambda when lambda.ExpressionBody == assignment =>
@@ -2268,15 +2284,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         // An assignment that is sure to run gives the collection the value at that position.
         (MadeObject Made, ImmutableArray<LoopState> All)? positions = null;
 
-        if (target is ElementAccessExpressionSyntax indexed)
+        if (ElementTarget(target) is (var indexed, _))
         {
-            positions =
-                this.evaluator.PositionsBeforeAnAssignment(
-                    collection: indexed.Expression,
-                    replaces: replaces,
-                    turn: turn);
-
-            this.evaluator.Gets(collection: indexed.Expression, value: value);
+            positions = this.evaluator.PositionsBeforeAnAssignment(collection: indexed, replaces: replaces, turn: turn);
+            this.evaluator.Gets(collection: indexed, value: value);
         }
         else if (target is ExpressionSyntax written and not TupleExpressionSyntax and not DeclarationExpressionSyntax)
         {
@@ -2295,9 +2306,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             this.AssignState(target: target, state: whole, replaces: replaces, turn: turn, from: value);
 
-            if (target is ElementAccessExpressionSyntax assigned)
+            if (ElementTarget(target) is (_, var indexes))
             {
-                this.evaluator.HasThePositionAfter(before: positions, element: assigned, value: value);
+                this.evaluator.HasThePositionAfter(before: positions, indexes: indexes, value: value);
             }
 
             return;
@@ -2357,19 +2368,27 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // keeps each index also, as the indexer of a dictionary keeps its key. The walk has
             // no position for the value here: an assignment with a value expression gives one
             // after this.
-            case ElementAccessExpressionSyntax element:
-                this.evaluator.ForgetsThePositionsOf(element.Expression);
-                this.evaluator.Absorb(target: element.Expression, state: state);
-                this.evaluator.PutsThroughALocalOfAField(element: element, state: state, replaces: replaces);
-                this.evaluator.PutsIntoALocation(field: null, element: element, state: state);
+            case ElementAccessExpressionSyntax or ElementBindingExpressionSyntax
+                when ElementTarget(target) is (var collection, var indexes):
+                this.evaluator.ForgetsThePositionsOf(collection);
+                this.evaluator.Absorb(target: collection, state: state);
 
-                if (this.region.SymbolOf(element) is IPropertySymbol { DeclaringSyntaxReferences.IsEmpty: true })
+                if (target is ElementAccessExpressionSyntax put)
                 {
-                    foreach (ArgumentSyntax index in element.ArgumentList.Arguments)
+                    this.evaluator.PutsThroughALocalOfAField(element: put, state: state, replaces: replaces);
+                }
+
+                this.evaluator.PutsIntoALocation(
+                    field: null,
+                    element: target as ElementAccessExpressionSyntax,
+                    state: state,
+                    owner: collection);
+
+                if (this.region.SymbolOf(target) is IPropertySymbol { DeclaringSyntaxReferences.IsEmpty: true })
+                {
+                    foreach (ArgumentSyntax index in indexes.Arguments)
                     {
-                        this.evaluator.Absorb(
-                            target: element.Expression,
-                            state: this.evaluator.Eval(index.Expression));
+                        this.evaluator.Absorb(target: collection, state: this.evaluator.Eval(index.Expression));
                     }
                 }
 
@@ -2377,18 +2396,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 // expression recorded that from the expression.
                 if (from == null)
                 {
-                    this.evaluator.GetsAState(collection: element.Expression, put: state);
+                    this.evaluator.GetsAState(collection: collection, put: state);
                 }
 
                 // An element of a view of a local array is an element of that array.
-                if (this.evaluator.TheArrayOfAViewOf(element) is { } viewed)
+                if (target is ElementAccessExpressionSyntax element
+                    && this.evaluator.TheArrayOfAViewOf(element) is { } viewed)
                 {
                     (MadeObject Made, ImmutableArray<LoopState> All, int First, int Count)? before =
-                        element.ArgumentList.Arguments is { Count: 1 } indexes
+                        element.ArgumentList.Arguments is { Count: 1 } arguments
                             ? this.evaluator.PositionsThroughAView(
                                 array: viewed,
                                 view: element.Expression,
-                                index: indexes[0],
+                                index: arguments[0],
                                 replaces: replaces,
                                 turn: turn)
                             : null;
@@ -2457,7 +2477,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             case IFieldSymbol or IPropertySymbol or IEventSymbol
                 when !this.region.Symbols.IsSodaFlow(assigned) && HasAValue(assigned):
                 this.evaluator.SetMemberOf(
-                    owner: (target as MemberAccessExpressionSyntax)?.Expression,
+                    owner: target switch
+                    {
+                        MemberAccessExpressionSyntax access => access.Expression,
+                        MemberBindingExpressionSyntax binding => LoopStateEvaluator.ConditionalReceiver(binding),
+                        _ => null
+                    },
                     member: assigned,
                     state: state,
                     replaces: replaces,
@@ -2467,6 +2492,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 break;
         }
     }
+
+    // The collection and the indexes of an element that an assignment writes. The collection of a
+    // null-conditional assignment is the value before the mark.
+    private static (ExpressionSyntax Collection, BracketedArgumentListSyntax Indexes)? ElementTarget(
+        SyntaxNode target) =>
+        target switch
+        {
+            ElementAccessExpressionSyntax element => (element.Expression, element.ArgumentList),
+            ElementBindingExpressionSyntax binding when LoopStateEvaluator.ConditionalReceiver(binding) is { } owner =>
+                (owner, binding.ArgumentList),
+            _ => null
+        };
 
     // True for a parameter of the primary constructor of a type. The constructor declares on the
     // type.
@@ -3121,7 +3158,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         {
                             this.evaluator.HasThePositionAfter(
                                 before: positions,
-                                element: assigned,
+                                indexes: assigned.ArgumentList,
                                 value: exchange.Value);
                         }
                     }

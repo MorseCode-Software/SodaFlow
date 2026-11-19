@@ -436,16 +436,16 @@ internal sealed partial class LoopStateEvaluator
     ///     position the value.
     /// </summary>
     /// <param name="before">The result of <see cref="PositionsBefore" /> for the assignment.</param>
-    /// <param name="element">The element.</param>
+    /// <param name="indexes">The indexes of the element.</param>
     /// <param name="value">The expression of the value.</param>
     public void HasThePositionAfter(
         (MadeObject Made, ImmutableArray<LoopState> All)? before,
-        ElementAccessExpressionSyntax element,
+        BracketedArgumentListSyntax indexes,
         ExpressionSyntax value)
     {
         if (before is (var made, var all)
-            && element.ArgumentList.Arguments.Count == 1
-            && this.ConstantIndexOf(element.ArgumentList.Arguments[0]) is { } index
+            && indexes.Arguments.Count == 1
+            && this.ConstantIndexOf(indexes.Arguments[0]) is { } index
             && index < all.Length)
         {
             this.region.Objects.HasPositions(

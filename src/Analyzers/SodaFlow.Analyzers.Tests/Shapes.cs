@@ -28599,6 +28599,46 @@ public static class Shapes
     public static Cell<int> Ab249CodeAfterAnAwaiterWithAnOverriddenGetterDoesNotRun() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new Ab249OverriddenDone(); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
 
+    // S6671. A null-conditional assignment calls the setter, which samples a pending member.
+    public static Cell<int> R4CsNullConditionalAssignmentCallsTheSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally? t = new(l.Map(v => v)); t?.Level = 1; return S.Hold(0); });
+
+    // S6672. A null-conditional assignment writes the pending cell into the member, which the block samples.
+    public static Cell<int> R4CsNullConditionalAssignmentWritesTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? x = new(); x?.Share = l.Map(v => v); Kept.Add(x.Share!.Sample()); return S.Hold(0); });
+
+    // S6673. A null-conditional assignment writes the plain cell over the pending one, and the block samples the member.
+    public static Cell<int> R4CsNullConditionalAssignmentWritesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? x = new() { Share = l.Map(v => v) }; x?.Share = Plain; Kept.Add(x.Share!.Sample()); return S.Hold(0); });
+
+    // S6674. A null-conditional assignment to an indexer calls its setter, which samples a pending member.
+    public static Cell<int> Ab266NullConditionalIndexerAssignmentCallsTheSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally? t = new(l.Map(v => v)); t?[0] = 1; return S.Hold(0); });
+
+    // S6675. A null-conditional assignment to an element writes the pending cell into the array, which the block samples.
+    public static Cell<int> Ab266NullConditionalElementAssignmentWritesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[]? cells = [Plain]; cells?[0] = l.Map(v => v); Kept.Add(cells[0].Sample()); return S.Hold(0); });
+
+    // S6676. A null-conditional assignment to an element writes the plain cell over the pending one.
+    public static Cell<int> Ab266NullConditionalElementAssignmentWritesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[]? cells = [l.Map(v => v)]; cells?[0] = Plain; Kept.Add(cells[0].Sample()); return S.Hold(0); });
+
+    // S6677. A null-conditional assignment in a branch that does not run keeps the pending cell in the member.
+    public static Cell<int> Ab266NullConditionalAssignmentInABranchKeepsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? x = new() { Share = l.Map(v => v) }; if (Kept.Count < 0) { x?.Share = Plain; } Kept.Add(x.Share!.Sample()); return S.Hold(0); });
+
+    // S6678. A null-conditional assignment through a member of a member writes the pending cell into the inner object.
+    public static Cell<int> Ab266NullConditionalAssignmentThroughAMemberWritesTheInnerObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab266Holder? h = new(); h?.Slot.Share = l.Map(v => v); Kept.Add(h.Slot.Share!.Sample()); return S.Hold(0); });
+
+    // S6679. A null-conditional assignment to a property calls its setter and not its getter, which alone samples.
+    public static Cell<int> Ab266NullConditionalAssignmentDoesNotCallTheGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab266Gauge? g = new(l.Map(v => v)); g?.Level = 1; return S.Hold(0); });
+
+    // S6680. A null-conditional assignment to an indexer calls its setter and not its getter, which alone samples.
+    public static Cell<int> Ab266NullConditionalIndexerAssignmentDoesNotCallTheGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab266Gauge? g = new(l.Map(v => v)); g?[0] = 1; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40620,6 +40660,26 @@ public static class Shapes
     public sealed class Ab249NotDoneAwaiterOfTheBase : Ab249DoneAwaiterBase
     {
         public override bool IsCompleted => false;
+    }
+
+    public sealed class Ab266Holder
+    {
+        public SettableSlot Slot { get; } = new();
+    }
+
+    public sealed class Ab266Gauge(Cell<int> share)
+    {
+        public int Level
+        {
+            get => share.Sample();
+            set { }
+        }
+
+        public int this[int index]
+        {
+            get => share.Sample() + index;
+            set { }
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
