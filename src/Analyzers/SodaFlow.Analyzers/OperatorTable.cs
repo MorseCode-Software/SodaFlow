@@ -380,7 +380,8 @@ internal static class OperatorTable
             "OnStart",
             // A clock and its timers. Each member gives the time, moves it, or keeps a callback for a
             // time. A timer sends into a sink, and reads no cell. Time is the behavior of the clock,
-            // which no loop gives a state.
+            // which no loop gives a state. RunTimersTo of a clock of the library base runs each
+            // callback that is due, and the walk follows that callback.
             "Cancel",
             "Now",
             "RunTimersTo",

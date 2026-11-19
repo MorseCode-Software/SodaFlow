@@ -390,7 +390,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   `string.Join` or `string.Format`.
 - Members that SodaFlow calls for you: `CompareTo` of each sort value of a collection view that
   sorts with no comparer, at the first read of the view, and `Equals` of the comparer of a two-way
-  bindable, when you write its `Value`.
+  bindable, when you write its `Value`. `RunTimersTo` of a clock built on
+  `TimerSystemImplementationBase` runs, in the call, each callback that `SetTimer` gave the same
+  local before it, unless both times are integer constants and the time of the callback is later.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
   the function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`, and the
   function of a `Task` that you create with `new` where `RunSynchronously` runs it. The `Result` of

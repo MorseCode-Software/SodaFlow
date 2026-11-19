@@ -1145,6 +1145,47 @@ internal sealed partial class LoopStateEvaluator
                 });
     }
 
+    /// <summary>
+    ///     True for a clock whose type derives from
+    ///     <c>TimerSystemImplementationBase</c>. Its <c>SetTimer</c> keeps a
+    ///     callback, and its <c>RunTimersTo</c> runs each callback that is due, in
+    ///     the call. A local of an interface has such a clock when no code writes
+    ///     the local and its value has that type.
+    /// </summary>
+    /// <param name="clock">The expression of the clock.</param>
+    public bool IsAClockOfTheLibraryBase(ExpressionSyntax clock)
+    {
+        for (ITypeSymbol? type = this.region.TypeOf(this.ValueOfALocalThatNoCodeWrites(Unwrapped(clock)));
+             type != null;
+             type = type.BaseType)
+        {
+            if (type.OriginalDefinition.Name == "TimerSystemImplementationBase" && this.region.Symbols.IsSodaFlow(type))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     The run of a callback that a call of the library runs, as
+    ///     <c>RunTimersTo</c> runs the callback of a timer.
+    /// </summary>
+    /// <param name="call">The call that runs the callback.</param>
+    /// <param name="callback">The expression of the callback, where the code gave it.</param>
+    public Followed? FollowCallback(SyntaxNode call, ExpressionSyntax callback)
+    {
+        LoopState functions = this.Eval(callback);
+
+        return this.FollowFunctions(
+            call: call,
+            name: NameOf(callback),
+            functions: functions.Functions,
+            target: functions,
+            arguments: default);
+    }
+
     // True when code can read the items of the map that the call makes. That is so when a local
     // keeps the map, and the code uses that local for more than a call of Dispose. A map that no
     // local keeps, or whose local only gets Dispose, gives its items to no code.

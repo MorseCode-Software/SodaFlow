@@ -3960,6 +3960,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4ApiOneWayChangeHandlerSendsALinkedCellAfterTheClose"] = ["SF1002"],
             ["Ab233HandlerOfACommandThatIsABindableAction"] = ["SF1002"],
             ["R4ApiSendPostedToASchedulerInAField"] = ["SF1002"],
-            ["R4ApiSendPostedToASchedulerOfAQueuedContext"] = ["SF1002"]
+            ["R4ApiSendPostedToASchedulerOfAQueuedContext"] = ["SF1002"],
+            ["R4ApiRunTimersToOfAnInterfaceRunsADueCallback"] = ["SF1001"],
+            ["R4ApiRunTimersToRunsADueCallbackInTheCall"] = ["SF1001"],
+            ["Ab236RunTimersToAfterTheTimeOfACallback"] = ["SF1001"]
         };
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -79,6 +80,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     with the type that the throw names.
     /// </summary>
     public IReadOnlyList<(ITypeSymbol? Type, LoopState State)> Thrown => this.thrown;
+
+    // The timers of each local that has a clock of the library base. Each timer has the time and
+    // the callback that SetTimer gave it, until RunTimersTo runs it. Null until the walk sees such a
+    // clock.
+    private Dictionary<ISymbol, List<(ExpressionSyntax Time, ExpressionSyntax Callback)>>? timers;
 
     public override void Visit(SyntaxNode? node)
     {
@@ -3159,6 +3165,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.Report(this.evaluator.FollowEvictionsOfADispose(map: receiver, dispose: node));
             }
 
+            // A clock of the library base keeps the callback of SetTimer. Its RunTimersTo runs each
+            // callback that is due, in the call.
+            if (operatorName is "SetTimer" or "RunTimersTo"
+                && method.ReducedFrom == null
+                && this.region.SymbolOf(LoopStateEvaluator.Unwrapped(receiver)) is ILocalSymbol clock
+                && this.evaluator.IsAClockOfTheLibraryBase(receiver))
+            {
+                this.RunsTimers(clock: clock, method: method, arguments: arguments, call: node);
+            }
+
             // Execute of a bindable action posts a send of its parameter into the sink of its
             // firings. An extension method with the same name is not that Execute.
             if (operatorName == "Execute" && method.ReducedFrom == null && arguments.Count == 1)
@@ -3178,6 +3194,71 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 parameter: LoopStateEvaluator.ParameterFor(method: method, argument: argument, position: position))
             && !this.evaluator.WaitsBeforeItsFunctions(call: node, method: method);
     }
+
+    // SetTimer of a clock of the library base keeps a timer. RunTimersTo runs the callback of each
+    // timer whose time is not after the time of the run, one time. A time that is not a constant
+    // can be due.
+    private void RunsTimers(
+        ISymbol clock,
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        InvocationExpressionSyntax call)
+    {
+        this.timers ??= new(SymbolEqualityComparer.Default);
+
+        if (!this.timers.TryGetValue(
+                key: clock,
+                value: out List<(ExpressionSyntax Time, ExpressionSyntax Callback)>? kept))
+        {
+            kept = [];
+            this.timers[clock] = kept;
+        }
+
+        if (method.Name == "SetTimer")
+        {
+            if (Argument("time") is { } time && Argument("callback") is { } callback)
+            {
+                kept.Add((time, callback));
+            }
+
+            return;
+        }
+
+        if (Argument("now") is not { } now)
+        {
+            return;
+        }
+
+        foreach ((ExpressionSyntax Time, ExpressionSyntax Callback) timer in kept
+                     .Where(timer => !this.IsAfter(time: timer.Time, now: now))
+                     .ToList())
+        {
+            kept.Remove(timer);
+            this.Report(this.evaluator.FollowCallback(call: call, callback: timer.Callback));
+        }
+
+        return;
+
+        ExpressionSyntax? Argument(string name) =>
+            arguments
+                .Where((argument, position) =>
+                    LoopStateEvaluator.ParameterFor(method: method, argument: argument, position: position)?.Name
+                    == name)
+                .Select(static argument => argument.Expression)
+                .FirstOrDefault();
+    }
+
+    // True when two times are integer constants, and the first is after the second.
+    private bool IsAfter(ExpressionSyntax time, ExpressionSyntax now) =>
+        this.IntegerOf(time) is { } later && this.IntegerOf(now) is { } at && later > at;
+
+    private decimal? IntegerOf(ExpressionSyntax expression) =>
+        this.region.ModelFor(expression).GetConstantValue(expression) is
+        {
+            HasValue: true, Value: sbyte or byte or short or ushort or int or uint or long or ulong
+        } constant
+            ? Convert.ToDecimal(value: constant.Value, provider: CultureInfo.InvariantCulture)
+            : null;
 
     // A method of the platform gives an out variable one of the values that its owner has, as
     // TryGetValue does.

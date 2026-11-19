@@ -27571,6 +27571,42 @@ public static class Shapes
     public static Cell<int> Ab234SamplePostedToASchedulerOfAQueuedContext() =>
         ((Func<Cell<int>>)(() => { Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { R4ApiQueuedScheduler.Post(() => Kept.Add(l.Sample())); return S.Hold(0); }); R4ApiQueue.Drain(); return c; }))();
 
+    // S6414. The same as RunTimersTo of a clock, but through the interface of the implementation.
+    public static Cell<int> R4ApiRunTimersToOfAnInterfaceRunsADueCallback() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ITimerSystemImplementation<int> clock = new R4ApiStepClock(); clock.SetTimer(0, () => Kept.Add(l.Sample())); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S6415. RunTimersTo of a clock from TimerSystemImplementationBase runs each due callback in the call. The callback samples the placeholder.
+    public static Cell<int> R4ApiRunTimersToRunsADueCallbackInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S6416. RunTimersTo of a clock comes before the SetTimer of a callback. Thus, it runs no callback, and the sample in the callback does not run in the block.
+    public static Cell<int> Ab236RunTimersToBeforeTheSetTimer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.RunTimersTo(0); clock.SetTimer(0, () => Kept.Add(l.Sample())); return S.Hold(0); });
+
+    // S6417. RunTimersTo of a clock runs no callback that SetTimer gave a different clock.
+    public static Cell<int> Ab236RunTimersToOfADifferentClock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock first = new(); R4ApiStepClock second = new(); first.SetTimer(0, () => Kept.Add(l.Sample())); second.RunTimersTo(0); return S.Hold(0); });
+
+    // S6418. RunTimersTo of a clock to a time after the time of a callback runs that callback in the call. The callback samples the placeholder.
+    public static Cell<int> Ab236RunTimersToAfterTheTimeOfACallback() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(5, () => Kept.Add(l.Sample())); clock.RunTimersTo(9); return S.Hold(0); });
+
+    // S6419. An extension method of this code with the name RunTimersTo gets a clock. It does not run the timers when it skips, thus the callback does not run in the block.
+    public static Cell<int> Ab236ExtensionRunTimersToThatSkips() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); clock.RunTimersTo(now: 0, skip: true); return S.Hold(0); });
+
+    // S6420. A property gives a new clock at each read. Thus, RunTimersTo runs no callback that SetTimer gave the clock of an earlier read.
+    public static Cell<int> Ab236RunTimersToOfAPropertyThatGivesANewClock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab236NewClock.SetTimer(0, () => Kept.Add(l.Sample())); Ab236NewClock.RunTimersTo(0); return S.Hold(0); });
+
+    // S6421. A clock of this code keeps no callback, and its RunTimersTo runs none. Thus, the sample in the callback does not run in the block.
+    public static Cell<int> Ab236RunTimersToOfAClockOfTheCodeRunsNoCallback() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ITimerSystemImplementation<int> clock = new R4ApiCellClock(Cell.Constant(0)); clock.SetTimer(0, () => Kept.Add(l.Sample())); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S6422. RunTimersTo runs a due callback one time. The callback samples a local that has a plain cell at the first run. A second run, after the local gets a cell made from the placeholder, runs the callback no more.
+    public static Cell<int> Ab236SecondRunTimersToRunsNoCallbackAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(c.Sample())); clock.RunTimersTo(0); c = l.Map(v => v); clock.RunTimersTo(1); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -39162,6 +39198,9 @@ public static class Shapes
         public void Execute() => this.Runs++;
     }
 
+    // A clock of the library base, new at each read.
+    private static R4ApiStepClock Ab236NewClock => new();
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -39170,6 +39209,16 @@ public static class Shapes
 
 file static class Helpers
 {
+    // An extension method of this code with the name RunTimersTo. It runs the timers of the clock
+    // only when it does not skip.
+    public static void RunTimersTo(this Shapes.R4ApiStepClock clock, int now, bool skip)
+    {
+        if (!skip)
+        {
+            clock.RunTimersTo(now);
+        }
+    }
+
     // An extension method of this code with the name Execute. It does nothing.
     public static void Execute(this SodaFlow.Bindable.ObjectModel.IBindable bindable, Cell<int> parameter)
     {
