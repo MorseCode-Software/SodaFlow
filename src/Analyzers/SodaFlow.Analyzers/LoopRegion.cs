@@ -64,6 +64,7 @@ internal sealed class LoopRegion(
     // The members of the object of a forward reference that the code samples at the end of the
     // transaction, before a switch links to them.
     private readonly HashSet<ISymbol> forced = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<INamedTypeSymbol> startedTypes = new(SymbolEqualityComparer.Default);
 
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
@@ -149,6 +150,12 @@ internal sealed class LoopRegion(
 
     /// <summary>True when the code set a field to a value with a state.</summary>
     public bool HasFields => this.fields.Count > 0;
+
+    /// <summary>
+    ///     Records that the walk reads the static constructor of a type. True
+    ///     the first time for each type, which is the only time it runs.
+    /// </summary>
+    public bool StartsTheType(INamedTypeSymbol type) => this.startedTypes.Add(type);
 
     /// <summary>
     ///     Keeps the objects as results of calls that a second call can give

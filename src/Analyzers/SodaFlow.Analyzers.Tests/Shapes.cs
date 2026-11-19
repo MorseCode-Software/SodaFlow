@@ -26187,6 +26187,30 @@ public static class Shapes
     public static Cell<int> Ag95MemberWriteAtALocalIndexWithASecondValueReadThroughTheIndex() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new(), new()]; int i = 1; i = 0; a[i].Share = l.Map(v => v); a[1].Share = Plain; Kept.Add(a[i].Share!.Sample()); return S.Hold(0); });
 
+    // S6068. The block puts a pending cell into a static field, and then reads a static field of a class whose static constructor samples that cell.
+    public static Cell<int> R4LimStaticConstructorSamplesWhatTheBlockSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4LimShared.Cell = l.Map(v => v); Kept.Add(R4LimReadOnce.Value); return S.Hold(0); });
+
+    // S6069. The block puts a pending cell into a static field, and then reads a constant of a class whose static constructor samples that cell. A constant does not run the constructor.
+    public static Cell<int> Ab248StaticConstructorOfAConstantDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab248Shared.First = l.Map(v => v); Kept.Add(Ab248ConstantOwner.Number); return S.Hold(0); });
+
+    // S6070. A static field gets a plain cell, the block reads a class whose static constructor samples it, and then the field gets a pending cell before a second read. The constructor runs one time.
+    public static Cell<int> Ab248StaticConstructorRunsBeforeThePendingWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab248Shared.Second = Plain; Kept.Add(Ab248ReadBeforeTheWrite.Value); Ab248Shared.Second = l.Map(v => v); Kept.Add(Ab248ReadBeforeTheWrite.Value); return S.Hold(0); });
+
+    // S6071. The block puts a pending cell into a static field, and then calls a static method of a class whose static constructor samples that cell.
+    public static Cell<int> Ab248StaticConstructorRunsAtACallOfAStaticMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab248Shared.Third = l.Map(v => v); Kept.Add(Ab248ReadAtACall.Get()); return S.Hold(0); });
+
+    // S6072. The block puts a pending cell into a static field, and then reads a class with a static constructor and a static initializer that samples that cell.
+    public static Cell<int> Ab248StaticInitializerOfAClassWithAStaticConstructorSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab248Shared.Fourth = l.Map(v => v); Kept.Add(Ab248ReadByAnInitializer.Value); return S.Hold(0); });
+
+    // S6073. The block puts a pending cell into a static field, and then reads a class whose static constructor does not sample. A control.
+    public static Cell<int> Ab248StaticConstructorThatDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab248Shared.Fifth = l.Map(v => v); Kept.Add(Ab248ReadNothing.Value); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -37632,6 +37656,60 @@ public static class Shapes
     public sealed class Ab244SelfRunnerReader : Ab244SelfRunner
     {
         protected override int Now(Cell<int> c) => c.Sample();
+    }
+
+    public static class Ab248Shared
+    {
+        public static Cell<int>? First;
+        public static Cell<int>? Second;
+        public static Cell<int>? Third;
+        public static Cell<int>? Fourth;
+        public static Cell<int>? Fifth;
+    }
+
+    public static class Ab248ConstantOwner
+    {
+        public const int Number = 1;
+
+        private static readonly int Read;
+
+        static Ab248ConstantOwner() => Read = Ab248Shared.First!.Sample();
+
+        public static int Twice => Read * 2;
+    }
+
+    public static class Ab248ReadBeforeTheWrite
+    {
+        public static readonly int Value;
+
+        static Ab248ReadBeforeTheWrite() => Value = Ab248Shared.Second!.Sample();
+    }
+
+    public static class Ab248ReadAtACall
+    {
+        private static readonly int Read;
+
+        static Ab248ReadAtACall() => Read = Ab248Shared.Third!.Sample();
+
+        public static int Get() => 1;
+
+        public static int Twice => Read * 2;
+    }
+
+    public static class Ab248ReadByAnInitializer
+    {
+        public static readonly int Value = Ab248Shared.Fourth!.Sample();
+
+        static Ab248ReadByAnInitializer()
+        {
+        }
+    }
+
+    public static class Ab248ReadNothing
+    {
+        public static readonly int Value;
+
+        static Ab248ReadNothing() => Value = Ab248Shared.Fifth!.Map(v => v) is { } ? 1 : 0;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -3912,6 +3912,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab244BareVirtualCallThroughALocalOfThisReads"] = ["SF1004"],
             ["Ag95ArrayReverseUnderAConditionMovesThePendingCell"] = ["SF1001"],
             ["Ag95DictionaryObjectKeysOfStringsReadThePending"] = ["SF1001"],
-            ["Ag95MemberWriteAtALocalIndexWithASecondValueReadThroughTheIndex"] = ["SF1001"]
+            ["Ag95MemberWriteAtALocalIndexWithASecondValueReadThroughTheIndex"] = ["SF1001"],
+            ["R4LimStaticConstructorSamplesWhatTheBlockSet"] = ["SF1005"],
+            ["Ab248StaticConstructorRunsAtACallOfAStaticMethod"] = ["SF1005"],
+            ["Ab248StaticInitializerOfAClassWithAStaticConstructorSamples"] = ["SF1005"]
         };
 }

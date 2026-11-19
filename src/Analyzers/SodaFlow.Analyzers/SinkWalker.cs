@@ -4272,6 +4272,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         // Only the owner is code. The name is the member, which the check below reads.
         this.Visit(node.Expression);
+        this.Report(this.evaluator.FollowTheStaticConstructor(node));
         this.CheckPropertyRead(node: node, owner: node.Expression);
         this.CheckDynamicRead(node);
 

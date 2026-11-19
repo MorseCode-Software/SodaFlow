@@ -361,7 +361,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   copy constructor of a record, the `ToString` of each value that a record or a tuple prints, the
   `Equals` or `GetHashCode` of each member that the `Equals`, `GetHashCode`, `==`, and `!=` of a
   record or an anonymous type call, the `ToString` of each value that an anonymous type prints, and
-  the `==` of each element of a tuple comparison.
+  the `==` of each element of a tuple comparison. The explicit static constructor of a class runs,
+  with the static initializers of that class, at the first use of a static member through the name
+  of the class, once in the block.
 - A value of the type `dynamic` whose object the analyzer saw made. It reads the method, the getter
   or the setter, the indexer, the operator, the implicit conversion, or the `operator true` or
   `operator false` that the runtime binder finds on the type of that object.
@@ -512,6 +514,8 @@ Some reads that throw it does not see:
   the method makes itself or that a call inside it puts there, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
+- A static initializer of a class with no static constructor. The runtime can run such initializers
+  at any time before the first read of a field, so the analyzer does not read them.
 - A new element that code puts into an array or a list through a local that got it from a field,
   read through the field.
 - A write through a span, a memory, or a segment that a method gets as a parameter, that
