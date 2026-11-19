@@ -252,15 +252,16 @@ is quiet.
 - **A lambda or a local function that nothing in the block calls.** The analyzer reads a function
   where it runs, not where you write it.
 - **The function of a `Map` or `Lift` of a cell**, until something reads the cell. The function
-  runs at the first read of the cell, not when you build it. A function that samples a looped
-  value is thus harmless in a cell that you only keep. If you sample that cell in the block, or
-  close the loop with it, the analyzer reports the sample or the close. It reads the function at
-  that first read, with the values that the function reads then, so a capture or a member that
-  becomes pending after you build the cell counts too. A second read of the cell does not run the
-  function again. Collection views work the same way. Their predicates, selectors, sort orders, and comparers run when something reads the
+  runs at the first read of the cell, not when you build it. A function that samples a looped value
+  is thus harmless in a cell that you only keep. If you sample that cell in the block, or close the
+  loop with it, the analyzer reports the sample or the close. It reads the function at that first
+  read, with the values that the function reads then, so a capture or a member that becomes pending
+  after you build the cell counts too, and what the function writes there counts for the code after
+  the read. A second read of the cell does not run the function again. Collection views work the
+  same way. Their predicates, selectors, sort orders, and comparers run when something reads the
   view. The eviction handler of a `Map` on a collection runs when a key leaves the view, and in a
-  call of `Dispose` for each object the map built. The analyzer reads the handler at a `Dispose`
-  in the block, unless the code uses the map for nothing but that `Dispose`.
+  call of `Dispose` for each object the map built. The analyzer reads the handler at a `Dispose` in
+  the block, unless the code uses the map for nothing but that `Dispose`.
 - **A call that the compiler removes.** A call of a method with `[Conditional]`, such as
   `Debug.WriteLine` in a release build, does not run, and neither do its arguments, when the build
   defines none of its symbols.
@@ -491,8 +492,8 @@ Some reads that throw it does not see:
 - A write to a member through `this` in a method, when the code also reaches that object through
   another name, such as an element of an array that holds `this`. A read through the other name
   still sees the value from before the write.
-- A write in the function of a `Map` or a `Lift` that a `Sample` of the result runs. The analyzer
-  reads that function for the values that it reads, not for the values that it writes. A function
+- A write in the function of a `Map`, a `Lift`, or a collection view that the analyzer did not see
+  you build, such as a cell in a field that a read in the block runs for the first time. A function
   that you give to `Map` or `Lift` should have no side effects in any case.
 - A member that the platform calls from a method that is not in its table of common methods.
 - A converter of serializer options that you do not create in the call, a converter that a

@@ -25427,6 +25427,86 @@ public static class Shapes
     public static Cell<int> Ab225EvictionHandlerDoesNotRunAtTheRead() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(c.Sample())); c = l.Map(v => v); return S.Hold(m.Items.Sample().Count); });
 
+    // S5878. The Value of a bindable of a map whose function writes the pending cell.
+    public static Cell<int> R4SmpBindableOfAMapThatWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; int n = R2ApiFactory.CreateOneWay(Plain.Map(v => { s.Share = p; return v; })).Value; return S.Hold(s.Share!.Sample() + n); });
+
+    // S5879. CanExecute of an action whose enablement is a map whose function writes the pending cell.
+    public static Cell<int> R4SmpCanExecuteOfAMapThatWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; int n = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Plain.Map(v => { s.Share = p; return v > 0; })).CanExecute(null) ? 1 : 0; return S.Hold(s.Share!.Sample() + n); });
+
+    // S5880. A lazy sample from a function writes the pending cell. The block samples a ConstantLazy of it.
+    public static Cell<int> R4SmpDeferredLazySampleWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; int n = Cell.ConstantLazy(LazySample.Defer(() => { s.Share = p; return 1; })).Sample(); return S.Hold(s.Share!.Sample() + n); });
+
+    // S5881. A lift function writes the pending cell into a captured object.
+    public static Cell<int> R4SmpLiftWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; Cell<int> w = Plain.Lift(Plain, (x, y) => { s.Share = p; return x + y; }); int n = w.Sample(); return S.Hold(s.Share!.Sample() + n); });
+
+    // S5882. A predicate of a view writes the pending cell into a captured object. The block reads the keys of the view.
+    public static Cell<int> R4SmpViewPredicateWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; int n = Items().Filter(predicate: (_, state) => { s.Share = p; return state > 1; }).KeysCell.Sample().Count; return S.Hold(s.Share!.Sample() + n); });
+
+    // S5883. A predicate of a view gives a captured local a plain cell over the pending one. The read after the keys gets the plain cell.
+    public static Cell<int> R4SmpViewPredicateWritesPlainOverPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); int n = Items().Filter(predicate: (_, state) => { c = Plain; return state > 1; }).KeysCell.Sample().Count; return S.Hold(c.Sample() + n); });
+
+    // S5884. A map function gives a captured local the pending cell. The block samples the map and then the local.
+    public static Cell<int> R4SmpWritesACapturedLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Cell<int> c = Plain; Cell<int> w = Plain.Map(v => { c = p; return v; }); int n = w.Sample(); return S.Hold(c.Sample() + n); });
+
+    // S5885. A map function puts the pending cell into an element of a captured list.
+    public static Cell<int> R4SmpWritesAListElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); List<Cell<int>> list = [Plain]; Cell<int> w = Plain.Map(v => { list[0] = p; return v; }); int n = w.Sample(); return S.Hold(list[0].Sample() + n); });
+
+    // S5886. A map function puts the pending cell into a member of a captured object.
+    public static Cell<int> R4SmpWritesAMemberOfACapturedObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; Cell<int> w = Plain.Map(v => { s.Share = p; return v; }); int n = w.Sample(); return S.Hold(s.Share!.Sample() + n); });
+
+    // S5887. A map function puts the pending cell into a static field that the block gave a plain cell.
+    public static Cell<int> R4SmpWritesAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); R4SmpB4 = Plain; Cell<int> w = Plain.Map(v => { R4SmpB4 = p; return v; }); int n = w.Sample(); return S.Hold(R4SmpB4.Sample() + n); });
+
+    // S5888. The sample of a map of the map runs the inner function, which writes the pending cell.
+    public static Cell<int> R4SmpWritesInAMapOfAMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; Cell<int> w = Plain.Map(v => { s.Share = p; return v; }).Map(v => v + 1); int n = w.Sample(); return S.Hold(s.Share!.Sample() + n); });
+
+    // S5889. A map gets a method by its name, and the method puts the pending cell into a static field.
+    public static Cell<int> R4SmpWritesInANamedFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4SmpF14 = Plain; R4SmpP14 = l.Map(v => v); Cell<int> w = Plain.Map(R4SmpWriteF14); int n = w.Sample(); return S.Hold(R4SmpF14.Sample() + n); });
+
+    // S5890. A map function puts a plain cell over the pending cell of a captured object. The read gets the plain cell.
+    public static Cell<int> R4SmpWritesPlainOverPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = p }; Cell<int> w = Plain.Map(v => { s.Share = Plain; return v; }); int n = w.Sample(); return S.Hold(s.Share!.Sample() + n); });
+
+    // S5891. A map function gives a captured local a plain cell over the pending one.
+    public static Cell<int> R4SmpWritesPlainOverPendingLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); Cell<int> w = Plain.Map(v => { c = Plain; return v; }); int n = w.Sample(); return S.Hold(c.Sample() + n); });
+
+    // S5892. A map function writes the pending cell into a captured object, and a method of an object samples the map.
+    public static Cell<int> R4SmpWritesSampledByAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; R4SmpSampler r = new(Plain.Map(v => { s.Share = p; return v; })); int n = r.Read(); return S.Hold(s.Share!.Sample() + n); });
+
+    // S5893. A helper samples the map whose function writes the pending cell. The block reads the member after.
+    public static Cell<int> R4SmpWritesSampledInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; Cell<int> w = Plain.Map(v => { s.Share = p; return v; }); int n = ReadIt(w); return S.Hold(s.Share!.Sample() + n); });
+
+    // S5894. A map function writes the pending cell into a captured object, and the block samples the map in a transaction.
+    public static Cell<int> R4SmpWritesSampledInATransaction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; Cell<int> w = Plain.Map(v => { s.Share = p; return v; }); int n = Transaction.Run(() => w.Sample()); return S.Hold(s.Share!.Sample() + n); });
+
+    // S5895. The block samples the map through a second name of the cell.
+    public static Cell<int> R4SmpWritesSampledThroughASecondNameOfTheCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; Cell<int> w = Plain.Map(v => { s.Share = p; return v; }); Cell<int> w2 = w; int n = w2.Sample(); return S.Hold(s.Share!.Sample() + n); });
+
+    // S5896. A map function calls a method that puts the pending cell into the captured object.
+    public static Cell<int> R4SmpWritesThroughACallInTheFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; Cell<int> w = Plain.Map(v => { R4SmpPut(s, p); return v; }); int n = w.Sample(); return S.Hold(s.Share!.Sample() + n); });
+
+    // S5897. A map function writes the pending cell through a second name of the object. The block reads through the first name.
+    public static Cell<int> R4SmpWritesThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); SettableSlot s = new() { Share = Plain }; SettableSlot t = s; Cell<int> w = Plain.Map(v => { t.Share = p; return v; }); int n = w.Sample(); return S.Hold(s.Share!.Sample() + n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

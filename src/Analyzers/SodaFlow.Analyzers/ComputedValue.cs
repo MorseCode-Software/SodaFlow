@@ -24,12 +24,14 @@ namespace SodaFlow.Analyzers;
 /// </param>
 /// <param name="given">The state that each parameter of a function gets.</param>
 /// <param name="manyTimes">True when the cell can run a function two or more times at the read.</param>
+/// <param name="writes">True when a lambda of the functions gives a location a value.</param>
 internal sealed class ComputedValue(
     in InvocationExpressionSyntax build,
     in LoopStateEvaluator builder,
     in ImmutableArray<(ExpressionSyntax Written, LoopState Functions)> functions,
     in LoopState given,
-    in bool manyTimes)
+    in bool manyTimes,
+    in bool writes)
 {
     public InvocationExpressionSyntax Build { get; } = build;
 
@@ -40,6 +42,8 @@ internal sealed class ComputedValue(
     public LoopState Given { get; } = given;
 
     public bool ManyTimes { get; } = manyTimes;
+
+    public bool Writes { get; } = writes;
 
     /// <summary>True after a read that the walk knows to run the functions.</summary>
     public bool HasRun { get; private set; }

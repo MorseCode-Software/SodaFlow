@@ -3790,6 +3790,23 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab225AMapThatSamplesTheMapBeforeTheFirstRead"] = ["SF1001"],
             ["Ab225MapOfAnObjectReadsAMemberSetPendingAfter"] = ["SF1001"],
             ["Ab225MapReadsAMemberThroughThis"] = ["SF1004"],
-            ["Ab225ApplyOfACellOfAFunctionReadsALocalSetPendingAfter"] = ["SF1001"]
+            ["Ab225ApplyOfACellOfAFunctionReadsALocalSetPendingAfter"] = ["SF1001"],
+            ["R4SmpBindableOfAMapThatWrites"] = ["SF1001"],
+            ["R4SmpCanExecuteOfAMapThatWrites"] = ["SF1001"],
+            ["R4SmpDeferredLazySampleWrites"] = ["SF1001"],
+            ["R4SmpLiftWrites"] = ["SF1001"],
+            ["R4SmpViewPredicateWrites"] = ["SF1001"],
+            ["R4SmpWritesACapturedLocal"] = ["SF1001"],
+            ["R4SmpWritesAListElement"] = ["SF1001"],
+            ["R4SmpWritesAMemberOfACapturedObject"] = ["SF1001"],
+            ["R4SmpWritesAStaticField"] = ["SF1001"],
+            ["R4SmpWritesInAMapOfAMap"] = ["SF1001"],
+            ["R4SmpWritesInANamedFunction"] = ["SF1001"],
+            ["R4SmpWritesSampledByAnObject"] = ["SF1001"],
+            ["R4SmpWritesSampledInAHelper"] = ["SF1001"],
+            ["R4SmpWritesSampledInATransaction"] = ["SF1001"],
+            ["R4SmpWritesSampledThroughASecondNameOfTheCell"] = ["SF1001"],
+            ["R4SmpWritesThroughACallInTheFunction"] = ["SF1001"],
+            ["R4SmpWritesThroughASecondName"] = ["SF1001"]
         };
 }

@@ -52,6 +52,7 @@ internal sealed partial class LoopStateEvaluator
         LoopState given = inputs.Content;
         ImmutableArray<(ExpressionSyntax Written, LoopState Functions)>.Builder? functions = null;
         bool manyTimes = false;
+        bool writes = false;
         SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
 
         for (int i = 0; i < arguments.Count; i++)
@@ -60,10 +61,12 @@ internal sealed partial class LoopStateEvaluator
             IParameterSymbol? parameter = ParameterFor(method: method, argument: arguments[i], position: i);
 
             // A lambda that reads only its parameters reads at the first read what it reads at the
-            // call. A name can be a method of this compilation, which can read each field.
+            // call. A lambda with no call can write a name also. A name can be a method of this
+            // compilation. Such a method can read and write each field.
             if (!OperatorTable.ComputesValue(method: method, parameter: parameter)
                 || (written is AnonymousFunctionExpressionSyntax lambda
-                    && !(this.CanRead(lambda.Body) && this.CanReadALaterValue(lambda: lambda, given: given))))
+                    && !((this.CanRead(lambda.Body) || Writes(lambda.Body))
+                         && this.CanReadALaterValue(lambda: lambda, given: given))))
             {
                 continue;
             }
@@ -83,6 +86,7 @@ internal sealed partial class LoopStateEvaluator
 
             functions ??= ImmutableArray.CreateBuilder<(ExpressionSyntax Written, LoopState Functions)>();
             functions.Add((written, function));
+            writes |= written is AnonymousFunctionExpressionSyntax { Body: var body } && Writes(body);
 
             // The function of a cell runs one time at the first read. A view runs its functions for
             // each item.
@@ -98,8 +102,13 @@ internal sealed partial class LoopStateEvaluator
                         builder: this,
                         functions: functions.ToImmutable(),
                         given: given,
-                        manyTimes: manyTimes)));
+                        manyTimes: manyTimes,
+                        writes: writes)));
     }
+
+    // True for code with an assignment. An increment gives a number, which has no state.
+    private static bool Writes(SyntaxNode body) =>
+        body.DescendantNodesAndSelf().Any(static node => node is AssignmentExpressionSyntax);
 
     /// <summary>
     ///     True when a lambda can read a value that the code can change after
@@ -218,8 +227,10 @@ internal sealed partial class LoopStateEvaluator
             }
 
             // An object of the store can get a pending member through a second name, which the
-            // names of the code do not show.
-            if (this.region.Objects.IsEmpty && !cell.Builder.CanUseState(invocation: cell.Build, given: cell.Given))
+            // names of the code do not show. A write can put a plain value over a pending one.
+            if (this.region.Objects.IsEmpty
+                && !cell.Writes
+                && !cell.Builder.CanUseState(invocation: cell.Build, given: cell.Given))
             {
                 continue;
             }
