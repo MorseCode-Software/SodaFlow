@@ -85,7 +85,7 @@ internal sealed partial class LoopStateEvaluator
     // True for a dictionary whose keys are objects. See KeyOf.
     private static bool HasObjectKeys(ISymbol local) =>
         local is ILocalSymbol { Type: INamedTypeSymbol { TypeArguments: { Length: 2 } keyAndValue } }
-        && keyAndValue[0].SpecialType == SpecialType.System_Object;
+        && keyAndValue.First().SpecialType == SpecialType.System_Object;
 
     // The key that a constant gives in a dictionary. A key of the type object is a boxed value. Its
     // Equals is true only for a value of the same type, thus the key has the type of the constant.
