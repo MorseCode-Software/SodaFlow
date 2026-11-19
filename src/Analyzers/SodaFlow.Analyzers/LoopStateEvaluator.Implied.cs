@@ -991,7 +991,7 @@ internal sealed partial class LoopStateEvaluator
         });
     }
 
-    private static LoopState StateOfAnElement(LoopState whole, IFieldSymbol element) =>
+    private static LoopState StateOfAnElement(LoopState whole, ISymbol element) =>
         whole.Members is { } members && members.Has(element) ? members.StateOf(element) : whole;
 
     // The evaluator keeps one result for each node and operator. Two elements that one operator
