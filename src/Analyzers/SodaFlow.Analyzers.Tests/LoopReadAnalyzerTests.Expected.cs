@@ -3915,6 +3915,7 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag95MemberWriteAtALocalIndexWithASecondValueReadThroughTheIndex"] = ["SF1001"],
             ["R4LimStaticConstructorSamplesWhatTheBlockSet"] = ["SF1005"],
             ["Ab248StaticConstructorRunsAtACallOfAStaticMethod"] = ["SF1005"],
-            ["Ab248StaticInitializerOfAClassWithAStaticConstructorSamples"] = ["SF1005"]
+            ["Ab248StaticInitializerOfAClassWithAStaticConstructorSamples"] = ["SF1005"],
+            ["Ab253SpanFromAnIndexFromTheEndWritesTheLastElement"] = ["SF1001"]
         };
 }

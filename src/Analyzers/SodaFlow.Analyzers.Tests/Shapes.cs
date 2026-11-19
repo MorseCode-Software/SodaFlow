@@ -26211,6 +26211,14 @@ public static class Shapes
     public static Cell<int> Ab248StaticConstructorThatDoesNotSample() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab248Shared.Fifth = l.Map(v => v); Kept.Add(Ab248ReadNothing.Value); return S.Hold(0); });
 
+    // S6074. A span from an index from the end gets the pending cell at its index 0, which is the last element.
+    public static Cell<int> Ab253SpanFromAnIndexFromTheEndWritesTheLastElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; Span<Cell<int>> sp = a.AsSpan(^1); sp[0] = l.Map(v => v); Kept.Add(a[1].Sample()); return S.Hold(0); });
+
+    // S6075. Fill of a slice from 1 of a span of the first two elements puts the pending cell into the second element. The block samples the third element.
+    public static Cell<int> Ab253SliceOfASpanWithALengthFillLeavesTheLastElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain, Plain]; a.AsSpan(0, 2).Slice(1).Fill(l.Map(v => v)); Kept.Add(a[2].Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
