@@ -28707,6 +28707,38 @@ public static class Shapes
     public static Cell<int> Ab267GenericNewOfAClassTypeArgumentRunsTheConstructor() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4CsSource = l.Map(v => v); Kept.Add(Ab267Factory<R4CsReadsTheSource>.Make()); R4CsSource = Plain; return S.Hold(0); });
 
+    // S6698. An interpolation calls TryFormat of an ISpanFormattable, which samples a pending member, and no ToString.
+    public static Cell<int> R4CsInterpolationCallsTryFormat() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsSpanFormatted f = new(l.Map(v => v)); string s = $"n{f}"; return S.Hold(s.Length); });
+
+    // S6699. An interpolation calls TryFormat of an ISpanFormattable and not the ToString of IFormattable, which alone samples.
+    public static Cell<int> R4CsInterpolationOfASpanFormattableSkipsToString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsFormatsByToString f = new(l.Map(v => v)); string s = $"n{f}"; return S.Hold(s.Length); });
+
+    // S6700. string.Format calls TryFormat of an ISpanFormattable, which samples a pending member.
+    public static Cell<int> R4CsStringFormatCallsTryFormat() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsSpanFormatted f = new(l.Map(v => v)); string s = string.Format("{0}", f); return S.Hold(s.Length); });
+
+    // S6701. string.Format calls the ToString of IFormattable when TryFormat of an ISpanFormattable fails, and that ToString samples a pending member.
+    public static Cell<int> Ab262StringFormatFallsBackWhenTryFormatFails() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab262FailsToFormat f = new(l.Map(v => v)); string s = string.Format("{0}", f); return S.Hold(s.Length); });
+
+    // S6702. string.Format calls TryFormat of an ISpanFormattable and not the plain ToString, which alone samples.
+    public static Cell<int> Ab262StringFormatOfASpanFormattableSkipsThePlainToString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsPlainToStringFormatted f = new(l.Map(v => v)); string s = string.Format("{0}", f); return S.Hold(s.Length); });
+
+    // S6703. StringBuilder.AppendFormat calls TryFormat of an ISpanFormattable, which samples a pending member.
+    public static Cell<int> Ab262AppendFormatCallsTryFormat() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsSpanFormatted f = new(l.Map(v => v)); StringBuilder b = new(); b.AppendFormat("{0}", f); return S.Hold(b.Length); });
+
+    // S6704. An interpolation with an alignment calls TryFormat of an ISpanFormattable, which samples a pending member.
+    public static Cell<int> Ab262InterpolationWithAnAlignmentCallsTryFormat() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsSpanFormatted f = new(l.Map(v => v)); string s = $"n{f,5}"; return S.Hold(s.Length); });
+
+    // S6705. Control: string.Join calls the plain ToString of an ISpanFormattable for each of its two values, which samples a pending member.
+    public static Cell<int> Ab262StringJoinCallsThePlainToString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsPlainToStringFormatted f = new(l.Map(v => v)); string s = string.Join(",", f, f); return S.Hold(s.Length); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40803,6 +40835,20 @@ public static class Shapes
         where T : new()
     {
         public static T Make() => new T();
+    }
+
+    public sealed class Ab262FailsToFormat(Cell<int> share) : ISpanFormattable
+    {
+        public override string ToString() => "r4";
+
+        public string ToString(string? format, IFormatProvider? formatProvider) => share.Sample().ToString();
+
+        public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+        {
+            charsWritten = 0;
+
+            return false;
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -125,6 +125,8 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresTruth;
     private readonly Lazy<IMethodSymbol?> formattableToString;
     private readonly Lazy<IMethodSymbol?> asyncDisposableDisposeAsync;
+
+    private readonly Lazy<IMethodSymbol?> spanFormattableTryFormat;
     private readonly ImmutableHashSet<IAssemblySymbol> library;
 
     /// <summary>
@@ -218,6 +220,13 @@ internal sealed class SodaFlowSymbols
                     ?.GetMembers("ToString")
                     .OfType<IMethodSymbol>()
                     .FirstOrDefault(static method => method.Parameters.Length == 2));
+
+        this.spanFormattableTryFormat =
+            new Lazy<IMethodSymbol?>(() =>
+                compilation.GetTypeByMetadataName("System.ISpanFormattable")
+                    ?.GetMembers("TryFormat")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault());
 
         this.DisposableDispose =
             compilation.GetSpecialType(SpecialType.System_IDisposable)
@@ -340,6 +349,13 @@ internal sealed class SodaFlowSymbols
     ///     an object that implements it.
     /// </summary>
     public IMethodSymbol? FormattableToString => this.formattableToString.Value;
+
+    /// <summary>
+    ///     <c>TryFormat</c> of <c>ISpanFormattable</c>. An interpolation calls it,
+    ///     and not <see cref="FormattableToString" />, on an object that
+    ///     implements it.
+    /// </summary>
+    public IMethodSymbol? SpanFormattableTryFormat => this.spanFormattableTryFormat.Value;
 
     /// <summary><c>Equals</c> of <c>object</c>, with one parameter.</summary>
     public IMethodSymbol? ObjectEquals { get; }

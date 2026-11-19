@@ -1103,24 +1103,42 @@ internal sealed partial class LoopStateEvaluator
 
         ExpressionSyntax value = interpolation.Expression;
 
-        // The formatter calls the ToString of IFormattable on an object that implements it, and the
-        // ToString of object on each other object. Of two objects, the walk reads each one.
+        // The formatter calls TryFormat of ISpanFormattable on an object that implements it. It
+        // calls the ToString of IFormattable on each other object that implements that interface,
+        // and the ToString of object on each other object. Of two objects, the walk reads each one.
         if (symbols is not { DeclaresToString: true, FormattableToString: { } formattable }
             || !members.Is(formattable.ContainingType))
         {
             return this.FollowImplied(call: value, member: toString, owner: owner, arguments: []);
         }
 
-        Construction formatted = members.Narrow(formattable.ContainingType);
+        return symbols.SpanFormattableTryFormat is { } tryFormat && members.Is(tryFormat.ContainingType)
+            ? this.FollowNarrowed(value: value, member: tryFormat, owner: owner, others: FormattedByToString)
+            : FormattedByToString();
+
+        Followed? FormattedByToString() =>
+            this.FollowNarrowed(
+                value: value,
+                member: formattable,
+                owner: owner,
+                others: () => this.FollowImplied(call: value, member: toString, owner: owner, arguments: []));
+    }
+
+    // The call of a member of an interface on the objects of a value that implement it, and the
+    // calls that the other objects get.
+    private Followed? FollowNarrowed(
+        ExpressionSyntax value,
+        IMethodSymbol member,
+        LoopState owner,
+        Func<Followed?> others)
+    {
+        Construction members = owner.Members ?? Construction.Empty;
+        Construction narrowed = members.Narrow(member.ContainingType);
 
         Followed? result =
-            this.FollowImplied(call: value, member: formattable, owner: owner.WithMembers(formatted), arguments: []);
+            this.FollowImplied(call: value, member: member, owner: owner.WithMembers(narrowed), arguments: []);
 
-        return ReferenceEquals(objA: formatted, objB: members)
-            ? result
-            : Both(
-                first: result,
-                second: this.FollowImplied(call: value, member: toString, owner: owner, arguments: []));
+        return ReferenceEquals(objA: narrowed, objB: members) ? result : Both(first: result, second: others());
     }
 
     // A FormattableString or an IFormattable keeps the values of the interpolated string, and

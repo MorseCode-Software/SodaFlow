@@ -4155,6 +4155,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag96RefMovedAtTheEndOfAForeach"] = ["SF1001"],
             ["R4CsGenericNewRunsTheConstructor"] = ["SF1005"],
             ["Ab267GenericNewThroughTwoHelpersRunsTheConstructor"] = ["SF1005"],
-            ["Ab267GenericNewOfAClassTypeArgumentRunsTheConstructor"] = ["SF1005"]
+            ["Ab267GenericNewOfAClassTypeArgumentRunsTheConstructor"] = ["SF1005"],
+            ["R4CsInterpolationCallsTryFormat"] = ["SF1005"],
+            ["R4CsStringFormatCallsTryFormat"] = ["SF1005"],
+            ["Ab262StringFormatFallsBackWhenTryFormatFails"] = ["SF1005"],
+            ["Ab262AppendFormatCallsTryFormat"] = ["SF1005"],
+            ["Ab262InterpolationWithAnAlignmentCallsTryFormat"] = ["SF1005"],
+            ["Ab262StringJoinCallsThePlainToString"] = ["SF1005", "SF1005"]
         };
 }

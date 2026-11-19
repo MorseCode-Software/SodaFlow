@@ -374,10 +374,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   element of a spread and of each element of a tuple that the code converts to a different tuple
   type or deconstructs, `operator true` or `operator false` before a user-defined `||` or `&&`, a
   setter, an event accessor, `Deconstruct`, `ToString` in an interpolated string that the code
-  formats at once, which is the `ToString` of `IFormattable` for a value that implements it,
-  `Dispose` at the end of a `using` or a `foreach`, `DisposeAsync` at the end of an `await using`,
-  `GetAwaiter` at an `await`, with `IsCompleted` of its awaiter and `GetResult` where the analyzer
-  knows that the awaiter is complete, the enumerator of a `foreach`, the `Add` of a
+  formats at once, which is `TryFormat` of `ISpanFormattable` for a value that implements it, and
+  otherwise the `ToString` of `IFormattable` for a value that implements that, `Dispose` at the end
+  of a `using` or a `foreach`, `DisposeAsync` at the end of an `await using`, `GetAwaiter` at an
+  `await`, with `IsCompleted` of its awaiter and `GetResult` where the analyzer knows that the
+  awaiter is complete, the enumerator of a `foreach`, the `Add` of a
   collection initializer or a collection expression, the `Create` method of a `CollectionBuilder`,
   `Count` and `Slice` for an index from the end, a range, or a list pattern, the `ToString` and the
   copy constructor of a record, the `ToString` of each value that a record or a tuple prints, the
@@ -390,9 +391,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   or the setter, the indexer, the operator, the implicit conversion, or the `operator true` or
   `operator false` that the runtime binder finds on the type of that object.
 - Members that the platform calls for you: `CompareTo` in a sort, `Equals` and `GetHashCode` in a
-  search, a set, or a dictionary, a comparer that you give a collection, `ToString` in
-  `string.Join` or `string.Format`, and the `ToString` of each part that a `KeyValuePair`, a
-  `DictionaryEntry`, or a `Tuple` object prints.
+  search, a set, or a dictionary, a comparer that you give a collection, `ToString` in `string.Join`
+  or `string.Format`, and the `ToString` of each part that a `KeyValuePair`, a `DictionaryEntry`, or
+  a `Tuple` object prints. A method with a format string, such as `string.Format`, calls `TryFormat`
+  of a value that implements `ISpanFormattable`, and the `ToString` of `IFormattable` where
+  `TryFormat` fails or a width pads the text.
 - Members that SodaFlow calls for you: `CompareTo` of each sort value of a collection view that
   sorts with no comparer, at the first read of the view, and `Equals` of the comparer of a two-way
   bindable, when you write its `Value`. `RunTimersTo` of a clock built on
