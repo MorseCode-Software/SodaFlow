@@ -172,7 +172,7 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     private Followed? FollowMemberEquality(
         SyntaxNode call,
-        IMethodSymbol definition,
+        ISymbol definition,
         LoopState? owner,
         IEnumerable<(ExpressionSyntax Written, LoopState State)> arguments)
     {
