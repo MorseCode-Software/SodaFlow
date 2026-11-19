@@ -650,9 +650,9 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>
     ///     True for a property that the serializer reads. It is public, it is
-    ///     not an indexer, and it has no attribute that tells a serializer to
-    ///     ignore it. <c>XmlSerializer</c> reads only a property that it can also
-    ///     set.
+    ///     not an indexer, and it has no attribute that tells this serializer
+    ///     to ignore it. <c>XmlSerializer</c> reads only a property that it can
+    ///     also set.
     /// </summary>
     public static bool IsSerialized(IPropertySymbol property, IMethodSymbol serializer, SerializerOptions options) =>
         property is { IsStatic: false, IsIndexer: false, GetMethod: not null }
@@ -664,7 +664,7 @@ internal sealed class SodaFlowSymbols
             || IsIncluded(member: property, serializer: serializer))
         && ((serializer.ContainingType?.Name != "XmlSerializer" && !options.SkipsReadOnlyProperties)
             || property.SetMethod is { DeclaredAccessibility: Accessibility.Public })
-        && !IsIgnored(property);
+        && !IsIgnored(member: property, serializer: serializer);
 
     /// <summary>
     ///     True for a field that the serializer writes. It is public, and the
@@ -676,14 +676,20 @@ internal sealed class SodaFlowSymbols
              && options.WritesFields
              && !(field.IsReadOnly && options.SkipsReadOnlyFields))
             || IsIncluded(member: field, serializer: serializer))
-        && !IsIgnored(field);
+        && !IsIgnored(member: field, serializer: serializer);
 
-    // A condition on JsonIgnore reads the value before it decides.
-    private static bool IsIgnored(ISymbol member) =>
-        member.GetAttributes()
-            .Any(static attribute =>
-                attribute.AttributeClass?.Name is "JsonIgnoreAttribute" or "XmlIgnoreAttribute"
-                && attribute.NamedArguments.IsEmpty);
+    // Each serializer obeys only the ignore attribute of its own library. Condition is the one named
+    // argument of JsonIgnore. Each value but Always (1) reads the value before it decides.
+    private static bool IsIgnored(ISymbol member, ISymbol serializer) =>
+        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() is { } library
+        && member.GetAttributes()
+            .Any(attribute =>
+                attribute.AttributeClass is { } found
+                && (found.Name, found.ContainingNamespace?.ToDisplayString(), library)
+                is ("JsonIgnoreAttribute", "System.Text.Json.Serialization", "System.Text.Json")
+                or ("JsonIgnoreAttribute", "Newtonsoft.Json", "Newtonsoft.Json")
+                or ("XmlIgnoreAttribute", "System.Xml.Serialization", "System.Xml.Serialization")
+                && attribute.NamedArguments.All(static argument => argument.Value.Value is 1));
 
     /// <summary>
     ///     The converter that a <c>JsonConverter</c> attribute of a member or a

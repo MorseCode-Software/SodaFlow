@@ -426,6 +426,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   the others write those of the object. The analyzer also reads a non-public member with
   `[JsonInclude]` or with the `[JsonProperty]` of Json.NET, the public fields where the serializer
   writes them, and a converter that a `[JsonConverter]` or the `Converters` of the options names.
+  Each serializer skips a member that has the ignore attribute of its own library, `[JsonIgnore]`
+  or `[XmlIgnore]`, and reads one that has only the attribute of another library. A `[JsonIgnore]`
+  with a `Condition` other than `Always` still reads the value to decide, so the analyzer reads that
+  member.
   It reads `IncludeFields`, `IgnoreReadOnlyProperties`, and `IgnoreReadOnlyFields` where you create
   the options in the call. It reads the object that you give the serializer and the objects up to
   three levels inside it.

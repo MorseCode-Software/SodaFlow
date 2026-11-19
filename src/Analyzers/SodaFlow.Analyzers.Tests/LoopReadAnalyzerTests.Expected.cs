@@ -4011,6 +4011,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab247KeyValuePairToStringReadsTheKey"] = ["SF1005"],
             ["Ab247TupleObjectInAnInterpolatedString"] = ["SF1005"],
             ["Ab247DictionaryEntryInAnInterpolatedString"] = ["SF1005"],
-            ["Ab247DictionaryEntryToStringReadsTheValue"] = ["SF1005"]
+            ["Ab247DictionaryEntryToStringReadsTheValue"] = ["SF1005"],
+            ["R4LimJsonNetWritesAPropertyThatSystemTextJsonIgnores"] = ["SF1005"],
+            ["R4LimSystemTextJsonWritesAPropertyThatJsonNetIgnores"] = ["SF1005"],
+            ["R4LimSystemTextJsonWritesAPropertyThatXmlIgnores"] = ["SF1005"],
+            ["R4LimXmlSerializerWritesAPropertyThatJsonIgnores"] = ["SF1005"],
+            ["Ab242SystemTextJsonReadsAPropertyIgnoredNever"] = ["SF1005"],
+            ["Ab242JsonNetWritesAPropertyThatXmlIgnores"] = ["SF1005"],
+            ["Ab242XmlSerializerWritesAPropertyThatJsonNetIgnores"] = ["SF1005"]
         };
 }

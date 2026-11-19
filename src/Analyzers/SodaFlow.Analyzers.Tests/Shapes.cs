@@ -27883,6 +27883,38 @@ public static class Shapes
     public static Cell<int> Ab247KeyValuePairInAFormattableString() =>
         Cell.Loop<int>().WithoutCaptures(l => { KeyValuePair<int, Titled> p = new(1, new Titled(l.Map(v => v))); FormattableString f = $"{p}"; Kept.Add(f); return S.Hold(0); });
 
+    // S6492. Json.NET writes a property that has the JsonIgnore of System.Text.Json, and its getter samples.
+    public static Cell<int> R4LimJsonNetWritesAPropertyThatSystemTextJsonIgnores() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R4LimIgnoredByStj(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6493. System.Text.Json does not call a getter with JsonIgnore whose condition is Always.
+    public static Cell<int> R4LimSystemTextJsonSkipsAPropertyIgnoredAlways() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R4LimIgnoredAlways(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6494. System.Text.Json writes a property that has the JsonIgnore of Json.NET, and its getter samples.
+    public static Cell<int> R4LimSystemTextJsonWritesAPropertyThatJsonNetIgnores() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R4LimIgnoredByJsonNet(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6495. System.Text.Json writes a property that has XmlIgnore, and its getter samples.
+    public static Cell<int> R4LimSystemTextJsonWritesAPropertyThatXmlIgnores() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R4LimIgnoredByXml(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6496. XmlSerializer writes a property that has the JsonIgnore of System.Text.Json, and its getter samples.
+    public static Cell<int> R4LimXmlSerializerWritesAPropertyThatJsonIgnores() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new XmlSerializer(typeof(R4LimXmlJsonIgnored)).Serialize(TextWriter.Null, new R4LimXmlJsonIgnored(l.Map(v => v))); return S.Hold(0); });
+
+    // S6497. System.Text.Json calls a getter with JsonIgnore whose condition is Never, and the getter samples.
+    public static Cell<int> Ab242SystemTextJsonReadsAPropertyIgnoredNever() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ab242IgnoredNever(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6498. Json.NET writes a property that has XmlIgnore, and its getter samples.
+    public static Cell<int> Ab242JsonNetWritesAPropertyThatXmlIgnores() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R4LimIgnoredByXml(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6499. XmlSerializer writes a property that has the JsonIgnore of Json.NET, and its getter samples.
+    public static Cell<int> Ab242XmlSerializerWritesAPropertyThatJsonNetIgnores() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new XmlSerializer(typeof(Ab242XmlJsonNetIgnored)).Serialize(TextWriter.Null, new Ab242XmlJsonNetIgnored(l.Map(v => v))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -39502,6 +39534,30 @@ public static class Shapes
     public static class Ab235Results
     {
         public static Cell<int> FromValue(Cell<int> value) => Plain;
+    }
+
+    public sealed class Ab242IgnoredNever(Cell<int> share)
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+        public int Now => share.Sample();
+    }
+
+    public sealed class Ab242XmlJsonNetIgnored
+    {
+        private readonly Cell<int>? share;
+
+        public Ab242XmlJsonNetIgnored()
+        {
+        }
+
+        public Ab242XmlJsonNetIgnored(Cell<int> share) => this.share = share;
+
+        [Newtonsoft.Json.JsonIgnore]
+        public int Now
+        {
+            get => this.share?.Sample() ?? 0;
+            set => _ = value;
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
