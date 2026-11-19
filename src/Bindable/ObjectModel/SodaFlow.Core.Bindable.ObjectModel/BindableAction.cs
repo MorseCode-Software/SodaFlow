@@ -138,7 +138,7 @@ public static partial class BindableCoreExtensionMethods
                 return;
             }
 
-            this.listener.Unlisten();
+            this.listener.Dispose();
 
             // This reads the sample first, thus the exchange gives a value and not NotSampled.
             // A binding engine can attach to CanExecuteChanged before it calls CanExecute, and

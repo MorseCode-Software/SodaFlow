@@ -321,7 +321,7 @@ public sealed class SortOrderChangeTests
             .IsEquivalentTo(expected: [4, 3, 2, 5], ordering: CollectionOrdering.Matching);
 
         List<bool> resets = [];
-        IListener l = passing.KeyChangesStream.ListenStrong(change => resets.Add(change.IsReset));
+        IListener l = passing.KeyChangesStream.Listen(change => resets.Add(change.IsReset));
 
         tests = 0;
 
@@ -338,7 +338,7 @@ public sealed class SortOrderChangeTests
         await Assert.That(KeysOf(passing))
             .IsEquivalentTo(expected: [5, 4, 3, 2], ordering: CollectionOrdering.Matching);
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(tests).IsEqualTo(0);
 

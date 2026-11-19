@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+            netstandard2.0, as the analyzer: the IDE loads a code fix into whichever runtime hosts
+            it, and Visual Studio still hosts on .NET Framework.
+        -->
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>14</LangVersion>
+        <Nullable>enable</Nullable>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    </PropertyGroup>
+
+    <!--
+        Not a package. The dll ships inside the SodaFlow package, next to the analyzer, under
+        analyzers/dotnet/cs. SodaFlow.csproj packs it. A code fix needs the workspace layer of Roslyn,
+        and an analyzer must not reference that layer. Thus, the code fixes are an assembly of their
+        own. The compiler loads an analyzer with no workspace, and only an IDE loads a code fix.
+    -->
+    <PropertyGroup>
+        <AssemblyName>SodaFlow.Analyzers.CodeFixes</AssemblyName>
+        <RootNamespace>SodaFlow.Analyzers.CodeFixes</RootNamespace>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <!--
+        The IDE supplies these assemblies. 4.8 is the floor of the analyzer, for the reason its
+        project gives. PrivateAssets keeps Roslyn out of every package that references this project.
+    -->
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.8.0" PrivateAssets="all"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="DroppedListenerCodeFixProvider.cs"/>
+        <Compile Include="DroppedListener.cs"/>
+    </ItemGroup>
+
+</Project>

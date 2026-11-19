@@ -23,7 +23,7 @@ public sealed class TransactionTests
     private static Exception RunFailingTransaction(Action inTransaction)
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
-        IListener listener = sink.ListenStrong(static _ => throw new InvalidOperationException("listener"));
+        IListener listener = sink.Listen(static _ => throw new InvalidOperationException("listener"));
 
         try
         {
@@ -40,7 +40,7 @@ public sealed class TransactionTests
         }
         finally
         {
-            listener.Unlisten();
+            listener.Dispose();
         }
 
         throw new InvalidOperationException("The transaction did not fail.");
@@ -48,10 +48,10 @@ public sealed class TransactionTests
 
     // A listener that fails each transaction in which the stream fires. The two maps put it after
     // an operation that listens to the stream directly.
-    private static IStrongListener ThrowAfterTheDefer(Stream<int> stream) =>
+    private static IListener ThrowAfterTheDefer(Stream<int> stream) =>
         stream.Map(static value => value)
             .Map(static value => value)
-            .ListenStrong(static _ => throw new InvalidOperationException("listener"));
+            .Listen(static _ => throw new InvalidOperationException("listener"));
 
     [Test]
     public async Task PostWithReleaseRunsTheReleaseWhereTheTransactionFails()
@@ -175,7 +175,7 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = sink.ListenStrong(seen.Add);
+        using IListener l = sink.Listen(seen.Add);
 
         await Assert.That(() =>
                 Transaction.RunVoid(() =>
@@ -213,7 +213,7 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = sink.ListenStrong(seen.Add);
+        using IListener l = sink.Listen(seen.Add);
 
         await Assert.That(() =>
                 Transaction.Post(() =>
@@ -233,7 +233,7 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = sink.ListenStrong(seen.Add);
+        using IListener l = sink.Listen(seen.Add);
         InvalidOperationException thrown = new("first");
 
         InvalidOperationException? caught =
@@ -370,7 +370,7 @@ public sealed class TransactionTests
     public async Task APostedActionWhoseTransactionFailsRunsNoneOfItsPosts()
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
-        using IStrongListener thrower = sink.ListenStrong(static _ => throw new InvalidOperationException("listener"));
+        using IListener thrower = sink.Listen(static _ => throw new InvalidOperationException("listener"));
         bool ran = false;
 
         await Assert.That(() =>
@@ -424,8 +424,8 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = Operational.Defer(sink).ListenStrong(seen.Add);
-        using IStrongListener thrower = ThrowAfterTheDefer(sink);
+        using IListener l = Operational.Defer(sink).Listen(seen.Add);
+        using IListener thrower = ThrowAfterTheDefer(sink);
 
         await Assert.That(() => sink.Send(1)).ThrowsExactly<InvalidOperationException>();
 
@@ -437,8 +437,8 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = Operational.Defer(sink).ListenStrong(seen.Add);
-        using IStrongListener thrower = ThrowAfterTheDefer(sink);
+        using IListener l = Operational.Defer(sink).Listen(seen.Add);
+        using IListener thrower = ThrowAfterTheDefer(sink);
 
         await Assert.That(() => Transaction.RunVoid(() => Transaction.Post(() => sink.Send(1))))
             .ThrowsExactly<InvalidOperationException>();
@@ -454,7 +454,7 @@ public sealed class TransactionTests
     {
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
-        using IStrongListener l = Operational.Defer(sink).ListenStrong(seen.Add);
+        using IListener l = Operational.Defer(sink).Listen(seen.Add);
 
         Transaction.RunVoid(() => Transaction.Post(() => sink.Send(1)));
 
@@ -472,15 +472,15 @@ public sealed class TransactionTests
         List<int> posted = [];
         List<int> released = [];
 
-        using IStrongListener l =
-            items.ListenStrong(item =>
+        using IListener l =
+            items.Listen(item =>
                 Transaction.Post(action: () => posted.Add(item), onFailure: _ => released.Add(item)));
 
-        using IStrongListener thrower =
+        using IListener thrower =
             items.Map(static item => item)
                 .Map(static item => item)
                 .Filter(static item => item == 1)
-                .ListenStrong(static _ => throw new InvalidOperationException("1"));
+                .Listen(static _ => throw new InvalidOperationException("1"));
 
         await Assert.That(() => sink.Send([1, 2, 3])).ThrowsExactly<InvalidOperationException>();
 
@@ -496,13 +496,13 @@ public sealed class TransactionTests
         StreamSink<List<int>> sink = Stream.CreateSink<List<int>>();
         Stream<int> items = Operational.Split<int, List<int>>(sink);
         List<int> posted = [];
-        using IStrongListener l = items.ListenStrong(item => Transaction.Post(() => posted.Add(item)));
+        using IListener l = items.Listen(item => Transaction.Post(() => posted.Add(item)));
 
-        using IStrongListener thrower =
+        using IListener thrower =
             items.Map(static item => item)
                 .Map(static item => item)
                 .Filter(static item => item == 2)
-                .ListenStrong(static _ => throw new InvalidOperationException("2"));
+                .Listen(static _ => throw new InvalidOperationException("2"));
 
         await Assert.That(() => sink.Send([1, 2, 3])).ThrowsExactly<InvalidOperationException>();
 
@@ -517,13 +517,13 @@ public sealed class TransactionTests
         StreamSink<List<int>> sink = Stream.CreateSink<List<int>>();
         Stream<int> items = Operational.Split<int, List<int>>(sink);
         List<int> seen = [];
-        using IStrongListener l = Operational.Defer(items).ListenStrong(seen.Add);
+        using IListener l = Operational.Defer(items).Listen(seen.Add);
 
-        using IStrongListener thrower =
+        using IListener thrower =
             items.Map(static item => item)
                 .Map(static item => item)
                 .Filter(static item => item == 2)
-                .ListenStrong(static _ => throw new InvalidOperationException("2"));
+                .Listen(static _ => throw new InvalidOperationException("2"));
 
         await Assert.That(() => sink.Send([1, 2, 3])).ThrowsExactly<InvalidOperationException>();
 
@@ -545,7 +545,7 @@ public sealed class TransactionTests
             Operational.Split<string, List<string>>(source.Map(static _ => new List<string> { "b0", "b1", "b2" }));
 
         List<string> seen = [];
-        using IStrongListener l = two.Merge(s2: three, f: static (a, b) => a + "+" + b).ListenStrong(seen.Add);
+        using IListener l = two.Merge(s2: three, f: static (a, b) => a + "+" + b).Listen(seen.Add);
 
         source.Send(1);
 
@@ -572,7 +572,7 @@ public sealed class TransactionTests
                 source.Map(static _ => Enumerable.Range(start: 0, count: more).Select(static i => "b" + i).ToList()));
 
         List<string> seen = [];
-        using IStrongListener l = shorter.Merge(s2: longer, f: static (a, b) => a + "+" + b).ListenStrong(seen.Add);
+        using IListener l = shorter.Merge(s2: longer, f: static (a, b) => a + "+" + b).Listen(seen.Add);
 
         source.Send(1);
 
@@ -591,7 +591,7 @@ public sealed class TransactionTests
     {
         StreamSink<List<int>> sink = Stream.CreateSink<List<int>>();
         List<int> seen = [];
-        using IStrongListener l = Operational.Defer(Operational.Split<int, List<int>>(sink)).ListenStrong(seen.Add);
+        using IListener l = Operational.Defer(Operational.Split<int, List<int>>(sink)).Listen(seen.Add);
 
         sink.Send([1, 2, 3]);
         sink.Send([4, 5]);
@@ -607,8 +607,8 @@ public sealed class TransactionTests
         StreamSink<int> sink = Stream.CreateSink<int>();
         List<int> seen = [];
 
-        using IStrongListener l =
-            Operational.Defer(Operational.Defer(Operational.Defer(Operational.Defer(sink)))).ListenStrong(seen.Add);
+        using IListener l =
+            Operational.Defer(Operational.Defer(Operational.Defer(Operational.Defer(sink)))).Listen(seen.Add);
 
         sink.Send(7);
         sink.Send(8);
@@ -627,7 +627,7 @@ public sealed class TransactionTests
         StreamSink<List<List<int>>> sink = Stream.CreateSink<List<List<int>>>();
         Stream<List<int>> together = Operational.Defer(Operational.Split<List<int>, List<List<int>>>(sink));
         List<int> seen = [];
-        using IStrongListener l = Operational.Split<int, List<int>>(together).ListenStrong(seen.Add);
+        using IListener l = Operational.Split<int, List<int>>(together).Listen(seen.Add);
 
         sink.Send(
         [
@@ -652,7 +652,7 @@ public sealed class TransactionTests
         Stream<string> items = Operational.Split<string, List<string>>(sink);
         List<string> seen = [];
 
-        using IStrongListener l = items.ListenStrong(item =>
+        using IListener l = items.Listen(item =>
         {
             seen.Add(item);
 

@@ -18,8 +18,8 @@ public static class StreamSinkExtensionMethods
     /// <summary>
     ///     Send a value. A caller must not call this method in a handler registered
     ///     with <see cref="StreamExtensionMethods.Listen{T}(Stream{T}, Action{T})" />,
-    ///     <see cref="StreamExtensionMethods.ListenStrong{T}(Stream{T}, Action{T})" />
-    ///     or one of their cell equivalents. An exception will be thrown, because
+    ///     <see cref="StreamExtensionMethods.ListenOnce{T}(Stream{T}, Action{T})" />,
+    ///     or a cell equivalent. An exception will be thrown, because
     ///     sinks are for interfacing I/O to FRP only. They are not for the definition
     ///     of a new primitive.
     /// </summary>

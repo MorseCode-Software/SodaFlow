@@ -43,6 +43,7 @@
         <Compile Include="DeferredWorkBenchmarks.cs"/>
         <Compile Include="EditStreamMergeBenchmarks.cs"/>
         <Compile Include="EitherBenchmarks.cs"/>
+        <Compile Include="FilterCriteriaBenchmarks.cs"/>
         <Compile Include="GraphBuildBenchmarks.cs"/>
         <Compile Include="KeyedCollectionAggregateBenchmarks.cs"/>
         <Compile Include="KeyedCollectionAggregateShapes.cs"/>

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using SodaFlow.Async;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Collections;
 using SodaFlow.Functional;
@@ -1900,7 +1901,553 @@ internal sealed class LoopReadAnalyzerTests
             ["Ag62ADeconstructionOfAPairIntoTwoElements"] = ["SF1001"],
             ["Ag62AnInsertOfAListThatCodeCannotChange"] = ["SF1001"],
             ["Ag62AReadThroughAMemberOfTheSecondPosition"] = ["SF1001"],
-            ["Ag62AMethodReadsThePositionWithThePendingCell"] = ["SF1004"]
+            ["Ag62AMethodReadsThePositionWithThePendingCell"] = ["SF1004"],
+            ["Ab81AnExchangeGivesTheElementAnObject"] = ["SF1001"],
+            ["Ab81AnExchangeWithNoCallForTheArray"] = ["SF1001"],
+            ["Ab81APendingCellThroughTheElementAfterAnExchange"] = ["SF1001"],
+            ["Ab81ACompareExchangeGivesTheElementAnObject"] = ["SF1001"],
+            ["Ab81AnExchangeInABranch"] = ["SF1001"],
+            ["Ab81AVolatileWriteGivesTheElementAnObject"] = ["SF1001"],
+            ["Ab81ADeconstructionOfAPairFromAMethodIntoAnElement"] = ["SF1001"],
+            ["Ab82ALocalWithRefAndAnIndexThatIsNoConstant"] = ["SF1001"],
+            ["Ab82AnObjectWithAPendingCellThroughALocalWithRef"] = ["SF1001"],
+            ["Ab82ALocalWithRefForAnElementOfAnArrayThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["Ab82AMethodGivesANewObjectToALocalWithRef"] = ["SF1001"],
+            ["Ab82AMethodGivesANewObjectToALocalWithRefAndNoConstant"] = ["SF1001"],
+            ["Ab82AMethodGivesTheObjectWithThePendingCellToALocalWithRef"] = ["SF1001"],
+            ["Ab82AMethodGivesTheObjectWithThePendingCellAndNoConstant"] = ["SF1001"],
+            ["Ab82AnExchangeThroughALocalWithRef"] = ["SF1001"],
+            ["Ag63ARemoveOfTheObjectWithThePendingCell"] = ["SF1001"],
+            ["Ag63TheSecondElementAfterARemoveOfAnObjectThatTheListHasTwoTimes"] = ["SF1001"],
+            ["Ag63TheFirstElementAfterARemoveOfAnObjectThatTheListDoesNotHave"] = ["SF1001"],
+            ["Ag63ARemoveInABranch"] = ["SF1001"],
+            ["Ag63ARemoveForAClassWithItsOwnEquals"] = ["SF1001"],
+            ["Ag63ARemoveForAClassWhoseBaseClassHasItsOwnEquals"] = ["SF1001"],
+            ["Ag63ARemoveForAClassThatIsEquatable"] = ["SF1001"],
+            ["Ag63ARemoveForAListOfABaseClass"] = ["SF1001"],
+            ["Ag63TheFirstElementAfterACoalescingAssignmentToTheSecond"] = ["SF1001"],
+            ["Ag63AReadThroughAnElementAfterACoalescingAssignment"] = ["SF1001"],
+            ["Ag63ACoalescingAssignmentOfThePendingObjectToAnElementWithAnObject"] = ["SF1001"],
+            ["Ag63ACoalescingAssignmentInABranch"] = ["SF1001"],
+            ["Ag63TheSecondElementAfterAReverse"] = ["SF1001"],
+            ["Ag63AReverseOfAPart"] = ["SF1001"],
+            ["Ag63AReverseInABranch"] = ["SF1001"],
+            ["Ag61AKeeperInAStaticFieldPutsAnObjectFirst"] = ["SF1001"],
+            ["Ag61TwoReadsOfTheFieldOfAKeeper"] = ["SF1001"],
+            ["Ag61AKeeperFromALambdaInAFieldPutsAnObjectFirst"] = ["SF1001"],
+            ["Ag61AStaticConstructorGivesTheFieldADifferentObject"] = ["SF1001"],
+            ["Ag61AConstructorGivesTheFieldADifferentObject"] = ["SF1001"],
+            ["Ag61AFieldWithNoReadonly"] = ["SF1001"],
+            ["Ag61APropertyWithASetter"] = ["SF1001"],
+            ["Ag61ALambdaInAFieldSamplesItsCell"] = ["SF1004"],
+            ["Ag61TheCodeSamplesWhatALambdaInAFieldGaveBack"] = ["SF1001"],
+            ["Ag61ALambdaInAFieldWithNoReadonly"] = ["SF1003"],
+            ["Ab78APendingCellThroughASecondName"] = ["SF1001"],
+            ["Ab78AReadThroughASecondName"] = ["SF1001"],
+            ["Ab78AHelperGivesAPendingCellThroughASecondName"] = ["SF1001"],
+            ["Ab78APendingCellThroughAThirdName"] = ["SF1001"],
+            ["Ab78TheSecondNameGetsADifferentValueInABranch"] = ["SF1001"],
+            ["Ab78TheFirstNameGetsADifferentValue"] = ["SF1001"],
+            ["Ab78AMethodGivesTheFirstNameADifferentValue"] = ["SF1001"],
+            ["Ab78AMethodGivesTheSecondNameADifferentValue"] = ["SF1001"],
+            ["Ab78APendingCellThroughASecondNameInATurn"] = ["SF1001"],
+            ["Ab79AnArrayThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["Ab79AnAssignmentToTheParameterAndThenADifferentObject"] = ["SF1001"],
+            ["Ab79AParameterWithOutAndThenADifferentObject"] = ["SF1001"],
+            ["Ab79APutIntoAnElementWithNoConstantIndex"] = ["SF1001"],
+            ["Ab79AReadThroughTheParameterAfterAPut"] = ["SF1004"],
+            ["Ab79AFieldOfAnObjectThatTheWalkDidNotSeeMade"] = ["SF1001"],
+            ["Ab79AnArgumentWithNoConstantIndex"] = ["SF1001"],
+            ["Ab82ASecondAssignmentThroughALocalWithRef"] = ["SF1001"],
+            ["Ag63ARemoveOfAnObjectOfADifferentTurn"] = ["SF1001"],
+            ["Ag63ARemoveWhereTheFirstElementCanBeTwoObjects"] = ["SF1001"],
+            ["Ag63ACoalescingAssignmentToAnElementThatIsACell"] = ["SF1001"],
+            ["Ag61APropertyWithAGetterThatGivesADifferentObject"] = ["SF1001"],
+            ["Ab78TheSecondNameKeepsAWriteThroughTheFirstName"] = ["SF1001"],
+            ["Ab78ASecondNameFromAnAssignmentInABranch"] = ["SF1001"],
+            ["Ab78APlainCellThroughANameThatCanBeTheSecondOne"] = ["SF1001"],
+            ["Ab78AWriteThroughTheSecondNameInTheNextTurn"] = ["SF1001"],
+            ["Ab78AWriteThroughTheFirstNameAndThenAnOutArgument"] = ["SF1001"],
+            ["Ab78ALambdaReadsThroughTheSecondName"] = ["SF1001"],
+            ["Ab80ACellThatAPackageKeepsAndGivesBack"] = ["SF1003"],
+            ["Ab79APlainCellThroughAParameterThatCanBeTheObject"] = ["SF1001"],
+            ["Ab81AnExchangeInABranchThatDoesNotRun"] = ["SF1001"],
+            ["R2CsReadInAFinallyBlock"] = ["SF1001"],
+            ["Ab82ProbeTheElementGetsAnObjectAfterTheRef"] = ["SF1001"],
+            ["Ag63ProbeAnAddAfterAClear"] = ["SF1001"],
+            ["R2CsAsyncHelperReadsBeforeAnAwait"] = ["SF1004"],
+            ["Ab87AsyncHelperReadsAfterACompletedTask"] = ["SF1004"],
+            ["Ab87AsyncHelperReadsAfterFromResult"] = ["SF1004"],
+            ["Ab87AsyncHelperReadsAfterAValueTask"] = ["SF1004"],
+            ["Ab87AsyncHelperReadsAfterABranchWithAnAwait"] = ["SF1004"],
+            ["Ab87AsyncLambdaReadsAfterACompletedTask"] = ["SF1001"],
+            ["Ab87AsyncLocalFunctionReadsAfterAConfiguredDoneTask"] = ["SF1001"],
+            ["R2CsStaticAbstractThroughATypeParameter"] = ["SF1004"],
+            ["Ab89StaticAbstractOfAGenericInterface"] = ["SF1004"],
+            ["Ab89StaticVirtualOfTheInterface"] = ["SF1004"],
+            ["R2CsEventRaisedInTheBlock"] = ["SF1001"],
+            ["R2CsDelegatesCombinedWithPlus"] = ["SF1001"],
+            ["Ab95AMethodRaisesAnEventOfItsObject"] = ["SF1001"],
+            ["Ab95DelegatesCombinedAndInvoked"] = ["SF1001"],
+            ["R2CsAssignmentThroughARefReturn"] = ["SF1001"],
+            ["Ab96AssignmentThroughARefParameterReturned"] = ["SF1001"],
+            ["R2CsFieldKeywordProperty"] = ["SF1001"],
+            ["Ab97FieldKeywordPropertySetAfterTheCreation"] = ["SF1001"],
+            ["Ab97FieldKeywordOnlyInTheSetter"] = ["SF1001"],
+            ["R2CsExtensionBlockMethod"] = ["SF1004"],
+            ["Ab98ExtensionBlockMethodReadsItsParameter"] = ["SF1004"],
+            ["Ab98ExtensionBlockProperty"] = ["SF1004"],
+            ["Ag64ACompareExchangeTakesThePendingObjectAway"] = ["SF1001"],
+            ["Ag64TheComparandCanBeEitherObject"] = ["SF1001"],
+            ["Ag64TheCompareExchangeIsInABranch"] = ["SF1001"],
+            ["Ag64TheComparandIsTheResultOfACall"] = ["SF1001"],
+            ["Ag65TheMethodGivesTheObjectInABranch"] = ["SF1001"],
+            ["Ag65TheCallIsInABranch"] = ["SF1001"],
+            ["Ag65TheMethodPutsIntoTheElementAfterItGivesTheParameter"] = ["SF1001"],
+            ["Ag65TheMethodPutsThroughASecondMethodAfterItGivesTheParameter"] = ["SF1001"],
+            ["Ag65TwoParametersAreTheSameElement"] = ["SF1001"],
+            ["Ag66TheElementCanBeNull"] = ["SF1001"],
+            ["Ag66TheLocalOfTheElementGetsNull"] = ["SF1001"],
+            ["Ag68ADeconstructionIntoALocalWithRef"] = ["SF1001"],
+            ["Ag68ASecondLocalWithRef"] = ["SF1001"],
+            ["Ag68TheArrayLocalGetsADifferentArray"] = ["SF1001"],
+            ["R2CsConversionOfASwitchStatementValue"] = ["SF1004"],
+            ["R2CsConversionInASwitchExpressionArm"] = ["SF1004"],
+            ["R2CsTruthOperatorInAWhenClause"] = ["SF1004"],
+            ["R2CsConversionOfEachElementOfAForeach"] = ["SF1004"],
+            ["R2CsConversionOfALambdaResult"] = ["SF1004"],
+            ["R2CsConversionOfTheOperandOfNot"] = ["SF1004"],
+            ["Ab90ConversionOfADoCondition"] = ["SF1004"],
+            ["Ab90ConversionOfAForCondition"] = ["SF1004"],
+            ["Ab90ConversionOfAYieldReturnValue"] = ["SF1004"],
+            ["Ab90TruthOperatorInAWhenClauseOfASwitchStatement"] = ["SF1004"],
+            ["Ab90ConversionOfAValueInParentheses"] = ["SF1004"],
+            ["Ab90CastCallsTheConversionOneTime"] = ["SF1004"],
+            ["Ab90UserMinusOperatorOneTime"] = ["SF1004"],
+            ["Ab90TruthOfAValueInParentheses"] = ["SF1004"],
+            ["R2CsRecordToStringReadsAGetter"] = ["SF1005"],
+            ["R2CsWithCallsACopyConstructor"] = ["SF1004"],
+            ["R2CsIndexFromTheEndReadsCount"] = ["SF1005"],
+            ["R2CsRangeCallsSlice"] = ["SF1005"],
+            ["R2CsListPatternCallsTheIndexer"] = ["SF1005"],
+            ["Ab92ListPatternReadsCount"] = ["SF1005"],
+            ["Ab92ConditionalIndexFromTheEndReadsCount"] = ["SF1005"],
+            ["R2CsCollectionExpressionCallsAdd"] = ["SF1004"],
+            ["R2CsCollectionBuilderCreate"] = ["SF1004"],
+            ["R2CsNestedInitializerRunsASetter"] = ["SF1004"],
+            ["R2CsCollectionInitializerCallsAdd"] = ["SF1004"],
+            ["Ab93NestedCollectionInitializerCallsAdd"] = ["SF1004"],
+            ["Ab93TwoLevelsOfInitializerRunASetter"] = ["SF1004"],
+            ["R2CsForeachDisposesTheEnumerator"] = ["SF1005"],
+            ["R2CsTupleEqualityCallsTheOperator"] = ["SF1004"],
+            ["Ab94TupleInequalityCallsTheOperator"] = ["SF1004"],
+            ["R2CsGotoBackRunsTheReadAgain"] = ["SF1001"],
+            ["Ab99GotoBackFromANestedBlock"] = ["SF1001"],
+            ["R2ApiFoldOfAViewWithAPendingLimit"] = ["SF1001"],
+            ["R2ApiFoldByIdentityOfACollectionFromAPendingCell"] = ["SF1001"],
+            ["R2ApiExecuteOfAnActionWithAPendingEnablement"] = ["SF1001"],
+            ["R2ApiDisposeOfAnActionWithAPendingEnablement"] = ["SF1001"],
+            ["R2ApiTwoWayWriteOverAPendingCell"] = ["SF1001"],
+            ["R2ApiCanExecuteOfAnActionWithAPendingEnablement"] = ["SF1001"],
+            ["R2ApiCanExecuteThroughICommand"] = ["SF1001"],
+            ["Ab102ExecuteThroughICommand"] = ["SF1001"],
+            ["R2ApiSnapshotLatestOfThePlaceholderAsTheClose"] = ["SF1002"],
+            ["R2ApiSnapshotLatestOfADerivedCellAsTheClose"] = ["SF1002"],
+            ["Ab104EnablementOfAnActionWithALinkedEnablementAsTheClose"] = ["SF1002"],
+            ["Ab104EnablementOfAnActionWithAPendingEnablementRead"] = ["SF1001"],
+            ["R2ApiCollectionFromALinkedCellAsTheClose"] = ["SF1006"],
+            ["Ab105CollectionWithALinkedEditStreamAsTheClose"] = ["SF1002"],
+            ["Ab106CollectionFromADeferredQueryThatReadsSampledInTheBlock"] = ["SF1001"],
+            ["R2ApiLiftThatGivesALinkedCellSwitchedAsTheClose"] = ["SF1002"],
+            ["R2ApiLiftThatGivesAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["R2ApiAccumFromAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["R2ApiAsCellOfASinkOfALinkedCellSwitchedAsTheClose"] = ["SF1002"],
+            ["R2ApiCalmOfACellOfAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["R2ApiConstantLazyOfAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["R2ApiSendOfALinkedCellIntoASinkSwitchedAsTheClose"] = ["SF1002"],
+            ["Ab107HoldLazyOfAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["R2ApiApplyOfAFunctionThatReads"] = ["SF1001"],
+            ["R2ApiViewFilteredByACellOfAFunctionThatReads"] = ["SF1001"],
+            ["Ab108ApplyOfAFunctionInALocalThatReads"] = ["SF1001"],
+            ["Ag69SortByADescendingOrderThatReads"] = ["SF1001"],
+            ["Ag69SortByADescendingIdentityOrderThatReads"] = ["SF1001"],
+            ["Ag70MapAsyncItemsOfALinkedSourceAsTheClose"] = ["SF1002"],
+            ["Ag70AsyncItemValueOfAPendingCellSampled"] = ["SF1001"],
+            ["Ab78ProbeASecondReadOfTheElement"] = ["SF1001"],
+            ["Ab78ProbeAWriteThroughTheElement"] = ["SF1001"],
+            ["Ab83AWriteThroughTheFirstReadGoesToTheSecond"] = ["SF1001"],
+            ["Ab83TheSecondReadHasTheStateOfTheFirst"] = ["SF1001"],
+            ["Ab83ASecondReadOfAFieldIsTheSameValue"] = ["SF1001"],
+            ["Ab78ProbeALambdaGivesTheFirstNameAPendingCell"] = ["SF1001"],
+            ["Ab78ProbeALambdaGivesTheSecondNameAPendingCell"] = ["SF1001"],
+            ["Ab84ProbeASecondNameInALambda"] = ["SF1001"],
+            ["Ab84ALocalFunctionGivesTheArgumentAPendingCell"] = ["SF1001"],
+            ["Ab84ALambdaGivesItsOutParameterAPendingCell"] = ["SF1001"],
+            ["Ab84ALambdaGivesItsArgumentToASecondLambda"] = ["SF1001"],
+            ["Ab79ProbeACalleeOfTheMethodPutsTheObject"] = ["SF1001"],
+            ["Ab85AMethodTwoCallsDownPutsTheObject"] = ["SF1001"],
+            ["Ab85ACalleePutsTheObjectIntoTheField"] = ["SF1001"],
+            ["Ab86ProbeAnObjectThatCodeInAFieldKeepsAndGivesBack"] = ["SF1001"],
+            ["Ab86CodeInAFieldKeepsAValueWithNoObject"] = ["SF1001"],
+            ["Ab86AnObjectThatCodeInAFieldKeepsGetsAPendingCellAfterThePut"] = ["SF1001"],
+            ["Ab86CodeInAFieldGivesBackASequence"] = ["SF1001"],
+            ["Ag67TheFirstElementAfterAKeeperInAFieldPutAnObjectFirst"] = ["SF1001"],
+            ["Ag67AReadOfTheSecondElementAfterAKeeperInAFieldPutAnObjectFirst"] = ["SF1001"],
+            ["Ag71APlainWriteThroughANameWithRefAfterTheElementGotADifferentObject"] = ["SF1001"],
+            ["Ag71APlainWriteThroughARefResultAfterTheElementGotADifferentObject"] = ["SF1001"],
+            ["Ag71AHelperGivesAPendingCellToAnObjectFromCodeWithNoBodyBetween"] = ["SF1001"],
+            ["Ag71APutThroughTwoIndexesIntoTheLocationOfAParameter"] = ["SF1001"],
+            ["Ag71DictionaryAddOfATupleKey"] = ["SF1005"],
+            ["Ag71AFilterKeepsAContentThatIsOnlyLinked"] = ["SF1002"],
+            ["Ag71TruthOperatorInAForCondition"] = ["SF1004"],
+            ["Ab109TheObjectOfRunKeepsItsPendingCell"] = ["SF1001"],
+            ["Ab109TheObjectOfRunGetsAPendingCellAfterThePlainOne"] = ["SF1001"],
+            ["Ab109TwoRunsOfOneLocalFunctionMakeTwoObjects"] = ["SF1001"],
+            ["Ab109TwoRunsOfOneLambdaMakeTwoObjects"] = ["SF1001"],
+            ["Ab109TheFunctionOfRunCallsALambdaTwoTimes"] = ["SF1001"],
+            ["Ab109TheFunctionOfRunCallsTheHelperInALoop"] = ["SF1001"],
+            ["Ab109ARunInALoopMakesAnObjectInEachTurn"] = ["SF1001"],
+            ["Ab109RunGivesBackOneOfTwoObjects"] = ["SF1001"],
+            ["Ab109ALambdaThatRunsTwoTimesCallsTheHelper"] = ["SF1001"],
+            ["Ab109RunGivesBackAnObjectOfTheBlockOrANewOne"] = ["SF1001"],
+            ["Ab109RunGivesBackAnObjectOfTheBlockOrTheObjectOfAHelper"] = ["SF1001"],
+            ["Ab109ARunInALambdaForEachElement"] = ["SF1001"],
+            ["Ab109ALocalFunctionWithARunRunsTwoTimes"] = ["SF1001"],
+            ["Ab109AHelperWithARunRunsTwoTimes"] = ["SF1001"],
+            ["Ab109TheFunctionOfRunPutsAPendingCell"] = ["SF1001"],
+            ["Ab109TheFunctionOfRunPutsThePlainCellInABranch"] = ["SF1001"],
+            ["Ab109TwoRunsOfOneMethodGroupMakeTwoObjects"] = ["SF1001"],
+            ["Ab109AMethodWithTheNameRunCallsItsFunctionTwoTimes"] = ["SF1001"],
+            ["Ab109TwoRunsGiveTheObjectOfAField"] = ["SF1001"],
+            ["Ab110AnObjectThatCodeInAFieldKeepsHasAPendingCell"] = ["SF1001"],
+            ["Ab110AnObjectThatCodeInAFieldKeepsGetsAPendingCellAfterThePlainOne"] = ["SF1001"],
+            ["Ab110OnlyTheFirstOfTwoObjectsThatCodeInAFieldKeepsGetsAPlainCell"] = ["SF1001"],
+            ["Ab110AnObjectThatCodeInAFieldKeepsGetsAPlainCellInABranch"] = ["SF1001"],
+            ["Ab110AStructThatCodeInAFieldKeepsIsACopy"] = ["SF1001"],
+            ["Ab110TheNameGetsASecondObjectAfterThePut"] = ["SF1001"],
+            ["Ab110ACellThatCodeInAFieldKeepsAndGivesBack"] = ["SF1003"],
+            ["Ab110CodeInAPropertyOfAnObjectKeepsAnObject"] = ["SF1001"],
+            ["Ab110CodeInAStaticPropertyKeepsAnObject"] = ["SF1001"],
+            ["Ab110OnlyTheSecondTurnGivesItsObjectAPlainCell"] = ["SF1001"],
+            ["Ab110ACalleePutsTheObjectAndGivesItAPendingCell"] = ["SF1001"],
+            ["Ag72ImmutableArraySelectEnumerated"] = ["SF1001"],
+            ["Ag72ImmutableArrayWhereEnumerated"] = ["SF1001"],
+            ["Ag72ImmutableArraySelectManyEnumerated"] = ["SF1001"],
+            ["Ag72ImmutableArrayAnyRunsItsFunction"] = ["SF1001"],
+            ["Ag72AssignmentInAnInitializerCallsTheSetter"] = ["SF1005"],
+            ["Ag72AssignmentInAnInitializerGivesTheSetterAPendingValue"] = ["SF1004"],
+            ["Ag72NewRunsAnInitializerOfTheRecord"] = ["SF1005"],
+            ["Ag72ListPatternFromTheEndCallsTheIndexer"] = ["SF1005"],
+            ["Ag72SpreadIntoATypeWithABuilderThatReads"] = ["SF1004"],
+            ["Ag72CollectionInitializerCallsAnExtensionAdd"] = ["SF1004"],
+            ["Ag72NestedTupleEquality"] = ["SF1004"],
+            ["Ag72ConversionOfAnElementInATupleEquality"] = ["SF1004"],
+            ["Ag72ConversionOfTheResultOfAnOperator"] = ["SF1005"],
+            ["Ag72ReadAfterAnAwaitOfTheCompletedValueTask"] = ["SF1004"],
+            ["Ag72ADifferentHandlerRemovedBeforeTheRaise"] = ["SF1001"],
+            ["Ag72HandlerRemovedAfterTheRaise"] = ["SF1001"],
+            ["Ag72HandlerRemovedInABranch"] = ["SF1001"],
+            ["Ag72ASecondLambdaWithTheSameTextRemoved"] = ["SF1001"],
+            ["Ag72AccumOfCellsWhoseFunctionGivesALinkedCellSwitchedAsTheClose"] = ["SF1002"],
+            ["Ag72AccumOfRecordsFromAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["Ag72ConstantOfARecordWithAPendingCellSwitchedAndRead"] = ["SF1001"],
+            ["Ag72UsingStatementOfAnActionWithAPendingEnablement"] = ["SF1001"],
+            ["Ag72UsingDeclarationOfAnActionWithAPendingEnablement"] = ["SF1001"],
+            ["Ag72UsingStatementOfAnActionInALocal"] = ["SF1001"],
+            ["Ag72AccumOfRecordsWhoseFunctionGivesALinkedCellSwitchedAsTheClose"] = ["SF1002"],
+            ["Ag72AccumOfRecordsFromAStreamOfLinkedCells"] = ["SF1002"],
+            ["Ag72AccumOfRecordsWhoseFunctionCallsALocalFunction"] = ["SF1002"],
+            ["Ag72AccumOfRecordsWhoseFunctionCopiesWithALinkedCell"] = ["SF1002"],
+            ["Ag72ReadAfterAnAwaitOfAnAsyncHelperThatNeverWaits"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfAHelperThatReturnsADoneTask"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfWhenAllOfNothing"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfADefaultValueTask"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfAValueTaskFromAHelper"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfADoneTaskInALocal"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfADelayOfZero"] = ["SF1004"],
+            ["Ag72AsyncLambdaReadsAfterWhenAllOfNothing"] = ["SF1001"],
+            ["Ag72ReadAfterAnAwaitOfWhenAllOfDoneTasks"] = ["SF1004"],
+            ["Ag72ReadAfterAnAwaitOfAConfiguredHelper"] = ["SF1004"],
+            ["Ag72AsyncLambdaReadsAfterALocalFunctionThatNeverWaits"] = ["SF1001"],
+            ["Ag72InitializerOfAMemberCallsItsGetter"] = ["SF1005"],
+            ["Ag72InitializerTwoLevelsDeepCallsAGetter"] = ["SF1005"],
+            ["Ag72NestedInitializerCallsASetterThatReadsItsObject"] = ["SF1005"],
+            ["Ag72MemberKeepsItsObjectAfterAnInitializer"] = ["SF1005"],
+            ["Ag72NestedInitializerGivesTheObjectOfAMemberAPendingCell"] = ["SF1001"],
+            ["Ag72NestedInitializerThroughAGetterThatReturnsAField"] = ["SF1001"],
+            ["Ag72SpreadIntoATypeWithAnAddThatReads"] = ["SF1004"],
+            ["Ag72SpreadOfATypeWhoseGetEnumeratorReads"] = ["SF1005"],
+            ["Ag72SpreadOfATypeWhoseEnumeratorDisposeReads"] = ["SF1005"],
+            ["Ag72CollectionExpressionCallsAnExtensionAdd"] = ["SF1004"],
+            ["Ag72SpreadIntoATypeWithAnExtensionAdd"] = ["SF1004"],
+            ["Ag72PlatformEnumerationDisposesTheEnumerator"] = ["SF1005"],
+            ["Ag72SpreadDisposesTheEnumeratorOfASequence"] = ["SF1005"],
+            ["Ag72TupleInAVariableComparedWithATupleExpression"] = ["SF1004"],
+            ["Ag72TwoTuplesInVariablesCompared"] = ["SF1004"],
+            ["Ag72TupleFromAMethodCompared"] = ["SF1004"],
+            ["Ag72ConversionOfTheResultOfAnElementOperator"] = ["SF1005"],
+            ["Ag72TupleInAVariableAsAnElementCompared"] = ["SF1004"],
+            ["Ag72TwoTuplesInVariablesCallOneOperatorForTwoPairs"] = ["SF1004"],
+            ["Ag72SlicePatternCallsSlice"] = ["SF1005"],
+            ["Ag72SlicePatternCallsTheRangeIndexer"] = ["SF1005"],
+            ["Ag72SlicePatternInASwitchExpression"] = ["SF1005"],
+            ["DvStateASecondReadAfterAnInsert"] = ["SF1001"],
+            ["DvStateASecondReadAfterACalleeSwaps"] = ["SF1001"],
+            ["DvStateASecondReadAfterADeconstruction"] = ["SF1001"],
+            ["DvStateASecondReadAfterALocalWithRef"] = ["SF1001"],
+            ["DvStateASecondReadAfterAnExchange"] = ["SF1001"],
+            ["DvStateASecondReadAfterARefArgument"] = ["SF1001"],
+            ["DvStateASecondReadAfterAReverse"] = ["SF1001"],
+            ["DvStateASecondReadOfAFieldAfterACalleeSetsIt"] = ["SF1001"],
+            ["DvStateASecondReadAfterALambdaSwaps"] = ["SF1001"],
+            ["DvStateASecondReadAfterAListReverse"] = ["SF1001"],
+            ["DvStateASecondReadAfterARemoveAt"] = ["SF1001"],
+            ["DvStateASecondReadOfAFieldAfterAMethodOfTheOwner"] = ["SF1001"],
+            ["DvStateASecondReadOfAStaticFieldAfterAMethod"] = ["SF1001"],
+            ["DvStateADeconstructionMakesTwoNames"] = ["SF1001"],
+            ["DvStateAVarDeconstructionMakesTwoNames"] = ["SF1001"],
+            ["DvStateALocalAndADeconstructionOfOneElement"] = ["SF1001"],
+            ["DvStateADeconstructionIntoDeclaredLocalsMakesTwoNames"] = ["SF1001"],
+            ["Ab136ANestedDeconstructionMakesTwoNames"] = ["SF1001"],
+            ["Ab125TwoRunsOfAMethodGroupGiveTheObjectOfAField"] = ["SF1001"],
+            ["Ab125TwoCallsGiveTheObjectOfAField"] = ["SF1001"],
+            ["DvStateAHelperReturnsAnElement"] = ["SF1001"],
+            ["DvStateRunReturnsAnUnseenElement"] = ["SF1001"],
+            ["Ab125TwoCallsGiveTheObjectOfAProperty"] = ["SF1001"],
+            ["Ab125TwoCallsGiveTheObjectOfAFieldWithNoReadonly"] = ["SF1001"],
+            ["DvStateACalleeReadsAStaticObjectThatALocalWrote"] = ["SF1005"],
+            ["DvStateACalleeReadsAStaticObjectAfterAFieldWrite"] = ["SF1005"],
+            ["DvStateACalleeWithAnArgumentReadsAStaticObjectThatALocalWrote"] = ["SF1005"],
+            ["DvStateTwoCalleesOfAStaticObjectThroughALocal"] = ["SF1005"],
+            ["DvStateACalleeThatKeepsItsArgumentReadsAStaticObject"] = ["SF1005"],
+            ["DvStateTheBlockReadsAStaticObjectThatALocalWrote"] = ["SF1001"],
+            ["DvStateTwoCalleesOfAStaticObject"] = ["SF1005"],
+            ["DvStateABagKeepsACellOfAPendingCell"] = ["SF1001"],
+            ["DvStateAStaticBagKeepsACellOfAPendingCell"] = ["SF1001"],
+            ["Ab121TheReadIsThroughASecondLocal"] = ["SF1001"],
+            ["Ab110ASecondNameOfCodeInAnArrayKeepsAnObject"] = ["SF1001"],
+            ["Ab110CodeInAnArrayWithNoLocalKeepsAnObject"] = ["SF1001"],
+            ["Ab110ACalleePutsAnObjectWithAPendingCellIntoItsParameter"] = ["SF1001"],
+            ["Ab122CodeInAPropertyOfAnUnseenObjectKeepsAnObject"] = ["SF1001"],
+            ["Ab122CodeInAPropertyOfAnElementWithNoLocal"] = ["SF1001"],
+            ["DvLinksForwardReferenceSwitchesItsOwnMember"] = ["SF1002"],
+            ["DvLinksForwardReferenceOfACellSwitched"] = ["SF1002"],
+            ["DvLinksForwardReferenceSwitchSOfItsOwnStream"] = ["SF1002"],
+            ["DvLinksForwardReferenceMembersSwitchEachOther"] = ["SF1006"],
+            ["DvLinksForwardReferenceWithCapturesSwitchesItsOwnMember"] = ["SF1002"],
+            ["DvLinksForwardReferenceLazyMemberReadsItself"] = ["SF1006"],
+            ["DvLinksForwardReferenceRunningTotalOfItsOwnStream"] = ["SF1002"],
+            ["DvVmTodoSelectionClosedWithItself"] = ["SF1006"],
+            ["DvVmCounterReadBackThroughTheForwardReference"] = ["SF1001"],
+            ["DvVmCounter2CountFieldIsItsReadBack"] = ["SF1002"],
+            ["DvVmCounter2CountFieldMapsItsReadBack"] = ["SF1002"],
+            ["DvVmCounter2CountFieldLiftsItsReadBack"] = ["SF1002"],
+            ["DvVmCounter2StepsFieldIsItsReadBack"] = ["SF1002"],
+            ["DvVmCounter2StepsFieldMergesItsReadBack"] = ["SF1002"],
+            ["DvVmPageCountFieldIsItsReadBackBaseClass"] = ["SF1002"],
+            ["DvVmCapturesCountFieldIsItsReadBack"] = ["SF1002"],
+            ["Ab127TodoSelectionSortedAndProjectedClosedWithItself"] = ["SF1006"],
+            ["Ab127TodoSelectionSortedNotProjectedClosedWithItself"] = ["SF1002"],
+            ["Ab127ForwardReferenceStreamsSwitchEachOther"] = ["SF1002"],
+            ["DvLinksCapturesTupleInALocalLinkedCell"] = ["SF1002"],
+            ["DvLinksCapturesTupleFromAHelperLinkedCell"] = ["SF1002"],
+            ["DvLinksCapturesNamedFirst"] = ["SF1002"],
+            ["DvLinksStreamLoopWithCapturesMap"] = ["SF1002"],
+            ["DvLinksLaterMapToALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterDeferOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterSplitOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterFilterSomeOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterChooseOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterSnapshotToALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterSnapshotLatestToALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterCollectToALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterMergeOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterGateOfALinkedCell"] = ["SF1002"],
+            ["DvLinksLaterStreamLoopOfLinkedCells"] = ["SF1002"],
+            ["DvLinksLaterSwitchSOfLinkedCells"] = ["SF1002"],
+            ["DvLinksLaterSnapshotOfACellOfALinkedCell"] = ["SF1002"],
+            ["DvLinksSwitchCOfASwitchC"] = ["SF1002"],
+            ["DvLinksEscapeOfThePlaceholderAsObject"] = ["SF1003"],
+            ["DvLinksBlockInADelegateLocal"] = ["SF1002"],
+            ["Ag73BlockInADelegateLocalSamples"] = ["SF1001"],
+            ["DvLinksEscapeThroughAMethod"] = ["SF1003"],
+            ["DvLinksEscapeThroughAnIndexerSetter"] = ["SF1003"],
+            ["DvLinksEscapeThroughAPropertySetter"] = ["SF1003"],
+            ["DvLinksEscapeOfAnArrayOfThePlaceholder"] = ["SF1003"],
+            ["DvLinksEscapeThroughADynamicCall"] = ["SF1004"],
+            ["DvLinksEscapeThroughReflection"] = ["SF1003"],
+            ["DvLinksEscapeThroughDynamicInvoke"] = ["SF1004"],
+            ["DvLinksEscapeOfThePlaceholderCastToObject"] = ["SF1003"],
+            ["DvVmCounter2CommandsRecordDeconstructedExecute"] = ["SF1001"],
+            ["DvVmCounter3RecordDeconstructedIntoVar"] = ["SF1001"],
+            ["DvVmCounter3RecordDeconstructedThenAsked"] = ["SF1001"],
+            ["DvVmCounter3RecordPositionalPattern"] = ["SF1001"],
+            ["DvVmCounter3RecordBuiltInTheBlockDeconstructed"] = ["SF1001"],
+            ["DvVmCounter3RecordStructDeconstructed"] = ["SF1001"],
+            ["DvVmCounter3RecordsDeconstructedInAForeach"] = ["SF1001"],
+            ["DvVmCounter3ClassWithDeconstructDeconstructed"] = ["SF1001"],
+            ["DvVmCounter3TupleDeconstructed"] = ["SF1001"],
+            ["Ab132PartOfABaseRecordSampled"] = ["SF1001"],
+            ["Ab132DeconstructCallsAGetterThatReads"] = ["SF1005"],
+            ["DvVmPageBaseOverrideReads"] = ["SF1004"],
+            ["DvVmPage5AbstractHookInTheBaseConstructor"] = ["SF1004"],
+            ["DvVmPage5VirtualOverrideCalledOnTheBuiltObject"] = ["SF1005"],
+            ["DvVmPage5VirtualOverrideCalledInTheDerivedConstructor"] = ["SF1004"],
+            ["Ab133OverrideReadsThroughAPrimaryConstructor"] = ["SF1004"],
+            ["Ab133AbstractPropertyInTheBaseConstructor"] = ["SF1004"],
+            ["Ab133AbstractMethodThroughAMethodOfTheBase"] = ["SF1004"],
+            ["Ab133ImplicitConstructorCallsTheBase"] = ["SF1005"],
+            ["Ab133ConstructorWithNoInitializerCallsTheBase"] = ["SF1005"],
+            ["Ab137LocalFunctionInsertsAndTheBlockReadsIt"] = ["SF1001"],
+            ["Ab140EachTurnPutsAPendingObjectIntoTheElement"] = ["SF1001"],
+            ["Ab140ALoopWithNoTurnGivesBackTheElement"] = ["SF1001"],
+            ["DvStateAsyncReadBeforeAnAwaitInALoop"] = ["SF1004"],
+            ["DvStateAsyncReadAfterACompleteAwaitInALoop"] = ["SF1004"],
+            ["DvStateAsyncCompleteAwaitAtTheEndOfATurn"] = ["SF1004"],
+            ["Ab138ContinueBeforeTheAwait"] = ["SF1004"],
+            ["Ab139ReadAfterATryWithACatch"] = ["SF1004"],
+            ["Ab139ReadAfterAWhileWithAnAwait"] = ["SF1004"],
+            ["Ab126AccumOfRecordsWithTheSendAfter"] = ["SF1002"],
+            ["Ab126AccumOfCellsWithTheSendAfter"] = ["SF1002"],
+            ["Ab126HoldOfCellsWithTheSendAfter"] = ["SF1002"],
+            ["Ab120HandlerAddedTwiceRemovedOnce"] = ["SF1001"],
+            ["Ab120HandlerAddedInALoopRemovedOnce"] = ["SF1001"],
+            ["Ab120FunctionTwiceInADelegateRemovedOnce"] = ["SF1001"],
+            ["Ab120ACallCopiesTheHandlerBeforeTheRemove"] = ["SF1001"],
+            ["Ab142AnAddUnderAConditionMissesAnObject"] = ["SF1001"],
+            ["Ab142AContinueBeforeTheAdd"] = ["SF1001"],
+            ["Ab142ARemoveTakesAnObjectOut"] = ["SF1001"],
+            ["Ab142AWriteUnderACondition"] = ["SF1001"],
+            ["Ab142ABreakEndsTheForeach"] = ["SF1001"],
+            ["Ab142AnObjectOlderThanTheTurn"] = ["SF1001"],
+            ["Ab142AnAddAfterTheForeach"] = ["SF1001"],
+            ["Ab142ASecondTurnAddsADifferentObject"] = ["SF1001"],
+            ["Ab145ThePendingCellIsFirst"] = ["SF1004"],
+            ["Ab145AnAwaitOfACompleteTaskAfterEachElement"] = ["SF1004"],
+            ["Ab145AHelperReadsEachElementWithNoAwait"] = ["SF1004"],
+            ["Ab145TheBlockReadsEachElement"] = ["SF1001"],
+            ["Ab145TheBlockKeepsTheLastElement"] = ["SF1001"],
+            ["Ab145AReverseMovesThePendingCellFirst"] = ["SF1004"],
+            ["Ab145AnArrayReverseMovesThePendingCellFirst"] = ["SF1004"],
+            ["DvLinksDeferOfASentLinkedCell"] = ["SF1002"],
+            ["DvLinksSplitOfASentLinkedCell"] = ["SF1002"],
+            ["Ab146SwitchOfAHoldWithTheSendAfter"] = ["SF1002"],
+            ["Ab146ChainOfASinkWithTheSendAfter"] = ["SF1002"],
+            ["Ab146HoldInARecordWithTheSendAfter"] = ["SF1002"],
+            ["Ab146HoldInAListWithTheSendAfter"] = ["SF1002"],
+            ["Ab146HoldOfASecondNameOfTheSink"] = ["SF1002"],
+            ["Ab146SwitchMadeByALocalFunctionBeforeTheSend"] = ["SF1002"],
+            ["Ab146HoldOfASinkInAProperty"] = ["SF1002"],
+            ["Ab146SendThroughAParameterAfterAHold"] = ["SF1002"],
+            ["Ab146SinkOfTheCodeAroundTheBlock"] = ["SF1002"],
+            ["Ab146SwitchOfACellSinkWithTheSendAfter"] = ["SF1002"],
+            ["Ab146SendInATransactionOfTheBlock"] = ["SF1002"],
+            ["Ab146SendOfASwitchOfASecondSink"] = ["SF1002"],
+            ["Ab146SinkInAStaticField"] = ["SF1002"],
+            ["Ab146SwitchOfAHoldWithTheSendBefore"] = ["SF1002"],
+            ["Ab147TheBodyPutsAPendingCellIntoTheSecondElement"] = ["SF1001"],
+            ["Ab147TheBodyPutsAPendingCellIntoTheLastElement"] = ["SF1001"],
+            ["Ab147AHelperPutsAPendingCellIntoTheSecondElement"] = ["SF1004"],
+            ["Ab147TheBodyPutsAPendingCellThroughASecondName"] = ["SF1001"],
+            ["Ab147TheSecondTurnPutsAPendingCellIntoTheLastElement"] = ["SF1001"],
+            ["Ab148ABreakInAnIf"] = ["SF1001"],
+            ["Ab148AContinueBeforeTheBreak"] = ["SF1001"],
+            ["Ab148ABreakOfALoopInTheBody"] = ["SF1001"],
+            ["Ab148ABreakOfASwitch"] = ["SF1001"],
+            ["Ab148ThePendingCellIsFirst"] = ["SF1001"],
+            ["Ab152ThePendingPairIsFirst"] = ["SF1004"],
+            ["Ab152AnAwaitOfACompleteTaskAfterEachPair"] = ["SF1004"],
+            ["Ab152AHelperDeconstructsEachPairWithNoAwait"] = ["SF1004"],
+            ["Ab152TheBlockDeconstructsEachPair"] = ["SF1001"],
+            ["Ab152ThePendingKeyIsFirst"] = ["SF1004"],
+            ["Ab149MapOfAHoldWithTheSendAfter"] = ["SF1002"],
+            ["Ab149SampleOfALocalThatGetsAConstant"] = ["SF1002"],
+            ["Ab149SampleOfAHoldWithALinkedInitialValue"] = ["SF1002"],
+            ["Ab149SampleOfACellSinkWithALinkedInitialValue"] = ["SF1002"],
+            ["Ab150PostedSendAfterASwitchOfAHold"] = ["SF1002"],
+            ["Ab150PostedSendBeforeASwitchOfAHold"] = ["SF1002"],
+            ["Ab150PostedLambdaInALocal"] = ["SF1002"],
+            ["Ab150PostedLocalFunction"] = ["SF1002"],
+            ["Ab150PostedSendOfALocalOfTheFunction"] = ["SF1002"],
+            ["Ab150PostedSendThroughAMethod"] = ["SF1002"],
+            ["Ab150PostedSendIntoACellSink"] = ["SF1002"],
+            ["Ab150PostedSendOfASampleOfAHold"] = ["SF1002"],
+            ["Ab153TheFirstTurnPutsAPendingCellIntoTheLastOfTwo"] = ["SF1001"],
+            ["Ab153TheSecondTurnPutsAPendingCellByAnIndexIntoTheLastOfThree"] = ["SF1001"],
+            ["Ab153TheSecondTurnPutsAPendingCellIntoAnArrayOfNoKnownLength"] = ["SF1001"],
+            ["Ab153AnOuterLoopRunsTheForeachOverTwoAgain"] = ["SF1001"],
+            ["Ab153AHelperPutsALocalIntoTheLastOfThree"] = ["SF1004"],
+            ["Ab154ThePendingRecordIsFirst"] = ["SF1004"],
+            ["Ab154ThePendingWrittenRecordIsFirst"] = ["SF1004"],
+            ["Ab154AnAwaitOfACompleteTaskAfterEachRecord"] = ["SF1004"],
+            ["Ab154TheBlockDeconstructsEachRecord"] = ["SF1001"],
+            ["Ab154TheBlockDeconstructsEachWrittenRecord"] = ["SF1001"],
+            ["Ab155SampleInATransactionOfAHoldWithALinkedInitialValue"] = ["SF1002"],
+            ["Ab155SwitchOfAHoldInATransaction"] = ["SF1002"],
+            ["Ab155SampleOfAHoldInAMapOfACellThatChanges"] = ["SF1002"],
+            ["Ab155SampleOfAHoldInAMapOfAStream"] = ["SF1002"],
+            ["Ab155SampleOfAHoldInASnapshot"] = ["SF1002"],
+            ["Ab155PostedSendOfASampleInATransaction"] = ["SF1002"],
+            ["Ab155SampleOfAHoldInAMapOfALocalThatChanges"] = ["SF1002"],
+            ["Ab156PostedMethod"] = ["SF1002"],
+            ["Ab156PostInAPost"] = ["SF1002"],
+            ["Ab156PostedMethodOfALocal"] = ["SF1002"],
+            ["Ab156PostInAPostedLocalFunction"] = ["SF1002"],
+            ["Ab157TheBodyPutsIntoTheFirstArrayThroughASecondName"] = ["SF1001"],
+            ["Ab157TheBodyPutsIntoTheFirstArrayThroughItsName"] = ["SF1001"],
+            ["Ab157TheBodyGivesTheNameTheFirstArrayAgain"] = ["SF1001"],
+            ["Ab158LocalFunctionAlsoCalledInAMapOfAStream"] = ["SF1002"],
+            ["Ab158RunOfALocalFunctionInAMapOfAStream"] = ["SF1002"],
+            ["Ab158LocalFunctionGivenToAMethodThatRunsItLater"] = ["SF1002"],
+            ["Ab158LocalFunctionGivenToRunOfAHoldWithALinkedInitialValue"] = ["SF1002"],
+            ["Ab158PostedRunOfALocalFunction"] = ["SF1002"],
+            ["Ab159LocalFunctionGivenToAMapOfAStream"] = ["SF1002"],
+            ["Ab159LambdaInALocalGivenToAMapOfAStream"] = ["SF1002"],
+            ["Ab159MethodGivenToAMapOfAStream"] = ["SF1002"],
+            ["Ab159LocalFunctionGivenToAMapOfACellThatChanges"] = ["SF1002"],
+            ["Ab159LocalFunctionGivenToALiftOfCellsThatChange"] = ["SF1002"],
+            ["Ab159LiftGivenAFunctionThatReturnsItsSecondInput"] = ["SF1002"],
+            ["Ab160QueryEnumeratedInAMapOfAStream"] = ["SF1002"],
+            ["Ab160QueryOfALocalFunctionEnumeratedInAMapOfAStream"] = ["SF1002"],
+            ["Ab160QueryEnumeratedInTheBlockAndInAMapOfAStream"] = ["SF1002"],
+            ["Ab160SelectInAMapOfAStream"] = ["SF1002"],
+            ["Ab160PostedSelect"] = ["SF1002"],
+            ["Ab160LambdaGivenToRegister"] = ["SF1002"],
+            ["Ab160LocalFunctionGivenToRegister"] = ["SF1002"],
+            ["Ab160MemberSetAfterTheCreation"] = ["SF1002"],
+            ["Ab160MemberSetInTheInitializerOfTheCreation"] = ["SF1002"],
+            ["Ab160RecordInALocalWrittenInABranch"] = ["SF1002"],
+            ["Ab160RecordInALocalThatGetsTheOtherRecordLast"] = ["SF1002"],
+            ["Ab160CopyOfTheRecordWithTheOtherHold"] = ["SF1002"],
+            ["Ab160MethodOfARecordWithAHoldWithALinkedInitialValue"] = ["SF1002"],
+            ["Ab160RunOfTheMethodOfARecordInAMapOfAStream"] = ["SF1002"],
+            ["Ab160CallOfTheMethodOfARecordInAMapOfAStream"] = ["SF1002"],
+            ["Ab151AnAddUnderAConditionMissesAnObject"] = ["SF1001"],
+            ["Ab151AnAddAfterTheForeach"] = ["SF1001"],
+            ["Ab151AMethodTakesTheLiteralObjectOut"] = ["SF1001"],
+            ["Ab151ARemoveTakesTheLiteralObjectOut"] = ["SF1001"],
+            ["Ab151AForeachInALoopThatRunsNoTurn"] = ["SF1001"],
+            ["Ab151TheLocalGetsADifferentObject"] = ["SF1001"],
+            ["Ab151TheLiteralHasAnObjectOfALoop"] = ["SF1001"],
+            ["Ab151TheLiteralHasOneOfTwoObjects"] = ["SF1001"],
+            ["Ab151AWriteUnderACondition"] = ["SF1001"],
+            ["Ab151AnAddInABranchWithALoop"] = ["SF1001"],
+            ["Ab151TheLocalOfAnAddGetsADifferentObject"] = ["SF1001"],
+            ["Ab151ASecondNameTakesTheObjectOut"] = ["SF1001"],
+            ["Ab151AClearTakesTheObjectsOut"] = ["SF1001"],
+            ["Ab151ARemoveAtTakesTheObjectOut"] = ["SF1001"],
+            ["Ab151AListInAMember"] = ["SF1001"],
+            ["Ab151AContinueBeforeTheWrite"] = ["SF1001"],
+            ["Ab151ABreakAfterTheWrite"] = ["SF1001"],
+            ["Ab151AWriteInALambda"] = ["SF1001"],
+            ["Ab151AGotoJumpsOverTheAdd"] = ["SF1001"],
+            ["Ab151AGotoJumpsOverTheAddWithNoLoop"] = ["SF1001"],
+            ["Ab151TheLocalGetsADifferentObjectWithNoLoop"] = ["SF1001"],
+            ["Ab151ALocalFunctionRunsTheForeachFirst"] = ["SF1001"],
+            ["Ab151AnAddInALambda"] = ["SF1001"],
+            ["Ab151TheLiteralHasTheObjectOfTheLastTurn"] = ["SF1001"],
+            ["Ab151TheLiteralHasAnElementOfALoopList"] = ["SF1001"],
+            ["Ab151AnAddOfTheObjectOfTheLastTurn"] = ["SF1001"]
         };
 
     // A shape whose block is a method, given by its name. The analyzer reports in that method.
@@ -1912,6 +2459,21 @@ internal sealed class LoopReadAnalyzerTests
             ["MethodBlockCloses"] = "BlockThatClosesWithItself",
             ["MethodBlockSnapshots"] = "BlockThatSnapshots",
             ["ListSortWithAnOptionalComparerOfTheMethodOfTheBlock"] = "SortInABlock"
+        };
+
+    // The rules of a shape for the helper assembly with no reference to the library. Only a shape
+    // whose rules are different from the first table is here. See the test for a package.
+    private static readonly Dictionary<string, string[]> ExpectedForAPackage =
+        new()
+        {
+            ["Ab80ACellThatAPackageKeepsAndGivesBack"] = ["SF1001"],
+            ["Ab110ACellThatCodeInAFieldKeepsAndGivesBack"] = ["SF1001"],
+            ["DvLinksEscapeOfThePlaceholderAsObject"] = [],
+            ["DvLinksEscapeThroughAMethod"] = [],
+            ["DvLinksEscapeThroughAnIndexerSetter"] = [],
+            ["DvLinksEscapeThroughAPropertySetter"] = [],
+            ["DvLinksEscapeOfAnArrayOfThePlaceholder"] = [],
+            ["DvLinksEscapeOfThePlaceholderCastToObject"] = []
         };
 
     // Core lets an assembly with this name use its internals. The Core block shapes must use them,
@@ -1937,6 +2499,8 @@ internal sealed class LoopReadAnalyzerTests
         typeof(IOneWayBindableValue<>).Assembly,
         typeof(IIdentity<>).Assembly,
         typeof(CollectionExtensionMethods).Assembly,
+        typeof(AsyncMapStatus).Assembly,
+        typeof(AsyncStreamExtensions).Assembly,
         // The shapes of the serializer rule call it. The run of the shapes holds the rule to it.
         typeof(Newtonsoft.Json.JsonConvert).Assembly
     ];
@@ -1944,18 +2508,92 @@ internal sealed class LoopReadAnalyzerTests
     private static Task<string> ReadShapes() =>
         File.ReadAllTextAsync(Path.Combine(path1: AppContext.BaseDirectory, path2: "Shapes.cs"));
 
+    // The line of ShapesNoBody.cs that makes its assembly reference the library.
+    private const string ReferenceToTheLibrary = "KnowsTheLibrary = typeof(Cell<>);";
+
     // The assembly that the shapes call as code with no body to read. The analyzer gets its bytes
     // and no source.
-    private static async Task<byte[]> CompileNoBody() =>
-        AnalyzerHarness.Emit(
+    private static Task<byte[]> CompileNoBody() => CompileNoBody(knowsTheLibrary: true);
+
+    // The same assembly. With false, no code of it names a type of the library. Thus, the
+    // assembly has no reference to the library.
+    private static async Task<byte[]> CompileNoBody(bool knowsTheLibrary)
+    {
+        string source =
+            await File.ReadAllTextAsync(Path.Combine(path1: AppContext.BaseDirectory, path2: "ShapesNoBody.cs"));
+
+        if (!source.Contains(value: ReferenceToTheLibrary, comparisonType: StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("ShapesNoBody.cs does not have the line that names the library.");
+        }
+
+        return AnalyzerHarness.Emit(
             AnalyzerHarness.Compile(
-                source: await File.ReadAllTextAsync(
-                    Path.Combine(path1: AppContext.BaseDirectory, path2: "ShapesNoBody.cs")),
+                source: knowsTheLibrary
+                    ? source
+                    : source.Replace(
+                        oldValue: ReferenceToTheLibrary,
+                        newValue: "KnowsTheLibrary = typeof(List<>);",
+                        comparisonType: StringComparison.Ordinal),
                 libraries: ShapeLibraries,
                 assemblyName: "SodaFlow.Analyzers.ShapesNoBody"));
+    }
 
     [Test]
-    public async Task EachShapeReportsTheExpectedRules()
+    public async Task EachShapeReportsTheExpectedRules() =>
+        await EachShapeReportsTheExpectedRulesWith(noBody: await CompileNoBody(), isAPackage: false);
+
+    /// <summary>
+    ///     Runs the shapes with a helper assembly that has no reference to the
+    ///     library. The analyzer then knows that the code of that assembly cannot
+    ///     sample a cell. That code can keep each value that it gets, and can
+    ///     put an object into each collection that it can get to. Thus, a shape
+    ///     has the same rules as with the reference.
+    /// </summary>
+    /// <remarks>
+    ///     A pending value that goes to code which can know the library gets
+    ///     SF1003, and the walk does not follow it. The same value to this
+    ///     assembly gets no SF1003, and the walk follows it to a read. A shape
+    ///     with such a value has its rules for this assembly in
+    ///     <see cref="ExpectedForAPackage" />.
+    /// </remarks>
+    [Test]
+    public async Task EachShapeReportsTheSameRulesForAPackageThatCannotKnowTheLibrary()
+    {
+        byte[] package = await CompileNoBody(knowsTheLibrary: false);
+
+        await Assert.That(LibraryReferencesOf(await CompileNoBody()))
+            .IsNotEmpty()
+            .Because("the helper assembly of the other tests has a reference to the library");
+
+        await Assert.That(LibraryReferencesOf(package))
+            .IsEmpty()
+            .Because("this helper assembly has no reference to the library");
+
+        await EachShapeReportsTheExpectedRulesWith(noBody: package, isAPackage: true);
+    }
+
+    // The name of each assembly of the library that an image references.
+    private static IReadOnlyList<string> LibraryReferencesOf(IEnumerable<byte> image)
+    {
+        PortableExecutableReference reference = MetadataReference.CreateFromImage(image);
+
+        ISymbol? read =
+            CSharpCompilation.Create(assemblyName: "Reader", references: [reference])
+                .GetAssemblyOrModuleSymbol(reference);
+
+        return read is IAssemblySymbol assembly
+            ?
+            [
+                .. assembly.Modules
+                    .SelectMany(static module => module.ReferencedAssemblies)
+                    .Select(static identity => identity.Name)
+                    .Where(static name => name.StartsWith(value: "SodaFlow", comparisonType: StringComparison.Ordinal))
+            ]
+            : throw new InvalidOperationException("The image is not an assembly.");
+    }
+
+    private static async Task EachShapeReportsTheExpectedRulesWith(byte[] noBody, bool isAPackage)
     {
         string source = await ReadShapes();
 
@@ -1966,7 +2604,7 @@ internal sealed class LoopReadAnalyzerTests
                     source: source,
                     libraries: ShapeLibraries,
                     assemblyName: ShapesAssembly,
-                    images: [await CompileNoBody()]));
+                    images: [noBody]));
 
         SyntaxTree tree = CSharpSyntaxTree.ParseText(source);
         SyntaxNode root = await tree.GetRootAsync();
@@ -2009,7 +2647,12 @@ internal sealed class LoopReadAnalyzerTests
                     string expected =
                         string.Join(
                             separator: " ",
-                            value: Expected.TryGetValue(key: shape, value: out string[]? rules) ? rules : []);
+                            value: isAPackage
+                                   && ExpectedForAPackage.TryGetValue(key: shape, value: out string[]? forAPackage)
+                                ? forAPackage
+                                : Expected.TryGetValue(key: shape, value: out string[]? rules)
+                                    ? rules
+                                    : []);
 
                     string found =
                         string.Join(
@@ -2025,7 +2668,9 @@ internal sealed class LoopReadAnalyzerTests
 
         await NoMismatches(mismatches);
 
-        await Assert.That(Expected.Keys.Except(shapes)).IsEmpty().Because("every expectation names a shape");
+        await Assert.That(Expected.Keys.Concat(ExpectedForAPackage.Keys).Except(shapes))
+            .IsEmpty()
+            .Because("every expectation names a shape");
     }
 
     /// <summary>
@@ -2068,7 +2713,14 @@ internal sealed class LoopReadAnalyzerTests
             string reportedIn =
                 BlockMethods.TryGetValue(key: shape.Name, value: out string? blockMethod) ? blockMethod : shape.Name;
 
-            string[] rules = Expected.TryGetValue(key: reportedIn, value: out string[]? listed) ? listed : [];
+            // The rules for a package have a rule for the read, where the usual rules have only
+            // SF1003. The shape does the same at run time for each of the two.
+            string[] rules =
+                ExpectedForAPackage.TryGetValue(key: reportedIn, value: out string[]? forAPackage)
+                    ? forAPackage
+                    : Expected.TryGetValue(key: reportedIn, value: out string[]? listed)
+                        ? listed
+                        : [];
 
             IReadOnlyList<Outcome> permitted =
                 rules.Length == 0
@@ -2382,6 +3034,75 @@ internal sealed class LoopReadAnalyzerTests
         // pending. The third method reads the looped cell itself.
         await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
             .IsEquivalentTo(["SF1001", "SF1001", "SF1001"]);
+    }
+
+    /// <summary>
+    ///     Only <c>First</c> of <c>System.Linq.Enumerable</c> gives the first
+    ///     position. A class with the name <c>Enumerable</c> in a different
+    ///     namespace can give a different element. The shapes file cannot declare
+    ///     such a class, because its own uses of <c>Enumerable</c> then name that
+    ///     class. The first method has a literal, and the second one reads the
+    ///     positions of the store through a second local.
+    /// </summary>
+    [Test]
+    public async Task FirstOfAnEnumerableOutsideSystemLinqGivesNoPosition()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using Other;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> FirstOfALiteral() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Cell<int>> cs = [Plain, l.Map(v => v)];
+
+                        return S.Hold(cs.First().Sample());
+                    });
+
+                public static Cell<int> FirstThroughASecondLocal() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        List<Cell<int>> cs = [Plain, l.Map(v => v)];
+                        List<Cell<int>> same = cs;
+
+                        return S.Hold(same.First().Sample());
+                    });
+            }
+
+            namespace Other
+            {
+                public static class Enumerable
+                {
+                    public static T First<T>(this List<T> all) => all[all.Count - 1];
+                }
+            }
+            """;
+
+        CSharpCompilation compilation =
+            AnalyzerHarness.Compile(source: source, libraries: ShapeLibraries, assemblyName: "OnlyAnEnumerable");
+
+        IReadOnlyList<Diagnostic> diagnostics =
+            await AnalyzerHarness.Analyze(analyzer: new LoopReadAnalyzer(), compilation: compilation);
+
+        // First gives the last element, which is the pending cell.
+        await Assert.That(diagnostics.Select(static diagnostic => diagnostic.Id))
+            .IsEquivalentTo(["SF1001", "SF1001"]);
+
+        Type only =
+            AnalyzerHarness.Load(compilation: compilation, images: []).GetType("Only")
+            ?? throw new InvalidOperationException("The source has no class with the name Only.");
+
+        await Assert.That(
+                only.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                    .Select(static method => Run(method).Outcome))
+            .IsEquivalentTo([Outcome.ReadsEarly, Outcome.ReadsEarly]);
     }
 
     /// <summary>

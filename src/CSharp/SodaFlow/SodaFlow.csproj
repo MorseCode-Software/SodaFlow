@@ -94,4 +94,21 @@
               Visible="false"/>
     </ItemGroup>
 
+    <!--
+        The code fixes of the analyzer ship next to it, in the same folder, where an IDE finds them.
+        The compiler finds no analyzer in the dll and leaves it, and the IDE gives it the workspace
+        assemblies that it needs. The reference only orders its build before this one. It is not an
+        analyzer of this project, a compile reference, or a dependency of the package. It is not in
+        the restore graph, so no lock file carries it.
+    -->
+    <ItemGroup>
+        <ProjectReference Include="..\..\Analyzers\SodaFlow.Analyzers.CodeFixes\SodaFlow.Analyzers.CodeFixes.csproj"
+                          ReferenceOutputAssembly="false"
+                          PrivateAssets="all"/>
+        <None Include="..\..\Analyzers\SodaFlow.Analyzers.CodeFixes\bin\$(Configuration)\netstandard2.0\SodaFlow.Analyzers.CodeFixes.dll"
+              Pack="true"
+              PackagePath="analyzers/dotnet/cs"
+              Visible="false"/>
+    </ItemGroup>
+
 </Project>

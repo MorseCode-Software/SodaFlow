@@ -19,6 +19,12 @@ namespace SodaFlow.Analyzers;
 ///     has the positions from the store and not from the code. Null when
 ///     <paramref name="elements" /> has the elements.
 /// </param>
+/// <param name="whole">
+///     Each identity of the store whose objects are all elements of the
+///     collection, when the walk does not know the positions. Null when
+///     <paramref name="elements" /> or <paramref name="values" /> has the
+///     elements.
+/// </param>
 /// <param name="start">The number of writes to a member in the region, at the start of the statement.</param>
 /// <param name="member">The member of the last write. Null before the first write.</param>
 /// <param name="state">The state of the value of each write, together.</param>
@@ -28,6 +34,7 @@ namespace SodaFlow.Analyzers;
 internal sealed class WritesThroughEach(
     in IReadOnlyList<ExpressionSyntax> elements,
     in IReadOnlyList<LoopState>? values,
+    in IReadOnlyList<MadeObject>? whole,
     in int start,
     in ISymbol? member,
     in LoopState state,
@@ -44,6 +51,8 @@ internal sealed class WritesThroughEach(
 
     public IReadOnlyList<LoopState>? Values { get; } = values;
 
+    public IReadOnlyList<MadeObject>? Whole { get; } = whole;
+
     public ISymbol? Member { get; } = member;
 
     public LoopState State { get; } = state;
@@ -57,6 +66,7 @@ internal sealed class WritesThroughEach(
         new(
             elements: this.Elements,
             values: this.Values,
+            whole: this.Whole,
             start: this.start,
             member: written,
             state: this.State.Join(value),

@@ -452,7 +452,7 @@ internal class Node<T> : Node
 // each target below the node, from a collection to the sweep after it. For a stream with an
 // attached listener, the entry held those targets before, through the views. For a sink or a
 // stream that is only listened to, it held 40 bytes. A draft that registered each stream made
-// each such stream survive a collection with its node. ListenStrong on one stream then cost
+// each such stream survive a collection with its node. A listener on one stream then cost
 // 371 to 521 microseconds per thousand, and a sink 392 to 416. The lazy registration takes
 // that back and more, because a sink then allocates no handle at all.
 //

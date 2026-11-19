@@ -132,7 +132,7 @@ public sealed class TransactionTests
                 .WithoutCaptures(back =>
                     Operational.Defer(start.OrElse(back).Filter(static v => v > 0).Map(static v => v - 1)));
 
-        using IStrongListener l = all.ListenStrong(_ => PostAChain(actions: depth, onRun: () => ran++));
+        using IListener l = all.Listen(_ => PostAChain(actions: depth, onRun: () => ran++));
 
         start.Send(depth);
 
@@ -149,7 +149,7 @@ public sealed class TransactionTests
         StreamSink<int[]> sink = Stream.CreateSink<int[]>();
         int seen = 0;
 
-        using IStrongListener l = Operational.Split<int, int[]>(sink).ListenStrong(_ => seen++);
+        using IListener l = Operational.Split<int, int[]>(sink).Listen(_ => seen++);
 
         sink.Send(new int[count]);
 
@@ -171,7 +171,7 @@ public sealed class TransactionTests
                 .WithoutCaptures(back =>
                     Operational.Defer(start.OrElse(back).Filter(static v => v > 0).Map(static v => v - 1)));
 
-        using IStrongListener l = all.ListenStrong(_ => seen++);
+        using IListener l = all.Listen(_ => seen++);
 
         start.Send(steps);
         start.Send(steps);

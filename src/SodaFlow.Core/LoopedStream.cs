@@ -16,6 +16,7 @@ public class LoopedStream<T> : Stream<T>
     private bool isAssigned;
 
     internal LoopedStream()
+        : base(new LoopKeepListenersAlive())
     {
     }
 
@@ -44,6 +45,7 @@ public class LoopedStream<T> : Stream<T>
 
         this.AttachListenerInternal(stream.Listen(target: this.Node, action: new SendInto<T>(this)));
 
-        stream.KeepListenersAlive.KeepAlive(this.KeepListenersAlive);
+        // The constructor gives each loop stream a set of this type.
+        ((LoopKeepListenersAlive)this.KeepListenersAlive).Close(stream.KeepListenersAlive);
     }
 }

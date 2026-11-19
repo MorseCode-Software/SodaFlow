@@ -342,7 +342,7 @@ internal sealed class SortedViewShape
             return new SortedViewShape(
                 order: orderCell,
                 view: view,
-                listener: view.KeyChangesStream.ListenStrong(static _ =>
+                listener: view.KeyChangesStream.Listen(static _ =>
                 {
                 }));
         });

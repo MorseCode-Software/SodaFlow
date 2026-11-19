@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
@@ -66,6 +67,32 @@ internal sealed class SodaFlowSymbols
     public static readonly ImmutableHashSet<string> ReadMembers =
         ImmutableHashSet.Create("Sample", "Value", "CanExecute");
 
+    /// <summary>
+    ///     The kind of the <c>field</c> keyword of C# 14 as an expression. The
+    ///     analyzer builds with a Roslyn that does not have this kind, but a host
+    ///     that can parse the keyword has it. Otherwise, the value is -1.
+    /// </summary>
+    public static readonly int FieldKeywordKind =
+        Enum.TryParse(value: "FieldExpression", result: out SyntaxKind kind) ? (int)kind : -1;
+
+    /// <summary>
+    ///     The kind of the type of an extension block of C# 14. The analyzer
+    ///     builds with a Roslyn that does not have this kind, but a host that can
+    ///     parse an extension block has it. Otherwise, the value is null.
+    /// </summary>
+    public static readonly TypeKind? ExtensionKind =
+        Enum.TryParse(value: "Extension", result: out TypeKind kind) ? kind : null;
+
+    /// <summary>
+    ///     True for a property of the library that reads the current value of
+    ///     its owner. The Value of an item of a map through a task is the input
+    ///     that the item holds, and reads no cell.
+    /// </summary>
+    public bool ReadsItsOwner(IPropertySymbol property) =>
+        ReadMembers.Contains(property.Name)
+        && property.ContainingType.Name is not ("AsyncItem" or "AsyncQueuedItem")
+        && this.IsSodaFlow(property);
+
     // The node actions of one compilation run at the same time, and each asks this question.
     // The methods that have a parameter whose values a callee enumerates. The walk asks at each
     // call of a method with no body to read.
@@ -76,6 +103,7 @@ internal sealed class SodaFlowSymbols
         new(SymbolEqualityComparer.Default);
 
     private readonly Lazy<bool> declaresAdd;
+    private readonly Lazy<bool> declaresConversions;
     private readonly Lazy<bool> declaresDeconstruct;
     private readonly Lazy<bool> declaresDispose;
     private readonly Lazy<bool> declaresEnumerators;
@@ -84,6 +112,8 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<PlatformCallbacks> declaredCallbacks;
     private readonly Lazy<bool> declaresCompare;
     private readonly Lazy<bool> declaresPlatformMembers;
+    private readonly Lazy<bool> declaresRecords;
+    private readonly Lazy<bool> declaresSlice;
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
     private readonly ImmutableHashSet<IAssemblySymbol> library;
@@ -102,10 +132,17 @@ internal sealed class SodaFlowSymbols
                 .ToImmutableHashSet<IAssemblySymbol>(SymbolEqualityComparer.Default);
 
         this.declaresAdd = Declares(compilation: compilation, name: "Add");
+
+        this.declaresConversions =
+            new Lazy<bool>(() =>
+                Declares(compilation: compilation, name: "op_Implicit").Value
+                || Declares(compilation: compilation, name: "op_Explicit").Value);
+
         this.declaresDeconstruct = Declares(compilation: compilation, name: "Deconstruct");
         this.declaresDispose = Declares(compilation: compilation, name: "Dispose");
         this.declaresEnumerators = Declares(compilation: compilation, name: "GetEnumerator");
         this.declaresIndexers = Declares(compilation: compilation, name: "this[]");
+        this.declaresSlice = Declares(compilation: compilation, name: "Slice");
         this.declaresToString = Declares(compilation: compilation, name: "ToString");
         this.declaresTruth = Declares(compilation: compilation, name: "op_True");
 
@@ -128,6 +165,16 @@ internal sealed class SodaFlowSymbols
                 this.DeclaresEnumerators
                 || this.DeclaredCallbacks != PlatformCallbacks.None
                 || this.declaresCompare.Value);
+
+        // A record has a ToString and a Deconstruct that its code does not declare. The search reads
+        // the declarations of types only, and not the members.
+        this.declaresRecords =
+            new Lazy<bool>(() =>
+                compilation.SyntaxTrees.Any(static tree =>
+                    tree.GetRoot()
+                        .DescendantNodes(static node =>
+                            node is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax or TypeDeclarationSyntax)
+                        .Any(static node => node is RecordDeclarationSyntax)));
 
         this.declaresOperators =
             new Lazy<bool>(() =>
@@ -173,6 +220,12 @@ internal sealed class SodaFlowSymbols
     /// </remarks>
     public bool DeclaresAdd => this.declaresAdd.Value;
 
+    /// <summary>
+    ///     True when the compilation declares a conversion operator. The walk
+    ///     asks the compiler for the conversion of each expression only then.
+    /// </summary>
+    public bool DeclaresConversions => this.declaresConversions.Value;
+
     /// <summary>True when the compilation declares a <c>Deconstruct</c> method.</summary>
     public bool DeclaresDeconstruct => this.declaresDeconstruct.Value;
 
@@ -194,6 +247,18 @@ internal sealed class SodaFlowSymbols
     ///     compilation that declares none has no such call to follow.
     /// </summary>
     public bool DeclaresPlatformMembers => this.declaresPlatformMembers.Value;
+
+    /// <summary>
+    ///     True when the compilation declares a record. The <c>ToString</c> and
+    ///     the <c>Deconstruct</c> of a record read its properties.
+    /// </summary>
+    public bool DeclaresRecords => this.declaresRecords.Value;
+
+    /// <summary>
+    ///     True when the compilation declares a <c>Slice</c> method. A range calls
+    ///     it.
+    /// </summary>
+    public bool DeclaresSlice => this.declaresSlice.Value;
 
     /// <summary>True when the compilation declares a <c>ToString</c> method.</summary>
     public bool DeclaresToString => this.declaresToString.Value;
@@ -231,7 +296,9 @@ internal sealed class SodaFlowSymbols
     /// <summary><c>Dispose</c> of <c>IDisposable</c>, which a <c>using</c> calls.</summary>
     public IMethodSymbol? DisposableDispose { get; }
 
-    // An explicit member of an interface has the name of the interface before its own name.
+    // Each gate from Declares is only for speed. A search for a member that the compilation does
+    // not declare finds no body to read, thus a true value changes no rule. An explicit member of
+    // an interface has the name of the interface before its own name.
     private static Lazy<bool> Declares(Compilation compilation, string name) =>
         new(() =>
             compilation.ContainsSymbolsWithName(
@@ -394,6 +461,62 @@ internal sealed class SodaFlowSymbols
     public static bool IsEnumerated(ITypeSymbol? type) => IsSequence(type) || IsEnumerator(type);
 
     /// <summary>
+    ///     True for the type that an async iterator returns:
+    ///     <c>IAsyncEnumerable</c> or <c>IAsyncEnumerator</c> of the platform.
+    /// </summary>
+    public static bool IsAsyncEnumerated(ITypeSymbol type) =>
+        type is INamedTypeSymbol
+        {
+            TypeKind: TypeKind.Interface, Name: "IAsyncEnumerable" or "IAsyncEnumerator"
+        } named
+        && IsCollections(named.ContainingNamespace);
+
+    /// <summary>
+    ///     True for a member of the platform that gives a task that is complete.
+    ///     Such a member is <c>CompletedTask</c> or <c>FromResult</c> of
+    ///     <c>Task</c> or of <c>ValueTask</c>, or a constructor of
+    ///     <c>ValueTask</c> that gets a value.
+    /// </summary>
+    public static bool MakesACompleteTask(ISymbol? member) =>
+        member switch
+        {
+            IPropertySymbol { Name: "CompletedTask" } or IMethodSymbol { Name: "FromResult" } =>
+                IsTask(member.ContainingType),
+            IMethodSymbol { MethodKind: MethodKind.Constructor } constructor =>
+                constructor.ContainingType.Name == "ValueTask"
+                && IsTask(constructor.ContainingType)
+                && constructor.OriginalDefinition.Parameters.All(static parameter =>
+                    parameter.Type is ITypeParameterSymbol),
+            _ => false
+        };
+
+    /// <summary>
+    ///     The property of the backing field that the <c>field</c> keyword names.
+    ///     The walk keeps the state of an automatic property on the property, thus
+    ///     the keyword is a name of the property. Null for each other expression.
+    /// </summary>
+    /// <param name="expression">The expression.</param>
+    /// <param name="symbol">The symbol of the expression.</param>
+    public static IPropertySymbol? PropertyOfTheFieldKeyword(SyntaxNode expression, ISymbol? symbol) =>
+        expression.RawKind == FieldKeywordKind && symbol is IFieldSymbol { AssociatedSymbol: IPropertySymbol property }
+            ? property
+            : null;
+
+    /// <summary>
+    ///     True for an event of this compilation with no accessors in its
+    ///     declaration. Such an event keeps its handlers in a field of its own.
+    ///     The code of its type can call it as a delegate.
+    /// </summary>
+    public static bool IsFieldLikeEvent(ISymbol? symbol) =>
+        symbol is IEventSymbol { DeclaringSyntaxReferences.Length: 1 } happening
+        && happening.DeclaringSyntaxReferences[0].GetSyntax() is VariableDeclaratorSyntax;
+
+    /// <summary>True for <c>Task</c> or <c>ValueTask</c> of the platform, with or without a result.</summary>
+    public static bool IsTask(INamedTypeSymbol? type) =>
+        type is { Name: "Task" or "ValueTask" }
+        && type.ContainingNamespace?.ToDisplayString() == "System.Threading.Tasks";
+
+    /// <summary>
     ///     True for <c>Exchange</c> and <c>CompareExchange</c> of
     ///     <c>Interlocked</c>. The result is the value that the location had, and
     ///     not one of the values that the callee got.
@@ -525,7 +648,9 @@ internal sealed class SodaFlowSymbols
     ///     and enumerates nothing. Such a method returns <c>IEnumerable</c> or
     ///     <c>IOrderedEnumerable</c>. Each other method of that class that reads
     ///     its source enumerates it in the call. The same rule is correct for the
-    ///     methods of <c>SodaFlow.Functional</c>, such as <c>Choose</c>.
+    ///     methods of <c>SodaFlow.Functional</c>, such as <c>Choose</c>. It is also
+    ///     correct for <c>ImmutableArrayExtensions</c>, whose <c>Select</c>,
+    ///     <c>Where</c>, and <c>SelectMany</c> return a query.
     /// </summary>
     /// <remarks>
     ///     The rule is not for code of a different owner: a method there that
@@ -541,6 +666,7 @@ internal sealed class SodaFlowSymbols
                    Name: "IEnumerable" or "IOrderedEnumerable"
                }
                && (IsLinqEnumerable(definition.ContainingType)
+                   || IsLinqImmutableArray(definition.ContainingType)
                    || PackagesWithNoGraph.Contains(definition.ContainingAssembly?.Name ?? string.Empty));
     }
 
@@ -579,6 +705,9 @@ internal sealed class SodaFlowSymbols
     public static bool IsLinqEnumerable(ISymbol? type) =>
         type is { Name: "Enumerable" } && type.ContainingNamespace?.ToDisplayString() == "System.Linq";
 
+    private static bool IsLinqImmutableArray(ISymbol? type) =>
+        type is { Name: "ImmutableArrayExtensions" } && type.ContainingNamespace?.ToDisplayString() == "System.Linq";
+
     /// <summary>
     ///     True for <c>IGrouping</c>, the element of a lookup. It has a key and
     ///     the values for that key.
@@ -604,6 +733,13 @@ internal sealed class SodaFlowSymbols
 
     private static bool IsSystem(INamespaceSymbol? space) =>
         space is { Name: "System", ContainingNamespace.IsGlobalNamespace: true };
+
+    /// <summary>
+    ///     True for <c>Index</c> or <c>Range</c> of the platform. An index or a
+    ///     range of such a type can call more than one member of a collection.
+    /// </summary>
+    public static bool IsIndexOrRange(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { Name: "Index" or "Range" } named && IsSystem(named.ContainingNamespace);
 
     /// <summary>
     ///     True for a type of the platform that only holds the values that its
@@ -736,6 +872,21 @@ internal sealed class SodaFlowSymbols
         type is INamedTypeSymbol { OriginalDefinition.Name: "LazySample" } named && this.IsSodaFlow(named);
 
     /// <summary>
+    ///     True for a method of reflection that runs a method or a constructor
+    ///     that it finds at run time. These are <c>MethodBase.Invoke</c>,
+    ///     <c>ConstructorInfo.Invoke</c>, and <c>Activator.CreateInstance</c>.
+    /// </summary>
+    public static bool IsReflectionCall(IMethodSymbol method) =>
+        method switch
+        {
+            { Name: "Invoke", ContainingType: { Name: "MethodBase" or "ConstructorInfo" } type } =>
+                type.ContainingNamespace.ToDisplayString() == "System.Reflection",
+            { Name: "CreateInstance", ContainingType: { Name: "Activator" } type } =>
+                type.ContainingNamespace.ToDisplayString() == "System",
+            _ => false
+        };
+
+    /// <summary>
     ///     A type whose values can hold a pending read: a cell, a behavior, a
     ///     lazy sample, or a bindable.
     /// </summary>
@@ -745,6 +896,17 @@ internal sealed class SodaFlowSymbols
         && !IsStreamName(named.OriginalDefinition.Name)
         && named.SpecialType == SpecialType.None
         && !IsListenerName(named.OriginalDefinition.Name);
+
+    /// <summary>
+    ///     True for a bindable action of the library, or for a type that
+    ///     implements one. Its Dispose reads the enablement cell, and the Dispose of
+    ///     a bindable value does not.
+    /// </summary>
+    public bool IsBindableAction(ITypeSymbol? type) =>
+        type != null && (this.IsActionInterface(type) || type.AllInterfaces.Any(this.IsActionInterface));
+
+    private bool IsActionInterface(ITypeSymbol type) =>
+        type.OriginalDefinition.Name == "IBindableAction" && this.IsSodaFlow(type);
 
     private static bool IsStreamName(string name) =>
         name is "Stream" or "StreamSink" or "LoopedStream" or "CellStreamSink";
@@ -757,5 +919,5 @@ internal sealed class SodaFlowSymbols
             or "BehaviorSink"
             or "LoopedBehavior";
 
-    private static bool IsListenerName(string name) => name is "IListener" or "IStrongListener" or "IWeakListener";
+    private static bool IsListenerName(string name) => name is "IListener";
 }

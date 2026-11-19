@@ -123,7 +123,7 @@ public class ViewChangeProjectionBenchmarks
         {
             foreach (IListener listener in this.listeners)
             {
-                listener.Unlisten();
+                listener.Dispose();
             }
         }
 
@@ -163,10 +163,10 @@ public class ViewChangeProjectionBenchmarks
                         .Select(key =>
                             observed.StateCell(key)
                                 .Updates()
-                                .ListenStrong(static _ =>
+                                .Listen(static _ =>
                                 {
                                 })),
-                    view.KeyChangesStream.ListenStrong(static _ =>
+                    view.KeyChangesStream.Listen(static _ =>
                     {
                     })
                 ];

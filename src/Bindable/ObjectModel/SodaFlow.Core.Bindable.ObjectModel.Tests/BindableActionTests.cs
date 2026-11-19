@@ -46,7 +46,7 @@ public sealed class BindableActionTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         await Assert.That(initial).IsFalse();
@@ -93,7 +93,7 @@ public sealed class BindableActionTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         scheduler.Join();
@@ -144,7 +144,7 @@ public sealed class BindableActionTests
 
         using IBindableAction<int> a = Action(sink);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             a.Execute(42);
 
@@ -160,7 +160,7 @@ public sealed class BindableActionTests
 
         using IBindableAction<int> a = Action(sink: sink, isEnabled: Cell.Constant(false));
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             a.Execute(1);
 
@@ -181,7 +181,7 @@ public sealed class BindableActionTests
 
         using IBindableAction<int> a = sink.ToBindableActionImpl(isEnabledCell: enabled, scheduler: scheduler);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             enabled.Send(false);
 
@@ -209,7 +209,7 @@ public sealed class BindableActionTests
 
         using IBindableAction<int> a = Action(sink: sink, isEnabled: enabled);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             Transaction.RunVoid(() =>
             {
@@ -233,7 +233,7 @@ public sealed class BindableActionTests
 
         using IBindableAction<int> a = Action(sink: sink, isEnabled: enabled);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             Transaction.RunVoid(() =>
             {
@@ -295,7 +295,7 @@ public sealed class BindableActionTests
 
         IBindableAction<int> a = Action(sink);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             a.Dispose();
             a.Execute(1);
@@ -431,7 +431,7 @@ public sealed class BindableActionTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         scheduler.RunAll();
@@ -475,7 +475,7 @@ public sealed class BindableActionTests
         });
 
         enabled.Send(true);
-        pump.Unlisten();
+        pump.Dispose();
 
         int ranAfter = scheduler.RunAll();
 
@@ -518,7 +518,7 @@ public sealed class BindableActionTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         // A drain in a transaction, as a nested message loop runs it from a callback.
@@ -564,7 +564,7 @@ public sealed class BindableActionTests
         }
         finally
         {
-            throws.Unlisten();
+            throws.Dispose();
         }
 
         bool afterTheFailure = a.CanExecute(null);

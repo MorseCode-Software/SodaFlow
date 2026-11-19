@@ -23,7 +23,7 @@ public sealed class MutableListenerTests
         m.SetListener(s.ListenImpl(v => seen.Add("first:" + v)));
         m.SetListener(s.ListenImpl(v => seen.Add("second:" + v)));
         s.Send(1);
-        m.Unlisten();
+        m.Dispose();
 
         await Assert.That(seen).IsEquivalentTo(expected: ["second:1"], ordering: CollectionOrdering.Matching);
     }
@@ -36,12 +36,12 @@ public sealed class MutableListenerTests
         StreamSink<int> s = Stream.CreateSink<int>();
         List<int> seen = [];
         MutableListener m = new();
-        IWeakListenerInternal l = s.ListenImpl(seen.Add);
+        IListenerInternal l = s.ListenImpl(seen.Add);
 
         m.SetListener(l);
         m.SetListener(l);
         s.Send(1);
-        m.Unlisten();
+        m.Dispose();
 
         await Assert.That(seen).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
     }

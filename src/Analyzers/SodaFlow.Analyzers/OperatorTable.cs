@@ -49,8 +49,23 @@ internal enum OperatorRule
     /// </summary>
     MapValue,
 
-    /// <summary>A lift of lazy samples. Pending when any input is, with no link.</summary>
+    /// <summary>
+    ///     A lift of lazy samples. Pending when any input is, with no link, and
+    ///     the content is what the function returns.
+    /// </summary>
     LiftLazy,
+
+    /// <summary>
+    ///     A lift of cells or behaviors. Pending and linked when any input is, and
+    ///     the content is what the function returns.
+    /// </summary>
+    LiftValue,
+
+    /// <summary>
+    ///     The same values as the receiver, as a calm cell or a sink as a cell
+    ///     has. Pending and linked as the receiver, with its content.
+    /// </summary>
+    SameValues,
 
     /// <summary>
     ///     A cell or behavior from cells or behaviors. Pending and linked when
@@ -82,7 +97,10 @@ internal enum OperatorRule
     /// <summary>A constant or a sink. The value given is content.</summary>
     Content,
 
-    /// <summary>A fold with a given value. Linked when the stream is.</summary>
+    /// <summary>
+    ///     A fold with a given value. Linked when the stream is. The content of
+    ///     an accumulation is its initial state and what its function returns.
+    /// </summary>
     Fold,
 
     /// <summary>
@@ -103,11 +121,51 @@ internal enum OperatorRule
     /// </summary>
     StreamFromReceiver,
 
+    /// <summary>
+    ///     A snapshot. It links when the receiver links, as with
+    ///     <see cref="StreamFromReceiver" />. It fires what its function returns,
+    ///     or else the value of its cell.
+    /// </summary>
+    Snapshot,
+
+    /// <summary>
+    ///     A stream from the receiver that takes the updates of each cell or
+    ///     behavior also. Linked when any input is.
+    /// </summary>
+    SnapshotLatest,
+
     /// <summary>A merge of streams. Linked when any stream input is.</summary>
     MergeStreams,
 
+    /// <summary>
+    ///     A bindable action. It has the state of its inputs, as with
+    ///     <see cref="Default" />. Its firings have the state of its sink only, and
+    ///     its enablement has the state of its cell.
+    /// </summary>
+    BindableAction,
+
+    /// <summary>
+    ///     A reactive collection. Pending when an input is. It samples its cell
+    ///     of initial items lazily and does not listen to it. Thus, only a linked
+    ///     edit stream links it.
+    /// </summary>
+    CollectionCreate,
+
     /// <summary>A deferred function. Pending when the function reads a pending value.</summary>
     DeferLazy,
+
+    /// <summary>
+    ///     A fold of a collection. It reads the snapshot of the receiver at
+    ///     construction. The result keeps the state of the inputs, as with
+    ///     <see cref="Default" />.
+    /// </summary>
+    FoldCollection,
+
+    /// <summary>
+    ///     A defer or a split. Its firings come in a new transaction, thus it has
+    ///     no link. It fires the values of its stream, or their elements.
+    /// </summary>
+    Later,
 
     /// <summary>A new transaction, a listener, or a send. No state.</summary>
     Break
@@ -158,6 +216,7 @@ internal static class OperatorTable
             "CreateStreamSink",
             "Accum",
             "Collect",
+            "Choose",
             "Updates",
             "Values",
             "MapTo",
@@ -175,30 +234,34 @@ internal static class OperatorTable
             "Debounce",
             "Post",
             "Listen",
-            "ListenStrong",
             "ListenOnce",
-            "ListenOnceStrong",
             "ListenOnceAsync",
             "Send",
-            "Unlisten",
-            "Loop");
+            "Loop",
+            "Fold",
+            "FoldByIdentity",
+            "CreateBindableAction",
+            "Create");
 
     /// <summary>
-    ///     The public operators with no row, for which the default is the correct
-    ///     rule. Each gives its result the state of its inputs. None crosses a
-    ///     transaction or reads a current value at construction.
+    ///     The public members of the library with no row, for which the default
+    ///     is the correct rule. An operator here gives its result the state of its
+    ///     inputs. None crosses a transaction or reads a current value at
+    ///     construction.
     /// </summary>
+    /// <remarks>
+    ///     A member that is not an operator is here also, with the reason that
+    ///     the default is correct for it. A property of the library that is not a
+    ///     read member has the state of its owner. A result whose type cannot hold
+    ///     a pending read, as a bool or a task, has no state.
+    /// </remarks>
     public static readonly ImmutableHashSet<string> DefaultIsSound =
         ImmutableHashSet.Create(
-            // A stream of the values a function keeps, from a stream: linked as the stream is.
-            "Choose",
             // A stream or sink with no inputs.
             "Never",
             "AsStreamSink",
             // The cells and streams of a reactive collection. Their input is the collection, which is
-            // not a placeholder. A fold starts from the snapshot of the collection.
-            "Fold",
-            "FoldByIdentity",
+            // not a placeholder.
             "FromAdds",
             "FromRemoves",
             "FromStates",
@@ -206,11 +269,10 @@ internal static class OperatorTable
             "IdentityCell",
             "ItemCell",
             "StateCell",
-            // A collection, and the views of a collection. A view is pending when its upstream is. A
-            // cell that the view reads also makes the view pending. Such a cell is the criteria of a
-            // filter, the order of a sort, or the limits of a slice. Filter and Map have a row for a
-            // stream or a cell. The methods of those names on a collection get this rule also.
-            "Create",
+            // The views of a collection. A view is pending when its upstream is. A cell that the view
+            // reads also makes the view pending. Such a cell is the criteria of a filter, the order
+            // of a sort, or the limits of a slice. Filter and Map have a row for a stream or a cell.
+            // The methods of those names on a collection get this rule also.
             "FilterByIdentity",
             "Slice",
             "SortBy",
@@ -222,9 +284,121 @@ internal static class OperatorTable
             "SortByKeyDescending",
             "Take",
             // A bindable is pending when its cell is. A read of its value is a read of the cell.
-            "CreateBindableAction",
             "CreateOneWay",
-            "CreateTwoWay");
+            "CreateTwoWay",
+            // The values that a collection gives: a snapshot, a change, an edit, an item, the keys
+            // of a view, and the parts of each. Each is data that holds what the code or the graph
+            // gave it. A read of a part runs no code of the graph and reads no cell.
+            "Add",
+            "Added",
+            "Adds",
+            "After",
+            "Before",
+            "ChangeFor",
+            "ChangedKeys",
+            "CombineWith",
+            "Contains",
+            "ContainsKey",
+            "Count",
+            "Empty",
+            "FromIndex",
+            "GetEnumerator",
+            "Identities",
+            "Identity",
+            "Index",
+            "IndexOf",
+            "IsReset",
+            "IsStructural",
+            "Item",
+            "Key",
+            "Keys",
+            "Lookup",
+            "NewStates",
+            "Operations",
+            "Pairs",
+            "Remove",
+            "Removed",
+            "Removes",
+            "State",
+            "States",
+            "ToIndex",
+            "TryGetItem",
+            "TryGetNewState",
+            "TryGetState",
+            "Update",
+            "WasChanged",
+            // The cells and streams that a collection holds. They have the state of the collection,
+            // thus a cell of a pending collection is pending.
+            "ItemChangesStream",
+            "KeyChangesStream",
+            "KeysCell",
+            "ShapeCell",
+            "SnapshotCell",
+            // The cell of a bindable, and the members of a bindable action, which CreateBindableAction
+            // gives their own state. An event of a bindable keeps its handler and reads no cell.
+            "Cell",
+            "FiringsStream",
+            "IsEnabledCell",
+            "CanExecuteChanged",
+            "PropertyChanged",
+            // Execute of ICommand and Dispose of IDisposable. Each reads the enablement of a bindable
+            // action, and the walk checks that read. Each other Dispose releases listeners. Execute of
+            // an AsyncMapStatus reads its cell in a transaction of its own, after the close.
+            "Dispose",
+            "Execute",
+            // The sort orders of a collection. Each keeps its function for a view that sorts by it.
+            // An order whose function reads a pending value is pending, because each order with a
+            // function is in ValueFromFunction.
+            "By",
+            "ByArrival",
+            "ByDescending",
+            "ByIdentity",
+            "ByIdentityDescending",
+            "ByKey",
+            "ByKeyDescending",
+            "ThenBy",
+            "ThenByDescending",
+            "ThenByIdentity",
+            "ThenByIdentityDescending",
+            // Listeners from listeners. A listener holds no value and has no state.
+            "Append",
+            "AppendStrong",
+            "AppendWeak",
+            "CreateComposite",
+            "CreateStrongComposite",
+            "CreateWeakComposite",
+            // IsActive of a transaction reads no cell. OnStart keeps its function for the start of
+            // each transaction after this one.
+            "IsActive",
+            "OnStart",
+            // A clock and its timers. Each member gives the time, moves it, or keeps a callback for a
+            // time. A timer sends into a sink, and reads no cell. Time is the behavior of the clock,
+            // which no loop gives a state.
+            "Cancel",
+            "Now",
+            "RunTimersTo",
+            "SetTimer",
+            "Start",
+            "Stop",
+            "Time",
+            // The scheduler of the binding thread. It holds no value of the graph.
+            "Capture",
+            "CheckAccess",
+            "Immediate",
+            // The map of a stream through a task. MapAsync keeps its function for a firing, and its
+            // status has the state of its inputs. The strategies, the results, and the status of
+            // one item are data.
+            "MapAsync",
+            "Construct",
+            "FromValue",
+            "IsRunning",
+            "Items",
+            "Parallel",
+            "Queue",
+            "QueuePerGroup",
+            "Status",
+            "SwitchLatest",
+            "UndeliveredError");
 
     /// <summary>
     ///     The library methods that run a function in the call, before the loop
@@ -252,6 +426,22 @@ internal static class OperatorTable
     /// </summary>
     public static bool RunsFunctionOneTime(IMethodSymbol method) =>
         LoopStateEvaluator.OperatorName(method) is "Run" or "RunVoid" or "WithCaptures" or "WithoutCaptures";
+
+    /// <summary>
+    ///     True for the name of a library method that reads the current value of
+    ///     its receiver at construction, as a read member does. A fold of a
+    ///     collection samples the snapshot of the collection.
+    /// </summary>
+    public static bool ReadsReceiverAtConstruction(string name) => name is "Fold" or "FoldByIdentity";
+
+    /// <summary>
+    ///     True for a library method that does not enumerate a sequence that it
+    ///     gets in the call. A reactive collection keeps the sequence of its
+    ///     initial items in a constant cell. It enumerates the sequence in a lazy
+    ///     sample, which the transaction forces after the close.
+    /// </summary>
+    public static bool EnumeratesAfterTheClose(IMethodSymbol method) =>
+        method.Name == "Create" && method.ContainingType.Name == "ReactiveCollection";
 
     /// <summary>The names of the methods that run a function in the call.</summary>
     public static ImmutableHashSet<string> FunctionsInTheCall { get; } = RunsInTheCall.Keys.ToImmutableHashSet();
@@ -291,8 +481,6 @@ internal static class OperatorTable
             "Lift",
             "Listen",
             "ListenOnce",
-            "ListenOnceStrong",
-            "ListenStrong",
             "Map",
             "MapAsync",
             "Merge",
@@ -313,14 +501,16 @@ internal static class OperatorTable
             "Update");
 
     // The operators whose function computes the current value of the result. Map, Lift, and
-    // Defer are for a cell, a behavior, and a lazy sample. The filters and the sorts are the
-    // views of a collection. The next six make a sort order. A view that sorts by that order
-    // runs the function of the order, and the pending state of the order tells the view so. The
-    // last three get a comparer or a key selector, which the collection calls at its first read.
+    // Defer are for a cell, a behavior, and a lazy sample. Apply runs the function that its cell
+    // holds. The filters and the sorts are the views of a collection. The next eight make a sort
+    // order. A view that sorts by that order runs the function of the order, and the pending state
+    // of the order tells the view so. The last three get a comparer or a key selector, which the
+    // collection calls at its first read.
     private static readonly ImmutableHashSet<string> ValueFromFunction =
         ImmutableHashSet.Create(
             "Map",
             "Lift",
+            "Apply",
             "Defer",
             "Filter",
             "FilterByIdentity",
@@ -334,6 +524,8 @@ internal static class OperatorTable
             "ThenByDescending",
             "ThenByIdentity",
             "ThenByIdentityDescending",
+            "ByDescending",
+            "ByIdentityDescending",
             "ByKey",
             "SortByKey",
             "Create");
@@ -400,11 +592,13 @@ internal static class OperatorTable
             "Sample" or "Value" or "CanExecute" => OperatorRule.Read,
             "SampleLazy" => OperatorRule.SampleLazy,
             "Map" when lazy => OperatorRule.MapLazy,
-            "Map" when stream => OperatorRule.MapStream,
+            "Map" or "Choose" when stream => OperatorRule.MapStream,
             "Map" => OperatorRule.MapValue,
             "Lift" when lazy => OperatorRule.LiftLazy,
             "Calm" when stream => OperatorRule.StreamFromReceiver,
-            "Lift" or "Apply" or "Calm" or "AsCell" or "AsBehavior" or "AsStream" => OperatorRule.Combine,
+            "Lift" => OperatorRule.LiftValue,
+            "Calm" or "AsCell" or "AsBehavior" or "AsStream" => OperatorRule.SameValues,
+            "Apply" => OperatorRule.Combine,
             "SwitchC" or "SwitchB" => OperatorRule.SwitchValue,
             "SwitchS" => OperatorRule.SwitchStream,
             "Hold" when ofStreams => OperatorRule.Hold,
@@ -414,11 +608,19 @@ internal static class OperatorTable
             "Accum" or "Collect" when ofStreams => OperatorRule.Fold,
             "Updates" or "Values" => OperatorRule.Updates,
             "MapTo" when ofStreams => OperatorRule.MapTo,
-            "Snapshot" or "SnapshotLatest" or "Gate" or "Filter" or "FilterSome" or "Once" when ofStreams =>
+            // The output of SnapshotLatest listens to the updates of each cell, thus it cannot close a
+            // loop.
+            "SnapshotLatest" when ofStreams => OperatorRule.SnapshotLatest,
+            "Snapshot" when ofStreams => OperatorRule.Snapshot,
+            "Gate" or "Filter" or "FilterSome" or "Once" when ofStreams =>
                 OperatorRule.StreamFromReceiver,
             "Merge" or "OrElse" when ofStreams => OperatorRule.MergeStreams,
             "Defer" when method.ContainingType.Name == "LazySample" => OperatorRule.DeferLazy,
-            "Defer" or "Split" or "At" or "Debounce" or "Post" or "Listen" or "ListenStrong" or "ListenOnce" or "ListenOnceStrong" or "ListenOnceAsync" or "Send" or "Unlisten" or "Loop" => OperatorRule.Break,
+            "Defer" or "Split" when ofStreams => OperatorRule.Later,
+            "Fold" or "FoldByIdentity" => OperatorRule.FoldCollection,
+            "CreateBindableAction" => OperatorRule.BindableAction,
+            "Create" when method.ContainingType.Name == "ReactiveCollection" => OperatorRule.CollectionCreate,
+            "Defer" or "Split" or "At" or "Debounce" or "Post" or "Listen" or "ListenOnce" or "ListenOnceAsync" or "Send" or "Loop" => OperatorRule.Break,
             _ => OperatorRule.Default
         };
     }

@@ -98,7 +98,7 @@ public sealed class BindableFactoryTests
         using IBindableAction a =
             new BindableFactory(BindingScheduler.Immediate).CreateBindableAction(sink);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             // A command with no parameter does not use the CommandParameter that the author of
             // the XAML supplied, and it must accept that parameter.
@@ -124,7 +124,7 @@ public sealed class BindableFactoryTests
                 firingsStreamSink: sink,
                 isEnabledCell: enabled);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             ExecuteThenDisable(command: a, parameter: 1, enabled: enabled);
             EnableThenExecute(command: a, parameter: 2, enabled: enabled);
@@ -147,7 +147,7 @@ public sealed class BindableFactoryTests
                 firingsStreamSink: sink,
                 isEnabledCell: enabled);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             ExecuteThenDisable(command: a, parameter: null, enabled: enabled);
             EnableThenExecute(command: a, parameter: null, enabled: enabled);
@@ -168,7 +168,7 @@ public sealed class BindableFactoryTests
                 firingsStreamSink: sink,
                 isEnabledCell: enabled);
 
-        using (a.FiringsStream.ListenStrong(fired.Add))
+        using (a.FiringsStream.Listen(fired.Add))
         {
             ExecuteThenDisable(command: a, parameter: null, enabled: enabled);
 

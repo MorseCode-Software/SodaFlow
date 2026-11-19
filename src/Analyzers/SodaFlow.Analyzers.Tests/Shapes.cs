@@ -14,18 +14,28 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.Serialization;
-using SodaFlow;
-using SodaFlow.Collections;
-using SodaFlow.Analyzers.ShapesNoBody;
-using SodaFlow.Functional;
+using DvVmTodoEdit = SodaFlow.Collections.CollectionEdit<int, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoId, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoState>;
+using DvVmTodoOrder = SodaFlow.Collections.KeyOrder<int, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoId, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoState>;
+using DvVmTodos = SodaFlow.Collections.ReactiveCollection<int, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoId, SodaFlow.Analyzers.Shapes.Shapes.DvVmTodoState>;
 using IAb72Keeper = SodaFlow.Analyzers.ShapesNoBody.IKeeper<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot, SodaFlow.Analyzers.Shapes.Shapes.Ab72Box>;
 using IAg53Runner = SodaFlow.Analyzers.ShapesNoBody.IRunner;
+using IDvVmAction = SodaFlow.Bindable.ObjectModel.IBindableAction;
+using IDvVmFactory = SodaFlow.Bindable.ObjectModel.IBindableFactory;
+using IDvVmFlag = SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<bool>;
+using IDvVmNumber = SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<int>;
+using IDvVmText = SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<string>;
 using IHolderFiller = SodaFlow.Analyzers.ShapesNoBody.IHolderFiller<SodaFlow.Analyzers.Shapes.Shapes.SlotListHolder>;
 using ISlotBag = SodaFlow.Analyzers.ShapesNoBody.IBag<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
 using ISlotFiller = SodaFlow.Analyzers.ShapesNoBody.IFiller<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
 using ISlotLine = SodaFlow.Analyzers.ShapesNoBody.ILine<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
 using ISlotMaker = SodaFlow.Analyzers.ShapesNoBody.IMaker<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
 using ISlotRow = SodaFlow.Analyzers.ShapesNoBody.IRow<SodaFlow.Analyzers.Shapes.Shapes.SettableSlot>;
+using SodaFlow;
+using SodaFlow.Analyzers.ShapesNoBody;
+using SodaFlow.Async;
+using SodaFlow.Collections;
+using SodaFlow.Functional;
+using SodaFlow.Time;
 
 namespace SodaFlow.Analyzers.Shapes;
 
@@ -12453,6 +12463,4190 @@ public static class Shapes
     public static Cell<int> Ag62AMethodReadsThePositionWithThePendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; list[1].Share = Plain; return S.Hold(Ag62ReadFirst(list)); });
 
+    // S2795. AB81. Exchange gives the element of an array a different object, and the plain cell goes through the element.
+    public static Cell<int> Ab81AnExchangeGivesTheElementAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Kept.Add(Interlocked.Exchange(ref slots[0], first)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2796. AB81. The same with no call that gets the array.
+    public static Cell<int> Ab81AnExchangeWithNoCallForTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Kept.Add(Interlocked.Exchange(ref slots[0], first)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2797. AB81. Exchange gives the element the object with the pending cell, and the plain cell goes through the element.
+    public static Cell<int> Ab81AnExchangePutsTheObjectWithThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); Kept.Add(Interlocked.Exchange(ref slots[0], y)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2798. AB81. The pending cell goes through the element after an Exchange, and the read is of the object that came in.
+    public static Cell<int> Ab81APendingCellThroughTheElementAfterAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = Plain }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Kept.Add(Interlocked.Exchange(ref slots[0], first)); slots[0].Share = l.Map(v => v); return S.Hold(first.Share!.Sample()); });
+
+    // S2799. AB81. The same, and the read is of the object that the element had before.
+    public static Cell<int> Ab81TheObjectThatAnExchangeTookOutKeepsItsPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = Plain }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Kept.Add(Interlocked.Exchange(ref slots[0], first)); slots[0].Share = l.Map(v => v); return S.Hold(y.Share!.Sample()); });
+
+    // S2800. AB81. CompareExchange gives the element a different object.
+    public static Cell<int> Ab81ACompareExchangeGivesTheElementAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Kept.Add(Interlocked.CompareExchange(ref slots[0], first, y)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2801. AB81. Exchange with the second of two elements, and the plain cell goes through the first one.
+    public static Cell<int> Ab81AnExchangeWithTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y, y]; Ag62Count(slots); Kept.Add(Interlocked.Exchange(ref slots[1], first)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2802. AB81. An Exchange in a branch, and the plain cell goes through the element.
+    public static Cell<int> Ab81AnExchangeInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); if (!Never) { Kept.Add(Interlocked.Exchange(ref slots[0], first)); } slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2803. AB81. Volatile.Write gives the element a different object.
+    public static Cell<int> Ab81AVolatileWriteGivesTheElementAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Volatile.Write(ref slots[0], first); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2804. AB81. A deconstruction of a pair from a method gives the element a different object.
+    public static Cell<int> Ab81ADeconstructionOfAPairFromAMethodIntoAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); (slots[0], SettableSlot other) = Ab81TwoOf(first); Kept.Add(other); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2805. AB82. A local with ref for an element whose index is no constant gets a different object.
+    public static Cell<int> Ab82ALocalWithRefAndAnIndexThatIsNoConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; r = first; slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2806. AB82. The same, where the local gets the object with the pending cell, and the read is through the element.
+    public static Cell<int> Ab82AnObjectWithAPendingCellThroughALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; r = y;  return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2807. AB82. The same for an array that the walk did not see made.
+    public static Cell<int> Ab82ALocalWithRefForAnElementOfAnArrayThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = Ab82Unseen; ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; r = y;  return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2808. AB82. A method gives a new object to a local with ref for an element.
+    public static Cell<int> Ab82AMethodGivesANewObjectToALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; Ab82New(ref r); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2809. AB82. The same, where the index of the element is no constant.
+    public static Cell<int> Ab82AMethodGivesANewObjectToALocalWithRefAndNoConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; Ab82New(ref r); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2810. AB82. A method gives the object with the pending cell to a local with ref, and the read is through the element.
+    public static Cell<int> Ab82AMethodGivesTheObjectWithThePendingCellToALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; Ab82Give(ref r, y); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2811. AB82. The same, where the index of the element is no constant.
+    public static Cell<int> Ab82AMethodGivesTheObjectWithThePendingCellAndNoConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; Ab82Give(ref r, y); return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2812. AB82. A method gets a local with ref and gives it no value. The plain cell goes through the element.
+    public static Cell<int> Ab82AMethodThatGivesALocalWithRefNoValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; Ab76Count(ref r); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2813. AB82. Exchange gives a local with ref for an element a different object.
+    public static Cell<int> Ab82AnExchangeThroughALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; Kept.Add(Interlocked.Exchange(ref r, first)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2814. AB82. A plain cell through a local with ref whose index is no constant.
+    public static Cell<int> Ab82APlainCellThroughALocalWithRefAndNoConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; r.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2815. AG63. Remove takes the plain object away, and the plain cell goes through the new first element.
+    public static Cell<int> Ag63TheNewFirstElementAfterARemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2816. AG63. Remove takes the object with the pending cell away, and the plain cell goes through the first element.
+    public static Cell<int> Ag63ARemoveOfTheObjectWithThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; list.Remove(y); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2817. AG63. Remove of an object that the list has two times takes the first one away.
+    public static Cell<int> Ag63ARemoveOfAnObjectThatTheListHasTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y, first]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2818. AG63. The same, and the plain cell goes through the second element.
+    public static Cell<int> Ag63TheSecondElementAfterARemoveOfAnObjectThatTheListHasTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y, first]; list.Remove(first); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2819. AG63. Remove of an object that the list does not have.
+    public static Cell<int> Ag63ARemoveOfAnObjectThatTheListDoesNotHave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list.Remove(new SettableSlot()); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2820. AG63. The same, and the plain cell goes through the first element.
+    public static Cell<int> Ag63TheFirstElementAfterARemoveOfAnObjectThatTheListDoesNotHave() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list.Remove(new SettableSlot()); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2821. AG63. Remove through a second name of the list, which has the type of an interface.
+    public static Cell<int> Ag63ARemoveThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; ICollection<SettableSlot> all = list; all.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2822. AG63. A Remove in a branch.
+    public static Cell<int> Ag63ARemoveInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y, first]; if (!Never) { list.Remove(y); } list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2823. AG63. Remove for a class with its own Equals takes the first element that is equal away.
+    public static Cell<int> Ag63ARemoveForAClassWithItsOwnEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag63EqualSlot y = new() { Share = l.Map(v => v) }; Ag63EqualSlot first = new() { Share = Plain }; List<Ag63EqualSlot> list = [y, first]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2824. AG63. The same for a class whose base class has its own Equals.
+    public static Cell<int> Ag63ARemoveForAClassWhoseBaseClassHasItsOwnEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag63DerivedSlot y = new() { Share = l.Map(v => v) }; Ag63DerivedSlot first = new() { Share = Plain }; List<Ag63DerivedSlot> list = [y, first]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2825. AG63. The same for a class that is IEquatable.
+    public static Cell<int> Ag63ARemoveForAClassThatIsEquatable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag63EquatableSlot y = new() { Share = l.Map(v => v) }; Ag63EquatableSlot first = new() { Share = Plain }; List<Ag63EquatableSlot> list = [y, first]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2826. AG63. The same for a list of a base class that is not sealed, with an object of a class that has its own Equals.
+    public static Cell<int> Ag63ARemoveForAListOfABaseClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag63OpenSlot y = new Ag63OpenEqualSlot { Share = l.Map(v => v) }; Ag63OpenSlot first = new() { Share = Plain }; List<Ag63OpenSlot> list = [y, first]; list.Remove(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2827. AG63. A coalescing assignment gives the object with the pending cell to an element with no object.
+    public static Cell<int> Ag63ACoalescingAssignmentToAnElementWithNoObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, null]; list[1] ??= y; list[1]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2828. AG63. The same, and the plain cell goes through the first element.
+    public static Cell<int> Ag63TheFirstElementAfterACoalescingAssignmentToTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, null]; list[1] ??= y; list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2829. AG63. The same, and the read is through the element.
+    public static Cell<int> Ag63AReadThroughAnElementAfterACoalescingAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, null]; list[1] ??= y; return S.Hold(list[1]!.Share!.Sample()); });
+
+    // S2830. AG63. A coalescing assignment of the object with the pending cell to an element that has an object.
+    public static Cell<int> Ag63ACoalescingAssignmentOfThePendingObjectToAnElementWithAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, first]; list[0] ??= y; list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2831. AG63. A coalescing assignment to an element of an array with no object.
+    public static Cell<int> Ag63ACoalescingAssignmentToAnElementOfAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot?[] slots = [null, first]; Ag63CountAll(slots); slots[0] ??= y; slots[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2832. AG63. A coalescing assignment to an element that got no object in an assignment.
+    public static Cell<int> Ag63ACoalescingAssignmentAfterAnAssignmentOfNoObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, first]; list[1] = null; list[1] ??= y; list[1]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2833. AG63. A coalescing assignment in a branch, to an element with no object.
+    public static Cell<int> Ag63ACoalescingAssignmentInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [first, null]; if (!Never) { list[1] ??= y; } list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2834. AG63. Reverse gives the positions in the opposite order.
+    public static Cell<int> Ag63TheFirstElementAfterAReverse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list.Reverse(); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2835. AG63. The same, and the plain cell goes through the second element.
+    public static Cell<int> Ag63TheSecondElementAfterAReverse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; list.Reverse(); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2836. AG63. Reverse of a part of the list.
+    public static Cell<int> Ag63AReverseOfAPart() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y, first]; list.Reverse(0, 2); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2837. AG63. A Reverse in a branch.
+    public static Cell<int> Ag63AReverseInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; if (!Never) { list.Reverse(); } list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2838. AG63. A method reverses the list that it gets.
+    public static Cell<int> Ag63AMethodReversesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [first, y]; Ag62TurnAround(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2839. AG61. The keeper is in a static field with readonly, and the type of the field is the interface.
+    public static Cell<int> Ag61AKeeperInAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61InAField; keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2840. AG61. The same, and the keeper puts an object first.
+    public static Cell<int> Ag61AKeeperInAStaticFieldPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61InAField; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2841. AG61. The code reads the field for each call, and the keeper puts an object first.
+    public static Cell<int> Ag61TwoReadsOfTheFieldOfAKeeper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61InAField.Keep(list); Ag61InAField.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2842. AG61. The same with no put.
+    public static Cell<int> Ag61AReadOfTheFieldForTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61InAField.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2843. AG61. A lambda in a static field with readonly makes the keeper.
+    public static Cell<int> Ag61AKeeperFromALambdaInAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61Maker(); keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2844. AG61. The same, and the keeper puts an object first.
+    public static Cell<int> Ag61AKeeperFromALambdaInAFieldPutsAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61Maker(); keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2845. AG61. The keeper is in a static property with only a getter and an initializer.
+    public static Cell<int> Ag61AKeeperInAStaticProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61InAProperty; keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2846. AG61. The keeper is in a field with readonly of an object that the block makes.
+    public static Cell<int> Ag61AKeeperInAFieldOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61Owner owner = new(); owner.Keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2847. AG61. The keeper is in a field with readonly of an object in a static field.
+    public static Cell<int> Ag61AKeeperInAFieldOfAnObjectInAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61TheOwner.Keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2848. AG61. The static constructor gives the field an object of a different class, which puts an object first.
+    public static Cell<int> Ag61AStaticConstructorGivesTheFieldADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61Holder.Kept; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2849. AG61. A constructor gives the field of its object an object of a different class.
+    public static Cell<int> Ag61AConstructorGivesTheFieldADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61TheSecondOwner.Keeper; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2850. AG61. A static field with no readonly got an object of a different class after its initializer.
+    public static Cell<int> Ag61AFieldWithNoReadonly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61Open; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2851. AG61. A property with a setter got an object of a different class after its initializer.
+    public static Cell<int> Ag61APropertyWithASetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61OpenProperty; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2852. AG61. A lambda in a static field with readonly samples the cell that it gets.
+    public static Cell<int> Ag61ALambdaInAFieldSamplesItsCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ag61Sampler(l.Map(v => v))));
+
+    // S2853. AG61. A lambda in a static field with readonly gives back the cell that it gets.
+    public static Cell<int> Ag61ALambdaInAFieldGivesItsCellBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> same = Ag61Same(l.Map(v => v)); Kept.Add(same); return S.Hold(Plain.Sample()); });
+
+    // S2854. AG61. The same, and the code samples the result.
+    public static Cell<int> Ag61TheCodeSamplesWhatALambdaInAFieldGaveBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ag61Same(l.Map(v => v)).Sample()));
+
+    // S2855. AG61. A lambda in a static field with no readonly, which a method gave a different function.
+    public static Cell<int> Ag61ALambdaInAFieldWithNoReadonly() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ag61OpenSampler(l.Map(v => v))));
+
+    // S2856. AG61. A lambda in a field with readonly of an object that the block makes gives the slot a plain cell.
+    public static Cell<int> Ag61ALambdaInAFieldOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; Ag61Owner owner = new(); owner.MakePlain(y); return S.Hold(y.Share!.Sample()); });
+
+    // S2857. AG61. The name of a static method in a static field with readonly gives back the cell that it gets.
+    public static Cell<int> Ag61AMethodNameInAFieldGivesItsCellBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> same = Ag61Group(l.Map(v => v)); Kept.Add(same); return S.Hold(Plain.Sample()); });
+
+    // S2858. AB78. A value that is no object of the store gets a plain cell, and then a pending cell through a second local.
+    public static Cell<int> Ab78APendingCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2859. AB78. The same, where the pending cell is first and the plain cell goes through the second local.
+    public static Cell<int> Ab78APlainCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = c; q.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2860. AB78. The pending cell goes through the first local, and the read is through the second one.
+    public static Cell<int> Ab78AReadThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; c.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S2861. AB78. The same with a plain cell after a pending cell.
+    public static Cell<int> Ab78AReadThroughASecondNameAfterAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = c; c.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S2862. AB78. A helper gives its parameter a plain cell, and then a pending cell through a second local.
+    public static Cell<int> Ab78AHelperGivesAPendingCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; Ab78ThroughASecondName(c, Plain, l.Map(v => v)); return S.Hold(c.Share!.Sample()); });
+
+    // S2863. AB78. The same, where the plain cell goes through the second local.
+    public static Cell<int> Ab78AHelperGivesAPlainCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; Ab78ThroughASecondName(c, l.Map(v => v), Plain); return S.Hold(c.Share!.Sample()); });
+
+    // S2864. AB78. A third local is a name of the second one.
+    public static Cell<int> Ab78APendingCellThroughAThirdName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; SettableSlot r = q; r.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2865. AB78. The same with a plain cell after a pending cell.
+    public static Cell<int> Ab78APlainCellThroughAThirdName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = c; SettableSlot r = q; r.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2866. AB78. The second local gets a different value before the pending cell.
+    public static Cell<int> Ab78TheSecondNameGetsADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; q = Ab78Unseen[1]; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2867. AB78. The second local can get a different value in a branch.
+    public static Cell<int> Ab78TheSecondNameGetsADifferentValueInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; if (Never) { q = Ab78Unseen[1]; } q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2868. AB78. The first local gets a different value, and the read is through the second one.
+    public static Cell<int> Ab78TheFirstNameGetsADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = c; c = Ab78Unseen[1]; c.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S2869. AB78. A method gives the first local a different value through out, and the read is through the second one.
+    public static Cell<int> Ab78AMethodGivesTheFirstNameADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = c; Ab78Other(out c); c.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S2870. AB78. A method gives the second local a different value through out, and the read is through that local.
+    public static Cell<int> Ab78AMethodGivesTheSecondNameADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; Ab78Pending(out q, l.Map(v => v)); return S.Hold(q.Share!.Sample()); });
+
+    // S2871. AB78. A struct in a second local is a copy, and the pending cell goes to the copy.
+    public static Cell<int> Ab78ACopyOfAStructGetsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue c = Ab78Values[0]; c.Share = Plain; SlotValue q = c; q.Share = l.Map(v => v); Kept.Add(q); return S.Hold(c.Share!.Sample()); });
+
+    // S2872. AB78. The pending cell goes through the second local in the turn of a loop.
+    public static Cell<int> Ab78APendingCellThroughASecondNameInATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; for (int i = 0; i < 2; i++) { SettableSlot q = c; q.Share = l.Map(v => v); } return S.Hold(c.Share!.Sample()); });
+
+    // S2873. AB79. The array is one that the walk did not see made. The method gives its element a different object, and then a pending cell through its parameter with ref.
+    public static Cell<int> Ab79AnArrayThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79Unseen; Ab76PutThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2874. AB79. The method gives its parameter a new object, then the element a different object, and then a pending cell through the parameter.
+    public static Cell<int> Ab79AnAssignmentToTheParameterAndThenADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; Ab79AssignThenPutThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2875. AB79. The same with a parameter with out.
+    public static Cell<int> Ab79AParameterWithOutAndThenADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; Ab79OutThenPutThenGive(out slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2876. AB79. The method gives the second element the object, and the parameter is the first element.
+    public static Cell<int> Ab79APutIntoADifferentElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenTwo; Ab79PutSecondThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2877. AB79. The method gives an element with an index that is no constant the object.
+    public static Cell<int> Ab79APutIntoAnElementWithNoConstantIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenThird; Ab79PutSomewhereThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2878. AB79. The method reads through its parameter after it gave the element an object with a pending cell.
+    public static Cell<int> Ab79AReadThroughTheParameterAfterAPut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] slots = Ab79UnseenForARead; int got = Ab76PutThenRead(ref slots[0], slots, other);  return S.Hold(got); });
+
+    // S2879. AB79. The parameter is a field of an object that the walk did not see made, and the method gives the field a different object.
+    public static Cell<int> Ab79AFieldOfAnObjectThatTheWalkDidNotSeeMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; Ab79Holder holder = Ab79Holders[0]; Ab79PutInAFieldThenGive(ref holder.Item, holder, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2880. AB79. The parameter is an element, and the method gives a field the object.
+    public static Cell<int> Ab79APutIntoAFieldForAParameterThatIsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenFourth; Ab79Holder holder = Ab79Holders[1]; Ab79PutInAFieldThenGive(ref slots[0], holder, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2881. AB79. The parameter is a field, and the method gives an element the object.
+    public static Cell<int> Ab79APutIntoAnElementForAParameterThatIsAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenFifth; Ab79Holder holder = Ab79Holders[2]; Ab76PutThenGive(ref holder.Item, slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2882. AB79. The method gives its parameter a new object after the put, and then the pending cell.
+    public static Cell<int> Ab79AnAssignmentToTheParameterAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenSixth; Ab79PutThenAssignThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2883. AB79. The argument is a local, and no put into an element is a put into a local.
+    public static Cell<int> Ab79AnArgumentThatIsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenNinth; SettableSlot local = slots[0]; Ab79AssignThenPutThenGive(ref local, slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2884. AB79. The argument is an element with an index that is no constant, which the walk cannot read again.
+    public static Cell<int> Ab79AnArgumentWithNoConstantIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenTenth; Ab76PutThenGive(ref slots[Kept.Count - Kept.Count], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2885. AB82. A second assignment through a local with ref and no constant gives the object with the pending cell.
+    public static Cell<int> Ab82ASecondAssignmentThroughALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; r = new SettableSlot { Share = Plain }; r = y; return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2886. AB82. A method gets a local with ref and no constant, and gives it no value.
+    public static Cell<int> Ab82AMethodThatGivesALocalWithRefAndNoConstantNoValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; Ab76Count(ref r); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2887. AB82. A local with no ref that has an element gets a different object, and the array does not.
+    public static Cell<int> Ab82ALocalWithNoRefGetsADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); SettableSlot e = slots[Kept.Count - Kept.Count]; e = first; Kept.Add(e); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2888. AG63. Remove of an object of a loop, where the first element is an object of a different turn of that loop.
+    public static Cell<int> Ag63ARemoveOfAnObjectOfADifferentTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] made = new SettableSlot[2]; for (int i = 0; i < 2; i++) { made[i] = new SettableSlot { Share = Plain }; } List<SettableSlot> list = [made[0], y]; list.Remove(made[1]); list[1].Share = Plain; list[0].Share = l.Map(v => v); return S.Hold(made[0].Share!.Sample()); });
+
+    // S2889. AG63. Remove of an object, where the first element can be that object or a different one.
+    public static Cell<int> Ag63ARemoveWhereTheFirstElementCanBeTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = Plain }; SettableSlot first = new() { Share = Plain }; SettableSlot either = Never ? first : y; List<SettableSlot> list = [either, first]; list.Remove(first); list[0].Share = l.Map(v => v); return S.Hold(y.Share!.Sample()); });
+
+    // S2890. AG63. A coalescing assignment to an element of a list of cells, where the element has a pending cell.
+    public static Cell<int> Ag63ACoalescingAssignmentToAnElementThatIsACell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>?> cells = [l.Map(v => v), Plain]; cells[0] ??= Plain; return S.Hold(cells[0]!.Sample()); });
+
+    // S2891. AG61. A property with an initializer and a getter that gives a different object.
+    public static Cell<int> Ag61APropertyWithAGetterThatGivesADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } IAg59Keeper keeper = Ag61WithAGetter; keeper.Keep(list); keeper.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2892. AG61. A constructor of an object names a static field with readonly of its class, and cannot give it a value.
+    public static Cell<int> Ag61AConstructorOfAnObjectNamesAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61Reader.Kept.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2893. AG61. The owner of the field is an object of the block or one that the walk did not see made.
+    public static Cell<int> Ag61AFieldOfAnOwnerThatCanBeAnUnseenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = []; if (!Never) { list.Add(y); } Ag61Owner owner = Never ? Ag61Owners[0] : new Ag61Owner(); owner.Keeper.Keep(list); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2894. AB78. A write through the first name after the second name, and then the first name gets a different value.
+    public static Cell<int> Ab78TheSecondNameKeepsAWriteThroughTheFirstName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; c.Share = l.Map(v => v); c = Ab78Unseen[1]; c.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S2895. AB78. The first name gets a different value, and then a pending cell. The second name keeps the first value.
+    public static Cell<int> Ab78TheSecondNameKeepsTheFirstValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; c = Ab78Unseen[1]; c.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S2896. AB78. The second name gets a different value and a plain cell, and the pending cell goes through the first name.
+    public static Cell<int> Ab78AReadThroughTheSecondNameAfterItGotADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; q = Ab78Unseen[1]; q.Share = Plain; c.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S2897. AB78. A local gets the value of the first name in a branch, and then a pending cell.
+    public static Cell<int> Ab78ASecondNameFromAnAssignmentInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = Ab78Unseen[1]; if (!Never) { q = c; } q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2898. AB78. A local can get the value of the first name in a branch that does not run, and then a plain cell.
+    public static Cell<int> Ab78APlainCellThroughANameThatCanBeTheSecondOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = Ab78Unseen[1]; if (Never) { q = c; } q.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S2899. AB78. A local gets the value of the first name at the end of a turn, and a pending cell in the next turn.
+    public static Cell<int> Ab78AWriteThroughTheSecondNameInTheNextTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = Ab78Unseen[1]; for (int i = 0; i < 2; i++) { q.Share = l.Map(v => v); q = c; } return S.Hold(c.Share!.Sample()); });
+
+    // S2900. AB78. A write through the first name, then a method gives the first name a different value through out.
+    public static Cell<int> Ab78AWriteThroughTheFirstNameAndThenAnOutArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; c.Share = l.Map(v => v); Ab78Other(out c); c.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S2901. AB78. A lambda in a local reads through the second name.
+    public static Cell<int> Ab78ALambdaReadsThroughTheSecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; Func<int> read = () => q.Share!.Sample(); c.Share = l.Map(v => v); Kept.Add(read()); return S.Hold(0); });
+
+    // S2902. AB78. The first name is a local with ref, and its element gets a different object after the second local.
+    public static Cell<int> Ab78ASecondNameOfALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot[] slots = Ab78UnseenSecond; ref SettableSlot r = ref slots[0]; r.Share = Plain; SettableSlot q = r; slots[0] = y; return S.Hold(q.Share!.Sample()); });
+
+    // S2903. AB79. The argument has no location that the walk can read, and the method gives a property the object.
+    public static Cell<int> Ab79APutIntoAPropertyIsNoPutIntoALocation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenEleventh; SlotHolder holder = new(); Ab79PutInAPropertyThenGive(ref slots[Kept.Count - Kept.Count], holder, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S2904. AB80. Code with no body keeps a pending cell and gives it back. With no reference to the library it is a package, which gets no SF1003, and the walk follows the cell to the read.
+    public static Cell<int> Ab80ACellThatAPackageKeepsAndGivesBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IBag<Cell<int>> bag = NoBody.Bag<Cell<int>>(); bag.Put(l.Map(v => v)); return S.Hold(bag[0].Sample()); });
+
+    // S2905. AB79. The method gives an element with an index that is no constant the object. Then it gives a plain cell through its parameter, which is a different element.
+    public static Cell<int> Ab79APlainCellThroughAParameterThatCanBeTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; SettableSlot[] slots = Ab79UnseenPair; Ab79PutLastThenGive(ref slots[0], slots, other, Plain); return S.Hold(other.Share!.Sample()); });
+
+    // S2906. AB81. An Exchange in a branch that does not run, and the read is through the element.
+    public static Cell<int> Ab81AnExchangeInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); if (Never) { Kept.Add(Interlocked.Exchange(ref slots[0], first)); } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S2907. A finally block samples the placeholder.
+    public static Cell<int> R2CsReadInAFinallyBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = 0; try { x = 1; } finally { Kept.Add(l.Sample()); } return S.Hold(x); });
+
+    // S2908. Gate samples its cell at each firing as a snapshot does, thus a gate by the placeholder is not a cycle.
+    public static Cell<int> R2ApiGateByThePlaceholderAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Gate(l.Map(v => v > 0)).Hold(0));
+
+    // S2909. AB82 probe. The element gets a different object after the ref, and the plain cell goes through the local.
+    public static Cell<int> Ab82ProbeTheElementGetsAnObjectAfterTheRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[Kept.Count - Kept.Count]; slots[0] = first; r.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2910. AG63 probe. Clear and then an Add.
+    public static Cell<int> Ag63ProbeAnAddAfterAClear() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; list.Clear(); list.Add(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2911. AB78 probe. Two locals for two elements, and the pending cell goes to the second one.
+    public static Cell<int> Ab78ProbeTwoLocalsForTwoElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = Ab78Unseen[1]; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S2912. An async helper samples its parameter only after an await of a task that never completes.
+    public static Cell<int> R2CsAsyncHelperReadsAfterAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2ReadAfterAWait(l).Wait(0); return S.Hold(0); });
+
+    // S2913. An async lambda that the block calls samples the placeholder only after an await of a task that never completes.
+    public static Cell<int> R2CsAsyncLambdaReadsAfterAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await R2NeverDone.Task; Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S2914. An async iterator runs nothing when the block calls it, and the block only keeps the result.
+    public static Cell<int> R2CsAsyncIteratorOnlyMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R2AsyncReads(l)); return S.Hold(0); });
+
+    // S2915. An async helper samples its parameter before its first await, which runs in the call.
+    public static Cell<int> R2CsAsyncHelperReadsBeforeAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2ReadBeforeAWait(l).Wait(0); return S.Hold(0); });
+
+    // S2916. AB87 control. An async helper samples its parameter after an await of a task that is already complete, which runs in the call.
+    public static Cell<int> Ab87AsyncHelperReadsAfterACompletedTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadAfterADoneTask(l).Wait(0); return S.Hold(0); });
+
+    // S2917. AB87 control. An async helper samples its parameter after an await of Task.FromResult.
+    public static Cell<int> Ab87AsyncHelperReadsAfterFromResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadAfterFromResult(l).Wait(0); return S.Hold(0); });
+
+    // S2918. AB87 control. An async helper samples its parameter after an await of a ValueTask of a value.
+    public static Cell<int> Ab87AsyncHelperReadsAfterAValueTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadAfterAValueTask(l).Wait(0); return S.Hold(0); });
+
+    // S2919. AB87 control. The await of a task that never completes is in a branch that does not run. Thus, the read after the branch runs in the call.
+    public static Cell<int> Ab87AsyncHelperReadsAfterABranchWithAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadAfterABranch(l).Wait(0); return S.Hold(0); });
+
+    // S2920. AB87. The read is in the branch after the await of a task that never completes.
+    public static Cell<int> Ab87AsyncHelperReadsInTheBranchAfterTheAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadInTheBranch(l).Wait(0); return S.Hold(0); });
+
+    // S2921. AB87. The await of a task that never completes is in the block of a using statement. Thus, the read after the statement runs later.
+    public static Cell<int> Ab87AsyncHelperReadsAfterAUsingWithAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab87ReadAfterAUsing(l).Wait(0); return S.Hold(0); });
+
+    // S2922. AB87 control. An async lambda samples the placeholder after an await of a task that is already complete.
+    public static Cell<int> Ab87AsyncLambdaReadsAfterACompletedTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await Task.CompletedTask; Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S2923. AB87. An async local function samples the placeholder only after an await of a task that never completes.
+    public static Cell<int> Ab87AsyncLocalFunctionReadsAfterAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { async Task Run() { await R2NeverDone.Task.ConfigureAwait(false); Kept.Add(l.Sample()); } Run().Wait(0); return S.Hold(0); });
+
+    // S2924. AB87 control. An await of an already complete task with ConfigureAwait runs the read in the call.
+    public static Cell<int> Ab87AsyncLocalFunctionReadsAfterAConfiguredDoneTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { async Task Run() { await Task.CompletedTask.ConfigureAwait(false); Kept.Add(l.Sample()); } Run().Wait(0); return S.Hold(0); });
+
+    // S2925. A generic helper calls a static abstract member of an interface through its type parameter, and the implementation samples.
+    public static Cell<int> R2CsStaticAbstractThroughATypeParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R2ReadThrough<R2Reads>(l)));
+
+    // S2926. AB89 control. The implementation of the type argument does not sample.
+    public static Cell<int> Ab89StaticAbstractWithAnImplementationThatDoesNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R2ReadThrough<Ab89Keeps>(l)));
+
+    // S2927. AB89. A generic interface calls its static abstract member through the type parameter of the interface itself.
+    public static Cell<int> Ab89StaticAbstractOfAGenericInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab89ReadThroughSelf<Ab89SelfReads>(l)));
+
+    // S2928. AB89. A static virtual member with a body in the interface, which the type argument does not change, samples.
+    public static Cell<int> Ab89StaticVirtualOfTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab89ReadThroughVirtual<Ab89UsesTheDefault>(l)));
+
+    // S2929. The block adds a handler that samples to an event, then raises the event.
+    public static Cell<int> R2CsEventRaisedInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Rang += () => Kept.Add(l.Sample()); R2Rang?.Invoke(); return S.Hold(0); });
+
+    // S2930. The plus operator combines two delegates, and the call of the result runs the lambda that samples.
+    public static Cell<int> R2CsDelegatesCombinedWithPlus() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l.Sample()); Action both = first + second; both(); return S.Hold(0); });
+
+    // S2931. AB95. A method of the object raises its event, which has a handler from the block that samples.
+    public static Cell<int> Ab95AMethodRaisesAnEventOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); b.Rang += () => Kept.Add(l.Sample()); b.Ring(); return S.Hold(0); });
+
+    // S2932. AB95 control. The handler of the event does not sample.
+    public static Cell<int> Ab95AnEventWithAHandlerThatDoesNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); b.Rang += () => Kept.Add(l); b.Ring(); return S.Hold(0); });
+
+    // S2933. AB95. The plus operator combines a delegate with a lambda that samples, and Invoke runs the result.
+    public static Cell<int> Ab95DelegatesCombinedAndInvoked() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action both = first + (() => Kept.Add(l.Sample())); both.Invoke(); return S.Hold(0); });
+
+    // S2934. AB95 control. The plus operator combines two delegates that do not sample.
+    public static Cell<int> Ab95DelegatesCombinedThatDoNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l); Action both = first + second; both(); return S.Hold(0); });
+
+    // S2935. An assignment to the result of a method that returns a ref puts a pending cell into the array, and the block samples the element.
+    public static Cell<int> R2CsAssignmentThroughARefReturn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; R2SlotOf(cells) = l.Map(v => v); return S.Hold(cells[0].Sample()); });
+
+    // S2936. AB96 control. An assignment through a method that returns a ref puts a plain cell into the array.
+    public static Cell<int> Ab96APlainCellThroughARefReturn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; R2SlotOf(cells) = Plain; return S.Hold(cells[0].Sample()); });
+
+    // S2937. AB96. A method returns its parameter with ref, and an assignment to the result gives the local a pending cell.
+    public static Cell<int> Ab96AssignmentThroughARefParameterReturned() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> x = Plain; Ab96Same(ref x) = l.Map(v => v); return S.Hold(x.Sample()); });
+
+    // S2938. AB96 control. A pending cell goes through the ref of the first array, and the block samples the second array.
+    public static Cell<int> Ab96APendingCellIntoTheOtherArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; Cell<int>[] others = [Plain]; R2SlotOf(cells) = l.Map(v => v); return S.Hold(others[0].Sample()); });
+
+    // S2939. A property whose accessors use the field keyword gets a pending cell, and the block samples the property.
+    public static Cell<int> R2CsFieldKeywordProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2FieldRow r = new() { Share = l.Map(v => v) }; return S.Hold(r.Share!.Sample()); });
+
+    // S2940. AB97 control. A property whose accessors use the field keyword gets a plain cell, and the block samples the property.
+    public static Cell<int> Ab97FieldKeywordPropertyWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2FieldRow r = new() { Share = Plain }; return S.Hold(r.Share!.Sample()); });
+
+    // S2941. AB97. An assignment after the creation gives a property with the field keyword a pending cell.
+    public static Cell<int> Ab97FieldKeywordPropertySetAfterTheCreation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2FieldRow r = new(); r.Share = l.Map(v => v); return S.Hold(r.Share!.Sample()); });
+
+    // S2942. AB97. Only the setter of the property uses the field keyword, and the getter is automatic.
+    public static Cell<int> Ab97FieldKeywordOnlyInTheSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab97HalfRow r = new() { Share = l.Map(v => v) }; return S.Hold(r.Share!.Sample()); });
+
+    // S2943. AB97 control. Only the setter of the property uses the field keyword, and the property gets a plain cell.
+    public static Cell<int> Ab97FieldKeywordOnlyInTheSetterWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab97HalfRow r = new() { Share = Plain }; return S.Hold(r.Share!.Sample()); });
+
+    // S2944. A method of an extension block samples its receiver.
+    public static Cell<int> R2CsExtensionBlockMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = l.Map(v => v).R2ReadNow(); return S.Hold(x); });
+
+    // S2945. AB98 control. A method of an extension block keeps its receiver and does not sample it.
+    public static Cell<int> Ab98ExtensionBlockMethodThatDoesNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(l.Map(v => v).Ab98Same()); return S.Hold(0); });
+
+    // S2946. AB98 control. A method of an extension block samples its parameter, which gets the pending cell.
+    public static Cell<int> Ab98ExtensionBlockMethodReadsItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Ab98ReadOther(l.Map(v => v)); return S.Hold(x); });
+
+    // S2947. AB98 control. A method of an extension block samples its parameter, and only the receiver is pending.
+    public static Cell<int> Ab98ExtensionBlockMethodReadsAPlainParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = l.Map(v => v).Ab98ReadOther(Plain); return S.Hold(x); });
+
+    // S2948. AB98. A property of an extension block samples its receiver.
+    public static Cell<int> Ab98ExtensionBlockProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = l.Map(v => v).Ab98Now; return S.Hold(x); });
+
+    // S2949. AB81 probe. CompareExchange with a different object to compare with leaves the element as it was.
+    public static Cell<int> Ab81ProbeACompareExchangeThatLeavesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Kept.Add(Interlocked.CompareExchange(ref slots[0], first, first)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2950. AG64. CompareExchange with the object of the element as the comparand puts the object with the pending cell, and the plain cell goes through the element.
+    public static Cell<int> Ag64ACompareExchangePutsThePendingObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); Interlocked.CompareExchange(ref slots[0], y, first); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2951. AG64. CompareExchange with the object of the element as the comparand takes the object with the pending cell away.
+    public static Cell<int> Ag64ACompareExchangeTakesThePendingObjectAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Interlocked.CompareExchange(ref slots[0], first, y); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2952. AG64. The comparand can be one of two objects, and it is the object of the element.
+    public static Cell<int> Ag64TheComparandCanBeEitherObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Interlocked.CompareExchange(ref slots[0], first, Kept.Count >= 0 ? y : first); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2953. AG64. A CompareExchange that puts the object with the pending cell is in a branch that does not run.
+    public static Cell<int> Ag64TheCompareExchangeIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); if (Kept.Count < 0) { Interlocked.CompareExchange(ref slots[0], y, first); } slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2954. AG64. The comparand is the result of a call, which can be the object of the element.
+    public static Cell<int> Ag64TheComparandIsTheResultOfACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Interlocked.CompareExchange(ref slots[0], first, Ag64Same(y)); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2955. AG65. A method gives the element the object with the pending cell through ref, and the plain cell goes through the element.
+    public static Cell<int> Ag65AMethodGivesTheElementThePendingObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); Ab82Give(ref slots[0], y); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2956. AG65. The same through out.
+    public static Cell<int> Ag65AMethodGivesTheElementThePendingObjectThroughOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); Ag65GiveOut(out slots[0], y); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2957. AG65. The method gives the element the object only in a branch, which does not run.
+    public static Cell<int> Ag65TheMethodGivesTheObjectInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); Ag65GiveIf(ref slots[0], y, Kept.Count < 0); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2958. AG65. The call of the method is in a branch that does not run.
+    public static Cell<int> Ag65TheCallIsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); if (Kept.Count < 0) { Ab82Give(ref slots[0], y); } slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2959. AG65. The method gives the parameter the object with the pending cell, and then puts the plain object into the element.
+    public static Cell<int> Ag65TheMethodPutsIntoTheElementAfterItGivesTheParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Ag65GiveThenPut(ref slots[0], slots, y, first); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2960. AG65. The method gives the element through a second method after it gives the parameter.
+    public static Cell<int> Ag65TheMethodPutsThroughASecondMethodAfterItGivesTheParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Ag65GiveThenPutThroughASecond(ref slots[0], slots, y, first); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2961. AG65. Two parameters with ref are the same element, and the method gives the first one last.
+    public static Cell<int> Ag65TwoParametersAreTheSameElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); Ag65GiveBoth(ref slots[0], ref slots[0], first, y); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2962. AG63 probe. A coalescing assignment to an element that has an object gives it nothing.
+    public static Cell<int> Ag63ProbeACoalescingAssignmentToAnElementWithAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [y, first]; list[0] ??= first; list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2963. AG66. An assignment gives the element the object with the pending cell, and a coalescing assignment to the element gives it nothing.
+    public static Cell<int> Ag66ACoalescingAssignmentAfterAnAssignmentToTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot?> list = [null, first]; list[0] = y; list[0] ??= first; list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2964. AG66. The element can be null, because a conditional expression gave its value.
+    public static Cell<int> Ag66TheElementCanBeNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot? maybe = Kept.Count < 0 ? y : null; List<SettableSlot?> list = [maybe, first]; list[0] ??= first; list[0]!.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2965. AG66. A creation gave the local of the element its value, and a branch gave the local null before the list.
+    public static Cell<int> Ag66TheLocalOfTheElementGetsNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? y = new() { Share = l.Map(v => v) }; SettableSlot pending = y; SettableSlot first = new() { Share = Plain }; if (Kept.Count >= 0) { y = null; } List<SettableSlot?> list = [y, first]; list[0] ??= first; list[0]!.Share = Plain; return S.Hold(pending.Share!.Sample()); });
+
+    // S2966. AB82 probe. A method gives the object with the pending cell to a local with ref, and the plain cell goes through the element.
+    public static Cell<int> Ab82ProbeAPlainCellAfterAMethodGaveThePendingObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; Ab82Give(ref r, y); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2967. AG68 probe. A method gets a local with ref for an element at a constant index. It puts a different object there, and then a plain cell through its parameter.
+    public static Cell<int> Ag68ProbeAMethodReadsTheLocationOfALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot first = new SettableSlot { Share = Plain }; SettableSlot[] slots = [first]; SettableSlot other = new SettableSlot { Share = l.Map(v => v) }; ref SettableSlot r = ref slots[0]; Ab76PutThenGive(ref r, slots, other, Plain); return S.Hold(other.Share!.Sample()); });
+
+    // S2968. AG68. A local with ref for an element gives the element the object with the pending cell, and the plain cell goes through the element.
+    public static Cell<int> Ag68AnAssignmentThroughALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [first]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; r = y; slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2969. AG68. A deconstruction gives a local with ref for an element the plain object.
+    public static Cell<int> Ag68ADeconstructionIntoALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; (r, int n) = (first, 1); Kept.Add(n); slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2970. AG68. A second local with ref for the first one gives the element the plain object.
+    public static Cell<int> Ag68ASecondLocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); ref SettableSlot r = ref slots[0]; ref SettableSlot s = ref r; s = first; slots[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2971. AG68. The local of the array gets a different array after the local with ref. The assignment through the local with ref goes to the first array.
+    public static Cell<int> Ag68TheArrayLocalGetsADifferentArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; SettableSlot[] slots = [y]; Ag62Count(slots); SettableSlot[] kept = slots; ref SettableSlot r = ref slots[0]; slots = [first]; r = first; kept[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S2972. The operand of nameof names a getter that samples a pending member, and nameof runs no code.
+    public static Cell<int> R2CsNameofOfAGetterThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Gauge g = new(l.Map(v => v)); string name = nameof(g.Now); return S.Hold(name.Length); });
+
+    // S2973. A switch statement converts its value to long with the implicit conversion of the type, which samples a pending member.
+    public static Cell<int> R2CsConversionOfASwitchStatementValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x; switch (t) { case 1: x = 1; break; default: x = 2; break; } return S.Hold(x); });
+
+    // S2974. An arm of a switch expression converts its result to long with the implicit conversion of the type.
+    public static Cell<int> R2CsConversionInASwitchExpressionArm() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); long x = !Never switch { true => t, false => 0L }; return S.Hold((int)x); });
+
+    // S2975. A when clause of a switch expression arm calls the true operator of the type.
+    public static Cell<int> R2CsTruthOperatorInAWhenClause() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = Kept.Count switch { _ when t => 1, _ => 0 }; return S.Hold(x); });
+
+    // S2976. A foreach with a long variable converts each element with the implicit conversion of the type.
+    public static Cell<int> R2CsConversionOfEachElementOfAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Tally[] all = [t]; long total = 0; foreach (long x in all) { total += x; } return S.Hold((int)total); });
+
+    // S2977. A lambda whose result type is long converts its expression body with the implicit conversion, and the block calls it.
+    public static Cell<int> R2CsConversionOfALambdaResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Func<long> read = () => t; return S.Hold((int)read()); });
+
+    // S2978. The operand of the not operator goes through an implicit conversion to bool, which samples a pending member.
+    public static Cell<int> R2CsConversionOfTheOperandOfNot() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Flag f = new(l.Map(v => v)); bool off = !f; return S.Hold(off ? 0 : 1); });
+
+    // S2979. The condition of a do statement goes through an implicit conversion to bool, which samples a pending member.
+    public static Cell<int> Ab90ConversionOfADoCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Flag f = new(l.Map(v => v)); int n = 0; do { n++; } while (f); return S.Hold(n); });
+
+    // S2980. The condition of a for statement goes through an implicit conversion to bool, which samples a pending member.
+    public static Cell<int> Ab90ConversionOfAForCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Flag f = new(l.Map(v => v)); int n = 0; for (; f; ) { n++; break; } return S.Hold(n); });
+
+    // S2981. An iterator converts the value of its yield return with the implicit conversion of the type, and the block enumerates it.
+    public static Cell<int> Ab90ConversionOfAYieldReturnValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); long total = 0; foreach (long x in Each()) { total += x; } return S.Hold((int)total); IEnumerable<long> Each() { yield return t; } });
+
+    // S2982. A when clause of a switch statement calls the true operator of the type.
+    public static Cell<int> Ab90TruthOperatorInAWhenClauseOfASwitchStatement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x; switch (Kept.Count) { case int when t: x = 1; break; default: x = 0; break; } return S.Hold(x); });
+
+    // S2983. A value in parentheses goes through the implicit conversion one time, and the walk reports it one time.
+    public static Cell<int> Ab90ConversionOfAValueInParentheses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); long x = (t); return S.Hold((int)x); });
+
+    // S2984. A cast calls the conversion one time, and the walk reports it one time.
+    public static Cell<int> Ab90CastCallsTheConversionOneTime() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); long x = (long)t; return S.Hold((int)x); });
+
+    // S2985. A user minus operator reads a pending member, and the walk reports it one time.
+    public static Cell<int> Ab90UserMinusOperatorOneTime() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = -t; return S.Hold(x); });
+
+    // S2986. A foreach with a variable of the element type converts nothing.
+    public static Cell<int> Ab90ForeachWithNoConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Tally[] all = [t]; int n = 0; foreach (Tally x in all) { n++; } return S.Hold(n); });
+
+    // S2987. A condition in parentheses calls the true operator one time, and the walk reports it one time.
+    public static Cell<int> Ab90TruthOfAValueInParentheses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int x = (t) ? 1 : 0; return S.Hold(x); });
+
+    // S2988. The ToString that the compiler makes for a record reads each property, and a getter samples a pending member.
+    public static Cell<int> R2CsRecordToStringReadsAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Shown r = new(l.Map(v => v)); string s = $"{r}"; return S.Hold(s.Length); });
+
+    // S2989. A with expression calls the copy constructor of the record, which samples a pending member of the original.
+    public static Cell<int> R2CsWithCallsACopyConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Copied a = new(l.Map(v => v)); R2Copied b = a with { }; Kept.Add(b); return S.Hold(0); });
+
+    // S2990. The ToString of a record whose properties have no getter body reads no pending member.
+    public static Cell<int> Ab91RecordToStringWithNoGetterBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Copied a = new(l.Map(v => v)); string s = $"{a}"; return S.Hold(s.Length); });
+
+    // S2991. A with expression on a record with no copy constructor of its code calls the one that the compiler writes, which reads nothing.
+    public static Cell<int> Ab91WithOnARecordWithNoCopyConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Shown a = new(l.Map(v => v)); R2Shown b = a with { }; Kept.Add(b); return S.Hold(0); });
+
+    // S2992. An index from the end reads Count, and the getter of Count samples a pending member.
+    public static Cell<int> R2CsIndexFromTheEndReadsCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Counted r = new(l.Map(v => v)); int x = r[^1]; return S.Hold(x); });
+
+    // S2993. A range calls the Slice method of the type, which samples a pending member.
+    public static Cell<int> R2CsRangeCallsSlice() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Sliced r = new(l.Map(v => v)); R2Sliced part = r[0..1]; Kept.Add(part); return S.Hold(0); });
+
+    // S2994. A list pattern calls the indexer of the type, which samples a pending member.
+    public static Cell<int> R2CsListPatternCallsTheIndexer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Sliced r = new(l.Map(v => v)); bool big = r is [> 0]; return S.Hold(big ? 1 : 0); });
+
+    // S2995. An index from the start calls only the indexer, which reads no pending member.
+    public static Cell<int> Ab92IndexFromTheStartReadsNoCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Counted r = new(l.Map(v => v)); int x = r[0]; return S.Hold(x); });
+
+    // S2996. A list pattern reads Count, and the getter of Count samples a pending member.
+    public static Cell<int> Ab92ListPatternReadsCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Counted r = new(l.Map(v => v)); bool one = r is [_]; return S.Hold(one ? 1 : 0); });
+
+    // S2997. An index from the end after a null test reads Count, and the getter of Count samples a pending member.
+    public static Cell<int> Ab92ConditionalIndexFromTheEndReadsCount() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Counted? r = new(l.Map(v => v)); int? x = r?[^1]; return S.Hold(x ?? 0); });
+
+    // S2998. A collection expression for a collection type of this file calls its Add, which samples the value that it gets.
+    public static Cell<int> R2CsCollectionExpressionCallsAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Pile p = [l.Map(v => v)]; Kept.Add(p); return S.Hold(0); });
+
+    // S2999. A collection expression for a type with a collection builder calls the Create method, which samples an element.
+    public static Cell<int> R2CsCollectionBuilderCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Pack p = [l.Map(v => v)]; Kept.Add(p); return S.Hold(0); });
+
+    // S3000. A nested object initializer runs the setter of a member of a member, and the setter samples the value that it gets.
+    public static Cell<int> R2CsNestedInitializerRunsASetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Rack rack = new() { Holder = { Source = l.Map(v => v) } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3001. A collection initializer calls the same Add.
+    public static Cell<int> R2CsCollectionInitializerCallsAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Pile p = new() { l.Map(v => v) }; Kept.Add(p); return S.Hold(0); });
+
+    // S3002. A nested collection initializer calls the Add of a member, and that Add samples the value that it gets.
+    public static Cell<int> Ab93NestedCollectionInitializerCallsAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab93PileRack rack = new() { Pile = { l.Map(v => v) } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3003. An initializer two levels deep runs the setter of a member of a member of a member.
+    public static Cell<int> Ab93TwoLevelsOfInitializerRunASetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab93DeepRack deep = new() { Rack = { Holder = { Source = l.Map(v => v) } } }; Kept.Add(deep); return S.Hold(0); });
+
+    // S3004. A nested initializer that gives a plain cell reads nothing pending.
+    public static Cell<int> Ab93NestedInitializerWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Rack rack = new() { Holder = { Source = Plain } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3005. A foreach calls Dispose of an enumerator of this file, which samples a pending member.
+    public static Cell<int> R2CsForeachDisposesTheEnumerator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int total = 0; foreach (int x in new R2Steps(l.Map(v => v))) { total += x; } return S.Hold(total); });
+
+    // S3006. A tuple equality calls the equality operator of each element, and that operator samples a pending member.
+    public static Cell<int> R2CsTupleEqualityCallsTheOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); bool same = (a, 1) == (b, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3007. A foreach over a collection whose enumerator disposes nothing pending reads nothing.
+    public static Cell<int> Ab94ForeachEnumeratorWithAPlainDispose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int total = 0; foreach (int x in new R2Steps(Plain)) { total += x; } Kept.Add(l.Map(v => v)); return S.Hold(total); });
+
+    // S3008. A tuple inequality calls the inequality operator of each element, which calls the equality operator, which samples a pending member.
+    public static Cell<int> Ab94TupleInequalityCallsTheOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); bool other = (a, 1) != (b, 1); return S.Hold(other ? 1 : 0); });
+
+    // S3009. A tuple equality of plain elements reads nothing pending.
+    public static Cell<int> Ab94TupleEqualityOfPlainElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(Plain); R2Same b = new(Plain); bool same = (a, 1) == (b, 1); Kept.Add(l.Map(v => v)); return S.Hold(same ? 1 : 0); });
+
+    // S3010. A goto back to a label runs the read a second time, after the local gets a pending cell.
+    public static Cell<int> R2CsGotoBackRunsTheReadAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int n = 0; again: Kept.Add(c.Sample()); c = l.Map(v => v); n++; if (n < 2) { goto again; } return S.Hold(0); });
+
+    // S3011. A goto back to a label runs again only the code after the label, and the read comes after the goto.
+    public static Cell<int> Ab99GotoBackBeforeTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int n = 0; again: n++; if (n < 2) { goto again; } Kept.Add(c.Sample()); c = l.Map(v => v); return S.Hold(0); });
+
+    // S3012. A goto back to a label in a nested block runs the read again, after the local gets a pending cell.
+    public static Cell<int> Ab99GotoBackFromANestedBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int n = 0; again: Kept.Add(c.Sample()); { c = l.Map(v => v); n++; if (n < 2) { goto again; } } return S.Hold(0); });
+
+    // S3013. Fold samples the snapshot of its collection at construction, and the snapshot of a view with a pending limit reads the placeholder.
+    public static Cell<int> R2ApiFoldOfAViewWithAPendingLimit() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> total = Items().Take(limitCell: l).Fold(select: (_, state) => state, zero: 0, add: (a, b) => a + b, subtract: (a, b) => a - b); return S.Snapshot(total, (a, b) => a + b).Hold(0); });
+
+    // S3014. FoldByIdentity samples the snapshot at construction, which forces the initial items of a collection made from a pending cell.
+    public static Cell<int> R2ApiFoldByIdentityOfACollectionFromAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> count = ReactiveCollection.Create<int, ItemId, int>(initialEntries: l.Map<int, IEnumerable<Item<ItemId, int>>>(v => [new Item<ItemId, int>(identity: new ItemId(v), state: v)]), Stream.Never<CollectionEdit<int, ItemId, int>>()).FoldByIdentity(select: id => id.Number, zero: 0, add: (a, b) => a + b, subtract: (a, b) => a - b); return S.Snapshot(count, (a, b) => a + b).Hold(0); });
+
+    // S3015. Execute of a bindable action reads its enablement cell before it sends, as CanExecute does.
+    public static Cell<int> R2ApiExecuteOfAnActionWithAPendingEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); a.Execute(null); return S.Hold(0); });
+
+    // S3016. Dispose of a bindable action reads its enablement cell before it raises the last notification.
+    public static Cell<int> R2ApiDisposeOfAnActionWithAPendingEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); a.Dispose(); return S.Hold(0); });
+
+    // S3017. The setter of a two-way bindable reads the initial value of its cell before it compares the new value.
+    public static Cell<int> R2ApiTwoWayWriteOverAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<int> b = R2ApiFactory.CreateTwoWay(cell: l.Map(v => v), editsStreamSink: Stream.CreateSink<int>()); b.Value = 4; return S.Hold(0); });
+
+    // S3018. CanExecute of the same bindable action through its own type, which the table already knows as a read.
+    public static Cell<int> R2ApiCanExecuteOfAnActionWithAPendingEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)).CanExecute(null) ? 1 : 0));
+
+    // S3019. Dispose of a one-way bindable over a pending cell releases its listener and reads nothing, unlike the Dispose of a bindable action.
+    public static Cell<int> Ab101DisposeOfAOneWayOverAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<int> b = R2ApiFactory.CreateOneWay(l.Map(v => v)); b.Dispose(); return S.Hold(0); });
+
+    // S3020. CanExecute of a bindable action through the ICommand interface reads the pending enablement cell.
+    public static Cell<int> R2ApiCanExecuteThroughICommand() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Windows.Input.ICommand c = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); return S.Hold(c.CanExecute(null) ? 1 : 0); });
+
+    // S3021. Execute of a bindable action through the ICommand interface reads the pending enablement cell, as CanExecute through it does.
+    public static Cell<int> Ab102ExecuteThroughICommand() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Windows.Input.ICommand c = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); c.Execute(null); return S.Hold(0); });
+
+    // S3022. CanExecute through the ICommand interface of an action whose enablement is not pending reads nothing of the loop.
+    public static Cell<int> Ab102CanExecuteThroughICommandOfAPlainEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Windows.Input.ICommand c = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Plain.Map(v => v > 0)); return S.Hold(c.CanExecute(null) ? 1 : 0); });
+
+    // S3023. SnapshotLatest links the updates of its cell into its output, thus a close with a SnapshotLatest of the placeholder is a cycle.
+    public static Cell<int> R2ApiSnapshotLatestOfThePlaceholderAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.SnapshotLatest(l, (a, b) => a + b).Hold(0));
+
+    // S3024. The same cycle through the overload with two cells, where the second cell is a map of the placeholder.
+    public static Cell<int> R2ApiSnapshotLatestOfADerivedCellAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.SnapshotLatest(Plain, l.Map(v => v * 2), (a, b, c) => a + b + c).Hold(0));
+
+    // S3025. SnapshotLatest of a cell that is not linked to the placeholder, as the close, has no cycle.
+    public static Cell<int> Ab103SnapshotLatestOfAPlainCellAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.SnapshotLatest(Plain, (a, b) => a + b).Hold(0));
+
+    // S3026. The firings of a bindable action are its sink, which has no link to the enablement cell. Thus, a counter that disables the action after three firings is not a cycle.
+    public static Cell<int> R2ApiFiringsOfAnActionWithALinkedEnablementAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v < 3)); return a.FiringsStream.Snapshot(l, (_, n) => n + 1).Hold(0); });
+
+    // S3027. The enablement of a bindable action is the cell that it got, thus a close with a map of a linked enablement is a cycle.
+    public static Cell<int> Ab104EnablementOfAnActionWithALinkedEnablementAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v < 3)); return a.IsEnabledCell.Map(e => e ? 1 : 0); });
+
+    // S3028. A sample of the enablement of a bindable action reads the pending cell that the action got.
+    public static Cell<int> Ab104EnablementOfAnActionWithAPendingEnablementRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v < 3)); return S.Hold(a.IsEnabledCell.Sample() ? 1 : 0); });
+
+    // S3029. A collection samples its cell of initial items lazily and has no link to it. Thus, a close with its keys is an initial value that forces itself, and not a cycle.
+    public static Cell<int> R2ApiCollectionFromALinkedCellAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => ReactiveCollection.Create<int, ItemId, int>(initialEntries: l.Map<int, IEnumerable<Item<ItemId, int>>>(v => [new Item<ItemId, int>(identity: new ItemId(v), state: v)]), Stream.Never<CollectionEdit<int, ItemId, int>>()).KeysCell.Map(keys => keys.Count));
+
+    // S3030. A collection from a plain cell listens to its edit stream, and that stream comes from the placeholder. Thus, a close with its keys is a cycle.
+    public static Cell<int> Ab105CollectionWithALinkedEditStreamAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => ReactiveCollection.Create<int, ItemId, int>(initialEntries: Plain.Map<int, IEnumerable<Item<ItemId, int>>>(v => [new Item<ItemId, int>(identity: new ItemId(v), state: v)]), l.Updates().Map(v => CollectionEdit<int, ItemId, int>.Add(new Item<ItemId, int>(identity: new ItemId(v), state: v)))).KeysCell.Map(keys => keys.Count));
+
+    // S3031. A collection keeps the sequence of its initial items in a constant cell and enumerates it at the end of the transaction. Thus, a query in it that samples the placeholder runs after the close.
+    public static Cell<int> R2ApiCollectionFromADeferredQueryThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReactiveCollection<int, ItemId, int> items = ReactiveCollection.Create<int, ItemId, int>(initialEntries: Enumerable.Range(1, 1).Select(i => new Item<ItemId, int>(identity: new ItemId(i), state: l.Sample())), Stream.Never<CollectionEdit<int, ItemId, int>>()); return S.Snapshot(items.KeysCell, (a, keys) => a + keys.Count).Hold(0); });
+
+    // S3032. A sample of the keys of a collection from a deferred query enumerates the query in the block, and the query samples the placeholder.
+    public static Cell<int> Ab106CollectionFromADeferredQueryThatReadsSampledInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReactiveCollection<int, ItemId, int> items = ReactiveCollection.Create<int, ItemId, int>(initialEntries: Enumerable.Range(1, 1).Select(i => new Item<ItemId, int>(identity: new ItemId(i), state: l.Sample())), Stream.Never<CollectionEdit<int, ItemId, int>>()); int count = items.KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S3033. A collection from a list keeps the list, and a sample of its keys in the block reads the list, which has no pending value.
+    public static Cell<int> Ab106CollectionFromAListSampledInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReactiveCollection<int, ItemId, int> items = ReactiveCollection.Create<int, ItemId, int>(initialEntries: new List<Item<ItemId, int>> { new Item<ItemId, int>(identity: new ItemId(1), state: 1) }, Stream.Never<CollectionEdit<int, ItemId, int>>()); int count = items.KeysCell.Sample().Count; return S.Hold(count + 0 * l.SampleLazy().GetHashCode()); });
+
+    // S3034. A lift whose function gives a cell linked to the placeholder, switched, as the close.
+    public static Cell<int> R2ApiLiftThatGivesALinkedCellSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> d = l.Map(v => v); return Plain.Lift(Plain, (a, b) => d).SwitchC(); });
+
+    // S3035. A lift whose function gives a pending cell, switched and sampled in the block.
+    public static Cell<int> R2ApiLiftThatGivesAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Lift(Plain, (a, b) => l.Map(v => v + a + b)).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3036. An accumulation whose initial state is a pending cell, switched and sampled in the block.
+    public static Cell<int> R2ApiAccumFromAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = S.Accum(initialState: l.Map(v => v), f: (_, c) => c).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3037. AsCell of a sink whose value is a cell linked to the placeholder is the same sink, switched as the close.
+    public static Cell<int> R2ApiAsCellOfASinkOfALinkedCellSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> sink = Cell.CreateSink(l.Map(v => v)); return sink.AsCell().SwitchC(); });
+
+    // S3038. Calm of a cell whose value is a pending cell keeps that value, switched and sampled in the block.
+    public static Cell<int> R2ApiCalmOfACellOfAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Cell.Constant(l.Map(v => v)).Calm().SwitchC().Sample(); return S.Hold(x); });
+
+    // S3039. A lazy constant whose lazy map gives a pending cell, switched and sampled in the block.
+    public static Cell<int> R2ApiConstantLazyOfAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Cell.ConstantLazy(Plain.SampleLazy().Map(_ => l.Map(v => v))).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3040. A send in the block puts a cell linked to the placeholder into a sink of cells. The switch of that sink selects it in the same transaction.
+    public static Cell<int> R2ApiSendOfALinkedCellIntoASinkSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> sink = Cell.CreateSink(Plain); sink.Send(l.Map(v => v)); return sink.SwitchC(); });
+
+    // S3041. A hold from a lazy sample of a pending cell of cells keeps that cell as its value, switched and sampled in the block.
+    public static Cell<int> Ab107HoldLazyOfAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = S.Map(v => Plain).HoldLazy(Cell.Constant(l.Map(v => v)).SampleLazy()).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3042. A lift whose function gives a plain cell, switched and sampled in the block, reads no pending value.
+    public static Cell<int> Ab107LiftThatGivesAPlainCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Lift(Plain, (a, b) => Plain).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3043. A send of a plain cell into a sink of cells, switched as the close, has no cycle.
+    public static Cell<int> Ab107SendOfAPlainCellIntoASinkSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> sink = Cell.CreateSink(Plain); sink.Send(Plain.Map(v => v + 1)); return sink.SwitchC(); });
+
+    // S3044. Apply runs the function in its cell at the first read, and that function samples the placeholder.
+    public static Cell<int> R2ApiApplyOfAFunctionThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Apply(Cell.Constant<Func<int, int>>(v => v + l.Sample())).Sample(); return S.Hold(x); });
+
+    // S3045. A view filtered by a cell that holds a predicate runs that predicate at the first read of the keys. The predicate samples the placeholder.
+    public static Cell<int> R2ApiViewFilteredByACellOfAFunctionThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int count = Items().Filter(predicateCell: Cell.Constant<Func<ItemId, int, bool>>((_, state) => state > l.Sample())).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S3046. Apply of a function in a local cell runs that function at the first read, and the function samples the placeholder.
+    public static Cell<int> Ab108ApplyOfAFunctionInALocalThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<Func<int, int>> f = Cell.Constant<Func<int, int>>(v => v + l.Sample()); int x = Plain.Apply(f).Sample(); return S.Hold(x); });
+
+    // S3047. Apply of a function that reads no pending value, sampled in the block, reads nothing of the loop.
+    public static Cell<int> Ab108ApplyOfAFunctionThatReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Plain.Apply(Cell.Constant<Func<int, int>>(v => v + 1)).Sample(); return S.Hold(x); });
+
+    // S3048. A descending sort order whose function samples the placeholder. The block reads the keys of a view that sorts by that order.
+    public static Cell<int> Ag69SortByADescendingOrderThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.ByDescending((_, state) => state + l.Sample()); int count = Items().SortBy(order: order).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S3049. The same read through a descending order of the identity.
+    public static Cell<int> Ag69SortByADescendingIdentityOrderThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { KeyOrder<int, ItemId, int> order = KeyOrder<int, ItemId, int>.ByIdentityDescending(id => id.Number + l.Sample()); int count = Items().SortBy(order: order).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S3050. The items of a map through a task are a map of a hold of its source. Thus, a close with them, from a source linked to the placeholder, is a cycle.
+    public static Cell<int> Ag70MapAsyncItemsOfALinkedSourceAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AsyncMapStatus<int, int> status = l.Updates().MapAsync(results: Stream.CreateSink<int>(), errors: Stream.CreateSink<Exception>(), handleException: _ => { }, operation: (v, f, _) => Task.FromResult(f.FromValue(v)), strategy: AsyncConcurrencyStrategy.Parallel()); return status.Items.Map(items => items.Count); });
+
+    // S3051. IsRunning of a map through a task from a source with no link, as the close, has no cycle.
+    public static Cell<int> Ag70MapAsyncIsRunningOfAPlainSourceAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AsyncMapStatus<int, int> status = S.MapAsync(results: Stream.CreateSink<int>(), errors: Stream.CreateSink<Exception>(), handleException: _ => { }, operation: (v, f, _) => Task.FromResult(f.FromValue(v)), strategy: AsyncConcurrencyStrategy.Parallel()); return status.IsRunning.Map(r => r ? 1 : 0); });
+
+    // S3052. The Value of an async item is the input that it holds, and not a read of a cell. That is true also for a pending cell.
+    public static Cell<int> Ag70AsyncItemValueOfAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AsyncItem<Cell<int>> item = new(value: l.Map(v => v), status: AsyncItemStatus.Queued); Cell<int> c = item.Value; return S.Hold(0); });
+
+    // S3053. A sample of the cell that an async item holds reads it.
+    public static Cell<int> Ag70AsyncItemValueOfAPendingCellSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { AsyncItem<Cell<int>> item = new(value: l.Map(v => v), status: AsyncItemStatus.Queued); return S.Hold(item.Value.Sample()); });
+
+    // S3054. AB78 probe. A second read of the element is a name of the same value.
+    public static Cell<int> Ab78ProbeASecondReadOfTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = Ab78Unseen[0]; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S3055. AB78 probe. The pending cell goes through the expression of the element.
+    public static Cell<int> Ab78ProbeAWriteThroughTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; Ab78Unseen[0].Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S3056. AB83. A write through the second read of the element replaces the state of the first read.
+    public static Cell<int> Ab83AWriteThroughTheSecondReadReplaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = Ab83Unseen[0]; q.Share = Plain; return S.Hold(c.Share!.Sample()); });
+
+    // S3057. AB83. A write through the first read of the element goes to the second read.
+    public static Cell<int> Ab83AWriteThroughTheFirstReadGoesToTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = Plain; SettableSlot q = Ab83Unseen[0]; c.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S3058. AB83. The second read of the element has the state that the first read got before it.
+    public static Cell<int> Ab83TheSecondReadHasTheStateOfTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = l.Map(v => v); SettableSlot q = Ab83Unseen[0]; return S.Hold(q.Share!.Sample()); });
+
+    // S3059. AB83. The element gets a new object between the two reads, thus the two reads are two values.
+    public static Cell<int> Ab83AnElementWithANewObjectIsASecondValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = Plain; Ab83Unseen[0] = new SettableSlot(); SettableSlot q = Ab83Unseen[0]; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S3060. AB83. A second read of a field is a name of the same value.
+    public static Cell<int> Ab83ASecondReadOfAFieldIsTheSameValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Field; c.Share = Plain; SettableSlot q = Ab83Field; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S3061. AB83. The field gets a new object between the two reads, thus the two reads are two values.
+    public static Cell<int> Ab83AFieldWithANewObjectIsASecondValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Field; c.Share = Plain; Ab83Field = new SettableSlot(); SettableSlot q = Ab83Field; q.Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S3062. AB78 probe. A lambda in a local gets the first local, and gives it a pending cell.
+    public static Cell<int> Ab78ProbeALambdaGivesTheFirstNameAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; Action<SettableSlot> give = slot => slot.Share = l.Map(v => v); give(c); return S.Hold(c.Share!.Sample()); });
+
+    // S3063. AB78 probe. A lambda in a local gets the second local, and gives it a pending cell.
+    public static Cell<int> Ab78ProbeALambdaGivesTheSecondNameAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot q = c; Action<SettableSlot> give = slot => slot.Share = l.Map(v => v); give(q); return S.Hold(c.Share!.Sample()); });
+
+    // S3064. AB84 probe. A lambda in a local has a second local for the value, and gives it a pending cell.
+    public static Cell<int> Ab84ProbeASecondNameInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; Action give = () => { SettableSlot q = c; q.Share = l.Map(v => v); }; give(); return S.Hold(c.Share!.Sample()); });
+
+    // S3065. AB84. A local function gives the argument the pending cell that it set through its parameter.
+    public static Cell<int> Ab84ALocalFunctionGivesTheArgumentAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; void Give(SettableSlot slot) => slot.Share = l.Map(v => v); Give(c); return S.Hold(c.Share!.Sample()); });
+
+    // S3066. AB84. A lambda in a local replaces the pending cell of the argument with a plain cell.
+    public static Cell<int> Ab84ALambdaReplacesThePendingCellOfTheArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = l.Map(v => v); Action<SettableSlot> give = slot => slot.Share = Plain; give(c); return S.Hold(c.Share!.Sample()); });
+
+    // S3067. AB84. A lambda gives its out parameter an object with a pending cell.
+    public static Cell<int> Ab84ALambdaGivesItsOutParameterAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab84Maker make = (out SettableSlot s) => s = new SettableSlot { Share = l.Map(v => v) }; make(out SettableSlot got); return S.Hold(got.Share!.Sample()); });
+
+    // S3068. AB84. The local in the lambda gets a different value before the write, thus it is no second name then.
+    public static Cell<int> Ab84TheLocalInTheLambdaGetsADifferentValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; Action give = () => { SettableSlot q = c; q = Ab78Unseen[1]; q.Share = l.Map(v => v); }; give(); return S.Hold(c.Share!.Sample()); });
+
+    // S3069. AB84. A lambda gives its argument to a second lambda, which gives it a pending cell.
+    public static Cell<int> Ab84ALambdaGivesItsArgumentToASecondLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; Action<SettableSlot> give = slot => slot.Share = l.Map(v => v); Action<SettableSlot> pass = slot => give(slot); pass(c); return S.Hold(c.Share!.Sample()); });
+
+    // S3070. AB84. A lambda gives the pending cell to a different element.
+    public static Cell<int> Ab84ALambdaGivesADifferentElementAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab78Unseen[0]; c.Share = Plain; SettableSlot d = Ab78Unseen[1]; Action<SettableSlot> give = slot => slot.Share = l.Map(v => v); give(d); return S.Hold(c.Share!.Sample()); });
+
+    // S3071. AB79 probe. A method that the method calls gives the element the object.
+    public static Cell<int> Ab79ProbeACalleeOfTheMethodPutsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab79UnseenEighth; Ab79PutThroughAMethodThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S3072. AB85. A method two calls down gives the element the object.
+    public static Cell<int> Ab85AMethodTwoCallsDownPutsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab85UnseenFirst; Ab85PutThroughTwoMethodsThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S3073. AB85. A method that the method calls gives a different element the object.
+    public static Cell<int> Ab85ACalleePutsTheObjectIntoADifferentElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab85UnseenSecond; Ab85PutSecondThroughAMethodThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S3074. AB85. A method that the method calls puts the object into a copy of the array.
+    public static Cell<int> Ab85ACalleePutsTheObjectIntoACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = Ab85UnseenThird; Ab85PutIntoACopyThroughAMethodThenGive(ref slots[0], slots, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S3075. AB85. A method that the method calls gives the field the object.
+    public static Cell<int> Ab85ACalleePutsTheObjectIntoTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; Ab79Holder holder = Ab85Holders[0]; Ab85PutInAFieldThroughAMethodThenGive(ref holder.Item, holder, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S3076. AB86 probe. Code with no body in a static field keeps an object with a pending cell. The store has no object for that code.
+    public static Cell<int> Ab86ProbeAnObjectThatCodeInAFieldKeepsAndGivesBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab80Line.Put(x); return S.Hold(Ab80Line.Last().Share!.Sample()); });
+
+    // S3077. AB86. Code with no body in a static field keeps a value with no object of the store, and gives it back.
+    public static Cell<int> Ab86CodeInAFieldKeepsAValueWithNoObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = l.Map(v => v); Ab86Line.Put(c); return S.Hold(Ab86Line.Last().Share!.Sample()); });
+
+    // S3078. AB86. Code with no body in a static field keeps an object, and the object gets a pending cell after the put.
+    public static Cell<int> Ab86AnObjectThatCodeInAFieldKeepsGetsAPendingCellAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; Ab86Line.Put(x); x.Share = l.Map(v => v); return S.Hold(Ab86Line.Last().Share!.Sample()); });
+
+    // S3079. AB86. Code with no body in a static field keeps an object with a pending cell, and gives each object back in a sequence.
+    public static Cell<int> Ab86CodeInAFieldGivesBackASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab86Line.Put(x); foreach (SettableSlot each in Ab86Line.All()) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S3080. AG61 probe. The keeper in a field puts an object first, and the plain cell goes through the second element.
+    public static Cell<int> Ag61ProbeTheSecondElementAfterAKeeperInAFieldPutAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag61InAField.Keep(list); Ag61InAField.Put(first); list[1].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S3081. AG67. The keeper in a field puts an object first, and the plain cell goes through the first element.
+    public static Cell<int> Ag67TheFirstElementAfterAKeeperInAFieldPutAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag61InAField.Keep(list); Ag61InAField.Put(first); list[0].Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S3082. AG67. The keeper in a field puts an object first, and the block reads the first element.
+    public static Cell<int> Ag67AReadOfTheFirstElementAfterAKeeperInAFieldPutAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag61InAField.Keep(list); Ag61InAField.Put(first); return S.Hold(list[0].Share!.Sample()); });
+
+    // S3083. AG67. The keeper in a field puts an object first, and the block reads the second element.
+    public static Cell<int> Ag67AReadOfTheSecondElementAfterAKeeperInAFieldPutAnObjectFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot y = new() { Share = l.Map(v => v) }; SettableSlot first = new() { Share = Plain }; List<SettableSlot> list = [y]; Ag61InAField.Keep(list); Ag61InAField.Put(first); return S.Hold(list[1].Share!.Sample()); });
+
+    // S3084. AG71. A plain write through a name with ref, after the index got a new value and the element got a different object. The first object keeps its pending cell.
+    public static Cell<int> Ag71APlainWriteThroughANameWithRefAfterTheElementGotADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new SettableSlot { Share = l.Map(v => v) }; SettableSlot b = new SettableSlot { Share = Plain }; SettableSlot[] slots = [a]; int i = 0; ref SettableSlot r = ref slots[i]; i = 1; slots[0] = b; r.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3085. AG71. The same, where the name with ref is the result of a method that returns a ref to the first element.
+    public static Cell<int> Ag71APlainWriteThroughARefResultAfterTheElementGotADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new SettableSlot { Share = l.Map(v => v) }; SettableSlot b = new SettableSlot { Share = Plain }; SettableSlot[] slots = [a]; ref SettableSlot r = ref Ag71FirstOf(slots); slots[0] = b; r.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3086. AG71. Between the two writes, a helper gives a pending cell to an object from code with no body. At run time, that object is the other object. The helper changes no object of the store.
+    public static Cell<int> Ag71AHelperGivesAPendingCellToAnObjectFromCodeWithNoBodyBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new SettableSlot { Share = Plain }; SettableSlot y = new SettableSlot { Share = Plain }; SettableSlot z = (SettableSlot)NoBody.Echo().Back(y); SettableSlot c = Never ? y : x; c.Share = l.Map(v => v); Ag51Set(z, l.Map(v => v)); c.Share = Plain; return S.Hold(y.Share!.Sample()); });
+
+    // S3087. AG71. The method gives its parameter with ref a new object. Then, it puts an object into the location of the argument through an indexer with two indexes. Then, it gives a pending cell through the parameter.
+    public static Cell<int> Ag71APutThroughTwoIndexesIntoTheLocationOfAParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new SettableSlot { Share = Plain }; SettableSlot[] slots = [new SettableSlot { Share = Plain }]; Ag71Grid grid = new(slots); Ag71AssignThenPutThenGive(ref slots[0], grid, other, l.Map(v => v)); return S.Hold(other.Share!.Sample()); });
+
+    // S3088. AG71. A method of an object that is no sequence gives back the list that it got, as object. The text of the list reads no element.
+    public static Cell<int> Ag71AMethodOfAnObjectGivesBackAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Titled> all = [new Titled(l.Map(v => v))]; object back = NoBody.Echo().Back(all); Kept.Add(back.ToString()!); return S.Hold(0); });
+
+    // S3089. AG71. A dictionary calls GetHashCode of a key that is a tuple, and the tuple calls GetHashCode of its first element.
+    public static Cell<int> Ag71DictionaryAddOfATupleKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<(Hashed, int), int> d = new(); d.Add((new Hashed(l.Map(v => v)), 1), 1); return S.Hold(d.Count); });
+
+    // S3090. AG71. A filter keeps the content of a stream of cells. The loop links the content, which is not pending. The switch of its hold closes the loop.
+    public static Cell<int> Ag71AFilterKeepsAContentThatIsOnlyLinked() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> sink = Stream.CreateSink<Cell<int>>(); sink.Send(l.Updates().Hold(0)); return sink.Filter(_ => true).Hold(Plain).SwitchC(); });
+
+    // S3091. AG71. A write through a name of one class does not go to an object of a second class. The one class does not derive from the other. The object from the platform keeps its plain cell.
+    public static Cell<int> Ag71AWriteThroughANameOfAClassWithNoRelation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag71First a = Activator.CreateInstance<Ag71First>(); a.Share = Plain; object o = Never ? a : new Ag71Second(); Ag71Second b = (Ag71Second)o; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3092. AG71. ForEach runs its lambda for each element. Each run makes its own object, puts it into a list, and gives it a plain cell.
+    public static Cell<int> Ag71EachRunOfForEachMakesItsOwnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<int> xs = [1, 2]; List<SettableSlot> made = []; xs.ForEach(x => { SettableSlot s = new SettableSlot { Share = l.Map(v => v) }; made.Add(s); s.Share = Plain; }); return S.Hold(made[0].Share!.Sample()); });
+
+    // S3093. AG71. A conditional with no type of its own gives object. Its second result is an int in parentheses, which has a type and is no object of the store. Thus, the local is the one object.
+    public static Cell<int> Ag71AnIntInParenthesesIsNoObjectOfTheStore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new SettableSlot { Share = l.Map(v => v) }; object o = !Never ? x : (5); SettableSlot s = (SettableSlot)o; s.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S3094. AG71. A sorted set calls CompareTo, and not Dispose, which is a member of a different interface of System.
+    public static Cell<int> Ag71ASortedSetDoesNotCallDispose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SortedSet<Ag71RankedAndDisposable> set = [new(Plain)]; set.Add(new(l.Map(v => v))); return S.Hold(set.Count); });
+
+    // S3095. AG71. The condition of a for statement calls the true operator of the type.
+    public static Cell<int> Ag71TruthOperatorInAForCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); int n = 0; for (; t; ) { n++; break; } return S.Hold(n); });
+
+    // S3096. AB109. A helper in the function of Transaction.Run makes the object, and the object gets a plain cell through its name.
+    public static Cell<int> Ab109AHelperInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3097. AB109. The function of Transaction.Run is a method group of a helper that makes the object.
+    public static Cell<int> Ab109AMethodGroupInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(Ab109NewEmptySlot); s.Share = l.Map(v => v); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3098. AB109. The function of Transaction.Run is a local function that calls the helper.
+    public static Cell<int> Ab109ALocalFunctionInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot Make() => Ab109NewSlot(l.Map(v => v)); SettableSlot s = Transaction.Run(Make); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3099. AB109. The function of Transaction.Run is a lambda in a local, and it calls the helper.
+    public static Cell<int> Ab109ALambdaInALocalInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot> make = () => Ab109NewSlot(l.Map(v => v)); SettableSlot s = Transaction.Run(make); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3100. AB109. A Transaction.Run in a Transaction.Run, and the helper is in the function of the second one.
+    public static Cell<int> Ab109ANestedRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Transaction.Run(() => Ab109NewSlot(l.Map(v => v)))); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3101. AB109. The function of Transaction.Run has a block, and a local of the block has the object of the helper.
+    public static Cell<int> Ab109ABlockLambdaInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => { SettableSlot n = Ab109NewSlot(l.Map(v => v)); return n; }); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3102. AB109. The helper in the function of Transaction.Run calls a second helper, which makes the object.
+    public static Cell<int> Ab109AHelperOfAHelperInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlotThroughAHelper(l.Map(v => v))); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3103. AB109. A helper of the block has the Transaction.Run, and the function of that call calls the helper that makes the object.
+    public static Cell<int> Ab109AHelperWithARunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab109RunMakes(l.Map(v => v)); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3104. AB109. The function of Transaction.Run makes the object with a creation, and no helper.
+    public static Cell<int> Ab109ACreationInRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => new SettableSlot { Share = l.Map(v => v) }); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3105. AB109. The block calls a lambda in a local with no Transaction.Run, and the lambda calls the helper.
+    public static Cell<int> Ab109ALambdaThatTheBlockCallsMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot> make = () => Ab109NewSlot(l.Map(v => v)); SettableSlot s = make(); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3106. AB109. The block calls a local function with no Transaction.Run, and the local function calls the helper.
+    public static Cell<int> Ab109ALocalFunctionThatTheBlockCallsMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot Make() => Ab109NewSlot(l.Map(v => v)); SettableSlot s = Make(); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3107. AB109. A Transaction.RunVoid puts the plain cell into the object that a Transaction.Run made.
+    public static Cell<int> Ab109ARunVoidPutsThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); List<SettableSlot> made = [s]; Transaction.RunVoid(() => { s.Share = Plain; }); return S.Hold(made[0].Share!.Sample()); });
+
+    // S3108. AB109. The read is through the name of the object, with no list.
+    public static Cell<int> Ab109TheReadIsThroughTheName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); s.Share = Plain; return S.Hold(s.Share!.Sample()); });
+
+    // S3109. AB109. The helper with no Transaction.Run, which was right before the change.
+    public static Cell<int> Ab109AHelperWithNoRunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab109NewSlot(l.Map(v => v)); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3110. AB109. Transaction.Run gives back an object that the block made, and the put of the plain cell is through the result.
+    public static Cell<int> Ab109RunGivesBackAnObjectOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = l.Map(v => v) }; SettableSlot s = Transaction.Run(() => a); s.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3111. AB109 control. The object of the helper in Transaction.Run keeps its pending cell.
+    public static Cell<int> Ab109TheObjectOfRunKeepsItsPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); List<SettableSlot> made = [s]; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3112. AB109 control. The object of the helper in Transaction.Run gets a pending cell after the plain one.
+    public static Cell<int> Ab109TheObjectOfRunGetsAPendingCellAfterThePlainOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109NewSlot(Plain)); List<SettableSlot> made = [s]; s.Share = l.Map(v => v); return S.Hold(made[0].Share!.Sample()); });
+
+    // S3113. AB109 control. Two calls of Transaction.Run with one local function make two objects, and only the first gets the plain cell.
+    public static Cell<int> Ab109TwoRunsOfOneLocalFunctionMakeTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot Make() => Ab109NewSlot(l.Map(v => v)); SettableSlot s = Transaction.Run(Make); SettableSlot t = Transaction.Run(Make); s.Share = Plain; return S.Hold(t.Share!.Sample()); });
+
+    // S3114. AB109 control. Two calls of Transaction.Run with one lambda in a local make two objects, and only the first gets the plain cell.
+    public static Cell<int> Ab109TwoRunsOfOneLambdaMakeTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot> make = () => Ab109NewSlot(l.Map(v => v)); SettableSlot s = Transaction.Run(make); SettableSlot t = Transaction.Run(make); s.Share = Plain; return S.Hold(t.Share!.Sample()); });
+
+    // S3115. AB109 control. The function of Transaction.Run calls a lambda two times, and only the first object gets the plain cell.
+    public static Cell<int> Ab109TheFunctionOfRunCallsALambdaTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (SettableSlot First, SettableSlot Second) pair = Transaction.Run(() => { Func<SettableSlot> make = () => Ab109NewSlot(l.Map(v => v)); return (make(), make()); }); pair.First.Share = Plain; return S.Hold(pair.Second.Share!.Sample()); });
+
+    // S3116. AB109 control. The function of Transaction.Run calls the helper in a loop, and only the first object gets the plain cell.
+    public static Cell<int> Ab109TheFunctionOfRunCallsTheHelperInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> all = Transaction.Run(() => { List<SettableSlot> each = []; for (int i = 0; i < 2; i++) { each.Add(Ab109NewSlot(l.Map(v => v))); } return each; }); all[0].Share = Plain; return S.Hold(all[1].Share!.Sample()); });
+
+    // S3117. AB109 control. A Transaction.Run in a loop makes an object in each turn, and only the object of the second turn gets the plain cell.
+    public static Cell<int> Ab109ARunInALoopMakesAnObjectInEachTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? first = null; for (int i = 0; i < 2; i++) { SettableSlot s = Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); if (i == 0) { first = s; } else { s.Share = Plain; } } return S.Hold(first!.Share!.Sample()); });
+
+    // S3118. AB109 control. Transaction.Run gives back one of two objects of the block, and the put of the plain cell is to the second one.
+    public static Cell<int> Ab109RunGivesBackOneOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = l.Map(v => v) }; SettableSlot b = new() { Share = Plain }; SettableSlot s = Transaction.Run(() => Never ? a : b); s.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3119. AB109 control. A lambda that runs two times calls the helper, and only the object of the first run gets the plain cell.
+    public static Cell<int> Ab109ALambdaThatRunsTwoTimesCallsTheHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<SettableSlot> make = () => Ab109NewSlot(l.Map(v => v)); List<SettableSlot> made = [make(), make()]; made[0].Share = Plain; return S.Hold(made[1].Share!.Sample()); });
+
+    // S3120. AB109. A loop block in the block gives the object of the helper as its capture.
+    public static Cell<int> Ab109ALoopBlockInTheBlockMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> _, SettableSlot s) = Cell.Loop<int>().WithCaptures(m => (Cell: S.Hold(1), Captures: Ab109NewSlot(l.Map(v => v)))); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3121. AB109. The block of a forward reference in the block gives the object of the helper.
+    public static Cell<int> Ab109AForwardReferenceInTheBlockMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = ForwardReference<SettableSlot>.WithoutCaptures(r => Ab109NewSlot(l.Map(v => v))); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3122. AB109. A local function of the block has the Transaction.Run, and the block calls it one time.
+    public static Cell<int> Ab109ALocalFunctionWithARunMakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot Make() => Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); SettableSlot s = Make(); List<SettableSlot> made = [s]; s.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3123. AB109. The function of Transaction.Run puts the plain cell into the object that it makes.
+    public static Cell<int> Ab109TheFunctionOfRunPutsThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => { SettableSlot n = Ab109NewSlot(l.Map(v => v)); n.Share = Plain; return n; }); List<SettableSlot> made = [s]; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3124. AB109. The result of Transaction.Run goes into the list with no local, and the put of the plain cell is through the list.
+    public static Cell<int> Ab109TheResultOfRunGoesIntoAListWithNoLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = [Transaction.Run(() => Ab109NewSlot(l.Map(v => v)))]; made[0].Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3125. AB109 control. Transaction.Run gives back an object of the block or a new object, and the plain cell goes to the new one.
+    public static Cell<int> Ab109RunGivesBackAnObjectOfTheBlockOrANewOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot s = Transaction.Run(() => Never ? x : new SettableSlot { Share = Plain }); s.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S3126. AB109 control. Transaction.Run gives back an object of the block or the object of a helper, and the plain cell goes to the second one.
+    public static Cell<int> Ab109RunGivesBackAnObjectOfTheBlockOrTheObjectOfAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot s = Transaction.Run(() => Never ? x : Ab109NewSlot(Plain)); s.Share = Plain; return S.Hold(x.Share!.Sample()); });
+
+    // S3127. AB109 control. A lambda that runs for each element has the Transaction.Run, and only the first object gets the plain cell.
+    public static Cell<int> Ab109ARunInALambdaForEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> all = new[] { 0, 1 }.Select(i => Transaction.Run(() => Ab109NewSlot(l.Map(v => v)))).ToList(); all[0].Share = Plain; return S.Hold(all[1].Share!.Sample()); });
+
+    // S3128. AB109 control. A local function of the block has the Transaction.Run, and the block calls it two times.
+    public static Cell<int> Ab109ALocalFunctionWithARunRunsTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot Make() => Transaction.Run(() => Ab109NewSlot(l.Map(v => v))); SettableSlot s = Make(); SettableSlot t = Make(); s.Share = Plain; return S.Hold(t.Share!.Sample()); });
+
+    // S3129. AB109 control. The block calls the helper with the Transaction.Run two times, and only the first object gets the plain cell.
+    public static Cell<int> Ab109AHelperWithARunRunsTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab109RunMakes(l.Map(v => v)); SettableSlot t = Ab109RunMakes(l.Map(v => v)); s.Share = Plain; return S.Hold(t.Share!.Sample()); });
+
+    // S3130. AB109 control. The function of Transaction.Run puts a pending cell into the object that it makes.
+    public static Cell<int> Ab109TheFunctionOfRunPutsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => { SettableSlot n = Ab109NewSlot(Plain); n.Share = l.Map(v => v); return n; }); List<SettableSlot> made = [s]; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3131. AB109 control. The function of Transaction.Run puts the plain cell in a branch that does not run.
+    public static Cell<int> Ab109TheFunctionOfRunPutsThePlainCellInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => { SettableSlot n = Ab109NewSlot(l.Map(v => v)); if (Never) { n.Share = Plain; } return n; }); List<SettableSlot> made = [s]; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3132. AB109 control. Two calls of Transaction.Run with one method group make two objects, and only the first gets the plain cell.
+    public static Cell<int> Ab109TwoRunsOfOneMethodGroupMakeTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(Ab109NewEmptySlot); SettableSlot t = Transaction.Run(Ab109NewEmptySlot); t.Share = l.Map(v => v); s.Share = Plain; return S.Hold(t.Share!.Sample()); });
+
+    // S3133. AB109 control. A method of this code with the name Run calls its function two times, and only the first object gets the plain cell.
+    public static Cell<int> Ab109AMethodWithTheNameRunCallsItsFunctionTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> all = Ab109Twice.Run(() => Ab109NewSlot(l.Map(v => v))); all[0].Share = Plain; return S.Hold(all[1].Share!.Sample()); });
+
+    // S3134. AB109 control. Two calls of Transaction.Run give the one object of a field, and the object gets a pending cell through the second name.
+    public static Cell<int> Ab109TwoRunsGiveTheObjectOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => Ab109Kept); SettableSlot t = Transaction.Run(() => Ab109Kept); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3135. AB109. A Transaction.RunVoid gives a local of the block the object of the helper.
+    public static Cell<int> Ab109ARunVoidGivesALocalTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? s = null; Transaction.RunVoid(() => { s = Ab109NewSlot(l.Map(v => v)); }); List<SettableSlot> made = [s!]; s!.Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3136. AB110. Code with no body in a static field keeps an object with a pending cell, and the object gets a plain cell after the put.
+    public static Cell<int> Ab110AnObjectThatCodeInAFieldKeepsGetsAPlainCellAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110Line.Put(x); x.Share = Plain; return S.Hold(Ab110Line.Last().Share!.Sample()); });
+
+    // S3137. AB110. The same, where the code with no body gives each object back in a sequence.
+    public static Cell<int> Ab110CodeInAFieldGivesBackASequenceAfterAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110SequenceLine.Put(x); x.Share = Plain; foreach (SettableSlot each in Ab110SequenceLine.All()) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S3138. AB110. The same, where an indexer of the code with no body gives the object back.
+    public static Cell<int> Ab110AnIndexerOfCodeInAFieldGivesTheObjectBackAfterAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110Bag.Put(x); x.Share = Plain; return S.Hold(Ab110Bag[0].Share!.Sample()); });
+
+    // S3139. AB110. Code with no body in a static field keeps two objects, and each gets a plain cell after the puts.
+    public static Cell<int> Ab110TwoObjectsThatCodeInAFieldKeepsGetAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = l.Map(v => v) }; Ab110PairLine.Put(x); Ab110PairLine.Put(y); x.Share = Plain; y.Share = Plain; return S.Hold(Ab110PairLine.Last().Share!.Sample()); });
+
+    // S3140. AB110. Code with no body in a static field keeps a list of the block. The object in the list gets a plain cell after the put.
+    public static Cell<int> Ab110AListThatCodeInAFieldKeepsHoldsAnObjectThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; List<SettableSlot> list = [x]; Ab110ListLine.Put(list); x.Share = Plain; return S.Hold(Ab110ListLine.Last()[0].Share!.Sample()); });
+
+    // S3141. AB110 control. Code with no body in a static field keeps an object, and the object keeps its pending cell.
+    public static Cell<int> Ab110AnObjectThatCodeInAFieldKeepsHasAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PendingLine.Put(x); return S.Hold(Ab110PendingLine.Last().Share!.Sample()); });
+
+    // S3142. AB110 control. The object gets a plain cell after the put, and then a pending cell.
+    public static Cell<int> Ab110AnObjectThatCodeInAFieldKeepsGetsAPendingCellAfterThePlainOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110AgainLine.Put(x); x.Share = Plain; x.Share = l.Map(v => v); return S.Hold(Ab110AgainLine.Last().Share!.Sample()); });
+
+    // S3143. AB110 control. Code with no body in a static field keeps two objects, and only the first gets a plain cell.
+    public static Cell<int> Ab110OnlyTheFirstOfTwoObjectsThatCodeInAFieldKeepsGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; SettableSlot y = new() { Share = l.Map(v => v) }; Ab110TwoLine.Put(x); Ab110TwoLine.Put(y); x.Share = Plain; return S.Hold(Ab110TwoLine.Last().Share!.Sample()); });
+
+    // S3144. AB110 control. The put of the plain cell is in a branch that does not run.
+    public static Cell<int> Ab110AnObjectThatCodeInAFieldKeepsGetsAPlainCellInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110BranchLine.Put(x); if (Never) { x.Share = Plain; } return S.Hold(Ab110BranchLine.Last().Share!.Sample()); });
+
+    // S3145. AB110 control. Code with no body in a static field keeps a struct, which is a copy. The name gets a plain cell after the put, and the copy keeps its pending cell.
+    public static Cell<int> Ab110AStructThatCodeInAFieldKeepsIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SlotValue x = new() { Share = l.Map(v => v) }; Ab110ValueLine.Put(x); x.Share = Plain; return S.Hold(Ab110ValueLine.Last().Share!.Sample()); });
+
+    // S3146. AB110 control. The local gets a second object after the put, and the plain cell goes to that one.
+    public static Cell<int> Ab110TheNameGetsASecondObjectAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110SecondLine.Put(x); x = new SettableSlot(); x.Share = Plain; return S.Hold(Ab110SecondLine.Last().Share!.Sample()); });
+
+    // S3147. AB110 control. Code with no body in a static field keeps a pending cell, which is no object, and gives it back. With no reference to the library it is a package, and the walk follows the cell to the read.
+    public static Cell<int> Ab110ACellThatCodeInAFieldKeepsAndGivesBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab110CellLine.Put(l.Map(v => v)); return S.Hold(Ab110CellLine.Last().Sample()); });
+
+    // S3148. AB110. The code with no body is in a property of an object of the block. The object of the put gets a plain cell after the put.
+    public static Cell<int> Ab110CodeInAPropertyOfAnObjectKeepsAnObjectThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110LineHolder holder = new(); holder.Line.Put(x); x.Share = Plain; return S.Hold(holder.Line.Last().Share!.Sample()); });
+
+    // S3149. AB110. The code with no body is in a static property.
+    public static Cell<int> Ab110CodeInAStaticPropertyKeepsAnObjectThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PlainProperty.Put(x); x.Share = Plain; return S.Hold(Ab110PlainProperty.Last().Share!.Sample()); });
+
+    // S3150. AB110. Each turn of a loop puts an object into the code with no body, and gives that object a plain cell.
+    public static Cell<int> Ab110EachTurnPutsAnObjectAndGivesItAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110TurnPlainLine.Put(x); x.Share = Plain; } foreach (SettableSlot each in Ab110TurnPlainLine.All()) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S3151. AB110. A callee puts the object into the code with no body in a static field, and the block gives the object a plain cell.
+    public static Cell<int> Ab110ACalleePutsTheObjectAndTheBlockGivesItAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PutInTheField(x); x.Share = Plain; return S.Hold(Ab110CalleePlainLine.Last().Share!.Sample()); });
+
+    // S3152. AB110 control. A local is a second name of the code with no body in a static array, and the read is through the array.
+    public static Cell<int> Ab110ASecondNameOfCodeInAnArrayKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISlotLine line = Ab110SecondNameLines[0]; SettableSlot x = new() { Share = l.Map(v => v) }; line.Put(x); return S.Hold(Ab110SecondNameLines[0].Last().Share!.Sample()); });
+
+    // S3153. AB110 control. The code with no body is an element of a static array with no local for it, and the object keeps its pending cell.
+    public static Cell<int> Ab110CodeInAnArrayWithNoLocalKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110NoLocalLines[0].Put(x); return S.Hold(Ab110NoLocalLines[0].Last().Share!.Sample()); });
+
+    // S3154. AB110 control. A callee puts the object into the code with no body that it gets as a parameter, and the object keeps its pending cell.
+    public static Cell<int> Ab110ACalleePutsAnObjectWithAPendingCellIntoItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PutIn(Ab110ParameterLine, x); return S.Hold(Ab110ParameterLine.Last().Share!.Sample()); });
+
+    // S3155. AB110 control. The code with no body is in a property of an object of the block, and the object of the put keeps its pending cell.
+    public static Cell<int> Ab110CodeInAPropertyOfAnObjectKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110LineHolder holder = new(); holder.Line.Put(x); return S.Hold(holder.Line.Last().Share!.Sample()); });
+
+    // S3156. AB110 control. The code with no body is in a static property, and the object keeps its pending cell.
+    public static Cell<int> Ab110CodeInAStaticPropertyKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110Property.Put(x); return S.Hold(Ab110Property.Last().Share!.Sample()); });
+
+    // S3157. AB110 control. Each turn of a loop puts an object into the code with no body, and only the second turn gives its object a plain cell.
+    public static Cell<int> Ab110OnlyTheSecondTurnGivesItsObjectAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110TurnLine.Put(x); if (i == 1) { x.Share = Plain; } } foreach (SettableSlot each in Ab110TurnLine.All()) { Kept.Add(each.Share!.Sample()); } return S.Hold(0); });
+
+    // S3158. AB110 control. A callee puts the object into the code with no body in a static field, and then gives the object a pending cell.
+    public static Cell<int> Ab110ACalleePutsTheObjectAndGivesItAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; Ab110PutThenGive(x, l.Map(v => v)); return S.Hold(Ab110CalleeLine.Last().Share!.Sample()); });
+
+    // S3159. Select of an ImmutableArray, and the block counts the query, which runs its function.
+    public static Cell<int> Ag72ImmutableArraySelectEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.Select(x => x + l.Sample()); int n = q.Count(); return S.Hold(n); });
+
+    // S3160. Where of an ImmutableArray, and the block makes a list from the query, which runs its function.
+    public static Cell<int> Ag72ImmutableArrayWhereEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.Where(x => x > l.Sample()); return S.Hold(q.ToList().Count); });
+
+    // S3161. SelectMany of an ImmutableArray, and a foreach of the query runs its function.
+    public static Cell<int> Ag72ImmutableArraySelectManyEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.SelectMany(x => Numbers, (x, y) => x + y + l.Sample()); int total = 0; foreach (int x in q) { total += x; } return S.Hold(total); });
+
+    // S3162. Any of an ImmutableArray runs its function in the call.
+    public static Cell<int> Ag72ImmutableArrayAnyRunsItsFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); bool any = a.Any(x => x > l.Sample()); return S.Hold(any ? 1 : 0); });
+
+    // S3163. An assignment to the member in an initializer calls the setter, which samples a pending member.
+    public static Cell<int> Ag72AssignmentInAnInitializerCallsTheSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72SetterRack rack = new(l.Map(v => v)) { Slot = new SettableSlot() }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3164. An assignment to the member in an initializer calls the setter, which samples the pending cell of its value.
+    public static Cell<int> Ag72AssignmentInAnInitializerGivesTheSetterAPendingValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ValueRack rack = new() { Slot = new SettableSlot { Share = l.Map(v => v) } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3165. The parameterless constructor of the same kind of record runs the initializer, which samples the static field that the block set.
+    public static Cell<int> Ag72NewRunsAnInitializerOfTheRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72SharedForANew = l.Map(v => v); Ag72NotedNew a = new(); Kept.Add(a); return S.Hold(0); });
+
+    // S3166. A with expression gives a pending cell to a record whose initializer samples the parameter of the primary constructor. The copy constructor of the code does not run the initializer.
+    public static Cell<int> Ag72WithOnARecordWhoseInitializerReadsItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Started a = new(Plain); Ag72Started b = a with { Start = l.Map(v => v) }; Kept.Add(b); return S.Hold(0); });
+
+    // S3167. A slice with no pattern of its own calls no Slice.
+    public static Cell<int> Ag72SliceWithNoPatternCallsNoSlice() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Cut r = new(l.Map(v => v)); bool some = r is [_, ..]; return S.Hold(some ? 1 : 0); });
+
+    // S3168. A list pattern with an element after a slice calls the indexer of the type, which samples a pending member.
+    public static Cell<int> Ag72ListPatternFromTheEndCallsTheIndexer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Sliced r = new(l.Map(v => v)); bool some = r is [.., var last]; return S.Hold(some ? 1 : 0); });
+
+    // S3169. A slice pattern on a type whose Slice reads a plain cell reads nothing pending.
+    public static Cell<int> Ag72SlicePatternWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Cut r = new(Plain); bool some = r is [_, .. var rest]; Kept.Add(l.Map(v => v)); return S.Hold(some ? 1 : 0); });
+
+    // S3170. A spread into a type with a collection builder calls the Create method, which samples an element.
+    public static Cell<int> Ag72SpreadIntoATypeWithABuilderThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v)]; R2Pack p = [.. cells]; Kept.Add(p); return S.Hold(0); });
+
+    // S3171. A spread of plain cells into a collection type of this file reads nothing pending.
+    public static Cell<int> Ag72SpreadOfPlainCellsIntoATypeWithAnAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain]; R2Pile p = [.. cells]; Kept.Add(p); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S3172. A collection initializer for a type whose Add is an extension method calls it, and it samples the value.
+    public static Cell<int> Ag72CollectionInitializerCallsAnExtensionAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Bare b = new() { l.Map(v => v) }; Kept.Add(b); return S.Hold(0); });
+
+    // S3173. A collection expression of a plain cell for a type whose Add is an extension method reads nothing pending.
+    public static Cell<int> Ag72CollectionExpressionWithAnExtensionAddOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Bare b = [Plain]; Kept.Add(b); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S3174. Two tuples in variables with plain elements compared read nothing pending.
+    public static Cell<int> Ag72TwoTuplesInVariablesOfPlainElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(Plain); R2Same b = new(Plain); (R2Same, int) first = (a, 1); (R2Same, int) second = (b, 1); bool same = first == second; Kept.Add(l.Map(v => v)); return S.Hold(same ? 1 : 0); });
+
+    // S3175. A tuple equality of tuples in tuples calls the equality operator of each inner element.
+    public static Cell<int> Ag72NestedTupleEquality() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); bool same = ((a, 1), 2) == ((b, 1), 2); return S.Hold(same ? 1 : 0); });
+
+    // S3176. A tuple equality converts an element with a conversion of the code, which samples a pending member.
+    public static Cell<int> Ag72ConversionOfAnElementInATupleEquality() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Flag f = new(l.Map(v => v)); bool same = (f, 1) == (true, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3177. A tuple equality converts a plain element with a conversion of the code, and reads nothing pending.
+    public static Cell<int> Ag72ConversionOfAPlainElementInATupleEquality() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Flag f = new(Plain); bool same = (f, 1) == (true, 1); Kept.Add(l.Map(v => v)); return S.Hold(same ? 1 : 0); });
+
+    // S3178. With no tuple, the same operator and the same conversion of its result to bool.
+    public static Cell<int> Ag72ConversionOfTheResultOfAnOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Judged a = new(l.Map(v => v)); Ag72Judged b = new(Plain); bool same = a == b; return S.Hold(same ? 1 : 0); });
+
+    // S3179. A using statement of a bindable action with a plain enablement cell reads nothing pending.
+    public static Cell<int> Ag72UsingStatementOfAnActionWithAPlainEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using (R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Plain.Map(v => v > 0))) { } Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S3180. A using statement of a one-way bindable over a pending cell. Its Dispose reads no cell.
+    public static Cell<int> Ag72UsingStatementOfAOneWayOverAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using (R2ApiFactory.CreateOneWay(l.Map(v => v))) { } return S.Hold(0); });
+
+    // S3181. An async helper samples after an await of ValueTask.CompletedTask.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfTheCompletedValueTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterTheCompletedValueTask(l).Wait(0); return S.Hold(0); });
+
+    // S3182. An async helper samples after an await of an async helper that waits for a task that never completes.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAnAsyncHelperThatWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterAHelperThatWaits(l).Wait(0); return S.Hold(0); });
+
+    // S3183. The block removes a different handler, thus the handler that samples runs at the raise.
+    public static Cell<int> Ag72ADifferentHandlerRemovedBeforeTheRaise() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); Action other = () => Kept.Add(0); b.Rang += h; b.Rang -= other; b.Ring(); return S.Hold(0); });
+
+    // S3184. The block removes the handler after the raise, thus the handler runs.
+    public static Cell<int> Ag72HandlerRemovedAfterTheRaise() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Ring(); b.Rang -= h; return S.Hold(0); });
+
+    // S3185. The block removes the handler only in a branch that does not run, thus the handler runs at the raise.
+    public static Cell<int> Ag72HandlerRemovedInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; if (Kept.Count < 0) { b.Rang -= h; } b.Ring(); return S.Hold(0); });
+
+    // S3186. The block removes a second lambda with the same text, which is a different delegate. Thus, the first lambda runs at the raise.
+    public static Cell<int> Ag72ASecondLambdaWithTheSameTextRemoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); b.Rang += () => Kept.Add(l.Sample()); b.Rang -= () => Kept.Add(l.Sample()); b.Ring(); return S.Hold(0); });
+
+    // S3187. An accumulation of cells whose function gives a cell linked to the placeholder. A send in the block runs the function, and the switch selects the cell.
+    public static Cell<int> Ag72AccumOfCellsWhoseFunctionGivesALinkedCellSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<Cell<int>> acc = s.Accum(initialState: Plain, f: (_, c) => l.Map(v => v)); s.Send(1); return acc.SwitchC(); });
+
+    // S3188. An accumulation of records whose initial state holds a pending cell. The block switches the cell of the record and samples it.
+    public static Cell<int> Ag72AccumOfRecordsFromAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = S.Accum(initialState: new Ag72Step(l.Map(v => v)), f: (_, r) => r).Map(r => r.Share).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3189. An accumulation of records whose function gives a record with a plain cell has no cycle.
+    public static Cell<int> Ag72AccumOfRecordsWhoseFunctionGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: (_, r) => new Ag72Step(Plain.Map(v => v + 1))); s.Send(1); Kept.Add(l.Map(v => v)); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3190. A constant cell of a record that holds a pending cell. The block switches the cell of the record and samples it.
+    public static Cell<int> Ag72ConstantOfARecordWithAPendingCellSwitchedAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int x = Cell.Constant(new Ag72Step(l.Map(v => v))).Map(r => r.Share).SwitchC().Sample(); return S.Hold(x); });
+
+    // S3191. A using statement disposes a bindable action at its end, and Dispose reads the pending enablement cell.
+    public static Cell<int> Ag72UsingStatementOfAnActionWithAPendingEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using (R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0))) { } return S.Hold(0); });
+
+    // S3192. A using declaration disposes a bindable action at the end of the block, and Dispose reads the pending enablement cell.
+    public static Cell<int> Ag72UsingDeclarationOfAnActionWithAPendingEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); return S.Hold(0); });
+
+    // S3193. A using statement of a local that holds a bindable action with a pending enablement cell.
+    public static Cell<int> Ag72UsingStatementOfAnActionInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindableAction a = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), l.Map(v => v > 0)); using (a) { } return S.Hold(0); });
+
+    // S3194. An accumulation of records whose function gives a record with a cell linked to the placeholder. A send in the block runs the function, and the switch selects the cell of the record.
+    public static Cell<int> Ag72AccumOfRecordsWhoseFunctionGivesALinkedCellSwitchedAsTheClose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: (_, r) => new Ag72Step(l.Map(v => v))); s.Send(1); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3195. An accumulation of records from a stream of cells. Its static function puts the cell of the firing into the record. A send in the block, before the accumulation, gives the stream a cell linked to the placeholder.
+    public static Cell<int> Ag72AccumOfRecordsFromAStreamOfLinkedCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); s.Send(l.Map(v => v)); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: static (c, r) => new Ag72Step(c)); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3196. An accumulation of records whose function calls a local function, which gives a cell linked to the placeholder.
+    public static Cell<int> Ag72AccumOfRecordsWhoseFunctionCallsALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> Linked() => l.Map(v => v); StreamSink<int> s = Stream.CreateSink<int>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: (_, r) => new Ag72Step(Linked())); s.Send(1); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3197. An accumulation of records whose function copies the record with a local that holds a cell linked to the placeholder.
+    public static Cell<int> Ag72AccumOfRecordsWhoseFunctionCopiesWithALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> d = l.Map(v => v); StreamSink<int> s = Stream.CreateSink<int>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: (_, r) => r with { Share = d }); s.Send(1); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3198. An accumulation of records whose static function gives a record with a plain cell has no cycle.
+    public static Cell<int> Ag72AccumOfRecordsWhoseStaticFunctionGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: static (n, r) => new Ag72Step(Plain.Map(v => v + 1))); s.Send(1); Kept.Add(l.Map(v => v)); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3199. An async helper samples after an await of an async helper that never waits. The read runs in the call.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAnAsyncHelperThatNeverWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterAnAsyncHelper(l).Wait(0); return S.Hold(0); });
+
+    // S3200. An async helper samples after an await of a helper that returns Task.CompletedTask.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAHelperThatReturnsADoneTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterADoneHelper(l).Wait(0); return S.Hold(0); });
+
+    // S3201. An async helper samples after an await of Task.WhenAll of no task, which is complete.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfWhenAllOfNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterWhenAllOfNothing(l).Wait(0); return S.Hold(0); });
+
+    // S3202. An async helper samples after an await of a default ValueTask, which is complete.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfADefaultValueTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterADefaultValueTask(l).Wait(0); return S.Hold(0); });
+
+    // S3203. An async helper samples after an await of a helper that returns a ValueTask made from a value.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAValueTaskFromAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterAReadyHelper(l).Wait(0); return S.Hold(0); });
+
+    // S3204. An async helper samples after an await of a local that holds Task.CompletedTask.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfADoneTaskInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterATaskInALocal(l).Wait(0); return S.Hold(0); });
+
+    // S3205. An async helper samples after an await of Task.Delay of zero, which is complete.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfADelayOfZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterADelayOfZero(l).Wait(0); return S.Hold(0); });
+
+    // S3206. An async lambda samples after an await of Task.WhenAll of no task.
+    public static Cell<int> Ag72AsyncLambdaReadsAfterWhenAllOfNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await Task.WhenAll(); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3207. An async helper samples after an await of Task.WhenAll of two tasks that are complete.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfWhenAllOfDoneTasks() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterWhenAllOfDoneTasks(l).Wait(0); return S.Hold(0); });
+
+    // S3208. An async helper samples after an await of Task.WhenAll of a complete task and a task that never completes.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfWhenAllWithATaskNotDone() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterWhenAllWithATaskNotDone(l).Wait(0); return S.Hold(0); });
+
+    // S3209. An async helper samples after an await of a helper that returns one of two tasks, and the task of this call never completes.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAHelperThatCanWait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterAHelperThatCanWait(l).Wait(0); return S.Hold(0); });
+
+    // S3210. An async helper samples after an await of a local that got a second value, a task that never completes.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfALocalWithASecondValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterALocalWithASecondValue(l).Wait(0); return S.Hold(0); });
+
+    // S3211. An async helper samples after an await of ConfigureAwait on an async helper that never waits.
+    public static Cell<int> Ag72ReadAfterAnAwaitOfAConfiguredHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ReadAfterAConfiguredHelper(l).Wait(0); return S.Hold(0); });
+
+    // S3212. An async lambda samples after an await of an async local function that never waits.
+    public static Cell<int> Ag72AsyncLambdaReadsAfterALocalFunctionThatNeverWaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { async Task Quick() { await Task.CompletedTask; } Func<Task> run = async () => { await Quick(); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S3213. An object initializer of a member calls only the getter of the member. The setter, which samples a pending member, does not run.
+    public static Cell<int> Ag72InitializerOfAMemberDoesNotCallItsSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72SetterRack rack = new(l.Map(v => v)) { Slot = { Share = Plain } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3214. A collection initializer of a member calls only the getter of the member, and the setter does not run.
+    public static Cell<int> Ag72CollectionInitializerOfAMemberDoesNotCallItsSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72SetterRack rack = new(l.Map(v => v)) { Counts = { 1, 2 } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3215. An object initializer of a member gives the object of the member a pending cell. The setter of the member, which samples its value, does not run.
+    public static Cell<int> Ag72InitializerOfAMemberWithASetterThatReadsItsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ValueRack rack = new() { Slot = { Share = l.Map(v => v) } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3216. An object initializer of a member calls the getter of the member, which samples a pending member.
+    public static Cell<int> Ag72InitializerOfAMemberCallsItsGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72SetterRack rack = new(l.Map(v => v)) { Read = { Share = Plain } }; Kept.Add(rack); return S.Hold(0); });
+
+    // S3217. An initializer two levels deep calls the getter of a member of a member, which samples a pending member.
+    public static Cell<int> Ag72InitializerTwoLevelsDeepCallsAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72OuterRack outer = new(l.Map(v => v)) { Inner = { Read = { Share = Plain } } }; Kept.Add(outer); return S.Hold(0); });
+
+    // S3218. An initializer two levels deep does not call the setter of a member of a member.
+    public static Cell<int> Ag72InitializerTwoLevelsDeepDoesNotCallASetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72OuterRack outer = new(l.Map(v => v)) { Inner = { Slot = { Share = Plain } } }; Kept.Add(outer); return S.Hold(0); });
+
+    // S3219. A nested initializer calls the setter of a member of a member, and the setter samples a pending member of its object.
+    public static Cell<int> Ag72NestedInitializerCallsASetterThatReadsItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72OuterRack outer = new(l.Map(v => v)) { Inner = { Slot = new SettableSlot() } }; Kept.Add(outer); return S.Hold(0); });
+
+    // S3220. A member whose value is an initializer keeps its object. Thus, a getter of that object that the block calls after the creation samples its pending member.
+    public static Cell<int> Ag72MemberKeepsItsObjectAfterAnInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72OuterRack outer = new(l.Map(v => v)) { Inner = { Slot = { Share = Plain } } }; Kept.Add(outer.Inner.Read); return S.Hold(0); });
+
+    // S3221. A nested initializer gives a pending cell to the object of a member, and the block samples it through the member.
+    public static Cell<int> Ag72NestedInitializerGivesTheObjectOfAMemberAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72AutoRack rack = new() { Slot = { Share = l.Map(v => v) } }; int x = rack.Slot.Share!.Sample(); return S.Hold(x); });
+
+    // S3222. A nested initializer gives a plain cell to the object of a member, and the block samples it through the member.
+    public static Cell<int> Ag72NestedInitializerGivesTheObjectOfAMemberAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72AutoRack rack = new() { Slot = { Share = Plain } }; int x = rack.Slot.Share!.Sample(); Kept.Add(l.Map(v => v)); return S.Hold(x); });
+
+    // S3223. The same pending cell, where the getter of the member has a body that returns a field. The initializer writes the object of that field.
+    public static Cell<int> Ag72NestedInitializerThroughAGetterThatReturnsAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72ValueRack rack = new() { Slot = { Share = l.Map(v => v) } }; int x = rack.Slot.Share!.Sample(); return S.Hold(x); });
+
+    // S3224. A spread into a collection type of this file calls its Add for each element, and the Add samples the value.
+    public static Cell<int> Ag72SpreadIntoATypeWithAnAddThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v)]; R2Pile p = [.. cells]; Kept.Add(p); return S.Hold(0); });
+
+    // S3225. A spread of a type of this file calls its GetEnumerator, which samples a pending member.
+    public static Cell<int> Ag72SpreadOfATypeWhoseGetEnumeratorReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int[] all = [.. new Ag72Walked(l.Map(v => v))]; return S.Hold(all.Length); });
+
+    // S3226. A spread of a type of this file calls Dispose of its enumerator, which samples a pending member.
+    public static Cell<int> Ag72SpreadOfATypeWhoseEnumeratorDisposeReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<int> all = [.. new R2Steps(l.Map(v => v))]; return S.Hold(all.Count); });
+
+    // S3227. A collection expression for a type whose Add is an extension method calls it, and it samples the value.
+    public static Cell<int> Ag72CollectionExpressionCallsAnExtensionAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Bare b = [l.Map(v => v)]; Kept.Add(b); return S.Hold(0); });
+
+    // S3228. A spread into a type whose Add is an extension method calls it for each element, and it samples the value.
+    public static Cell<int> Ag72SpreadIntoATypeWithAnExtensionAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v)]; Ag72Bare b = [.. cells]; Kept.Add(b); return S.Hold(0); });
+
+    // S3229. A list of the platform enumerates the sequence that its constructor gets, and calls Dispose of the enumerator, which samples a pending member.
+    public static Cell<int> Ag72PlatformEnumerationDisposesTheEnumerator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<int> all = new(new Ag72Listed(l.Map(v => v))); return S.Hold(all.Count); });
+
+    // S3230. A spread of a sequence of this file calls Dispose of its enumerator through the interface.
+    public static Cell<int> Ag72SpreadDisposesTheEnumeratorOfASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int[] all = [.. new Ag72Listed(l.Map(v => v))]; return S.Hold(all.Length); });
+
+    // S3231. A spread of a sequence of this file whose enumerator disposes a plain cell reads nothing pending.
+    public static Cell<int> Ag72SpreadOfASequenceWithAPlainDispose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int[] all = [.. new Ag72Listed(Plain)]; Kept.Add(l.Map(v => v)); return S.Hold(all.Length); });
+
+    // S3232. A spread of a type with the GetEnumerator pattern whose members read a plain cell reads nothing pending.
+    public static Cell<int> Ag72SpreadOfATypeWithAPlainEnumerator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<int> all = [.. new R2Steps(Plain)]; Kept.Add(l.Map(v => v)); return S.Hold(all.Count); });
+
+    // S3233. A tuple in a variable compared with a tuple expression calls the equality operator of each element.
+    public static Cell<int> Ag72TupleInAVariableComparedWithATupleExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); (R2Same, int) t = (a, 1); bool same = t == (b, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3234. Two tuples in variables compared call the equality operator of each element.
+    public static Cell<int> Ag72TwoTuplesInVariablesCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); (R2Same, int) first = (a, 1); (R2Same, int) second = (b, 1); bool same = first == second; return S.Hold(same ? 1 : 0); });
+
+    // S3235. A tuple that a method returns compared with a tuple expression calls the equality operator of each element.
+    public static Cell<int> Ag72TupleFromAMethodCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); bool same = Ag72PairOf(a) == (b, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3236. A tuple equality converts the result of the operator of an element to bool with a conversion of the code, which samples.
+    public static Cell<int> Ag72ConversionOfTheResultOfAnElementOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Judged a = new(l.Map(v => v)); Ag72Judged b = new(Plain); bool same = (a, 1) == (b, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3237. A tuple in a variable that is an element of a tuple expression gives its elements to the operator of each pair.
+    public static Cell<int> Ag72TupleInAVariableAsAnElementCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); (R2Same, int) inner = (a, 1); bool same = (inner, 2) == ((b, 1), 2); return S.Hold(same ? 1 : 0); });
+
+    // S3238. A tuple in a variable has a pending cell where no operator of the code reads, and a plain one where the operator reads.
+    public static Cell<int> Ag72TupleInAVariableWithAPendingElementThatNoOperatorReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same b = new(Plain); (Cell<int>, R2Same) t = (l.Map(v => v), b); bool same = t == (Plain, b); return S.Hold(same ? 1 : 0); });
+
+    // S3239. A tuple that a method returns, of plain elements, compared with a tuple expression.
+    public static Cell<int> Ag72TupleFromAMethodOfPlainElementsCompared() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same b = new(Plain); bool same = Ag72PairOf(b) == (b, 1); Kept.Add(l.Map(v => v)); return S.Hold(same ? 1 : 0); });
+
+    // S3240. A tuple equality converts the result of the operator of an element, and that result has a plain cell.
+    public static Cell<int> Ag72ConversionOfAPlainResultOfAnElementOperator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Judged a = new(Plain); Ag72Judged b = new(l.Map(v => v)); bool same = (a, 1) == (b, 1); return S.Hold(same ? 1 : 0); });
+
+    // S3241. Two tuples in variables call one operator for two pairs of elements, and only the second pair has a pending cell.
+    public static Cell<int> Ag72TwoTuplesInVariablesCallOneOperatorForTwoPairs() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R2Same a = new(l.Map(v => v)); R2Same b = new(Plain); (R2Same, R2Same) first = (b, b); (R2Same, R2Same) second = (b, a); bool same = first == second; return S.Hold(same ? 1 : 0); });
+
+    // S3242. A slice pattern with a pattern for the slice calls Slice of the type, which samples a pending member.
+    public static Cell<int> Ag72SlicePatternCallsSlice() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Cut r = new(l.Map(v => v)); bool some = r is [_, .. var rest]; return S.Hold(some ? 1 : 0); });
+
+    // S3243. A slice pattern with a pattern for the slice calls the range indexer of the type, which samples a pending member.
+    public static Cell<int> Ag72SlicePatternCallsTheRangeIndexer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Ranged r = new(l.Map(v => v)); bool some = r is [_, .. var rest]; return S.Hold(some ? 1 : 0); });
+
+    // S3244. A slice pattern in an arm of a switch expression calls Slice of the type.
+    public static Cell<int> Ag72SlicePatternInASwitchExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Cut r = new(l.Map(v => v)); int n = r switch { [_, .. var rest] => 1, _ => 0 }; return S.Hold(n); });
+
+    // S3245. Select of an ImmutableArray makes a query. Nothing enumerates the query, thus its function does not run.
+    public static Cell<int> Ag72ImmutableArraySelectNeverEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.Select(x => x + l.Sample()); Kept.Add(q); return S.Hold(0); });
+
+    // S3246. Where of an ImmutableArray makes a query that nothing enumerates.
+    public static Cell<int> Ag72ImmutableArrayWhereNeverEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.Where(x => x > l.Sample()); Kept.Add(q); return S.Hold(0); });
+
+    // S3247. SelectMany of an ImmutableArray makes a query that nothing enumerates.
+    public static Cell<int> Ag72ImmutableArraySelectManyNeverEnumerated() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<int> a = ImmutableArray.Create(1, 2); IEnumerable<int> q = a.SelectMany(x => Numbers, (x, y) => x + y + l.Sample()); Kept.Add(q); return S.Hold(0); });
+
+    // S3248. A with expression calls the copy constructor of the code, which runs no initializer of the record. Thus, the initializer that samples a static field does not run again.
+    public static Cell<int> Ag72WithDoesNotRunAnInitializerOfTheRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag72Noted a = new(); Ag72SharedForAWith = l.Map(v => v); Ag72Noted b = a with { }; Ag72SharedForAWith = Plain; Kept.Add(b); return S.Hold(0); });
+
+    // S3249. A list from the block gets an insert between two reads of its first element.
+    public static Cell<int> DvStateASecondReadAfterAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [DvStNames1[0], DvStNames1[1]]; SettableSlot a = list[0]; a.Share = l.Map(v => v); list.Insert(0, DvStNames1[1]); SettableSlot c = list[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3250. A callee swaps two elements between two reads of the first element.
+    public static Cell<int> DvStateASecondReadAfterACalleeSwaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames2[0]; a.Share = l.Map(v => v); DvStSwap(DvStNames2); SettableSlot c = DvStNames2[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3251. A callee swaps two elements between two reads of the first element, and the second gets the pending cell.
+    public static Cell<int> DvStateASecondReadAfterACalleeSwapsGetsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames3[0]; a.Share = Plain; DvStSwap(DvStNames3); SettableSlot c = DvStNames3[0]; c.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3252. A deconstruction swaps two elements between two reads of the first element.
+    public static Cell<int> DvStateASecondReadAfterADeconstruction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames4[0]; a.Share = l.Map(v => v); (DvStNames4[0], DvStNames4[1]) = (DvStNames4[1], DvStNames4[0]); SettableSlot c = DvStNames4[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3253. A local with ref gives the element a different value between two reads of it.
+    public static Cell<int> DvStateASecondReadAfterALocalWithRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames5[0]; a.Share = l.Map(v => v); ref SettableSlot r = ref DvStNames5[0]; r = DvStNames5[1]; SettableSlot c = DvStNames5[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3254. An Exchange gives the element a different value between two reads of it.
+    public static Cell<int> DvStateASecondReadAfterAnExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames6[0]; a.Share = l.Map(v => v); Interlocked.Exchange(ref DvStNames6[0], DvStNames6[1]); SettableSlot c = DvStNames6[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3255. A method with a parameter with ref gives the element a different value between two reads of it.
+    public static Cell<int> DvStateASecondReadAfterARefArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames7[0]; a.Share = l.Map(v => v); DvStGive(ref DvStNames7[0], DvStNames7[1]); SettableSlot c = DvStNames7[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3256. Array.Reverse changes the element between two reads of it.
+    public static Cell<int> DvStateASecondReadAfterAReverse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStNames8[0]; a.Share = l.Map(v => v); Array.Reverse(DvStNames8); SettableSlot c = DvStNames8[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3257. A callee gives the field a new object between two reads of the field.
+    public static Cell<int> DvStateASecondReadOfAFieldAfterACalleeSetsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab76Box box = DvStBoxes9[0]; SettableSlot a = box.Slot!; a.Share = l.Map(v => v); DvStRefill(box); SettableSlot c = box.Slot!; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3258. A lambda in a local swaps two elements between two reads of the first element.
+    public static Cell<int> DvStateASecondReadAfterALambdaSwaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action swap = () => (DvStNames10[0], DvStNames10[1]) = (DvStNames10[1], DvStNames10[0]); SettableSlot a = DvStNames10[0]; a.Share = l.Map(v => v); swap(); SettableSlot c = DvStNames10[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3259. The block reverses a list between two reads of its first element.
+    public static Cell<int> DvStateASecondReadAfterAListReverse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [DvStNames11[0], DvStNames11[1]]; SettableSlot a = list[0]; a.Share = l.Map(v => v); list.Reverse(); SettableSlot c = list[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3260. A list from the block loses its first element between two reads of it.
+    public static Cell<int> DvStateASecondReadAfterARemoveAt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [DvStNames12[0], DvStNames12[1]]; SettableSlot a = list[0]; a.Share = l.Map(v => v); list.RemoveAt(0); SettableSlot c = list[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3261. A method of the owner gives its field a new object between two reads of the field.
+    public static Cell<int> DvStateASecondReadOfAFieldAfterAMethodOfTheOwner() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStCursor cur = DvStCursors[0]; SettableSlot a = cur.Current; a.Share = l.Map(v => v); cur.Next(); SettableSlot c = cur.Current; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3262. A static method gives a static field a new object between two reads of the field.
+    public static Cell<int> DvStateASecondReadOfAStaticFieldAfterAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStCurrent; a.Share = l.Map(v => v); DvStAdvance(); SettableSlot c = DvStCurrent; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3263. A static method gives a static field a new object between two reads of the field, and the second gets the pending cell.
+    public static Cell<int> DvStateASecondReadOfAStaticFieldAfterAMethodGetsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStCurrentB; a.Share = Plain; DvStAdvanceB(); SettableSlot c = DvStCurrentB; c.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3264. AB134 control. A call between two reads of the first element of a list gets no part of the list. Thus, the two reads stay one value.
+    public static Cell<int> Ab134ACallThatGetsNoPartOfAListKeepsTheName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [Ab134Names1[0], Ab134Names1[1]]; SettableSlot a = list[0]; a.Share = l.Map(v => v); Kept.Add(0); SettableSlot c = list[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3265. AB134 control. A call of the platform between two reads of an element of a static array gets no part of the array. Thus, the two reads stay one value.
+    public static Cell<int> Ab134ACallOfThePlatformKeepsTheNameOfAStaticElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = Ab134Names2[0]; a.Share = l.Map(v => v); Kept.Add(0); SettableSlot c = Ab134Names2[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3266. AB134 control. An Exchange of a different element comes between two reads of the first element. Thus, the two reads stay one value.
+    public static Cell<int> Ab134AnExchangeOfADifferentElementKeepsTheName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = Ab134Names3[0]; a.Share = l.Map(v => v); Interlocked.Exchange(ref Ab134Names3[1], Ab134Names3[1]); SettableSlot c = Ab134Names3[0]; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3267. AB134 control. A callee gets the value of a static field between two reads of the field, and cannot give the field a value. Thus, the two reads stay one value.
+    public static Cell<int> Ab134ACallThatGetsTheValueOfAFieldKeepsTheName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = Ab134Field; a.Share = l.Map(v => v); Kept.Add(Ab134Field.GetHashCode()); SettableSlot c = Ab134Field; c.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3268. A deconstruction gives two locals one element, and the second gets a pending cell.
+    public static Cell<int> DvStateADeconstructionMakesTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (SettableSlot a, SettableSlot b) = (DvStDecon1[0], DvStDecon1[0]); a.Share = Plain; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3269. A deconstruction gives two locals one element, and the second gets a plain cell.
+    public static Cell<int> DvStateADeconstructionMakesTwoNamesThatGetAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (SettableSlot a, SettableSlot b) = (DvStDecon2[0], DvStDecon2[0]); a.Share = l.Map(v => v); b.Share = Plain; return S.Hold(a.Share!.Sample()); });
+
+    // S3270. A var deconstruction gives two locals one element, and the second gets a pending cell.
+    public static Cell<int> DvStateAVarDeconstructionMakesTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var (a, b) = (DvStDecon8[0], DvStDecon8[0]); a.Share = Plain; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3271. A local and a deconstruction read one element, and the local of the deconstruction gets a pending cell.
+    public static Cell<int> DvStateALocalAndADeconstructionOfOneElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = DvStDecon6[0]; (SettableSlot b, int n) = (DvStDecon6[0], 1); b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample() + n); });
+
+    // S3272. Control: a deconstruction gives two declared locals one element, and the second gets a pending cell.
+    public static Cell<int> DvStateADeconstructionIntoDeclaredLocalsMakesTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a; SettableSlot b; (a, b) = (DvStDecon7[0], DvStDecon7[0]); a.Share = Plain; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3273. AB136 control. A deconstruction gives two new locals two different elements, thus they are two values.
+    public static Cell<int> Ab136ADeconstructionOfTwoElementsMakesTwoValues() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var (a, b) = (Ab136Names1[0], Ab136Names1[1]); a.Share = Plain; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample()); });
+
+    // S3274. AB136. A nested deconstruction gives two new locals one element, and the second gets a pending cell.
+    public static Cell<int> Ab136ANestedDeconstructionMakesTwoNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var ((a, n), b) = ((Ab136Names2[0], 1), Ab136Names2[0]); a.Share = Plain; b.Share = l.Map(v => v); return S.Hold(a.Share!.Sample() + n); });
+
+    // S3275. AB125. Two runs of one method group give the one object of a static field. The second name gives it a pending cell.
+    public static Cell<int> Ab125TwoRunsOfAMethodGroupGiveTheObjectOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(Ab125GiveTheKept); SettableSlot t = Transaction.Run(Ab125GiveTheKept); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3276. AB125. Two calls of a helper give the one object of a static field. The second name gives it a pending cell.
+    public static Cell<int> Ab125TwoCallsGiveTheObjectOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125GiveTheKept(); SettableSlot t = Ab125GiveTheKept(); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3277. AB125. A helper returns an element, and a second read of the element gets a pending cell.
+    public static Cell<int> DvStateAHelperReturnsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = DvStFirstOf(DvStHelp1); SettableSlot t = DvStHelp1[0]; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3278. AB125. Transaction.Run returns an element of an array that the walk did not see made, and a second read of it gets a pending cell.
+    public static Cell<int> DvStateRunReturnsAnUnseenElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => DvStRun4[0]); SettableSlot t = DvStRun4[0]; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3279. AB125. Transaction.Run returns an element of an array that the walk did not see made, and a second read of it gets a plain cell.
+    public static Cell<int> DvStateRunReturnsAnUnseenElementThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Transaction.Run(() => DvStRun5[0]); s.Share = l.Map(v => v); SettableSlot t = DvStRun5[0]; t.Share = Plain; return S.Hold(s.Share!.Sample()); });
+
+    // S3280. AB125. Two calls of a helper give the one object of a static property with an initializer.
+    public static Cell<int> Ab125TwoCallsGiveTheObjectOfAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125GiveTheProperty(); SettableSlot t = Ab125GiveTheProperty(); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3281. AB125 control. Two calls of a helper give the one object of a static field, and the second name gets a plain cell.
+    public static Cell<int> Ab125TwoCallsGiveTheObjectOfAFieldThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125GiveThePlainKept(); SettableSlot t = Ab125GiveThePlainKept(); s.Share = l.Map(v => v); t.Share = Plain; return S.Hold(s.Share!.Sample()); });
+
+    // S3282. AB125 control. Two calls of a helper that makes an object give two objects.
+    public static Cell<int> Ab125TwoCallsOfAHelperThatMakesGiveTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125NewSlot(); SettableSlot t = Ab125NewSlot(); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3283. AB125. Two calls of a helper give the one object of a static field with no readonly. The second name gives it a pending cell.
+    public static Cell<int> Ab125TwoCallsGiveTheObjectOfAFieldWithNoReadonly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125GiveTheOpen(); SettableSlot t = Ab125GiveTheOpen(); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3284. AB125 control. A helper returns the first element of the array that it gets, and two calls with two arrays give two values.
+    public static Cell<int> Ab125AHelperGivesTheElementsOfTwoArrays() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = DvStFirstOf(Ab125Left); SettableSlot t = DvStFirstOf(Ab125Right); s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3285. AB125 control. A helper returns the second element, and a read of the first element is a second value.
+    public static Cell<int> Ab125AHelperGivesADifferentElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab125SecondOf(Ab125Pair); SettableSlot t = Ab125Pair[0]; s.Share = Plain; t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S3286. The block gives a static object a pending cell through a local, and a callee reads it.
+    public static Cell<int> DvStateACalleeReadsAStaticObjectThatALocalWrote() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = DvStKeptB; k.Share = l.Map(v => v); return S.Hold(DvStReadKeptB()); });
+
+    // S3287. A callee puts a pending cell into a static object that a second callee reads, with a plain field write before.
+    public static Cell<int> DvStateACalleeReadsAStaticObjectAfterAFieldWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = DvStKeptJ; k.Share = l.Map(v => v); DvStOther = Plain; return S.Hold(DvStReadKeptJ()); });
+
+    // S3288. The block gives a static object a pending cell through a local, and a callee that gets the placeholder reads it.
+    public static Cell<int> DvStateACalleeWithAnArgumentReadsAStaticObjectThatALocalWrote() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = DvStKeptG; k.Share = l.Map(v => v); return S.Hold(DvStReadKeptGWith(l)); });
+
+    // S3289. A callee gives a static object a pending cell through a local, and a second callee reads it.
+    public static Cell<int> DvStateTwoCalleesOfAStaticObjectThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStSetKept8ThroughALocal(l.Map(v => v)); return S.Hold(DvStReadKept8()); });
+
+    // S3290. A callee that gets an argument with a state reads a static object that the block gave a pending cell through a local.
+    public static Cell<int> DvStateACalleeThatKeepsItsArgumentReadsAStaticObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = DvStKeptQ; k.Share = l.Map(v => v); return S.Hold(DvStReadKeptQWith(l)); });
+
+    // S3291. Control: the block gives a static object a pending cell through a local, and reads it through the field.
+    public static Cell<int> DvStateTheBlockReadsAStaticObjectThatALocalWrote() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = DvStKeptH; k.Share = l.Map(v => v); return S.Hold(DvStKeptH.Share!.Sample()); });
+
+    // S3292. A callee gives a static object a plain cell after the block gave it a pending one.
+    public static Cell<int> DvStateACalleeGivesAStaticObjectAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStKept2.Share = l.Map(v => v); DvStSetKept2(Plain); return S.Hold(DvStKept2.Share!.Sample()); });
+
+    // S3293. One callee gives a static object a pending cell, and a second callee reads it.
+    public static Cell<int> DvStateTwoCalleesOfAStaticObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStSetKept1(l.Map(v => v)); return S.Hold(DvStReadKept1()); });
+
+    // S3294. AB135 control. The block gives a static object a plain cell through a local, and a callee reads it.
+    public static Cell<int> Ab135ACalleeReadsAPlainCellThatALocalWrote() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = Ab135Kept; k.Share = Plain; return S.Hold(Ab135ReadKept()); });
+
+    // S3295. AB135 control. The block gives a static object a pending cell through a local, and a callee reads a different static object.
+    public static Cell<int> Ab135ACalleeReadsADifferentStaticObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot k = Ab135Written; k.Share = l.Map(v => v); return S.Hold(Ab135ReadOther()); });
+
+    // S3296. Code with no body keeps a cell of a pending cell, and the block switches what it gives back.
+    public static Cell<int> DvStateABagKeepsACellOfAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IBag<Cell<Cell<int>>> bag = NoBody.Bag<Cell<Cell<int>>>(); bag.Put(Cell.Constant(l.Map(v => v))); return S.Hold(bag[0].SwitchC().Sample()); });
+
+    // S3297. Code with no body in a static field keeps a cell of a pending cell, and the block switches what it gives back.
+    public static Cell<int> DvStateAStaticBagKeepsACellOfAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStCellBag.Put(Cell.Constant(l.Map(v => v))); return S.Hold(DvStCellBag[0].SwitchC().Sample()); });
+
+    // S3298. AB121. A second local is a name of the element, and the read is through it.
+    public static Cell<int> Ab121TheReadIsThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISlotLine line = Ab121Names[0]; line.Put(new SettableSlot { Share = l.Map(v => v) }); ISlotLine again = Ab121Names[0]; return S.Hold(again.Last().Share!.Sample()); });
+
+    // S3299. AB123. The code with no body is an element of a static array, which the store has no object for. The object gets a plain cell after the put.
+    public static Cell<int> Ab123AnObjectThatCodeInAnArrayKeepsGetsAPlainCellAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISlotLine line = Ab123Lines[0]; SettableSlot x = new() { Share = l.Map(v => v) }; line.Put(x); x.Share = Plain; return S.Hold(line.Last().Share!.Sample()); });
+
+    // S3300. AB123. The code with no body is an element of a static array with no local for it. The object gets a plain cell after the put.
+    public static Cell<int> Ab123CodeInAnArrayWithNoLocalKeepsAnObjectThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab123NoLocalPlainLines[0].Put(x); x.Share = Plain; return S.Hold(Ab123NoLocalPlainLines[0].Last().Share!.Sample()); });
+
+    // S3301. AB123. A callee puts the object into the code with no body that it gets as a parameter. The object gets a plain cell after the call.
+    public static Cell<int> Ab123ACalleePutsTheObjectIntoItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110PutIn(Ab123ParameterPlainLine, x); x.Share = Plain; return S.Hold(Ab123ParameterPlainLine.Last().Share!.Sample()); });
+
+    // S3302. AB123. The code with no body is in a property of an object that the walk did not see made. The object gets a plain cell after the put.
+    public static Cell<int> Ab123CodeInAPropertyOfAnUnseenObjectKeepsAnObjectThatGetsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110LineHolder holder = Ab123PlainHolders[0]; holder.Line.Put(x); x.Share = Plain; return S.Hold(holder.Line.Last().Share!.Sample()); });
+
+    // S3303. AB123 control. The element gets a new line after the put through a local, and the read is of the new line.
+    public static Cell<int> Ab123TheElementGetsANewLineAfterThePut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ISlotLine line = Ab123NewLines[0]; line.Put(new SettableSlot { Share = l.Map(v => v) }); Ab123NewLines[0] = NewSlotLine(); Ab123NewLines[0].Put(new SettableSlot { Share = Plain }); return S.Hold(Ab123NewLines[0].Last().Share!.Sample()); });
+
+    // S3304. AB123 control. Code with no body in the first element keeps the pending cell, and the read is of the second element.
+    public static Cell<int> Ab123TheReadIsOfADifferentElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab123Pair[0].Put(new SettableSlot { Share = l.Map(v => v) }); Ab123Pair[1].Put(new SettableSlot { Share = Plain }); return S.Hold(Ab123Pair[1].Last().Share!.Sample()); });
+
+    // S3305. AB122. The code with no body is in a property of an object that the walk did not see made. The read is through a second name of that object.
+    public static Cell<int> Ab122CodeInAPropertyOfAnUnseenObjectKeepsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; Ab110LineHolder holder = Ab122Holders[0]; holder.Line.Put(x); return S.Hold(Ab122Holders[0].Line.Last().Share!.Sample()); });
+
+    // S3306. AB122 control. The code with no body is in a property of the first of two objects that the walk did not see made. The read is of the second object.
+    public static Cell<int> Ab122TheReadIsOfTheSecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab110LineHolder holder = Ab122Pair[0]; holder.Line.Put(new SettableSlot { Share = l.Map(v => v) }); Ab122Pair[1].Line.Put(new SettableSlot { Share = Plain }); return S.Hold(Ab122Pair[1].Line.Last().Share!.Sample()); });
+
+    // S3307. AB122. The code with no body is in a property of an element that the walk did not see made, with no local.
+    public static Cell<int> Ab122CodeInAPropertyOfAnElementWithNoLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab122NoLocal[0].Line.Put(new SettableSlot { Share = l.Map(v => v) }); return S.Hold(Ab122NoLocal[0].Line.Last().Share!.Sample()); });
+
+    // S3308. A forward reference whose object has a member defined by a switch of that same member.
+    public static Cell<int> DvLinksForwardReferenceSwitchesItsOwnMember() =>
+        ForwardReference<DvLinksBox>.WithoutCaptures(r => new DvLinksBox(r.Map(b => b.A).SwitchC().Map(v => v + 1))).A;
+
+    // S3309. A forward reference whose object has a member that holds a snapshot of a switch of that same member.
+    public static Cell<int> DvLinksForwardReferenceSnapshotsItsOwnMember() =>
+        ForwardReference<DvLinksBox>.WithoutCaptures(r => new DvLinksBox(S.Snapshot(r.Map(b => b.A).SwitchC(), (a, v) => a + v).Hold(0))).A;
+
+    // S3310. A forward reference to a cell, closed with a map of a switch of the reference.
+    public static Cell<int> DvLinksForwardReferenceOfACellSwitched() =>
+        ForwardReference<Cell<int>>.WithoutCaptures(r => r.SwitchC().Map(v => v + 1));
+
+    // S3311. A forward reference whose object has a stream defined by a SwitchS of that same stream.
+    public static Cell<int> DvLinksForwardReferenceSwitchSOfItsOwnStream() =>
+        ForwardReference<DvLinksEvents>.WithoutCaptures(r => new DvLinksEvents(r.Map(x => x.E).SwitchS().Map(v => v + 1).OrElse(S))).E.Hold(0);
+
+    // S3312. A forward reference whose object has two members, each a switch of the other.
+    public static Cell<int> DvLinksForwardReferenceMembersSwitchEachOther() =>
+        ForwardReference<DvLinksPair>.WithoutCaptures(r => new DvLinksPair(r.Map(p => p.B).SwitchC().Map(v => v + 1), r.Map(p => p.A).SwitchC())).A;
+
+    // S3313. A forward reference whose object has a member that switches a second member, which is plain.
+    public static Cell<int> DvLinksForwardReferenceSwitchesAPlainMember() =>
+        ForwardReference<DvLinksPair>.WithoutCaptures(r => new DvLinksPair(r.Map(p => p.B).SwitchC().Map(v => v + 1), Plain.Map(v => v))).A;
+
+    // S3314. A forward reference with captures whose object has a member defined by a switch of that same member.
+    public static Cell<int> DvLinksForwardReferenceWithCapturesSwitchesItsOwnMember() =>
+        ForwardReference<DvLinksBox>.WithCaptures(r => { DvLinksBox box = new(r.Map(b => b.A).SwitchC().Map(v => v + 1)); return (Value: box, Captures: 1); }).Value.A;
+
+    // S3315. A forward reference whose object has a member whose lazy initial value samples that same member.
+    public static Cell<int> DvLinksForwardReferenceLazyMemberReadsItself() =>
+        ForwardReference<DvLinksBox>.WithoutCaptures(r => new DvLinksBox(Cell.ConstantLazy(r.SampleLazy().Map(b => b.A.Sample() + 1)))).A;
+
+    // S3316. A forward reference whose object has a member that holds a lazy sample of a second member, which is plain.
+    public static Cell<int> DvLinksForwardReferenceLazyMemberReadsAPlainMember() =>
+        ForwardReference<DvLinksPair>.WithoutCaptures(r => new DvLinksPair(Cell.ConstantLazy(r.SampleLazy().Map(p => p.B.Sample() + 1)), Plain.Map(v => v))).A;
+
+    // S3317. A forward reference, as a view model writes one. A running total accumulates a switch of the stream of the object, and that stream is the updates of the total.
+    public static Cell<int> DvLinksForwardReferenceRunningTotalOfItsOwnStream() =>
+        ForwardReference<DvLinksEvents>.WithoutCaptures(r => { Stream<int> back = r.Map(static x => x.E).SwitchS(); Cell<int> total = back.Accum(initialState: 0, f: static (a, s) => a + s); return new DvLinksEvents(total.Updates().Map(static v => v + 1)); }).E.Hold(0);
+
+    // S3318. Control. The same view model, where the stream of the object is a snapshot of the total.
+    public static Cell<int> DvLinksForwardReferenceRunningTotalSnapshotted() =>
+        ForwardReference<DvLinksEvents>.WithoutCaptures(r => { Stream<int> back = r.Map(static x => x.E).SwitchS(); Cell<int> total = back.Accum(initialState: 0, f: static (a, s) => a + s); return new DvLinksEvents(S.Snapshot(total, static (a, t) => a + t)); }).E.Hold(0);
+
+    // S3319. Real view model: a todo list built in one forward reference, with a filter, a sort by a looped cell, rows, and commands.
+    public static Cell<int> DvVmTodoCorrect() =>
+        DvVmBuilt(Transaction.Run(static () => ForwardReference<DvVmTodoViewModel>.WithoutCaptures(static viewModelLoop =>
+        {
+            StreamSink<Unit> clearAll = Stream.CreateSink<Unit>();
+            StreamSink<Unit> removeSelected = Stream.CreateSink<Unit>();
+            CellSink<bool> showDone = Cell.CreateSink(true);
+            Stream<DvVmTodoEdit> editsLoop = viewModelLoop.Map(static vm => vm.edits).SwitchS();
+            Cell<Maybe<int>> selectedLoop = viewModelLoop.Map(static vm => vm.selected).SwitchC();
+            DvVmTodos todos = ReactiveCollection.Create(initialEntries: DvVmTodoSeed(), editsLoop);
+            DvVmTodos visible =
+                todos
+                    .Filter(criteriaCell: showDone, predicate: static (showing, _, state) => showing || !state.Done)
+                    .SortBy(selectedLoop.Map(static current => DvVmPinned(current)));
+            MappedItems<DvVmTodoRow> rows =
+                visible.Map(
+                    project: key => DvVmTodoRowOf(bindableFactory: R2ApiFactory, todos: visible, selected: selectedLoop, key: key),
+                    onEvicted: static row => row.Dispose());
+            Stream<DvVmTodoEdit> rowEdits = rows.Items.Map(static items => items.Select(static row => row.Edits).OrElse()).SwitchS();
+            Stream<Maybe<int>> selects = rows.Items.Map(static items => items.Select(static row => row.Selects).OrElse()).SwitchS();
+            Stream<DvVmTodoEdit> clears = clearAll.Snapshot(c: todos.KeysCell, f: static (_, keys) => DvVmClearAll(keys));
+            Stream<DvVmTodoEdit> removals =
+                removeSelected.Snapshot(
+                    c: selectedLoop,
+                    f: static (_, current) => current.Match(onSome: static key => DvVmTodoEdit.Remove(key), onNone: static () => DvVmTodoEdit.Empty));
+            Cell<Maybe<int>> selected = selects.OrElse(removals.MapTo(Maybe<int>.None)).Hold(Maybe<int>.None);
+            Cell<int> remaining =
+                todos.Fold(select: static (_, state) => state.Done ? 0 : 1, zero: 0, add: static (a, b) => a + b, subtract: static (a, b) => a - b);
+            IDvVmAction removeSelectedAction =
+                R2ApiFactory.CreateBindableAction(
+                    firingsStreamSink: removeSelected,
+                    isEnabledCell: selectedLoop.Map(static current => current.Match(onSome: static _ => true, onNone: static () => false)));
+            IDvVmText selectedText =
+                R2ApiFactory.CreateOneWay(selectedLoop.Map(static current => current.Match(onSome: static key => "#" + key, onNone: static () => "none")));
+            
+            return new DvVmTodoViewModel(
+                rows: R2ApiFactory.CreateOneWay(rows.Items.Map(static IReadOnlyList<IDvVmTodoRow> (items) => items)),
+                remaining: R2ApiFactory.CreateOneWay(remaining),
+                selectedText: selectedText,
+                clearAll: R2ApiFactory.CreateBindableAction(firingsStreamSink: clearAll, isEnabledCell: todos.KeysCell.Map(static keys => keys.Count > 0)),
+                removeSelected: removeSelectedAction,
+                showDone: R2ApiFactory.CreateTwoWay(showDone),
+                edits: rowEdits.OrElse(clears).OrElse(removals),
+                selected: selected,
+                projection: rows);
+        })));
+
+    // S3320. Real view model: the selection that the object keeps is a function of the looped selection, so the switch selects a cycle. At run time, a lazy sample forces itself first.
+    public static Cell<int> DvVmTodoSelectionClosedWithItself() =>
+        DvVmBuilt(Transaction.Run(static () => ForwardReference<DvVmTodoViewModel>.WithoutCaptures(static viewModelLoop =>
+        {
+            StreamSink<Unit> clearAll = Stream.CreateSink<Unit>();
+            StreamSink<Unit> removeSelected = Stream.CreateSink<Unit>();
+            CellSink<bool> showDone = Cell.CreateSink(true);
+            Stream<DvVmTodoEdit> editsLoop = viewModelLoop.Map(static vm => vm.edits).SwitchS();
+            Cell<Maybe<int>> selectedLoop = viewModelLoop.Map(static vm => vm.selected).SwitchC();
+            DvVmTodos todos = ReactiveCollection.Create(initialEntries: DvVmTodoSeed(), editsLoop);
+            DvVmTodos visible =
+                todos
+                    .Filter(criteriaCell: showDone, predicate: static (showing, _, state) => showing || !state.Done)
+                    .SortBy(selectedLoop.Map(static current => DvVmPinned(current)));
+            MappedItems<DvVmTodoRow> rows =
+                visible.Map(
+                    project: key => DvVmTodoRowOf(bindableFactory: R2ApiFactory, todos: visible, selected: selectedLoop, key: key),
+                    onEvicted: static row => row.Dispose());
+            Stream<DvVmTodoEdit> rowEdits = rows.Items.Map(static items => items.Select(static row => row.Edits).OrElse()).SwitchS();
+            Stream<Maybe<int>> selects = rows.Items.Map(static items => items.Select(static row => row.Selects).OrElse()).SwitchS();
+            Stream<DvVmTodoEdit> clears = clearAll.Snapshot(c: todos.KeysCell, f: static (_, keys) => DvVmClearAll(keys));
+            Stream<DvVmTodoEdit> removals =
+                removeSelected.Snapshot(
+                    c: selectedLoop,
+                    f: static (_, current) => current.Match(onSome: static key => DvVmTodoEdit.Remove(key), onNone: static () => DvVmTodoEdit.Empty));
+            Cell<Maybe<int>> selected = selects.OrElse(removals.MapTo(Maybe<int>.None)).Hold(Maybe<int>.None);
+            Cell<int> remaining =
+                todos.Fold(select: static (_, state) => state.Done ? 0 : 1, zero: 0, add: static (a, b) => a + b, subtract: static (a, b) => a - b);
+            IDvVmAction removeSelectedAction =
+                R2ApiFactory.CreateBindableAction(
+                    firingsStreamSink: removeSelected,
+                    isEnabledCell: selectedLoop.Map(static current => current.Match(onSome: static _ => true, onNone: static () => false)));
+            IDvVmText selectedText =
+                R2ApiFactory.CreateOneWay(selectedLoop.Map(static current => current.Match(onSome: static key => "#" + key, onNone: static () => "none")));
+            
+            return new DvVmTodoViewModel(
+                rows: R2ApiFactory.CreateOneWay(rows.Items.Map(static IReadOnlyList<IDvVmTodoRow> (items) => items)),
+                remaining: R2ApiFactory.CreateOneWay(remaining),
+                selectedText: selectedText,
+                clearAll: R2ApiFactory.CreateBindableAction(firingsStreamSink: clearAll, isEnabledCell: todos.KeysCell.Map(static keys => keys.Count > 0)),
+                removeSelected: removeSelectedAction,
+                showDone: R2ApiFactory.CreateTwoWay(showDone),
+                edits: rowEdits.OrElse(clears).OrElse(removals),
+                selected: selectedLoop.Lift(todos.KeysCell, static (current, keys) => current),
+                projection: rows);
+        })));
+
+    // S3321. Real view model: the block reads a bindable of the object back through the forward reference.
+    public static Cell<int> DvVmCounterReadBackThroughTheForwardReference() =>
+        DvVmBuilt(Transaction.Run(static () => ForwardReference<DvVmCounterViewModel>.WithoutCaptures(static viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n)).Accum(initialState: 0, f: static (step, n) => n + step);
+            IDvVmText countText = R2ApiFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = R2ApiFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            string first = viewModelLoop.Map(static vm => vm.CountText.Value).Sample();
+            return new DvVmCounterViewModel(
+                count: R2ApiFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: R2ApiFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count);
+        })));
+
+    // S3322. Real view model: a counter whose Create takes the factory, and whose count and steps the object feeds back.
+    public static Cell<int> DvVmCounter2Correct(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3323. Real view model: the object keeps, as its count, the cell that the block reads back from that member. The switch selects a cycle.
+    public static Cell<int> DvVmCounter2CountFieldIsItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: countLoop,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3324. Real view model: the object keeps, as its count, a clamp of the cell that the block reads back from that member.
+    public static Cell<int> DvVmCounter2CountFieldMapsItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: countLoop.Map(static n => Math.Min(val1: n, val2: 10)),
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3325. Real view model: the object keeps, as its count, a Lift of the fold and the cell that the block reads back from that member.
+    public static Cell<int> DvVmCounter2CountFieldLiftsItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count.Lift(countLoop, static (a, b) => Math.Max(val1: a, val2: b)),
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3326. Real view model: the object keeps, as its steps, the stream that the block reads back from that member.
+    public static Cell<int> DvVmCounter2StepsFieldIsItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: stepsLoop,
+                extra: extra);
+        })));
+
+    // S3327. Real view model: the object keeps, as its steps, a merge with a filter of the stream that the block reads back from that member.
+    public static Cell<int> DvVmCounter2StepsFieldMergesItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps.OrElse(stepsLoop.Filter(static n => n > 5)),
+                extra: extra);
+        })));
+
+    // S3328. Real view model: a gate on the steps uses the count that the block reads back. Gate samples the cell, so there is no cycle.
+    public static Cell<int> DvVmCounter2StepsGatedByTheReadBackCount(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps.Gate(countLoop.Map(static n => n < 100)),
+                extra: extra);
+        })));
+
+    // S3329. Real view model: the object keeps, as its count, a fold of the steps that the block reads back. The fold holds, so there is no cycle.
+    public static Cell<int> DvVmCounter2CountFieldHoldsTheReadBackSteps(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step),
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3330. Real view model: the block reads back the firings of a command of the object, and holds a count of them.
+    public static Cell<int> DvVmCounter2FiringsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            Stream<Unit> clicksLoop = viewModelLoop.Map(static vm => vm.Increment.FiringsStream).SwitchS(); Cell<int> clicks = clicksLoop.Accum(initialState: 0, f: static (_, n) => n + 1); int none = clicks.Sample();
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3331. Real view model: a page with a base class whose constructor calls a virtual method that the page does not override.
+    public static Cell<int> DvVmPageBaseQuiet(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmQuietPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return new DvVmQuietPage(title: title, countCell: count);
+        })));
+
+    // S3332. Real view model: the page keeps, as its count, the cell that the block reads back from that member.
+    public static Cell<int> DvVmPageCountFieldIsItsReadBackBaseClass(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmQuietPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return new DvVmQuietPage(title: title, countCell: countLoop);
+        })));
+
+    // S3333. Real view model: a forward reference with captures keeps, as the count, the cell that the block reads back.
+    public static Cell<int> DvVmCapturesCountFieldIsItsReadBack(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmPage>.WithCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return (Value: new DvVmPage(title: title, countCell: countLoop), Captures: extra);
+        })));
+
+    // S3334. A forward reference to a view model whose selection is a lift of its own read back. A projection to rows reads a view that sorts by that selection, and thus samples the selection at the end of the transaction. That sample forces itself before the switch links.
+    public static Cell<int> Ab127TodoSelectionSortedAndProjectedClosedWithItself() =>
+        DvVmBuilt(Transaction.Run(static () => ForwardReference<DvVmTodoViewModel>.WithoutCaptures(static viewModelLoop =>
+        {
+            StreamSink<Unit> clearAll = Stream.CreateSink<Unit>();
+            StreamSink<Unit> removeSelected = Stream.CreateSink<Unit>();
+            CellSink<bool> showDone = Cell.CreateSink(true);
+            Stream<DvVmTodoEdit> editsLoop = viewModelLoop.Map(static vm => vm.edits).SwitchS();
+            Cell<Maybe<int>> selectedLoop = viewModelLoop.Map(static vm => vm.selected).SwitchC();
+            DvVmTodos todos = ReactiveCollection.Create(initialEntries: DvVmTodoSeed(), editsLoop);
+            DvVmTodos visible =
+                todos
+                    .Filter(criteriaCell: showDone, predicate: static (showing, _, state) => showing || !state.Done)
+                    .SortBy(selectedLoop.Map(static current => DvVmPinned(current)));
+            MappedItems<DvVmTodoRow> rows =
+                visible.Map(
+                    project: key => DvVmTodoRowOf(bindableFactory: R2ApiFactory, todos: visible, selected: Cell.Constant(Maybe<int>.None), key: key),
+                    onEvicted: static row => row.Dispose());
+            Stream<DvVmTodoEdit> rowEdits = rows.Items.Map(static items => items.Select(static row => row.Edits).OrElse()).SwitchS();
+            Stream<Maybe<int>> selects = rows.Items.Map(static items => items.Select(static row => row.Selects).OrElse()).SwitchS();
+            Stream<DvVmTodoEdit> clears = clearAll.Snapshot(c: todos.KeysCell, f: static (_, keys) => DvVmClearAll(keys));
+            Stream<DvVmTodoEdit> removals =
+                removeSelected.Snapshot(
+                    c: Cell.Constant(Maybe<int>.None),
+                    f: static (_, current) => current.Match(onSome: static key => DvVmTodoEdit.Remove(key), onNone: static () => DvVmTodoEdit.Empty));
+            Cell<Maybe<int>> selected = selects.OrElse(removals.MapTo(Maybe<int>.None)).Hold(Maybe<int>.None);
+            Cell<int> remaining =
+                todos.Fold(select: static (_, state) => state.Done ? 0 : 1, zero: 0, add: static (a, b) => a + b, subtract: static (a, b) => a - b);
+            IDvVmAction removeSelectedAction =
+                R2ApiFactory.CreateBindableAction(
+                    firingsStreamSink: removeSelected,
+                    isEnabledCell: Cell.Constant(true));
+            IDvVmText selectedText =
+                R2ApiFactory.CreateOneWay(Cell.Constant("none"));
+            
+            return new DvVmTodoViewModel(
+                rows: R2ApiFactory.CreateOneWay(rows.Items.Map(static IReadOnlyList<IDvVmTodoRow> (items) => items)),
+                remaining: R2ApiFactory.CreateOneWay(remaining),
+                selectedText: selectedText,
+                clearAll: R2ApiFactory.CreateBindableAction(firingsStreamSink: clearAll, isEnabledCell: todos.KeysCell.Map(static keys => keys.Count > 0)),
+                removeSelected: removeSelectedAction,
+                showDone: R2ApiFactory.CreateTwoWay(showDone),
+                edits: rowEdits.OrElse(clears).OrElse(removals),
+                selected: selectedLoop.Lift(todos.KeysCell, static (current, keys) => current),
+                projection: rows);
+        })));
+
+    // S3335. The same view model, where no projection reads the sorted view. The switch links to the selection first, and that link is a cycle.
+    public static Cell<int> Ab127TodoSelectionSortedNotProjectedClosedWithItself() =>
+        DvVmBuilt(Transaction.Run(static () => ForwardReference<DvVmTodoViewModel>.WithoutCaptures(static viewModelLoop =>
+        {
+            StreamSink<Unit> clearAll = Stream.CreateSink<Unit>();
+            StreamSink<Unit> removeSelected = Stream.CreateSink<Unit>();
+            CellSink<bool> showDone = Cell.CreateSink(true);
+            Stream<DvVmTodoEdit> editsLoop = viewModelLoop.Map(static vm => vm.edits).SwitchS();
+            Cell<Maybe<int>> selectedLoop = viewModelLoop.Map(static vm => vm.selected).SwitchC();
+            DvVmTodos todos = ReactiveCollection.Create(initialEntries: DvVmTodoSeed(), editsLoop);
+            DvVmTodos visible =
+                todos
+                    .Filter(criteriaCell: showDone, predicate: static (showing, _, state) => showing || !state.Done)
+                    .SortBy(selectedLoop.Map(static current => DvVmPinned(current)));
+            MappedItems<DvVmTodoRow> rows =
+                todos.Map(
+                    project: key => DvVmTodoRowOf(bindableFactory: R2ApiFactory, todos: visible, selected: Cell.Constant(Maybe<int>.None), key: key),
+                    onEvicted: static row => row.Dispose());
+            Stream<DvVmTodoEdit> rowEdits = rows.Items.Map(static items => items.Select(static row => row.Edits).OrElse()).SwitchS();
+            Stream<Maybe<int>> selects = rows.Items.Map(static items => items.Select(static row => row.Selects).OrElse()).SwitchS();
+            Stream<DvVmTodoEdit> clears = clearAll.Snapshot(c: todos.KeysCell, f: static (_, keys) => DvVmClearAll(keys));
+            Stream<DvVmTodoEdit> removals =
+                removeSelected.Snapshot(
+                    c: Cell.Constant(Maybe<int>.None),
+                    f: static (_, current) => current.Match(onSome: static key => DvVmTodoEdit.Remove(key), onNone: static () => DvVmTodoEdit.Empty));
+            Cell<Maybe<int>> selected = selects.OrElse(removals.MapTo(Maybe<int>.None)).Hold(Maybe<int>.None);
+            Cell<int> remaining =
+                todos.Fold(select: static (_, state) => state.Done ? 0 : 1, zero: 0, add: static (a, b) => a + b, subtract: static (a, b) => a - b);
+            IDvVmAction removeSelectedAction =
+                R2ApiFactory.CreateBindableAction(
+                    firingsStreamSink: removeSelected,
+                    isEnabledCell: Cell.Constant(true));
+            IDvVmText selectedText =
+                R2ApiFactory.CreateOneWay(Cell.Constant("none"));
+            
+            return new DvVmTodoViewModel(
+                rows: R2ApiFactory.CreateOneWay(rows.Items.Map(static IReadOnlyList<IDvVmTodoRow> (items) => items)),
+                remaining: R2ApiFactory.CreateOneWay(remaining),
+                selectedText: selectedText,
+                clearAll: R2ApiFactory.CreateBindableAction(firingsStreamSink: clearAll, isEnabledCell: todos.KeysCell.Map(static keys => keys.Count > 0)),
+                removeSelected: removeSelectedAction,
+                showDone: R2ApiFactory.CreateTwoWay(showDone),
+                edits: rowEdits.OrElse(clears).OrElse(removals),
+                selected: selectedLoop.Lift(todos.KeysCell, static (current, keys) => current),
+                projection: rows);
+        })));
+
+    // S3336. A forward reference whose object has two streams, each a switch of the other. A stream has no value to sample, thus the second switch makes the cycle.
+    public static Cell<int> Ab127ForwardReferenceStreamsSwitchEachOther() =>
+        ForwardReference<Ab127Streams>.WithoutCaptures(r => new Ab127Streams(r.Map(x => x.F).SwitchS().Map(v => v + 1), r.Map(x => x.E).SwitchS())).E.Hold(0);
+
+    // S3337. A forward reference whose object has a stream that merges a switch of a second stream, which is plain.
+    public static Cell<int> Ab127ForwardReferenceStreamMergesAPlainStream() =>
+        ForwardReference<Ab127Streams>.WithoutCaptures(r => new Ab127Streams(r.Map(x => x.F).SwitchS().OrElse(S), S.Map(v => v + 1))).E.Hold(0);
+
+    // S3338. WithCaptures returns a tuple from a local. The cell is a plain hold, and the captures link to the placeholder.
+    public static Cell<int> DvLinksCapturesTupleInALocalLinkedCaptures() =>
+        Cell.Loop<int>().WithCaptures(l => { (Cell<int> Cell, Cell<int> Captures) t = (S.Hold(0), l.Map(v => v)); return t; }).Cell;
+
+    // S3339. WithCaptures returns a tuple from a local. The cell links to the placeholder.
+    public static Cell<int> DvLinksCapturesTupleInALocalLinkedCell() =>
+        Cell.Loop<int>().WithCaptures(l => { (Cell<int> Cell, Cell<int> Captures) t = (l.Map(v => v), Plain); return t; }).Cell;
+
+    // S3340. WithCaptures returns a tuple from a helper. The cell is a plain hold, and the captures link to the placeholder.
+    public static Cell<int> DvLinksCapturesTupleFromAHelperLinkedCaptures() =>
+        Cell.Loop<int>().WithCaptures(l => DvLinksMakePair(S.Hold(0), l.Map(v => v))).Cell;
+
+    // S3341. WithCaptures returns a tuple from a helper. The cell links to the placeholder.
+    public static Cell<int> DvLinksCapturesTupleFromAHelperLinkedCell() =>
+        Cell.Loop<int>().WithCaptures(l => DvLinksMakePair(l.Map(v => v), Plain)).Cell;
+
+    // S3342. WithCaptures returns one of two tuples. The cell is a plain hold, and the captures link to the placeholder.
+    public static Cell<int> DvLinksCapturesConditionalTupleLinkedCaptures() =>
+        Cell.Loop<int>().WithCaptures(l => Environment.ProcessorCount > 0 ? (Cell: S.Hold(0), Captures: l.Map(v => v)) : (Cell: S.Hold(1), Captures: l.Map(v => v))).Cell;
+
+    // S3343. WithCaptures returns a tuple whose captures element is first by name. The captures link to the placeholder.
+    public static Cell<int> DvLinksCapturesNamedFirst() =>
+        Cell.Loop<int>().WithCaptures(l => (Captures: l.Map(v => v), Cell: S.Hold(0))).Cell;
+
+    // S3344. Stream.Loop with captures closed with a map of itself.
+    public static Cell<int> DvLinksStreamLoopWithCapturesMap() =>
+        Transaction.Run(() => { Stream<int> s = Stream.Loop<int>().WithCaptures(x => (Stream: x.Map(v => v + 1), Captures: 1)).Stream; return Plain; });
+
+    // S3345. WithCaptures returns a tuple whose elements have the names of the other position. The cell is the first element, a plain hold, and the captures link to the placeholder.
+    public static Cell<int> DvLinksCapturesNamesSwappedPlainCell() =>
+        Cell.Loop<int>().WithCaptures(l => (Captures: S.Hold(0), Cell: l.Map(v => v))).Cell;
+
+    // S3346. Control. A map of a trigger to a cell linked to the placeholder, held and switched. The send after the close makes the cycle.
+    public static Cell<int> DvLinksLaterMapToALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Map(_ => l.Map(v => v)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3347. A defer of a map of a trigger to a cell linked to the placeholder, held and switched. The send after the close makes the cycle.
+    public static Cell<int> DvLinksLaterDeferOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Operational.Defer(t.Map(_ => l.Map(v => v))).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3348. A split of a map of a trigger to an array of a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterSplitOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Operational.Split<Cell<int>, Cell<int>[]>(t.Map(_ => new[] { l.Map(v => v) })).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3349. FilterSome of a map of a trigger to a Some of a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterFilterSomeOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Map(_ => Maybe.Some(l.Map(v => v))).FilterSome().Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3350. Choose of a trigger to a Some of a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterChooseOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Choose(_ => Maybe.Some(l.Map(v => v))).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3351. Snapshot of a trigger whose function gives a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterSnapshotToALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Snapshot(Plain, (_, v) => l.Map(x => x + v)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3352. SnapshotLatest of a trigger whose function gives a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterSnapshotLatestToALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.SnapshotLatest(Plain, (_, v) => l.Map(x => x + v)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3353. Collect of a trigger whose function gives a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterCollectToALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Collect(0, (_, s) => (l.Map(v => v), s)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3354. Merge of a trigger mapped to a cell linked to the placeholder with a plain stream of cells, held and switched.
+    public static Cell<int> DvLinksLaterMergeOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Map(_ => l.Map(v => v)).OrElse(Stream.Never<Cell<int>>()).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3355. Gate of a trigger mapped to a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterGateOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Map(_ => l.Map(v => v)).Gate(Cell.Constant(true)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3356. A stream loop of cells, closed with a map of a trigger to a cell linked to the outer placeholder. The outer closes with a switch of its hold.
+    public static Cell<int> DvLinksLaterStreamLoopOfLinkedCells() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Stream.Loop<Cell<int>>().WithoutCaptures(x => t.Map(_ => l.Map(v => v))).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3357. A switch of a stream of cells, held and switched. The outer cell is constant. It holds a map of a trigger to a cell that links to the placeholder.
+    public static Cell<int> DvLinksLaterSwitchSOfLinkedCells() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Cell.Constant(t.Map(_ => l.Map(v => v))).SwitchS().Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3358. Snapshot of a trigger and a constant cell of a cell linked to the placeholder, held and switched.
+    public static Cell<int> DvLinksLaterSnapshotOfACellOfALinkedCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Snapshot(Cell.Constant(l.Map(v => v))).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3359. A switch of a switch of a constant cell of a constant cell of a map of the placeholder, as the close.
+    public static Cell<int> DvLinksSwitchCOfASwitchC() =>
+        Cell.Loop<int>().WithoutCaptures(l => Cell.Constant(Cell.Constant(l.Map(v => v))).SwitchC().SwitchC());
+
+    // S3360. Control. A split of a stream of arrays of a plain cell, held and switched.
+    public static Cell<int> Ab129SplitOfAPlainCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Operational.Split<Cell<int>, Cell<int>[]>(t.Map(_ => new[] { Plain })).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3361. Control. A snapshot of the placeholder whose function returns a plain cell, held and switched. The snapshot samples the placeholder at a firing, with no link.
+    public static Cell<int> Ab129SnapshotOfTheLoopToAPlainCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Snapshot(l, (_, v) => Plain).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3362. Control. A collect whose state is a cell linked to the placeholder, and whose output is a plain cell, held and switched.
+    public static Cell<int> Ab129CollectWithALinkedStateToAPlainCell() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => t.Collect(l.Map(v => v), (_, s) => (Plain, s)).Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3363. Control. A switch of a constant cell of a stream of plain cells, held and switched.
+    public static Cell<int> Ab129SwitchSOfPlainCells() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => Cell.Constant(t.Map(_ => Plain)).SwitchS().Hold(Plain).SwitchC()); t.Send(1); return c; }))();
+
+    // S3364. Control. The placeholder goes to code with no body that can know the library, as object.
+    public static Cell<int> DvLinksEscapeOfThePlaceholderAsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back(l); return S.Hold(0); });
+
+    // S3365. Control. AsCell at the argument says that the code with no body does not read it.
+    public static Cell<int> DvLinksEscapeAsserted() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back(l.AsCell()); return S.Hold(0); });
+
+    // S3366. AsCell at the argument, in parentheses.
+    public static Cell<int> DvLinksEscapeAssertedInParentheses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back((l.AsCell())); return S.Hold(0); });
+
+    // S3367. AsCell at the argument, with the null-forgiving operator.
+    public static Cell<int> DvLinksEscapeAssertedWithNullForgiving() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back(l.AsCell()!); return S.Hold(0); });
+
+    // S3368. AsCell at the argument, cast to object.
+    public static Cell<int> DvLinksEscapeAssertedWithACast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back((object)l.AsCell()); return S.Hold(0); });
+
+    // S3369. An AsCell() in parentheses before a map, with the operator that says not null, given to code with no body.
+    public static Cell<int> Ab131EscapeAssertedInParenthesesThenMapped() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back((l.AsCell())!.Map(v => v)); return S.Hold(0); });
+
+    // S3370. A block in a local of a delegate type, closed with a map of the placeholder.
+    public static Cell<int> DvLinksBlockInADelegateLocal() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> f = l => l.Map(v => v); return Cell.Loop<int>().WithoutCaptures(f); }))();
+
+    // S3371. Control. A block in a local of a delegate type, which snapshots the placeholder and holds.
+    public static Cell<int> Ag73BlockInADelegateLocalSnapshots() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> f = l => S.Snapshot(l, (s, v) => s + v).Hold(0); return Cell.Loop<int>().WithoutCaptures(f); }))();
+
+    // S3372. A block in a local of a delegate type, which samples the placeholder.
+    public static Cell<int> Ag73BlockInADelegateLocalSamples() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> f = l => S.Hold(l.Sample()); return Cell.Loop<int>().WithoutCaptures(f); }))();
+
+    // S3373. Control. A local of a delegate type that gets a second function before the block runs. The analyzer does not know which function runs, and reads none.
+    public static Cell<int> Ag73BlockInADelegateLocalAssignedTwice() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> f = l => l.Map(v => v); f = l => S.Hold(0); return Cell.Loop<int>().WithoutCaptures(f); }))();
+
+    // S3374. Control. A method of code with no body that can know the library gets the placeholder.
+    public static Cell<int> DvLinksEscapeThroughAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IBag<Cell<int>> b = NoBody.Bag<Cell<int>>(); b.Put(l); return S.Hold(0); });
+
+    // S3375. An indexer setter of code with no body that can know the library gets the placeholder.
+    public static Cell<int> DvLinksEscapeThroughAnIndexerSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IBag<Cell<int>> b = NoBody.Bag<Cell<int>>(); b.Put(Plain); b[0] = l; return S.Hold(0); });
+
+    // S3376. A property setter of code with no body that can know the library gets the placeholder.
+    public static Cell<int> DvLinksEscapeThroughAPropertySetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDvLinksHolder<Cell<int>> h = NoBody.DvLinksHolder<Cell<int>>(); h.Held = l; return S.Hold(0); });
+
+    // S3377. An array that holds the placeholder goes to code with no body that can know the library.
+    public static Cell<int> DvLinksEscapeOfAnArrayOfThePlaceholder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back(new[] { l }); return S.Hold(0); });
+
+    // S3378. A dynamic call gets the placeholder.
+    public static Cell<int> DvLinksEscapeThroughADynamicCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic reader = new DvLinksDynamicReader(); int x = reader.Read(l); return S.Hold(0); });
+
+    // S3379. A call through reflection gets the placeholder, and the method that it calls samples it.
+    public static Cell<int> DvLinksEscapeThroughReflection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, [l]); return S.Hold(0); });
+
+    // S3380. DynamicInvoke of a delegate whose function samples its parameter gets the placeholder.
+    public static Cell<int> DvLinksEscapeThroughDynamicInvoke() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> f = c => c.Sample(); object? read = f.DynamicInvoke(l); return S.Hold(0); });
+
+    // S3381. The placeholder, cast to object, goes to code with no body that can know the library.
+    public static Cell<int> DvLinksEscapeOfThePlaceholderCastToObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back((object)l); return S.Hold(0); });
+
+    // S3382. Control. An array of an AsCell() of the placeholder, given to code with no body.
+    public static Cell<int> Ab130EscapeOfAnArrayOfAnAssertedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object back = NoBody.Echo().Back(new[] { l.AsCell() }); return S.Hold(0); });
+
+    // S3383. Control. A dynamic call of a method that samples, with a plain cell.
+    public static Cell<int> Ab130DynamicCallWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic reader = new DvLinksDynamicReader(); int x = reader.Read(Plain); return S.Hold(0); });
+
+    // S3384. Control. DynamicInvoke of a function that maps the cell that it gets, with the placeholder. The map reads nothing.
+    public static Cell<int> Ab130DynamicInvokeOfAFunctionThatMaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, Cell<int>> f = c => c.Map(v => v); object? mapped = f.DynamicInvoke(l); return S.Hold(0); });
+
+    // S3385. Control. Reflection runs a method that samples, with a plain cell.
+    public static Cell<int> Ab130ReflectionWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object? read = typeof(DvLinksReader).GetMethod(nameof(DvLinksReader.Read))!.Invoke(null, [Plain]); return S.Hold(0); });
+
+    // S3386. Real view model: the block deconstructs the record and runs one command.
+    public static Cell<int> DvVmCounter2CommandsRecordDeconstructedExecute(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); (IDvVmAction open, IDvVmAction delete) = commands; delete.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3387. Real view model: the block deconstructs the record of commands with var and runs one.
+    public static Cell<int> DvVmCounter3RecordDeconstructedIntoVar(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); var (open, delete) = commands; delete.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3388. Real view model: the block deconstructs the record of commands and asks one if it can run.
+    public static Cell<int> DvVmCounter3RecordDeconstructedThenAsked(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); (IDvVmAction open, IDvVmAction delete) = commands; bool can = open.CanExecute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3389. Real view model: the block deconstructs the record of commands and keeps both.
+    public static Cell<int> DvVmCounter3RecordDeconstructedKept(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); (IDvVmAction open, IDvVmAction delete) = commands; extra.Add(open); extra.Add(delete);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3390. Real view model: a positional pattern takes a command out of the record, and the block runs it.
+    public static Cell<int> DvVmCounter3RecordPositionalPattern(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); if (commands is (var open, _)) { open.Execute(null); }
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3391. Real view model: the block builds the record of commands itself, deconstructs it, and runs one.
+    public static Cell<int> DvVmCounter3RecordBuiltInTheBlockDeconstructed(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = new(Open: bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: countLoop.Map(static n => n > 0)), Delete: bindableFactory.CreateBindableAction(Stream.CreateSink<Unit>())); (IDvVmAction open, IDvVmAction delete) = commands; open.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3392. Real view model: the block deconstructs a record struct of commands and runs one.
+    public static Cell<int> DvVmCounter3RecordStructDeconstructed(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmCommandValues values = new(Open: bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: countLoop.Map(static n => n > 0)), Delete: bindableFactory.CreateBindableAction(Stream.CreateSink<Unit>())); (IDvVmAction open, IDvVmAction delete) = values; open.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3393. Real view model: a foreach deconstructs each record of commands and runs one.
+    public static Cell<int> DvVmCounter3RecordsDeconstructedInAForeach(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmRowCommands commands = DvVmCommandsFor(bindableFactory: bindableFactory, canEdit: countLoop.Map(static n => n > 0)); List<DvVmRowCommands> all = [commands]; foreach ((IDvVmAction open, IDvVmAction delete) in all) { open.Execute(null); }
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3394. Real view model: the block deconstructs a class with a Deconstruct of its own and runs one command. A control.
+    public static Cell<int> DvVmCounter3ClassWithDeconstructDeconstructed(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            DvVmPair pair = new(open: bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: countLoop.Map(static n => n > 0)), delete: bindableFactory.CreateBindableAction(Stream.CreateSink<Unit>())); (IDvVmAction open, IDvVmAction delete) = pair; open.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3395. Real view model: the block deconstructs a tuple of commands and runs one. A control.
+    public static Cell<int> DvVmCounter3TupleDeconstructed(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmCounterViewModel2>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            StreamSink<Unit> reset = Stream.CreateSink<Unit>();
+            List<IDisposable> extra = [];
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Stream<int> stepsLoop = viewModelLoop.Map(static vm => vm.steps).SwitchS();
+            Cell<int> count = stepsLoop.Accum(initialState: 0, f: static (step, n) => n + step);
+            Stream<int> steps = increment.MapTo(1).OrElse(reset.Snapshot(countLoop, static (_, n) => -n));
+            IDvVmText countText = bindableFactory.CreateOneWay(countLoop.Map(static n => n.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            IDvVmAction incrementAction = bindableFactory.CreateBindableAction(firingsStreamSink: increment, isEnabledCell: countLoop.Map(static n => n < 10));
+            (IDvVmAction Open, IDvVmAction Delete) pair = (bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: countLoop.Map(static n => n > 0)), bindableFactory.CreateBindableAction(Stream.CreateSink<Unit>())); (IDvVmAction open, IDvVmAction delete) = pair; open.Execute(null);
+            return new DvVmCounterViewModel2(
+                count: bindableFactory.CreateOneWay(count),
+                countText: countText,
+                increment: incrementAction,
+                reset: bindableFactory.CreateBindableAction(firingsStreamSink: reset, isEnabledCell: countLoop.Map(static n => n != 0)),
+                countCell: count,
+                steps: steps,
+                extra: extra);
+        })));
+
+    // S3396. The Deconstruct of a record gives each part its own property. The block samples the plain part. A control.
+    public static Cell<int> Ab132PlainPartOfARecordSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab132Derived d = new(First: l.Map(v => v), Second: Plain); (Cell<int> first, Cell<int> second) = d; Kept.Add(second.Sample()); return S.Hold(0); });
+
+    // S3397. The Deconstruct of a record gives a part the property of its base record, and the block samples it.
+    public static Cell<int> Ab132PartOfABaseRecordSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab132Derived d = new(First: l.Map(v => v), Second: Plain); (Cell<int> first, Cell<int> second) = d; Kept.Add(first.Sample()); return S.Hold(0); });
+
+    // S3398. The Deconstruct of a record calls the getter of its property, which samples a pending member.
+    public static Cell<int> Ab132DeconstructCallsAGetterThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab132Reading r = new(Share: l.Map(v => v), Number: 1); (Cell<int> share, int number) = r; return S.Hold(number); });
+
+    // S3399. Real view model: the constructor of the base class calls a virtual method, and the override of the page reads its title.
+    public static Cell<int> DvVmPageBaseOverrideReads(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmLoggingPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return new DvVmLoggingPage(title: title, countCell: count);
+        })));
+
+    // S3400. Real view model: the constructor of the base class calls an abstract method, and the page implements it with a read of its title.
+    public static Cell<int> DvVmPage5AbstractHookInTheBaseConstructor(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmDescribedPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return new DvVmDescribedPage(title: title, countCell: count);
+        })));
+
+    // S3401. Real view model: the block builds a page and keeps it as its base class. Then it calls a virtual method that the page overrides with a read.
+    public static Cell<int> DvVmPage5VirtualOverrideCalledOnTheBuiltObject(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmQuietPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            DvVmRefreshingBase other = new DvVmRefreshingPage(title: title, countCell: count); other.Refresh();
+            return new DvVmQuietPage(title: title, countCell: count);
+        })));
+
+    // S3402. Real view model: the constructor of the page calls a virtual method that the page overrides with a read of its title.
+    public static Cell<int> DvVmPage5VirtualOverrideCalledInTheDerivedConstructor(SodaFlow.Bindable.ObjectModel.IBindableFactory bindableFactory) =>
+        DvVmBuilt(Transaction.Run(() => ForwardReference<DvVmSelfRefreshingPage>.WithoutCaptures(viewModelLoop =>
+        {
+            StreamSink<Unit> increment = Stream.CreateSink<Unit>();
+            Cell<int> countLoop = viewModelLoop.Map(static vm => vm.countCell).SwitchC();
+            Cell<int> count = increment.Snapshot(countLoop, static (_, n) => n + 1).Hold(0);
+            IDvVmText title = bindableFactory.CreateOneWay(countLoop.Map(static n => "Page " + n));
+            
+            return new DvVmSelfRefreshingPage(title: title, countCell: count);
+        })));
+
+    // S3403. The constructor of the base class calls a virtual method. The class that the block builds overrides it with no read, and a second class overrides it with a read. A control.
+    public static Cell<int> Ab133TheOverrideOfADifferentClassDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab133Quiet(l.Map(v => v))); return S.Hold(0); });
+
+    // S3404. The constructor of the base class calls a virtual method, and the class that a primary constructor gives that base overrides it with a read.
+    public static Cell<int> Ab133OverrideReadsThroughAPrimaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab133Loud(l.Map(v => v))); return S.Hold(0); });
+
+    // S3405. The constructor of the base class reads an abstract property, and the getter of the class that the block builds samples.
+    public static Cell<int> Ab133AbstractPropertyInTheBaseConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab133SampledCaption(l.Map(v => v))); return S.Hold(0); });
+
+    // S3406. The constructor of the base class calls a method of the base class, which calls an abstract method. The class that the block builds implements it with a read.
+    public static Cell<int> Ab133AbstractMethodThroughAMethodOfTheBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab133StartedLoud(l.Map(v => v))); return S.Hold(0); });
+
+    // S3407. A class with no constructor of its code calls the constructor of its base with no arguments. Its base constructor calls an abstract method, which samples the cell that the block gave a static field.
+    public static Cell<int> Ab133ImplicitConstructorCallsTheBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab133Shared = l.Map(v => v); Kept.Add(new Ab133ImplicitHook()); return S.Hold(0); });
+
+    // S3408. A constructor with no initializer calls the parameterless base constructor, which calls an abstract method that samples.
+    public static Cell<int> Ab133ConstructorWithNoInitializerCallsTheBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab133Shared2 = l.Map(v => v); Kept.Add(new Ab133ExplicitHook(1)); return S.Hold(0); });
+
+    // S3409. A lambda in a field gives a plain cell to an object that had a pending one.
+    public static Cell<int> DvStateALambdaInAFieldGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; DvStRunner r = new() { Run = () => x.Share = Plain }; r.Run(); return S.Hold(x.Share!.Sample()); });
+
+    // S3410. A lambda in a field of a static object gives a plain cell to an object that had a pending one.
+    public static Cell<int> DvStateALambdaInAStaticFieldGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = l.Map(v => v) }; DvStRunner7.Run = () => x.Share = Plain; DvStRunner7.Run(); return S.Hold(x.Share!.Sample()); });
+
+    // S3411. A lambda in a local inserts an object with a pending cell, and the block reads the element after it.
+    public static Cell<int> DvStateALambdaInALocalInserts() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = Plain }]; Action insert = () => list.Insert(0, new SettableSlot { Share = l.Map(v => v) }); insert(); return S.Hold(list[1].Share!.Sample()); });
+
+    // S3412. A local function inserts an object with a pending cell, and the block reads the element after it.
+    public static Cell<int> DvStateALocalFunctionInserts() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = Plain }]; void Insert() => list.Insert(0, new SettableSlot { Share = l.Map(v => v) }); Insert(); return S.Hold(list[1].Share!.Sample()); });
+
+    // S3413. A lambda in a local adds an object with a pending cell, and the block reads the first element.
+    public static Cell<int> DvStateALambdaInALocalAdds() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = Plain }]; Action add = () => list.Add(new SettableSlot { Share = l.Map(v => v) }); add(); return S.Hold(list[0].Share!.Sample()); });
+
+    // S3414. A lambda at RunVoid inserts an object with a pending cell, and the block reads the element after it.
+    public static Cell<int> DvStateALambdaAtRunVoidInserts() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = Plain }]; Transaction.RunVoid(() => list.Insert(0, new SettableSlot { Share = l.Map(v => v) })); return S.Hold(list[1].Share!.Sample()); });
+
+    // S3415. A lambda in a local gives the first element a pending cell, and the block reads the second element.
+    public static Cell<int> DvStateALambdaInALocalSetsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [Plain, Plain]; Action set = () => list[0] = l.Map(v => v); set(); return S.Hold(list[1].Sample()); });
+
+    // S3416. A local function inserts an object with a pending cell, and the block reads the element at that position. A control.
+    public static Cell<int> Ab137LocalFunctionInsertsAndTheBlockReadsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = Plain }]; void Insert() => list.Insert(0, new SettableSlot { Share = l.Map(v => v) }); Insert(); return S.Hold(list[0].Share!.Sample()); });
+
+    // S3417. A lambda in a local removes the object with a pending cell from the list. Then the block reads the element that is first now.
+    public static Cell<int> Ab137LambdaInALocalRemovesThePendingObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }, new SettableSlot { Share = Plain }]; Action drop = () => list.RemoveAt(0); drop(); return S.Hold(list[0].Share!.Sample()); });
+
+    // S3418. Each turn puts its new object into the element through a method, and gives it a plain cell through ref.
+    public static Cell<int> DvStateAPutThroughRefInEachTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; List<SettableSlot> made = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); Ab76PutThenGive(ref slots[0], slots, fresh, Plain); } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3419. Control: each turn puts its new object into the element, and gives it a plain cell through the element.
+    public static Cell<int> DvStateAPutInEachTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; List<SettableSlot> made = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); slots[0] = fresh; slots[0].Share = Plain; } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3420. Each turn makes an object with a pending cell, puts it into a list, and gives it a plain cell.
+    public static Cell<int> DvStateEachTurnGivesItsObjectAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); fresh.Share = Plain; } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3421. Each turn makes an object with a pending cell and gives it a plain cell, and a local keeps the last one.
+    public static Cell<int> DvStateEachTurnGivesItsObjectAPlainCellAndALocalKeepsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? last = null; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; fresh.Share = Plain; last = fresh; } return S.Hold(last!.Share!.Sample()); });
+
+    // S3422. Each turn puts its object into an element and gives it a plain cell through the element, and the block reads the element.
+    public static Cell<int> DvStateEachTurnGivesTheElementAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; slots[0].Share = Plain; } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S3423. Control: the turn with no loop.
+    public static Cell<int> DvStateTheTurnWithNoLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; List<SettableSlot> made = []; SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); slots[0] = fresh; slots[0].Share = Plain; return S.Hold(made[0].Share!.Sample()); });
+
+    // S3424. Each turn gives its object a plain cell through a local that is older than the turn.
+    public static Cell<int> DvStateEachTurnWritesThroughAnOlderLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot? current = null; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; current = fresh; current.Share = Plain; } return S.Hold(current!.Share!.Sample()); });
+
+    // S3425. Each turn puts its object into an element, gives it a plain cell through its local, and the block reads the element.
+    public static Cell<int> DvStateEachTurnPutsThenWritesThroughTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; fresh.Share = Plain; } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S3426. Each turn puts its object into an element of a list, and gives it a plain cell through the element.
+    public static Cell<int> DvStateEachTurnWritesThroughAListElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; slots[0].Share = Plain; } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S3427. Each turn gives its object a plain cell through the element, and reads the element in the turn.
+    public static Cell<int> DvStateEachTurnWritesThroughTheElementAndReadsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; slots[0].Share = Plain; Kept.Add(slots[0].Share!.Sample()); } return S.Hold(0); });
+
+    // S3428. Each turn gives its object a plain cell through the element, and reads it through its local in the turn.
+    public static Cell<int> DvStateEachTurnWritesThroughTheElementAndReadsTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; slots[0].Share = Plain; Kept.Add(fresh.Share!.Sample()); } return S.Hold(0); });
+
+    // S3429. Each turn puts an object with a pending cell into the element, and the block reads the element after the loop. A control.
+    public static Cell<int> Ab140EachTurnPutsAPendingObjectIntoTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { slots[0] = new SettableSlot { Share = l.Map(v => v) }; } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S3430. A loop that runs no turn would put a plain object into the element. After the loop, the element can have its pending object from before the loop. A control.
+    public static Cell<int> Ab140ALoopWithNoTurnGivesBackTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] slots = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < Kept.Count * 0; i++) { slots[0] = new SettableSlot { Share = Plain }; } return S.Hold(slots[0].Share!.Sample()); });
+
+    // S3431. Each turn puts a plain object into the element of a list, and the block reads the element after the loop.
+    public static Cell<int> Ab140EachTurnPutsAPlainObjectIntoAPendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> slots = [new SettableSlot { Share = Plain }]; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; slots[0] = fresh; slots[0].Share = Plain; } Kept.Add(slots[0].Share!.Sample()); return S.Hold(0); });
+
+    // S3432. An async helper reads in a loop before an await of a task that does not complete.
+    public static Cell<int> DvStateAsyncReadBeforeAnAwaitInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStReadThenAwaitInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3433. An async helper reads in a loop a local that the code after an await that does not complete gives a pending cell.
+    public static Cell<int> DvStateAsyncReadOfWhatAnAwaitSkips() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStAwaitThenGiveInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3434. An async helper reads in a loop a local that the code after an await of a complete task gives a pending cell.
+    public static Cell<int> DvStateAsyncReadAfterACompleteAwaitInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStAwaitCompleteThenGiveInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3435. An async lambda in a loop of the block reads after an await that does not complete.
+    public static Cell<int> DvStateAsyncLambdaInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { Func<Task> run = async () => { await R2NeverDone.Task; Kept.Add(l.Sample()); }; run().Wait(0); } return S.Hold(0); });
+
+    // S3436. An async helper reads in a loop, gives the local a pending cell, and awaits a task that does not complete.
+    public static Cell<int> DvStateAsyncAwaitAtTheEndOfATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStReadGiveThenAwaitInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3437. Control: the same with a complete task.
+    public static Cell<int> DvStateAsyncCompleteAwaitAtTheEndOfATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStReadGiveThenAwaitCompleteInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3438. An async lambda of the block reads in a loop, gives the local a pending cell, and awaits a task that does not complete.
+    public static Cell<int> DvStateAsyncLambdaAwaitAtTheEndOfATurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Cell<int> d = Plain; while (Kept.Count >= 0) { Kept.Add(d.Sample()); d = l; await R2NeverDone.Task; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3439. An async helper reads in a do loop and gives the local a pending cell. At the end of the turn, it awaits a task that does not complete.
+    public static Cell<int> Ab138AwaitAtTheEndOfADoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab138ReadGiveThenAwaitInADo(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3440. An async helper reads in a loop and gives the local a pending cell. A continue skips the await in the first turn, thus the second turn reads now. A control.
+    public static Cell<int> Ab138ContinueBeforeTheAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab138ContinueBeforeTheAwaitInALoop(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3441. An async helper reads after a do loop that awaits a task that does not complete.
+    public static Cell<int> DvStateAsyncReadAfterADoWithAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStAwaitInADoThenRead(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3442. An async helper reads after a try whose body awaits a task that does not complete.
+    public static Cell<int> DvStateAsyncReadAfterATryWithAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStAwaitInATryThenRead(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3443. An async helper reads in a do body after an await of a task that does not complete. A control.
+    public static Cell<int> Ab139ReadInADoAfterTheAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab139AwaitThenReadInADo(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3444. An async helper reads after a try whose block awaits a task that does not complete. The catch clause of the try can run the code after the try now. The read in the catch clause throws. A control.
+    public static Cell<int> Ab139ReadAfterATryWithACatch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab139ThrowInATryThenRead(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3445. An async helper reads after a while loop whose body awaits a task that does not complete. The loop can run no turn. A control.
+    public static Cell<int> Ab139ReadAfterAWhileWithAnAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab139AwaitInAWhileThenRead(l.Map(v => v)).Wait(0); return S.Hold(0); });
+
+    // S3446. An accumulation of records from a stream of cells, and the send comes after the accumulation.
+    public static Cell<int> Ab126AccumOfRecordsWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: static (c, r) => new Ag72Step(c)); s.Send(l.Map(v => v)); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3447. An accumulation of cells from a stream of cells, and the send comes after the accumulation.
+    public static Cell<int> Ab126AccumOfCellsWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> acc = s.Accum(initialState: Plain, f: static (c, r) => c); s.Send(l.Map(v => v)); return acc.SwitchC(); });
+
+    // S3448. A hold of a stream of cells, and the send comes after the hold.
+    public static Cell<int> Ab126HoldOfCellsWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> held = s.Hold(Plain); s.Send(l.Map(v => v)); return held.SwitchC(); });
+
+    // S3449. A hold of a stream of cells, and a send of a plain cell after the hold. A control.
+    public static Cell<int> Ab126HoldOfCellsWithAPlainSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> held = s.Hold(Plain); s.Send(Plain); return held.SwitchC(); });
+
+    // S3450. An accumulation of records from a stream of cells with a static function, and a send of a plain cell after the accumulation. A control.
+    public static Cell<int> Ab126AccumOfRecordsWithAPlainSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Ag72Step> acc = s.Accum(initialState: new Ag72Step(Plain), f: static (c, r) => new Ag72Step(c)); s.Send(Plain); return acc.Map(r => r.Share).SwitchC(); });
+
+    // S3451. The block adds a handler that samples to an event, removes it, and then raises the event.
+    public static Cell<int> Ag72HandlerRemovedBeforeTheRaise() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3452. The block takes the function that samples out of a delegate with minus, and then calls the delegate.
+    public static Cell<int> Ag72FunctionRemovedFromADelegate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l.Sample()); Action? both = first + second; both -= second; both?.Invoke(); return S.Hold(0); });
+
+    // S3453. The block adds a handler that samples two times and removes it one time. One occurrence stays, and the raise runs it. A control.
+    public static Cell<int> Ab120HandlerAddedTwiceRemovedOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Rang += h; b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3454. The block adds a handler that samples in each turn of a loop and removes it one time. The walk cannot count the turns. A control.
+    public static Cell<int> Ab120HandlerAddedInALoopRemovedOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); for (int i = 0; i < 2; i++) { b.Rang += h; } b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3455. A delegate has the function that samples two times, and the block takes it out one time. A control.
+    public static Cell<int> Ab120FunctionTwiceInADelegateRemovedOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l.Sample()); Action? all = second + first + second; all -= second; all?.Invoke(); return S.Hold(0); });
+
+    // S3456. A method of the object copies the handlers of its event between the add and the remove, thus the handler that samples stays. A control.
+    public static Cell<int> Ab120ACallCopiesTheHandlerBeforeTheRemove() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab120Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Twice(); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3457. The block adds a handler that samples, and removes it two times before the raise.
+    public static Cell<int> Ab120HandlerRemovedTwiceBeforeTheRaise() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Rang -= h; b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S3458. Each turn puts an object from Transaction.Run into a list, and each object then gets a plain cell.
+    public static Cell<int> DvStateRunObjectsOfALoopGetPlainCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(Transaction.Run(() => new SettableSlot { Share = l.Map(v => v) })); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3459. Each turn adds an object with a pending cell, and a foreach gives each a plain cell.
+    public static Cell<int> DvStateAForeachGivesEachObjectOfALoopAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3460. Each turn adds the object of a local of the turn, and a foreach gives each object a plain cell.
+    public static Cell<int> Ab142ATurnAddsTheObjectOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; list.Add(fresh); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[1].Share!.Sample()); });
+
+    // S3461. Each turn of a loop in a loop adds an object, and a foreach gives each object a plain cell.
+    public static Cell<int> Ab142ALoopInALoopAddsTheObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { for (int j = 0; j < 2; j++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[3].Share!.Sample()); });
+
+    // S3462. Each turn of a foreach adds an object, and a second foreach gives each object a plain cell.
+    public static Cell<int> Ab142AForeachAddsTheObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; foreach (int n in (int[])[1, 2]) { list.Add(new SettableSlot { Share = l.Map(v => v + n) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[1].Share!.Sample()); });
+
+    // S3463. Control: an add under a condition puts only the first object into the list, and the block reads the second.
+    public static Cell<int> Ab142AnAddUnderAConditionMissesAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); if (i == 0) { list.Add(fresh); } } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[1].Share!.Sample()); });
+
+    // S3464. Control: a continue before the add keeps the second object out of the list, and the block reads it.
+    public static Cell<int> Ab142AContinueBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); if (i == 1) { continue; } list.Add(fresh); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[1].Share!.Sample()); });
+
+    // S3465. Control: a RemoveAt takes the first object out of the list before the foreach, and the block reads it.
+    public static Cell<int> Ab142ARemoveTakesAnObjectOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } SettableSlot first = list[0]; list.RemoveAt(0); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(first.Share!.Sample()); });
+
+    // S3466. Control: the foreach gives a plain cell only under a condition that is false.
+    public static Cell<int> Ab142AWriteUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { if (list.Count > 2) { s.Share = Plain; } } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3467. Control: a break ends the foreach after the first object, and the block reads the second.
+    public static Cell<int> Ab142ABreakEndsTheForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; break; } return S.Hold(list[1].Share!.Sample()); });
+
+    // S3468. Control: a loop that runs no turn adds an object that is older than the turn, and the block reads that object.
+    public static Cell<int> Ab142AnObjectOlderThanTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new() { Share = l.Map(v => v) }; List<SettableSlot> list = []; for (int i = 0; i < Kept.Count * 0; i++) { list.Add(one); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3469. Control: a second loop adds objects after the foreach, and the block reads one of them.
+    public static Cell<int> Ab142AnAddAfterTheForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } return S.Hold(list[3].Share!.Sample()); });
+
+    // S3470. Control: the second turn adds a different object than the object of its turn, and the block reads the object of that turn.
+    public static Cell<int> Ab142ASecondTurnAddsADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { SettableSlot fresh = new() { Share = l.Map(v => v) }; made.Add(fresh); list.Add(i == 0 ? fresh : new SettableSlot { Share = Plain }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[1].Share!.Sample()); });
+
+    // S3471. An async helper reads each element of an array, and awaits a task that does not complete after the first.
+    public static Cell<int> DvStateAsyncAwaitAfterTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStReadEachThenAwait([Plain, l.Map(v => v)]).Wait(0); return S.Hold(0); });
+
+    // S3472. An async lambda reads each element of an array in a local, and awaits a task that does not complete after the first.
+    public static Cell<int> Ab145AsyncLambdaAwaitsAfterTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); await R2NeverDone.Task; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3473. An async helper reads each element of a list, and awaits a task that does not complete after the first.
+    public static Cell<int> Ab145AsyncAwaitAfterTheFirstElementOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab145ReadEachOfAListThenAwait([Plain, l.Map(v => v)]).Wait(0); return S.Hold(0); });
+
+    // S3474. Control: the first element has the pending cell.
+    public static Cell<int> Ab145ThePendingCellIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { DvStReadEachThenAwait([l.Map(v => v), Plain]).Wait(0); return S.Hold(0); });
+
+    // S3475. Control: the helper awaits a complete task, thus the second turn reads now.
+    public static Cell<int> Ab145AnAwaitOfACompleteTaskAfterEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab145ReadEachThenAwaitComplete([Plain, l.Map(v => v)]).Wait(0); return S.Hold(0); });
+
+    // S3476. Control: a helper reads each element with no await, thus the second turn reads now.
+    public static Cell<int> Ab145AHelperReadsEachElementWithNoAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab145ReadEach([Plain, l.Map(v => v)]); return S.Hold(0); });
+
+    // S3477. Control: the block reads each element of an array, and the second element has the pending cell.
+    public static Cell<int> Ab145TheBlockReadsEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); } return S.Hold(0); });
+
+    // S3478. Control: the block keeps each element in a local, and reads the local after the loop.
+    public static Cell<int> Ab145TheBlockKeepsTheLastElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; Cell<int> last = Plain; foreach (Cell<int> each in cells) { last = each; } return S.Hold(last.Sample()); });
+
+    // S3479. Control: a Reverse of the list puts the pending cell first, and the helper awaits after the first element.
+    public static Cell<int> Ab145AReverseMovesThePendingCellFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain, l.Map(v => v)]; cells.Reverse(); Ab145ReadEachOfAListThenAwait(cells).Wait(0); return S.Hold(0); });
+
+    // S3480. Control: the platform reverses the array, which puts the pending cell first, and the helper awaits after the first element.
+    public static Cell<int> Ab145AnArrayReverseMovesThePendingCellFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; Array.Reverse(cells); DvStReadEachThenAwait(cells).Wait(0); return S.Hold(0); });
+
+    // S3481. A send in the block puts a cell linked to the placeholder into a sink, and a defer of the sink is held and switched.
+    public static Cell<int> DvLinksDeferOfASentLinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> sink = Stream.CreateSink<Cell<int>>(); Stream<Cell<int>> later = Operational.Defer(sink); sink.Send(l.Map(v => v)); return later.Hold(Plain).SwitchC(); });
+
+    // S3482. A send in the block puts a cell linked to the placeholder into a sink, and a split of the sink is held and switched.
+    public static Cell<int> DvLinksSplitOfASentLinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>[]> sink = Stream.CreateSink<Cell<int>[]>(); Stream<Cell<int>> later = Operational.Split<Cell<int>, Cell<int>[]>(sink); sink.Send([l.Map(v => v)]); return later.Hold(Plain).SwitchC(); });
+
+    // S3483. A local has a switch of a hold of a sink. Then a send puts a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab146SwitchOfAHoldWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); s.Send(l.Map(v => v)); return sw; });
+
+    // S3484. A local has a switch of a hold of a filter of a map of a sink. Then a send puts a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab146ChainOfASinkWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Map(c => c).Filter(_ => true).Hold(Plain).SwitchC(); s.Send(l.Map(v => v)); return sw; });
+
+    // S3485. A hold of a sink is in a record, and a send of a cell linked to the placeholder into the sink comes after it.
+    public static Cell<int> Ab146HoldInARecordWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Ab146Held r = new Ab146Held(s.Hold(Plain)); s.Send(l.Map(v => v)); return r.Held.SwitchC(); });
+
+    // S3486. A hold of a sink is in a list, and a send of a cell linked to the placeholder into the sink comes after it.
+    public static Cell<int> Ab146HoldInAListWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); List<Cell<Cell<int>>> all = [s.Hold(Plain)]; s.Send(l.Map(v => v)); return all[0].SwitchC(); });
+
+    // S3487. A second local names the sink. A hold of it comes before a send through the first local.
+    public static Cell<int> Ab146HoldOfASecondNameOfTheSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = s; Cell<Cell<int>> held = t.Hold(Plain); s.Send(l.Map(v => v)); return held.SwitchC(); });
+
+    // S3488. A local function makes the switch of a hold of the sink before the send.
+    public static Cell<int> Ab146SwitchMadeByALocalFunctionBeforeTheSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = Switch(s); s.Send(l.Map(v => v)); return sw; static Cell<int> Switch(Stream<Cell<int>> from) => from.Hold(Plain).SwitchC(); });
+
+    // S3489. The sink is in a property of an object that the block makes. A hold of it comes before the send.
+    public static Cell<int> Ab146HoldOfASinkInAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab146SinkBox box = new Ab146SinkBox(); Cell<int> sw = box.Sink.Hold(Plain).SwitchC(); box.Sink.Send(l.Map(v => v)); return sw; });
+
+    // S3490. A method sends into the sink that it gets as a parameter, after a hold of that sink.
+    public static Cell<int> Ab146SendThroughAParameterAfterAHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); Ab146SendTo(s, l.Map(v => v)); return sw; });
+
+    // S3491. The sink is a local of the code around the block. A switch of a hold of it comes before a send in the block.
+    public static Cell<int> Ab146SinkOfTheCodeAroundTheBlock() =>
+        ((Func<Cell<int>>)(() => { StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); return Cell.Loop<int>().WithoutCaptures(l => { Cell<int> sw = t.Hold(Plain).SwitchC(); t.Send(l.Map(v => v)); return sw; }); }))();
+
+    // S3492. A local has a switch of a cell sink. Then a send puts a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab146SwitchOfACellSinkWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); Cell<int> sw = c.SwitchC(); c.Send(l.Map(v => v)); return sw; });
+
+    // S3493. A local has a switch of a hold of a sink. Then a transaction that runs now in the block sends a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab146SendInATransactionOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); Transaction.RunVoid(() => s.Send(l.Map(v => v))); return sw; });
+
+    // S3494. A local has a switch of a hold of the second sink. Then the second sink gets a switch of a hold of the first sink. Then the first sink gets a cell linked to the placeholder.
+    public static Cell<int> Ab146SendOfASwitchOfASecondSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Cell<int> sw = t.Hold(Plain).SwitchC(); t.Send(s.Hold(Plain).SwitchC()); s.Send(l.Map(v => v)); return sw; });
+
+    // S3495. The sink is in a static field of the class. A switch of a hold of it comes before a send in the block.
+    public static Cell<int> Ab146SinkInAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> sw = Ab146Sink.Hold(Plain).SwitchC(); Ab146Sink.Send(l.Map(v => v)); return sw; });
+
+    // S3496. A switch of a hold of a sink is in a local, and a send of a plain cell comes after it. A control.
+    public static Cell<int> Ab146SwitchOfAHoldWithAPlainSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); s.Send(Plain.Map(v => v + 1)); return sw; });
+
+    // S3497. A switch of a hold of a sink, and a send of a linked cell into a second sink. A control.
+    public static Cell<int> Ab146SwitchOfAHoldWithASendToASecondSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); t.Send(l.Map(v => v)); return sw; });
+
+    // S3498. A switch of a hold of a sink, and a lambda in a local that sends a linked cell into the sink. The lambda does not run. A control.
+    public static Cell<int> Ab146SwitchOfAHoldWithASendInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); Action send = () => s.Send(l.Map(v => v)); Kept.Add(send); return sw; });
+
+    // S3499. A send of a linked cell into a sink, and the switch of a hold of the sink after it.
+    public static Cell<int> Ab146SwitchOfAHoldWithTheSendBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); s.Send(l.Map(v => v)); Cell<int> sw = s.Hold(Plain).SwitchC(); return sw; });
+
+    // S3500. A hold of a sink is in a record, and a send of a plain cell comes after it. A control.
+    public static Cell<int> Ab146HoldInARecordWithAPlainSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Ab146Held r = new Ab146Held(s.Hold(Plain)); s.Send(Plain.Map(v => v + 1)); return r.Held.SwitchC(); });
+
+    // S3501. The body of a foreach over an array puts a pending cell into the second element. The second turn reads it.
+    public static Cell<int> Ab147TheBodyPutsAPendingCellIntoTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3502. The body puts a pending cell into the last element of three. The third turn reads it.
+    public static Cell<int> Ab147TheBodyPutsAPendingCellIntoTheLastElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; foreach (var each in cells) { Kept.Add(each.Sample()); cells[cells.Length - 1] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3503. A helper reads each element of an array, and puts a pending cell into the second element.
+    public static Cell<int> Ab147AHelperPutsAPendingCellIntoTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab147ReadEachThenPut([Plain, Plain], l.Map(v => v)); return S.Hold(0); });
+
+    // S3504. The body puts a pending cell into the second element through a second name of the array.
+    public static Cell<int> Ab147TheBodyPutsAPendingCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int>[] other = cells; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); other[1] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3505. Control: the body puts a pending cell into the first element, which no later turn reads.
+    public static Cell<int> Ab147TheBodyPutsAPendingCellIntoTheFirstElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[0] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3506. Control: the body puts a cell that is not pending into the second element.
+    public static Cell<int> Ab147TheBodyPutsAPlainCellIntoTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = Plain.Map(v => v); } return S.Hold(0); });
+
+    // S3507. Control: the body puts a pending cell into the second element of a different array.
+    public static Cell<int> Ab147TheBodyPutsAPendingCellIntoADifferentArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int>[] other = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); other[1] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3508. Control: the body puts a pending cell into the second element, and reads no element.
+    public static Cell<int> Ab147TheBodyReadsNoElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each); cells[1] = l.Map(v => v); } return S.Hold(0); });
+
+    // S3509. The second turn puts the pending cell of a local into the last element of three. The third turn reads it.
+    public static Cell<int> Ab147TheSecondTurnPutsAPendingCellIntoTheLastElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[2] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3510. A foreach reads the first element, then ends with a break. The second element has the pending cell.
+    public static Cell<int> Ab148ABreakAfterTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); break; } return S.Hold(0); });
+
+    // S3511. A helper reads the first element of an array, then ends its foreach with a break.
+    public static Cell<int> Ab148AHelperBreaksAfterTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab148ReadTheFirst([Plain, l.Map(v => v)]); return S.Hold(0); });
+
+    // S3512. Each branch at the end of the body ends the loop: a break or a return.
+    public static Cell<int> Ab148EachBranchEndsTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); if (Kept.Count > 0) { break; } else { return S.Hold(1); } } return S.Hold(0); });
+
+    // S3513. A while loop reads a local, then puts a pending cell into it, then ends with a break.
+    public static Cell<int> Ab148AWhileLoopBreaksAfterTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; while (Kept.Count >= 0) { Kept.Add(c.Sample()); c = l.Map(v => v); break; } return S.Hold(0); });
+
+    // S3514. A for loop reads a local, then puts a pending cell into it, then ends with a break.
+    public static Cell<int> Ab148AForLoopBreaksAfterTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; for (int i = 0; i < 2; i++) { Kept.Add(c.Sample()); c = l.Map(v => v); break; } return S.Hold(0); });
+
+    // S3515. The body puts a pending cell into the second element of the array, then ends with a break.
+    public static Cell<int> Ab148ABreakAfterAPutIntoTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = l.Map(v => v); break; } return S.Hold(0); });
+
+    // S3516. Control: a break in an if that does not run. The second turn reads the pending cell.
+    public static Cell<int> Ab148ABreakInAnIf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); if (Kept.Count < 0) break; } return S.Hold(0); });
+
+    // S3517. Control: a continue comes before the break and starts the second turn.
+    public static Cell<int> Ab148AContinueBeforeTheBreak() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); if (Kept.Count >= 0) continue; break; } return S.Hold(0); });
+
+    // S3518. Control: the break at the end is for a loop in the body.
+    public static Cell<int> Ab148ABreakOfALoopInTheBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); while (Kept.Count >= 0) { break; } } return S.Hold(0); });
+
+    // S3519. Control: the break at the end is for a switch statement in the body.
+    public static Cell<int> Ab148ABreakOfASwitch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); switch (Kept.Count) { default: break; } } return S.Hold(0); });
+
+    // S3520. Control: the first element has the pending cell, and the body ends with a break.
+    public static Cell<int> Ab148ThePendingCellIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); break; } return S.Hold(0); });
+
+    // S3521. An async helper deconstructs each pair, and awaits a task that does not complete after the first.
+    public static Cell<int> Ab152AHelperDeconstructsEachPairThenAwaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachPairThenAwait([(Plain, 1), (l.Map(v => v), 2)]).Wait(0); return S.Hold(0); });
+
+    // S3522. An async lambda deconstructs each pair of an array in a local, and awaits after the first.
+    public static Cell<int> Ab152AnAsyncLambdaDeconstructsEachPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { (Cell<int> Cell, int N)[] pairs = [(Plain, 1), (l.Map(v => v), 2)]; foreach ((Cell<int> cell, int _) in pairs) { Kept.Add(cell.Sample()); await R2NeverDone.Task; } }; run().Wait(0); return S.Hold(0); });
+
+    // S3523. An async helper deconstructs each pair with var, and awaits after the first.
+    public static Cell<int> Ab152AVarDeconstructionThenAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachPairWithVarThenAwait([(Plain, 1), (l.Map(v => v), 2)]).Wait(0); return S.Hold(0); });
+
+    // S3524. Control: the first pair has the pending cell.
+    public static Cell<int> Ab152ThePendingPairIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachPairThenAwait([(l.Map(v => v), 1), (Plain, 2)]).Wait(0); return S.Hold(0); });
+
+    // S3525. Control: the helper awaits a complete task, thus the second turn reads now.
+    public static Cell<int> Ab152AnAwaitOfACompleteTaskAfterEachPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachPairThenAwaitComplete([(Plain, 1), (l.Map(v => v), 2)]).Wait(0); return S.Hold(0); });
+
+    // S3526. Control: a helper deconstructs each pair with no await, thus the second turn reads now.
+    public static Cell<int> Ab152AHelperDeconstructsEachPairWithNoAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachPair([(Plain, 1), (l.Map(v => v), 2)]); return S.Hold(0); });
+
+    // S3527. Control: the block deconstructs each pair of an array, and the second pair has the pending cell.
+    public static Cell<int> Ab152TheBlockDeconstructsEachPair() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> Cell, int N)[] pairs = [(Plain, 1), (l.Map(v => v), 2)]; foreach ((Cell<int> cell, int _) in pairs) { Kept.Add(cell.Sample()); } return S.Hold(0); });
+
+    // S3528. An async helper deconstructs each key and value of an array, and awaits after the first.
+    public static Cell<int> Ab152AHelperDeconstructsEachKeyValuePairThenAwaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachKeyThenAwait([new KeyValuePair<Cell<int>, int>(Plain, 1), new KeyValuePair<Cell<int>, int>(l.Map(v => v), 2)]).Wait(0); return S.Hold(0); });
+
+    // S3529. Control: the same helper, and the first key has the pending cell.
+    public static Cell<int> Ab152ThePendingKeyIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab152ReadEachKeyThenAwait([new KeyValuePair<Cell<int>, int>(l.Map(v => v), 1), new KeyValuePair<Cell<int>, int>(Plain, 2)]).Wait(0); return S.Hold(0); });
+
+    // S3530. A sample of a hold of a sink, and then a send of a cell linked to the placeholder into the sink. The sample gives the initial value.
+    public static Cell<int> Ab149SampleOfAHoldBeforeTheSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> x = s.Hold(Plain).Sample(); s.Send(l.Map(v => v)); return x; });
+
+    // S3531. A send of a cell linked to the placeholder into a sink, and then a sample of a hold of the sink. The sample gives the initial value.
+    public static Cell<int> Ab149SampleOfAHoldAfterTheSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); s.Send(l.Map(v => v)); Cell<int> x = s.Hold(Plain).Sample(); return x; });
+
+    // S3532. A local has a hold of a sink. Then a send puts a cell linked to the placeholder into the sink, and the close is a sample of the local.
+    public static Cell<int> Ab149SampleOfAHoldInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return h.Sample(); });
+
+    // S3533. A send of a cell linked to the placeholder into a cell sink, and then a sample of the cell sink.
+    public static Cell<int> Ab149SampleOfACellSinkAfterTheSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); c.Send(l.Map(v => v)); return c.Sample(); });
+
+    // S3534. A sample of a hold of a map of the updates of the placeholder to a linked cell.
+    public static Cell<int> Ab149SampleOfAHoldOfTheUpdates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return l.Updates().Map(v => l.Map(w => w + v)).Hold(Plain).Sample(); });
+
+    // S3535. A sample of an accumulation of a sink, and then a send of a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab149SampleOfAnAccumBeforeTheSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> x = s.Accum(initialState: Plain, f: static (c, r) => c).Sample(); s.Send(l.Map(v => v)); return x; });
+
+    // S3536. A local has a hold of a sink, a send of a cell linked to the placeholder comes after it, and the close is a switch of a map of the hold. A control.
+    public static Cell<int> Ab149MapOfAHoldWithTheSendAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return h.Map(c => c).SwitchC(); });
+
+    // S3537. A local has a hold of a sink, and then gets a constant of a cell linked to the placeholder. The close is a sample of the local. A control.
+    public static Cell<int> Ab149SampleOfALocalThatGetsAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); h = Cell.Constant(l.Map(v => v)); return h.Sample(); });
+
+    // S3538. A sample of a hold of a sink whose initial value is a cell linked to the placeholder. A control.
+    public static Cell<int> Ab149SampleOfAHoldWithALinkedInitialValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); return s.Hold(l.Map(v => v)).Sample(); });
+
+    // S3539. A sample of a cell sink whose initial value is a cell linked to the placeholder, after a send of a plain cell. A control.
+    public static Cell<int> Ab149SampleOfACellSinkWithALinkedInitialValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(l.Map(v => v)); c.Send(Plain); return c.Sample(); });
+
+    // S3540. A local has a switch of a hold of a sink. Then the block posts a send of a cell linked to the placeholder into the sink.
+    public static Cell<int> Ab150PostedSendAfterASwitchOfAHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> sw = s.Hold(Plain).SwitchC(); Transaction.Post(() => s.Send(l.Map(v => v))); return sw; });
+
+    // S3541. The block posts a send of a cell linked to the placeholder into a sink, and the close is a switch of a hold of the sink.
+    public static Cell<int> Ab150PostedSendBeforeASwitchOfAHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => s.Send(l.Map(v => v))); return s.Hold(Plain).SwitchC(); });
+
+    // S3542. A lambda in a local sends a cell linked to the placeholder into a sink, and the block posts the lambda. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab150PostedLambdaInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Action send = () => s.Send(l.Map(v => v)); Transaction.Post(send); return s.Hold(Plain).SwitchC(); });
+
+    // S3543. The block posts a local function that sends a cell linked to the placeholder into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab150PostedLocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(Send); return s.Hold(Plain).SwitchC(); void Send() => s.Send(l.Map(v => v)); });
+
+    // S3544. The posted function keeps a cell linked to the placeholder in a local of its own, and sends the local into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab150PostedSendOfALocalOfTheFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => { Cell<int> c = l.Map(v => v); s.Send(c); }); return s.Hold(Plain).SwitchC(); });
+
+    // S3545. The posted function calls a method that sends a cell linked to the placeholder into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab150PostedSendThroughAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => Ab146SendTo(s, l.Map(v => v))); return s.Hold(Plain).SwitchC(); });
+
+    // S3546. The block posts a send of a cell linked to the placeholder into a cell sink, and the close is a switch of the cell sink.
+    public static Cell<int> Ab150PostedSendIntoACellSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); Cell<int> sw = c.SwitchC(); Transaction.Post(() => c.Send(l.Map(v => v))); return sw; });
+
+    // S3547. The block sends a cell linked to the placeholder into a sink, and posts a send of a sample of a hold of that sink into a second sink. The close is a switch of a hold of the second sink.
+    public static Cell<int> Ab150PostedSendOfASampleOfAHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Transaction.Post(() => t.Send(h.Sample())); return t.Hold(Plain).SwitchC(); });
+
+    // S3548. The block posts a send of a cell linked to the placeholder into a sink, and the close is a sample of a hold of the sink. A control.
+    public static Cell<int> Ab150PostedSendAndASampleOfAHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => s.Send(l.Map(v => v))); return s.Hold(Plain).Sample(); });
+
+    // S3549. The block posts a send of a plain cell into a sink, and the close is a switch of a hold of the sink. A control.
+    public static Cell<int> Ab150PostedSendOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => s.Send(Plain.Map(v => v + 1))); return s.Hold(Plain).SwitchC(); });
+
+    // S3550. The block posts a function that sends nothing, and the close is a switch of a hold of a sink. A control.
+    public static Cell<int> Ab150PostThatSendsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> m = l.Map(v => v); Transaction.Post(() => Kept.Add(m)); return s.Hold(Plain).SwitchC(); });
+
+    // S3551. The block posts a send of a cell linked to the placeholder into a second sink, and the close is a switch of a hold of the first sink. A control.
+    public static Cell<int> Ab150PostedSendIntoASecondSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => t.Send(l.Map(v => v))); return s.Hold(Plain).SwitchC(); });
+
+    // S3552. The posted function samples the placeholder, which is after the close. A control.
+    public static Cell<int> Ab150PostedFunctionSamplesThePlaceholder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Transaction.Post(() => Kept.Add(l.Sample())); return S.Hold(0); });
+
+    // S3553. The block posts a send of a pending cell into a cell sink, and a transaction that runs now in the block samples the cell sink and then the cell that it gives. A control.
+    public static Cell<int> Ab150PostedSendAndASampleInATransactionOfTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); Transaction.Post(() => c.Send(l.Map(v => v))); int x = Transaction.Run(() => c.Sample()).Sample(); return S.Hold(x); });
+
+    // S3554. The second turn puts the pending cell of a local into the last element of two. No turn reads it.
+    public static Cell<int> Ab153TheSecondTurnPutsAPendingCellIntoTheLastOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3555. The second turn puts the pending cell of a local into the last of two, by an index that is not a constant.
+    public static Cell<int> Ab153TheSecondTurnPutsAPendingCellByAnIndexIntoTheLastOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[cells.Length - 1] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3556. The second turn puts the pending cell of a local into the last of two, through a second name of the array.
+    public static Cell<int> Ab153TheSecondTurnPutsAPendingCellThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = new Cell<int>[] { Plain, Plain }; Cell<int>[] other = cells; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); other[1] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3557. Control: the first turn puts the pending cell of a local into the last element of two. The second turn reads it.
+    public static Cell<int> Ab153TheFirstTurnPutsAPendingCellIntoTheLastOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int> d = l.Map(v => v); foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = d; d = Plain; } return S.Hold(0); });
+
+    // S3558. Control: the second turn puts a pending cell by an index that is not a constant into the last of three.
+    public static Cell<int> Ab153TheSecondTurnPutsAPendingCellByAnIndexIntoTheLastOfThree() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[cells.Length - 1] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3559. Control: the walk does not know the number of elements. The run has three, and the third turn reads the pending cell.
+    public static Cell<int> Ab153TheSecondTurnPutsAPendingCellIntoAnArrayOfNoKnownLength() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = Never ? [Plain, Plain] : [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[cells.Length - 1] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3560. Control: an outer loop runs the foreach over two elements again. Its second run reads the pending cell.
+    public static Cell<int> Ab153AnOuterLoopRunsTheForeachOverTwoAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain]; Cell<int> d = Plain; for (int i = 0; i < 2; i++) { foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[1] = d; d = l.Map(v => v); } } return S.Hold(0); });
+
+    // S3561. A helper reads each element of an array of two, then puts a local into the last, then gives the local a pending cell.
+    public static Cell<int> Ab153AHelperPutsALocalIntoTheLastOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab153ReadEachThenPutTheLocal([Plain, Plain], l.Map(v => v)); return S.Hold(0); });
+
+    // S3562. Control: the same helper with an array of three. The third turn reads the pending cell.
+    public static Cell<int> Ab153AHelperPutsALocalIntoTheLastOfThree() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab153ReadEachThenPutTheLocal([Plain, Plain, Plain], l.Map(v => v)); return S.Hold(0); });
+
+    // S3563. An async helper deconstructs each record of an array, and awaits a task that does not complete after the first.
+    public static Cell<int> Ab154AHelperDeconstructsEachRecordThenAwaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154ReadEachRecordThenAwait([new RecordPair(Plain, Plain), new RecordPair(l.Map(v => v), Plain)]).Wait(0); return S.Hold(0); });
+
+    // S3564. An async helper deconstructs each record whose Deconstruct the code writes, and awaits after the first.
+    public static Cell<int> Ab154AHelperDeconstructsEachWrittenRecordThenAwaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154ReadEachWrittenRecordThenAwait([new Ab154WrittenPair(Plain, Plain), new Ab154WrittenPair(l.Map(v => v), Plain)]).Wait(0); return S.Hold(0); });
+
+    // S3565. Control: the same helper over records, and the first record has the pending cell.
+    public static Cell<int> Ab154ThePendingRecordIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154ReadEachRecordThenAwait([new RecordPair(l.Map(v => v), Plain), new RecordPair(Plain, Plain)]).Wait(0); return S.Hold(0); });
+
+    // S3566. Control: the helper over records whose Deconstruct the code writes, and the first record has the pending cell.
+    public static Cell<int> Ab154ThePendingWrittenRecordIsFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154ReadEachWrittenRecordThenAwait([new Ab154WrittenPair(l.Map(v => v), Plain), new Ab154WrittenPair(Plain, Plain)]).Wait(0); return S.Hold(0); });
+
+    // S3567. Control: an async helper deconstructs each record, and awaits a complete task. The second turn reads the pending cell.
+    public static Cell<int> Ab154AnAwaitOfACompleteTaskAfterEachRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154ReadEachRecordThenAwaitComplete([new RecordPair(Plain, Plain), new RecordPair(l.Map(v => v), Plain)]).Wait(0); return S.Hold(0); });
+
+    // S3568. Control: the block deconstructs each record of an array. The second turn reads the pending cell.
+    public static Cell<int> Ab154TheBlockDeconstructsEachRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { RecordPair[] pairs = [new RecordPair(Plain, Plain), new RecordPair(l.Map(v => v), Plain)]; foreach ((Cell<int> pending, Cell<int> _) in pairs) { Kept.Add(pending.Sample()); } return S.Hold(0); });
+
+    // S3569. Control: the block deconstructs each record whose Deconstruct the code writes. The second turn reads the pending cell.
+    public static Cell<int> Ab154TheBlockDeconstructsEachWrittenRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab154WrittenPair[] pairs = [new Ab154WrittenPair(Plain, Plain), new Ab154WrittenPair(l.Map(v => v), Plain)]; foreach ((Cell<int> pending, Cell<int> _) in pairs) { Kept.Add(pending.Sample()); } return S.Hold(0); });
+
+    // S3570. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a constant cell samples the hold in its function, and the close is a switch of the map.
+    public static Cell<int> Ab155SampleOfAHoldInAFunctionOfAMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Plain.Map(v => h.Sample()).SwitchC(); });
+
+    // S3571. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. The close is a sample of the hold in a transaction of the block.
+    public static Cell<int> Ab155SampleOfAHoldInATransaction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Transaction.Run(() => h.Sample()); });
+
+    // S3572. A transaction of the block makes a hold of a sink in a local, sends a cell linked to the placeholder into the sink, and returns a sample of the hold. That sample is the close.
+    public static Cell<int> Ab155SampleInATransactionOfAHoldThatItMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); return Transaction.Run(() => { Cell<Cell<int>> g = s.Hold(Plain); s.Send(l.Map(v => v)); return g.Sample(); }); });
+
+    // S3573. A send of a cell linked to the placeholder into a cell sink, and then a sample of the cell sink in a transaction of the block.
+    public static Cell<int> Ab155SampleOfACellSinkInATransaction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(Plain); c.Send(l.Map(v => v)); return Transaction.Run(() => c.Sample()); });
+
+    // S3574. A transaction of the block samples a hold of a sink in a map of a constant cell, after a send of a cell linked to the placeholder into the sink. The close is a switch of the map.
+    public static Cell<int> Ab155SampleOfAHoldInAMapInATransaction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Transaction.Run(() => Plain.Map(v => h.Sample())).SwitchC(); });
+
+    // S3575. A local has a hold of a sink whose initial value is a cell linked to the placeholder. The close is a sample of the hold in a transaction of the block. A control.
+    public static Cell<int> Ab155SampleInATransactionOfAHoldWithALinkedInitialValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(l.Map(v => v)); return Transaction.Run(() => h.Sample()); });
+
+    // S3576. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. The close is a switch of the hold in a transaction of the block. A control.
+    public static Cell<int> Ab155SwitchOfAHoldInATransaction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Transaction.Run(() => h.SwitchC()); });
+
+    // S3577. A map of a cell that changes after the close samples a hold of a sink in its function, after a send of a cell linked to the placeholder into the sink. The close is a switch of the map, and a send after the close changes the cell. A control.
+    public static Cell<int> Ab155SampleOfAHoldInAMapOfACellThatChanges() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Hold(0).Map(_ => h.Sample()).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3578. A map of a stream samples a hold of a sink in its function, after a send of a cell linked to the placeholder into the sink. The close is a switch of a hold of the map, and the stream fires after the close. A control.
+    public static Cell<int> Ab155SampleOfAHoldInAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Map(_ => h.Sample()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3579. A snapshot samples a hold of a sink in its function, after a send of a cell linked to the placeholder into the sink. The close is a switch of a hold of the snapshot, and the stream fires after the close. A control.
+    public static Cell<int> Ab155SampleOfAHoldInASnapshot() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Snapshot(Plain, (a, b) => h.Sample()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3580. A posted function sends a sample, in a transaction, of a hold of a sink into a second sink, after a send of a cell linked to the placeholder into the first sink. The close is a switch of a hold of the second sink. A control.
+    public static Cell<int> Ab155PostedSendOfASampleInATransaction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> u = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Transaction.Post(() => u.Send(Transaction.Run(() => h.Sample()))); return u.Hold(Plain).SwitchC(); });
+
+    // S3581. A local has a constant cell. A map of the local samples a hold of a sink in its function, after a send of a cell linked to the placeholder into the sink. The close is a switch of the map.
+    public static Cell<int> Ab155SampleOfAHoldInAMapOfAConstantInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> k = Cell.Constant(1); return k.Map(_ => h.Sample()).SwitchC(); });
+
+    // S3582. A local has a constant cell, and then gets a hold of a stream that fires after the close. A map of the local samples a hold of a sink in its function, after a send of a cell linked to the placeholder into the sink. The close is a switch of the map. A control.
+    public static Cell<int> Ab155SampleOfAHoldInAMapOfALocalThatChanges() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> k = Cell.Constant(1); k = t.Hold(0); return k.Map(_ => h.Sample()).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3583. The block posts a method of an object, and the method sends a cell linked to the placeholder into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab156PostedMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(new Ab156Sender(s, l.Map(v => v)).Send); return s.Hold(Plain).SwitchC(); });
+
+    // S3584. A post in a posted function sends a cell linked to the placeholder into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab156PostInAPost() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => Transaction.Post(() => s.Send(l.Map(v => v)))); return s.Hold(Plain).SwitchC(); });
+
+    // S3585. An object in a local has a cell linked to the placeholder, and the block posts its method that sends the cell into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab156PostedMethodOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Ab156Sender sender = new(s, l.Map(v => v)); Transaction.Post(sender.Send); return s.Hold(Plain).SwitchC(); });
+
+    // S3586. A post in a posted local function sends a cell linked to the placeholder into a sink. The close is a switch of a hold of the sink.
+    public static Cell<int> Ab156PostInAPostedLocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(Later); return s.Hold(Plain).SwitchC(); void Later() => Transaction.Post(() => s.Send(l.Map(v => v))); });
+
+    // S3587. The block posts a method of an object that sends a plain cell into a sink. The close is a switch of a hold of the sink. A control.
+    public static Cell<int> Ab156PostedMethodThatSendsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Transaction.Post(new Ab156Sender(s, Plain.Map(v => v + 1)).Send); return s.Hold(Plain).SwitchC(); });
+
+    // S3588. A post in a posted function sends nothing. The close is a switch of a hold of a sink. A control.
+    public static Cell<int> Ab156PostInAPostThatSendsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<int> m = l.Map(v => v); Transaction.Post(() => Transaction.Post(() => Kept.Add(m))); return s.Hold(Plain).SwitchC(); });
+
+    // S3589. A post in a posted function sends a cell linked to the placeholder into a second sink. The close is a switch of a hold of the first sink. A control.
+    public static Cell<int> Ab156PostInAPostIntoASecondSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => Transaction.Post(() => t.Send(l.Map(v => v)))); return s.Hold(Plain).SwitchC(); });
+
+    // S3590. A local function posts itself after a send of a plain cell into a sink. The close is a switch of a hold of the sink. A control.
+    public static Cell<int> Ab156LocalFunctionThatPostsItself() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); int n = 0; Transaction.Post(Again); return s.Hold(Plain).SwitchC(); void Again() { s.Send(Plain.Map(v => v + 1)); if (++n < 3) { Transaction.Post(Again); } } });
+
+    // S3591. The body puts the pending cell into the first array through a second name, and gives the name a new array. The third turn reads the pending cell from the first array.
+    public static Cell<int> Ab157TheBodyPutsIntoTheFirstArrayThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int>[] other = cells; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); other[2] = d; d = l.Map(v => v); cells = [Plain, Plain]; } return S.Hold(0); });
+
+    // S3592. The first turn puts the pending cell into the first array through its name, and then gives the name a new array. The third turn reads the pending cell.
+    public static Cell<int> Ab157TheBodyPutsIntoTheFirstArrayThroughItsName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int> d = l.Map(v => v); foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells[2] = d; d = Plain; cells = [Plain, Plain, Plain]; } return S.Hold(0); });
+
+    // S3593. Control: the body gives the name a new array, and puts the pending cell into the new array. The loop never reads it.
+    public static Cell<int> Ab157TheBodyPutsIntoTheNewArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells = [Plain, Plain, Plain]; cells[2] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3594. Control: the body gives the name a new array, and puts the pending cell into the new array through a second name.
+    public static Cell<int> Ab157TheBodyPutsIntoTheNewArrayThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells = new Cell<int>[] { Plain, Plain, Plain }; Cell<int>[] other = cells; other[2] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3595. The body puts the pending cell into the first array through a second name, and gives the name the first array again. The third turn reads it.
+    public static Cell<int> Ab157TheBodyGivesTheNameTheFirstArrayAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, Plain, Plain]; Cell<int>[] other = cells; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); other[2] = d; d = l.Map(v => v); cells = other; } return S.Hold(0); });
+
+    // S3596. Control: a list. The body gives the name a new list, and puts the pending cell into the new list. The loop never reads it.
+    public static Cell<int> Ab157TheBodyPutsIntoANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [Plain, Plain, Plain]; Cell<int> d = Plain; foreach (Cell<int> each in cells) { Kept.Add(each.Sample()); cells = [Plain, Plain, Plain]; cells[2] = d; d = l.Map(v => v); } return S.Hold(0); });
+
+    // S3597. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local function samples the hold, and the close is a transaction of the block that gets the local function by its name.
+    public static Cell<int> Ab158LocalFunctionGivenToRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Transaction.Run(ReadIt); Cell<int> ReadIt() => h.Sample(); });
+
+    // S3598. The block sends a cell linked to the placeholder into a sink. A method of an object makes a hold of the sink and samples it. The close is a transaction of the block that gets the method by its name.
+    public static Cell<int> Ab158MethodGivenToRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); s.Send(l.Map(v => v)); return Transaction.Run(new Ab158Reader(s).Read); });
+
+    // S3599. A method of an object makes a hold of a sink, sends a cell linked to the placeholder into the sink, and samples the hold. The close is a transaction of the block that gets the method by its name.
+    public static Cell<int> Ab158MethodThatSendsGivenToRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); return Transaction.Run(new Ab158SendingReader(s, l.Map(v => v)).Read); });
+
+    // S3600. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local function samples the hold, and the close is a call of the local function in the block.
+    public static Cell<int> Ab158LocalFunctionCalledInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return ReadIt(); Cell<int> ReadIt() => h.Sample(); });
+
+    // S3601. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A lambda in a local samples the hold, and the close is a transaction of the block that gets the local.
+    public static Cell<int> Ab158LambdaInALocalGivenToRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<Cell<int>> read = () => h.Sample(); return Transaction.Run(read); });
+
+    // S3602. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local function samples the hold, and the close is a call of a method that runs the function that it gets.
+    public static Cell<int> Ab158LocalFunctionGivenToAMethodThatRunsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Ab158Now(ReadIt); Cell<int> ReadIt() => h.Sample(); });
+
+    // S3603. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local function samples the hold. The close is the first result of a Select of an array that gets the local function by its name.
+    public static Cell<int> Ab158LocalFunctionGivenToSelect() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return new[] { 0 }.Select(ReadAt).First(); Cell<int> ReadAt(int _) => h.Sample(); });
+
+    // S3604. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. The close is a call of a method that runs the lambda that it gets, and the lambda samples the hold.
+    public static Cell<int> Ab158LambdaGivenToAMethodThatRunsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Ab158Now(() => h.Sample()); });
+
+    // S3605. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A transaction of the block gets a local function that samples the hold. A map of a stream that fires after the close calls the local function also. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab158LocalFunctionAlsoCalledInAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Kept.Add(Transaction.Run(ReadIt)); return t.Map(_ => ReadIt()).Hold(Plain).SwitchC(); Cell<int> ReadIt() => h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3606. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a stream that fires after the close runs a transaction that gets a local function that samples the hold. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab158RunOfALocalFunctionInAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Map(_ => Transaction.Run(ReadIt)).Hold(Plain).SwitchC(); Cell<int> ReadIt() => h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3607. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local function samples the hold, and a method gets it and calls it in a map of a stream that fires after the close. The close is a switch of the result of the method. A control.
+    public static Cell<int> Ab158LocalFunctionGivenToAMethodThatRunsItLater() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Ab158Later(t, ReadIt).SwitchC(); Cell<int> ReadIt() => h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3608. A local has a hold of a sink whose initial value is a cell linked to the placeholder. A local function samples the hold, and the close is a transaction of the block that gets the local function. A control.
+    public static Cell<int> Ab158LocalFunctionGivenToRunOfAHoldWithALinkedInitialValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(l.Map(v => v)); return Transaction.Run(ReadIt); Cell<int> ReadIt() => h.Sample(); });
+
+    // S3609. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A posted function sends into a second sink the result of a transaction that gets a local function that samples the hold. The close is a switch of a hold of the second sink. A control.
+    public static Cell<int> Ab158PostedRunOfALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); StreamSink<Cell<int>> u = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => u.Send(Transaction.Run(ReadIt))); return u.Hold(Plain).SwitchC(); Cell<int> ReadIt() => h.Sample(); });
+
+    // S3610. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a stream that fires after the close gets a local function that samples the hold. The close is a switch of a hold of the map.
+    public static Cell<int> Ab159LocalFunctionGivenToAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Map(ReadAt).Hold(Plain).SwitchC(); Cell<int> ReadAt(int _) => h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3611. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A lambda in a local samples the hold, and a map of a stream that fires after the close gets the local. The close is a switch of a hold of the map.
+    public static Cell<int> Ab159LambdaInALocalGivenToAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Func<int, Cell<int>> read = _ => h.Sample(); return t.Map(read).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3612. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a stream that fires after the close gets a method of an object that samples the hold in a member. The close is a switch of a hold of the map.
+    public static Cell<int> Ab159MethodGivenToAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Map(new Ab159Reader(h).ReadAt).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3613. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a cell that changes after the close gets a local function that samples the hold. The close is a switch of the map.
+    public static Cell<int> Ab159LocalFunctionGivenToAMapOfACellThatChanges() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Hold(0).Map(ReadAt).SwitchC(); Cell<int> ReadAt(int _) => h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3614. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A lift of a cell that changes after the close gets a local function that samples the hold. The close is a switch of the lift.
+    public static Cell<int> Ab159LocalFunctionGivenToALiftOfCellsThatChange() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> k = t.Hold(0); return k.Lift(k, Both).SwitchC(); Cell<int> Both(int a, int b) => h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3615. A lift of a constant cell of a plain cell and a constant cell of a cell linked to the placeholder gets a local function that returns its second input. The close is a switch of the lift.
+    public static Cell<int> Ab159LiftGivenAFunctionThatReturnsItsSecondInput() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<Cell<int>> x = Cell.Constant(Plain); Cell<Cell<int>> y = Cell.Constant(l.Map(v => v)); return x.Lift(y, Second).SwitchC(); Cell<int> Second(Cell<int> a, Cell<int> b) => b; });
+
+    // S3616. A lift of a constant cell of a plain cell and a constant cell of a cell linked to the placeholder gets a local function that returns its first input. The close is a switch of the lift. A control.
+    public static Cell<int> Ab159LiftGivenAFunctionThatReturnsItsFirstInput() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<Cell<int>> x = Cell.Constant(Plain); Cell<Cell<int>> y = Cell.Constant(l.Map(v => v)); return x.Lift(y, First).SwitchC(); Cell<int> First(Cell<int> a, Cell<int> b) => a; });
+
+    // S3617. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a constant cell gets a local function that samples the hold. The close is a switch of the map. A control.
+    public static Cell<int> Ab159LocalFunctionGivenToAMapOfAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Cell.Constant(1).Map(ReadAt).SwitchC(); Cell<int> ReadAt(int _) => h.Sample(); });
+
+    // S3618. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a stream that fires after the close gets a local function that returns a plain cell. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab159LocalFunctionThatReturnsAPlainCellGivenToAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Map(Plainly).Hold(Plain).SwitchC(); Cell<int> Plainly(int _) => Plain; }); t.Send(1); return c; }))();
+
+    // S3619. A local has a hold of a sink that gets only a plain cell. A map of a stream that fires after the close gets a local function that samples the hold. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab159LocalFunctionThatSamplesAPlainHoldGivenToAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(Plain); return t.Map(ReadAt).Hold(Plain).SwitchC(); Cell<int> ReadAt(int _) => h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3620. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A record gets the hold in its constructor, and a method of the record samples the member. The close is a transaction of the block that gets the method by its name.
+    public static Cell<int> Ab160MethodOfARecordWithTheHoldGivenToRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Transaction.Run(new Ab160HeldReader(h).Read); });
+
+    // S3621. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local has a record that gets the hold in its constructor. The close is a transaction of the block that gets the method of the record that samples the member.
+    public static Cell<int> Ab160MethodOfARecordInALocalGivenToRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Ab160HeldReader r = new(h); return Transaction.Run(r.Read); });
+
+    // S3622. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. The close is a call in the block of the method of a new record that samples the hold in its member.
+    public static Cell<int> Ab160MethodOfARecordCalledInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return new Ab160HeldReader(h).Read(); });
+
+    // S3623. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A class keeps the hold of its primary constructor in a readonly field, and a method samples the field. The close is a transaction of the block that gets the method by its name.
+    public static Cell<int> Ab160MethodOfAReadonlyFieldGivenToRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Transaction.Run(new Ab160FieldReader(h).Read); });
+
+    // S3624. The block sends a cell linked to the placeholder into a sink, and then a record gets a hold of the sink in its constructor. The close is a transaction of the block that gets the method of the record that samples the member.
+    public static Cell<int> Ab160HoldMadeAtTheCreationOfTheRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); s.Send(l.Map(v => v)); return Transaction.Run(new Ab160HeldReader(s.Hold(Plain)).Read); });
+
+    // S3625. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. The close is the first result of a Select of an array with a lambda that samples the hold.
+    public static Cell<int> Ab160LambdaWrittenAtSelectThenFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return new[] { 0 }.Select(_ => h.Sample()).First(); });
+
+    // S3626. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. The close is the first element of a list from a Select of an array with a lambda that samples the hold.
+    public static Cell<int> Ab160LambdaWrittenAtSelectThenToList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return new[] { 0 }.Select(_ => h.Sample()).ToList()[0]; });
+
+    // S3627. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. The close is the first result of a Where of a Select of an array with a lambda that samples the hold.
+    public static Cell<int> Ab160LambdaWrittenAtSelectThenWhereThenFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return new[] { 0 }.Select(_ => h.Sample()).Where(_ => true).First(); });
+
+    // S3628. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. The close is the first element of the result of Array.ConvertAll with a lambda that samples the hold.
+    public static Cell<int> Ab160LambdaWrittenAtArrayConvertAll() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return Array.ConvertAll(new[] { 0 }, _ => h.Sample())[0]; });
+
+    // S3629. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A ForEach of a list puts a sample of the hold into a local, and the local is the close.
+    public static Cell<int> Ab160LambdaWrittenAtListForEach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new List<int> { 0 }.ForEach(_ => got = h.Sample()); return got; });
+
+    // S3630. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. The predicate of a First of an array puts a sample of the hold into a local, and the local is the close.
+    public static Cell<int> Ab160LambdaWrittenAtFirstWithAPredicate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; new[] { 0 }.First(_ => { got = h.Sample(); return true; }); return got; });
+
+    // S3631. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local has a Select of an array with a lambda that samples the hold. The close is the first result of the local.
+    public static Cell<int> Ab160QueryInALocalThenFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); IEnumerable<Cell<int>> q = new[] { 0 }.Select(_ => h.Sample()); return q.First(); });
+
+    // S3632. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A foreach of a Select of an array with a lambda that samples the hold puts each result into a local, and the local is the close.
+    public static Cell<int> Ab160QueryEnumeratedByAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<int> got = Plain; foreach (Cell<int> each in new[] { 0 }.Select(_ => h.Sample())) { got = each; } return got; });
+
+    // S3633. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local has a Select of an array with a lambda that samples the hold. A map of a stream that fires after the close enumerates the local. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab160QueryEnumeratedInAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); IEnumerable<Cell<int>> q = new[] { 0 }.Select(_ => h.Sample()); return t.Map(_ => q.First()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3634. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local has a Select of an array that gets a local function that samples the hold. A map of a stream that fires after the close enumerates the local. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab160QueryOfALocalFunctionEnumeratedInAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); IEnumerable<Cell<int>> q = new[] { 0 }.Select(ReadAt); return t.Map(_ => q.First()).Hold(Plain).SwitchC(); Cell<int> ReadAt(int _) => h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3635. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local has a Select of an array with a lambda that samples the hold. The block enumerates the local, and a map of a stream that fires after the close enumerates it also. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab160QueryEnumeratedInTheBlockAndInAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); IEnumerable<Cell<int>> q = new[] { 0 }.Select(_ => h.Sample()); Kept.Add(q.First()); return t.Map(_ => q.First()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3636. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A map of a stream that fires after the close returns the first result of a Select of an array with a lambda that samples the hold. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab160SelectInAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); return t.Map(_ => new[] { 0 }.Select(__ => h.Sample()).First()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3637. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A posted function sends into a second sink the first result of a Select of an array with a lambda that samples the hold. The close is a switch of a hold of the second sink. A control.
+    public static Cell<int> Ab160PostedSelect() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); StreamSink<Cell<int>> u = Stream.CreateSink<Cell<int>>(); Transaction.Post(() => u.Send(new[] { 0 }.Select(_ => h.Sample()).First())); return u.Hold(Plain).SwitchC(); });
+
+    // S3638. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. CancellationToken.Register keeps a lambda that puts a sample of the hold into a local. A map of a stream that fires after the close cancels the token and returns the local. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab160LambdaGivenToRegister() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); CancellationTokenSource cts = new(); Cell<int> got = Plain; cts.Token.Register(() => got = h.Sample()); return t.Map(_ => { cts.Cancel(); return got; }).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3639. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. CancellationToken.Register keeps a local function that puts a sample of the hold into a local. A map of a stream that fires after the close cancels the token and returns the local. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab160LocalFunctionGivenToRegister() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); CancellationTokenSource cts = new(); Cell<int> got = Plain; cts.Token.Register(Store); return t.Map(_ => { cts.Cancel(); return got; }).Hold(Plain).SwitchC(); void Store() => got = h.Sample(); }); t.Send(1); return c; }))();
+
+    // S3640. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A second local has a hold of the sink whose initial value is a linked cell. An object gets the first hold in its constructor, and then gets the second hold in a settable property. The close is a transaction of the block that gets the method that samples the property. A control.
+    public static Cell<int> Ab160MemberSetAfterTheCreation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<Cell<int>> g = s.Hold(l.Map(v => v)); Ab160SettableReader r = new(h); r.Held = g; return Transaction.Run(r.Read); });
+
+    // S3641. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A second local has a hold of the sink whose initial value is a linked cell. A record gets the first hold in its constructor, and the second hold in the initializer of the creation. The close is a transaction of the block that gets the method of the record that samples the member. A control.
+    public static Cell<int> Ab160MemberSetInTheInitializerOfTheCreation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<Cell<int>> g = s.Hold(l.Map(v => v)); return Transaction.Run(new Ab160HeldReader(h) { Held = g }.Read); });
+
+    // S3642. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A second local has a hold of the sink whose initial value is a linked cell. A local has a record with the first hold, and gets a record with the second hold in a branch. The close is a transaction of the block that gets the method of the local that samples the member. A control.
+    public static Cell<int> Ab160RecordInALocalWrittenInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<Cell<int>> g = s.Hold(l.Map(v => v)); Ab160HeldReader r = new(h); if (Plain.Sample() == 3) { r = new(g); } return Transaction.Run(r.Read); });
+
+    // S3643. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A second local has a hold of the sink whose initial value is a linked cell. A local has a record with the first hold, and then gets a record with the second hold. The close is a transaction of the block that gets the method of the local that samples the member. A control.
+    public static Cell<int> Ab160RecordInALocalThatGetsTheOtherRecordLast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<Cell<int>> g = s.Hold(l.Map(v => v)); Ab160HeldReader r = new(h); r = new(g); return Transaction.Run(r.Read); });
+
+    // S3644. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A second local has a hold of the sink whose initial value is a linked cell. A local has a record with the first hold. The close is a transaction of the block that gets the method of a copy of the record with the second hold. A control.
+    public static Cell<int> Ab160CopyOfTheRecordWithTheOtherHold() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Cell<Cell<int>> g = s.Hold(l.Map(v => v)); Ab160HeldReader r = new(h); return Transaction.Run((r with { Held = g }).Read); });
+
+    // S3645. A local has a hold of a sink whose initial value is a cell linked to the placeholder. A record gets the hold in its constructor. The close is a transaction of the block that gets the method of the record that samples the member. A control.
+    public static Cell<int> Ab160MethodOfARecordWithAHoldWithALinkedInitialValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> g = s.Hold(l.Map(v => v)); return Transaction.Run(new Ab160HeldReader(g).Read); });
+
+    // S3646. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local has a record with the hold. A map of a stream that fires after the close runs a transaction that gets the method of the record that samples the member. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab160RunOfTheMethodOfARecordInAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Ab160HeldReader r = new(h); return t.Map(_ => Transaction.Run(r.Read)).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3647. A local has a hold of a sink, and a send of a cell linked to the placeholder comes after it. A local has a record with the hold. A map of a stream that fires after the close calls the method of the record that samples the member. The close is a switch of a hold of the map. A control.
+    public static Cell<int> Ab160CallOfTheMethodOfARecordInAMapOfAStream() =>
+        ((Func<Cell<int>>)(() => { StreamSink<int> t = Stream.CreateSink<int>(); Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); Ab160HeldReader r = new(h); return t.Map(_ => r.Read()).Hold(Plain).SwitchC(); }); t.Send(1); return c; }))();
+
+    // S3648. A list has an object from its literal and the objects of a loop, and a foreach gives each object a plain cell.
+    public static Cell<int> Ab151ALiteralObjectAndObjectsOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3649. An Add before a loop puts an object into the list, and a foreach gives each object a plain cell.
+    public static Cell<int> Ab151AnAddBeforeTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; list.Add(new SettableSlot { Share = l.Map(v => v) }); for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3650. An Add after a loop and before the foreach puts an object into the list, and the block reads that object.
+    public static Cell<int> Ab151AnAddAfterTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Add(new SettableSlot { Share = l.Map(v => v) }); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[2].Share!.Sample()); });
+
+    // S3651. The literal has the object of a local, and the block reads that object through the local after the foreach.
+    public static Cell<int> Ab151ALocalInTheLiteral() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3652. Control: an Add under a condition that is false keeps an object out of the list, and the block reads it.
+    public static Cell<int> Ab151AnAddUnderAConditionMissesAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = []; if (Kept.Count < 0) { list.Add(one); } for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3653. Control: an Add after the foreach puts an object into the list, and the block reads that object.
+    public static Cell<int> Ab151AnAddAfterTheForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = []; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } list.Add(one); return S.Hold(one.Share!.Sample()); });
+
+    // S3654. Control: a method takes the object of the literal out of the list before the foreach, and the block reads it.
+    public static Cell<int> Ab151AMethodTakesTheLiteralObjectOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } Ab151TakeTheFirst(list); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3655. Control: a Remove takes the object of the literal out of the list before the foreach, and the block reads it.
+    public static Cell<int> Ab151ARemoveTakesTheLiteralObjectOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Remove(one); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3656. Control: the foreach is in a loop that runs no turn, and the block reads the object of the literal.
+    public static Cell<int> Ab151AForeachInALoopThatRunsNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } for (int k = 0; k < Kept.Count * 0; k++) { foreach (SettableSlot s in list) { s.Share = Plain; } } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3657. Control: the local of the literal gets a different object before the foreach, and the block reads it.
+    public static Cell<int> Ab151TheLocalGetsADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; one = new SettableSlot { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3658. Control: the literal has the last object of the turns of a loop, and the block reads the object of the first turn.
+    public static Cell<int> Ab151TheLiteralHasAnObjectOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; SettableSlot last = new() { Share = Plain }; for (int i = 0; i < 2; i++) { last = new SettableSlot { Share = l.Map(v => v) }; made.Add(last); } List<SettableSlot> list = [last]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3659. Control: the literal has one of two objects, and the block reads the object that is not in the list.
+    public static Cell<int> Ab151TheLiteralHasOneOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new SettableSlot { Share = l.Map(v => v) }; SettableSlot b = new SettableSlot { Share = l.Map(v => v) }; SettableSlot either = Kept.Count < 0 ? a : b; List<SettableSlot> list = [either]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(a.Share!.Sample()); });
+
+    // S3660. Control: the foreach gives a plain cell only under a condition that is false, and the block reads the object of the literal.
+    public static Cell<int> Ab151AWriteUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { if (list.Count > 3) { s.Share = Plain; } } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3661. The local of an Add before a loop has an object, and the block reads it through the local after the foreach.
+    public static Cell<int> Ab151AnAddOfALocalBeforeTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(one); for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3662. A list has objects from its literal, from an Add before a loop and after it, and from the loop.
+    public static Cell<int> Ab151ObjectsFromEachPlace() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; list.Add(new SettableSlot { Share = l.Map(v => v) }); for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Add(new SettableSlot { Share = l.Map(v => v) }); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample() + list[1].Share!.Sample() + list[4].Share!.Sample()); });
+
+    // S3663. A list with an initializer has an object, a loop adds objects, and a foreach gives each object a plain cell.
+    public static Cell<int> Ab151AnInitializerAndObjectsOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = new() { new SettableSlot { Share = l.Map(v => v) } }; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[0].Share!.Sample()); });
+
+    // S3664. Control: an Add in a branch that does not run puts no object into the list, and the block reads that object.
+    public static Cell<int> Ab151AnAddInABranchWithALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot b = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; if (Never) { list.Add(b); } for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(b.Share!.Sample()); });
+
+    // S3665. Control: the local of an Add gets a different object before the foreach, and the block reads it.
+    public static Cell<int> Ab151TheLocalOfAnAddGetsADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = []; list.Add(one); one = new SettableSlot { Share = l.Map(v => v) }; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3666. Control: a second local of the list takes the object of the literal out, and the block reads it.
+    public static Cell<int> Ab151ASecondNameTakesTheObjectOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } List<SettableSlot> other = list; other.RemoveAt(0); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3667. Control: a Clear takes each object out of the list before the foreach, and the block reads one.
+    public static Cell<int> Ab151AClearTakesTheObjectsOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.Clear(); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3668. Control: a RemoveAt takes the object of the literal out of the list before the foreach, and the block reads it.
+    public static Cell<int> Ab151ARemoveAtTakesTheObjectOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } list.RemoveAt(0); foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3669. Control: the list is in a member, a Remove takes an object out of it, and the block reads that object.
+    public static Cell<int> Ab151AListInAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; Ab151Holder h = new(); h.List.Add(one); for (int i = 0; i < 2; i++) { h.List.Add(new SettableSlot { Share = l.Map(v => v) }); } h.List.Remove(one); foreach (SettableSlot s in h.List) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3670. Control: a continue skips the write for the object of the literal, and the block reads it.
+    public static Cell<int> Ab151AContinueBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { if (s == one) { continue; } s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3671. Control: a break ends the foreach after the first object, and the block reads the object of an Add.
+    public static Cell<int> Ab151ABreakAfterTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot two = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; list.Add(two); for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; break; } return S.Hold(two.Share!.Sample()); });
+
+    // S3672. Control: the write is in a lambda that no code runs, and the block reads the object of the literal.
+    public static Cell<int> Ab151AWriteInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { Kept.Add((Action)(() => s.Share = Plain)); } return S.Hold(one.Share!.Sample()); });
+
+    // S3673. Control: a goto jumps over an Add, and the block reads the object of that Add.
+    public static Cell<int> Ab151AGotoJumpsOverTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } if (Kept.Count >= 0) { goto skip; } list.Add(one); skip: foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3674. Control: a goto jumps over an Add of a list with no loop, and the block reads the object of that Add.
+    public static Cell<int> Ab151AGotoJumpsOverTheAddWithNoLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; if (Kept.Count >= 0) { goto skip; } list.Add(one); skip: foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3675. Control: the local of the literal of a list with no loop gets a different object, and the block reads it.
+    public static Cell<int> Ab151TheLocalGetsADifferentObjectWithNoLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; one = new SettableSlot { Share = l.Map(v => v) }; foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3676. Control: a local function runs the foreach before an Add that comes earlier in the code, and the block reads the object of the Add.
+    public static Cell<int> Ab151ALocalFunctionRunsTheForeachFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } Go(); list.Add(one); return S.Hold(one.Share!.Sample()); void Go() { foreach (SettableSlot s in list) { s.Share = Plain; } } });
+
+    // S3677. Control: an Add is in a lambda that no code runs, and the block reads the object of that Add.
+    public static Cell<int> Ab151AnAddInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [new SettableSlot { Share = l.Map(v => v) }]; Action put = () => { list.Add(one); }; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } Kept.Add(put); return S.Hold(one.Share!.Sample()); });
+
+    // S3678. A list has an object of a field and the objects of a loop, and the block reads an object of the loop.
+    public static Cell<int> Ab151AnObjectOfAFieldAndObjectsOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [Ab151Slot]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(list[1].Share!.Sample()); });
+
+    // S3679. Control: the literal has the object of the last turn of a loop, and the block reads the object of the first turn.
+    public static Cell<int> Ab151TheLiteralHasTheObjectOfTheLastTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; SettableSlot? last = null; for (int i = 0; i < 2; i++) { last = new SettableSlot { Share = l.Map(v => v) }; made.Add(last); } List<SettableSlot> list = [last!]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3680. Control: the literal has an element of a list that a loop filled, and the block reads a different element.
+    public static Cell<int> Ab151TheLiteralHasAnElementOfALoopList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; for (int i = 0; i < 2; i++) { made.Add(new SettableSlot { Share = l.Map(v => v) }); } List<SettableSlot> list = [made[0]]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[1].Share!.Sample()); });
+
+    // S3681. Control: an Add before the loop puts the object of the last turn of an earlier loop into the list. The block reads the object of the first turn.
+    public static Cell<int> Ab151AnAddOfTheObjectOfTheLastTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; SettableSlot? last = null; for (int i = 0; i < 2; i++) { last = new SettableSlot { Share = l.Map(v => v) }; made.Add(last); } List<SettableSlot> list = []; list.Add(last!); for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(made[0].Share!.Sample()); });
+
+    // S3682. An Add under a condition adds a second object, a loop adds objects, and the block reads the object of the literal.
+    public static Cell<int> Ab151AnAddUnderAConditionAndALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; if (Kept.Count < 0) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } return S.Hold(one.Share!.Sample()); });
+
+    // S3683. The foreach is in a function that Transaction.Run runs, and the block reads the object of the literal.
+    public static Cell<int> Ab151TheForeachInTransactionRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } Kept.Add(Transaction.Run(() => { foreach (SettableSlot s in list) { s.Share = Plain; } return 0; })); return S.Hold(one.Share!.Sample()); });
+
+    // S3684. A goto back to a label after the foreach does not run the foreach again, and the block reads the object of the literal.
+    public static Cell<int> Ab151ALabelAfterTheForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot one = new SettableSlot { Share = l.Map(v => v) }; List<SettableSlot> list = [one]; for (int i = 0; i < 2; i++) { list.Add(new SettableSlot { Share = l.Map(v => v) }); } foreach (SettableSlot s in list) { s.Share = Plain; } int k = 0; again: k++; if (k < 2) { goto again; } return S.Hold(one.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -15197,6 +19391,2579 @@ public static class Shapes
         public static bool operator !(Ag62Flag flag) => flag.Share == null;
     }
 
+    private static (SettableSlot First, SettableSlot Second) Ab81TwoOf(SettableSlot slot) => (slot, slot);
+
+    private static readonly SettableSlot[] Ab82Unseen = [new()];
+
+    private static void Ab82New(ref SettableSlot slot) => slot = new SettableSlot();
+
+    private static void Ab82Give(ref SettableSlot slot, SettableSlot given) => slot = given;
+
+    private static void Ag63CountAll(SettableSlot?[] all) => Kept.Add(all.Length);
+
+    public sealed class Ag63EqualSlot
+    {
+        public Cell<int>? Share { get; set; }
+
+        public override bool Equals(object? obj) => obj is Ag63EqualSlot;
+
+        public override int GetHashCode() => 0;
+    }
+
+    public class Ag63EqualBase
+    {
+        public override bool Equals(object? obj) => obj is Ag63EqualBase;
+
+        public override int GetHashCode() => 0;
+    }
+
+    public sealed class Ag63DerivedSlot : Ag63EqualBase
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ag63EquatableSlot : IEquatable<Ag63EquatableSlot>
+    {
+        public Cell<int>? Share { get; set; }
+
+        public bool Equals(Ag63EquatableSlot? other) => other != null;
+    }
+
+    public class Ag63OpenSlot
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ag63OpenEqualSlot : Ag63OpenSlot
+    {
+        public override bool Equals(object? obj) => obj is Ag63OpenSlot;
+
+        public override int GetHashCode() => 0;
+    }
+
+    private static readonly IAg59Keeper Ag61InAField = new Ag59Keeper();
+
+    private static readonly Func<IAg59Keeper> Ag61Maker = static () => new Ag59Keeper();
+
+    private static IAg59Keeper Ag61InAProperty { get; } = new Ag59Keeper();
+
+    private static readonly Ag61Owner Ag61TheOwner = new();
+
+    private static readonly Ag61SecondOwner Ag61TheSecondOwner = new();
+
+    private static IAg59Keeper Ag61Open = new Ag61Harmless();
+
+    private static IAg59Keeper Ag61OpenProperty { get; set; } = new Ag61Harmless();
+
+    private static readonly Func<Cell<int>, int> Ag61Sampler = static cell => cell.Sample();
+
+    private static readonly Func<Cell<int>, Cell<int>> Ag61Same = static cell => cell;
+
+    private static Func<Cell<int>, int> Ag61OpenSampler = static _ => 0;
+
+    private static readonly bool Ag61Opened = Ag61OpenEach();
+
+    private static bool Ag61OpenEach()
+    {
+        Ag61Open = new Ag59Keeper();
+        Ag61OpenProperty = new Ag59Keeper();
+        Ag61OpenSampler = static cell => cell.Sample();
+
+        return Ag61Opened;
+    }
+
+    private static readonly Func<Cell<int>, Cell<int>> Ag61Group = Ag61GiveBack;
+
+    private static Cell<int> Ag61GiveBack(Cell<int> cell) => cell;
+
+    private sealed class Ag61Harmless : IAg59Keeper
+    {
+        private List<SettableSlot> kept = [];
+
+        public void Keep(List<SettableSlot> all) => this.kept = all;
+
+        public void Put(SettableSlot first) => Kept.Add(this.kept.Count);
+    }
+
+    private sealed class Ag61Owner
+    {
+        public readonly IAg59Keeper Keeper = new Ag59Keeper();
+
+        public readonly Action<SettableSlot> MakePlain = static slot => slot.Share = Plain;
+    }
+
+    private sealed class Ag61SecondOwner
+    {
+        public readonly IAg59Keeper Keeper = new Ag61Harmless();
+
+        public Ag61SecondOwner() => this.Keeper = new Ag59Keeper();
+    }
+
+    private static class Ag61Holder
+    {
+        public static readonly IAg59Keeper Kept = new Ag61Harmless();
+
+        static Ag61Holder() => Kept = new Ag59Keeper();
+    }
+
+    private static readonly SettableSlot[] Ab78Unseen = [new(), new()];
+
+    private static readonly SlotValue[] Ab78Values = [default];
+
+    private static void Ab78ThroughASecondName(SettableSlot slot, Cell<int> first, Cell<int> second)
+    {
+        slot.Share = first;
+        SettableSlot other = slot;
+        other.Share = second;
+    }
+
+    private static void Ab78Other(out SettableSlot slot) => slot = Ab78Unseen[1];
+
+    private static void Ab78Pending(out SettableSlot slot, Cell<int> cell) => slot = new SettableSlot { Share = cell };
+
+    private static readonly SettableSlot[] Ab79Unseen = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenTwo = [new(), new()];
+
+    private static readonly SettableSlot[] Ab79UnseenThird = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenForARead = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenFourth = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenFifth = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenSixth = [new()];
+
+    private static readonly Ab79Holder[] Ab79Holders = [new(), new(), new()];
+
+    public sealed class Ab79Holder
+    {
+        public SettableSlot Item = new();
+    }
+
+    private static void Ab79AssignThenPutThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        slot = new SettableSlot();
+        all[0] = other;
+        slot.Share = cell;
+    }
+
+    private static void Ab79OutThenPutThenGive(out SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        slot = new SettableSlot();
+        all[0] = other;
+        slot.Share = cell;
+    }
+
+    private static void Ab79PutSecondThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        all[1] = other;
+        slot.Share = cell;
+    }
+
+    private static void Ab79PutSomewhereThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        all[Kept.Count - Kept.Count] = other;
+        slot.Share = cell;
+    }
+
+    private static void Ab79PutInAFieldThenGive(ref SettableSlot slot, Ab79Holder holder, SettableSlot other, Cell<int> cell)
+    {
+        holder.Item = other;
+        slot.Share = cell;
+    }
+
+    private static void Ab79PutThenAssignThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        all[0] = other;
+        slot = new SettableSlot();
+        slot.Share = cell;
+    }
+
+    private static readonly SettableSlot[] Ab79UnseenNinth = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenTenth = [new()];
+
+    private static IAg59Keeper Ag61WithAGetter { get => Never ? field : Ag61Open; } = new Ag61Harmless();
+
+    private static readonly Ag61Owner[] Ag61Owners = [new()];
+
+    private sealed class Ag61Reader
+    {
+        public static readonly IAg59Keeper Kept = new Ag59Keeper();
+
+        public Ag61Reader() => Shapes.Kept.Add(Kept);
+    }
+
+    private static readonly SettableSlot[] Ab78UnseenSecond = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenEleventh = [new()];
+
+    private static void Ab79PutInAPropertyThenGive(ref SettableSlot slot, SlotHolder holder, SettableSlot other, Cell<int> cell)
+    {
+        holder.Item = other;
+        slot.Share = cell;
+    }
+
+    private static readonly SettableSlot[] Ab79UnseenPair = [new(), new()];
+
+    private static void Ab79PutLastThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        all[all.Length - 1] = other;
+        slot.Share = cell;
+    }
+
+    private static readonly TaskCompletionSource R2NeverDone = new();
+
+    private static async Task R2ReadAfterAWait(Cell<int> c)
+    {
+        await R2NeverDone.Task;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task R2ReadBeforeAWait(Cell<int> c)
+    {
+        Kept.Add(c.Sample());
+        await R2NeverDone.Task;
+    }
+
+    private static async IAsyncEnumerable<int> R2AsyncReads(Cell<int> c)
+    {
+        yield return c.Sample();
+        await Task.Yield();
+    }
+
+    public sealed class R2Gauge(Cell<int> share)
+    {
+        public int Now => share.Sample();
+    }
+
+    public sealed record R2Shown(Cell<int> Share)
+    {
+        public int Now => this.Share.Sample();
+    }
+
+    public sealed record R2Copied(Cell<int> Share)
+    {
+        private R2Copied(R2Copied other)
+        {
+            this.Share = other.Share;
+            Kept.Add(other.Share.Sample());
+        }
+    }
+
+    public sealed class R2Flag(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+
+        public static implicit operator bool(R2Flag f) => f.Share.Sample() > 0;
+    }
+
+    public sealed class R2Counted(Cell<int> share)
+    {
+        public int Count => share.Sample();
+
+        public int this[int index] => index;
+    }
+
+    public sealed class R2Sliced(Cell<int> share)
+    {
+        public int Count => 1;
+
+        public int this[int index] => share.Sample() + index;
+
+        public R2Sliced Slice(int start, int length)
+        {
+            Kept.Add(share.Sample() + start + length);
+
+            return this;
+        }
+    }
+
+    public sealed class R2Steps(Cell<int> share)
+    {
+        public R2Stepper GetEnumerator() => new(share);
+    }
+
+    public sealed class R2Stepper(Cell<int> share) : IDisposable
+    {
+        public int Current => 0;
+
+        public bool MoveNext() => false;
+
+        public void Dispose() => Kept.Add(share.Sample());
+    }
+
+    public sealed class R2Pile : IEnumerable<Cell<int>>
+    {
+        private readonly List<Cell<int>> all = [];
+
+        public void Add(Cell<int> c)
+        {
+            Kept.Add(c.Sample());
+            this.all.Add(c);
+        }
+
+        public IEnumerator<Cell<int>> GetEnumerator() => this.all.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    [System.Runtime.CompilerServices.CollectionBuilder(typeof(R2PackBuilder), nameof(R2PackBuilder.Create))]
+    public sealed class R2Pack(Cell<int>[] items) : IEnumerable<Cell<int>>
+    {
+        private readonly Cell<int>[] items = items;
+
+        public IEnumerator<Cell<int>> GetEnumerator() => ((IEnumerable<Cell<int>>)this.items).GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public static class R2PackBuilder
+    {
+        public static R2Pack Create(ReadOnlySpan<Cell<int>> items)
+        {
+            Kept.Add(items[0].Sample());
+
+            return new R2Pack(items.ToArray());
+        }
+    }
+
+    public sealed class R2Rack
+    {
+        public TallyHolder Holder { get; } = new();
+    }
+
+    public static event Action? R2Rang;
+
+    public sealed class R2Same(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+
+        public static bool operator ==(R2Same a, R2Same b) => a.Share.Sample() == b.Share.Sample();
+
+        public static bool operator !=(R2Same a, R2Same b) => !(a == b);
+
+        public override bool Equals(object? obj) => ReferenceEquals(this, obj);
+
+        public override int GetHashCode() => 0;
+    }
+
+    private static ref Cell<int> R2SlotOf(Cell<int>[] all) => ref all[0];
+
+    public sealed class R2FieldRow
+    {
+        public Cell<int>? Share
+        {
+            get => field;
+            set => field = value;
+        }
+    }
+
+    extension(Cell<int> c)
+    {
+        public int R2ReadNow() => c.Sample();
+    }
+
+    public interface IR2Reads
+    {
+        static abstract int ReadOf(Cell<int> c);
+    }
+
+    public sealed class R2Reads : IR2Reads
+    {
+        public static int ReadOf(Cell<int> c) => c.Sample();
+    }
+
+    private static int R2ReadThrough<T>(Cell<int> c) where T : IR2Reads => T.ReadOf(c);
+
+    private static readonly SodaFlow.Bindable.ObjectModel.IBindableFactory R2ApiFactory =
+        new SodaFlow.Bindable.ObjectModel.BindableFactory(SodaFlow.Bindable.ObjectModel.BindingScheduler.Immediate);
+
+    private static IAg59Keeper Ag61Deep1() => Ag61Deep2();
+
+    private static IAg59Keeper Ag61Deep2() => Ag61Deep3();
+
+    private static IAg59Keeper Ag61Deep3() => Ag61Deep4();
+
+    private static IAg59Keeper Ag61Deep4() => Ag61Deep5();
+
+    private static IAg59Keeper Ag61Deep5() => new Ag59Keeper();
+
+    private static readonly SettableSlot[] Ab79UnseenSeventh = [new()];
+
+    private static readonly SettableSlot[] Ab79UnseenEighth = [new()];
+
+    private static void Ab79Put(SettableSlot[] all, SettableSlot other) => all[0] = other;
+
+    private static void Ab79PutThroughAMethodThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        Ab79Put(all, other);
+        slot.Share = cell;
+    }
+
+    private static readonly ISlotLine Ab80Line = NewSlotLine();
+
+    private static async Task Ab87ReadAfterADoneTask(Cell<int> c)
+    {
+        await Task.CompletedTask;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ab87ReadAfterFromResult(Cell<int> c)
+    {
+        int n = await Task.FromResult(1);
+        Kept.Add(c.Sample() + n);
+    }
+
+    private static async Task Ab87ReadAfterAValueTask(Cell<int> c)
+    {
+        int n = await new ValueTask<int>(1);
+        Kept.Add(c.Sample() + n);
+    }
+
+    private static async Task Ab87ReadAfterABranch(Cell<int> c)
+    {
+        if (Kept.Count < 0)
+        {
+            await R2NeverDone.Task;
+        }
+
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ab87ReadInTheBranch(Cell<int> c)
+    {
+        if (Kept.Count >= 0)
+        {
+            await R2NeverDone.Task;
+            Kept.Add(c.Sample());
+        }
+    }
+
+    private static async Task Ab87ReadAfterAUsing(Cell<int> c)
+    {
+        using (new MemoryStream())
+        {
+            await R2NeverDone.Task;
+        }
+
+        Kept.Add(c.Sample());
+    }
+
+    public sealed class Ab89Keeps : IR2Reads
+    {
+        public static int ReadOf(Cell<int> c) => 0;
+    }
+
+    public interface IAb89SelfReads<TSelf>
+        where TSelf : IAb89SelfReads<TSelf>
+    {
+        static abstract int ReadOf(Cell<int> c);
+    }
+
+    public sealed class Ab89SelfReads : IAb89SelfReads<Ab89SelfReads>
+    {
+        public static int ReadOf(Cell<int> c) => c.Sample();
+    }
+
+    private static int Ab89ReadThroughSelf<T>(Cell<int> c) where T : IAb89SelfReads<T> => T.ReadOf(c);
+
+    public interface IAb89VirtualReads
+    {
+        static virtual int ReadOf(Cell<int> c) => c.Sample();
+    }
+
+    public sealed class Ab89UsesTheDefault : IAb89VirtualReads;
+
+    private static int Ab89ReadThroughVirtual<T>(Cell<int> c) where T : IAb89VirtualReads => T.ReadOf(c);
+
+    public sealed class Ab95Bell
+    {
+        public event Action? Rang;
+
+        public void Ring() => this.Rang?.Invoke();
+    }
+
+    private static ref Cell<int> Ab96Same(ref Cell<int> c) => ref c;
+
+    public sealed class Ab97HalfRow
+    {
+        public Cell<int>? Share { get; set => field = value; }
+    }
+
+    extension(Cell<int> c)
+    {
+        public Cell<int> Ab98Same() => c;
+
+        public int Ab98ReadOther(Cell<int> other) => other.Sample();
+
+        public int Ab98Now => c.Sample();
+    }
+
+    private static SettableSlot Ag64Same(SettableSlot slot) => slot;
+
+    private static void Ag65GiveOut(out SettableSlot slot, SettableSlot given) => slot = given;
+
+    private static void Ag65GiveIf(ref SettableSlot slot, SettableSlot given, bool when)
+    {
+        if (when)
+        {
+            slot = given;
+        }
+    }
+
+    private static void Ag65GiveThenPut(ref SettableSlot slot, SettableSlot[] all, SettableSlot given, SettableSlot other)
+    {
+        slot = given;
+        all[0] = other;
+    }
+
+    private static void Ag65GiveThenPutThroughASecond(
+        ref SettableSlot slot,
+        SettableSlot[] all,
+        SettableSlot given,
+        SettableSlot other)
+    {
+        slot = given;
+        Ag65Put(all, other);
+    }
+
+    private static void Ag65Put(SettableSlot[] all, SettableSlot other) => all[0] = other;
+
+    private static void Ag65GiveBoth(ref SettableSlot first, ref SettableSlot second, SettableSlot x, SettableSlot z)
+    {
+        second = z;
+        first = x;
+    }
+
+    public sealed class Ab93PileRack
+    {
+        public R2Pile Pile { get; } = new();
+    }
+
+    public sealed class Ab93DeepRack
+    {
+        public R2Rack Rack { get; } = new();
+    }
+
+    private static readonly SettableSlot[] Ab83Unseen = [new(), new()];
+
+    private static SettableSlot Ab83Field = Ab83Unseen[1];
+
+    public delegate void Ab84Maker(out SettableSlot slot);
+
+    private static readonly SettableSlot[] Ab85UnseenFirst = [new()];
+
+    private static readonly SettableSlot[] Ab85UnseenSecond = [new(), new()];
+
+    private static readonly SettableSlot[] Ab85UnseenThird = [new()];
+
+    private static readonly Ab79Holder[] Ab85Holders = [new()];
+
+    private static void Ab85PutTwoDown(SettableSlot[] all, SettableSlot other) => Ab79Put(all, other);
+
+    private static void Ab85PutThroughTwoMethodsThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        Ab85PutTwoDown(all, other);
+        slot.Share = cell;
+    }
+
+    private static void Ab85PutSecond(SettableSlot[] all, SettableSlot other) => all[1] = other;
+
+    private static void Ab85PutSecondThroughAMethodThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        Ab85PutSecond(all, other);
+        slot.Share = cell;
+    }
+
+    private static void Ab85PutIntoACopy(SettableSlot[] all, SettableSlot other)
+    {
+        SettableSlot[] copy = [.. all];
+        copy[0] = other;
+    }
+
+    private static void Ab85PutIntoACopyThroughAMethodThenGive(ref SettableSlot slot, SettableSlot[] all, SettableSlot other, Cell<int> cell)
+    {
+        Ab85PutIntoACopy(all, other);
+        slot.Share = cell;
+    }
+
+    private static void Ab85PutInTheField(Ab79Holder holder, SettableSlot other) => holder.Item = other;
+
+    private static void Ab85PutInAFieldThroughAMethodThenGive(ref SettableSlot slot, Ab79Holder holder, SettableSlot other, Cell<int> cell)
+    {
+        Ab85PutInTheField(holder, other);
+        slot.Share = cell;
+    }
+
+    private static readonly ISlotLine Ab86Line = NewSlotLine();
+
+    private static ref SettableSlot Ag71FirstOf(SettableSlot[] all) => ref all[0];
+
+    private static void Ag71AssignThenPutThenGive(ref SettableSlot slot, Ag71Grid grid, SettableSlot other, Cell<int> cell)
+    {
+        slot = new SettableSlot();
+        grid[0, 0] = other;
+        slot.Share = cell;
+    }
+
+    // The indexer with two indexes gives a ref to an element of an array with one dimension.
+    public sealed class Ag71Grid(SettableSlot[] all)
+    {
+        public ref SettableSlot this[int row, int column] => ref all[row + column];
+    }
+
+    // Two classes with one base class. The one class does not derive from the other.
+    public abstract class Ag71Base
+    {
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ag71First : Ag71Base;
+
+    public sealed class Ag71Second : Ag71Base;
+
+    public sealed class Ag71RankedAndDisposable(Cell<int> share) : IComparable<Ag71RankedAndDisposable>, IDisposable
+    {
+        public int CompareTo(Ag71RankedAndDisposable? other) => 0;
+
+        public void Dispose() => Kept.Add(share.Sample());
+    }
+
+    private static SettableSlot Ab109NewSlot(Cell<int> share) => new() { Share = share };
+
+    private static SettableSlot Ab109NewEmptySlot() => new();
+
+    private static SettableSlot Ab109NewSlotThroughAHelper(Cell<int> share) => Ab109NewSlot(share);
+
+    private static SettableSlot Ab109RunMakes(Cell<int> share) => Transaction.Run(() => Ab109NewSlot(share));
+
+    private static readonly SettableSlot Ab109Kept = new();
+
+    private static class Ab109Twice
+    {
+        public static List<SettableSlot> Run(Func<SettableSlot> make) => [make(), make()];
+    }
+
+    private static readonly ISlotLine Ab110Line = NewSlotLine();
+
+    private static readonly ISlotLine Ab110SequenceLine = NewSlotLine();
+
+    private static readonly ISlotBag Ab110Bag = NoBody.Bag<SettableSlot>();
+
+    private static readonly ISlotLine Ab110PairLine = NewSlotLine();
+
+    private static readonly ILine<List<SettableSlot>> Ab110ListLine = NoBody.Line<List<SettableSlot>>();
+
+    private static readonly ISlotLine Ab110PendingLine = NewSlotLine();
+
+    private static readonly ISlotLine Ab110AgainLine = NewSlotLine();
+
+    private static readonly ISlotLine Ab110TwoLine = NewSlotLine();
+
+    private static readonly ISlotLine Ab110BranchLine = NewSlotLine();
+
+    private static readonly ILine<SlotValue> Ab110ValueLine = NoBody.Line<SlotValue>();
+
+    private static readonly ISlotLine Ab110SecondLine = NewSlotLine();
+
+    private static readonly ILine<Cell<int>> Ab110CellLine = NoBody.Line<Cell<int>>();
+
+    private static ISlotLine Ab110PlainProperty { get; } = NewSlotLine();
+
+    private static readonly ISlotLine Ab110TurnPlainLine = NewSlotLine();
+
+    private static readonly ISlotLine Ab110CalleePlainLine = NewSlotLine();
+
+    private static readonly ISlotLine[] Ab110SecondNameLines = [NewSlotLine()];
+
+    private static readonly ISlotLine[] Ab110NoLocalLines = [NewSlotLine()];
+
+    private static readonly ISlotLine Ab110ParameterLine = NewSlotLine();
+
+    private static ISlotLine Ab110Property { get; } = NewSlotLine();
+
+    private static readonly ISlotLine Ab110TurnLine = NewSlotLine();
+
+    private static readonly ISlotLine Ab110CalleeLine = NewSlotLine();
+
+    private static void Ab110PutIn(ISlotLine line, SettableSlot slot) => line.Put(slot);
+
+    private static void Ab110PutInTheField(SettableSlot slot) => Ab110CalleePlainLine.Put(slot);
+
+    private static void Ab110PutThenGive(SettableSlot slot, Cell<int> cell)
+    {
+        Ab110CalleeLine.Put(slot);
+        slot.Share = cell;
+    }
+
+    public sealed class Ab110LineHolder
+    {
+        public ISlotLine Line { get; } = NewSlotLine();
+    }
+
+    public sealed class Ag72SetterRack(Cell<int> share)
+    {
+        private SettableSlot slot = new();
+        private List<int> counts = [];
+
+        public SettableSlot Slot
+        {
+            get => this.slot;
+            set
+            {
+                Kept.Add(share.Sample());
+                this.slot = value;
+            }
+        }
+
+        public List<int> Counts
+        {
+            get => this.counts;
+            set
+            {
+                Kept.Add(share.Sample());
+                this.counts = value;
+            }
+        }
+
+        public SettableSlot Read
+        {
+            get
+            {
+                Kept.Add(share.Sample());
+
+                return this.slot;
+            }
+            set => this.slot = value;
+        }
+    }
+
+    public sealed class Ag72ValueRack
+    {
+        private SettableSlot slot = new();
+
+        public SettableSlot Slot
+        {
+            get => this.slot;
+            set
+            {
+                Kept.Add(value.Share!.Sample());
+                this.slot = value;
+            }
+        }
+    }
+
+    private static Cell<int> Ag72SharedForANew = Plain;
+
+    public sealed record Ag72NotedNew
+    {
+        public Ag72NotedNew()
+        {
+        }
+
+        private Ag72NotedNew(Ag72NotedNew other) => this.Noted = other.Noted;
+
+        public int Noted { get; init; } = Ag72SharedForANew.Sample();
+    }
+
+    public sealed record Ag72Started(Cell<int> Start)
+    {
+        private Ag72Started(Ag72Started other)
+        {
+            this.Start = other.Start;
+            this.Noted = other.Noted;
+        }
+
+        public int Noted { get; init; } = Start.Sample();
+    }
+
+    public sealed class Ag72Cut(Cell<int> share)
+    {
+        public int Count => 2;
+
+        public int this[int index] => index;
+
+        public Ag72Cut Slice(int start, int length)
+        {
+            Kept.Add(share.Sample() + start + length);
+
+            return this;
+        }
+    }
+
+    public sealed class Ag72Bare : IEnumerable<Cell<int>>
+    {
+        private readonly List<Cell<int>> all = [];
+
+        public void Put(Cell<int> c, int now)
+        {
+            Kept.Add(now);
+            this.all.Add(c);
+        }
+
+        public IEnumerator<Cell<int>> GetEnumerator() => this.all.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class Ag72Verdict(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+
+        public static implicit operator bool(Ag72Verdict v) => v.Share.Sample() > 0;
+    }
+
+    public sealed class Ag72Judged(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+
+        public static Ag72Verdict operator ==(Ag72Judged a, Ag72Judged b) => new(a.Share);
+
+        public static Ag72Verdict operator !=(Ag72Judged a, Ag72Judged b) => new(b.Share);
+
+        public override bool Equals(object? obj) => ReferenceEquals(this, obj);
+
+        public override int GetHashCode() => 0;
+    }
+
+    private static async Task Ag72Waits() => await R2NeverDone.Task;
+
+    private static async Task Ag72ReadAfterTheCompletedValueTask(Cell<int> c)
+    {
+        await ValueTask.CompletedTask;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterAHelperThatWaits(Cell<int> c)
+    {
+        await Ag72Waits();
+        Kept.Add(c.Sample());
+    }
+
+    public sealed record Ag72Step(Cell<int> Share);
+
+    private static async Task Ag72NoWait() => await Task.CompletedTask;
+
+    private static Task Ag72Done() => Task.CompletedTask;
+
+    private static ValueTask<int> Ag72Ready() => new(1);
+
+    private static async Task Ag72ReadAfterAnAsyncHelper(Cell<int> c)
+    {
+        await Ag72NoWait();
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterADoneHelper(Cell<int> c)
+    {
+        await Ag72Done();
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterWhenAllOfNothing(Cell<int> c)
+    {
+        await Task.WhenAll();
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterADefaultValueTask(Cell<int> c)
+    {
+        await default(ValueTask);
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterAReadyHelper(Cell<int> c)
+    {
+        int n = await Ag72Ready();
+        Kept.Add(c.Sample() + n);
+    }
+
+    private static async Task Ag72ReadAfterATaskInALocal(Cell<int> c)
+    {
+        Task done = Task.CompletedTask;
+        await done;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterADelayOfZero(Cell<int> c)
+    {
+        await Task.Delay(0);
+        Kept.Add(c.Sample());
+    }
+
+    private static Task Ag72Either(bool waits) => waits ? R2NeverDone.Task : Task.CompletedTask;
+
+    private static async Task Ag72ReadAfterWhenAllOfDoneTasks(Cell<int> c)
+    {
+        await Task.WhenAll(Task.CompletedTask, Task.FromResult(1));
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterWhenAllWithATaskNotDone(Cell<int> c)
+    {
+        await Task.WhenAll(Task.CompletedTask, R2NeverDone.Task);
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterAHelperThatCanWait(Cell<int> c)
+    {
+        await Ag72Either(true);
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterALocalWithASecondValue(Cell<int> c)
+    {
+        Task done = Task.CompletedTask;
+        done = R2NeverDone.Task;
+        await done;
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ag72ReadAfterAConfiguredHelper(Cell<int> c)
+    {
+        await Ag72NoWait().ConfigureAwait(false);
+        Kept.Add(c.Sample());
+    }
+
+    public sealed class Ag72OuterRack(Cell<int> share)
+    {
+        public Ag72SetterRack Inner { get; } = new(share);
+    }
+
+    public sealed class Ag72AutoRack
+    {
+        public SettableSlot Slot { get; } = new();
+    }
+
+    public sealed class Ag72Walked(Cell<int> share)
+    {
+        public IEnumerator<int> GetEnumerator()
+        {
+            Kept.Add(share.Sample());
+
+            return Enumerable.Empty<int>().GetEnumerator();
+        }
+    }
+
+    public sealed class Ag72Listed(Cell<int> share) : IEnumerable<int>
+    {
+        public IEnumerator<int> GetEnumerator() => new Ag72ListedWalk(share);
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class Ag72ListedWalk(Cell<int> share) : IEnumerator<int>
+    {
+        public int Current => 0;
+
+        object IEnumerator.Current => 0;
+
+        public bool MoveNext() => false;
+
+        public void Reset()
+        {
+        }
+
+        public void Dispose() => Kept.Add(share.Sample());
+    }
+
+    private static (R2Same Same, int Number) Ag72PairOf(R2Same same) => (same, 1);
+
+    public sealed class Ag72Ranged(Cell<int> share)
+    {
+        public int Length => 2;
+
+        public int this[Index index] => index.Value;
+
+        public Ag72Ranged this[Range range]
+        {
+            get
+            {
+                Kept.Add(share.Sample() + range.Start.Value);
+
+                return this;
+            }
+        }
+    }
+
+    private static Cell<int> Ag72SharedForAWith = Plain;
+
+    public sealed record Ag72Noted
+    {
+        public Ag72Noted()
+        {
+        }
+
+        private Ag72Noted(Ag72Noted other) => this.Noted = other.Noted;
+
+        public int Noted { get; init; } = Ag72SharedForAWith.Sample();
+    }
+
+    private static readonly SettableSlot[] DvStNames1 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames2 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames3 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames4 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames5 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames6 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames7 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames8 = [new(), new()];
+
+    private static readonly Ab76Box[] DvStBoxes9 = [new Ab76Box { Slot = new SettableSlot() }];
+
+    private static readonly SettableSlot[] DvStNames10 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames11 = [new(), new()];
+
+    private static readonly SettableSlot[] DvStNames12 = [new(), new()];
+
+    private static void DvStSwap(SettableSlot[] all) => (all[0], all[1]) = (all[1], all[0]);
+
+    private static void DvStGive(ref SettableSlot slot, SettableSlot other) => slot = other;
+
+    private static void DvStRefill(Ab76Box box) => box.Slot = new SettableSlot();
+
+    public sealed class DvStCursor
+    {
+        public SettableSlot Current = new();
+
+        public void Next() => this.Current = new SettableSlot();
+    }
+
+    private static readonly DvStCursor[] DvStCursors = [new()];
+
+    private static SettableSlot DvStCurrent = new();
+
+    private static SettableSlot DvStCurrentB = new();
+
+    private static void DvStAdvance() => DvStCurrent = new SettableSlot();
+
+    private static void DvStAdvanceB() => DvStCurrentB = new SettableSlot();
+
+    private static readonly SettableSlot[] Ab134Names1 = [new(), new()];
+
+    private static readonly SettableSlot[] Ab134Names2 = [new(), new()];
+
+    private static readonly SettableSlot[] Ab134Names3 = [new(), new()];
+
+    private static readonly SettableSlot Ab134Field = new();
+
+    private static readonly SettableSlot[] DvStDecon1 = [new()];
+
+    private static readonly SettableSlot[] DvStDecon2 = [new()];
+
+    private static readonly SettableSlot[] DvStDecon6 = [new()];
+
+    private static readonly SettableSlot[] DvStDecon7 = [new()];
+
+    private static readonly SettableSlot[] DvStDecon8 = [new()];
+
+    private static readonly SettableSlot[] Ab136Names1 = [new(), new()];
+
+    private static readonly SettableSlot[] Ab136Names2 = [new()];
+
+    private static readonly SettableSlot Ab125Kept = new();
+
+    private static SettableSlot Ab125GiveTheKept() => Ab125Kept;
+
+    private static SettableSlot Ab125Property { get; } = new();
+
+    private static SettableSlot Ab125GiveTheProperty() => Ab125Property;
+
+    private static readonly SettableSlot Ab125PlainKept = new();
+
+    private static SettableSlot Ab125GiveThePlainKept() => Ab125PlainKept;
+
+    private static SettableSlot Ab125NewSlot() => new();
+
+    private static readonly SettableSlot[] DvStRun4 = [new()];
+
+    private static readonly SettableSlot[] DvStRun5 = [new()];
+
+    private static readonly SettableSlot[] DvStHelp1 = [new()];
+
+    private static SettableSlot DvStFirstOf(SettableSlot[] all) => all[0];
+
+    private static SettableSlot Ab125Open = new();
+
+    private static SettableSlot Ab125GiveTheOpen() => Ab125Open;
+
+    private static readonly SettableSlot[] Ab125Left = [new()];
+
+    private static readonly SettableSlot[] Ab125Right = [new()];
+
+    private static readonly SettableSlot[] Ab125Pair = [new(), new()];
+
+    private static SettableSlot Ab125SecondOf(SettableSlot[] all)
+    {
+        return all[1];
+    }
+
+    private static readonly SettableSlot DvStKept2 = new();
+
+    private static void DvStSetKept1(Cell<int> cell) => DvStKept1.Share = cell;
+
+    private static int DvStReadKept1() => DvStKept1.Share!.Sample();
+
+    private static void DvStSetKept2(Cell<int> cell) => DvStKept2.Share = cell;
+
+    private static void DvStSetKept8ThroughALocal(Cell<int> cell)
+    {
+        SettableSlot kept = DvStKept8;
+        kept.Share = cell;
+    }
+
+    private static int DvStReadKept8() => DvStKept8.Share!.Sample();
+
+    private static readonly SettableSlot DvStKeptB = new();
+
+    private static int DvStReadKeptB() => DvStKeptB.Share!.Sample();
+
+    private static readonly SettableSlot DvStKeptG = new();
+
+    private static readonly SettableSlot DvStKeptH = new();
+
+    private static readonly SettableSlot DvStKeptJ = new();
+
+    private static Cell<int> DvStOther = Cell.Constant(0);
+
+    private static int DvStReadKeptGWith(Cell<int> unused) => unused == null ? 0 : DvStKeptG.Share!.Sample();
+
+    private static int DvStReadKeptJ() => DvStKeptJ.Share!.Sample();
+
+    private static readonly SettableSlot DvStKeptQ = new();
+
+    private static int DvStReadKeptQWith(Cell<int> given)
+    {
+        Kept.Add(given);
+        return DvStKeptQ.Share!.Sample();
+    }
+
+    private static readonly SettableSlot DvStKept1 = new();
+
+    private static readonly SettableSlot DvStKept8 = new();
+
+    private static readonly SettableSlot Ab135Kept = new();
+
+    private static int Ab135ReadKept() => Ab135Kept.Share!.Sample();
+
+    private static readonly SettableSlot Ab135Written = new();
+
+    private static readonly SettableSlot Ab135Other = new() { Share = Plain };
+
+    private static int Ab135ReadOther() => Ab135Other.Share!.Sample();
+
+    private static readonly IBag<Cell<Cell<int>>> DvStCellBag = NoBody.Bag<Cell<Cell<int>>>();
+
+    private static readonly ISlotLine[] Ab121Names = [NewSlotLine()];
+
+    private static readonly ISlotLine[] Ab123Lines = [NewSlotLine()];
+
+    private static readonly ISlotLine[] Ab123NoLocalPlainLines = [NewSlotLine()];
+
+    private static readonly ISlotLine Ab123ParameterPlainLine = NewSlotLine();
+
+    private static readonly Ab110LineHolder[] Ab123PlainHolders = [new()];
+
+    private static readonly ISlotLine[] Ab123NewLines = [NewSlotLine()];
+
+    private static readonly ISlotLine[] Ab123Pair = [NewSlotLine(), NewSlotLine()];
+
+    private static readonly Ab110LineHolder[] Ab122Holders = [new()];
+
+    private static readonly Ab110LineHolder[] Ab122Pair = [new(), new()];
+
+    private static readonly Ab110LineHolder[] Ab122NoLocal = [new()];
+
+    // Dive, real view-model code. The types and helpers of the view models in the DvVm shapes.
+    private static Cell<int> DvVmBuilt(object built) => Plain;
+
+    private static readonly SodaFlow.Time.ITimerSystem<double> DvVmTimers =
+        new SodaFlow.Time.TimerSystem<double>(implementation: new DvVmManualClock(), handleException: static _ => { });
+
+    public sealed class DvVmManualClock : SodaFlow.Time.ITimerSystemImplementation<double>
+    {
+        public double Now => 0.0;
+
+        public void Start(Action<Exception> handleException) { }
+
+        public void Stop() { }
+
+        public SodaFlow.Time.ITimer SetTimer(double time, Action callback) => new DvVmNoTimer();
+
+        public void RunTimersTo(double now) { }
+    }
+
+    public sealed class DvVmNoTimer : SodaFlow.Time.ITimer
+    {
+        public void Cancel() { }
+
+        public void Dispose() { }
+    }
+
+    // Dive, real view-model code, third batch.
+    public sealed class DvVmPair
+    {
+        internal DvVmPair(IDvVmAction open, IDvVmAction delete)
+        {
+            this.Open = open;
+            this.Delete = delete;
+        }
+
+        public IDvVmAction Open { get; }
+
+        public IDvVmAction Delete { get; }
+
+        public void Deconstruct(out IDvVmAction open, out IDvVmAction delete)
+        {
+            open = this.Open;
+            delete = this.Delete;
+        }
+    }
+
+    public readonly record struct DvVmCommandValues(IDvVmAction Open, IDvVmAction Delete);
+
+    public record Ab132Base(Cell<int> First);
+
+    public sealed record Ab132Derived(Cell<int> First, Cell<int> Second) : Ab132Base(First);
+
+    public sealed record Ab132Reading(Cell<int> Share, int Number)
+    {
+        private readonly Cell<int> share = Share;
+
+        public Cell<int> Share
+        {
+            get
+            {
+                Kept.Add(this.share.Sample());
+
+                return this.share;
+            }
+        }
+    }
+
+    public sealed record DvVmTodoId(int Number, string Title) : IIdentity<int>
+    {
+        public int Key => this.Number;
+    }
+
+    public sealed record DvVmTodoState(bool Done, int Priority);
+
+    private static Item<DvVmTodoId, DvVmTodoState>[] DvVmTodoSeed() =>
+    [
+        new(identity: new DvVmTodoId(Number: 1, Title: "Milk"), state: new DvVmTodoState(Done: false, Priority: 2)),
+        new(identity: new DvVmTodoId(Number: 2, Title: "Bread"), state: new DvVmTodoState(Done: true, Priority: 1))
+    ];
+
+    private static DvVmTodoEdit DvVmClearAll(OrderedKeys<int, DvVmTodoId, DvVmTodoState> keys)
+    {
+        List<int> all = [];
+
+        for (int index = 0; index < keys.Count; index++)
+        {
+            all.Add(keys[index]);
+        }
+
+        return DvVmTodoEdit.Remove([.. all]);
+    }
+
+    private static DvVmTodoOrder DvVmPinned(Maybe<int> selected) =>
+        DvVmTodoOrder.By((id, _) => selected.Match(onSome: key => key == id.Number ? 0 : 1, onNone: static () => 1))
+            .ThenByIdentity(static id => id.Title);
+
+    public interface IDvVmTodoRow : IDisposable
+    {
+        IDvVmText Title { get; }
+
+        IDvVmFlag IsSelected { get; }
+
+        IDvVmAction Toggle { get; }
+
+        IDvVmAction Select { get; }
+
+        string Describe();
+    }
+
+    public sealed class DvVmTodoRow : IDvVmTodoRow
+    {
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmTodoRow(
+            IDvVmText title,
+            IDvVmFlag isSelected,
+            IDvVmAction toggle,
+            IDvVmAction select,
+            Stream<DvVmTodoEdit> edits,
+            Stream<Maybe<int>> selects)
+        {
+            this.Title = title;
+            this.IsSelected = isSelected;
+            this.Toggle = toggle;
+            this.Select = select;
+            this.Edits = edits;
+            this.Selects = selects;
+            this.disposables = [title, isSelected, toggle, select];
+        }
+
+        public IDvVmText Title { get; }
+
+        public IDvVmFlag IsSelected { get; }
+
+        public IDvVmAction Toggle { get; }
+
+        public IDvVmAction Select { get; }
+
+        internal Stream<DvVmTodoEdit> Edits { get; }
+
+        internal Stream<Maybe<int>> Selects { get; }
+
+        public string Describe() => this.Title.Value + (this.IsSelected.Value ? " (selected)" : string.Empty);
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    private static DvVmTodoRow DvVmTodoRowOf(IDvVmFactory bindableFactory, DvVmTodos todos, Cell<Maybe<int>> selected, int key)
+    {
+        Cell<Maybe<DvVmTodoId>> identity = todos.IdentityCell(key);
+        Cell<Maybe<DvVmTodoState>> state = todos.StateCell(key);
+        StreamSink<Unit> toggle = Stream.CreateSink<Unit>();
+        StreamSink<Unit> select = Stream.CreateSink<Unit>();
+        Cell<bool> isSelected = selected.Map(current => current.Match(onSome: k => k == key, onNone: static () => false));
+
+        return new DvVmTodoRow(
+            title: bindableFactory.CreateOneWay(
+                identity.Map(static current => current.Match(onSome: static id => id.Title, onNone: static () => string.Empty))),
+            isSelected: bindableFactory.CreateOneWay(isSelected),
+            toggle: bindableFactory.CreateBindableAction(
+                firingsStreamSink: toggle,
+                isEnabledCell: state.Map(static current => current.Match(onSome: static _ => true, onNone: static () => false))),
+            select: bindableFactory.CreateBindableAction(firingsStreamSink: select, isEnabledCell: isSelected.Map(static s => !s)),
+            edits: DvVmTodoEdit.FromUpdates(
+                key: key,
+                transformsStream: toggle.MapTo(static (DvVmTodoState s) => s with { Done = !s.Done })),
+            selects: select.MapTo(Maybe.Some(key)));
+    }
+
+    // The same row, which reads the selection when it is built, for its first caption.
+    private static DvVmTodoRow DvVmTodoRowThatReads(IDvVmFactory bindableFactory, DvVmTodos todos, Cell<Maybe<int>> selected, int key)
+    {
+        bool selectedAtStart = selected.Sample().Match(onSome: k => k == key, onNone: static () => false);
+        StreamSink<Unit> toggle = Stream.CreateSink<Unit>();
+        StreamSink<Unit> select = Stream.CreateSink<Unit>();
+
+        return new DvVmTodoRow(
+            title: bindableFactory.CreateOneWay(
+                todos.IdentityCell(key).Map(current => current.Match(onSome: id => id.Title + (selectedAtStart ? "*" : ""), onNone: static () => string.Empty))),
+            isSelected: bindableFactory.CreateOneWay(selected.Map(current => current.Match(onSome: k => k == key, onNone: static () => false))),
+            toggle: bindableFactory.CreateBindableAction(toggle),
+            select: bindableFactory.CreateBindableAction(select),
+            edits: DvVmTodoEdit.FromUpdates(
+                key: key,
+                transformsStream: toggle.MapTo(static (DvVmTodoState s) => s with { Done = !s.Done })),
+            selects: select.MapTo(Maybe.Some(key)));
+    }
+
+    private static string DvVmCaptionOf(IDvVmText text) => "Selected: " + text.Value;
+
+    public static class DvVmLog
+    {
+        public static List<string> Lines { get; } = [];
+
+        public static void Write(string name, IDvVmAction action) => Lines.Add(name + (action.CanExecute(null) ? " on" : " off"));
+    }
+
+    public interface IDvVmTodoViewModel : IDisposable
+    {
+        SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<IDvVmTodoRow>> Rows { get; }
+
+        IDvVmNumber Remaining { get; }
+
+        IDvVmText SelectedText { get; }
+
+        IDvVmAction ClearAll { get; }
+
+        IDvVmAction RemoveSelected { get; }
+
+        SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<bool> ShowDone { get; }
+    }
+
+    public sealed class DvVmTodoViewModel : IDvVmTodoViewModel
+    {
+        internal readonly Stream<DvVmTodoEdit> edits;
+        internal readonly Cell<Maybe<int>> selected;
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmTodoViewModel(
+            SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<IDvVmTodoRow>> rows,
+            IDvVmNumber remaining,
+            IDvVmText selectedText,
+            IDvVmAction clearAll,
+            IDvVmAction removeSelected,
+            SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<bool> showDone,
+            Stream<DvVmTodoEdit> edits,
+            Cell<Maybe<int>> selected,
+            IDisposable projection)
+        {
+            this.Rows = rows;
+            this.Remaining = remaining;
+            this.SelectedText = selectedText;
+            this.ClearAll = clearAll;
+            this.RemoveSelected = removeSelected;
+            this.ShowDone = showDone;
+            this.edits = edits;
+            this.selected = selected;
+            this.disposables = [rows, remaining, selectedText, clearAll, removeSelected, showDone, projection];
+        }
+
+        public SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<IDvVmTodoRow>> Rows { get; }
+
+        public IDvVmNumber Remaining { get; }
+
+        public IDvVmText SelectedText { get; }
+
+        public IDvVmAction ClearAll { get; }
+
+        public IDvVmAction RemoveSelected { get; }
+
+        public SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<bool> ShowDone { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // The same view model, with a constructor that reads the caption of the selection for a log.
+    public sealed class DvVmTodoViewModelThatLogs : IDvVmTodoViewModel
+    {
+        internal readonly Stream<DvVmTodoEdit> edits;
+        internal readonly Cell<Maybe<int>> selected;
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmTodoViewModelThatLogs(
+            SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<IDvVmTodoRow>> rows,
+            IDvVmNumber remaining,
+            IDvVmText selectedText,
+            IDvVmAction clearAll,
+            IDvVmAction removeSelected,
+            SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<bool> showDone,
+            Stream<DvVmTodoEdit> edits,
+            Cell<Maybe<int>> selected,
+            IDisposable projection)
+        {
+            this.Rows = rows;
+            this.Remaining = remaining;
+            this.SelectedText = selectedText;
+            this.ClearAll = clearAll;
+            this.RemoveSelected = removeSelected;
+            this.ShowDone = showDone;
+            this.edits = edits;
+            this.selected = selected;
+            this.disposables = [rows, remaining, selectedText, clearAll, removeSelected, showDone, projection];
+            this.LogState();
+        }
+
+        public SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<IDvVmTodoRow>> Rows { get; }
+
+        public IDvVmNumber Remaining { get; }
+
+        public IDvVmText SelectedText { get; }
+
+        public IDvVmAction ClearAll { get; }
+
+        public IDvVmAction RemoveSelected { get; }
+
+        public SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<bool> ShowDone { get; }
+
+        private void LogState() => DvVmLog.Lines.Add("Remove is " + (this.RemoveSelected.CanExecute(null) ? "on" : "off"));
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // A form.
+    public sealed record DvVmForm(string Name, string Email);
+
+    public sealed record DvVmSaveResult(bool Ok);
+
+    private static ImmutableList<string> DvVmValidate(DvVmForm form) =>
+        form.Name.Length == 0 ? ImmutableList.Create("A name is necessary.") : ImmutableList<string>.Empty;
+
+    public sealed class DvVmFormViewModel : IDisposable
+    {
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmFormViewModel(
+            SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> name,
+            SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> email,
+            IDvVmText errors,
+            IDvVmAction save,
+            IDisposable status)
+        {
+            this.Name = name;
+            this.Email = email;
+            this.Errors = errors;
+            this.Save = save;
+            this.disposables = [name, email, errors, save, status];
+        }
+
+        public SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> Name { get; }
+
+        public SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> Email { get; }
+
+        public IDvVmText Errors { get; }
+
+        public IDvVmAction Save { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // An editor with undo.
+    public sealed record DvVmHistory(ImmutableStack<string> Past, string Present, ImmutableStack<string> Future)
+    {
+        public static DvVmHistory Start { get; } = new(Past: ImmutableStack<string>.Empty, Present: string.Empty, Future: ImmutableStack<string>.Empty);
+
+        public bool CanUndo => !this.Past.IsEmpty;
+
+        public bool CanRedo => !this.Future.IsEmpty;
+
+        public DvVmHistory Push(string text) => new(Past: this.Past.Push(this.Present), Present: text, Future: ImmutableStack<string>.Empty);
+
+        public DvVmHistory Undo() => new(Past: this.Past.Pop(), Present: this.Past.Peek(), Future: this.Future.Push(this.Present));
+
+        public DvVmHistory Redo() => new(Past: this.Past.Push(this.Present), Present: this.Future.Peek(), Future: this.Future.Pop());
+
+        public DvVmHistory Trimmed() => this;
+    }
+
+    public sealed class DvVmEditorViewModel : IDisposable
+    {
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmEditorViewModel(IDvVmText text, IDvVmAction undo, IDvVmAction redo, SodaFlow.Bindable.ObjectModel.IBindableAction<string> commit)
+        {
+            this.Text = text;
+            this.Undo = undo;
+            this.Redo = redo;
+            this.Commit = commit;
+            this.disposables = [text, undo, redo, commit];
+        }
+
+        public IDvVmText Text { get; }
+
+        public IDvVmAction Undo { get; }
+
+        public IDvVmAction Redo { get; }
+
+        public SodaFlow.Bindable.ObjectModel.IBindableAction<string> Commit { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // A message that hides after a time.
+    public sealed class DvVmToastViewModel(in IDvVmText message, in IDvVmFlag isVisible) : IDisposable
+    {
+        public IDvVmText Message { get; } = message;
+
+        public IDvVmFlag IsVisible { get; } = isVisible;
+
+        public void Dispose()
+        {
+            this.Message.Dispose();
+            this.IsVisible.Dispose();
+        }
+    }
+
+    // A search with a retry.
+    private static readonly IReadOnlyList<string> DvVmNoResults = [];
+
+    private static IReadOnlyList<string> DvVmFind(string query, int limit) => [query, limit.ToString(System.Globalization.CultureInfo.InvariantCulture)];
+
+    public sealed class DvVmSearchViewModel : IDisposable
+    {
+        internal readonly Stream<string> retries;
+        internal readonly Cell<int> pageSize;
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmSearchViewModel(
+            SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> query,
+            SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<string>> results,
+            IDvVmFlag isBusy,
+            IDvVmAction retry,
+            Stream<string> retries,
+            Cell<int> pageSize,
+            IDisposable status)
+        {
+            this.Query = query;
+            this.Results = results;
+            this.IsBusy = isBusy;
+            this.Retry = retry;
+            this.retries = retries;
+            this.pageSize = pageSize;
+            this.disposables = [query, results, isBusy, retry, status];
+        }
+
+        public SodaFlow.Bindable.ObjectModel.ITwoWayBindableValue<string> Query { get; }
+
+        public SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<IReadOnlyList<string>> Results { get; }
+
+        public IDvVmFlag IsBusy { get; }
+
+        public IDvVmAction Retry { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // Tabs, built in a loop of the block.
+    private static readonly string[] DvVmTabNames = ["Home", "Files", "Settings"];
+
+    public sealed class DvVmTab : IDisposable
+    {
+        private DvVmTab(IDvVmText name, IDvVmFlag isSelected, IDvVmAction select, Stream<string> selects)
+        {
+            this.Name = name;
+            this.IsSelected = isSelected;
+            this.Select = select;
+            this.Selects = selects;
+        }
+
+        public IDvVmText Name { get; }
+
+        public IDvVmFlag IsSelected { get; }
+
+        public IDvVmAction Select { get; }
+
+        internal Stream<string> Selects { get; }
+
+        public bool IsCurrent() => this.IsSelected.Value;
+
+        public static DvVmTab Create(IDvVmFactory bindableFactory, string name, Cell<string> selected)
+        {
+            StreamSink<Unit> select = Stream.CreateSink<Unit>();
+            Cell<bool> isSelected = selected.Map(current => current == name);
+
+            return new DvVmTab(
+                name: bindableFactory.CreateOneWay(Cell.Constant(name)),
+                isSelected: bindableFactory.CreateOneWay(isSelected),
+                select: bindableFactory.CreateBindableAction(firingsStreamSink: select, isEnabledCell: isSelected.Map(static s => !s)),
+                selects: select.MapTo(name));
+        }
+
+        // The same factory, which reads the selection to log the first state of the tab.
+        public static DvVmTab CreateAndLog(IDvVmFactory bindableFactory, string name, Cell<string> selected)
+        {
+            DvVmTab tab = Create(bindableFactory: bindableFactory, name: name, selected: selected);
+            DvVmLog.Lines.Add(name + (tab.IsCurrent() ? " is open" : " is closed"));
+
+            return tab;
+        }
+
+        public void Dispose()
+        {
+            this.Name.Dispose();
+            this.IsSelected.Dispose();
+            this.Select.Dispose();
+        }
+    }
+
+    public static class DvVmTabs
+    {
+        public static void OpenFirst(IReadOnlyList<DvVmTab> tabs) => tabs[0].Select.Execute(null);
+
+        public static int CountOpen(IEnumerable<DvVmTab> tabs) => tabs.Count(static tab => tab.IsSelected.Value);
+    }
+
+    public sealed class DvVmTabsViewModel : IDisposable
+    {
+        internal readonly Cell<string> selected;
+        private readonly List<IDisposable> disposables;
+
+        internal DvVmTabsViewModel(IReadOnlyList<DvVmTab> tabs, Cell<string> selected, IDvVmText title)
+        {
+            this.Tabs = tabs;
+            this.selected = selected;
+            this.Title = title;
+            this.disposables = [.. tabs, title];
+        }
+
+        public IReadOnlyList<DvVmTab> Tabs { get; }
+
+        public IDvVmText Title { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // A counter whose constructor reads what it gets.
+    public sealed class DvVmCounterViewModel : IDisposable
+    {
+        internal readonly Cell<int> countCell;
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmCounterViewModel(IDvVmNumber count, IDvVmText countText, IDvVmAction increment, IDvVmAction reset, Cell<int> countCell)
+        {
+            this.Count = count;
+            this.CountText = countText;
+            this.Increment = increment;
+            this.Reset = reset;
+            this.countCell = countCell;
+            this.disposables = [count, countText, increment, reset];
+        }
+
+        public IDvVmNumber Count { get; }
+
+        public IDvVmText CountText { get; }
+
+        public IDvVmAction Increment { get; }
+
+        public IDvVmAction Reset { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    public sealed class DvVmCounterViewModelThatReads : IDisposable
+    {
+        internal readonly Cell<int> countCell;
+        private readonly IReadOnlyList<IDisposable> disposables;
+        private readonly string firstText;
+
+        internal DvVmCounterViewModelThatReads(IDvVmNumber count, IDvVmText countText, IDvVmAction increment, IDvVmAction reset, Cell<int> countCell)
+        {
+            this.Count = count;
+            this.CountText = countText;
+            this.Increment = increment;
+            this.Reset = reset;
+            this.countCell = countCell;
+            this.disposables = [count, countText, increment, reset];
+            this.firstText = this.CountText.Value;
+        }
+
+        public IDvVmNumber Count { get; }
+
+        public IDvVmText CountText { get; }
+
+        public IDvVmAction Increment { get; }
+
+        public IDvVmAction Reset { get; }
+
+        public string FirstText => this.firstText;
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // Dive, real view-model code, second batch.
+    public sealed record DvVmRowCommands(IDvVmAction Open, IDvVmAction Delete);
+
+    private static DvVmRowCommands DvVmCommandsFor(IDvVmFactory bindableFactory, Cell<bool> canEdit) =>
+        new(
+            Open: bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: canEdit),
+            Delete: bindableFactory.CreateBindableAction(firingsStreamSink: Stream.CreateSink<Unit>(), isEnabledCell: canEdit.Map(static c => c)));
+
+    private static IDvVmAction DvVmActionFor(IDvVmFactory bindableFactory, StreamSink<Unit> sink, Cell<bool> isEnabled) =>
+        bindableFactory.CreateBindableAction(firingsStreamSink: sink, isEnabledCell: isEnabled);
+
+    private static T DvVmTrack<T>(List<IDisposable> disposables, T item)
+        where T : IDisposable
+    {
+        disposables.Add(item);
+
+        return item;
+    }
+
+    public sealed class DvVmBadge(in IDvVmNumber count, in IDvVmFlag isVisible) : IDisposable
+    {
+        public IDvVmNumber Count { get; } = count;
+
+        public IDvVmFlag IsVisible { get; } = isVisible;
+
+        public bool IsShown => this.IsVisible.Value;
+
+        public void Dispose()
+        {
+            this.Count.Dispose();
+            this.IsVisible.Dispose();
+        }
+    }
+
+    public sealed class DvVmBadgeThatReads(in IDvVmNumber count, in IDvVmFlag isVisible) : IDisposable
+    {
+        public IDvVmNumber Count { get; } = count;
+
+        public IDvVmFlag IsVisible { get; } = isVisible;
+
+        public bool StartsVisible { get; } = isVisible.Value;
+
+        public void Dispose()
+        {
+            this.Count.Dispose();
+            this.IsVisible.Dispose();
+        }
+    }
+
+    public sealed class DvVmDetailViewModel : IDisposable
+    {
+        internal readonly Cell<int> revision;
+
+        internal DvVmDetailViewModel(IDvVmText title, IDvVmAction save, Cell<int> revision)
+        {
+            this.Title = title;
+            this.Save = save;
+            this.revision = revision;
+        }
+
+        public IDvVmText Title { get; }
+
+        public IDvVmAction Save { get; }
+
+        public void Dispose()
+        {
+            this.Title.Dispose();
+            this.Save.Dispose();
+        }
+    }
+
+    private static DvVmDetailViewModel DvVmDetailCreate(IDvVmFactory bindableFactory, Cell<int> selected) =>
+        Transaction.Run(() =>
+            ForwardReference<DvVmDetailViewModel>.WithoutCaptures(detailLoop =>
+            {
+                Cell<int> revisionLoop = detailLoop.Map(static detail => detail.revision).SwitchC();
+                StreamSink<Unit> save = Stream.CreateSink<Unit>();
+                Cell<int> revision = save.Snapshot(revisionLoop, static (_, r) => r + 1).Hold(0);
+
+                return new DvVmDetailViewModel(
+                    title: bindableFactory.CreateOneWay(selected.Lift(revisionLoop, static (s, r) => "#" + s + " v" + r)),
+                    save: bindableFactory.CreateBindableAction(firingsStreamSink: save, isEnabledCell: selected.Map(static s => s > 0)),
+                    revision: revision);
+            }));
+
+    // The same factory, which reads the selection that it gets in its own block, for a log.
+    private static DvVmDetailViewModel DvVmDetailCreateThatReads(IDvVmFactory bindableFactory, Cell<int> selected) =>
+        Transaction.Run(() =>
+            ForwardReference<DvVmDetailViewModel>.WithoutCaptures(detailLoop =>
+            {
+                Cell<int> revisionLoop = detailLoop.Map(static detail => detail.revision).SwitchC();
+                StreamSink<Unit> save = Stream.CreateSink<Unit>();
+                Cell<int> revision = save.Snapshot(revisionLoop, static (_, r) => r + 1).Hold(0);
+                DvVmLog.Lines.Add("detail of " + selected.Sample());
+
+                return new DvVmDetailViewModel(
+                    title: bindableFactory.CreateOneWay(selected.Lift(revisionLoop, static (s, r) => "#" + s + " v" + r)),
+                    save: bindableFactory.CreateBindableAction(firingsStreamSink: save, isEnabledCell: selected.Map(static s => s > 0)),
+                    revision: revision);
+            }));
+
+    private static async Task DvVmLoadAsync(Cell<int> selected, List<string> log)
+    {
+        log.Add("loading " + selected.Sample());
+        await Task.Delay(1);
+    }
+
+    private static async Task DvVmLoadLaterAsync(Cell<int> selected, List<string> log)
+    {
+        await Task.Delay(1);
+        log.Add("loaded " + selected.Sample());
+    }
+
+    public sealed class DvVmCounterViewModel2 : IDisposable
+    {
+        internal readonly Cell<int> countCell;
+        internal readonly Stream<int> steps;
+        private readonly IReadOnlyList<IDisposable> disposables;
+
+        internal DvVmCounterViewModel2(IDvVmNumber count, IDvVmText countText, IDvVmAction increment, IDvVmAction reset, Cell<int> countCell, Stream<int> steps, IReadOnlyList<IDisposable> extra)
+        {
+            this.Count = count;
+            this.CountText = countText;
+            this.Increment = increment;
+            this.Reset = reset;
+            this.countCell = countCell;
+            this.steps = steps;
+            this.disposables = [count, countText, increment, reset, .. extra];
+        }
+
+        public IDvVmNumber Count { get; }
+
+        public IDvVmText CountText { get; }
+
+        public IDvVmAction Increment { get; }
+
+        public IDvVmAction Reset { get; }
+
+        public void Dispose()
+        {
+            foreach (IDisposable disposable in this.disposables)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    // Dive, real view-model code, fourth batch.
+    public abstract class DvVmViewModelBase : IDisposable
+    {
+        protected DvVmViewModelBase(IDvVmText title)
+        {
+            this.Title = title;
+            this.OnCreated();
+        }
+
+        public IDvVmText Title { get; }
+
+        protected virtual void OnCreated() { }
+
+        public virtual void Dispose() => this.Title.Dispose();
+    }
+
+    public sealed class DvVmQuietPage : DvVmViewModelBase
+    {
+        internal readonly Cell<int> countCell;
+
+        internal DvVmQuietPage(IDvVmText title, Cell<int> countCell)
+            : base(title) =>
+            this.countCell = countCell;
+    }
+
+    public sealed class DvVmLoggingPage : DvVmViewModelBase
+    {
+        internal readonly Cell<int> countCell;
+
+        internal DvVmLoggingPage(IDvVmText title, Cell<int> countCell)
+            : base(title) =>
+            this.countCell = countCell;
+
+        protected override void OnCreated() => DvVmLog.Lines.Add("Created " + this.Title.Value);
+    }
+
+    private static readonly Func<IDvVmText, string> DvVmCaptionFunction = static text => "Caption: " + text.Value;
+
+    public sealed class DvVmPage(in IDvVmText title, in Cell<int> countCell) : IDisposable
+    {
+        internal readonly Cell<int> countCell = countCell;
+
+        public IDvVmText Title { get; } = title;
+
+        public void Dispose() => this.Title.Dispose();
+    }
+
+    public sealed class DvLinksBox(Cell<int> a)
+    {
+        public Cell<int> A { get; } = a;
+    }
+
+    public sealed class DvLinksPair(Cell<int> a, Cell<int> b)
+    {
+        public Cell<int> A { get; } = a;
+
+        public Cell<int> B { get; } = b;
+    }
+
+    public sealed class DvLinksEvents(Stream<int> e)
+    {
+        public Stream<int> E { get; } = e;
+    }
+
+    private static (Cell<int> Cell, Cell<int> Captures) DvLinksMakePair(Cell<int> first, Cell<int> second) =>
+        (first, second);
+
+    public sealed class DvLinksDynamicReader
+    {
+        public int Read(Cell<int> c) => c.Sample();
+    }
+
+    public static class DvLinksReader
+    {
+        public static int Read(Cell<int> c) => c.Sample();
+    }
+
+    public sealed class Ab127Streams(Stream<int> e, Stream<int> f)
+    {
+        public Stream<int> E { get; } = e;
+
+        public Stream<int> F { get; } = f;
+    }
+
+    // Dive, real view-model code, fifth batch.
+    public abstract class DvVmDescribedBase : IDisposable
+    {
+        protected DvVmDescribedBase(IDvVmText title)
+        {
+            this.Title = title;
+            DvVmLog.Lines.Add(this.Describe());
+        }
+
+        public IDvVmText Title { get; }
+
+        protected abstract string Describe();
+
+        public void Dispose() => this.Title.Dispose();
+    }
+
+    public sealed class DvVmDescribedPage : DvVmDescribedBase
+    {
+        internal readonly Cell<int> countCell;
+
+        internal DvVmDescribedPage(IDvVmText title, Cell<int> countCell)
+            : base(title) =>
+            this.countCell = countCell;
+
+        protected override string Describe() => "Page " + this.Title.Value;
+    }
+
+    public class DvVmRefreshingBase(in IDvVmText title) : IDisposable
+    {
+        public IDvVmText Title { get; } = title;
+
+        public virtual void Refresh() { }
+
+        public void Dispose() => this.Title.Dispose();
+    }
+
+    public sealed class DvVmRefreshingPage(in IDvVmText title, in Cell<int> countCell) : DvVmRefreshingBase(title)
+    {
+        internal readonly Cell<int> countCell = countCell;
+
+        public override void Refresh() => DvVmLog.Lines.Add(this.Title.Value);
+    }
+
+    public sealed class DvVmSelfRefreshingPage : DvVmRefreshingBase
+    {
+        internal readonly Cell<int> countCell;
+
+        internal DvVmSelfRefreshingPage(IDvVmText title, Cell<int> countCell)
+            : base(title)
+        {
+            this.countCell = countCell;
+            this.Refresh();
+        }
+
+        public override void Refresh() => DvVmLog.Lines.Add(this.Title.Value);
+    }
+
+    public abstract class Ab133Base
+    {
+        protected Ab133Base(Cell<int> share)
+        {
+            this.Share = share;
+            this.OnCreated();
+        }
+
+        public Cell<int> Share { get; }
+
+        protected virtual void OnCreated() { }
+    }
+
+    public sealed class Ab133Quiet(in Cell<int> share) : Ab133Base(share)
+    {
+        protected override void OnCreated() => Kept.Add(0);
+    }
+
+    public sealed class Ab133Loud(in Cell<int> share) : Ab133Base(share)
+    {
+        protected override void OnCreated() => Kept.Add(this.Share.Sample());
+    }
+
+    public abstract class Ab133Captioned
+    {
+        protected Ab133Captioned(Cell<int> share)
+        {
+            this.Share = share;
+            Kept.Add(this.Caption);
+        }
+
+        public Cell<int> Share { get; }
+
+        protected abstract int Caption { get; }
+    }
+
+    public sealed class Ab133SampledCaption(in Cell<int> share) : Ab133Captioned(share)
+    {
+        protected override int Caption => this.Share.Sample();
+    }
+
+    public abstract class Ab133Started
+    {
+        protected Ab133Started(Cell<int> share)
+        {
+            this.Share = share;
+            this.Start();
+        }
+
+        public Cell<int> Share { get; }
+
+        protected abstract void OnStarted();
+
+        private void Start() => this.OnStarted();
+    }
+
+    public sealed class Ab133StartedLoud(in Cell<int> share) : Ab133Started(share)
+    {
+        protected override void OnStarted() => Kept.Add(this.Share.Sample());
+    }
+
+    private static Cell<int> Ab133Shared = Plain;
+
+    private static Cell<int> Ab133Shared2 = Plain;
+
+    public abstract class Ab133Hooked
+    {
+        protected Ab133Hooked() => this.OnCreated();
+
+        protected abstract void OnCreated();
+    }
+
+    public sealed class Ab133ImplicitHook : Ab133Hooked
+    {
+        protected override void OnCreated() => Kept.Add(Ab133Shared.Sample());
+    }
+
+    public sealed class Ab133ExplicitHook : Ab133Hooked
+    {
+        public Ab133ExplicitHook(int number) => this.Number = number;
+
+        public int Number { get; }
+
+        protected override void OnCreated() => Kept.Add(Ab133Shared2.Sample());
+    }
+
+    public sealed class DvStRunner
+    {
+        public Action Run = static () => { };
+    }
+
+    private static readonly DvStRunner DvStRunner7 = new();
+
+    private static async Task DvStReadThenAwaitInALoop(Cell<int> c)
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(c.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task DvStAwaitThenGiveInALoop(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(d.Sample());
+            await R2NeverDone.Task;
+            d = c;
+        }
+    }
+
+    private static async Task DvStAwaitCompleteThenGiveInALoop(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(d.Sample());
+            await Task.CompletedTask;
+            d = c;
+        }
+    }
+
+    private static async Task DvStReadGiveThenAwaitInALoop(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(d.Sample());
+            d = c;
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task DvStReadGiveThenAwaitCompleteInALoop(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(d.Sample());
+            d = c;
+            await Task.CompletedTask;
+        }
+    }
+
+    private static async Task Ab138ReadGiveThenAwaitInADo(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+
+        do
+        {
+            Kept.Add(d.Sample());
+            d = c;
+            await R2NeverDone.Task;
+        }
+        while (Kept.Count >= 0);
+    }
+
+    private static async Task Ab138ContinueBeforeTheAwaitInALoop(Cell<int> c)
+    {
+        Cell<int> d = Plain;
+
+        for (int i = 0; i < 2; i++)
+        {
+            Kept.Add(d.Sample());
+            d = c;
+
+            if (i == 0)
+            {
+                continue;
+            }
+
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task DvStAwaitInADoThenRead(Cell<int> c)
+    {
+        do
+        {
+            await R2NeverDone.Task;
+        }
+        while (Kept.Count < 0);
+
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task DvStAwaitInATryThenRead(Cell<int> c)
+    {
+        try
+        {
+            await R2NeverDone.Task;
+        }
+        finally
+        {
+            Kept.Add(0);
+        }
+
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ab139AwaitThenReadInADo(Cell<int> c)
+    {
+        do
+        {
+            await R2NeverDone.Task;
+            Kept.Add(c.Sample());
+        }
+        while (Kept.Count < 0);
+    }
+
+    private static async Task Ab139ThrowInATryThenRead(Cell<int> c)
+    {
+        try
+        {
+            Kept.Add(Kept.Count >= 0 ? throw new InvalidOperationException() : 0);
+            await R2NeverDone.Task;
+        }
+        catch (InvalidOperationException)
+        {
+            Kept.Add(1);
+        }
+
+        Kept.Add(c.Sample());
+    }
+
+    private static async Task Ab139AwaitInAWhileThenRead(Cell<int> c)
+    {
+        while (Kept.Count < 0)
+        {
+            await R2NeverDone.Task;
+        }
+
+        Kept.Add(c.Sample());
+    }
+
+    public sealed class Ab120Bell
+    {
+        public event Action? Rang;
+
+        public void Twice() => this.Rang += this.Rang;
+
+        public void Ring() => this.Rang?.Invoke();
+    }
+
+    private static async Task DvStReadEachThenAwait(Cell<int>[] cells)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab145ReadEachOfAListThenAwait(List<Cell<int>> cells)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab145ReadEachThenAwaitComplete(Cell<int>[] cells)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+            await Task.CompletedTask;
+        }
+    }
+
+    private static void Ab145ReadEach(Cell<int>[] cells)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+        }
+    }
+
+    private static readonly StreamSink<Cell<int>> Ab146Sink = Stream.CreateSink<Cell<int>>();
+
+    public sealed record Ab146Held(Cell<Cell<int>> Held);
+
+    public sealed class Ab146SinkBox
+    {
+        public StreamSink<Cell<int>> Sink { get; } = Stream.CreateSink<Cell<int>>();
+    }
+
+    private static void Ab146SendTo(StreamSink<Cell<int>> sink, Cell<int> c) => sink.Send(c);
+
+    private static void Ab147ReadEachThenPut(Cell<int>[] cells, Cell<int> later)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+            cells[1] = later;
+        }
+    }
+
+    private static void Ab148ReadTheFirst(Cell<int>[] cells)
+    {
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+
+            break;
+        }
+    }
+
+    private static async Task Ab152ReadEachPairThenAwait((Cell<int> Cell, int N)[] pairs)
+    {
+        foreach ((Cell<int> cell, int _) in pairs)
+        {
+            Kept.Add(cell.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab152ReadEachPairWithVarThenAwait((Cell<int> Cell, int N)[] pairs)
+    {
+        foreach (var (cell, _) in pairs)
+        {
+            Kept.Add(cell.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab152ReadEachPairThenAwaitComplete((Cell<int> Cell, int N)[] pairs)
+    {
+        foreach ((Cell<int> cell, int _) in pairs)
+        {
+            Kept.Add(cell.Sample());
+            await Task.CompletedTask;
+        }
+    }
+
+    private static void Ab152ReadEachPair((Cell<int> Cell, int N)[] pairs)
+    {
+        foreach ((Cell<int> cell, int _) in pairs)
+        {
+            Kept.Add(cell.Sample());
+        }
+    }
+
+    private static async Task Ab152ReadEachKeyThenAwait(KeyValuePair<Cell<int>, int>[] pairs)
+    {
+        foreach ((Cell<int> cell, int _) in pairs)
+        {
+            Kept.Add(cell.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static void Ab153ReadEachThenPutTheLocal(Cell<int>[] cells, Cell<int> later)
+    {
+        Cell<int> d = Plain;
+
+        foreach (Cell<int> each in cells)
+        {
+            Kept.Add(each.Sample());
+            cells[cells.Length - 1] = d;
+            d = later;
+        }
+    }
+
+    public sealed record Ab154WrittenPair(Cell<int> Pending, Cell<int> Plain)
+    {
+        public void Deconstruct(out Cell<int> pending, out Cell<int> plain)
+        {
+            pending = this.Pending;
+            plain = this.Plain;
+        }
+    }
+
+    private static async Task Ab154ReadEachRecordThenAwait(RecordPair[] pairs)
+    {
+        foreach ((Cell<int> pending, Cell<int> _) in pairs)
+        {
+            Kept.Add(pending.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab154ReadEachWrittenRecordThenAwait(Ab154WrittenPair[] pairs)
+    {
+        foreach ((Cell<int> pending, Cell<int> _) in pairs)
+        {
+            Kept.Add(pending.Sample());
+            await R2NeverDone.Task;
+        }
+    }
+
+    private static async Task Ab154ReadEachRecordThenAwaitComplete(RecordPair[] pairs)
+    {
+        foreach ((Cell<int> pending, Cell<int> _) in pairs)
+        {
+            Kept.Add(pending.Sample());
+            await Task.CompletedTask;
+        }
+    }
+
+    public sealed record Ab156Sender(StreamSink<Cell<int>> Sink, Cell<int> Value)
+    {
+        public void Send() => this.Sink.Send(this.Value);
+    }
+
+    public sealed record Ab158Reader(StreamSink<Cell<int>> Sink)
+    {
+        public Cell<int> Read()
+        {
+            Cell<Cell<int>> held = this.Sink.Hold(Plain);
+
+            return held.Sample();
+        }
+    }
+
+    public sealed record Ab158SendingReader(StreamSink<Cell<int>> Sink, Cell<int> Value)
+    {
+        public Cell<int> Read()
+        {
+            Cell<Cell<int>> held = this.Sink.Hold(Plain);
+            this.Sink.Send(this.Value);
+
+            return held.Sample();
+        }
+    }
+
+    private static Cell<int> Ab158Now(Func<Cell<int>> read) => read();
+
+    private static Cell<Cell<int>> Ab158Later(Stream<int> fires, Func<Cell<int>> read) =>
+        fires.Map(_ => read()).Hold(Plain);
+
+    public sealed record Ab159Reader(Cell<Cell<int>> Held)
+    {
+        public Cell<int> ReadAt(int _) => this.Held.Sample();
+    }
+
+    public sealed record Ab160HeldReader(Cell<Cell<int>> Held)
+    {
+        public Cell<int> Read() => this.Held.Sample();
+    }
+
+    public sealed class Ab160SettableReader(Cell<Cell<int>> held)
+    {
+        public Cell<Cell<int>> Held { get; set; } = held;
+
+        public Cell<int> Read() => this.Held.Sample();
+    }
+
+    public sealed class Ab160FieldReader(Cell<Cell<int>> held)
+    {
+        private readonly Cell<Cell<int>> held = held;
+
+        public Cell<int> Read() => this.held.Sample();
+    }
+
+    private static void Ab151TakeTheFirst(List<SettableSlot> list) => list.RemoveAt(0);
+
+    private static readonly SettableSlot Ab151Slot = new() { Share = Plain };
+
+    public sealed class Ab151Holder
+    {
+        public List<SettableSlot> List { get; } = [];
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -15205,6 +21972,10 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static string DvVmCaptionExtension(this SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<string> text) => "Caption: " + text.Value;
+
+    public static void Add(this Shapes.Ag72Bare bare, Cell<int> c) => bare.Put(c, c.Sample());
+
     public static Shapes.IAg59Keeper Ag59MakeBehindBeside<T>(this Shapes.SettableSlot slot)
         where T : Shapes.IAg59Keeper, new()
     {

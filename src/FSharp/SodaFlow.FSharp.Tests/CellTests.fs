@@ -37,8 +37,8 @@ type ``Cell Tests``() =
 
             let output1 = List<_>()
             let output2 = List<_>()
-            let l = c |> listenStrongC output1.Add
-            let l2 = c |> updatesC |> listenStrongS output2.Add
+            let l = c |> listenC output1.Add
+            let l2 = c |> updatesC |> listenS output2.Add
             s |> sendS 5
             s |> sendS 7
             l2 |> unlistenL
@@ -53,7 +53,7 @@ type ``Cell Tests``() =
             let out = List<_>()
             let cellSink = sinkC 1
             let cell = cellSink |> mapC ((*) 2)
-            let l = (cellSink, cell) |> lift2C (+) |> updatesC |> listenStrongS out.Add
+            let l = (cellSink, cell) |> lift2C (+) |> updatesC |> listenS out.Add
             cellSink |> sendC 2
             cellSink |> sendC 7
             l |> unlistenL
@@ -68,9 +68,9 @@ type ``Cell Tests``() =
             let v = sinkC list1
             let c = v |> mapC (Seq.map (fun o -> o.Value) >> liftAllC id) |> switchC
             let streamOutput = List<_>()
-            let l = c |> updatesC |> listenStrongS streamOutput.Add
+            let l = c |> updatesC |> listenS streamOutput.Add
             let cellOutput = List<_>()
-            let l2 = c |> listenStrongC cellOutput.Add
+            let l2 = c |> listenC cellOutput.Add
             list1[2].Value |> sendC 12
             list2[1].Value |> sendC 16
             list1[4].Value |> sendC 14
@@ -108,9 +108,9 @@ type ``Cell Tests``() =
                 v |> mapC ((Seq.map (fun o -> o.Value)) >> liftAllC id) |> mapC id |> switchC
 
             let streamOutput = List<_>()
-            let l = c |> updatesC |> listenStrongS streamOutput.Add
+            let l = c |> updatesC |> listenS streamOutput.Add
             let cellOutput = List<_>()
-            let l2 = c |> listenStrongC cellOutput.Add
+            let l2 = c |> listenC cellOutput.Add
             list1[2].Value |> sendC 12
             list2[1].Value |> sendC 16
             list1[4].Value |> sendC 14
@@ -144,7 +144,7 @@ type ``Cell Tests``() =
             let s = sinkC 0
             let c = constantC <| constantC 1
             let r = c |> mapC (fun c -> (c, s) |> lift2C (+))
-            let l = r |> switchC |> listenStrongC out.Add
+            let l = r |> switchC |> listenC out.Add
             s |> sendC 2
             s |> sendC 4
             l |> unlistenL
@@ -157,7 +157,7 @@ type ``Cell Tests``() =
             let s = sinkS ()
             let c = constantC 1 |> mapC (fun _ -> s |> holdS 0)
             s |> sendS 1
-            let l = c |> switchC |> listenStrongC out.Add
+            let l = c |> switchC |> listenC out.Add
             s |> sendS 3
             s |> sendS 5
             l |> unlistenL
@@ -178,7 +178,7 @@ type ``Cell Tests``() =
                          constantLazyC (c |> sampleLazyC) |> valuesC |> mapS (fun c -> (c, None)))
                         |> orElseS
 
-                    r |> listenStrongS out.Add)
+                    r |> listenS out.Add)
 
             s |> sendS 1
             s |> sendS 2
@@ -203,7 +203,7 @@ type ``Cell Tests``() =
                         |> orElseS
 
                     s |> sendS 1
-                    r |> listenStrongS out.Add)
+                    r |> listenS out.Add)
 
             s |> sendS 2
             s |> sendS 3
@@ -250,7 +250,7 @@ type ``Cell Tests``() =
             let out = List<_>()
 
             let _ =
-                (use _l = resultCell |> listenStrongC out.Add
+                (use _l = resultCell |> listenC out.Add
                  (innerCell |> sampleC).s |> sendS 5
 
                  innerStreamSink

@@ -13,7 +13,7 @@ public sealed class StreamTests
 {
     [Test]
     [Skip("Requires dotMemory.")]
-    public async Task TestListenStrong()
+    public async Task TestListen()
     {
         int? listenerCount = null;
         int? listenerCount2 = null;
@@ -39,8 +39,10 @@ public sealed class StreamTests
 
             ((Action)(() =>
             {
+#pragma warning disable SF2001 // The test counts this listener, which nothing reads, before and after nothing holds it.
                 // ReSharper disable once UnusedVariable
-                IListener listener = m.ListenStrong(@out.Add);
+                IListener listener = m.Listen(@out.Add);
+#pragma warning restore SF2001 // The test counts this listener, which nothing reads, before and after nothing holds it.
 
                 dotMemory.Check(memory =>
                     listenerCount2 = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
@@ -107,9 +109,9 @@ public sealed class StreamTests
 
             ((Action)(() =>
             {
-                IListener listener = m.ListenStrong(@out.Add);
+                IListener listener = m.Listen(@out.Add);
 
-                listener.Unlisten();
+                listener.Dispose();
 
                 dotMemory.Check(memory =>
                     listenerCount2 = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
@@ -172,7 +174,7 @@ public sealed class StreamTests
                 Stream<string> m = s.Map(static x => (x + 2).ToString());
                 List<string> @out = [];
 
-                listener = m.ListenStrong(@out.Add);
+                listener = m.Listen(@out.Add);
 
                 dotMemory.Check(memory =>
                     duringListenerCount =
@@ -213,14 +215,14 @@ public sealed class StreamTests
 
         ((Action)(() =>
         {
-            IListener l = m.ListenStrong(@out.Add);
+            IListener l = m.Listen(@out.Add);
 
             dotMemory.Check(memory =>
                 duringListenerCount = memory.GetObjects(static where => where.Interface.Is<IListener>()).ObjectsCount);
 
             s.Send(5);
             s.Send(3);
-            l.Unlisten();
+            l.Dispose();
         }))();
 
         // The lambda above stays synchronous on purpose: it exists so that its locals are out of
@@ -266,7 +268,7 @@ public sealed class StreamTests
             Stream<string> m =
                 s.Map(static x => x + 2).Map(static x => 2 * x).Map(static x => x + 1).Map(static x => x.ToString());
 
-            IListener l = m.ListenStrong(@out.Add);
+            IListener l = m.Listen(@out.Add);
 
             dotMemory.Check(memory =>
                 duringStreamCount =
@@ -278,7 +280,7 @@ public sealed class StreamTests
 
             s.Send(5);
             s.Send(3);
-            l.Unlisten();
+            l.Dispose();
         }))();
 
         // The lambda above stays synchronous on purpose: it exists so that its locals are out of

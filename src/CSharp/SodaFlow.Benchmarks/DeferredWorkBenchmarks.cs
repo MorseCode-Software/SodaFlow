@@ -39,9 +39,9 @@ public class DeferredWorkBenchmarks
     private readonly StreamSink<int> deferTwiceSource = Stream.CreateSink<int>();
     private readonly StreamSink<IReadOnlyList<int>> splitSource = Stream.CreateSink<IReadOnlyList<int>>();
 
-    private IStrongListener? deferListener;
-    private IStrongListener? deferTwiceListener;
-    private IStrongListener? splitListener;
+    private IListener? deferListener;
+    private IListener? deferTwiceListener;
+    private IListener? splitListener;
 
     /// <summary>Builds each chain, with one listener at its end.</summary>
     [GlobalSetup]
@@ -49,19 +49,19 @@ public class DeferredWorkBenchmarks
     {
         this.deferListener =
             Operational.Defer(this.deferSource)
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
 
         this.deferTwiceListener =
             Operational.Defer(Operational.Defer(this.deferTwiceSource))
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
 
         this.splitListener =
             Operational.Defer(Operational.Split<int, IReadOnlyList<int>>(this.splitSource))
-                .ListenStrong(static _ =>
+                .Listen(static _ =>
                 {
                 });
     }
@@ -70,9 +70,9 @@ public class DeferredWorkBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        this.deferListener?.Unlisten();
-        this.deferTwiceListener?.Unlisten();
-        this.splitListener?.Unlisten();
+        this.deferListener?.Dispose();
+        this.deferTwiceListener?.Dispose();
+        this.splitListener?.Dispose();
     }
 
     /// <summary>Posts one action from a transaction.</summary>

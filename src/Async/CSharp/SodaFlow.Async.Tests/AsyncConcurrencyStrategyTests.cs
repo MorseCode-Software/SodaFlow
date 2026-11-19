@@ -22,7 +22,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -48,7 +48,7 @@ public sealed class AsyncConcurrencyStrategyTests
         await Assert.That(received).IsEquivalentTo(expected: ["B", "A"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -59,8 +59,8 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<object> received = [];
-        IListener l = results.ListenStrong(received.Add);
-        IListener l2 = errors.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
+        IListener l2 = errors.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -96,8 +96,8 @@ public sealed class AsyncConcurrencyStrategyTests
             .IsEquivalentTo(expected: new object[] { d, "C", b, "A" }, ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
-        l2.Unlisten();
+        l.Dispose();
+        l2.Dispose();
     }
 
     [Test]
@@ -108,7 +108,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -132,7 +132,7 @@ public sealed class AsyncConcurrencyStrategyTests
         await Assert.That(received).IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -143,7 +143,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncConcurrencyStrategyBase<string> strategy =
             AsyncConcurrencyStrategy.QueuePerGroup<string>().Create(static v => v.Split('-')[0]);
@@ -173,7 +173,7 @@ public sealed class AsyncConcurrencyStrategyTests
         await Assert.That(received).IsEquivalentTo(["A1", "B1", "A2"]);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -185,7 +185,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncConcurrencyStrategyBase<string> strategy =
             AsyncConcurrencyStrategy.QueuePerGroup<string>().Create(static v => v.Split('-')[0]);
@@ -219,7 +219,7 @@ public sealed class AsyncConcurrencyStrategyTests
             .Because("a canceled item publishes nothing, and the group of it goes on");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -230,7 +230,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -253,7 +253,7 @@ public sealed class AsyncConcurrencyStrategyTests
         await Assert.That(received).IsEquivalentTo(expected: ["B"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -284,7 +284,7 @@ public sealed class AsyncConcurrencyStrategyTests
 
         IListener probe =
             Transaction.Run(() =>
-                tracked.ListenStrong(items =>
+                tracked.Listen(items =>
                 {
                     lock (statuses)
                     {
@@ -326,7 +326,7 @@ public sealed class AsyncConcurrencyStrategyTests
             .Contains("b:Running")
             .Because("the probe reads the cell and would see a Queued item where one existed");
 
-        probe.Unlisten();
+        probe.Dispose();
         status.Dispose();
     }
 
@@ -343,7 +343,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -362,7 +362,7 @@ public sealed class AsyncConcurrencyStrategyTests
 
         await Assert.That(() => source.Send("b")).ThrowsExactly<InvalidOperationException>();
 
-        thrower.Unlisten();
+        thrower.Dispose();
 
         await Assert.That(op.IsCanceled("a")).IsFalse().Because("the transaction that replaced the run failed");
         await Assert.That(op.HasStarted("b")).IsFalse();
@@ -375,7 +375,7 @@ public sealed class AsyncConcurrencyStrategyTests
             .Because("the run in flight is still the current run of the strategy");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     // The strategy must hold the run in flight as its current run after a send that fails, and
@@ -388,7 +388,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -407,7 +407,7 @@ public sealed class AsyncConcurrencyStrategyTests
 
         await Assert.That(() => source.Send("b")).ThrowsExactly<InvalidOperationException>();
 
-        thrower.Unlisten();
+        thrower.Dispose();
 
         source.Send("c");
         TestUtil.WaitUntil(() => op.HasStarted("c"));
@@ -419,7 +419,7 @@ public sealed class AsyncConcurrencyStrategyTests
         await Assert.That(received).IsEquivalentTo(expected: ["C"], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     // A callback on the token of the run that a new value replaces can throw. Before, the cancel
@@ -502,7 +502,7 @@ public sealed class AsyncConcurrencyStrategyTests
 
         await Assert.That(() => source.Send("b")).ThrowsExactly<InvalidOperationException>();
 
-        thrower.Unlisten();
+        thrower.Dispose();
 
         await Assert.That(op.IsCanceled("a")).IsFalse().Because("the transaction that asked for the cancel failed");
         await Assert.That(op.HasStarted("b")).IsFalse();
@@ -566,7 +566,7 @@ public sealed class AsyncConcurrencyStrategyTests
         StreamSink<Unit> results = Stream.CreateSink<Unit>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<Unit> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         CountingStrategy strategy = new();
 
@@ -590,7 +590,7 @@ public sealed class AsyncConcurrencyStrategyTests
         await Assert.That(admissions).IsEqualTo(2);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     // A strategy returns its next state, and the pipeline gives that state to the next call. The
@@ -605,7 +605,7 @@ public sealed class AsyncConcurrencyStrategyTests
         ControlledOperation<string, string> op = new();
         CountingStrategy strategy = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -637,7 +637,7 @@ public sealed class AsyncConcurrencyStrategyTests
                 ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     // The state of a strategy follows the transaction. A listener fails the transaction of the
@@ -667,7 +667,7 @@ public sealed class AsyncConcurrencyStrategyTests
 
         await Assert.That(() => source.Send("b")).ThrowsExactly<InvalidOperationException>();
 
-        thrower.Unlisten();
+        thrower.Dispose();
 
         source.Send("c");
         TestUtil.WaitUntil(() => op.HasStarted("c"));
@@ -691,10 +691,10 @@ public sealed class AsyncConcurrencyStrategyTests
         CountingStrategy strategy = new();
         List<Exception> failures = [];
 
-        using IStrongListener r =
-            results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
+        using IListener r =
+            results.Listen(static _ => throw new InvalidOperationException("results listener"));
 
-        using IStrongListener e = errors.ListenStrong(failures.Add);
+        using IListener e = errors.Listen(failures.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsync(
@@ -768,10 +768,10 @@ public sealed class AsyncConcurrencyStrategyTests
         CountingStrategy strategy = new();
         List<Exception> failures = [];
 
-        using IStrongListener r =
-            results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
+        using IListener r =
+            results.Listen(static _ => throw new InvalidOperationException("results listener"));
 
-        using IStrongListener e = errors.ListenStrong(failures.Add);
+        using IListener e = errors.Listen(failures.Add);
 
         Stream<string> input = trigger.OrElse(results.Filter(static r => r.Length < 2).Map(static r => r + "x"));
 

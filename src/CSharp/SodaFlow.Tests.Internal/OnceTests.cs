@@ -19,7 +19,7 @@ public sealed class OnceTests
     {
         Stream<int> s = new();
         List<int> @out = [];
-        IListener l = s.Once().ListenStrong(@out.Add);
+        IListener l = s.Once().Listen(@out.Add);
 
         TransactionInternal.Apply((trans, _) =>
         {
@@ -28,13 +28,13 @@ public sealed class OnceTests
             return UnitInternal.Value;
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
     }
 
     // Listen sends the earlier firings of the transaction to the new handler in one loop, and
-    // Unlisten does not stop that loop. Thus, only the test in the handler of Once stops the
+    // Dispose does not stop that loop. Thus, only the test in the handler of Once stops the
     // second value.
     [Test]
     public async Task OnceAfterTwoFiringsInItsTransactionSendsOnlyTheFirst()
@@ -47,10 +47,10 @@ public sealed class OnceTests
             {
                 s.Send(trans: trans, a: 1);
                 s.Send(trans: trans, a: 2);
-                return s.Once().ListenStrong(@out.Add);
+                return s.Once().Listen(@out.Add);
             });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(@out).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
     }

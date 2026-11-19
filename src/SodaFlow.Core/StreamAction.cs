@@ -40,7 +40,7 @@ internal interface IFailedFiringAction
 ///     output attaches. <c>Listen</c> links it and sets its target.
 /// </summary>
 /// <remarks>
-///     Unlisten removes the target from the source node, and the weak view of
+///     Dispose removes the target from the source node, and the weak view of
 ///     this listener is that target, as for a listener around a delegate. A
 ///     derived type holds the output and the function of its operator as fields.
 ///     The action also holds its source stream. The output holds the action,
@@ -49,7 +49,7 @@ internal interface IFailedFiringAction
 /// </remarks>
 /// <typeparam name="T">The type of the values of the source stream.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage - The type documents itself.
-internal abstract class StreamAction<T> : IStreamAction<T>, IWeakListenerInternal
+internal abstract class StreamAction<T> : IStreamAction<T>, IListenerInternal
 {
     // ReSharper disable once NotAccessedField.Local - Holds the source stream, see the remarks.
     private Stream<T>? source;
@@ -70,7 +70,7 @@ internal abstract class StreamAction<T> : IStreamAction<T>, IWeakListenerInterna
     public abstract void Fire(TransactionInternal trans, T value);
 
     /// <inheritdoc />
-    public void Unlisten() => this.target?.Unlisten();
+    public void Dispose() => this.target?.Unlisten();
 
     // ReSharper disable once NullableWarningSuppressionIsUsed - Listen links the action before it gives it to a
     // caller.
@@ -178,7 +178,7 @@ internal sealed class OnceWithOutcomeAction<T>(
         }
 
         this.owner = null;
-        listener.Unlisten();
+        listener.Dispose();
 
         return true;
     }

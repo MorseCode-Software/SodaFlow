@@ -34,22 +34,24 @@ public sealed class TimerTests
         Behavior<DateTime> time = ts.Time;
         List<DateTime> l = [];
 
-        Transaction.RunVoid(() =>
-        {
-            DateTime now = time.Sample();
-            Stream<DateTime> a1 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(99))));
-            Stream<DateTime> a2 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(100))));
-            Stream<DateTime> a3 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(100))));
-            Stream<DateTime> m = a1.OrElse(a2).OrElse(a3);
-
-            m.ListenStrong(v =>
+        // The listener holds the alarms. Thus, the test keeps it until the end.
+        using IListener listener =
+            Transaction.Run(() =>
             {
-                lock (l)
+                DateTime now = time.Sample();
+                Stream<DateTime> a1 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(99))));
+                Stream<DateTime> a2 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(100))));
+                Stream<DateTime> a3 = ts.At(Cell.Constant(Maybe.Some(now.AddMilliseconds(100))));
+                Stream<DateTime> m = a1.OrElse(a2).OrElse(a3);
+
+                return m.Listen(v =>
                 {
-                    l.Add(v);
-                }
+                    lock (l)
+                    {
+                        l.Add(v);
+                    }
+                });
             });
-        });
 
         // This waits for the alarms, and does not use a constant window. The alarms are 99ms and
         // 100ms in the future. Thus, a constant sleep of 200ms left approximately 100ms of margin,
@@ -97,17 +99,17 @@ public sealed class TimerTests
         List<int> times = [];
         List<int> alarms = [];
 
-        IStrongListener l =
+        IListener l =
             Transaction.Run(() =>
-                Listener.CreateStrongComposite(
+                Listener.CreateComposite(
                 [
-                    Operational.Updates(timers.Time).ListenStrong(times.Add),
-                    timers.At(Cell.Constant(Maybe.Some(10))).ListenStrong(alarms.Add),
-                    timers.At(Cell.Constant(Maybe.Some(11))).ListenStrong(alarms.Add)
+                    Operational.Updates(timers.Time).Listen(times.Add),
+                    timers.At(Cell.Constant(Maybe.Some(10))).Listen(alarms.Add),
+                    timers.At(Cell.Constant(Maybe.Some(11))).Listen(alarms.Add)
                 ]));
 
         clock.AdvanceTo(12);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [10, 11], ordering: CollectionOrdering.Matching);
         await Assert.That(times).IsEquivalentTo(expected: [10, 11, 12], ordering: CollectionOrdering.Matching);
@@ -124,17 +126,17 @@ public sealed class TimerTests
         List<int> times = [];
         List<int> alarms = [];
 
-        IStrongListener l =
+        IListener l =
             Transaction.Run(() =>
-                Listener.CreateStrongComposite(
+                Listener.CreateComposite(
                 [
-                    Operational.Updates(timers.Time).ListenStrong(times.Add),
-                    timers.At(Cell.Constant(Maybe.Some(10))).ListenStrong(alarms.Add)
+                    Operational.Updates(timers.Time).Listen(times.Add),
+                    timers.At(Cell.Constant(Maybe.Some(10))).Listen(alarms.Add)
                 ]));
 
         clock.AdvanceTo(12);
         clock.FireHeldBackTimer();
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
         await Assert.That(times).IsEquivalentTo(expected: [12], ordering: CollectionOrdering.Matching);
@@ -149,7 +151,7 @@ public sealed class TimerTests
         TimerSystem<int> timers = clock.CreateTimerSystem();
         List<int> alarms = [];
 
-        using IStrongListener l = timers.At(Cell.Constant(Maybe.Some(10))).ListenStrong(alarms.Add);
+        using IListener l = timers.At(Cell.Constant(Maybe.Some(10))).Listen(alarms.Add);
 
         clock.AdvanceTo(5);
         timers.Dispose();
@@ -249,8 +251,8 @@ public sealed class TimerTests
         TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
         CellSink<Maybe<int>> deadline = Cell.CreateSink(Maybe.Some(10));
         List<int> alarms = [];
-        IStrongListener l = timers.At(deadline).ListenStrong(alarms.Add);
-        IStrongListener thrower = ThrowAfterAt(deadline: deadline, refused: 20);
+        IListener l = timers.At(deadline).Listen(alarms.Add);
+        IListener thrower = ThrowAfterAt(deadline: deadline, refused: 20);
 
         await Assert.That(() => deadline.Send(Maybe.Some(20))).ThrowsExactly<InvalidOperationException>();
         await Assert.That(deadline.Sample()).IsEqualTo(Maybe.Some(10));
@@ -260,8 +262,8 @@ public sealed class TimerTests
         await Assert.That(alarms).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
 
         clock.AdvanceTo(25);
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
     }
@@ -275,8 +277,8 @@ public sealed class TimerTests
         TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
         CellSink<Maybe<int>> deadline = Cell.CreateSink(Maybe.Some(20));
         List<int> alarms = [];
-        IStrongListener l = timers.At(deadline).ListenStrong(alarms.Add);
-        IStrongListener thrower = ThrowAfterAt(deadline: deadline, refused: 10);
+        IListener l = timers.At(deadline).Listen(alarms.Add);
+        IListener thrower = ThrowAfterAt(deadline: deadline, refused: 10);
 
         await Assert.That(() => deadline.Send(Maybe.Some(10))).ThrowsExactly<InvalidOperationException>();
 
@@ -285,8 +287,8 @@ public sealed class TimerTests
         await Assert.That(alarms).IsEmpty();
 
         clock.AdvanceTo(20);
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [20], ordering: CollectionOrdering.Matching);
     }
@@ -300,8 +302,8 @@ public sealed class TimerTests
         TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
         CellSink<Maybe<int>> deadline = Cell.CreateSink(Maybe.Some(10));
         List<int> alarms = [];
-        IStrongListener l = timers.At(deadline).ListenStrong(alarms.Add);
-        IStrongListener thrower = ThrowAfterAt(deadline: deadline, refused: 20);
+        IListener l = timers.At(deadline).Listen(alarms.Add);
+        IListener thrower = ThrowAfterAt(deadline: deadline, refused: 20);
 
         await Assert.That(() => deadline.Send(Maybe.Some(20))).ThrowsExactly<InvalidOperationException>();
 
@@ -311,8 +313,8 @@ public sealed class TimerTests
         await Assert.That(alarms).IsEmpty();
 
         clock.AdvanceTo(30);
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [30], ordering: CollectionOrdering.Matching);
     }
@@ -328,9 +330,9 @@ public sealed class TimerTests
         CellSink<Maybe<int>> deadline = Cell.CreateSink(Maybe.Some(20));
         List<int> alarms = [];
         List<int> times = [];
-        IStrongListener l = timers.At(deadline).ListenStrong(alarms.Add);
-        IStrongListener timeListener = Operational.Updates(timers.Time).ListenStrong(times.Add);
-        IStrongListener thrower = ThrowAfterAt(deadline: deadline, refused: 15, beforeThrow: clock.FireHeldBackTimer);
+        IListener l = timers.At(deadline).Listen(alarms.Add);
+        IListener timeListener = Operational.Updates(timers.Time).Listen(times.Add);
+        IListener thrower = ThrowAfterAt(deadline: deadline, refused: 15, beforeThrow: clock.FireHeldBackTimer);
 
         await Assert.That(() => deadline.Send(Maybe.Some(15))).ThrowsExactly<InvalidOperationException>();
 
@@ -340,9 +342,9 @@ public sealed class TimerTests
         await Assert.That(times).IsEquivalentTo(expected: [16], ordering: CollectionOrdering.Matching);
 
         clock.AdvanceTo(20);
-        thrower.Unlisten();
-        timeListener.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        timeListener.Dispose();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [20], ordering: CollectionOrdering.Matching);
     }
@@ -357,8 +359,8 @@ public sealed class TimerTests
         TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
         CellSink<Maybe<int>> deadline = Cell.CreateSink(Maybe.Some(20));
         List<int> alarms = [];
-        IStrongListener l = timers.At(deadline).ListenStrong(alarms.Add);
-        IStrongListener thrower = ThrowAfterAt(deadline: deadline, refused: 15);
+        IListener l = timers.At(deadline).Listen(alarms.Add);
+        IListener thrower = ThrowAfterAt(deadline: deadline, refused: 15);
 
         await Assert.That(() => deadline.Send(Maybe.Some(15))).ThrowsExactly<InvalidOperationException>();
 
@@ -368,8 +370,8 @@ public sealed class TimerTests
         await Assert.That(alarms).IsEmpty();
 
         clock.AdvanceTo(20);
-        thrower.Unlisten();
-        l.Unlisten();
+        thrower.Dispose();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [20], ordering: CollectionOrdering.Matching);
     }
@@ -407,10 +409,10 @@ public sealed class TimerTests
         TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem());
         List<int> times = [];
 
-        IStrongListener l = Operational.Updates(timers.Time).ListenStrong(times.Add);
+        IListener l = Operational.Updates(timers.Time).Listen(times.Add);
         clock.AdvanceTo(12);
         clock.AdvanceTo(5);
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(times).IsEquivalentTo(expected: [12, 5], ordering: CollectionOrdering.Matching);
     }
@@ -441,8 +443,8 @@ public sealed class TimerTests
 
         List<DateTime> alarms = [];
 
-        IStrongListener l =
-            timers.At(Cell.Constant(Maybe.Some(start.AddMinutes(5)))).ListenStrong(alarms.Add);
+        IListener l =
+            timers.At(Cell.Constant(Maybe.Some(start.AddMinutes(5)))).Listen(alarms.Add);
 
         Transaction.RunVoid(static () =>
         {
@@ -457,7 +459,7 @@ public sealed class TimerTests
         {
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(timers.Time.Sample()).IsEqualTo(start.AddMinutes(5));
 
@@ -515,7 +517,7 @@ public sealed class TimerTests
                     }));
 
         List<DateTime> times = [];
-        IStrongListener l = Operational.Updates(timers.Time).ListenStrong(times.Add);
+        IListener l = Operational.Updates(timers.Time).Listen(times.Add);
 
         for (int step = 1; step <= 5; step++)
         {
@@ -526,7 +528,7 @@ public sealed class TimerTests
             });
         }
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(times)
             .IsEquivalentTo(
@@ -557,7 +559,7 @@ public sealed class TimerTests
 
         DateTime alarmTime = start.AddMinutes(30);
         List<DateTime> alarms = [];
-        IStrongListener l = timers.At(Cell.Constant(Maybe.Some(alarmTime))).ListenStrong(alarms.Add);
+        IListener l = timers.At(Cell.Constant(Maybe.Some(alarmTime))).Listen(alarms.Add);
 
         clock.Now = start.AddMinutes(45);
 
@@ -573,7 +575,7 @@ public sealed class TimerTests
         {
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(alarms).IsEquivalentTo(expected: [alarmTime], ordering: CollectionOrdering.Matching);
         await Assert.That(timers.Time.Sample()).IsEqualTo(start.AddHours(1));
@@ -641,7 +643,7 @@ public sealed class TimerTests
     // it after the listener of At in that transaction, which has thus set its timer before the
     // throw. The sequence of listeners at one rank is not a contract, and a listener directly on
     // the cell ran first.
-    private static IStrongListener ThrowAfterAt(Cell<Maybe<int>> deadline, int refused) =>
+    private static IListener ThrowAfterAt(Cell<Maybe<int>> deadline, int refused) =>
         ThrowAfterAt(
             deadline: deadline,
             refused: refused,
@@ -650,11 +652,11 @@ public sealed class TimerTests
             });
 
     // The same, with an action that runs in the transaction before the throw.
-    private static IStrongListener ThrowAfterAt(Cell<Maybe<int>> deadline, int refused, Action beforeThrow) =>
+    private static IListener ThrowAfterAt(Cell<Maybe<int>> deadline, int refused, Action beforeThrow) =>
         deadline.Updates()
             .Map(static d => d)
             .Map(static d => d)
-            .ListenStrong(d =>
+            .Listen(d =>
             {
                 if (!d.Equals(Maybe.Some(refused)))
                 {

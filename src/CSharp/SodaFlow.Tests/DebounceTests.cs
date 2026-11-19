@@ -28,7 +28,7 @@ public sealed class DebounceTests
         ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
-        IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).Listen(seen.Add));
 
         keys.Send("a");
         clock.AdvanceTo(3);
@@ -45,7 +45,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["abc"], ordering: CollectionOrdering.Matching)
             .Because("the last value fires one time, after the quiet");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -54,7 +54,7 @@ public sealed class DebounceTests
         ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
-        IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).Listen(seen.Add));
 
         keys.Send("a");
         clock.AdvanceTo(10);
@@ -69,7 +69,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["a"], ordering: CollectionOrdering.Matching)
             .Because("an alarm that fired holds no deadline");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -78,7 +78,7 @@ public sealed class DebounceTests
         ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
-        IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).Listen(seen.Add));
 
         keys.Send("a");
         clock.AdvanceTo(10);
@@ -90,7 +90,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["a", "b"], ordering: CollectionOrdering.Matching)
             .Because("the debounce works again after it fired");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -99,7 +99,7 @@ public sealed class DebounceTests
         ManualClock clock = this.clock;
         StreamSink<string> keys = Stream.CreateSink<string>();
         List<string> seen = [];
-        IStrongListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => Debounced(keys: keys, clock: clock).Listen(seen.Add));
 
         keys.Send("a");
 
@@ -120,7 +120,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["b"], ordering: CollectionOrdering.Matching)
             .Because("the value of the last firing fires, and the value before it never fires");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -136,11 +136,11 @@ public sealed class DebounceTests
         // transaction of a firing reads the value of that same firing.
         Cell<string> lastKey = Transaction.Run(() => keys.Hold(string.Empty));
 
-        IStrongListener l =
+        IListener l =
             Transaction.Run(() =>
                 debounced
                     .Snapshot(c: lastKey, f: static (value, held) => value + " after " + held)
-                    .ListenStrong(seen.Add));
+                    .Listen(seen.Add));
 
         keys.Send("a");
         clock.AdvanceTo(10);
@@ -149,7 +149,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["a after a"], ordering: CollectionOrdering.Matching)
             .Because("the cell of the source has the value of the firing before the alarm fires");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -177,7 +177,7 @@ public sealed class DebounceTests
                     })
                     .Captures);
 
-        IStrongListener l = Transaction.Run(() => debounced.ListenStrong(seen.Add));
+        IListener l = Transaction.Run(() => debounced.Listen(seen.Add));
 
         keys.Send("a");
         clock.AdvanceTo(10);
@@ -194,7 +194,7 @@ public sealed class DebounceTests
             .IsEquivalentTo(expected: ["a", "b"], ordering: CollectionOrdering.Matching)
             .Because("a firing that shares the transaction of the alarm arms the alarm again");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     private static Stream<string> Debounced(Stream<string> keys, ManualClock clock) =>

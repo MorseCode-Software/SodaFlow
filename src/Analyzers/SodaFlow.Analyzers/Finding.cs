@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 
 namespace SodaFlow.Analyzers;
@@ -18,12 +19,17 @@ namespace SodaFlow.Analyzers;
 ///     is in a lambda or a local function of the block.
 /// </param>
 /// <param name="subject">For a value that goes to unseen code, the name of that code.</param>
+/// <param name="readBack">
+///     For a read, the members of the object of a forward reference that the
+///     value reads back. See <see cref="LoopState.ReadBack" />.
+/// </param>
 internal sealed class Finding(
     in LoopFrame home,
     in ISymbol? origin,
     in bool escape,
     in Diagnostic diagnostic,
-    in string subject)
+    in string subject,
+    in ImmutableArray<ISymbol> readBack = default)
 {
     public LoopFrame Home { get; } = home;
 
@@ -34,4 +40,6 @@ internal sealed class Finding(
     public Diagnostic Diagnostic { get; } = diagnostic;
 
     public string Subject { get; } = subject;
+
+    public ImmutableArray<ISymbol> ReadBack { get; } = readBack.IsDefault ? ImmutableArray<ISymbol>.Empty : readBack;
 }

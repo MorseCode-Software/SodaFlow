@@ -80,15 +80,15 @@ public sealed class ReactiveCollectionTests
 
         List<int> shapes = [];
         List<int> snapshots = [];
-        IListener shapeListener = collection.ShapeCell.Updates().ListenStrong(s => shapes.Add(s.Count));
-        IListener snapshotListener = collection.SnapshotCell.Updates().ListenStrong(s => snapshots.Add(s.Count));
+        IListener shapeListener = collection.ShapeCell.Updates().Listen(s => shapes.Add(s.Count));
+        IListener snapshotListener = collection.SnapshotCell.Updates().Listen(s => snapshots.Add(s.Count));
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
         edits.Send(TestUtil.Score(key: 1, score: 11));
         edits.Send(TestUtil.Remove(2));
 
-        shapeListener.Unlisten();
-        snapshotListener.Unlisten();
+        shapeListener.Dispose();
+        snapshotListener.Dispose();
 
         // The update is not structural, thus only the two structural edits come to the shape cell,
         // and the three edits come to the snapshot.
@@ -109,12 +109,12 @@ public sealed class ReactiveCollectionTests
                 edits);
 
         List<int> fired = [];
-        IListener l = collection.SnapshotCell.Updates().ListenStrong(s => fired.Add(s.Count));
+        IListener l = collection.SnapshotCell.Updates().Listen(s => fired.Add(s.Count));
 
         // A removal of a key that the collection does not have resolves to no change.
         edits.Send(TestUtil.Remove(99));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(fired).IsEmpty();
     }
@@ -125,13 +125,17 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            keySelector: TestUtil.KeyOf,
-            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
-            edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                edits);
 
         await Assert.That(() => edits.Send(TestUtil.Add(TestUtil.Item(number: 1, name: "again", score: 20))))
             .Throws<InvalidOperationException>();
+
+        // Only this test holds the collection, and the collection holds the graph that refuses the send.
+        GC.KeepAlive(collection);
     }
 
     [Test]
@@ -140,12 +144,16 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            keySelector: TestUtil.KeyOf,
-            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
-            edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                edits);
 
         await Assert.That(() => edits.Send(TestUtil.Score(key: 99, score: 1))).Throws<KeyNotFoundException>();
+
+        // Only this test holds the collection, and the collection holds the graph that refuses the send.
+        GC.KeepAlive(collection);
     }
 
     [Test]
@@ -186,7 +194,7 @@ public sealed class ReactiveCollectionTests
                 updates);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
-        IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
+        IListener l = collection.ItemChangesStream.Listen(changes.Add);
 
         Transaction.RunVoid(() =>
         {
@@ -194,7 +202,7 @@ public sealed class ReactiveCollectionTests
             updates.Send(TestUtil.Score(key: 1, score: 11));
         });
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(changes.Count).IsEqualTo(1);
         await Assert.That(changes[0].After.Count).IsEqualTo(2);
@@ -211,11 +219,12 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> second =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            keySelector: TestUtil.KeyOf,
-            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
-            first,
-            second);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                first,
+                second);
 
         // SodaFlow does not give the sequence of a merge, thus a composition of the two has no
         // result and this code refuses it and does not resolve it.
@@ -226,6 +235,9 @@ public sealed class ReactiveCollectionTests
                     second.Send(TestUtil.Score(key: 1, score: 12));
                 }))
             .Throws<InvalidOperationException>();
+
+        // Only this test holds the collection, and the collection holds the graph that refuses the send.
+        GC.KeepAlive(collection);
     }
 
     [Test]
@@ -234,13 +246,17 @@ public sealed class ReactiveCollectionTests
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
             Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
 
-        ReactiveCollection<int, ItemIdentity, ItemState>.Create(
-            keySelector: TestUtil.KeyOf,
-            initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
-            edits);
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                edits);
 
         await Assert.That(() => edits.Send(TestUtil.Score(key: 1, score: 11).CombineWith(TestUtil.Remove(1))))
             .Throws<InvalidOperationException>();
+
+        // Only this test holds the collection, and the collection holds the graph that refuses the send.
+        GC.KeepAlive(collection);
     }
 
     [Test]
@@ -259,11 +275,11 @@ public sealed class ReactiveCollectionTests
                 edits);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
-        IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
+        IListener l = collection.ItemChangesStream.Listen(changes.Add);
 
         edits.Send(TestUtil.Remove(1));
 
-        l.Unlisten();
+        l.Dispose();
 
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
@@ -364,11 +380,11 @@ public sealed class ReactiveCollectionTests
                 edits);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
-        IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
+        IListener l = collection.ItemChangesStream.Listen(changes.Add);
 
         edits.Send(TestUtil.Score(key: 1, score: 99));
 
-        l.Unlisten();
+        l.Dispose();
 
         ItemChange<int, ItemIdentity, ItemState> change = changes[0];
 
@@ -399,12 +415,12 @@ public sealed class ReactiveCollectionTests
                 edits);
 
         List<ItemChange<int, ItemIdentity, ItemState>> changes = [];
-        IListener l = collection.ItemChangesStream.ListenStrong(changes.Add);
+        IListener l = collection.ItemChangesStream.Listen(changes.Add);
 
         edits.Send(TestUtil.Score(key: 1, score: 20));
         edits.Send(TestUtil.Score(key: 1, score: 30));
 
-        l.Unlisten();
+        l.Dispose();
 
         await Assert.That(changes.Count).IsEqualTo(2);
 

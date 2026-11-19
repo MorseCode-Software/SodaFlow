@@ -38,7 +38,7 @@ StreamSink<int> s = Stream.CreateSink<int>();
 Stream<int> total = Stream.Loop<int>()
     .WithoutCaptures(l => s.Snapshot(l.Hold(0), (n, o) => n + o));
 
-using (total.ListenStrong(Console.WriteLine))
+using (total.Listen(Console.WriteLine))
 {
     s.Send(1);   // 1
     s.Send(2);   // 3
@@ -55,7 +55,7 @@ let s = sinkS<int> ()
 let total =
     loopWithNoCapturesS (fun l -> s |> snapshotC (l |> holdS 0) (+))
 
-use _ = total |> listenStrongS (printfn "%d")
+use _ = total |> listenS (printfn "%d")
 s |> sendS 1   // 1
 s |> sendS 2   // 3
 s |> sendS 3   // 6
@@ -69,9 +69,9 @@ goes. `l.Hold(0)` makes a cell of the running total that starts at zero. Each fi
 a snapshot of that cell and adds to it. The result is what `l` stands for, and `WithoutCaptures`
 closes the loop with it.
 
-These samples use `ListenStrong` rather than `Listen` for one reason: `using` and `use` need
-`IDisposable`, and only `IStrongListener` implements it. Where you keep the handle in a variable,
-use [`Listen`](lifetimes.md).
+These samples hold the listener in `using` and `use`. A handler runs only while something holds
+its listener, and the scope does that here and stops the listener at its end. See
+[Listener lifetimes](lifetimes.md).
 
 The block cannot get a loop wrong. The placeholder has no method that closes it, so you cannot
 close it twice, forget to close it, or close it in a different transaction. The block's return
@@ -222,6 +222,9 @@ project that references `SodaFlow` runs it, with no step of its own. To remove i
 `ExcludeAssets="analyzers"` on that reference. The analyzer does not check F#, because a Roslyn
 analyzer runs in the C# compiler only. In F#, the exception at run time is the check.
 
+The same analyzer also has `SF2001`, a rule for a listener that nothing holds. [Listener
+lifetimes](lifetimes.md#the-mistake-that-fails-silently) describes it.
+
 The analyzer reads the code that runs while a loop is open: the function that you give a loop
 block or a forward reference. That function can be a lambda, an anonymous method, or a method of
 your project given by name. When that code calls your own methods, constructors, local functions,
@@ -234,12 +237,12 @@ is quiet.
 
 | Rule | Reports | What to do |
 | --- | --- | --- |
-| `SF1001` | `Sample()`, the `Value` of a bindable, or `CanExecute` on a value made from the placeholder, in the block. | Use `SampleLazy` or a lazy form, or move the read into a callback. |
-| `SF1002` | A loop whose definition links to its own placeholder, with no hold that it samples, `Operational.Defer`, or timer between them. This throws `DependencyCycleException`, at the close or when a switch selects the loop. | Put a hold that the definition samples, `Operational.Defer`, or a timer in the cycle. |
+| `SF1001` | `Sample()`, the `Value` of a bindable, a write to the `Value` of a two-way bindable, or `CanExecute`, `Execute`, or `Dispose` of a bindable action, on a value made from the placeholder, in the block. | Use `SampleLazy` or a lazy form, or move the read into a callback. |
+| `SF1002` | A loop whose definition links to its own placeholder, with no hold that it samples, `Operational.Defer`, or timer between them. This throws `DependencyCycleException`, at the close or when a switch selects the loop. With `ForwardReference`, the same holds for a member of the object that is defined by reading that member back through the reference, for example with `SwitchC`. | Put a hold that the definition samples, `Operational.Defer`, or a timer in the cycle. |
 | `SF1003` | A value made from the placeholder that goes to code the analyzer cannot read, and that can read the value. | If that code does not read the value before the close, [mark the argument](#code-the-analyzer-cannot-read). |
 | `SF1004` | A method, constructor, local function, or lambda of your project that reads a value it gets from the block. Reported at the argument. | As for `SF1001`, in that code. |
 | `SF1005` | A call that reads a pending member of an object built in the block. Also a helper that reads a field the block set, or a lambda that your code kept and the block runs. Reported at the call. | Make the call after the block, or in a callback. |
-| `SF1006` | A loop whose initial value reads the loop, through a lazy sample of it or a `Map` whose function samples it. | Give the loop an initial value that does not read the loop. |
+| `SF1006` | A loop whose initial value reads the loop, through a lazy sample of it or a `Map` whose function samples it. With `ForwardReference`, a member that is read back while it is still pending, so that the first read of the member needs its own value. | Give the loop an initial value that does not read the loop. |
 
 ### What is not reported
 
@@ -255,7 +258,9 @@ is quiet.
   same way. Their predicates, selectors, sort orders, and comparers run when something reads the
   view.
 - **A sample of a `Hold` with a plain initial value.** A read in the block gives the initial
-  value, because a firing of the stream comes after the close.
+  value, because a firing of the stream comes after the close. That is also true for a hold that
+  the block makes, after a send into its sink in the block: the hold takes the sent value only at
+  the end of the transaction. The same goes for an `Accum` and for a cell sink.
 
 ### Code the analyzer cannot read
 
@@ -289,16 +294,31 @@ The analyzer follows a value made from the placeholder through the code of your 
 - Collections, arrays, and dictionaries. A list or an array that you write as a literal keeps each
   element apart, so `cells[0]` is that one element.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
-  through an interface to an object that the block built.
-- Loops: each pass of a `for`, `foreach`, `while`, or `do` is read until a pass adds nothing new.
+  through an interface to an object that the block built, or to one that a `readonly` field or a
+  get-only property creates in its initializer. That includes a property that uses `field`, a
+  member of an extension block, and a static member of an interface called through a type
+  parameter.
+- Events and delegates: the handlers added with `+=` run where the event is raised, and a delegate
+  made with `+` runs each of its functions.
+- Loops: each pass of a `for`, `foreach`, `while`, or `do`, or of a `goto` back to a label, is read
+  until a pass adds nothing new.
+- Sinks: a value that the block sends into a sink reaches each value made from that sink, also one
+  made before the send, such as a `Hold` of the sink or a switch of that hold. So does a value
+  sent in a function that `Transaction.Post` runs after the transaction: a lambda, a local
+  function, a method that you give to `Post` by its name, or a post inside a posted function.
 - Members that C# calls with no call syntax: an indexer, an operator, a conversion, a setter, an
   event accessor, `Deconstruct`, `ToString` in an interpolated string, `Dispose` at the end of a
-  `using`, the enumerator of a `foreach`, and the `Add` of a collection initializer.
+  `using` or a `foreach`, the enumerator of a `foreach`, the `Add` of a collection initializer or
+  a collection expression, the `Create` method of a `CollectionBuilder`, `Count` and `Slice` for
+  an index from the end, a range, or a list pattern, the `ToString` and the copy constructor of a
+  record, and the `==` of each element of a tuple comparison.
 - Members that the platform calls for you: `CompareTo` in a sort, `Equals` and `GetHashCode` in a
   search, a set, or a dictionary, a comparer that you give a collection, and `ToString` in
   `string.Join` or `string.Format`.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
-  and the function of a `Lazy<T>` where something reads its `Value`.
+  and the function of a `Lazy<T>` where something reads its `Value`. An `async` method or lambda
+  runs in the block up to its first `await` of a task that may not be complete, and the rest of it
+  runs later. An async iterator runs nothing until something enumerates it.
 - The serializers of `System.Text.Json`, Json.NET, and `XmlSerializer`, and LINQ to XML, which
   call your getters and enumerate your sequences.
 
@@ -309,20 +329,42 @@ careful side, so it can report a read that does not throw:
 
 - A collection that it cannot follow item by item has the state of all its items. A list that
   holds one pending cell and one plain cell then reports a read of either.
+- A `foreach` that sets a member of each item does not clear a pending value when the `foreach`
+  runs inside another loop. It can also leave the value for a list that the code changes in a way
+  other than `Add`, or that gets an `Add` under a condition with no loop that adds on every pass.
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
   one.
+- A handler removed with `-=` still counts as a handler of the event, unless the code adds and
+  removes that one lambda in a straight line, with nothing between the add and the remove.
+- A sample of a hold gives only the initial value where the hold is made and sampled in the
+  transaction of the block: in the block's own code, in a function that `Transaction.Run` runs, in
+  the function of a `Map` of a `Cell.Constant`, or in a local function, lambda, or method that such
+  code calls or passes to a call that runs it there. A lambda written at a call counts only where
+  the call is one of those two, a method of your own, a method of an array or a `List<T>`, or a
+  LINQ method that runs it in the call. A LINQ query such as `Select` counts only where the same
+  code enumerates it in the transaction: a `First` or a `ToList` on it, a `foreach` over it, or a
+  local that holds it and that only such code reads. A hold that a method reads from its own object
+  counts where the code made that object with `new` and gave it the hold in the constructor of a
+  positional record, or in a readonly field or a get-only property that a primary constructor sets.
+  A sample in a lambda written at any other call, such as a `Map` of a stream, or of a hold kept in
+  a list or in a member that code can set again, gets each value sent into the sink as well. A
+  close with such a sample can then get `SF1002`, although the sample runs before the end of the
+  transaction.
 
 Some reads that throw it does not see:
 
-- Reflection, such as `Activator.CreateInstance` or `MethodInfo.Invoke`.
+- Reflection, such as `Activator.CreateInstance` or `MethodInfo.Invoke`. A value made from the
+  placeholder that you pass to one of these gets `SF1003`.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
 - A member that the platform calls from a method that is not in its table of common methods.
 - A serializer with options or a converter of its own.
 - A function that a constructor from outside your project keeps, other than a `Lazy<T>` or the
   comparer of a platform collection.
+- Code after an `await` of a task that is already complete when the analyzer cannot tell that it
+  is. That code runs in the block, and the analyzer reads it as code that runs later.
 - A chain of your own calls more than four calls deep. There, the analyzer reports `SF1003` at the
   call where it stops.
 - A virtual method, if the analyzer did not see the object built: it reads the method that the

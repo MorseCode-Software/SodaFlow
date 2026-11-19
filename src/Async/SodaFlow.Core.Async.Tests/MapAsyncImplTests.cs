@@ -19,7 +19,7 @@ public sealed class MapAsyncImplTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -37,7 +37,7 @@ public sealed class MapAsyncImplTests
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     // The code of an operation before its first await must not run with the transaction lock. Code
@@ -50,7 +50,7 @@ public sealed class MapAsyncImplTests
         StreamSink<bool> results = Stream.CreateSink<bool>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<bool> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -79,7 +79,7 @@ public sealed class MapAsyncImplTests
         await Assert.That(received[0]).IsTrue();
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -90,7 +90,7 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         InvalidOperationException thrown = new("boom");
         List<Exception> received = [];
-        IListener l = errors.ListenStrong(received.Add);
+        IListener l = errors.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -108,7 +108,7 @@ public sealed class MapAsyncImplTests
         await Assert.That(received[0]).IsSameReferenceAs(thrown);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     // A listener on the results that throws stops the send of that result. The item ends, the next
@@ -124,7 +124,7 @@ public sealed class MapAsyncImplTests
         List<int> received = [];
         List<Exception> failures = [];
 
-        using IStrongListener l = results.ListenStrong(v =>
+        using IListener l = results.Listen(v =>
         {
             if (v == 1)
             {
@@ -134,7 +134,7 @@ public sealed class MapAsyncImplTests
             received.Add(v);
         });
 
-        using IStrongListener e = errors.ListenStrong(failures.Add);
+        using IListener e = errors.Listen(failures.Add);
 
         AsyncMapStatus<int> status =
             source.MapAsyncImpl(
@@ -177,7 +177,7 @@ public sealed class MapAsyncImplTests
         List<Exception> reported = [];
         List<Exception> unhandled = [];
 
-        using IStrongListener l = results.ListenStrong(v =>
+        using IListener l = results.Listen(v =>
         {
             if (v == 1)
             {
@@ -188,7 +188,7 @@ public sealed class MapAsyncImplTests
         });
 
         // This throws on the failure of the results listener, also when it is in a wrapper.
-        using IStrongListener e = errors.ListenStrong(error =>
+        using IListener e = errors.Listen(error =>
         {
             reported.Add(error);
 
@@ -232,8 +232,8 @@ public sealed class MapAsyncImplTests
         StreamSink<int> results = Stream.CreateSink<int>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<Exception> reported = [];
-        using IStrongListener l = results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
-        using IStrongListener e = errors.ListenStrong(reported.Add);
+        using IListener l = results.Listen(static _ => throw new InvalidOperationException("results listener"));
+        using IListener e = errors.Listen(reported.Add);
 
         AsyncMapStatus<int, int> status =
             source.MapAsyncImpl(
@@ -268,7 +268,7 @@ public sealed class MapAsyncImplTests
         InvalidOperationException listenerError = new("errors listener");
         List<Exception> reported = [];
 
-        using IStrongListener e = errors.ListenStrong(error =>
+        using IListener e = errors.Listen(error =>
         {
             if (ReferenceEquals(objA: error, objB: operationError))
             {
@@ -312,7 +312,7 @@ public sealed class MapAsyncImplTests
         InvalidOperationException constructionError = new("construction");
         List<Exception> reported = [];
 
-        using IStrongListener e = errors.ListenStrong(error =>
+        using IListener e = errors.Listen(error =>
         {
             if (ReferenceEquals(objA: error, objB: constructionError))
             {
@@ -354,8 +354,8 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<int, int> op = new();
         List<Exception> failures = [];
-        using IStrongListener l = results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
-        using IStrongListener e = errors.ListenStrong(failures.Add);
+        using IListener l = results.Listen(static _ => throw new InvalidOperationException("results listener"));
+        using IListener e = errors.Listen(failures.Add);
 
         AsyncMapStatus<int> status =
             source.MapAsyncImpl(
@@ -391,8 +391,8 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<int, int> op = new();
         List<Exception> unhandled = [];
-        using IStrongListener l = results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
-        using IStrongListener e = errors.ListenStrong(static _ => throw new InvalidOperationException("errors listener"));
+        using IListener l = results.Listen(static _ => throw new InvalidOperationException("results listener"));
+        using IListener e = errors.Listen(static _ => throw new InvalidOperationException("errors listener"));
 
         AsyncMapStatus<int> status =
             source.MapAsyncImpl(
@@ -428,7 +428,7 @@ public sealed class MapAsyncImplTests
         StreamSink<int> results = Stream.CreateSink<int>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<Exception> unhandled = [];
-        using IStrongListener l = results.ListenStrong(static _ => throw new InvalidOperationException("results listener"));
+        using IListener l = results.Listen(static _ => throw new InvalidOperationException("results listener"));
 
         AsyncMapStatus<int> status =
             source.MapAsyncImpl(
@@ -459,7 +459,7 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         RecordingStrategy<int> strategy = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         // TStrategyInput, which is an int, has no inheritance relation to TInput, which is a
         // string. The inputConverter is what permits that.
@@ -484,7 +484,7 @@ public sealed class MapAsyncImplTests
         await Assert.That(received[0]).IsEqualTo("HELLO");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -495,7 +495,7 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         RejectNegativeStrategy strategy = new();
         List<int> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<int> status =
             source.MapAsyncImpl(
@@ -524,7 +524,7 @@ public sealed class MapAsyncImplTests
             .IsTrue();
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     /// <summary>
@@ -552,7 +552,7 @@ public sealed class MapAsyncImplTests
         StreamSink<int> results = Stream.CreateSink<int>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<int> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
         CancelAndPromoteSameItemStrategy strategy = new();
 
         AsyncMapStatus<int> status =
@@ -588,7 +588,7 @@ public sealed class MapAsyncImplTests
                 + "An empty list says that this end went to OnCompleted instead.");
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -598,7 +598,7 @@ public sealed class MapAsyncImplTests
         StreamSink<string> results = Stream.CreateSink<string>();
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -616,7 +616,7 @@ public sealed class MapAsyncImplTests
         Thread.Sleep(100);
         await Assert.That(received.Count).IsEqualTo(0);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -627,7 +627,7 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -648,7 +648,7 @@ public sealed class MapAsyncImplTests
         Thread.Sleep(200);
         await Assert.That(received.Count).IsEqualTo(0).Because("A canceled outcome must never be published.");
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]
@@ -659,7 +659,7 @@ public sealed class MapAsyncImplTests
         StreamSink<Exception> errors = Stream.CreateSink<Exception>();
         ControlledOperation<string, string> op = new();
         List<string> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<string> status =
             source.MapAsyncImpl(
@@ -681,7 +681,7 @@ public sealed class MapAsyncImplTests
         TestUtil.WaitUntil(() => received.Count == 1);
         await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
 
-        l.Unlisten();
+        l.Dispose();
     }
 
     // The pipeline finds the items with a dictionary and a set where it ends more than a few items.
@@ -697,7 +697,7 @@ public sealed class MapAsyncImplTests
         StreamSink<IReadOnlyCollection<int>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<int>>();
         ControlledOperation<int, int> op = new();
         List<int> received = [];
-        IListener l = results.ListenStrong(received.Add);
+        IListener l = results.Listen(received.Add);
 
         AsyncMapStatus<int> status =
             source.MapAsyncImpl(
@@ -733,7 +733,7 @@ public sealed class MapAsyncImplTests
         await Assert.That(received).IsEquivalentTo(expected: [0], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
-        l.Unlisten();
+        l.Dispose();
     }
 
     [Test]

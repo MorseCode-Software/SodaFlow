@@ -78,7 +78,7 @@ module Issue151 =
                         struct ((inputByAdded, inputBySatisfaction) |> mergeS max, pool))
 
                 let submissions = List<_>()
-                let l = input |> listenStrongS submissions.Add
+                let l = input |> listenS submissions.Add
                 addPoolSink |> sendS 10
                 l |> unlistenL
                 do! Expect.Equal(1, submissions.Count)
@@ -186,7 +186,7 @@ module Issue138 =
 
                 let objectCounts = List<_>()
                 objectCounts.Add -1
-                let l = cell |> listenStrongC (objectCounts.Add << List.length)
+                let l = cell |> listenC (objectCounts.Add << List.length)
                 objectCounts.Add -1
                 // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
                 (cell |> sampleC).[2].Input1 |> sendS 1
@@ -234,7 +234,7 @@ module Issue138 =
 
                 let objectCounts = List<_>()
                 objectCounts.Add -1
-                let l = cell |> listenStrongC (objectCounts.Add << List.length)
+                let l = cell |> listenC (objectCounts.Add << List.length)
                 objectCounts.Add -1
                 // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
                 (cell |> sampleC).[2].Input1 |> sendS 1
@@ -289,7 +289,7 @@ module Issue138 =
 
                 let objectCounts = List<_>()
                 objectCounts.Add -1
-                let l = cell |> listenStrongC (objectCounts.Add << List.length)
+                let l = cell |> listenC (objectCounts.Add << List.length)
                 objectCounts.Add -1
                 // ReSharper disable once FSharpRedundantDotInIndexer - Inpection is incorrect as the dot is needed here.
                 (cell |> sampleC).[2].Input1 |> sendS 1

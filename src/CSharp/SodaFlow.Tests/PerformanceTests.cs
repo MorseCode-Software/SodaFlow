@@ -129,7 +129,7 @@ public sealed class PerformanceTests
         using (Transaction.Run(() =>
                    objectsAndIsSelected.Map(static oo => oo.Count(static o => o.IsSelected))
                        .Values()
-                       .ListenStrong(@out.Add)))
+                       .Listen(@out.Add)))
         {
             Transaction.Run(() =>
             {
@@ -155,7 +155,7 @@ public sealed class PerformanceTests
 
         public TestObject(Stream<bool> s, Stream<int> s1, Stream<int> s2)
         {
-            (Cell<int> cell, IStrongListener l) =
+            (Cell<int> cell, IListener l) =
                 Transaction.Run(() =>
                 {
                     Cell<int> cellLocal = s.Map(static v => v ? 1 : 0).OrElse(s1).OrElse(s2).Hold(0);
@@ -233,7 +233,7 @@ public sealed class PerformanceTests
                             .Hold(3);
 
                     this.currentValue = SodaFlow.Cell.ConstantLazy(cellLocal.SampleLazy());
-                    IStrongListener lLocal = cellLocal.Updates().ListenStrong(v => this.CurrentValue = v);
+                    IListener lLocal = cellLocal.Updates().Listen(v => this.CurrentValue = v);
 
                     return (cellLocal, lLocal);
                 });
