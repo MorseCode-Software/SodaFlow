@@ -38,6 +38,11 @@ The full CI build — restore, build, test with coverage, pack, inspect — live
 runs locally with `dotnet tool restore && dotnet cake`. GitHub Actions runs the same targets; see
 `.github/workflows/build.yml`.
 
+A pull request that changes the loop analyzer is also timed against the analyzer on its base
+branch, and fails if the analyzer got slower; see `.github/workflows/analyzer-timing.yml`. To run
+the same comparison locally, use `dotnet cake --target=Time-Analyzer --baseline=origin/main`. It
+takes several minutes, and its numbers are only meaningful on an otherwise idle machine.
+
 ## Documentation
 
 The documentation is published at

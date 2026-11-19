@@ -4,6 +4,7 @@
         <Project Path="Analyzers/SodaFlow.Analyzers.CodeFixes/SodaFlow.Analyzers.CodeFixes.csproj"/>
         <Project Path="Analyzers/SodaFlow.Analyzers.Platform.Tests/SodaFlow.Analyzers.Platform.Tests.csproj"/>
         <Project Path="Analyzers/SodaFlow.Analyzers.Tests/SodaFlow.Analyzers.Tests.csproj"/>
+        <Project Path="Analyzers/SodaFlow.Analyzers.Timing/SodaFlow.Analyzers.Timing.csproj"/>
     </Folder>
     <Folder Name="/Async/">
         <Project Path="Async/SodaFlow.Core.Async.Tests/SodaFlow.Core.Async.Tests.csproj"/>
