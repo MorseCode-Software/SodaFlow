@@ -25619,6 +25619,10 @@ public static class Shapes
     public static Cell<int> Ab225ViewPredicateReadsWhatItWroteForAnItemBefore() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = Plain; Cell<int> c = Plain; ReactiveCollection<int, ItemId, int> view = TwoItems().Filter(predicate: (_, state) => { int r = c.Sample(); c = p; return state > r; }); p = l.Map(v => v); return S.Hold(view.KeysCell.Sample().Count); });
 
+    // S5926. A local got the array of a field, and a method puts a pending cell in the element. The block writes a plain cell through the local, calls a helper that samples a hold in a property with no code, and reads the element.
+    public static Cell<int> Ab218HelperSamplesAPropertyBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab218A9; Ab218Put(Ab218A9, l.Map(v => v)); a[0].Share = Plain; int n = Ab218ReadHeldProperty(); return S.Hold(a[0].Share!.Sample() + n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -36772,6 +36776,12 @@ public static class Shapes
     private static readonly SettableSlot[] Ab218A8 = [new()];
 
     private static int Ab218ReadHeld() => R4SmpHeld.Sample();
+
+    private static readonly SettableSlot[] Ab218A9 = [new()];
+
+    private static Cell<int> Ab218Held { get; } = S.Hold(6);
+
+    private static int Ab218ReadHeldProperty() => Ab218Held.Sample();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
