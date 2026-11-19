@@ -28,13 +28,25 @@ internal sealed partial class LoopStateEvaluator
     ///     Each other write to a member with the same name, through each owner,
     ///     can be a write to the same object. Thus, it adds its state. A copy of
     ///     a struct is no such owner. A write that this frame did not see can
-    ///     write each member. Thus, it takes each record away.
+    ///     write each member. Thus, it takes each record away. A write that the
+    ///     store makes sure for the object of a record replaces its state. The
+    ///     read uses the record only while the element keeps that object.
     /// </remarks>
     /// <param name="written">The owner as the code has it at the write.</param>
     /// <param name="member">The member.</param>
     /// <param name="state">The state of the value.</param>
     /// <param name="replaces">True when the write always runs in its function.</param>
-    private void NotesAWriteAtAnElement(ExpressionSyntax? written, ISymbol member, LoopState state, bool replaces)
+    /// <param name="has">The state of the owner.</param>
+    /// <param name="isKnown">False when the owner can be an object that the store does not know.</param>
+    /// <param name="turn">The body of the loop whose each turn always runs the write, or null.</param>
+    private void NotesAWriteAtAnElement(
+        ExpressionSyntax? written,
+        ISymbol member,
+        LoopState state,
+        bool replaces,
+        LoopState has,
+        bool isKnown,
+        SyntaxNode? turn)
     {
         if (this.quiet)
         {
@@ -53,11 +65,25 @@ internal sealed partial class LoopStateEvaluator
         if (writes.Count > 0
             && !(written is IdentifierNameSyntax && this.region.SymbolOf(written) is { } copy && HasACopy(copy)))
         {
+            // The same test as the one of Change for the object of the store.
+            MadeObject? surely =
+                isKnown
+                && this.TheOneObjectIn(has) is { } one
+                && this.IsSureFor(made: one, replaces: replaces, turn: turn)
+                    ? one
+                    : null;
+
             for (int i = 0; i < writes.Count; i++)
             {
                 if (writes[i].Member.Name == member.Name)
                 {
-                    writes[i] = writes[i].Adding(state);
+                    writes[i] =
+                        surely != null
+                        && writes[i].Object is { } recorded
+                        && this.region.Objects.Now(ImmutableArray.Create(recorded)) is { Length: 1 } now
+                        && now[0] == surely
+                            ? writes[i].With(state)
+                            : writes[i].Adding(state);
                 }
             }
         }
@@ -80,7 +106,8 @@ internal sealed partial class LoopStateEvaluator
                 index: at.Index,
                 member: definition,
                 end: write.Span.End,
-                state: state));
+                state: state,
+                one: isKnown ? this.TheOneObjectIn(has) : null));
     }
 
     /// <summary>

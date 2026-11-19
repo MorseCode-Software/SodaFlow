@@ -1854,7 +1854,14 @@ internal sealed partial class LoopStateEvaluator
             from: from,
             sure: replaces && isKnown);
 
-        this.NotesAWriteAtAnElement(written: written, member: member, state: state, replaces: replaces);
+        this.NotesAWriteAtAnElement(
+            written: written,
+            member: member,
+            state: state,
+            replaces: replaces,
+            has: has,
+            isKnown: isKnown,
+            turn: turn);
 
         if (!replaces
             || isThroughALocation

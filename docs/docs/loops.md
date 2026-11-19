@@ -324,13 +324,15 @@ The analyzer follows a value made from the placeholder through the code of your 
   local of an element, and `CopyTo` into it put their values into the array, and so do `CopyTo`
   into the array itself and `Array.Copy`. Where each step from the array to the view starts at a
   constant, as `AsSpan(1)` or `[1..]` does, a write to an element at a constant index and a `Fill`
-  reach only the elements of the array that they write. Otherwise, they reach every element. A write to a member through an element of a local array,
-  `List<T>`, or `Dictionary` created with no comparer, at a constant index or key or at an index in
-  a local, replaces what an earlier write gave that member. An index in a local that gets only a
-  constant is that constant index. So does a write through a local that got
-  that element, and a later read through either one sees only the last value. A local that gets the
-  array or the list in a field sees each element that code puts in through the field later, also in
-  a method, until the local or the field gets a different value.
+  reach only the elements of the array that they write. Otherwise, they reach every element. A write
+  to a member through an element of a local array, `List<T>`, or `Dictionary` created with no
+  comparer, at a constant index or key or at an index in a local, replaces what an earlier write
+  gave that member. So does a write through a local that got that element, and a write through any
+  other name of the object in the element, such as `d` after `a[0] = d`, when the analyzer knows
+  which object that is. A later read through the element or the local sees only the last value. An
+  index in a local that gets only a constant is that constant index. A local that gets the array or
+  the list in a field sees each element that code puts in through the field later, also in a method,
+  until the local or the field gets a different value.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a

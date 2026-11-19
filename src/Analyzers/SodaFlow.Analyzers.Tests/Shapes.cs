@@ -26219,6 +26219,166 @@ public static class Shapes
     public static Cell<int> Ab253SliceOfASpanWithALengthFillLeavesTheLastElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain, Plain]; a.AsSpan(0, 2).Slice(1).Fill(l.Map(v => v)); Kept.Add(a[2].Sample()); return S.Hold(0); });
 
+    // S6076. Pair matrix: an element of a local array at a constant index gets the object of an element of a local array at a local index. A pending cell goes in through an element of a local array at a constant index, then a plain cell through an element of a local array at a local index. The read is through an element of a local array at a constant index.
+    public static Cell<int> R4PairElementPendingThenIndexedElementReadElementReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] b = [new SettableSlot()]; int i = 0; SettableSlot[] a = [R4PairSpare]; a[0] = b[i]; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); b[i].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6077. Pair matrix: an element of a local array at a constant index gets the object of an element of a local array at a local index. A pending cell goes in through an element of a local array at a constant index, then a plain cell through an element of a local array at a local index. The read is through a third name (a local).
+    public static Cell<int> R4PairElementPendingThenIndexedElementReadThirdReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] b = [new SettableSlot()]; int i = 0; SettableSlot[] a = [R4PairSpare]; a[0] = b[i]; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); b[i].Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S6078. Pair matrix: an element of a local array at a constant index gets the object of an instance field of a local holder. A pending cell goes in through an element of a local array at a constant index, then a plain cell through an instance field of a local holder. The read is through an element of a local array at a constant index.
+    public static Cell<int> R4PairElementPendingThenInstanceFieldReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairBox h = new(); SettableSlot[] a = [R4PairSpare]; a[0] = h.Slot; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); h.Slot.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6079. Pair matrix: an instance field of a local holder gets the object of an element of a local array at a constant index. A pending cell goes in through an element of a local array at a constant index, then a plain cell through an instance field of a local holder. The read is through an element of a local array at a constant index.
+    public static Cell<int> R4PairElementPendingThenInstanceFieldReadElementReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; R4PairBox h = new(); h.Slot = a[0]; SettableSlot q = h.Slot; a[0].Share = l.Map(v => v); h.Slot.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6080. Pair matrix: an element of a local array at a constant index gets the object of an instance field of a local holder. A pending cell goes in through an element of a local array at a constant index, then a plain cell through an instance field of a local holder. The read is through a third name (a local).
+    public static Cell<int> R4PairElementPendingThenInstanceFieldReadThird() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairBox h = new(); SettableSlot[] a = [R4PairSpare]; a[0] = h.Slot; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); h.Slot.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S6081. Pair matrix: an element of a local list gets the object of an element of a local array at a constant index. A pending cell goes in through an element of a local array at a constant index, then a plain cell through an element of a local list. The read is through an element of a local array at a constant index.
+    public static Cell<int> R4PairElementPendingThenListElementReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; List<SettableSlot> list = [R4PairSpare]; list[0] = a[0]; SettableSlot q = list[0]; a[0].Share = l.Map(v => v); list[0].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6082. Pair matrix: an element of a local array at a constant index gets the object of an element of a local list. A pending cell goes in through an element of a local array at a constant index, then a plain cell through an element of a local list. The read is through an element of a local array at a constant index.
+    public static Cell<int> R4PairElementPendingThenListElementReadElementReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot()]; SettableSlot[] a = [R4PairSpare]; a[0] = list[0]; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); list[0].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6083. Pair matrix: an element of a local array at a constant index gets the object of an element of a local list. A pending cell goes in through an element of a local array at a constant index, then a plain cell through an element of a local list. The read is through a third name (a local).
+    public static Cell<int> R4PairElementPendingThenListElementReadThirdReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot()]; SettableSlot[] a = [R4PairSpare]; a[0] = list[0]; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); list[0].Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S6084. Pair matrix: an element of a local array at a constant index gets the object of a local. A pending cell goes in through an element of a local array at a constant index, then a plain cell through a local. The read is through an element of a local array at a constant index.
+    public static Cell<int> R4PairElementPendingThenLocalReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R4PairSpare]; a[0] = d; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6085. Pair matrix: an element of a local array at a constant index gets the object of a local (an object of a readonly static field). A pending cell goes in through an element of a local array at a constant index, then a plain cell through a local. The read is through an element of a local array at a constant index.
+    public static Cell<int> R4PairElementPendingThenLocalReadElementOfAStaticObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R4PairObject895; SettableSlot[] a = [R4PairSpare]; a[0] = d; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6086. Pair matrix: an element of a local array at a constant index gets the object of a local. A pending cell goes in through an element of a local array at a constant index, then a plain cell through a local. The read is through a third name (a local).
+    public static Cell<int> R4PairElementPendingThenLocalReadThird() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R4PairSpare]; a[0] = d; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S6087. Pair matrix: an element of a local array at a constant index gets the object of a local (an object of a readonly static field). A pending cell goes in through an element of a local array at a constant index, then a plain cell through a local. The read is through a third name (a local).
+    public static Cell<int> R4PairElementPendingThenLocalReadThirdOfAStaticObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R4PairObject897; SettableSlot[] a = [R4PairSpare]; a[0] = d; SettableSlot q = a[0]; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S6088. Pair matrix: a static field gets the object of an element of a local array at a constant index. A pending cell goes in through an element of a local array at a constant index, then a plain cell through a static field. The read is through an element of a local array at a constant index.
+    public static Cell<int> R4PairElementPendingThenStaticFieldReadElementReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; R4PairSf655 = a[0]; SettableSlot q = R4PairSf655; a[0].Share = l.Map(v => v); R4PairSf655.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6089. Pair matrix: an element of a local array at a constant index gets the object of an element of a local array at a local index. A pending cell goes in through an element of a local array at a local index, then a plain cell through an element of a local array at a constant index. The read is through an element of a local array at a local index.
+    public static Cell<int> R4PairIndexedElementPendingThenElementReadIndexedElementReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] b = [new SettableSlot()]; int i = 0; SettableSlot[] a = [R4PairSpare]; a[0] = b[i]; SettableSlot q = a[0]; b[i].Share = l.Map(v => v); a[0].Share = Plain; return S.Hold(b[i].Share!.Sample()); });
+
+    // S6090. Pair matrix: an instance field of a local holder gets the object of an element of a local array at a local index. A pending cell goes in through an element of a local array at a local index, then a plain cell through an instance field of a local holder. The read is through an element of a local array at a local index.
+    public static Cell<int> R4PairIndexedElementPendingThenInstanceFieldReadIndexedElementReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] b = [new SettableSlot()]; int i = 0; R4PairBox h = new(); h.Slot = b[i]; SettableSlot q = h.Slot; b[i].Share = l.Map(v => v); h.Slot.Share = Plain; return S.Hold(b[i].Share!.Sample()); });
+
+    // S6091. Pair matrix: an element of a local list gets the object of an element of a local array at a local index. A pending cell goes in through an element of a local array at a local index, then a plain cell through an element of a local list. The read is through an element of a local array at a local index.
+    public static Cell<int> R4PairIndexedElementPendingThenListElementReadIndexedElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] b = [new SettableSlot()]; int i = 0; List<SettableSlot> list = [R4PairSpare]; list[0] = b[i]; SettableSlot q = list[0]; b[i].Share = l.Map(v => v); list[0].Share = Plain; return S.Hold(b[i].Share!.Sample()); });
+
+    // S6092. Pair matrix: a static field gets the object of an element of a local array at a local index. A pending cell goes in through an element of a local array at a local index, then a plain cell through a static field. The read is through an element of a local array at a local index.
+    public static Cell<int> R4PairIndexedElementPendingThenStaticFieldReadIndexedElementReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] b = [new SettableSlot()]; int i = 0; R4PairSf679 = b[i]; SettableSlot q = R4PairSf679; b[i].Share = l.Map(v => v); R4PairSf679.Share = Plain; return S.Hold(b[i].Share!.Sample()); });
+
+    // S6093. Pair matrix: an element of a local list gets the object of an element of a local array at a constant index. A pending cell goes in through an element of a local list, then a plain cell through an element of a local array at a constant index. The read is through an element of a local list.
+    public static Cell<int> R4PairListElementPendingThenElementReadListElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; List<SettableSlot> list = [R4PairSpare]; list[0] = a[0]; SettableSlot q = list[0]; list[0].Share = l.Map(v => v); a[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S6094. Pair matrix: an element of a local array at a constant index gets the object of an element of a local list. A pending cell goes in through an element of a local list, then a plain cell through an element of a local array at a constant index. The read is through an element of a local list.
+    public static Cell<int> R4PairListElementPendingThenElementReadListElementReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot()]; SettableSlot[] a = [R4PairSpare]; a[0] = list[0]; SettableSlot q = a[0]; list[0].Share = l.Map(v => v); a[0].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S6095. Pair matrix: an element of a local list gets the object of an element of a local array at a constant index. A pending cell goes in through an element of a local list, then a plain cell through an element of a local array at a constant index. The read is through a third name (a local).
+    public static Cell<int> R4PairListElementPendingThenElementReadThird() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; List<SettableSlot> list = [R4PairSpare]; list[0] = a[0]; SettableSlot q = list[0]; list[0].Share = l.Map(v => v); a[0].Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S6096. Pair matrix: an element of a local list gets the object of an element of a local array at a local index. A pending cell goes in through an element of a local list, then a plain cell through an element of a local array at a local index. The read is through an element of a local list.
+    public static Cell<int> R4PairListElementPendingThenIndexedElementReadListElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] b = [new SettableSlot()]; int i = 0; List<SettableSlot> list = [R4PairSpare]; list[0] = b[i]; SettableSlot q = list[0]; list[0].Share = l.Map(v => v); b[i].Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S6097. Pair matrix: an element of a local list gets the object of an element of a local array at a local index. A pending cell goes in through an element of a local list, then a plain cell through an element of a local array at a local index. The read is through a third name (a local).
+    public static Cell<int> R4PairListElementPendingThenIndexedElementReadThird() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] b = [new SettableSlot()]; int i = 0; List<SettableSlot> list = [R4PairSpare]; list[0] = b[i]; SettableSlot q = list[0]; list[0].Share = l.Map(v => v); b[i].Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S6098. Pair matrix: an element of a local list gets the object of an instance field of a local holder. A pending cell goes in through an element of a local list, then a plain cell through an instance field of a local holder. The read is through an element of a local list.
+    public static Cell<int> R4PairListElementPendingThenInstanceFieldReadListElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairBox h = new(); List<SettableSlot> list = [R4PairSpare]; list[0] = h.Slot; SettableSlot q = list[0]; list[0].Share = l.Map(v => v); h.Slot.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S6099. Pair matrix: an instance field of a local holder gets the object of an element of a local list. A pending cell goes in through an element of a local list, then a plain cell through an instance field of a local holder. The read is through an element of a local list.
+    public static Cell<int> R4PairListElementPendingThenInstanceFieldReadListElementReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot()]; R4PairBox h = new(); h.Slot = list[0]; SettableSlot q = h.Slot; list[0].Share = l.Map(v => v); h.Slot.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S6100. Pair matrix: an element of a local list gets the object of an instance field of a local holder. A pending cell goes in through an element of a local list, then a plain cell through an instance field of a local holder. The read is through a third name (a local).
+    public static Cell<int> R4PairListElementPendingThenInstanceFieldReadThird() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairBox h = new(); List<SettableSlot> list = [R4PairSpare]; list[0] = h.Slot; SettableSlot q = list[0]; list[0].Share = l.Map(v => v); h.Slot.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S6101. Pair matrix: an element of a local list gets the object of a local. A pending cell goes in through an element of a local list, then a plain cell through a local. The read is through an element of a local list.
+    public static Cell<int> R4PairListElementPendingThenLocalReadListElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); List<SettableSlot> list = [R4PairSpare]; list[0] = d; SettableSlot q = list[0]; list[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S6102. Pair matrix: an element of a local list gets the object of a local (an object of a readonly static field). A pending cell goes in through an element of a local list, then a plain cell through a local. The read is through an element of a local list.
+    public static Cell<int> R4PairListElementPendingThenLocalReadListElementOfAStaticObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R4PairObject991; List<SettableSlot> list = [R4PairSpare]; list[0] = d; SettableSlot q = list[0]; list[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S6103. Pair matrix: an element of a local list gets the object of a local. A pending cell goes in through an element of a local list, then a plain cell through a local. The read is through a third name (a local).
+    public static Cell<int> R4PairListElementPendingThenLocalReadThird() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); List<SettableSlot> list = [R4PairSpare]; list[0] = d; SettableSlot q = list[0]; list[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S6104. Pair matrix: an element of a local list gets the object of a local (an object of a readonly static field). A pending cell goes in through an element of a local list, then a plain cell through a local. The read is through a third name (a local).
+    public static Cell<int> R4PairListElementPendingThenLocalReadThirdOfAStaticObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R4PairObject993; List<SettableSlot> list = [R4PairSpare]; list[0] = d; SettableSlot q = list[0]; list[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(q.Share!.Sample()); });
+
+    // S6105. Pair matrix: a static field gets the object of an element of a local list. A pending cell goes in through an element of a local list, then a plain cell through a static field. The read is through an element of a local list.
+    public static Cell<int> R4PairListElementPendingThenStaticFieldReadListElementReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = [new SettableSlot()]; R4PairSf703 = list[0]; SettableSlot q = R4PairSf703; list[0].Share = l.Map(v => v); R4PairSf703.Share = Plain; return S.Hold(list[0].Share!.Sample()); });
+
+    // S6106. Pair matrix, this: the block calls a method of the object on an element of a local array at a constant index, which writes through this, and writes through a local. A pending cell goes in first, through this, and then the other cell. The read is through an element of a local array at a constant index.
+    public static Cell<int> R4PairThisElementPendingThenLocalReadElementThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf[] a = [new R4PairSelf()]; R4PairSelf d = a[0]; a[0].SetThis(l.Map(v => v)); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6107. AB220: a pending cell goes in through an element of a local array that got a local. A plain cell goes in through the local only in a branch that does not run. The read is through the element.
+    public static Cell<int> Ab220PlainThroughTheLocalInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R4PairSpare]; a[0] = d; a[0].Share = l.Map(v => v); if (Ab220No) { d.Share = Plain; } return S.Hold(a[0].Share!.Sample()); });
+
+    // S6108. AB220: a pending cell goes in through an element of a local array that got a local. A plain cell goes in through a second new object. The read is through the element.
+    public static Cell<int> Ab220PlainThroughAnotherObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot e = new(); SettableSlot[] a = [R4PairSpare]; a[0] = d; a[0].Share = l.Map(v => v); e.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6109. AB220: a pending cell goes in through an element of a local array whose object the store does not know. A plain cell goes in through a new object. The read is through the element.
+    public static Cell<int> Ab220PlainThroughANewObjectAfterAnUnseenElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot e = new(); SettableSlot[] a = [Ab220Unseen[0]]; a[0].Share = l.Map(v => v); e.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6110. AB220: a list copies an array that the walk does not see, and gets a new object. A local gets the first element of the list, which the store can only say is the new object. A pending cell goes in through an element of a local array that got the new object, then a plain cell through the local. The read is through the element.
+    public static Cell<int> Ab220PlainThroughALocalOfACopiedList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> list = new(Ab220Unseen); SettableSlot e = new(); list.Add(e); SettableSlot d = list[0]; SettableSlot[] a = [R4PairSpare]; a[0] = e; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6111. AB220: a method returns an array of an object that the walk does not see and of a new object. A local gets the first element, which the store can only say is the new object. A pending cell goes in through an element of a local array that got the new object, then a plain cell through the local. The read is through the element.
+    public static Cell<int> Ab220PlainThroughAnElementOfAMadeArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot e = new(); SettableSlot[] b = Ab220Make(e); SettableSlot d = b[0]; SettableSlot[] a = [R4PairSpare]; a[0] = e; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6112. AB220: a loop adds a new object to a list in each of two turns. A pending cell goes in through an element of a local array that got the first, then a plain cell through a local that got the second. The read is through the element.
+    public static Cell<int> Ab220PlainThroughAnObjectOfAnotherTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; for (int k = 0; k < 2; k++) { made.Add(new SettableSlot()); } SettableSlot[] a = [made[0]]; SettableSlot d = made[1]; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6113. AB220: a loop puts a new object into an element of an array in each of two turns. A pending cell goes in through an element of a local array that got the first, then a plain cell through a local that got the second. The read is through the element.
+    public static Cell<int> Ab220PlainThroughAnArrayObjectOfAnotherTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] made = new SettableSlot[2]; for (int k = 0; k < 2; k++) { made[k] = new SettableSlot(); } SettableSlot[] a = [made[0]]; SettableSlot d = made[1]; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S6114. AB220: a pending cell goes in through an element of a local array that got a local, then a plain cell through the local in a lambda of a map that the code does not sample. The read is through the element.
+    public static Cell<int> Ab220PlainThroughTheLocalInAMapThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R4PairSpare]; a[0] = d; a[0].Share = l.Map(v => v); Cell<int> m = Plain.Map(v => { d.Share = Plain; return v; }); return S.Hold(a[0].Share!.Sample()); });
+
+    // S6115. AB220: a pending cell goes in through an element of a local array that got a local, then a plain cell through the local. The element then gets a new object with a pending cell. The read is through the element.
+    public static Cell<int> Ab220PlainThroughTheLocalThenTheElementChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R4PairSpare]; a[0] = d; a[0].Share = l.Map(v => v); d.Share = Plain; a[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(a[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -37719,6 +37879,11 @@ public static class Shapes
 
         static Ab248ReadNothing() => Value = Ab248Shared.Fifth!.Map(v => v) is { } ? 1 : 0;
     }
+
+    private static bool Ab220No;
+    private static readonly SettableSlot[] Ab220Unseen = [new()];
+
+    private static SettableSlot[] Ab220Make(SettableSlot one) => [Ab220Unseen[0], one];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

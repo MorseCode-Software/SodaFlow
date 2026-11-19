@@ -6,19 +6,22 @@ namespace SodaFlow.Analyzers;
 ///     The state of a member of the element at a location that the walk can
 ///     read again, as in <c>list[0].Share</c>. The last sure write through that
 ///     location gave the state. Each write after it that can be to the same
-///     object added its state.
+///     object added its state. A sure write to the object of the element
+///     replaced the state.
 /// </summary>
 /// <param name="collection">The local or the parameter of the collection.</param>
 /// <param name="index">The key of a constant index, or the local that has the index.</param>
 /// <param name="member">The member.</param>
 /// <param name="end">The position of the end of the assignment.</param>
 /// <param name="state">The state of the member.</param>
+/// <param name="one">The value of <see cref="Object" />.</param>
 internal sealed class ElementMemberWrite(
     in ISymbol collection,
     in object index,
     in ISymbol member,
     in int end,
-    in LoopState state)
+    in LoopState state,
+    in MadeObject? one)
 {
     private readonly ISymbol collection = collection;
     private readonly object index = index;
@@ -29,14 +32,25 @@ internal sealed class ElementMemberWrite(
 
     public LoopState State { get; } = state;
 
+    /// <summary>
+    ///     The object of the store that the element was at the write. Null when
+    ///     the element can be a second object, or an object that the store does
+    ///     not know.
+    /// </summary>
+    public MadeObject? Object { get; } = one;
+
     /// <summary>The same write, with a second state of the member added.</summary>
-    public ElementMemberWrite Adding(LoopState added) =>
+    public ElementMemberWrite Adding(LoopState added) => this.With(this.State.Join(added));
+
+    /// <summary>The same write, with the given state of the member only.</summary>
+    public ElementMemberWrite With(LoopState state) =>
         new(
             collection: this.collection,
             index: this.index,
             member: this.Member,
             end: this.End,
-            state: this.State.Join(added));
+            state: state,
+            one: this.Object);
 
     /// <summary>True for the member of the element at a location.</summary>
     public bool IsOf(ISymbol collection, object index, ISymbol member) =>

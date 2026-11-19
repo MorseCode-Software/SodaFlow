@@ -3916,6 +3916,15 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4LimStaticConstructorSamplesWhatTheBlockSet"] = ["SF1005"],
             ["Ab248StaticConstructorRunsAtACallOfAStaticMethod"] = ["SF1005"],
             ["Ab248StaticInitializerOfAClassWithAStaticConstructorSamples"] = ["SF1005"],
-            ["Ab253SpanFromAnIndexFromTheEndWritesTheLastElement"] = ["SF1001"]
+            ["Ab253SpanFromAnIndexFromTheEndWritesTheLastElement"] = ["SF1001"],
+            ["Ab220PlainThroughTheLocalInABranch"] = ["SF1001"],
+            ["Ab220PlainThroughAnotherObject"] = ["SF1001"],
+            ["Ab220PlainThroughANewObjectAfterAnUnseenElement"] = ["SF1001"],
+            ["Ab220PlainThroughALocalOfACopiedList"] = ["SF1001"],
+            ["Ab220PlainThroughAnElementOfAMadeArray"] = ["SF1001"],
+            ["Ab220PlainThroughAnObjectOfAnotherTurn"] = ["SF1001"],
+            ["Ab220PlainThroughAnArrayObjectOfAnotherTurn"] = ["SF1001"],
+            ["Ab220PlainThroughTheLocalInAMapThatDoesNotRun"] = ["SF1001"],
+            ["Ab220PlainThroughTheLocalThenTheElementChanges"] = ["SF1001"]
         };
 }
