@@ -17,6 +17,7 @@
         <Title>SodaFlow Async for C#</Title>
         <Description>SodaFlow Async Extensions library for C#.</Description>
         <PackageIcon>SodaFlow.png</PackageIcon>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <AssemblyName>SodaFlow.Async</AssemblyName>
         <RootNamespace>SodaFlow.Async</RootNamespace>
         <Nullable>enable</Nullable>
@@ -56,6 +57,7 @@
         <None Include="..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
             <Link>SodaFlow.png</Link>
         </None>
+        <None Include="README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
     <ItemGroup>

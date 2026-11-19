@@ -17,6 +17,7 @@
         <Title>SodaFlow Bindable Object Model Core for .NET</Title>
         <Description>SodaFlow Bindable Object Model library for .NET core library.</Description>
         <PackageIcon>SodaFlow.png</PackageIcon>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <AssemblyName>SodaFlow.Core.Bindable.ObjectModel</AssemblyName>
         <RootNamespace>SodaFlow.Bindable.ObjectModel</RootNamespace>
         <Nullable>enable</Nullable>
@@ -53,6 +54,7 @@
         <None Include="..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
             <Link>SodaFlow.png</Link>
         </None>
+        <None Include="README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 
     <ItemGroup>

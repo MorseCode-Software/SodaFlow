@@ -66,9 +66,28 @@ public sealed class MappedItems<TResult> : IDisposable
     ///     Releases each object that the projection holds, which is each object that
     ///     it built and did not remove. This code calls the eviction callback for each
     ///     one. Thus, a projection that builds objects with resources releases all of
-    ///     them in one position, at each time of their departure. A second call never
-    ///     releases an object that the first one released, because the first one
-    ///     leaves the projection empty.
+    ///     them in one position, at each time of their departure.
+    ///     <para>
+    ///         After this call, the projection does not run again, and
+    ///         <see cref="Items" /> is empty in the transaction of the call. Thus, a
+    ///         list that stays bound shows no object that this call released.
+    ///     </para>
+    ///     <para>
+    ///         A call in a callback, such as a listener or an eviction callback, makes
+    ///         <see cref="Items" /> empty in a transaction after the current one. No
+    ///         transaction on a different thread runs between the two. Until then,
+    ///         <see cref="Items" /> keeps the objects that this call released.
+    ///     </para>
+    ///     <para>
+    ///         When the transaction of the call fails, <see cref="Items" /> becomes
+    ///         empty in a transaction after the failure. A transaction on a different
+    ///         thread can run first.
+    ///     </para>
+    ///     <para>
+    ///         The call runs in the transaction that is open, or in a new one. Thus,
+    ///         it cannot occur during a change of the keys on a different thread. A
+    ///         second call does nothing.
+    ///     </para>
     /// </remarks>
     public void Dispose() => this.dispose();
 }
@@ -132,6 +151,12 @@ internal sealed class MappedItemCache<TKey, TResult>
     /// <summary>What the view held last time, to tell what has left it since.</summary>
     private HashSet<TKey> inView;
 
+    /// <summary>
+    ///     <see langword="true" /> after <see cref="Release" />. The projection then
+    ///     builds no object.
+    /// </summary>
+    private bool released;
+
     internal MappedItemCache(
         IEqualityComparer<TKey> keyEqualityComparer,
         Func<TKey, TResult> project,
@@ -148,8 +173,54 @@ internal sealed class MappedItemCache<TKey, TResult>
         this.inView = new HashSet<TKey>(this.keyEqualityComparer);
     }
 
+    /// <summary>
+    ///     The projection of one version of the view's keys, or nothing after
+    ///     <see cref="Release" />.
+    /// </summary>
+    /// <remarks>
+    ///     A release can occur before a change of the keys in the same transaction.
+    ///     The test and the projection are one step. Thus, the cache gets no object
+    ///     after the release, because no second release occurs to remove it.
+    /// </remarks>
+    internal MaybeInternal<IReadOnlyList<TResult>> ProjectUnlessReleased(IReadOnlyList<TKey> keys) =>
+        this.released
+            ? MaybeInternal<IReadOnlyList<TResult>>.None
+            : MaybeInternal<IReadOnlyList<TResult>>.Some(this.Project(keys));
+
+    /// <summary>
+    ///     Removes each object that this code holds, and sends a message for each one
+    ///     as an eviction does. After this, the projection builds no object.
+    /// </summary>
+    /// <returns>
+    ///     <see langword="false" /> when an earlier call released the objects. Then
+    ///     this call does nothing.
+    /// </returns>
+    internal bool Release()
+    {
+        if (this.released)
+        {
+            return false;
+        }
+
+        if (this.onEvicted is not null)
+        {
+            foreach (TResult retained in this.projected.Values)
+            {
+                this.onEvicted(retained);
+            }
+        }
+
+        this.projected.Clear();
+        this.departed.Clear();
+        this.departedNodes.Clear();
+        this.inView = new HashSet<TKey>(this.keyEqualityComparer);
+        this.released = true;
+
+        return true;
+    }
+
     /// <summary>The projection of one version of the view's keys, in their order.</summary>
-    internal IReadOnlyList<TResult> Project(IReadOnlyList<TKey> keys)
+    private List<TResult> Project(IReadOnlyList<TKey> keys)
     {
         List<TResult> results = new(keys.Count);
         HashSet<TKey> current = new(this.keyEqualityComparer);
@@ -190,26 +261,6 @@ internal sealed class MappedItemCache<TKey, TResult>
         this.Trim();
 
         return results;
-    }
-
-    /// <summary>
-    ///     Removes each object that this code holds, and sends a message for each one
-    ///     as an eviction does.
-    /// </summary>
-    internal void ReleaseAll()
-    {
-        if (this.onEvicted is not null)
-        {
-            foreach (TResult retained in this.projected.Values)
-            {
-                this.onEvicted(retained);
-            }
-        }
-
-        this.projected.Clear();
-        this.departed.Clear();
-        this.departedNodes.Clear();
-        this.inView = new HashSet<TKey>(this.keyEqualityComparer);
     }
 
     private void Depart(TKey key)

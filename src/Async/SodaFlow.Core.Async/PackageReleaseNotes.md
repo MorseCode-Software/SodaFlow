@@ -131,10 +131,12 @@ Dispose does nothing, so nothing could cancel them afterwards either. The listen
 itself when the trigger arrives, and then cancels. A transaction that fails before the trigger arrives discards the
 send, so Dispose then sends the trigger again once that transaction has released its lock. Inside a listener callback,
 where a send is not allowed, Dispose used to throw InvalidOperationException and fail the transaction of whoever sent;
-it now sends nothing there and sends the trigger once the transaction has released its lock. A disposal therefore
-cancels whether the transaction it was called in commits or fails, because a transaction that fails does not undo a
-disposal: at the close of that transaction where it can, and straight after it otherwise. A status disposed without
-cancelOnDispose sends nothing and removes its listeners at once, as before.
+it now sends nothing there and posts the trigger instead. The transaction runs the post after it commits and before it
+releases its lock, so no transaction on another thread can end a running item first and have the strategy start a queued
+one after the disposal. If that transaction fails, the trigger goes once it has released its lock, and there another
+thread can come first. A disposal therefore cancels whether the transaction it was called in commits or fails, because a
+transaction that fails does not undo a disposal: at the close of that transaction where it can, and straight after it
+otherwise. A status disposed without cancelOnDispose sends nothing and removes its listeners at once, as before.
 
 Changed: the pipeline no longer leaves an exception in a task that nobody observes. An exception that escaped the code
 that runs an operation used to be thrown again in a continuation that nothing awaited, which made it an unobserved task
@@ -155,6 +157,10 @@ Added: the net8.0 build is marked as compatible with trimming and native AOT. Th
 AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
 IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
 net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them.
+
+Added: each assembly in the package carries its PDB, with Source Link to the commit on GitHub. A debugger can step into
+the source with no symbol server, and a stack trace on .NET shows line numbers. The package has a readme, and its
+metadata gives the URL of the repository.
 
 5.0.1
 

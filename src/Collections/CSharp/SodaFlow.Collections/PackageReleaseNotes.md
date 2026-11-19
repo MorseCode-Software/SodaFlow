@@ -18,6 +18,12 @@ a value type boxes it one time for each key that the order sorts. An order with 
 The native AOT compiler stopped at the deeper types, and an app that called ThenBy got IL3054 at its native AOT publish.
 That package's notes have the figures.
 
+Fixed, through SodaFlow.Core.Collections 3.0.0: disposing the result of Map now stops the projection. Before, the
+next change of the keys built each row in the view again and nothing released those rows. Items now becomes empty in
+the transaction of the Dispose, or in the one just after it for a Dispose inside a callback, and the Dispose runs in a
+transaction, so it can no longer clear the caches while a transaction on another thread changes them. That package's
+notes have the details.
+
 Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
 build.
@@ -26,6 +32,10 @@ Added: the net8.0 build is marked as compatible with trimming and native AOT. Th
 AOT, and single-file analyzers on it and fails on a report. The assembly carries the metadata IsTrimmable and
 IsAotCompatible, so an app that trims only the assemblies so marked, with TrimMode partial, now trims this one too. The
 net472, net6.0, and netstandard2.0 builds are not marked, because the SDK has no such analyzers for them.
+
+Added: each assembly in the package carries its PDB, with Source Link to the commit on GitHub. A debugger can step into
+the source with no symbol server, and a stack trace on .NET shows line numbers. The package has a readme, and its
+metadata gives the URL of the repository.
 
 2.0.0
 

@@ -13,6 +13,7 @@
         <Title>SodaFlow Bindable Object Model for F#</Title>
         <Description>SodaFlow Bindable Object Model library for F#.</Description>
         <PackageIcon>SodaFlow.png</PackageIcon>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -55,6 +56,7 @@
         <None Include="..\..\..\..\..\logo\SodaFlow.png" Pack="true" PackagePath="\">
             <Link>SodaFlow.png</Link>
         </None>
+        <None Include="README.md" Pack="true" PackagePath="\"/>
         <None Include="PackageReleaseNotes.md"/>
     </ItemGroup>
 

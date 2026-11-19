@@ -191,6 +191,10 @@ build. Unlike the net8.0 builds of the C# packages, it is not marked as compatib
 analyzers that check that mark do not run on F#, and a native AOT publish that roots the F# packages reports warnings
 inside FSharp.Core.
 
+Added: each assembly in the package carries its PDB, with Source Link to the commit on GitHub. A debugger can step into
+the source with no symbol server, and a stack trace on .NET shows line numbers. The package has a readme, and its
+metadata gives the URL of the repository.
+
 5.0.1
 
 lift7, lift8, and snapshot5 to snapshot8, with their B forms, now call the Core form for their count, as lift6 and
