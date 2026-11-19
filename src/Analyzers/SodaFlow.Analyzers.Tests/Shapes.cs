@@ -26079,6 +26079,38 @@ public static class Shapes
     public static Cell<int> Ab245CombineOfTheProjectRunsItsBody() =>
         Cell.Loop<int>().WithoutCaptures(l => { Action first = () => Kept.Add(0); Action second = () => Kept.Add(l.Sample()); Ab245Delegates.Combine(first, second)(); return S.Hold(0); });
 
+    // S6041. A method of a new object calls a virtual method with no receiver, and the override samples.
+    public static Cell<int> R4LimBareVirtualCallOfANewObjectReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new R4LimRunnerReader().RunBare(l.Map(v => v))); return S.Hold(0); });
+
+    // S6042. A method of an object from a static array calls a virtual method with no receiver, and the override samples.
+    public static Cell<int> R4LimBareVirtualCallOfAnUnseenObjectReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimUnseenRunners[0].RunBare(l.Map(v => v))); return S.Hold(0); });
+
+    // S6043. A method of a new object calls a virtual method through this, and the override samples. A control.
+    public static Cell<int> R4LimThisVirtualCallOfANewObjectReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new R4LimRunnerReader().RunThis(l.Map(v => v))); return S.Hold(0); });
+
+    // S6044. A method of an object from a static array calls a virtual method through this, and the override samples.
+    public static Cell<int> R4LimThisVirtualCallOfAnUnseenObjectReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4LimUnseenRunners[0].RunThis(l.Map(v => v))); return S.Hold(0); });
+
+    // S6045. A lambda in a method of a new object calls a virtual method with no receiver, and the override samples.
+    public static Cell<int> Ab244BareVirtualCallInALambdaOfANewObjectReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab244RunnerReader().RunInALambda(l.Map(v => v))); return S.Hold(0); });
+
+    // S6046. A method of a new object of the base type calls a virtual method with no receiver through a lambda, and the base method does not sample. A control.
+    public static Cell<int> Ab244BareVirtualCallInALambdaOfANewBaseObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab244Runner().RunInALambda(l.Map(v => v))); return S.Hold(0); });
+
+    // S6047. A method of a new object calls a method of the same object with no receiver, which calls a virtual method with no receiver. The override samples.
+    public static Cell<int> Ab244BareVirtualCallTwoCallsDeepReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab244RunnerReader().RunThroughAHelper(l.Map(v => v))); return S.Hold(0); });
+
+    // S6048. A method of an object from a static array calls a virtual method with no receiver. The base method samples, and the override does not.
+    public static Cell<int> Ab244BareVirtualCallOfAnUnseenObjectWhoseBaseReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab244UnseenBaseReaders[0].RunBare(l.Map(v => v))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -37470,6 +37502,40 @@ public static class Shapes
     {
         public static Action Combine(Action first, Action second) => first;
     }
+
+    public class Ab244Runner
+    {
+        public int RunInALambda(Cell<int> c)
+        {
+            Func<int> run = () => Now(c);
+            return run();
+        }
+
+        public int RunThroughAHelper(Cell<int> c) => Helper(c);
+
+        private int Helper(Cell<int> c) => Now(c);
+
+        protected virtual int Now(Cell<int> c) => 0;
+    }
+
+    public sealed class Ab244RunnerReader : Ab244Runner
+    {
+        protected override int Now(Cell<int> c) => c.Sample();
+    }
+
+    public class Ab244BaseReader
+    {
+        public int RunBare(Cell<int> c) => Now(c);
+
+        protected virtual int Now(Cell<int> c) => c.Sample();
+    }
+
+    public sealed class Ab244QuietReader : Ab244BaseReader
+    {
+        protected override int Now(Cell<int> c) => 0;
+    }
+
+    private static readonly Ab244BaseReader[] Ab244UnseenBaseReaders = [new Ab244BaseReader(), new Ab244QuietReader()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

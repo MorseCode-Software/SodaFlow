@@ -556,4 +556,6 @@ Some reads that throw it does not see:
 - A virtual method called on an object that the analyzer did not see built, where your project
   overrides the method in a class that the object can be. The analyzer cannot tell which body
   runs, so a value made from the placeholder that you pass to it gets `SF1003`. A call with no
-  receiver, inside a method of such an object, still reads only the method that the code names.
+  receiver or on `this`, inside a method of an object, runs the override of the class that the
+  analyzer saw the object made with. Where it does not know that class, it reads the method of each
+  class that the object can be, so it can report a read that only one of them makes.

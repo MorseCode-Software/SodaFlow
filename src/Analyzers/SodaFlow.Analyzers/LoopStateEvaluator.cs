@@ -94,6 +94,11 @@ internal sealed partial class LoopStateEvaluator
     // each other code.
     private INamedTypeSymbol? builtType;
 
+    // The object that this code runs on, when the walk knows its type: the receiver of the call of a
+    // method of it, as the caller read it. A call on this object runs the member of that type. Such a
+    // call has no receiver, or its receiver is this. Null for each other code.
+    private Construction? thisObject;
+
     // The code that defines the function that this evaluator reads, or null. See StateAtAPosition.
     private LoopStateEvaluator? definer;
 
@@ -185,7 +190,7 @@ internal sealed partial class LoopStateEvaluator
                     comparer: SymbolEqualityComparer.Default),
                 quiet: true,
                 function: this.function,
-                call: this.call) { walker = this.walker, builtType = this.builtType };
+                call: this.call) { walker = this.walker, builtType = this.builtType, thisObject = this.thisObject };
 
     /// <summary>The frame of the code that this evaluator reads.</summary>
     public LoopFrame Frame { get; }
@@ -3708,13 +3713,16 @@ internal sealed partial class LoopStateEvaluator
             return [.. onThis.Select(static found => found.OriginalDefinition)];
         }
 
-        if ((this.builtType != null && receiver is null or ThisExpressionSyntax
-                ? Construction.Of(this.builtType)
-                : receiver == null
-                    ? null
-                    : this.Self(receiver).Members) is not { } members)
+        // A call with no receiver is a call on this.
+        if ((receiver is null or ThisExpressionSyntax
+                ? this.builtType != null ? Construction.Of(this.builtType) : this.thisObject
+                : this.Self(receiver).Members) is not { } members)
         {
-            return this.CanRunAnOverride(receiver: receiver, definition: definition) ? [] : [definition];
+            return !this.CanRunAnOverride(receiver: receiver, definition: definition, call: invocation)
+                ? [definition]
+                : receiver is null or ThisExpressionSyntax
+                    ? this.OnEachClassOfThis(definition: definition, call: invocation)
+                    : [];
         }
 
         IMethodSymbol[] actual =

@@ -3897,6 +3897,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab252LocalWithNoMarkGivenAway"] = ["SF1003"],
             ["R4LimDelegateRunThroughItsInvocationList"] = ["SF1001"],
             ["R4LimDelegatesJoinedByCombineAndInvoked"] = ["SF1001"],
-            ["Ab245DelegatesOfAnArrayJoinedByCombineAndInvoked"] = ["SF1001"]
+            ["Ab245DelegatesOfAnArrayJoinedByCombineAndInvoked"] = ["SF1001"],
+            ["R4LimBareVirtualCallOfANewObjectReads"] = ["SF1004"],
+            ["R4LimBareVirtualCallOfAnUnseenObjectReads"] = ["SF1004"],
+            ["R4LimThisVirtualCallOfANewObjectReads"] = ["SF1004"],
+            ["R4LimThisVirtualCallOfAnUnseenObjectReads"] = ["SF1004"],
+            ["Ab244BareVirtualCallInALambdaOfANewObjectReads"] = ["SF1004"],
+            ["Ab244BareVirtualCallTwoCallsDeepReads"] = ["SF1004"],
+            ["Ab244BareVirtualCallOfAnUnseenObjectWhoseBaseReads"] = ["SF1004"]
         };
 }

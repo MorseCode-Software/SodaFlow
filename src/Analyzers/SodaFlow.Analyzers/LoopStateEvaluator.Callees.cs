@@ -197,7 +197,8 @@ internal sealed partial class LoopStateEvaluator
                 members: members,
                 function: function,
                 eachRun: manyTimes ? body : null,
-                self: self);
+                self: self,
+                itsObject: receiver?.Members);
 
         // A local of the function is new in each call. A call of the function in its own code
         // keeps the locals as they are, because the first call reads them after it.
@@ -252,7 +253,8 @@ internal sealed partial class LoopStateEvaluator
                         members: members,
                         function: function,
                         eachRun: body,
-                        self: self);
+                        self: self,
+                        itsObject: receiver?.Members);
 
                 if (started != null)
                 {
@@ -421,6 +423,8 @@ internal sealed partial class LoopStateEvaluator
     /// <summary>
     ///     The evaluator for the body of a callee, with each parameter bound to
     ///     the state of its argument. The parameter is the origin of that state.
+    ///     The object of a member that the call names on a different object is
+    ///     its receiver, as the caller read it.
     /// </summary>
     private LoopStateEvaluator Inner(
         SyntaxNode call,
@@ -429,7 +433,8 @@ internal sealed partial class LoopStateEvaluator
         Dictionary<ISymbol, LoopState> members,
         SyntaxNode? function,
         SyntaxNode? eachRun,
-        MadeObject? self)
+        MadeObject? self,
+        Construction? itsObject = null)
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
 
@@ -565,6 +570,13 @@ internal sealed partial class LoopStateEvaluator
         // is in.
         inner.builtType =
             definer?.builtType ?? (ReferenceEquals(objA: members, objB: this.thisMembers) ? this.builtType : null);
+
+        // A type that the walk knows says which override a call on this object runs.
+        inner.thisObject =
+            definer != null ? definer.thisObject
+            : ReferenceEquals(objA: members, objB: this.thisMembers) ? this.thisObject
+            : itsObject is { HasType: true } ? itsObject
+            : null;
 
         // The code of a function does not read this record: see TheOneCollectionOf.
         foreach (KeyValuePair<ISymbol, MadeObject> one in collections)

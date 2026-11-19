@@ -41,6 +41,17 @@ internal sealed class OverrideIndex(in Compilation compilation)
         && (receiver is not INamedTypeSymbol { TypeKind: TypeKind.Class } named
             || types.Any(type => IsOrDerivesFrom(type: type, other: named.OriginalDefinition)));
 
+    /// <summary>
+    ///     The classes of the compilation that declare an override of the
+    ///     method and that are the given class or derive from it.
+    /// </summary>
+    public IEnumerable<INamedTypeSymbol> TypesThatCanRun(IMethodSymbol method, INamedTypeSymbol receiver) =>
+        this.byMethod.Value.TryGetValue(
+            key: method.OriginalDefinition,
+            value: out ImmutableArray<INamedTypeSymbol> types)
+            ? types.Where(type => IsOrDerivesFrom(type: type, other: receiver.OriginalDefinition))
+            : [];
+
     private static Lazy<ImmutableDictionary<IMethodSymbol, ImmutableArray<INamedTypeSymbol>>> IndexOf(
         Compilation compilation) =>
         new(() => Build(compilation));
