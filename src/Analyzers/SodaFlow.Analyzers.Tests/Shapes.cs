@@ -27431,6 +27431,62 @@ public static class Shapes
     public static Cell<int> R4PairAb214WriteThroughTheFieldNoCall() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4PairJ1b; R4PairSetJ1b(l.Map(v => v)); R4PairJ1b[0].Share = Plain; return S.Hold(a[0].Share!.Sample()); });
 
+    // S6379. Pair matrix, puts: A pending cell goes into the member through an element of a static field array, through the field, then a new object with a plain cell through an element of a static field array, through a local of the array. The read is through an element of a static field array, through the field.
+    public static Cell<int> R4PairPutPendingMemberThenPlainPutByArrayLocalReadFieldArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = R4PairFa1218; R4PairFa1218[0].Share = l.Map(v => v); fa[0] = new SettableSlot { Share = Plain }; return S.Hold(R4PairFa1218[0].Share!.Sample()); });
+
+    // S6380. Pair matrix, puts: A pending cell goes into the member through an element of a static field array, through the field, then a new object with a plain cell through an element of a static field array, through a local of the array. A call that writes nothing comes before the read. The read is through an element of a static field array, through the field.
+    public static Cell<int> R4PairPutPendingMemberThenPlainPutByArrayLocalReadFieldArrayAndACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = R4PairFa1219; R4PairFa1219[0].Share = l.Map(v => v); fa[0] = new SettableSlot { Share = Plain }; R4PairKeep(Plain); return S.Hold(R4PairFa1219[0].Share!.Sample()); });
+
+    // S6381. Pair matrix, puts: A pending cell goes into the member through an element of a static field array, through the field, then a new object with a plain cell through an element of a static field array, through a local of the array. The put through an element of a static field array, through a local of the array is in a method that the block calls. The read is through an element of a static field array, through the field.
+    public static Cell<int> R4PairPutPendingMemberThenPlainPutByArrayLocalReadFieldArrayInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = R4PairFa1220; R4PairFa1220[0].Share = l.Map(v => v); R4PairPutFl1220(Plain); return S.Hold(R4PairFa1220[0].Share!.Sample()); });
+
+    // S6382. Pair matrix, puts: A pending cell goes into the member through an element of a static field array, through a local of the array, then a new object with a plain cell through an element of a static field array, through the field. The read is through an element of a static field array, through a local of the array.
+    public static Cell<int> R4PairPutPendingMemberThenPlainPutByFieldArrayReadArrayLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = R4PairFa1233; fa[0].Share = l.Map(v => v); R4PairFa1233[0] = new SettableSlot { Share = Plain }; return S.Hold(fa[0].Share!.Sample()); });
+
+    // S6383. Pair matrix, puts: A pending cell goes into the member through an element of a static field array, through a local of the array, then a new object with a plain cell through an element of a static field array, through the field. A call that writes nothing comes before the read. The read is through an element of a static field array, through a local of the array.
+    public static Cell<int> R4PairPutPendingMemberThenPlainPutByFieldArrayReadArrayLocalAndACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = R4PairFa1234; fa[0].Share = l.Map(v => v); R4PairFa1234[0] = new SettableSlot { Share = Plain }; R4PairKeep(Plain); return S.Hold(fa[0].Share!.Sample()); });
+
+    // S6384. Pair matrix, puts: A pending cell goes into the member through an element of a static field array, through a local of the array, then a new object with a plain cell through an element of a static field array, through the field. The put through an element of a static field array, through the field is in a method that the block calls. The read is through an element of a static field array, through a local of the array.
+    public static Cell<int> R4PairPutPendingMemberThenPlainPutByFieldArrayReadArrayLocalInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = R4PairFa1235; fa[0].Share = l.Map(v => v); R4PairPutFa1235(Plain); return S.Hold(fa[0].Share!.Sample()); });
+
+    // S6385. Pair matrix, puts: A new object with a pending cell goes in through an element of a static field array, through the field, then one with a plain cell through an element of a static field array, through a local of the array. The read is through an element of a static field array, through a local of the array.
+    public static Cell<int> R4PairPutPendingPutThenPlainPutByFieldArrayReadArrayLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = R4PairFa1227; R4PairFa1227[0] = new SettableSlot { Share = l.Map(v => v) }; fa[0] = new SettableSlot { Share = Plain }; return S.Hold(fa[0].Share!.Sample()); });
+
+    // S6386. Pair matrix, puts: A new object with a pending cell goes in through an element of a static field array, through the field, then one with a plain cell through an element of a static field array, through a local of the array. A call that writes nothing comes before the read. The read is through an element of a static field array, through a local of the array.
+    public static Cell<int> R4PairPutPendingPutThenPlainPutByFieldArrayReadArrayLocalAndACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = R4PairFa1228; R4PairFa1228[0] = new SettableSlot { Share = l.Map(v => v) }; fa[0] = new SettableSlot { Share = Plain }; R4PairKeep(Plain); return S.Hold(fa[0].Share!.Sample()); });
+
+    // S6387. Pair matrix, puts: A new object with a pending cell goes in through an element of a static field array, through the field, then one with a plain cell through an element of a static field array, through a local of the array. The put through an element of a static field array, through the field is in a method that the block calls. The read is through an element of a static field array, through a local of the array.
+    public static Cell<int> R4PairPutPendingPutThenPlainPutByFieldArrayReadArrayLocalInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = R4PairFa1229; R4PairPutFa1229(l.Map(v => v)); fa[0] = new SettableSlot { Share = Plain }; return S.Hold(fa[0].Share!.Sample()); });
+
+    // S6388. AB223: a local gets the array of a static field. A pending cell goes in through an element of the field, and a new object with a plain cell goes into the element through the local only in a branch that does not run. The read is through the element of the local.
+    public static Cell<int> Ab223PlainPutInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab223Fa1; Ab223Fa1[0].Share = l.Map(v => v); if (Ab220No) { fa[0] = new SettableSlot { Share = Plain }; } return S.Hold(fa[0].Share!.Sample()); });
+
+    // S6389. AB223: a local gets the array of a static field. A new object with a plain cell goes into an element through the local, and then a pending cell through the same element of the field. The read is through the element of the local.
+    public static Cell<int> Ab223PendingThroughTheFieldAfterAPlainPut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab223Fa2; fa[0] = new SettableSlot { Share = Plain }; Ab223Fa2[0].Share = l.Map(v => v); return S.Hold(fa[0].Share!.Sample()); });
+
+    // S6390. AB223: a local gets the array of a static field. A new object with a plain cell goes into an element through the local, and then a new object with a pending cell through the same element of the field. The read is through the element of the local.
+    public static Cell<int> Ab223PendingPutThroughTheFieldAfterAPlainPut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab223Fa3; fa[0] = new SettableSlot { Share = Plain }; Ab223Fa3[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(fa[0].Share!.Sample()); });
+
+    // S6391. AB223: a local gets the array of a static field. A pending cell goes in through a second object. A method puts into the element of the field a new object with a plain cell, and then the second object. The read is through the element of the local.
+    public static Cell<int> Ab223PlainPutInAMethodThatThenPutsAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab223Fa4; Ab223Other.Share = l.Map(v => v); Ab223PutThenMove(Plain); return S.Hold(fa[0].Share!.Sample()); });
+
+    // S6392. AB223: a local gets the array of a static field. A pending cell goes in through an element of the field. A method puts into the element a new object with a plain cell, and the block calls it only in a branch that does not run. The read is through the element of the local.
+    public static Cell<int> Ab223PlainPutInAMethodInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab223Fa5; Ab223Fa5[0].Share = l.Map(v => v); if (Ab220No) { Ab223Put5(Plain); } return S.Hold(fa[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -38996,6 +39052,21 @@ public static class Shapes
     {
         public (Cell<int>? First, int Second) Both;
     }
+
+    private static readonly SettableSlot[] Ab223Fa1 = [new()];
+    private static readonly SettableSlot[] Ab223Fa2 = [new()];
+    private static readonly SettableSlot[] Ab223Fa3 = [new()];
+    private static readonly SettableSlot[] Ab223Fa4 = [new()];
+    private static readonly SettableSlot[] Ab223Fa5 = [new()];
+    private static readonly SettableSlot Ab223Other = new();
+
+    private static void Ab223PutThenMove(Cell<int> share)
+    {
+        Ab223Fa4[0] = new SettableSlot { Share = share };
+        Ab223Fa4[0] = Ab223Other;
+    }
+
+    private static void Ab223Put5(Cell<int> share) => Ab223Fa5[0] = new SettableSlot { Share = share };
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

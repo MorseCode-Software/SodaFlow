@@ -341,7 +341,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   writes through all of them gave that member, and a read through any of them sees the last value,
   while each name keeps the object. A write in a method that the block calls counts as well, where
   the block always calls the method one time and the method writes through a static field, an
-  element of an array in one, or a parameter whose argument is such a name.
+  element of an array in one, or a parameter whose argument is such a name. A new object that goes
+  into a name with an object initializer, as in `slots[0] = new Slot { Cell = value }`, gives the
+  name only the values that the initializer sets, also where such a method puts it and keeps it
+  there to its end.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a

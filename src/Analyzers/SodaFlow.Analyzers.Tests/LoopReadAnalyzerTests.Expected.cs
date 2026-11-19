@@ -3943,6 +3943,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab221PlainInAMethodAfterAnArgumentMovesTheField"] = ["SF1001"],
             ["Ab221PlainInAMethodInABranch"] = ["SF1001"],
             ["Ab221PendingThroughAPartOfATupleField"] = ["SF1001"],
-            ["Ab221PlainReadInALoopAfterAMethodPutsIntoTheArray"] = ["SF1001"]
+            ["Ab221PlainReadInALoopAfterAMethodPutsIntoTheArray"] = ["SF1001"],
+            ["Ab223PlainPutInABranch"] = ["SF1001"],
+            ["Ab223PendingThroughTheFieldAfterAPlainPut"] = ["SF1001"],
+            ["Ab223PendingPutThroughTheFieldAfterAPlainPut"] = ["SF1001"],
+            ["Ab223PlainPutInAMethodThatThenPutsAgain"] = ["SF1001"],
+            ["Ab223PlainPutInAMethodInABranch"] = ["SF1001"]
         };
 }

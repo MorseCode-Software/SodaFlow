@@ -73,6 +73,27 @@ internal sealed partial class LoopStateEvaluator
 
         all.RemoveAll(static one => one.Names.Count == 0);
 
+        if (replaces
+            && value is BaseObjectCreationExpressionSyntax
+            {
+                Initializer: { RawKind: (int)SyntaxKind.ObjectInitializerExpression } initializer
+            }
+            && FunctionOf(at) is { } made)
+        {
+            NamesOfOneObject one =
+                this.TheMembersOfANewObject(
+                    target: target,
+                    at: at,
+                    value: value,
+                    initializer: initializer,
+                    code: made);
+
+            all.Add(one);
+            this.GivesTheCallersANewObject(name: target, at: at, members: one.Members);
+
+            return;
+        }
+
         if (!replaces
             || this.NameOfAnObjectIn(value) is not { } from
             || (!SymbolEqualityComparer.Default.Equals(x: TypeOfTheName(from), y: TypeOfTheName(target))
@@ -96,6 +117,136 @@ internal sealed partial class LoopStateEvaluator
         held.Names.Add(
             new NameOfAnObject(of: target.Of, owner: target.Owner, index: target.Index, code: code, from: at.Span.End));
     }
+
+    // A record for a name that gets a new object, with the state that the initializer gives each
+    // member. The initializer runs after the constructor, and no code runs between it and the
+    // assignment. Thus, the object has only those states then.
+    private NamesOfOneObject TheMembersOfANewObject(
+        (ISymbol Of, ISymbol? Owner, object? Index) target,
+        SyntaxNode at,
+        ExpressionSyntax value,
+        InitializerExpressionSyntax initializer,
+        SyntaxNode code)
+    {
+        NamesOfOneObject one = new();
+
+        one.Names.Add(
+            new NameOfAnObject(of: target.Of, owner: target.Owner, index: target.Index, code: code, from: at.Span.End));
+
+        Construction? members =
+            this.TheOneObjectIn(this.Eval(value)) is { } made && this.region.Objects.StateOf(made) is { } state
+                ? state.Members
+                : this.Eval(value).Members;
+
+        foreach (ExpressionSyntax each in initializer.Expressions)
+        {
+            if (each is AssignmentExpressionSyntax
+                {
+                    RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+                    Left: IdentifierNameSyntax name
+                }
+                && this.region.SymbolOf(name) is { } member
+                && IsAMemberLocation(member)
+                && members != null)
+            {
+                one.Members.Add((member.OriginalDefinition, at.Span.End, members.StateOf(member)));
+            }
+        }
+
+        return one;
+    }
+
+    // Gives each caller a record for a new object that this code put into a name. The call always
+    // runs, the caller has a name for it, and the name keeps the object to the end of the code.
+    private void GivesTheCallersANewObject(
+        (ISymbol Of, ISymbol? Owner, object? Index) name,
+        SyntaxNode at,
+        List<(ISymbol Member, int End, LoopState State)> members)
+    {
+        (ISymbol Of, ISymbol? Owner, object? Index)? named = name;
+        SyntaxNode use = at;
+
+        for (LoopStateEvaluator code = this; code.call is { } call; code = call.Caller)
+        {
+            named =
+                named is { } inThisCode
+                && call.AlwaysRuns
+                && code.TheNameToTheEnd(name: inThisCode, after: use) is { } kept
+                    ? call.Caller.TheNameAtTheCall(name: kept, site: call.Site)
+                    : null;
+
+            if (named is not { } atTheCall || FunctionOf(call.Site) is not { } caller)
+            {
+                return;
+            }
+
+            use = call.Site;
+
+            if (!ReferenceEquals(objA: call.Caller.Frame, objB: code.Frame))
+            {
+                NamesOfOneObject one = new();
+
+                one.Names.Add(
+                    new NameOfAnObject(
+                        of: atTheCall.Of,
+                        owner: atTheCall.Owner,
+                        index: atTheCall.Index,
+                        code: caller,
+                        from: use.Span.End));
+
+                one.Members.AddRange(members.Select(each => (each.Member, use.Span.End, each.State)));
+                call.Caller.Frame.NamesOfOneObject.Add(one);
+            }
+        }
+    }
+
+    // A name of this code that keeps its object from a node to the end of the code, as the caller
+    // names it. A local that is a second name of a static field, or of its array, is that field at
+    // the node. Null for each other name.
+    private (ISymbol Of, ISymbol? Owner, object? Index)? TheNameToTheEnd(
+        (ISymbol Of, ISymbol? Owner, object? Index) name,
+        SyntaxNode after)
+    {
+        if (FunctionOf(after) is not BaseMethodDeclarationSyntax code
+            || (code.Body ?? (SyntaxNode?)code.ExpressionBody) is not { } body
+            || name.Index is ISymbol)
+        {
+            return null;
+        }
+
+        (ISymbol Of, ISymbol? Owner, object? Index) held = this.AsTheField(name: name, use: after);
+
+        NameOfAnObject kept =
+            new(of: held.Of, owner: held.Owner, index: held.Index, code: code, from: after.Span.End);
+
+        return held.Of is not ILocalSymbol
+               && held.Owner is not ILocalSymbol
+               && new[] { held.Of, held.Owner, held.Index as ISymbol }.All(part =>
+                   part == null
+                   || !this.UsesOf(name: part, code: code)
+                       .Any(one => one.InAFunction || (one.Gives && one.Position > kept.From)))
+               && this.NothingBetweenChanges(name: kept, after: kept.From, before: body.Span.End, ofTheName: true)
+            ? held
+            : null;
+    }
+
+    // A name at a use, as a caller can name it. An element of a local that is a second name of the
+    // array of a static field is the element of that field. Each other name stays as it is.
+    private (ISymbol Of, ISymbol? Owner, object? Index) AsTheField(
+        (ISymbol Of, ISymbol? Owner, object? Index) name,
+        SyntaxNode use) =>
+        name is { Of: ILocalSymbol local, Owner: null, Index: not null }
+        && this.Frame.NamesOfOneObject
+                .Where(one => one.Names.Any(each =>
+                    each.Is(of: local, owner: null, index: null) && this.HoldsItsObject(name: each, use: use)))
+                .SelectMany(static one => one.Names)
+                .FirstOrDefault(each =>
+                    each is { Owner: null, Index: null }
+                    && IsAStaticLocation(each.Of)
+                    && this.HoldsItsObject(name: each, use: use))
+            is { } field
+            ? (field.Of, null, name.Index)
+            : name;
 
     /// <summary>
     ///     Records a write to a member for
@@ -267,19 +418,7 @@ internal sealed partial class LoopStateEvaluator
             return null;
         }
 
-        (ISymbol Of, ISymbol? Owner, object? Index) held =
-            name is { Of: ILocalSymbol local, Owner: null, Index: not null }
-            && this.Frame.NamesOfOneObject
-                    .Where(one => one.Names.Any(each =>
-                        each.Is(of: local, owner: null, index: null) && this.HoldsItsObject(name: each, use: use)))
-                    .SelectMany(static one => one.Names)
-                    .FirstOrDefault(each =>
-                        each is { Owner: null, Index: null }
-                        && IsAStaticLocation(each.Of)
-                        && this.HoldsItsObject(name: each, use: use))
-                is { } field
-                ? (field.Of, null, name.Index)
-                : name;
+        (ISymbol Of, ISymbol? Owner, object? Index) held = this.AsTheField(name: name, use: use);
 
         return held.Of is not ILocalSymbol
                && held.Owner is not ILocalSymbol
