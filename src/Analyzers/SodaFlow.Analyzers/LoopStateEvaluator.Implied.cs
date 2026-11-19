@@ -837,6 +837,61 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
     /// <summary>
+    ///     The call of <c>DisposeAsync</c> that an <c>await using</c> makes on
+    ///     an object of this compilation, and true when the task that the call
+    ///     gives is complete. The <c>await using</c> awaits that task.
+    /// </summary>
+    public (Followed? Followed, bool Complete) FollowDisposeAsync(ExpressionSyntax resource)
+    {
+        // The compiler looks for the method on the type of the local, which can be an interface of
+        // the type of its initializer.
+        if (!this.region.Symbols.DeclaresDisposeAsync
+            || this.region.ModelFor(resource).GetTypeInfo(resource).ConvertedType is not { } type
+            || this.DisposeAsyncOf(type) is not { } dispose)
+        {
+            return (null, false);
+        }
+
+        LoopState owner = this.Self(resource);
+
+        return (
+            owner.Members == null
+                ? null
+                : this.FollowImplied(call: resource, member: dispose, owner: owner, arguments: []),
+            this.GivesOnlyCompleteTasks(owner: owner, member: dispose));
+    }
+
+    // The compiler calls a DisposeAsync of the type that needs no argument and that the code can
+    // call. Otherwise, it calls the member of IAsyncDisposable. Thus, a type with both calls its own
+    // method. The run of a shape holds this order.
+    private IMethodSymbol? DisposeAsyncOf(ITypeSymbol type)
+    {
+        for (ITypeSymbol? owner = type; owner != null; owner = owner.BaseType)
+        {
+            if (owner.GetMembers("DisposeAsync")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(static method =>
+                        method is
+                        {
+                            IsStatic: false,
+                            DeclaredAccessibility: Accessibility.Public
+                            or Accessibility.Internal
+                            or Accessibility.ProtectedOrInternal
+                        }
+                        && method.Parameters.All(static parameter => parameter.IsOptional || parameter.IsParams))
+                is { } found)
+            {
+                return found;
+            }
+        }
+
+        return this.region.Symbols.AsyncDisposableDisposeAsync is { ContainingType: { } contract } member
+               && type.AllInterfaces.Contains(value: contract, comparer: SymbolEqualityComparer.Default)
+            ? member
+            : null;
+    }
+
+    /// <summary>
     ///     The call of a <c>Deconstruct</c> method. Each parameter gets an
     ///     argument, thus the result has the state that the method gives to each
     ///     <c>out</c> parameter.

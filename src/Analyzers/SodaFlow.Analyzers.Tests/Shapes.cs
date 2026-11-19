@@ -25663,6 +25663,66 @@ public static class Shapes
     public static Cell<int> Ab257AwaitInACatchBlockBeforeARead() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { Kept.Add(1); } catch (InvalidOperationException) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
 
+    // S5937. An await using declaration calls DisposeAsync at the end of its block, and DisposeAsync samples a pending member.
+    public static Cell<int> R4CsAwaitUsingCallsDisposeAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using R4CsAsyncTally t = new(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S5938. An await using calls DisposeAsync and not Dispose. Only Dispose samples the pending member.
+    public static Cell<int> R4CsAwaitUsingDoesNotCallDispose() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using R4CsBothDisposals t = new(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S5939. An await using statement calls DisposeAsync at its end, and DisposeAsync samples a pending member.
+    public static Cell<int> R4CsAwaitUsingStatementCallsDisposeAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using (R4CsAsyncTally t = new(l.Map(v => v))) { Kept.Add(1); } }; run().Wait(0); return S.Hold(0); });
+
+    // S5940. An await using statement awaits a DisposeAsync that never completes, and the code after it samples later.
+    public static Cell<int> Ab255AwaitUsingThatNeverCompletesDefersTheRest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using (Ab255NeverDisposed t = new()) { Kept.Add(1); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5941. An await using declaration awaits a DisposeAsync that never completes at the end of its block, and the code after the block samples later.
+    public static Cell<int> Ab255AwaitUsingDeclarationThatNeverCompletesDefersTheRest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { { await using Ab255NeverDisposed t = new(); Kept.Add(1); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5942. Control: the code in the block of an await using declaration runs before its DisposeAsync, and samples now.
+    public static Cell<int> Ab255AwaitUsingDeclarationRunsItsBlockNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using R4CsAsyncTally t = new(Plain); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5943. An await using statement awaits a DisposeAsync that is complete, and the code after it samples now.
+    public static Cell<int> Ab255AwaitUsingThatCompletesRunsTheRestNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using (R4CsAsyncTally t = new(Plain)) { Kept.Add(1); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S5944. An await using calls the DisposeAsync of a type that does not implement IAsyncDisposable, and it samples a pending member.
+    public static Cell<int> Ab255AwaitUsingCallsAPatternDisposeAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using Ab255PatternDisposal t = new(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S5945. An await using calls the public DisposeAsync of the type, not that of IAsyncDisposable, and only that of the interface samples.
+    public static Cell<int> Ab255AwaitUsingCallsThePublicDisposeAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using Ab255TwoDisposals t = new(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S5946. An await using disposes its last resource first. That DisposeAsync never completes, so the DisposeAsync that samples never runs.
+    public static Cell<int> Ab255AwaitUsingDisposesTheLastResourceFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using Ab255Gate a = new(l.Map(v => v), true), b = new(Plain, false); }; run().Wait(0); return S.Hold(0); });
+
+    // S5947. Control: the last resource of an await using has a DisposeAsync that is complete. Then the DisposeAsync of the first resource runs and samples.
+    public static Cell<int> Ab255AwaitUsingDisposesTheFirstResourceAfterACompleteTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using R4CsAsyncTally a = new(l.Map(v => v)), b = new(Plain); }; run().Wait(0); return S.Hold(0); });
+
+    // S5948. An await using of a resource whose type is an interface that inherits IAsyncDisposable calls the DisposeAsync of IAsyncDisposable, which samples.
+    public static Cell<int> Ab255AwaitUsingOfAnInterfaceCallsItsDisposeAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using IAsyncEnumerator<int> e = new R4CsAsyncWalker(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S5949. An await using of a local of IAsyncDisposable calls the member of the interface, not the public DisposeAsync of the object, and that member samples.
+    public static Cell<int> Ab255AwaitUsingOfAnInterfaceLocalCallsTheInterfaceMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using IAsyncDisposable t = new Ab255TwoDisposals(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S5950. An await using cannot call a private DisposeAsync of the type, and calls that of IAsyncDisposable. Only the private one samples.
+    public static Cell<int> Ab255AwaitUsingDoesNotCallAPrivateDisposeAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using Ab255PrivateDisposal t = new(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S5951. An await using calls an internal DisposeAsync of the type, not that of IAsyncDisposable, and the internal one samples.
+    public static Cell<int> Ab255AwaitUsingCallsAnInternalDisposeAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using Ab255InternalDisposal t = new(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -36822,6 +36882,67 @@ public static class Shapes
     private static Cell<int> Ab218Held { get; } = S.Hold(6);
 
     private static int Ab218ReadHeldProperty() => Ab218Held.Sample();
+
+    public sealed class Ab255NeverDisposed : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => new(R2NeverDone.Task);
+    }
+
+    public sealed class Ab255PatternDisposal(Cell<int> share)
+    {
+        public ValueTask DisposeAsync()
+        {
+            Kept.Add(share.Sample());
+
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    public sealed class Ab255TwoDisposals(Cell<int> share) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        ValueTask IAsyncDisposable.DisposeAsync()
+        {
+            Kept.Add(share.Sample());
+
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    public sealed class Ab255Gate(Cell<int> share, bool completes) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync()
+        {
+            Kept.Add(share.Sample());
+
+            return completes ? ValueTask.CompletedTask : new(R2NeverDone.Task);
+        }
+    }
+
+    public sealed class Ab255PrivateDisposal(Cell<int> share) : IAsyncDisposable
+    {
+        ValueTask IAsyncDisposable.DisposeAsync() => ValueTask.CompletedTask;
+
+        private ValueTask DisposeAsync()
+        {
+            Kept.Add(share.Sample());
+
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    public sealed class Ab255InternalDisposal(Cell<int> share) : IAsyncDisposable
+    {
+        ValueTask IAsyncDisposable.DisposeAsync() => ValueTask.CompletedTask;
+
+        internal ValueTask DisposeAsync()
+        {
+            Kept.Add(share.Sample());
+
+            return ValueTask.CompletedTask;
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

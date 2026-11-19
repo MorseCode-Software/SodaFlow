@@ -339,7 +339,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   element of a spread, `operator true` or `operator false` before a user-defined `||` or `&&`, a
   setter, an event accessor, `Deconstruct`, `ToString` in an interpolated string that the code
   formats at once, which is the `ToString` of `IFormattable` for a value that implements it,
-  `Dispose` at the end of a `using` or a `foreach`, the enumerator of a `foreach`, the `Add` of a
+  `Dispose` at the end of a `using` or a `foreach`, `DisposeAsync` at the end of an `await using`,
+  the enumerator of a `foreach`, the `Add` of a
   collection initializer or a collection expression, the `Create` method of a `CollectionBuilder`,
   `Count` and `Slice` for an index from the end, a range, or a list pattern, the `ToString` and the
   copy constructor of a record, the `ToString` of each value that a record or a tuple prints, and
@@ -363,7 +364,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   of it runs later. That holds for an `await` in a `switch` section, in a `finally` block, in the
   condition of a `do`, or in the header of a `for`, `foreach`, `switch`, `while`, or `using` too.
   The `Dispose` at the end of a `using` or a
-  `foreach` runs later as well when such an `await` comes before it in its scope. An
+  `foreach` runs later as well when such an `await` comes before it in its scope. An `await using`
+  awaits the task of each `DisposeAsync` that it calls, so the code after its scope runs later
+  unless each of them is a method of yours that returns only complete tasks. An
   `await foreach` runs its body in the block only for an item that the sequence gives at once, and
   the code after it only when every item comes at once. An async iterator runs nothing until
   something enumerates it. A method of `SodaFlow.Functional` that gets a task and returns one, such

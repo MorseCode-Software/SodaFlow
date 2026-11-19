@@ -3825,6 +3825,15 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab257AwaitInAForIteratorAfterATurnThatReads"] = ["SF1001"],
             ["Ab257AwaitInADoConditionAfterABodyThatReads"] = ["SF1001"],
             ["Ab257AwaitThatAForConditionSkips"] = ["SF1001"],
-            ["Ab257AwaitInACatchBlockBeforeARead"] = ["SF1001"]
+            ["Ab257AwaitInACatchBlockBeforeARead"] = ["SF1001"],
+            ["R4CsAwaitUsingCallsDisposeAsync"] = ["SF1005"],
+            ["R4CsAwaitUsingStatementCallsDisposeAsync"] = ["SF1005"],
+            ["Ab255AwaitUsingDeclarationRunsItsBlockNow"] = ["SF1001"],
+            ["Ab255AwaitUsingThatCompletesRunsTheRestNow"] = ["SF1001"],
+            ["Ab255AwaitUsingCallsAPatternDisposeAsync"] = ["SF1005"],
+            ["Ab255AwaitUsingDisposesTheFirstResourceAfterACompleteTask"] = ["SF1005"],
+            ["Ab255AwaitUsingOfAnInterfaceCallsItsDisposeAsync"] = ["SF1005"],
+            ["Ab255AwaitUsingOfAnInterfaceLocalCallsTheInterfaceMember"] = ["SF1005"],
+            ["Ab255AwaitUsingCallsAnInternalDisposeAsync"] = ["SF1005"]
         };
 }

@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -100,6 +101,17 @@ internal sealed partial class LoopStateEvaluator
         member is IPropertySymbol { Name: "Result" } property && SodaFlowSymbols.IsTask(property.ContainingType)
             ? this.ResultOfTheFunctions(access: name, written: name, task: task, value: property.Type)
             : LoopState.None;
+
+    // True when each method that a call of the member can run on the object gives only complete
+    // tasks. Only a method of this compilation can give true. A member of an interface that the
+    // object does not resolve gives false.
+    private bool GivesOnlyCompleteTasks(LoopState owner, IMethodSymbol member)
+    {
+        IMethodSymbol[] actual = [.. owner.Members?.Resolve(member.OriginalDefinition).OfType<IMethodSymbol>() ?? []];
+
+        return (actual.Length == 0 ? [member] : actual)
+            .All(method => CompleteTasks.GivesOnlyCompleteTasks(region: this.region, method: method));
+    }
 
     // The task gives its state object to the function as its parameter, as RunSynchronously does.
     private LoopState ResultOfTheFunctions(SyntaxNode access, ExpressionSyntax written, LoopState task, ITypeSymbol value)

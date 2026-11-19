@@ -1235,6 +1235,54 @@ internal sealed partial class LoopReadAnalyzerTests
     }
 
     /// <summary>
+    ///     The analyzer reads the <c>DisposeAsync</c> of an <c>await using</c>
+    ///     only in a compilation that declares a method with that name. The
+    ///     shapes file also declares <c>Dispose</c>. This source declares only
+    ///     <c>DisposeAsync</c>, and it samples the pending cell.
+    /// </summary>
+    [Test]
+    public async Task ADisposeAsyncIsReadInACompilationThatDeclaresNoDispose()
+    {
+        const string source =
+            """
+            using System;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> ByAnAwaitUsing() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Func<Task> run = async () => { await using Release release = new(l.Map(v => v)); };
+                        run().Wait(0);
+
+                        return S.Hold(0);
+                    });
+
+                public sealed class Release(Cell<int> share) : IAsyncDisposable
+                {
+                    private readonly Cell<int> share = share;
+
+                    public ValueTask DisposeAsync()
+                    {
+                        Kept.Add(this.share.Sample());
+
+                        return ValueTask.CompletedTask;
+                    }
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyADisposeAsync", images: []))
+            .IsEquivalentTo(["SF1005"]);
+    }
+
+    /// <summary>
     ///     A block can be the name of a method with no body, as a method of an
     ///     interface is. The analyzer has no code to read for that block, and it
     ///     reports nothing. The method that runs returns and reads nothing.

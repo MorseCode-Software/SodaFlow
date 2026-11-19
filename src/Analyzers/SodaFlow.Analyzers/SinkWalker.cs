@@ -153,6 +153,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         SemanticModel model = this.region.ModelFor(declaration);
 
+        bool awaits =
+            disposes && declaration.Parent is LocalDeclarationStatementSyntax { AwaitKeyword.RawKind: not 0 };
+
         foreach (VariableDeclaratorSyntax declarator in declaration.Variables)
         {
             if (declarator.Initializer == null)
@@ -174,10 +177,43 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
 
             // A using declaration calls Dispose when the code leaves the block that it is in.
-            if (disposes && !this.EndsLater(declaration))
+            if (disposes && !awaits && !this.EndsLater(declaration))
             {
                 this.CheckDisposed(declarator.Initializer.Value);
             }
+        }
+
+        if (awaits && declaration.Parent?.Parent is { } scope && !this.EndsLater(declaration))
+        {
+            this.DisposeEachAsync(
+                resources: declaration.Variables
+                    .Select(static declarator => declarator.Initializer?.Value)
+                    .OfType<ExpressionSyntax>(),
+                scope: scope);
+        }
+    }
+
+    // An await using calls DisposeAsync on each resource, from the last to the first, and awaits
+    // each task. A task that is not complete stops the call. The code after the scope then runs
+    // later, and so do the calls for the resources before it.
+    private void DisposeEachAsync(IEnumerable<ExpressionSyntax> resources, SyntaxNode scope)
+    {
+        foreach (ExpressionSyntax resource in resources.Reverse())
+        {
+            (Followed? followed, bool complete) = this.evaluator.FollowDisposeAsync(resource);
+            this.Report(followed);
+
+            if (complete)
+            {
+                continue;
+            }
+
+            if (PartAround(scope) is { } block)
+            {
+                this.later.Add((block, scope.Span.End));
+            }
+
+            return;
         }
     }
 
@@ -267,6 +303,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 : (node.Declaration?.Variables ?? default)
                 .Select(static declarator => declarator.Initializer?.Value)
                 .OfType<ExpressionSyntax>();
+
+        if (node.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword))
+        {
+            this.DisposeEachAsync(resources: resources, scope: node);
+
+            return;
+        }
 
         foreach (ExpressionSyntax resource in resources)
         {

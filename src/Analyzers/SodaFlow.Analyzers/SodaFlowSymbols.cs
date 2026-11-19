@@ -109,6 +109,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresConversions;
     private readonly Lazy<bool> declaresDeconstruct;
     private readonly Lazy<bool> declaresDispose;
+    private readonly Lazy<bool> declaresDisposeAsync;
     private readonly Lazy<bool> declaresEnumerators;
     private readonly Lazy<bool> declaresIndexers;
     private readonly Lazy<bool> declaresOperators;
@@ -121,6 +122,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
     private readonly Lazy<IMethodSymbol?> formattableToString;
+    private readonly Lazy<IMethodSymbol?> asyncDisposableDisposeAsync;
     private readonly ImmutableHashSet<IAssemblySymbol> library;
 
     /// <summary>
@@ -145,6 +147,7 @@ internal sealed class SodaFlowSymbols
 
         this.declaresDeconstruct = Declares(compilation: compilation, name: "Deconstruct");
         this.declaresDispose = Declares(compilation: compilation, name: "Dispose");
+        this.declaresDisposeAsync = Declares(compilation: compilation, name: "DisposeAsync");
         this.declaresEnumerators = Declares(compilation: compilation, name: "GetEnumerator");
         this.declaresIndexers = Declares(compilation: compilation, name: "this[]");
         this.declaresSlice = Declares(compilation: compilation, name: "Slice");
@@ -218,6 +221,13 @@ internal sealed class SodaFlowSymbols
                 .OfType<IMethodSymbol>()
                 .FirstOrDefault();
 
+        this.asyncDisposableDisposeAsync =
+            new Lazy<IMethodSymbol?>(() =>
+                compilation.GetTypeByMetadataName("System.IAsyncDisposable")
+                    ?.GetMembers("DisposeAsync")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault());
+
         this.Overrides = new OverrideIndex(compilation);
         this.Implementations = new ImplementationIndex(compilation);
     }
@@ -247,6 +257,9 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>True when the compilation declares a <c>Dispose</c> method.</summary>
     public bool DeclaresDispose => this.declaresDispose.Value;
+
+    /// <summary>True when the compilation declares a <c>DisposeAsync</c> method.</summary>
+    public bool DeclaresDisposeAsync => this.declaresDisposeAsync.Value;
 
     /// <summary>True when the compilation declares a <c>GetEnumerator</c> method.</summary>
     public bool DeclaresEnumerators => this.declaresEnumerators.Value;
@@ -323,6 +336,12 @@ internal sealed class SodaFlowSymbols
 
     /// <summary><c>Dispose</c> of <c>IDisposable</c>, which a <c>using</c> calls.</summary>
     public IMethodSymbol? DisposableDispose { get; }
+
+    /// <summary>
+    ///     <c>DisposeAsync</c> of <c>IAsyncDisposable</c>, which an
+    ///     <c>await using</c> calls.
+    /// </summary>
+    public IMethodSymbol? AsyncDisposableDisposeAsync => this.asyncDisposableDisposeAsync.Value;
 
     /// <summary>The methods that an override in the compilation replaces.</summary>
     public OverrideIndex Overrides { get; }

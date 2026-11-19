@@ -103,6 +103,15 @@ internal static class CompleteTasks
         };
     }
 
+    /// <summary>True when each task that a method of this compilation gives is complete.</summary>
+    /// <param name="region">The region, for the symbols of the code.</param>
+    /// <param name="method">The method.</param>
+    public static bool GivesOnlyCompleteTasks(LoopRegion region, IMethodSymbol method) =>
+        GivesOnlyCompleteTasks(
+            region: region,
+            method: method,
+            visiting: new HashSet<ISymbol>(SymbolEqualityComparer.Default));
+
     // A method with async and no await of a task that can be not complete runs to its end in the
     // call. A method with no async gives the task of one of its return statements. A call of a
     // virtual method can run a different body, thus the answer for it is false.
