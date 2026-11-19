@@ -3843,6 +3843,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4CsAwaitForeachWithCancellationRunsTheBodyNow"] = ["SF1001"],
             ["Ab258AwaitForeachOverAnEnumeratorThatMovesNowRunsTheBodyNow"] = ["SF1001"],
             ["Ab258CodeAfterAnEnumeratorThatEndsNowRunsNow"] = ["SF1001"],
-            ["Ab258AwaitForeachWithCancellationAndConfigureAwaitRunsTheBodyNow"] = ["SF1001"]
+            ["Ab258AwaitForeachWithCancellationAndConfigureAwaitRunsTheBodyNow"] = ["SF1001"],
+            ["R4CsForeachDeconstructionConvertsAnElement"] = ["SF1004"],
+            ["R4CsTupleVariableConvertsEachElement"] = ["SF1004"],
+            ["Ab259DeconstructionOfATupleLocalConvertsAnElement"] = ["SF1004"],
+            ["Ab259NestedTupleConversionConvertsAnInnerElement"] = ["SF1004"],
+            ["Ab259NestedDeconstructionConvertsAnInnerElement"] = ["SF1004"]
         };
 }

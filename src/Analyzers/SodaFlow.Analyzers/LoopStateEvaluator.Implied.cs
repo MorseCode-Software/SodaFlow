@@ -716,10 +716,134 @@ internal sealed partial class LoopStateEvaluator
     ///     The conversion that the compiler adds to an expression, when an
     ///     operator of this compilation makes it.
     /// </summary>
-    public Followed? FollowConversion(ExpressionSyntax expression) =>
-        this.region.Symbols.DeclaresConversions && this.region.ConversionOf(expression) is { } conversion
-            ? this.FollowOperator(call: expression, operation: conversion, operands: [expression])
+    public Followed? FollowConversion(ExpressionSyntax expression)
+    {
+        if (!this.region.Symbols.DeclaresConversions)
+        {
+            return null;
+        }
+
+        if (this.region.ConversionOf(expression) is { } conversion)
+        {
+            return this.FollowOperator(call: expression, operation: conversion, operands: [expression]);
+        }
+
+        return this.region.ConvertsATuple(expression)
+            ? this.FollowElementConversions(
+                call: expression,
+                parts: this.ElementConversions(
+                    from: this.region.TypeOf(expression),
+                    to: this.region.ModelFor(expression).GetTypeInfo(expression).ConvertedType,
+                    whole: this.Eval(expression)))
             : null;
+    }
+
+    /// <summary>
+    ///     The conversions of the elements that a deconstruction of a tuple
+    ///     gives to its variables. No node names them, and the compiler gives
+    ///     each one in the deconstruction information.
+    /// </summary>
+    /// <param name="deconstruction">The assignment or the foreach statement.</param>
+    /// <param name="value">The expression of the tuple, for a report.</param>
+    /// <param name="tuple">The state of the tuple.</param>
+    /// <param name="type">The type of the tuple.</param>
+    public Followed? FollowPartConversions(
+        SyntaxNode deconstruction,
+        ExpressionSyntax value,
+        LoopState tuple,
+        ITypeSymbol? type)
+    {
+        DeconstructionInfo info =
+            deconstruction switch
+            {
+                AssignmentExpressionSyntax assignment =>
+                    this.region.ModelFor(assignment).GetDeconstructionInfo(assignment),
+                ForEachVariableStatementSyntax loop => this.region.ModelFor(loop).GetDeconstructionInfo(loop),
+                _ => default
+            };
+
+        return this.FollowElementConversions(call: value, parts: PartConversions(info: info, type: type, whole: tuple));
+    }
+
+    // The conversion of each element of a tuple to the element of a second tuple type, with the
+    // state of the element. An element that is a tuple gives the conversions of its own elements.
+    private IEnumerable<(IMethodSymbol Conversion, LoopState State)> ElementConversions(
+        ITypeSymbol? from,
+        ITypeSymbol? to,
+        LoopState whole)
+    {
+        if (from is not INamedTypeSymbol { IsTupleType: true } source
+            || to is not INamedTypeSymbol { IsTupleType: true } target
+            || source.TupleElements.Length != target.TupleElements.Length)
+        {
+            return [];
+        }
+
+        return source.TupleElements.SelectMany((element, position) =>
+        {
+            LoopState state = StateOfAnElement(whole: whole, element: element);
+            ITypeSymbol goal = target.TupleElements[position].Type;
+
+            return this.region.ConversionOperator(from: element.Type, to: goal) is { } conversion
+                ? [(conversion, state)]
+                : this.ElementConversions(from: element.Type, to: goal, whole: state);
+        });
+    }
+
+    // The same for the parts of a deconstruction, from the conversion that the compiler gives each
+    // part.
+    private static IEnumerable<(IMethodSymbol Conversion, LoopState State)> PartConversions(
+        DeconstructionInfo info,
+        ITypeSymbol? type,
+        LoopState whole)
+    {
+        if (info.Method != null
+            || type is not INamedTypeSymbol { IsTupleType: true } tuple
+            || tuple.TupleElements.Length != info.Nested.Length)
+        {
+            return [];
+        }
+
+        return tuple.TupleElements.SelectMany((element, position) =>
+        {
+            DeconstructionInfo part = info.Nested[position];
+            LoopState state = StateOfAnElement(whole: whole, element: element);
+
+            return part.Conversion is { IsUserDefined: true, MethodSymbol: { } conversion }
+                ? [(conversion, state)]
+                : PartConversions(info: part, type: element.Type, whole: state);
+        });
+    }
+
+    private static LoopState StateOfAnElement(LoopState whole, IFieldSymbol element) =>
+        whole.Members is { } members && members.Has(element) ? members.StateOf(element) : whole;
+
+    // The evaluator keeps one result for each node and operator. Two elements that one operator
+    // converts thus get one walk, with the states of the two.
+    private Followed? FollowElementConversions(
+        ExpressionSyntax call,
+        IEnumerable<(IMethodSymbol Conversion, LoopState State)> parts) =>
+        parts
+            .GroupBy<(IMethodSymbol Conversion, LoopState State), IMethodSymbol, LoopState>(
+                keySelector: static part => part.Conversion,
+                elementSelector: static part => part.State,
+                comparer: SymbolEqualityComparer.Default)
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, conversion) =>
+                    Both(
+                        first: all,
+                        second: this.FollowImplied(
+                            call: call,
+                            member: conversion.Key,
+                            owner: null,
+                            arguments:
+                            [
+                                (call,
+                                    conversion.Aggregate(
+                                        seed: LoopState.None,
+                                        func: static (one, other) => one.Join(other)))
+                            ])));
 
     // The value that the code holds where the compiler converts an expression with an operator of
     // this compilation. That is the result of the operator, and not the value that it gets. The

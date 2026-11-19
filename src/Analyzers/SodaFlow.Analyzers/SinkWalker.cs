@@ -731,6 +731,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         this.DeconstructAnElement(node: node, method: method, element: first ?? elements);
 
+        // A tuple element converts to the type of its variable with no node that names the operator.
+        if (method == null && this.region.Symbols.DeclaresConversions)
+        {
+            this.Report(
+                this.evaluator.FollowPartConversions(
+                    deconstruction: node,
+                    value: node.Expression,
+                    tuple: elements,
+                    type: this.region.ModelFor(node).GetForEachStatementInfo(node).ElementType));
+        }
+
         // The walk keeps one result for each Deconstruct that it follows at a node. Thus, it forgets
         // the result for the first element, and the later elements get a result of their own.
         if (first != null && method != null)
@@ -1789,6 +1800,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 turn: turn))
         {
             this.Assign(target: node.Left, value: node.Right, replaces: replaces, turn: turn);
+        }
+
+        // The same for a deconstruction of a tuple that is not a tuple literal. Each element of a
+        // literal has a node of its own, and the walk asks there.
+        if (deconstruct == null
+            && this.region.Symbols.DeclaresConversions
+            && node.Right is not TupleExpressionSyntax
+            && PartsOf(node.Left) != null)
+        {
+            this.Report(
+                this.evaluator.FollowPartConversions(
+                    deconstruction: node,
+                    value: node.Right,
+                    tuple: right,
+                    type: this.region.TypeOf(node.Right)));
         }
     }
 

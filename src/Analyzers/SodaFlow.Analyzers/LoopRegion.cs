@@ -49,7 +49,7 @@ internal sealed class LoopRegion(
 
     // The walk and the evaluator get the symbol and the type of one node many times. The compiler
     // computes them again at each call, thus the region keeps them.
-    private readonly Dictionary<ExpressionSyntax, IMethodSymbol?> conversionOf = [];
+    private readonly Dictionary<ExpressionSyntax, Conversion> conversionOf = [];
     private readonly Dictionary<SyntaxNode, ISymbol?> symbolOf = [];
     private readonly Dictionary<ExpressionSyntax, ITypeSymbol?> typeOf = [];
 
@@ -310,16 +310,25 @@ internal sealed class LoopRegion(
     ///     The operator that makes the conversion which the compiler adds to an
     ///     expression. Null when it adds none, or one that no operator makes.
     /// </summary>
-    public IMethodSymbol? ConversionOf(ExpressionSyntax expression)
+    public IMethodSymbol? ConversionOf(ExpressionSyntax expression) =>
+        this.ConversionAt(expression) is { IsUserDefined: true, MethodSymbol: { } method } ? method : null;
+
+    /// <summary>
+    ///     True when the compiler converts the value of the expression, a tuple
+    ///     that is not a tuple literal, to a different tuple type. Each element
+    ///     then gets a conversion that no node shows.
+    /// </summary>
+    public bool ConvertsATuple(ExpressionSyntax expression) => this.ConversionAt(expression).IsTupleConversion;
+
+    private Conversion ConversionAt(ExpressionSyntax expression)
     {
-        if (!this.conversionOf.TryGetValue(key: expression, value: out IMethodSymbol? method))
+        if (!this.conversionOf.TryGetValue(key: expression, value: out Conversion conversion))
         {
-            Conversion conversion = this.ModelFor(expression).GetConversion(expression);
-            method = conversion.IsUserDefined ? conversion.MethodSymbol : null;
-            this.conversionOf[expression] = method;
+            conversion = this.ModelFor(expression).GetConversion(expression);
+            this.conversionOf[expression] = conversion;
         }
 
-        return method;
+        return conversion;
     }
 
     /// <summary>

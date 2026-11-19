@@ -25779,6 +25779,38 @@ public static class Shapes
     public static Cell<int> Ab258AWithCancellationOfTheCodeIsADifferentSequence() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (long n in Ab258NowLongs().WithCancellation(CancellationToken.None)) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
 
+    // S5966. A foreach that deconstructs each tuple into a long converts the Tally with its implicit conversion.
+    public static Cell<int> R4CsForeachDeconstructionConvertsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (Tally, int)[] all = [(t, 1)]; long total = 0; foreach ((long a, int b) in all) { total += a + b; } return S.Hold((int)total); });
+
+    // S5967. A tuple in a local converts to a tuple of long, and the conversion converts each element with the implicit conversion.
+    public static Cell<int> R4CsTupleVariableConvertsEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (Tally, int) p = (t, 1); (long, int) q = p; return S.Hold((int)q.Item1); });
+
+    // S5968. A deconstruction of a tuple in a local into a long converts the Tally with its implicit conversion.
+    public static Cell<int> Ab259DeconstructionOfATupleLocalConvertsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (Tally, int) p = (t, 1); (long a, int b) = p; return S.Hold((int)a + b); });
+
+    // S5969. A conversion of a nested tuple converts the Tally of the inner tuple with its implicit conversion.
+    public static Cell<int> Ab259NestedTupleConversionConvertsAnInnerElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (int, (Tally, int)) p = (1, (t, 2)); (int, (long, int)) q = p; return S.Hold((int)q.Item2.Item1); });
+
+    // S5970. A tuple conversion converts only the first element. The pending Tally is the second element, which keeps its type.
+    public static Cell<int> Ab259TupleConversionReadsOnlyTheConvertedElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Tally plain = new(Plain); (Tally, Tally) p = (plain, t); (long, Tally) q = p; Kept.Add(q.Item2); return S.Hold((int)q.Item1); });
+
+    // S5971. Control: a foreach deconstructs a tuple whose Tally has a plain cell, and its conversion samples that cell.
+    public static Cell<int> Ab259ForeachDeconstructionOfAPlainElementReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain); (Tally, int)[] all = [(t, 1)]; long total = 0; foreach ((long a, int b) in all) { total += a + b; } Kept.Add(l.Map(v => v)); return S.Hold((int)total); });
+
+    // S5972. A deconstruction converts only the first element. The pending Tally is the second element, which keeps its type.
+    public static Cell<int> Ab259DeconstructionReadsOnlyTheConvertedElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Tally plain = new(Plain); (Tally, Tally) p = (plain, t); (long a, Tally b) = p; Kept.Add(b); return S.Hold((int)a); });
+
+    // S5973. A nested deconstruction of a tuple local converts the Tally of the inner tuple with its implicit conversion.
+    public static Cell<int> Ab259NestedDeconstructionConvertsAnInnerElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (int, (Tally, int)) p = (1, (t, 2)); (int a, (long b, int c)) = p; return S.Hold(a + (int)b + c); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

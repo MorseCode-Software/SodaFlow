@@ -336,7 +336,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   an action that you post to `BindingScheduler.Immediate`, and for a write to the `Value` of a
   two-way bindable of a sink, which sends the value into that sink after the transaction.
 - Members that C# calls with no call syntax: an indexer, an operator, a conversion, also of each
-  element of a spread, `operator true` or `operator false` before a user-defined `||` or `&&`, a
+  element of a spread and of each element of a tuple that the code converts to a different tuple
+  type or deconstructs, `operator true` or `operator false` before a user-defined `||` or `&&`, a
   setter, an event accessor, `Deconstruct`, `ToString` in an interpolated string that the code
   formats at once, which is the `ToString` of `IFormattable` for a value that implements it,
   `Dispose` at the end of a `using` or a `foreach`, `DisposeAsync` at the end of an `await using`,
