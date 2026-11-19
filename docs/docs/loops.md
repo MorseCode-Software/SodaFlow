@@ -521,6 +521,9 @@ Some reads that throw it does not see:
 - A write through a span, a memory, or a segment that a method gets as a parameter, that
   `CollectionsMarshal` or `MemoryMarshal` makes, or that a lambda or a local function uses. The
   write does not reach the array.
+- A handler that the code adds to an event of an object through one name, when code raises the event
+  through another name of that object. That happens when a constructor passes `this` on, as into a
+  static list, and code later raises the event through an element of the list.
 - A write to a member through `this` in a method, when the code also reaches that object through
   another name, such as an element of an array that holds `this`. A read through the other name
   still sees the value from before the write.
