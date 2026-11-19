@@ -3981,6 +3981,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4ApiConstantLazyOfADeferThatReturnsALinkedCell"] = ["SF1002"],
             ["R4ApiHoldLazyOfADeferThatReturnsALinkedCell"] = ["SF1002"],
             ["Ab228DeferOfAFunctionInALocal"] = ["SF1002"],
-            ["Ab228MapOfADeferThatReturnsALinkedCell"] = ["SF1002"]
+            ["Ab228MapOfADeferThatReturnsALinkedCell"] = ["SF1002"],
+            ["R4ApiMergeFunctionThatReturnsALinkedCellWithOneSend"] = ["SF1002"],
+            ["R4ApiMergeFunctionReturnsALinkedCell"] = ["SF1002"],
+            ["R4ApiMergeOfAListWithAFunctionThatReturnsALinkedCell"] = ["SF1002"],
+            ["Ab229MergeOfAFunctionInALocal"] = ["SF1002"],
+            ["Ab229MergeFunctionKeepsTheSecondLinkedSend"] = ["SF1002"],
+            ["Ab229MergeFunctionKeepsTheSecondRowWithALinkedCell"] = ["SF1002"],
+            ["Ab229MergeOfAListKeepsTheSecondRowWithALinkedCell"] = ["SF1002"],
+            ["Ab229MergeFunctionKeepsTheFirstRowWithALinkedCell"] = ["SF1002"]
         };
 }

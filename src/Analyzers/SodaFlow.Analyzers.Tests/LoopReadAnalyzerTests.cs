@@ -77,6 +77,15 @@ internal sealed partial class LoopReadAnalyzerTests
         "RecursiveHelper"
     ];
 
+    // The shapes whose rules are a report on the careful side, of a type that docs/docs/loops.md
+    // names. Each one returns at run time.
+    private static readonly HashSet<string> ReportsOnTheCarefulSide =
+    [
+        // The function of a merge runs only when the two streams fire in one transaction. The block
+        // sends into one stream only.
+        "R4ApiMergeFunctionThatReturnsALinkedCellWithOneSend"
+    ];
+
     private static readonly Assembly[] ShapeLibraries =
     [
         typeof(Cell<>).Assembly,
@@ -310,7 +319,7 @@ internal sealed partial class LoopReadAnalyzerTests
                         : [];
 
             IReadOnlyList<Outcome> permitted =
-                rules.Length == 0
+                rules.Length == 0 || ReportsOnTheCarefulSide.Contains(reportedIn)
                     ? [Outcome.Returns]
                     : [.. rules.Where(static rule => rule != "SF1003").Select(OutcomeOf).Distinct()];
 

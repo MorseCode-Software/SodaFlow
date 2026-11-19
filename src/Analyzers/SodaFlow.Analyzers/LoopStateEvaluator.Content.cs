@@ -107,6 +107,45 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     What the function of a merge returns. The first parameter gets the
+    ///     content of the receiver. The second gets the content of the second
+    ///     stream, or of the list for a merge of a list of streams.
+    /// </summary>
+    /// <remarks>
+    ///     The function runs only when two streams fire in one transaction. The
+    ///     walk does not know when that occurs. Thus, it reads the function as a
+    ///     function that runs, as for a read that occurs only if a condition is
+    ///     true.
+    /// </remarks>
+    private LoopState MergedContent(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        ITypeSymbol? receiverType,
+        LoopState receiverState,
+        IReadOnlyList<LoopState> argumentStates)
+    {
+        if (!method.Parameters.Any(static parameter => parameter.Type.TypeKind == TypeKind.Delegate)
+            || !this.HoldsContent(method))
+        {
+            return LoopState.None;
+        }
+
+        ImmutableArray<LoopState> given =
+            ImmutableArray.Create(
+                item1: receiverState.Content,
+                item2: this.region.Symbols.IsStreamType(receiverType) && argumentStates.Count > 0
+                    ? argumentStates[0].Content
+                    : receiverState.Content);
+
+        return invocation.ArgumentList.Arguments
+                .Select(static a => a.Expression)
+                .OfType<AnonymousFunctionExpressionSyntax>()
+                .FirstOrDefault() is { } lambda
+            ? this.EvalLambdaResult(lambda: lambda, boundParameters: given)
+            : this.ContentOfANamedFunction(invocation: invocation, given: given);
+    }
+
+    /// <summary>
     ///     The values that a hold or an accumulation holds. The initial value is
     ///     one. A hold gets the values of its stream after the close, and an
     ///     accumulation gets what its function returns then. A collect keeps no

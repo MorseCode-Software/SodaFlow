@@ -27707,6 +27707,38 @@ public static class Shapes
     public static Cell<int> Ab228MapOfADeferThatReturnsALinkedCell() =>
         Cell.Loop<int>().WithoutCaptures(l => Cell.ConstantLazy(LazySample.Defer(() => l.Map(v => v)).Map(c => c)).SwitchC());
 
+    // S6448. The block sends into two streams, and their merge runs its function for the two values. The function returns a linked cell, which the hold takes. The switch of the hold as the close is a cycle.
+    public static Cell<int> R4ApiMergeFunctionReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> a = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> b = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = a.Merge(b, (_, _) => l.Map(v => v)).Hold(Plain); a.Send(Plain); b.Send(Plain); return h.SwitchC(); });
+
+    // S6449. The same as the merge of two streams, but a merge of a list of streams.
+    public static Cell<int> R4ApiMergeOfAListWithAFunctionThatReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> a = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> b = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = new Stream<Cell<int>>[] { a, b }.Merge((_, _) => l.Map(v => v)).Hold(Plain); a.Send(Plain); b.Send(Plain); return h.SwitchC(); });
+
+    // S6450. The function of the merge comes from a local. The block sends into the two streams, and the function returns a linked cell, which the hold takes. The switch of the hold as the close is a cycle.
+    public static Cell<int> Ab229MergeOfAFunctionInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, Cell<int>, Cell<int>> f = (_, _) => l.Map(v => v); StreamSink<Cell<int>> a = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> b = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = a.Merge(b, f).Hold(Plain); a.Send(Plain); b.Send(Plain); return h.SwitchC(); });
+
+    // S6451. The merge function keeps the second value, which the block sends linked. The switch of the hold as the close is a cycle.
+    public static Cell<int> Ab229MergeFunctionKeepsTheSecondLinkedSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> a = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> b = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = a.Merge(b, (_, y) => y).Hold(Plain); a.Send(Plain); b.Send(l.Map(v => v)); return h.SwitchC(); });
+
+    // S6452. Control: the merge function of two plain values returns a cell with no link. Thus, the switch of the hold as the close is not a cycle.
+    public static Cell<int> Ab229MergeFunctionReturnsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> a = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> b = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> h = a.Merge(b, (_, _) => Cell.Constant(4)).Hold(Plain); a.Send(Plain); b.Send(Plain); return h.SwitchC(); });
+
+    // S6453. The merge function keeps the second value, a row whose member the block sends linked. The switch of the member of the hold as the close is a cycle.
+    public static Cell<int> Ab229MergeFunctionKeepsTheSecondRowWithALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> a = Stream.CreateSink<RecordRow>(); StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = a.Merge(b, (_, y) => y).Hold(new RecordRow(Plain)); a.Send(new RecordRow(Plain)); b.Send(new RecordRow(l.Map(v => v))); return h.Map(r => r.Share).SwitchC(); });
+
+    // S6454. The merge of a list of streams gives each value of the list to its function. The function keeps the second value, a row whose member the block sends linked. The switch of the member of the hold as the close is a cycle.
+    public static Cell<int> Ab229MergeOfAListKeepsTheSecondRowWithALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> a = Stream.CreateSink<RecordRow>(); StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = new Stream<RecordRow>[] { a, b }.Merge((_, y) => y).Hold(new RecordRow(Plain)); a.Send(new RecordRow(Plain)); b.Send(new RecordRow(l.Map(v => v))); return h.Map(r => r.Share).SwitchC(); });
+
+    // S6455. The merge function keeps the first value, a row whose member the block sends linked. The switch of the member of the hold as the close is a cycle.
+    public static Cell<int> Ab229MergeFunctionKeepsTheFirstRowWithALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> a = Stream.CreateSink<RecordRow>(); StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = a.Merge(b, (x, _) => x).Hold(new RecordRow(Plain)); a.Send(new RecordRow(l.Map(v => v))); b.Send(new RecordRow(Plain)); return h.Map(r => r.Share).SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

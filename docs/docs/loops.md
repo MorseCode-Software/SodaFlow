@@ -459,7 +459,9 @@ careful side, so it can report a read that does not throw:
   wrote. That is so even when the call wrote a
   different object.
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
-  calls, and an `Equals` that only two equal hash codes call, are reads of this kind. Only a
+  calls, and an `Equals` that only two equal hash codes call, are reads of this kind. So is the
+  function of a `Merge`, which runs only when both streams fire in one transaction: what it returns
+  counts as a value of the merge even where only one stream fires. Only a
   condition that is a constant is read for what it says: the analyzer skips the branch of an `if`
   that the constant rules out, and the body of a `while` whose condition is the constant `false`.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending

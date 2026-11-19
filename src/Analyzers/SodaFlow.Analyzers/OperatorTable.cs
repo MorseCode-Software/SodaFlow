@@ -141,7 +141,10 @@ internal enum OperatorRule
     /// </summary>
     SnapshotLatest,
 
-    /// <summary>A merge of streams. Linked when any stream input is.</summary>
+    /// <summary>
+    ///     A merge of streams. Linked when any stream input is. The content is
+    ///     the content of each stream, and what the function returns.
+    /// </summary>
     MergeStreams,
 
     /// <summary>

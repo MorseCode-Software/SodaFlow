@@ -2733,8 +2733,20 @@ internal sealed partial class LoopStateEvaluator
                         receiverType: receiverType,
                         argumentStates: argumentStates,
                         argumentTypes: argumentTypes),
-                    contentPending: inputs.ContentPending,
-                    contentLinked: inputs.ContentLinked),
+                    contentPending: false,
+                    contentLinked: false).WithContent(
+                    new LoopState(
+                            pending: inputs.ContentPending,
+                            linked: inputs.ContentLinked,
+                            contentPending: false,
+                            contentLinked: false)
+                        .Join(
+                            this.MergedContent(
+                                invocation: invocation,
+                                method: method,
+                                receiverType: receiverType,
+                                receiverState: receiverState,
+                                argumentStates: argumentStates))),
                 OperatorRule.DeferLazy => new LoopState(
                     pending: firstArgument.Pending,
                     linked: false,
