@@ -26363,15 +26363,15 @@ public static class Shapes
     public static Cell<int> Ab220PlainThroughAnElementOfAMadeArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot e = new(); SettableSlot[] b = Ab220Make(e); SettableSlot d = b[0]; SettableSlot[] a = [R4PairSpare]; a[0] = e; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
 
-    // S6112. AB220: a loop adds a new object to a list in each of two turns. A pending cell goes in through an element of a local array that got the first, then a plain cell through a local that got the second. The read is through the element.
+    // S6112. AB220: a loop adds a new object to a list in each of two turns. A pending cell goes in through an element of a local array that got the first. A plain cell goes in through a local that got the second. The read is through the element.
     public static Cell<int> Ab220PlainThroughAnObjectOfAnotherTurn() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> made = []; for (int k = 0; k < 2; k++) { made.Add(new SettableSlot()); } SettableSlot[] a = [made[0]]; SettableSlot d = made[1]; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
 
-    // S6113. AB220: a loop puts a new object into an element of an array in each of two turns. A pending cell goes in through an element of a local array that got the first, then a plain cell through a local that got the second. The read is through the element.
+    // S6113. AB220: a loop puts a new object into an element of an array in each of two turns. A pending cell goes in through an element of a local array that got the first. A plain cell goes in through a local that got the second. The read is through the element.
     public static Cell<int> Ab220PlainThroughAnArrayObjectOfAnotherTurn() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] made = new SettableSlot[2]; for (int k = 0; k < 2; k++) { made[k] = new SettableSlot(); } SettableSlot[] a = [made[0]]; SettableSlot d = made[1]; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
 
-    // S6114. AB220: a pending cell goes in through an element of a local array that got a local, then a plain cell through the local in a lambda of a map that the code does not sample. The read is through the element.
+    // S6114. AB220: a pending cell goes in through an element of a local array that got a local. A plain cell goes in through the local in the lambda of a map, and the code does not sample the map. The read is through the element.
     public static Cell<int> Ab220PlainThroughTheLocalInAMapThatDoesNotRun() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R4PairSpare]; a[0] = d; a[0].Share = l.Map(v => v); Cell<int> m = Plain.Map(v => { d.Share = Plain; return v; }); return S.Hold(a[0].Share!.Sample()); });
 
