@@ -26175,9 +26175,9 @@ public static class Shapes
     public static Cell<int> Ag95ArrayReverseUnderAConditionMovesThePendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, l.Map(v => v)]; if (Kept.Count >= 0) { Array.Reverse(a); } Kept.Add(a[0].Sample()); return S.Hold(0); });
 
-    // S6065. A dictionary of object keys has the enum value Sunday and the int 0. The block reads the int key, which has the plain cell.
+    // S6065. A dictionary of object keys has the int 0 and then the enum value Sunday. The block reads the int key, which has the plain cell.
     public static Cell<int> Ag95DictionaryObjectKeysOfAnEnumAndAnIntReadThePlain() =>
-        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<object, Cell<int>> d = new() { [DayOfWeek.Sunday] = l.Map(v => v), [0] = Plain }; Kept.Add(d[0].Sample()); return S.Hold(0); });
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<object, Cell<int>> d = new() { [0] = Plain, [DayOfWeek.Sunday] = l.Map(v => v) }; Kept.Add(d[0].Sample()); return S.Hold(0); });
 
     // S6066. A dictionary of object keys has two strings. The block reads the key with the pending cell.
     public static Cell<int> Ag95DictionaryObjectKeysOfStringsReadThePending() =>
