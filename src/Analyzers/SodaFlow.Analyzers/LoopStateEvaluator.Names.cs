@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -109,8 +108,10 @@ internal sealed partial class LoopStateEvaluator
         if (held == null)
         {
             held = new NamesOfOneObject();
+
             held.Names.Add(
                 new NameOfAnObject(of: from.Of, owner: from.Owner, index: from.Index, code: code, from: at.Span.End));
+
             all.Add(held);
         }
 
