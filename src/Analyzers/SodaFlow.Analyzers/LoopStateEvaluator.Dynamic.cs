@@ -11,15 +11,10 @@ namespace SodaFlow.Analyzers;
 // the operation names. Otherwise, it reads nothing.
 internal sealed partial class LoopStateEvaluator
 {
-    /// <summary>
-    ///     The operator that a binary or a unary operation on a dynamic value
-    ///     calls. Each operand of an object that the walk saw made gives the
-    ///     operators of its type. The evaluator reads one only when the types
-    ///     have one operator with that name and number of operands.
-    /// </summary>
-    /// <param name="operation">The binary or the unary operation.</param>
-    /// <param name="operands">The operands, in their order.</param>
-    public Followed? FollowDynamicOperator(ExpressionSyntax operation, IReadOnlyList<ExpressionSyntax> operands)
+    // The operator that a binary or a unary operation on a dynamic value calls. Each operand of an
+    // object that the walk saw made gives the operators of its type. The evaluator reads one only
+    // when the types have one operator with that name and number of operands.
+    private Followed? FollowDynamicOperator(ExpressionSyntax operation, IReadOnlyList<ExpressionSyntax> operands)
     {
         if (OperatorName(operation.Kind()) is not { } name)
         {
@@ -47,14 +42,10 @@ internal sealed partial class LoopStateEvaluator
             : null;
     }
 
-    /// <summary>
-    ///     The implicit conversion that the binder calls where the code converts
-    ///     a dynamic value to a type with no cast. It is an operator of the type
-    ///     of the object that gives the type of the conversion.
-    /// </summary>
-    /// <param name="expression">The dynamic expression that the code converts.</param>
-    /// <param name="to">The type of the conversion.</param>
-    public Followed? FollowDynamicConversion(ExpressionSyntax expression, ITypeSymbol to)
+    // The implicit conversion that the binder calls where the code converts a dynamic value to a type
+    // with no cast. It is an operator of the type of the object that gives the type of the
+    // conversion.
+    private Followed? FollowDynamicConversion(ExpressionSyntax expression, ITypeSymbol to)
     {
         LoopState state = this.Self(expression);
 
@@ -70,13 +61,8 @@ internal sealed partial class LoopStateEvaluator
             : null;
     }
 
-    /// <summary>
-    ///     The <c>operator true</c> or <c>operator false</c> that the binder
-    ///     calls where a dynamic value is a condition.
-    /// </summary>
-    /// <param name="condition">The dynamic condition.</param>
-    /// <param name="name">The name of the operator.</param>
-    public Followed? FollowDynamicTruth(ExpressionSyntax condition, string name)
+    // The operator true or operator false that the binder calls where a dynamic value is a condition.
+    private Followed? FollowDynamicTruth(ExpressionSyntax condition, string name)
     {
         LoopState state = this.Self(condition);
 
