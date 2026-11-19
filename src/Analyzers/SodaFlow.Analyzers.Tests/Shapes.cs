@@ -28431,6 +28431,66 @@ public static class Shapes
     public static Cell<int> Ab211PutOfAStructThroughALocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { SlotValue[] fa = Ab211Structs; fa[0] = new SlotValue { Share = l.Map(v => v) }; return S.Hold(Ab211Structs[0].Share!.Sample()); });
 
+    // S6629. Carried AG93: The probe Ag92X4LocalOfThis of AG93.
+    public static Cell<int> R4PairAg93LocalOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelfLocal s = new(); int got = s.WriteThenRead(l.Map(v => v)); return S.Hold(got); });
+
+    // S6630. Carried AG93: The probe Ag92F4MethodWritesThroughThis of AG93.
+    public static Cell<int> R4PairAg93MethodWritesThroughThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSetter s = new(); int got = s.WriteThenRead(l.Map(v => v)); return S.Hold(got); });
+
+    // S6631. Pair matrix, this: a method of the object names it as this and as an element of a local array at a constant index. A plain cell goes in through an element of a local array at a constant index, then a pending cell through this. The method reads through an element of a local array at a constant index.
+    public static Cell<int> R4PairElementPlainThenThisReadElementInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1114(l.Map(v => v)); return S.Hold(got); });
+
+    // S6632. Pair matrix, this: a method of the object names it as this and as an element of a local array at a constant index. A plain cell goes in through an element of a local array at a constant index, then a pending cell through this. The method reads through a third local.
+    public static Cell<int> R4PairElementPlainThenThisReadThirdInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1116(l.Map(v => v)); return S.Hold(got); });
+
+    // S6633. Pair matrix, this: a method of the object names it as this and as an element of a static field array, through the field. A plain cell goes in through an element of a static field array, through the field, then a pending cell through this. The method reads through an element of a static field array, through the field.
+    public static Cell<int> R4PairFieldArrayPlainThenThisReadFieldArrayInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1138(l.Map(v => v)); return S.Hold(got); });
+
+    // S6634. Pair matrix, this: a method of the object names it as this and as an element of a static field array, through the field. A plain cell goes in through an element of a static field array, through the field, then a pending cell through this. The method reads through a third local.
+    public static Cell<int> R4PairFieldArrayPlainThenThisReadThirdInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1140(l.Map(v => v)); return S.Hold(got); });
+
+    // S6635. Pair matrix, this: a method of the object names it as this and as a local. A plain cell goes in through a local, then a pending cell through this. The method reads through a local.
+    public static Cell<int> R4PairLocalPlainThenThisReadLocalInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1102(l.Map(v => v)); return S.Hold(got); });
+
+    // S6636. Pair matrix, this: a method of the object names it as this and as a local. A plain cell goes in through a local, then a pending cell through this. The method reads through a third local.
+    public static Cell<int> R4PairLocalPlainThenThisReadThirdInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1104(l.Map(v => v)); return S.Hold(got); });
+
+    // S6637. Pair matrix, this: a method of the object names it as this and as a static field. A plain cell goes in through a static field, then a pending cell through this. The method reads through a static field.
+    public static Cell<int> R4PairStaticFieldPlainThenThisReadStaticFieldInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1126(l.Map(v => v)); return S.Hold(got); });
+
+    // S6638. Pair matrix, this: a method of the object names it as this and as a static field. A plain cell goes in through a static field, then a pending cell through this. The method reads through a third local.
+    public static Cell<int> R4PairStaticFieldPlainThenThisReadThirdInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1128(l.Map(v => v)); return S.Hold(got); });
+
+    // S6639. AG93. A method gives a local this, and then a different object. A plain cell goes in through the local, then a pending cell through this. The read is through the local. A control.
+    public static Cell<int> Ag93LocalOfThisThenADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag93Self s = new(); int got = s.LocalGetsADifferentObject(l.Map(v => v)); return S.Hold(got); });
+
+    // S6640. AG93. A method gives a static field this. A call then gives the field a different object. A plain cell goes in through the field, then a pending cell through this. The read is through the field. A control.
+    public static Cell<int> Ag93StaticFieldOfThisThenADifferentObjectInACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag93Self s = new(); int got = s.FieldGetsADifferentObject(l.Map(v => v)); return S.Hold(got); });
+
+    // S6641. AG93. A method gives a local this only in a branch that does not run. A plain cell goes in through the local, then a pending cell through this. The read is through the local. A control.
+    public static Cell<int> Ag93LocalOfThisOnlyInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag93Self s = new(); int got = s.LocalOfThisInABranch(l.Map(v => v)); return S.Hold(got); });
+
+    // S6642. AG93. A method gives a local this, and then a different object through ref. A plain cell goes in through the local, then a pending cell through this. The read is through the local. A control.
+    public static Cell<int> Ag93LocalOfThisThenADifferentObjectThroughRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag93Self s = new(); int got = s.LocalGetsADifferentObjectThroughRef(l.Map(v => v)); return S.Hold(got); });
+
+    // S6643. AG93. A method gives a static field this, and a third local gets the object through the field. A plain cell goes in through the third local, then a pending cell through this. The read is through the third local.
+    public static Cell<int> Ag93ThirdLocalThroughAStaticFieldOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag93Self s = new(); int got = s.ThirdLocalThroughTheField(l.Map(v => v)); return S.Hold(got); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40237,6 +40297,72 @@ public static class Shapes
     private static readonly SettableSlot[] Ab211InALambda = [new()];
     private static SettableSlot[] Ab211Writable = [new()];
     private static readonly SlotValue[] Ab211Structs = [new()];
+
+    private static Ag93Self Ag93Field = new();
+
+    private static void Ag93Reset() => Ag93Field = new Ag93Self();
+
+    private static void Ag93ResetRef(ref Ag93Self self) => self = new Ag93Self();
+
+    public sealed class Ag93Self
+    {
+        public Cell<int>? Share { get; set; }
+
+        public int LocalGetsADifferentObject(Cell<int> pending)
+        {
+            Ag93Self me = this;
+            me = new Ag93Self();
+            me.Share = Plain;
+            this.Share = pending;
+
+            return me.Share!.Sample();
+        }
+
+        public int LocalGetsADifferentObjectThroughRef(Cell<int> pending)
+        {
+            Ag93Self me = this;
+            Ag93ResetRef(ref me);
+            me.Share = Plain;
+            this.Share = pending;
+
+            return me.Share!.Sample();
+        }
+
+        public int FieldGetsADifferentObject(Cell<int> pending)
+        {
+            Ag93Field = this;
+            Ag93Reset();
+            Ag93Field.Share = Plain;
+            this.Share = pending;
+
+            return Ag93Field.Share!.Sample();
+        }
+
+        public int LocalOfThisInABranch(Cell<int> pending)
+        {
+            Ag93Self me = new();
+
+            if (Never)
+            {
+                me = this;
+            }
+
+            me.Share = Plain;
+            this.Share = pending;
+
+            return me.Share!.Sample();
+        }
+
+        public int ThirdLocalThroughTheField(Cell<int> pending)
+        {
+            Ag93Field = this;
+            Ag93Self q = Ag93Field;
+            q.Share = Plain;
+            this.Share = pending;
+
+            return q.Share!.Sample();
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

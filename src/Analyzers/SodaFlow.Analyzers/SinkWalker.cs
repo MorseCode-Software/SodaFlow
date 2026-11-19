@@ -2245,6 +2245,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         this.evaluator.NotesNamesOfOneObject(target: target, value: value, replaces: replaces);
         this.evaluator.NotesALinkOfALocation(location: target, value: value, replaces: replaces);
 
+        if (target is ElementAccessExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax)
+        {
+            this.evaluator.NotesANameOfThis(
+                local: null,
+                location: (ExpressionSyntax)target,
+                value: value,
+                replaces: replaces);
+        }
+
         if (target is IdentifierNameSyntax
             && this.region.SymbolOf(target) is { } named and (ILocalSymbol or IParameterSymbol))
         {

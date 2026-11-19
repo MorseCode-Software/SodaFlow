@@ -4120,6 +4120,17 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab211PlainPutThroughTheFieldInABranch"] = ["SF1001"],
             ["Ab211PlainPutThroughTheFieldAtASecondIndex"] = ["SF1001"],
             ["Ab211PlainPutThroughTheFieldInALambdaThatDoesNotRun"] = ["SF1001"],
-            ["Ab211PutOfAStructThroughALocal"] = ["SF1001"]
+            ["Ab211PutOfAStructThroughALocal"] = ["SF1001"],
+            ["R4PairAg93LocalOfThis"] = ["SF1004"],
+            ["R4PairAg93MethodWritesThroughThis"] = ["SF1004"],
+            ["R4PairElementPlainThenThisReadElementInAMethodOfTheObject"] = ["SF1004"],
+            ["R4PairElementPlainThenThisReadThirdInAMethodOfTheObject"] = ["SF1004"],
+            ["R4PairFieldArrayPlainThenThisReadFieldArrayInAMethodOfTheObject"] = ["SF1004"],
+            ["R4PairFieldArrayPlainThenThisReadThirdInAMethodOfTheObject"] = ["SF1004"],
+            ["R4PairLocalPlainThenThisReadLocalInAMethodOfTheObject"] = ["SF1004"],
+            ["R4PairLocalPlainThenThisReadThirdInAMethodOfTheObject"] = ["SF1004"],
+            ["R4PairStaticFieldPlainThenThisReadStaticFieldInAMethodOfTheObject"] = ["SF1004"],
+            ["R4PairStaticFieldPlainThenThisReadThirdInAMethodOfTheObject"] = ["SF1004"],
+            ["Ag93ThirdLocalThroughAStaticFieldOfThis"] = ["SF1004"]
         };
 }

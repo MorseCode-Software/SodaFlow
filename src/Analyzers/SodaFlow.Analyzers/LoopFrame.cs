@@ -307,6 +307,22 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<ISymbol, int> OwnWriteOf { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     Each local and each location of this code that got the object that the
+    ///     code is in. The record has the function of the assignment and the end
+    ///     of its value. A location has the key of LocationKeyOf.
+    /// </summary>
+    public List<(ISymbol? Local, (ISymbol Of, ISymbol? Owner, int Index)? Key, SyntaxNode Code, int From)>
+        NamesOfThis { get; } = [];
+
+    /// <summary>
+    ///     The state of the last write to a member of this object, when that
+    ///     write was through a name of <see cref="NamesOfThis" />. The member is
+    ///     the origin of the state. A read through this or through a
+    ///     field gets that origin, as the region gives it.
+    /// </summary>
+    public Dictionary<ISymbol, LoopState> WrittenThroughANameOfThis { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
     ///     For a local of this code that got an element at a location that the
     ///     walk can read again: the expression of that element.
     /// </summary>

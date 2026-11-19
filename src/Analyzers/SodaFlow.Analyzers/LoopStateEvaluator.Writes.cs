@@ -27,6 +27,11 @@ internal sealed partial class LoopStateEvaluator
         ISymbol key = member.OriginalDefinition;
         this.region.AddAMemberWrite();
 
+        if (this.Frame.WrittenThroughANameOfThis.Count > 0)
+        {
+            this.Frame.WrittenThroughANameOfThis.Remove(key);
+        }
+
         // The object can be older than a turn of a loop of this code. The receiver of a method can
         // be older than a turn of a loop of the caller also. A constructor makes a new object.
         state = this.InALocation(
@@ -1790,6 +1795,17 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode? turn,
         ExpressionSyntax? from = null)
     {
+        // A write through a name that got this is a write to the object that the code is in.
+        if (owner != null && this.IsANameOfThis(owner))
+        {
+            this.SetMember(member: member, state: state, replaces: replaces, from: from);
+
+            if (!this.quiet)
+            {
+                this.Frame.WrittenThroughANameOfThis[member.OriginalDefinition] = state.From(member);
+            }
+        }
+
         if (owner is MemberAccessExpressionSyntax or IdentifierNameSyntax
             && this.region.SymbolOf(owner) is IFieldSymbol { Type.IsValueType: true } field)
         {

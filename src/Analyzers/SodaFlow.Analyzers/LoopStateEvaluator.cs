@@ -881,6 +881,8 @@ internal sealed partial class LoopStateEvaluator
             this.NotesALink(name: new NameKey(of: local, owner: null, index: -1), value: value, replaces: replaces);
         }
 
+        this.NotesANameOfThis(local: local, location: null, value: value, replaces: replaces);
+
         // A name with ref gets its location here. Each other assignment to the name is an
         // assignment to that location, and the name keeps it.
         if (value is RefExpressionSyntax { Expression: var location })
@@ -2285,11 +2287,11 @@ internal sealed partial class LoopStateEvaluator
                 if (expression is IdentifierNameSyntax
                     or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })
                 {
-                    return (this.thisMembers.TryGetValue(key: symbol.OriginalDefinition, value: out LoopState? own)
-                            ? own
-                            : this.OfTheImplementationsOnThis(symbol))
-                        .Join(field)
-                        .Join(this.TypeState(expression));
+                    return this.OfThisObject(
+                        member: symbol,
+                        field: field,
+                        read: expression,
+                        throughThisOrAField: true);
                 }
 
                 // The field has the state from each owner that the walk does not know. The owner
@@ -2303,6 +2305,17 @@ internal sealed partial class LoopStateEvaluator
                         MemberBindingExpressionSyntax binding => ConditionalReceiver(binding),
                         _ => null
                     };
+
+                // A name that got this reads the members of the object that the code is in.
+                if (ownerExpression != null && this.IsANameOfThis(ownerExpression))
+                {
+                    return this.OfThisObject(
+                        member: symbol,
+                        field: field,
+                        read: expression,
+                        throughThisOrAField: this.RootOf(ownerExpression) is { } root
+                                             && this.region.SymbolOf(root) is IFieldSymbol);
+                }
 
                 if (ownerExpression != null)
                 {

@@ -581,9 +581,12 @@ Some reads that throw it does not see:
 - A handler that the code adds to an event of an object through one name, when code raises the event
   through another name of that object. That happens when a constructor passes `this` on, as into a
   static list, and code later raises the event through an element of the list.
-- A write to a member through `this` in a method, when the code also reaches that object through
-  another name, such as an element of an array that holds `this`. A read through the other name
-  still sees the value from before the write.
+- A write to a member through `this` in a constructor, when the constructor also gave `this` to a
+  name that the caller reads, such as an element of an array that it gets. A read through that name
+  after the constructor returns still sees the value from before the write. Inside a method or a
+  constructor, a local, a field, or an element at a constant index that gets `this`, also as an
+  element of a collection expression such as `[this]`, is the same object as `this` until code gives
+  it a different value.
 - A write in the function of a `Map`, a `Lift`, or a collection view that the analyzer did not see
   you build, such as a cell in a field that a read in the block runs for the first time. A function
   that you give to `Map` or `Lift` should have no side effects in any case.
