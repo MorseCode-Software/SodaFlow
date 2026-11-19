@@ -393,6 +393,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   bindable, when you write its `Value`. `RunTimersTo` of a clock built on
   `TimerSystemImplementationBase` runs, in the call, each callback that `SetTimer` gave the same
   local before it, unless both times are integer constants and the time of the callback is later.
+  A `TimerSystem` calls `Start` and `Now` of its implementation when you construct it, and `Stop`
+  when you dispose it. The construction of a `SystemClockTimerSystem` calls its `now` function.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
   the function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`, and the
   function of a `Task` that you create with `new` where `RunSynchronously` runs it. The `Result` of

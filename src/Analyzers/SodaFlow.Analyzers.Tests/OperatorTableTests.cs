@@ -82,7 +82,9 @@ internal sealed class OperatorTableTests
     // or event, thus a setter is in the list as its property. A base type of the platform, as
     // Enum or Exception is, gives its own interfaces, which read no value of the graph. A field
     // can hold a cell or a function, thus each field that is not a constant is a member also. A
-    // constant, as the value of an enum, holds a value that the compiler sets.
+    // constant, as the value of an enum, holds a value that the compiler sets. A constructor can
+    // call a member of an object that it gets, as the constructor of TimerSystem calls Now. Thus,
+    // each public constructor is a member also, with the name of its type.
     private static IEnumerable<string> MembersOf(Type type) =>
         type.GetMethods(Declared)
             .Concat(
@@ -96,7 +98,11 @@ internal sealed class OperatorTableTests
             .Concat(
                 type.GetFields(Declared)
                     .Where(static field => field is { IsLiteral: false, IsSpecialName: false })
-                    .Select(static field => field.Name));
+                    .Select(static field => field.Name))
+            .Concat(type.GetConstructors(Declared).Select(_ => TypeNameOf(type)));
+
+    // The name of a generic type has its number of type parameters after a backtick.
+    private static string TypeNameOf(Type type) => type.Name.Split('`')[0];
 
     private static string NameOf(MethodInfo method)
     {

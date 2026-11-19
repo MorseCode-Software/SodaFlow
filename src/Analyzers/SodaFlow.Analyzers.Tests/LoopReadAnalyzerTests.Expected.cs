@@ -3963,6 +3963,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4ApiSendPostedToASchedulerOfAQueuedContext"] = ["SF1002"],
             ["R4ApiRunTimersToOfAnInterfaceRunsADueCallback"] = ["SF1001"],
             ["R4ApiRunTimersToRunsADueCallbackInTheCall"] = ["SF1001"],
-            ["Ab236RunTimersToAfterTheTimeOfACallback"] = ["SF1001"]
+            ["Ab236RunTimersToAfterTheTimeOfACallback"] = ["SF1001"],
+            ["R4ApiTimerSystemDisposeStopsAClockThatReads"] = ["SF1005"],
+            ["R4ApiTimerSystemReadsTheNowOfItsClockInItsConstructor"] = ["SF1005"],
+            ["Ab237TimerSystemStartsAClockThatReads"] = ["SF1005"],
+            ["Ab237TimerSystemDisposedThroughIDisposable"] = ["SF1005"],
+            ["Ab237UsingOfATimerSystemStopsAClockThatReads"] = ["SF1005"],
+            ["Ab237SystemClockTimerSystemCallsItsFunctionOfTheTime"] = ["SF1001"]
         };
 }

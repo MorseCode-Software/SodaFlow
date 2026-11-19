@@ -407,7 +407,22 @@ internal static class OperatorTable
             "QueuePerGroup",
             "Status",
             "SwitchLatest",
-            "UndeliveredError");
+            "UndeliveredError",
+            // The constructors of the library, each with the name of its type. Each keeps what it
+            // gets, or makes an object of the library from it. The constructor of a timer system
+            // also calls Start and Now of its implementation, and the walk follows those calls. The
+            // Now of SystemClockTimerSystem calls its function of the time, and the walk follows it.
+            "AsyncItem",
+            "BindableFactory",
+            "CollectionEdit",
+            "DeferredChainLimitException",
+            "DependencyCycleException",
+            "MapAsyncDeliveryException",
+            "SecondsTimerSystem",
+            "SynchronizationContextBindingScheduler",
+            "SystemClockTimerSystem",
+            "TimerSystem",
+            "UtcClockTimerSystem");
 
     /// <summary>
     ///     The library methods that run a function in the call, before the loop

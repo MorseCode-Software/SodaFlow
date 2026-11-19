@@ -286,6 +286,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Report(this.evaluator.FollowEvictionsOfADispose(map: resource, dispose: resource));
+        this.Report(this.evaluator.FollowClockOfADispose(system: resource, dispose: resource));
 
         LoopState state = this.evaluator.Eval(resource);
 
@@ -3163,6 +3164,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             if (operatorName == "Dispose" && method.ReducedFrom == null)
             {
                 this.Report(this.evaluator.FollowEvictionsOfADispose(map: receiver, dispose: node));
+                this.Report(this.evaluator.FollowClockOfADispose(system: receiver, dispose: node));
             }
 
             // A clock of the library base keeps the callback of SetTimer. Its RunTimersTo runs each
@@ -3391,9 +3393,19 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         arguments: arguments.Arguments));
 
                 break;
-            // The evaluator followed the body, and the library has no constructor to read.
+            // The evaluator followed the body.
             case CalleeKind.Body:
+                break;
+            // The library has no constructor to read. The constructor of a timer system calls
+            // Start and Now of its implementation.
             case CalleeKind.Library:
+                this.Report(
+                    this.evaluator.FollowClock(
+                        system: constructor,
+                        arguments: arguments.Arguments,
+                        call: node,
+                        members: ["Start", "Now"]));
+
                 break;
             default:
                 throw new ArgumentOutOfRangeException(paramName: nameof(node), message: "A callee kind has no case.");

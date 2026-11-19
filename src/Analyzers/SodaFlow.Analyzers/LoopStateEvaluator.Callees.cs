@@ -1092,18 +1092,7 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
     public Followed? FollowEvictionsOfADispose(ExpressionSyntax map, SyntaxNode dispose)
     {
-        ExpressionSyntax value = this.ValueOfALocalThatNoCodeWrites(Unwrapped(map));
-
-        // A local of IDisposable can have the map of a different local. The declaration of each
-        // local is before its value, thus the search ends.
-        while (value is IdentifierNameSyntax name
-               && this.ValueOfALocalThatNoCodeWrites(name) is var earlier
-               && earlier.SpanStart < name.SpanStart)
-        {
-            value = earlier;
-        }
-
-        if (value is not InvocationExpressionSyntax
+        if (this.MadeValueOf(map) is not InvocationExpressionSyntax
             {
                 Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Map" }
             } creation
@@ -1185,6 +1174,102 @@ internal sealed partial class LoopStateEvaluator
             target: functions,
             arguments: default);
     }
+
+    // The value of a local that no code writes. A local of IDisposable can have the value of a
+    // different local, thus the search continues through it. The declaration of each local is
+    // before its value, thus the search ends.
+    private ExpressionSyntax MadeValueOf(ExpressionSyntax expression)
+    {
+        ExpressionSyntax value = this.ValueOfALocalThatNoCodeWrites(Unwrapped(expression));
+
+        while (value is IdentifierNameSyntax name
+               && this.ValueOfALocalThatNoCodeWrites(name) is var earlier
+               && earlier.SpanStart < name.SpanStart)
+        {
+            value = earlier;
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    ///     The run of the members of its implementation that a timer system
+    ///     calls in a call. Its constructor calls <c>Start</c> and <c>Now</c>, and
+    ///     its <c>Dispose</c> calls <c>Stop</c>.
+    /// </summary>
+    /// <param name="system">The constructor that made the timer system.</param>
+    /// <param name="arguments">The arguments of that constructor.</param>
+    /// <param name="call">The node that calls the members.</param>
+    /// <param name="members">The names of the members of the implementation.</param>
+    public Followed? FollowClock(
+        IMethodSymbol system,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        SyntaxNode call,
+        IReadOnlyList<string> members)
+    {
+        if (system.ContainingType is not { Name: "TimerSystem" or "SystemClockTimerSystem" } type
+            || !this.region.Symbols.IsSodaFlow(type))
+        {
+            return null;
+        }
+
+        // SystemClockTimerSystem makes its own implementation, whose Now calls the function of the
+        // time.
+        if (type.Name == "SystemClockTimerSystem")
+        {
+            return members.Contains("Now") && ArgumentFor("now") is { } now
+                ? this.FollowCallback(call: call, callback: now)
+                : null;
+        }
+
+        if (system.Parameters.FirstOrDefault(static parameter => parameter.Name == "implementation")
+                is not { Type: var contract }
+            || ArgumentFor("implementation") is not { } implementation)
+        {
+            return null;
+        }
+
+        LoopState clock = this.Eval(implementation);
+
+        // Start gets the handler of the timer system.
+        IReadOnlyList<(ExpressionSyntax Written, LoopState State)> handler =
+            ArgumentFor("handleException") is { } given ? [(given, this.Eval(given))] : [];
+
+        return members
+            .SelectMany(name => contract.GetMembers(name))
+            .Select(static member => member is IPropertySymbol property ? property.GetMethod : member as IMethodSymbol)
+            .OfType<IMethodSymbol>()
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, member) =>
+                    Both(
+                        first: all,
+                        second: this.FollowImplied(
+                            call: call,
+                            member: member,
+                            owner: clock,
+                            arguments: member.Parameters.IsEmpty ? [] : handler)));
+
+        ExpressionSyntax? ArgumentFor(string name) =>
+            arguments
+                .Where((argument, position) =>
+                    ParameterFor(method: system, argument: argument, position: position)?.Name == name)
+                .Select(static argument => argument.Expression)
+                .FirstOrDefault();
+    }
+
+    /// <summary>
+    ///     The run of <c>Stop</c> of the implementation of a timer system, at its
+    ///     <c>Dispose</c>. The timer system is a local that no code writes, and that
+    ///     a constructor made, or the call of that constructor itself.
+    /// </summary>
+    /// <param name="system">The expression of the timer system.</param>
+    /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
+    public Followed? FollowClockOfADispose(ExpressionSyntax system, SyntaxNode dispose) =>
+        this.MadeValueOf(system) is BaseObjectCreationExpressionSyntax { ArgumentList: { } arguments } creation
+        && this.region.SymbolOf(creation) is IMethodSymbol constructor
+            ? this.FollowClock(system: constructor, arguments: arguments.Arguments, call: dispose, members: ["Stop"])
+            : null;
 
     // True when code can read the items of the map that the call makes. That is so when a local
     // keeps the map, and the code uses that local for more than a call of Dispose. A map that no

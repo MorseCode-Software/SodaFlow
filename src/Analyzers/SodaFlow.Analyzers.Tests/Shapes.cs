@@ -27607,6 +27607,42 @@ public static class Shapes
     public static Cell<int> Ab236SecondRunTimersToRunsNoCallbackAgain() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(c.Sample())); clock.RunTimersTo(0); c = l.Map(v => v); clock.RunTimersTo(1); return S.Hold(0); });
 
+    // S6423. Dispose of a timer system calls Stop of its implementation in the call. That Stop samples a cell made from the placeholder.
+    public static Cell<int> R4ApiTimerSystemDisposeStopsAClockThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TimerSystem<int> timers = new(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { }); timers.Dispose(); return S.Hold(0); });
+
+    // S6424. The constructor of a timer system reads Now of its implementation in the call. That Now samples a cell made from the placeholder.
+    public static Cell<int> R4ApiTimerSystemReadsTheNowOfItsClockInItsConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new TimerSystem<int>(implementation: new R4ApiCellClock(l.Map(v => v)), handleException: static _ => { })); return S.Hold(0); });
+
+    // S6425. The constructor of a timer system calls Start of its implementation in the call. That Start samples a cell made from the placeholder.
+    public static Cell<int> Ab237TimerSystemStartsAClockThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new TimerSystem<int>(implementation: new Ab237StartReadingClock(l.Map(v => v)), handleException: static _ => { })); return S.Hold(0); });
+
+    // S6426. A timer system over a clock whose Stop samples a cell. Nothing disposes the timer system in the block, thus the Stop does not run there.
+    public static Cell<int> Ab237TimerSystemThatNothingDisposesDoesNotStopItsClock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new TimerSystem<int>(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { })); return S.Hold(0); });
+
+    // S6427. The same as the Dispose of a timer system that stops a clock that reads, but through a local of IDisposable.
+    public static Cell<int> Ab237TimerSystemDisposedThroughIDisposable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IDisposable timers = new TimerSystem<int>(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { }); timers.Dispose(); return S.Hold(0); });
+
+    // S6428. A using statement disposes a timer system at its end. That Dispose calls Stop of its implementation, which samples a cell made from the placeholder.
+    public static Cell<int> Ab237UsingOfATimerSystemStopsAClockThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using (new TimerSystem<int>(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { })) { } return S.Hold(0); });
+
+    // S6429. The constructor of SystemClockTimerSystem reads Now of its clock, which calls the function of the time. That function samples the placeholder.
+    public static Cell<int> Ab237SystemClockTimerSystemCallsItsFunctionOfTheTime() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using SystemClockTimerSystem timers = new(now: () => DateTime.MinValue.AddTicks(l.Sample()), handleException: static _ => { }); return S.Hold(0); });
+
+    // S6430. The same as the SystemClockTimerSystem whose function of the time samples the placeholder, but the function reads no cell.
+    public static Cell<int> Ab237SystemClockTimerSystemWithAFunctionThatReadsNoCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { using SystemClockTimerSystem timers = new(now: () => DateTime.MinValue, handleException: static _ => { }); return S.Hold(0); });
+
+    // S6431. The Dispose of a SystemClockTimerSystem calls Stop of its clock, and not the function of the time. That function can sample a local that has a cell made from the placeholder only after the constructor. It samples only when a flag is set, and nothing sets it, thus the timer thread reads no cell.
+    public static Cell<int> Ab237SystemClockTimerSystemDisposeCallsNoFunctionOfTheTime() =>
+        Cell.Loop<int>().WithoutCaptures(l => { bool late = Never; Cell<int> c = Plain; SystemClockTimerSystem timers = new(now: () => late ? DateTime.MinValue.AddTicks(c.Sample()) : DateTime.MinValue, handleException: static _ => { }); c = l.Map(v => v); timers.Dispose(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -39200,6 +39236,26 @@ public static class Shapes
 
     // A clock of the library base, new at each read.
     private static R4ApiStepClock Ab236NewClock => new();
+
+    // A clock whose Start samples a cell.
+    public sealed class Ab237StartReadingClock(Cell<int> share) : ITimerSystemImplementation<int>
+    {
+        private readonly Cell<int> share = share;
+
+        public int Now => 0;
+
+        public void Start(Action<Exception> handleException) => Kept.Add(this.share.Sample());
+
+        public void Stop()
+        {
+        }
+
+        public SodaFlow.Time.ITimer SetTimer(int time, Action callback) => new R4ApiTimer();
+
+        public void RunTimersTo(int now)
+        {
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
