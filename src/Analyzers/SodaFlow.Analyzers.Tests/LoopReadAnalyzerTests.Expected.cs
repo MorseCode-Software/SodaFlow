@@ -3812,6 +3812,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4SmpAb219LocalArrayOnlyTheFunctionWritesPending"] = ["SF1001"],
             ["R4SmpAb219LocalList"] = ["SF1001"],
             ["R4SmpAb219PutsANewElement"] = ["SF1001"],
-            ["R4SmpAb219SampledInAHelper"] = ["SF1001"]
+            ["R4SmpAb219SampledInAHelper"] = ["SF1001"],
+            ["R4SmpAb218PendingSampleBetween"] = ["SF1001"],
+            ["Ab218MapThatPutsANewElementBetween"] = ["SF1001"],
+            ["Ab218CanExecuteOfAMapThatPutsBetween"] = ["SF1001"],
+            ["Ab218BindableValueOfAMapThatPutsBetween"] = ["SF1001"],
+            ["Ab218LazyThatPutsBetween"] = ["SF1001"],
+            ["Ab218HelperSamplesAMapThatPutsBetween"] = ["SF1001"],
+            ["Ab218StringOfAnObjectThatPutsBetween"] = ["SF1001"],
+            ["Ab218TwoHelpersSampleAMapThatPutsBetween"] = ["SF1001"]
         };
 }

@@ -25527,6 +25527,94 @@ public static class Shapes
     public static Cell<int> R4SmpAb219SampledInAHelper() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new()]; Cell<int> p = l.Map(v => v); Cell<int> w = Plain.Map(v => { a[0].Share = p; return v; }); a[0].Share = Plain; int n = ReadIt(w); return S.Hold(a[0].Share!.Sample() + n); });
 
+    // S5903. The same, with a sample of a cell sink between.
+    public static Cell<int> R4SmpAb218CellSinkBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA2; R4SmpSetA2(l.Map(v => v)); a[0].Share = Plain; int n = R4SmpCellSink.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5904. A local gets the array of a field, and a method puts a pending cell in the element. The block writes a plain cell through the local, samples a constant, and reads the element. The V7 probe of AB218.
+    public static Cell<int> R4SmpAb218ConstantBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA1; R4SmpSetA1(l.Map(v => v)); a[0].Share = Plain; int n = Plain.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5905. The same with a list in a field, and a sample of a constant between.
+    public static Cell<int> R4SmpAb218ConstantBetweenAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = R4SmpA9; R4SmpSetA9(l.Map(v => v)); a[0].Share = Plain; int n = Plain.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5906. The same, with a sample of a ConstantLazy of a lazy sample of a constant between.
+    public static Cell<int> R4SmpAb218ConstantLazyBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA14; R4SmpSetA14(l.Map(v => v)); a[0].Share = Plain; int n = Cell.ConstantLazy(Plain.SampleLazy()).Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5907. The same, with a sample of a hold in a field between.
+    public static Cell<int> R4SmpAb218HeldFieldBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA4; R4SmpSetA4(l.Map(v => v)); a[0].Share = Plain; int n = R4SmpHeld.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5908. The same, with a helper between that samples a constant.
+    public static Cell<int> R4SmpAb218HelperSamplesAConstantBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA8; R4SmpSetA8(l.Map(v => v)); a[0].Share = Plain; int n = ReadIt(Plain); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5909. The same, with a sample of a hold that the block makes between.
+    public static Cell<int> R4SmpAb218HoldOfTheBlockBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA3; R4SmpSetA3(l.Map(v => v)); a[0].Share = Plain; int n = S.Hold(2).Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5910. The same, with the Value of a Lazy in a field between. Its function writes nothing.
+    public static Cell<int> R4SmpAb218LazyValueBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA13; R4SmpSetA13(l.Map(v => v)); a[0].Share = Plain; int n = R4SmpLazy.Value; return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5911. The same, with a sample of a map whose function writes nothing between.
+    public static Cell<int> R4SmpAb218MapThatWritesNothingBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA5; R4SmpSetA5(l.Map(v => v)); a[0].Share = Plain; int n = Plain.Map(v => v + 1).Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5912. The field form, with a sample of the pending cell between. The sample throws.
+    public static Cell<int> R4SmpAb218PendingSampleBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA11; Cell<int> p = l.Map(v => v); R4SmpSetA11(p); a[0].Share = Plain; int n = p.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5913. The same, with the Value of a bindable of a constant between.
+    public static Cell<int> R4SmpAb218PlainBindableValueBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA6; R4SmpSetA6(l.Map(v => v)); a[0].Share = Plain; int n = R4SmpBound.Value; return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5914. The same, with CanExecute of an action whose enablement is a constant between.
+    public static Cell<int> R4SmpAb218PlainCanExecuteBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA7; R4SmpSetA7(l.Map(v => v)); a[0].Share = Plain; int n = R4SmpAction.CanExecute(null) ? 1 : 0; return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5915. A local gets the array of a field, and a method puts a pending cell in the element. The block writes a plain cell through the local, sends into a sink, and reads the element.
+    public static Cell<int> R4SmpAb218SendBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA12; R4SmpSetA12(l.Map(v => v)); a[0].Share = Plain; R4SmpSink.Send(1); return S.Hold(a[0].Share!.Sample()); });
+
+    // S5916. The same, with a transaction between whose function samples a constant.
+    public static Cell<int> R4SmpAb218TransactionThatSamplesAConstantBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4SmpA16; R4SmpSetA16(l.Map(v => v)); a[0].Share = Plain; int n = Transaction.Run(() => Plain.Sample()); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5917. A map function puts a new element with the pending cell into the array of a field. A local got that array. The block writes a plain cell through the element, samples the map, and reads the element.
+    public static Cell<int> Ab218MapThatPutsANewElementBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab218A1; Cell<int> p = l.Map(v => v); Cell<int> w = Plain.Map(v => { Ab218Put(Ab218A1, p); return v; }); a[0].Share = Plain; int n = w.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5918. The same, with CanExecute of an action whose enablement is such a map between.
+    public static Cell<int> Ab218CanExecuteOfAMapThatPutsBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab218A2; Cell<int> p = l.Map(v => v); SodaFlow.Bindable.ObjectModel.IBindableAction act = R2ApiFactory.CreateBindableAction(Stream.CreateSink<Unit>(), Plain.Map(v => { Ab218Put(Ab218A2, p); return v > 0; })); a[0].Share = Plain; int n = act.CanExecute(null) ? 1 : 0; return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5919. The same, with the Value of a bindable of such a map between.
+    public static Cell<int> Ab218BindableValueOfAMapThatPutsBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab218A3; Cell<int> p = l.Map(v => v); SodaFlow.Bindable.ObjectModel.IOneWayBindableValue<int> b = R2ApiFactory.CreateOneWay(Plain.Map(v => { Ab218Put(Ab218A3, p); return v; })); a[0].Share = Plain; int n = b.Value; return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5920. The same, with the Value of a Lazy whose function puts the new element between.
+    public static Cell<int> Ab218LazyThatPutsBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab218A4; Cell<int> p = l.Map(v => v); Lazy<int> z = new(() => { Ab218Put(Ab218A4, p); return 1; }); a[0].Share = Plain; int n = z.Value; return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5921. The same, with a helper between that samples such a map, which it gets as its parameter.
+    public static Cell<int> Ab218HelperSamplesAMapThatPutsBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab218A5; Cell<int> p = l.Map(v => v); Cell<int> w = Plain.Map(v => { Ab218Put(Ab218A5, p); return v; }); a[0].Share = Plain; int n = ReadIt(w); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5922. The same, with a string between that a plus makes of an object whose ToString puts the new element.
+    public static Cell<int> Ab218StringOfAnObjectThatPutsBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab218A6; Ab218P6 = l.Map(v => v); a[0].Share = Plain; string s = "n" + Ab218W6; return S.Hold(a[0].Share!.Sample() + s.Length); });
+
+    // S5923. A local got the array of a field, and a method puts a pending cell in the element. The block writes a plain cell through the local, calls a helper that samples a hold in a field, and reads the element.
+    public static Cell<int> Ab218HelperSamplesAFieldBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab218A7; Ab218Put(Ab218A7, l.Map(v => v)); a[0].Share = Plain; int n = Ab218ReadHeld(); return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S5924. A map function puts a new element with the pending cell into the array of a field. A helper between gives the map to a second helper, which samples it.
+    public static Cell<int> Ab218TwoHelpersSampleAMapThatPutsBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab218A8; Cell<int> p = l.Map(v => v); Cell<int> w = Plain.Map(v => { Ab218Put(Ab218A8, p); return v; }); a[0].Share = Plain; int n = ReadViaOne(w); return S.Hold(a[0].Share!.Sample() + n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -36646,6 +36734,40 @@ public static class Shapes
             return w.Sample();
         }
     }
+
+    private static readonly SettableSlot[] Ab218A1 = [new()];
+
+    private static readonly SettableSlot[] Ab218A2 = [new()];
+
+    private static readonly SettableSlot[] Ab218A3 = [new()];
+
+    private static readonly SettableSlot[] Ab218A4 = [new()];
+
+    private static readonly SettableSlot[] Ab218A5 = [new()];
+
+    private static readonly SettableSlot[] Ab218A6 = [new()];
+
+    private static Cell<int> Ab218P6 = Cell.Constant(0);
+
+    private static readonly Ab218PutsInToString Ab218W6 = new();
+
+    private static void Ab218Put(SettableSlot[] array, Cell<int> share) => array[0] = new SettableSlot { Share = share };
+
+    public sealed class Ab218PutsInToString
+    {
+        public override string ToString()
+        {
+            Ab218Put(Ab218A6, Ab218P6);
+
+            return "w";
+        }
+    }
+
+    private static readonly SettableSlot[] Ab218A7 = [new()];
+
+    private static readonly SettableSlot[] Ab218A8 = [new()];
+
+    private static int Ab218ReadHeld() => R4SmpHeld.Sample();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

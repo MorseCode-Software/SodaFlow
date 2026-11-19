@@ -337,13 +337,21 @@ internal sealed partial class LoopStateEvaluator
     // True for a node that cannot change an element of a collection of the given type, and that
     // runs no code of the project. It is a write to a local or to a member that is a location. It
     // is a call that CannotChangeItsCollection allows, or a read of a name, a member, or an element
-    // with no code. Statements, declarations, literals, and lambdas that it is part of are such
-    // nodes also. Each other node is not, such as a creation, an operator, or a loop.
-    private bool CannotChangeTheElement(SyntaxNode node, ITypeSymbol collection, int callees) =>
+    // with no code. A read of a cell or of a Lazy runs only the functions that the walk follows. Only
+    // those can change the element: see RunsNoFunctionThatTheWalkKnows. An operator of the
+    // platform on two numbers runs no code. Statements, declarations, literals, lambdas, and
+    // conditional expressions that it is part of are such nodes also. The scan reads each branch of
+    // such an expression. Each other node is not, such as a creation or a loop. The last argument is
+    // the call whose body the node is in, for a node of a callee.
+    private bool CannotChangeTheElement(
+        SyntaxNode node,
+        ITypeSymbol collection,
+        int callees,
+        (InvocationExpressionSyntax Call, IMethodSymbol Method, bool First)? callee = null) =>
         node switch
         {
             InvocationExpressionSyntax call =>
-                this.CannotChangeItsCollection(call: call, collection: collection, callees: callees),
+                this.CannotChangeItsCollection(call: call, collection: collection, callees: callees, callee: callee),
             AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment =>
                 this.region.SymbolOf(assignment.Left) switch
                 {
@@ -360,12 +368,16 @@ internal sealed partial class LoopStateEvaluator
             IdentifierNameSyntax or GenericNameSyntax or MemberAccessExpressionSyntax =>
                 this.region.SymbolOf(node) is not IPropertySymbol property
                 || IsAMemberLocation(property)
-                || (property is
-                    {
-                        DeclaringSyntaxReferences.IsEmpty: true, IsVirtual: false, IsAbstract: false, IsOverride: false
-                    }
-                    && !SodaFlowSymbols.IsLazyValue(property)
-                    && !this.region.Symbols.ReadsItsOwner(property)),
+                || (property.DeclaringSyntaxReferences.IsEmpty
+                    && (SodaFlowSymbols.IsLazyValue(property) || this.region.Symbols.ReadsItsOwner(property)
+                        ? this.RunsNoFunctionThatTheWalkKnows(owner: OwnerOfAProperty(node), callee: callee)
+                        : property is { IsVirtual: false, IsAbstract: false, IsOverride: false })),
+            BinaryExpressionSyntax binary =>
+                this.region.SymbolOf(binary) is IMethodSymbol
+                {
+                    MethodKind: MethodKind.BuiltinOperator,
+                    ContainingType.SpecialType: >= SpecialType.System_Boolean and <= SpecialType.System_Double
+                },
             ArgumentSyntax argument => argument.RefKindKeyword.IsKind(SyntaxKind.None),
             LocalDeclarationStatementSyntax declaration => declaration.UsingKeyword.IsKind(SyntaxKind.None),
             PostfixUnaryExpressionSyntax postfix => postfix.IsKind(SyntaxKind.SuppressNullableWarningExpression),
@@ -379,6 +391,7 @@ internal sealed partial class LoopStateEvaluator
                 or BracketedArgumentListSyntax
                 or LiteralExpressionSyntax
                 or ParenthesizedExpressionSyntax
+                or ConditionalExpressionSyntax
                 or ThisExpressionSyntax
                 or PredefinedTypeSyntax
                 or TypeArgumentListSyntax
@@ -405,27 +418,17 @@ internal sealed partial class LoopStateEvaluator
     // runs no code of the project. A method of this compilation passes only where CanStandBetween
     // permits its code. The method has no override. A method with no body to read is of the
     // platform or SodaFlow. A method of the platform calls no member of an object for it: see
-    // PlatformCallers. A method of SodaFlow reads no cell and sends nothing. The call cannot get
-    // the collection or a view of it, and it gets no function other than a lambda that the code
-    // writes there. RunSynchronously runs the function of its task.
-    private bool CannotChangeItsCollection(InvocationExpressionSyntax call, ITypeSymbol collection, int callees)
+    // PlatformCallers. A method of SodaFlow runs no code of the project, but for a read of a cell
+    // with a function that the walk knows. The call cannot get the collection or a view of it, and
+    // it gets no function other than a lambda that the code writes there. A literal is no
+    // collection. RunSynchronously runs the function of its task.
+    private bool CannotChangeItsCollection(
+        InvocationExpressionSyntax call,
+        ITypeSymbol collection,
+        int callees,
+        (InvocationExpressionSyntax Call, IMethodSymbol Method, bool First)? callee)
     {
-        if (this.region.SymbolOf(call) is not IMethodSymbol
-            {
-                MethodKind: MethodKind.Ordinary or MethodKind.ReducedExtension,
-                IsVirtual: false,
-                IsAbstract: false,
-                IsOverride: false
-            } method
-            || ((method.ReducedFrom ?? method).DeclaringSyntaxReferences.IsEmpty
-                ? IsRunSynchronously(method)
-                  || (this.region.Symbols.IsSodaFlow(method)
-                      ? method.Name == "Send" || SodaFlowSymbols.ReadMembers.Contains(method.Name)
-                      : !SodaFlowSymbols.IsPlatform(method) || PlatformCallers.Of(method) != PlatformCallbacks.None)
-                : !this.CanStandBetween(
-                    method: method.ReducedFrom ?? method,
-                    collection: collection,
-                    callees: callees)))
+        if (this.region.SymbolOf(call) is not IMethodSymbol method)
         {
             return false;
         }
@@ -435,9 +438,41 @@ internal sealed partial class LoopStateEvaluator
                 ? null
                 : (call.Expression as MemberAccessExpressionSyntax)?.Expression;
 
+        // A read of a cell of SodaFlow runs the functions of the cell. CanExecute of a bindable action
+        // is a member of ICommand, and reads the enablement cell. A send runs no code of the project
+        // before the close.
+        bool readsACell =
+            SodaFlowSymbols.ReadMembers.Contains(method.Name)
+            && (this.region.Symbols.IsSodaFlow(method)
+                || (receiver != null && this.region.Symbols.IsBindableAction(this.region.TypeOf(receiver))));
+
+        if (readsACell
+                ? !this.RunsNoFunctionThatTheWalkKnows(owner: receiver, callee: callee)
+                : method is not
+                  {
+                      MethodKind: MethodKind.Ordinary or MethodKind.ReducedExtension,
+                      IsVirtual: false,
+                      IsAbstract: false,
+                      IsOverride: false
+                  }
+                  || ((method.ReducedFrom ?? method).DeclaringSyntaxReferences.IsEmpty
+                      ? IsRunSynchronously(method)
+                        || (!this.region.Symbols.IsSodaFlow(method)
+                            && (!SodaFlowSymbols.IsPlatform(method)
+                                || PlatformCallers.Of(method) != PlatformCallbacks.None))
+                      : !this.CanStandBetween(
+                          method: method,
+                          collection: collection,
+                          callees: callees,
+                          call: call,
+                          callee: callee)))
+        {
+            return false;
+        }
+
         return (receiver == null || this.CannotBeTheCollection(value: receiver, collection: collection))
                && call.ArgumentList.Arguments.All(argument =>
-                   Unwrapped(argument.Expression) is AnonymousFunctionExpressionSyntax
+                   Unwrapped(argument.Expression) is AnonymousFunctionExpressionSyntax or LiteralExpressionSyntax
                    || (this.region.TypeOf(argument.Expression) is not { TypeKind: TypeKind.Delegate }
                        && this.CannotBeTheCollection(value: argument.Expression, collection: collection)));
     }
@@ -447,15 +482,92 @@ internal sealed partial class LoopStateEvaluator
     // at the call. A call in that body goes one more call deep. The only element in the body is an
     // element of an array, with no code. The other tests of an element read the frame of this
     // code, and the body has no part in that frame.
-    private bool CanStandBetween(IMethodSymbol method, ITypeSymbol collection, int callees) =>
+    private bool CanStandBetween(
+        IMethodSymbol method,
+        ITypeSymbol collection,
+        int callees,
+        InvocationExpressionSyntax call,
+        (InvocationExpressionSyntax Call, IMethodSymbol Method, bool First)? callee) =>
         callees > 0
-        && method.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+        && (method.ReducedFrom ?? method).OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
             is MethodDeclarationSyntax declaration
         && (declaration.Body ?? (SyntaxNode?)declaration.ExpressionBody?.Expression) is { } body
         && body.DescendantNodesAndSelf()
             .All(node => node is ElementAccessExpressionSyntax element
                 ? this.region.SymbolOf(element) == null
-                : this.CannotChangeTheElement(node: node, collection: collection, callees: callees - 1));
+                : this.CannotChangeTheElement(
+                    node: node,
+                    collection: collection,
+                    callees: callees - 1,
+                    callee: (call, method, First: callee == null)));
+
+    // The owner of a property that a node reads: the owner of a member access, or of the member
+    // access whose name the node is. Null for a property with no owner in the code.
+    private static ExpressionSyntax? OwnerOfAProperty(SyntaxNode node) =>
+        node switch
+        {
+            MemberAccessExpressionSyntax access => access.Expression,
+            _ when node.Parent is MemberAccessExpressionSyntax access && access.Name == node => access.Expression,
+            _ => null
+        };
+
+    // True when a read through the owner runs no function that the walk knows. That is a function
+    // of a cell that it saw built, or a function of a Lazy. The walk follows such a function at the
+    // read, and a write there ends the record of the element. A cell that the walk did not see
+    // built counts as one that runs no code. In the body of a callee, the evaluator does not know
+    // the values. Thus, only a field, a property with no code, or a parameter of the first callee
+    // whose argument has no such function passes there.
+    private bool RunsNoFunctionThatTheWalkKnows(
+        ExpressionSyntax? owner,
+        (InvocationExpressionSyntax Call, IMethodSymbol Method, bool First)? callee)
+    {
+        if (owner == null)
+        {
+            return false;
+        }
+
+        if (callee is not { } of)
+        {
+            LoopState state = this.Eval(owner);
+
+            return state.Computed.IsEmpty && state.Functions.IsEmpty;
+        }
+
+        return this.region.SymbolOf(Unwrapped(owner)) switch
+        {
+            IFieldSymbol => true,
+            IPropertySymbol property => property.DeclaringSyntaxReferences.IsEmpty || IsAMemberLocation(property),
+            IParameterSymbol parameter when of.First =>
+                ArgumentFor(call: of.Call, method: of.Method, parameter: parameter) is { } argument
+                && this.RunsNoFunctionThatTheWalkKnows(owner: argument, callee: null),
+            _ => false
+        };
+
+        // The argument of a call for a parameter of the method that it calls. The receiver of an
+        // extension method is the argument for its first parameter.
+        static ExpressionSyntax? ArgumentFor(
+            InvocationExpressionSyntax call,
+            IMethodSymbol method,
+            IParameterSymbol parameter)
+        {
+            if (method.ReducedFrom != null && parameter.Ordinal == 0)
+            {
+                return (call.Expression as MemberAccessExpressionSyntax)?.Expression;
+            }
+
+            SeparatedSyntaxList<ArgumentSyntax> arguments = call.ArgumentList.Arguments;
+
+            for (int i = 0; i < arguments.Count; i++)
+            {
+                if (ParameterFor(method: method, argument: arguments[i], position: i)?.Name == parameter.Name)
+                {
+                    return arguments[i].Expression;
+                }
+            }
+
+            return null;
+        }
+    }
 
     // True for a value that cannot be a collection of the given type, or a view of its elements. No
     // conversion goes between the two types, and the value is not a span, a memory, or a segment of
