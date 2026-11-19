@@ -94,23 +94,93 @@ internal sealed partial class LoopStateEvaluator
             return LoopState.None;
         }
 
-        LoopStateEvaluator quiet = this.Quiet();
-        ImmutableArray<LoopState> given = ImmutableArray.Create(receiverState.Content);
+        return this.ResultOfTheFunctions(
+            invocation: invocation,
+            written: written.Expression,
+            functions: functionCell.Content,
+            given: ImmutableArray.Create(receiverState.Content));
+    }
 
-        return functionCell.Content.Functions.Aggregate(
+    // What the functions of a state return, for an operator that runs them at a time that the walk
+    // does not know. Thus, an evaluator that changes nothing reads them.
+    private LoopState ResultOfTheFunctions(
+        InvocationExpressionSyntax invocation,
+        ExpressionSyntax written,
+        LoopState functions,
+        ImmutableArray<LoopState> given)
+    {
+        if (functions.Functions.IsEmpty)
+        {
+            return LoopState.None;
+        }
+
+        LoopStateEvaluator quiet = this.Quiet();
+
+        return functions.Functions.Aggregate(
             seed: LoopState.None,
             func: (all, function) =>
                 all.Join(
                     quiet.FollowFunction(
                             call: invocation,
-                            name: NameOf(written.Expression),
+                            name: NameOf(written),
                             function: function,
-                            target: functionCell.Content,
+                            target: functions,
                             arguments: default,
-                            each: (written.Expression, LoopState.None, ManyTimes: true),
+                            each: (written, LoopState.None, ManyTimes: true),
                             byPosition: given)
                         ?.State
                     ?? LoopState.None));
+    }
+
+    /// <summary>
+    ///     What the transforms of an update of a collection return. The transform
+    ///     of <c>Update</c> is an argument. The transforms of <c>FromUpdates</c>
+    ///     are in the content of its stream. A transform runs when the edit fires,
+    ///     after the close.
+    /// </summary>
+    /// <remarks>
+    ///     A transform gets the state that the item has at that time. The content
+    ///     of the collection holds that state. Thus, the parameter of the transform
+    ///     gets no state here.
+    /// </remarks>
+    private LoopState TransformedContent(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        IReadOnlyList<LoopState> argumentStates)
+    {
+        ImmutableArray<ITypeSymbol> types = method.ContainingType.TypeArguments;
+
+        if (types.Length != 3
+            || !this.region.Symbols.CanHoldState(type: types[2], compilation: this.region.Assembly))
+        {
+            return LoopState.None;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+        ImmutableArray<LoopState> given = ImmutableArray.Create(LoopState.None);
+        LoopState transformed = LoopState.None;
+
+        for (int i = 0; i < arguments.Count && i < argumentStates.Count; i++)
+        {
+            ITypeSymbol? type = ParameterFor(method: method, argument: arguments[i], position: i)?.Type;
+
+            LoopState functions =
+                type?.TypeKind == TypeKind.Delegate
+                    ? this.Eval(arguments[i].Expression)
+                    : this.region.Symbols.IsStreamType(type)
+                        ? argumentStates[i].Content
+                        : LoopState.None;
+
+            transformed =
+                transformed.Join(
+                    this.ResultOfTheFunctions(
+                        invocation: invocation,
+                        written: arguments[i].Expression,
+                        functions: functions,
+                        given: given));
+        }
+
+        return transformed.AfterTheClose;
     }
 
     /// <summary>

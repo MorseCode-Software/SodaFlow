@@ -163,6 +163,13 @@ internal enum OperatorRule
     CollectionCreate,
 
     /// <summary>
+    ///     An update of a collection, or a stream of updates. It has the state of
+    ///     its inputs, as with <see cref="Default" />, and also what each
+    ///     transform returns after the close.
+    /// </summary>
+    CollectionUpdate,
+
+    /// <summary>
     ///     A deferred function. Pending when the function reads a pending value,
     ///     and the content is what the function returns.
     /// </summary>
@@ -257,7 +264,9 @@ internal static class OperatorTable
             "Fold",
             "FoldByIdentity",
             "CreateBindableAction",
-            "Create");
+            "Create",
+            "Update",
+            "FromUpdates");
 
     /// <summary>
     ///     The public members of the library with no row, for which the default
@@ -280,7 +289,6 @@ internal static class OperatorTable
             "FromAdds",
             "FromRemoves",
             "FromStates",
-            "FromUpdates",
             "IdentityCell",
             "ItemCell",
             "StateCell",
@@ -340,7 +348,6 @@ internal static class OperatorTable
             "TryGetItem",
             "TryGetNewState",
             "TryGetState",
-            "Update",
             "WasChanged",
             // The cells and streams that a collection holds. They have the state of the collection,
             // thus a cell of a pending collection is pending.
@@ -771,6 +778,8 @@ internal static class OperatorTable
             "Fold" or "FoldByIdentity" => OperatorRule.FoldCollection,
             "CreateBindableAction" => OperatorRule.BindableAction,
             "Create" when method.ContainingType.Name == "ReactiveCollection" => OperatorRule.CollectionCreate,
+            "Update" or "FromUpdates" when method.ContainingType.Name == "CollectionEdit" =>
+                OperatorRule.CollectionUpdate,
             "Defer" or "Split" or "At" or "Post" or "Listen" or "ListenOnce" or "ListenOnceAsync" or "Send" or "Loop" => OperatorRule.Break,
             _ => OperatorRule.Default
         };

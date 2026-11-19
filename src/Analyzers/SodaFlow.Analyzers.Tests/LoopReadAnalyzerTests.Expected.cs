@@ -3999,6 +3999,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab240StateCellOfAPendingStateSwitchedAndSampled"] = ["SF1001"],
             ["Ab240KeysOfACollectionFromAPendingCell"] = ["SF1001"],
             ["Ab240KeysOfACollectionWithAnArrayOfLinkedEdits"] = ["SF1002"],
-            ["Ab240KeysOfACollectionWithLinkedEdits"] = ["SF1002"]
+            ["Ab240KeysOfACollectionWithLinkedEdits"] = ["SF1002"],
+            ["R4ApiStateCellOfAnUpdateToALinkedStateSwitched"] = ["SF1002"],
+            ["Ab230UpdateOfATransformInALocal"] = ["SF1002"],
+            ["Ab230FromUpdatesOfAMapToATransformThatReturnsALinkedCell"] = ["SF1002"],
+            ["Ab230FromUpdatesOfAMapToPairs"] = ["SF1002"]
         };
 }

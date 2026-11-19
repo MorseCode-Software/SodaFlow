@@ -546,8 +546,9 @@ Some reads that throw it does not see:
   later.
 - A static initializer of a class with no static constructor. The runtime can run such initializers
   at any time before the first read of a field, so the analyzer does not read them.
-- A function that the block sends into a sink, where an `Apply` of that sink runs it. The analyzer
-  does not read what such a function returns, so a cycle through its result gets no `SF1002`.
+- A function that the block sends into a sink, where an `Apply` of that sink, or a
+  `CollectionEdit.FromUpdates` of it, runs it. The analyzer does not read what such a function
+  returns, so a cycle through its result gets no `SF1002`.
 - A new element that code puts into an array or a list through a local that got it from a field,
   read through the field.
 - A write through a span, a memory, or a segment that a method gets as a parameter, that

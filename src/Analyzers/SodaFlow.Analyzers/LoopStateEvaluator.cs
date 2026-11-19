@@ -2769,6 +2769,26 @@ internal sealed partial class LoopStateEvaluator
                         method: method,
                         inputs: inputs)
                     .WithMembers(this.ActionParts(method: method, arguments: arguments)),
+                // A transform gives the edit the state that an item of an add gives it.
+                OperatorRule.CollectionUpdate => this.region.Symbols.IsStreamType(method.ReturnType)
+                    ? DefaultLibraryResult(symbols: this.region.Symbols, method: method, inputs: inputs)
+                        .WithContent(
+                            new LoopState(
+                                    pending: inputs.ContentPending,
+                                    linked: inputs.ContentLinked,
+                                    contentPending: false,
+                                    contentLinked: false)
+                                .Join(
+                                    this.TransformedContent(
+                                        invocation: invocation,
+                                        method: method,
+                                        argumentStates: argumentStates)))
+                    : DefaultLibraryResult(symbols: this.region.Symbols, method: method, inputs: inputs)
+                        .Join(
+                            this.TransformedContent(
+                                invocation: invocation,
+                                method: method,
+                                argumentStates: argumentStates)),
                 OperatorRule.CollectionCreate => this.MadeCollection(
                     inputs: inputs,
                     argumentStates: argumentStates,
