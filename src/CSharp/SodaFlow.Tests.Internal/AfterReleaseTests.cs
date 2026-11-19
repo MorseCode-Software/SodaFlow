@@ -378,9 +378,9 @@ public sealed class AfterReleaseTests
         bool lockWasFree = false;
         bool ran = false;
 
-        // A start hook stays for the life of the process, and other tests open transactions on
-        // other threads. Thus, the hook acts one time and only on this thread.
-        Transaction.OnStart(() =>
+        // The hook stays until this test ends, and other tests open transactions on other threads.
+        // Thus, the hook acts one time and only on this thread.
+        using IDisposable hook = Transaction.OnStart(() =>
         {
             if (!armed || Environment.CurrentManagedThreadId != thread)
             {
