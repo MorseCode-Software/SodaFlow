@@ -25811,6 +25811,42 @@ public static class Shapes
     public static Cell<int> Ab259NestedDeconstructionConvertsAnInnerElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (int, (Tally, int)) p = (1, (t, 2)); (int a, (long b, int c)) = p; return S.Hold(a + (int)b + c); });
 
+    // S5974. A dynamic value converted to long calls the implicit conversion of the type, which samples a pending member.
+    public static Cell<int> R4CsDynamicConversionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); long x = d; return S.Hold((int)x); });
+
+    // S5975. A dynamic read of an indexer calls the getter, which samples a pending member.
+    public static Cell<int> R4CsDynamicIndexerReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); int x = d[0]; return S.Hold(x); });
+
+    // S5976. A dynamic + calls the operator of the type, which samples a pending member.
+    public static Cell<int> R4CsDynamicOperatorReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); int x = d + 1; return S.Hold(x); });
+
+    // S5977. A dynamic write of a property calls the setter, which samples a pending member.
+    public static Cell<int> R4CsDynamicSetterSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); d.Level = 1; return S.Hold(0); });
+
+    // S5978. A dynamic condition calls operator true of the type, which samples a pending member.
+    public static Cell<int> R4CsDynamicTruthReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); if (d) { Kept.Add(1); } return S.Hold(0); });
+
+    // S5979. A dynamic compound assignment of a property calls the getter and then the setter, and the setter samples.
+    public static Cell<int> Ab261DynamicCompoundAssignmentCallsTheSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); d.Level += 1; return S.Hold(0); });
+
+    // S5980. A dynamic write of an indexer calls the setter, which samples a pending member.
+    public static Cell<int> Ab261DynamicIndexerWriteCallsTheSetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); d[0] = 1; return S.Hold(0); });
+
+    // S5981. A dynamic negation calls the unary operator of the type, which samples a pending member.
+    public static Cell<int> Ab261DynamicNegationReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); int x = -d; return S.Hold(x); });
+
+    // S5982. Control: each dynamic operation on an object whose cell is plain samples that plain cell.
+    public static Cell<int> Ab261DynamicOperationsOnAPlainObjectReadNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(Plain); d.Level = 1; int x = d + d[0]; long y = d; if (d) { Kept.Add(y); } Kept.Add(l.Map(v => v)); return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

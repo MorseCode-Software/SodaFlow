@@ -347,6 +347,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   `Count` and `Slice` for an index from the end, a range, or a list pattern, the `ToString` and the
   copy constructor of a record, the `ToString` of each value that a record or a tuple prints, and
   the `==` of each element of a tuple comparison.
+- A value of the type `dynamic` whose object the analyzer saw made. It reads the method, the getter
+  or the setter, the indexer, the operator, the implicit conversion, or the `operator true` or
+  `operator false` that the runtime binder finds on the type of that object.
 - Members that the platform calls for you: `CompareTo` in a sort, `Equals` and `GetHashCode` in a
   search, a set, or a dictionary, a comparer that you give a collection, and `ToString` in
   `string.Join` or `string.Format`.

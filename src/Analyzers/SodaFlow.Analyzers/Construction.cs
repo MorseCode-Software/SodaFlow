@@ -536,6 +536,30 @@ internal sealed class Construction(
                 }, pair.Value));
 
     /// <summary>
+    ///     The operators and the conversions of the types of this object, and of
+    ///     their base types, that have the name and the number of parameters.
+    /// </summary>
+    public IEnumerable<IMethodSymbol> OperatorsOf(string name, int parameters) =>
+        this.types
+            .SelectMany(static type => BaseTypesAndSelf(type))
+            .SelectMany(type => type.GetMembers(name))
+            .OfType<IMethodSymbol>()
+            .Where(method => method is
+                             {
+                                 IsStatic: true,
+                                 MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion
+                             }
+                             && method.Parameters.Length == parameters);
+
+    private static IEnumerable<INamedTypeSymbol> BaseTypesAndSelf(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
+        {
+            yield return current;
+        }
+    }
+
+    /// <summary>
     ///     The instance methods of the types of this object that have the name
     ///     and the number of parameters.
     /// </summary>

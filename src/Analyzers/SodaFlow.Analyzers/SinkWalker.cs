@@ -1619,8 +1619,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 _ => null
             };
 
+        // The binder finds the setter of a dynamic value at run time. Only such a target, and a
+        // target that does not bind, has no symbol.
         if (accessor == null)
         {
+            if (this.region.SymbolOf(node.Left) == null)
+            {
+                this.Report(this.evaluator.FollowDynamicWrite(node));
+            }
+
             return;
         }
 

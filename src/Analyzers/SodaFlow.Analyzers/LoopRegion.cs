@@ -320,6 +320,12 @@ internal sealed class LoopRegion(
     /// </summary>
     public bool ConvertsATuple(ExpressionSyntax expression) => this.ConversionAt(expression).IsTupleConversion;
 
+    /// <summary>
+    ///     True when the compiler converts the value of the expression, of the
+    ///     type dynamic, with a conversion that the binder finds at run time.
+    /// </summary>
+    public bool ConvertsADynamic(ExpressionSyntax expression) => this.ConversionAt(expression).IsDynamic;
+
     private Conversion ConversionAt(ExpressionSyntax expression)
     {
         if (!this.conversionOf.TryGetValue(key: expression, value: out Conversion conversion))

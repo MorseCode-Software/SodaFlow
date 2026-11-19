@@ -3848,6 +3848,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4CsTupleVariableConvertsEachElement"] = ["SF1004"],
             ["Ab259DeconstructionOfATupleLocalConvertsAnElement"] = ["SF1004"],
             ["Ab259NestedTupleConversionConvertsAnInnerElement"] = ["SF1004"],
-            ["Ab259NestedDeconstructionConvertsAnInnerElement"] = ["SF1004"]
+            ["Ab259NestedDeconstructionConvertsAnInnerElement"] = ["SF1004"],
+            ["R4CsDynamicConversionReads"] = ["SF1004"],
+            ["R4CsDynamicIndexerReads"] = ["SF1005"],
+            ["R4CsDynamicOperatorReads"] = ["SF1004"],
+            ["R4CsDynamicSetterSamples"] = ["SF1005"],
+            ["R4CsDynamicTruthReads"] = ["SF1004"],
+            ["Ab261DynamicCompoundAssignmentCallsTheSetter"] = ["SF1005"],
+            ["Ab261DynamicIndexerWriteCallsTheSetter"] = ["SF1005"],
+            ["Ab261DynamicNegationReads"] = ["SF1004"]
         };
 }

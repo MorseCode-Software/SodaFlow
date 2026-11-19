@@ -527,6 +527,11 @@ internal sealed partial class LoopStateEvaluator
                         MethodKind: MethodKind.BuiltinOperator,
                         ContainingType.SpecialType: SpecialType.System_String
                     } => Both(first: this.FollowToString(binary.Left), second: this.FollowToString(binary.Right)),
+                    // The binder finds the operator of a dynamic operand at run time. The compiler
+                    // gives such an operation a built-in operator with a dynamic result.
+                    IMethodSymbol { MethodKind: MethodKind.BuiltinOperator, ReturnType.TypeKind: TypeKind.Dynamic }
+                        when this.region.Symbols.DeclaresOperators =>
+                        this.FollowDynamicOperator(operation: binary, operands: [binary.Left, binary.Right]),
                     // A tuple equality has no symbol. It compares each pair of elements.
                     null when this.region.Symbols.DeclaresOperators
                               && (binary.IsKind(SyntaxKind.EqualsExpression)
@@ -535,7 +540,13 @@ internal sealed partial class LoopStateEvaluator
                     _ => null
                 },
             PrefixUnaryExpressionSyntax prefix when this.region.Symbols.DeclaresOperators =>
-                this.FollowOperator(call: prefix, operation: this.region.SymbolOf(prefix), operands: [prefix.Operand]),
+                this.region.SymbolOf(prefix)
+                    is IMethodSymbol { MethodKind: MethodKind.BuiltinOperator, ReturnType.TypeKind: TypeKind.Dynamic }
+                    ? this.FollowDynamicOperator(operation: prefix, operands: [prefix.Operand])
+                    : this.FollowOperator(
+                        call: prefix,
+                        operation: this.region.SymbolOf(prefix),
+                        operands: [prefix.Operand]),
             PostfixUnaryExpressionSyntax postfix when this.region.Symbols.DeclaresOperators =>
                 this.FollowOperator(
                     call: postfix,
@@ -728,6 +739,13 @@ internal sealed partial class LoopStateEvaluator
             return this.FollowOperator(call: expression, operation: conversion, operands: [expression]);
         }
 
+        if (this.region.ConvertsADynamic(expression))
+        {
+            return this.region.ModelFor(expression).GetTypeInfo(expression).ConvertedType is { } to
+                ? this.FollowDynamicConversion(expression: expression, to: to)
+                : null;
+        }
+
         return this.region.ConvertsATuple(expression)
             ? this.FollowElementConversions(
                 call: expression,
@@ -870,13 +888,23 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     public Followed? FollowTruth(ExpressionSyntax condition) =>
         this.region.Symbols.DeclaresTruth
-        && this.region.ModelFor(condition).GetOperation(condition)?.Parent
-            is IUnaryOperation
+            ? this.region.ModelFor(condition).GetOperation(condition)?.Parent switch
             {
-                OperatorKind: UnaryOperatorKind.True or UnaryOperatorKind.False,
-                OperatorMethod: { } truth
+                IUnaryOperation
+                {
+                    OperatorKind: UnaryOperatorKind.True or UnaryOperatorKind.False,
+                    OperatorMethod: { } truth
+                } => this.FollowOperator(call: condition, operation: truth, operands: [condition]),
+                // The binder finds the operator of a dynamic value at run time.
+                IUnaryOperation
+                {
+                    OperatorKind: UnaryOperatorKind.True or UnaryOperatorKind.False,
+                    Operand.Type.TypeKind: TypeKind.Dynamic
+                } test => this.FollowDynamicTruth(
+                    condition: condition,
+                    name: test.OperatorKind == UnaryOperatorKind.True ? "op_True" : "op_False"),
+                _ => null
             }
-            ? this.FollowOperator(call: condition, operation: truth, operands: [condition])
             : null;
 
     /// <summary>
@@ -1107,6 +1135,9 @@ internal sealed partial class LoopStateEvaluator
                 // a Slice.
                 IMethodSymbol { DeclaringSyntaxReferences.IsEmpty: false, MethodKind: MethodKind.Ordinary } slice =>
                     slice,
+                // The binder finds the indexer of a dynamic value at run time.
+                null when this.region.TypeOf(owner) is { TypeKind: TypeKind.Dynamic } =>
+                    this.DynamicIndexerOf(owner: owner, indexes: indexes.Arguments.Count)?.GetMethod,
                 _ => null
             };
 

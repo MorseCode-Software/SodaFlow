@@ -63,6 +63,7 @@
         <Compile Include="LoopStateEvaluator.Collections.cs"/>
         <Compile Include="LoopStateEvaluator.Computed.cs"/>
         <Compile Include="LoopStateEvaluator.Content.cs"/>
+        <Compile Include="LoopStateEvaluator.Dynamic.cs"/>
         <Compile Include="LoopStateEvaluator.Elements.cs"/>
         <Compile Include="LoopStateEvaluator.Escapes.cs"/>
         <Compile Include="LoopStateEvaluator.Implied.cs"/>
