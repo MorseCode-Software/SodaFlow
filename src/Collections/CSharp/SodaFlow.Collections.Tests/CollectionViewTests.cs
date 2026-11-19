@@ -2219,6 +2219,15 @@ public sealed class CollectionViewTests
         await Assert.That(updatesOfBoth.Select(static update => update.Keys).Distinct())
             .IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching);
 
+        // When the call is not in a callback, the items become empty in the transaction of the call.
+        // Thus, the cell gets one update, and no update shows the released rows. When the code also
+        // posted this send, the cell got a second update.
+        if (place is DisposalPlace.BeforeTheEdit or DisposalPlace.AfterTheEdit)
+        {
+            await Assert.That(updatesOfBoth)
+                .IsEquivalentTo(expected: [(Rows: 0, Keys: 3)], ordering: CollectionOrdering.Matching);
+        }
+
         int builtBefore = built.Count;
 
         edits.Send(TestUtil.Add(TestUtil.Item(number: 4, name: "four", score: 40)));
