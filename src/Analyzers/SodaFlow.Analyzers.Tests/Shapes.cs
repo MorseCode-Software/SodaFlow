@@ -26151,6 +26151,14 @@ public static class Shapes
     public static Cell<int> Ab253SpanOfARangeFromTheEndWritesTheLastElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; Span<Cell<int>> sp = a.AsSpan()[^1..]; sp[0] = l.Map(v => v); Kept.Add(a[1].Sample()); return S.Hold(0); });
 
+    // S6059. A method of a new object of the base type calls a method of the same object with no receiver, which calls a virtual method with no receiver. The base method does not sample. A control.
+    public static Cell<int> Ab244BareVirtualCallTwoCallsDeepOfANewBaseObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab244Runner().RunThroughAHelper(l.Map(v => v))); return S.Hold(0); });
+
+    // S6060. A method of a new object keeps a cell in a field and calls a method through a local that holds this, which calls a virtual method with no receiver. The override samples.
+    public static Cell<int> Ab244BareVirtualCallThroughALocalOfThisReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab244SelfRunnerReader().RunThroughSelf(l.Map(v => v))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -37576,6 +37584,27 @@ public static class Shapes
     }
 
     private static readonly Ab244BaseReader[] Ab244UnseenBaseReaders = [new Ab244BaseReader(), new Ab244QuietReader()];
+
+    public class Ab244SelfRunner
+    {
+        private Cell<int>? kept;
+
+        public int RunThroughSelf(Cell<int> c)
+        {
+            this.kept = c;
+            Ab244SelfRunner self = this;
+            return self.RunBare(this.kept);
+        }
+
+        public int RunBare(Cell<int> c) => Now(c);
+
+        protected virtual int Now(Cell<int> c) => 0;
+    }
+
+    public sealed class Ab244SelfRunnerReader : Ab244SelfRunner
+    {
+        protected override int Now(Cell<int> c) => c.Sample();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

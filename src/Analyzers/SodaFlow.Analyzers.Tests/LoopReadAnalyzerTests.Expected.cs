@@ -3908,6 +3908,7 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab253SpanOfALengthFillWritesTheSecondElement"] = ["SF1001"],
             ["Ab253SliceOfASpanFromAnOffsetWritesTheThirdElement"] = ["SF1001"],
             ["Ab253SpanFromAnOffsetThatIsNotAConstantWritesTheSecondElement"] = ["SF1001"],
-            ["Ab253SpanOfARangeFromTheEndWritesTheLastElement"] = ["SF1001"]
+            ["Ab253SpanOfARangeFromTheEndWritesTheLastElement"] = ["SF1001"],
+            ["Ab244BareVirtualCallThroughALocalOfThisReads"] = ["SF1004"]
         };
 }
