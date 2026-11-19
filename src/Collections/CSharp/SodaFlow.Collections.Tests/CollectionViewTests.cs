@@ -2101,7 +2101,7 @@ public sealed class CollectionViewTests
         _ = mapped.Items.Sample();
 
         List<IReadOnlyList<string>> updates = [];
-        IListener listener = mapped.Items.Updates().ListenStrong(updates.Add);
+        IListener listener = mapped.Items.Updates().Listen(updates.Add);
 
         mapped.Dispose();
 
@@ -2118,7 +2118,7 @@ public sealed class CollectionViewTests
         await Assert.That(mapped.Items.Sample()).IsEmpty();
         await Assert.That(updates.Count).IsEqualTo(1);
 
-        listener.Unlisten();
+        listener.Dispose();
     }
 
     // The listener that disposes the projection at the edit, for the places in a callback. The edit
@@ -2129,8 +2129,8 @@ public sealed class CollectionViewTests
         MappedItems<string> mapped) =>
         place switch
         {
-            DisposalPlace.InAListenerOfTheKeys => collection.KeysCell.Updates().ListenStrong(_ => mapped.Dispose()),
-            DisposalPlace.InAListenerOfTheItems => mapped.Items.Updates().ListenStrong(_ => mapped.Dispose()),
+            DisposalPlace.InAListenerOfTheKeys => collection.KeysCell.Updates().Listen(_ => mapped.Dispose()),
+            DisposalPlace.InAListenerOfTheItems => mapped.Items.Updates().Listen(_ => mapped.Dispose()),
             DisposalPlace.InAMapOfTheKeys =>
                 collection.KeysCell
                     .Map(keys =>
@@ -2143,8 +2143,8 @@ public sealed class CollectionViewTests
                         return keys.Count;
                     })
                     .Updates()
-                    .ListenStrong(static _ => { }),
-            _ => collection.KeysCell.Updates().ListenStrong(static _ => { })
+                    .Listen(static _ => { }),
+            _ => collection.KeysCell.Updates().Listen(static _ => { })
         };
 
     // A disposal in the transaction of an edit, before the edit or after it, releases each row that
@@ -2191,7 +2191,7 @@ public sealed class CollectionViewTests
                 f: static (rows, keys) => (Rows: rows.Count, Keys: keys.Count));
 
         List<(int Rows, int Keys)> updatesOfBoth = [];
-        IListener record = both.Updates().ListenStrong(updatesOfBoth.Add);
+        IListener record = both.Updates().Listen(updatesOfBoth.Add);
         IListener listener = DisposeAtTheEdit(place: place, collection: collection, mapped: mapped);
 
         Transaction.RunVoid(() =>
@@ -2209,8 +2209,8 @@ public sealed class CollectionViewTests
             }
         });
 
-        listener.Unlisten();
-        record.Unlisten();
+        listener.Dispose();
+        record.Dispose();
 
         await Assert.That(released).IsEquivalentTo(expected: built, ordering: CollectionOrdering.Any);
         await Assert.That(mapped.Items.Sample()).IsEmpty();
@@ -2354,7 +2354,7 @@ public sealed class CollectionViewTests
 
             IListener listener =
                 collection.KeysCell.Updates()
-                    .ListenStrong(_ =>
+                    .Listen(_ =>
                     {
                         mapped.Dispose();
                         reader.Start();
@@ -2369,7 +2369,7 @@ public sealed class CollectionViewTests
 
             await Assert.That(reader.Join(Watchdog)).IsTrue();
 
-            listener.Unlisten();
+            listener.Dispose();
             countsThatTheReaderSaw.Add(seen);
         }
 
