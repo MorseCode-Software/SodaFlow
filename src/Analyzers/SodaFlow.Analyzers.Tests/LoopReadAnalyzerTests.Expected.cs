@@ -4144,6 +4144,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab266NullConditionalIndexerAssignmentCallsTheSetter"] = ["SF1005"],
             ["Ab266NullConditionalElementAssignmentWritesTheElement"] = ["SF1001"],
             ["Ab266NullConditionalAssignmentInABranchKeepsThePendingCell"] = ["SF1001"],
-            ["Ab266NullConditionalAssignmentThroughAMemberWritesTheInnerObject"] = ["SF1001"]
+            ["Ab266NullConditionalAssignmentThroughAMemberWritesTheInnerObject"] = ["SF1001"],
+            ["Ab268ReadonlyFieldStructChangesInItsConstructor"] = ["SF1001"],
+            ["Ab268RefLocalStructChanges"] = ["SF1001"],
+            ["Ab268ReadonlyFieldStructChangesInAnInitAccessor"] = ["SF1001"],
+            ["Ab268ReadonlyFieldOfAClassChanges"] = ["SF1001"]
         };
 }

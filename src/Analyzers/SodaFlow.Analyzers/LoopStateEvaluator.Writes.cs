@@ -1730,7 +1730,9 @@ internal sealed partial class LoopStateEvaluator
         ExpressionSyntax? written,
         ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> sets)
     {
-        if (this.quiet || sets.IsEmpty)
+        // C# calls a method of a struct that the code cannot write on a copy of it. The writes of
+        // the method go to the copy, and the struct keeps its members.
+        if (this.quiet || sets.IsEmpty || (written != null && this.IsAStructThatTheCodeCannotWrite(written)))
         {
             return;
         }
@@ -1777,6 +1779,43 @@ internal sealed partial class LoopStateEvaluator
             }
         }
     }
+
+    // True for a struct that the code cannot write. Such a struct is in a readonly field, out of the
+    // code that can write the field. It can also be in a parameter with in or ref readonly, or in a
+    // ref readonly local.
+    private bool IsAStructThatTheCodeCannotWrite(ExpressionSyntax written) =>
+        this.region.SymbolOf(Unwrapped(written)) switch
+        {
+            IFieldSymbol { IsReadOnly: true, Type.IsValueType: true } field =>
+                !this.CanWriteTheField(field: field, at: written),
+            IParameterSymbol { RefKind: RefKind.In or RefKind.RefReadOnlyParameter, Type.IsValueType: true } => true,
+            ILocalSymbol { RefKind: RefKind.RefReadOnly, Type.IsValueType: true } => true,
+            _ => false
+        };
+
+    // A constructor of the type of a readonly field can write the field. An init accessor of that
+    // type can write a field that is not static. A function in that code cannot.
+    private bool CanWriteTheField(IFieldSymbol field, SyntaxNode at) =>
+        at.Ancestors()
+                .FirstOrDefault(static code =>
+                    code is BaseMethodDeclarationSyntax
+                        or AccessorDeclarationSyntax
+                        or AnonymousFunctionExpressionSyntax
+                        or LocalFunctionStatementSyntax)
+            switch
+            {
+                ConstructorDeclarationSyntax constructor =>
+                    constructor.Modifiers.Any(SyntaxKind.StaticKeyword) == field.IsStatic
+                    && SymbolEqualityComparer.Default.Equals(
+                        x: this.region.ModelFor(constructor).GetDeclaredSymbol(constructor)?.ContainingType,
+                        y: field.ContainingType),
+                AccessorDeclarationSyntax { RawKind: (int)SyntaxKind.InitAccessorDeclaration } init =>
+                    !field.IsStatic
+                    && SymbolEqualityComparer.Default.Equals(
+                        x: this.region.ModelFor(init).GetDeclaredSymbol(init)?.ContainingType,
+                        y: field.ContainingType),
+                _ => false
+            };
 
     /// <summary>
     ///     Records a value that the code gives to a member of an object, as in

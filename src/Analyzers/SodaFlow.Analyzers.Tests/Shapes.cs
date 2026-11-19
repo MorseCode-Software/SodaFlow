@@ -28639,6 +28639,42 @@ public static class Shapes
     public static Cell<int> Ab266NullConditionalIndexerAssignmentDoesNotCallTheGetter() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab266Gauge? g = new(l.Map(v => v)); g?[0] = 1; return S.Hold(0); });
 
+    // S6681. A method of a struct in a static readonly field runs on a copy, so the field keeps its plain cell.
+    public static Cell<int> R4CsReadonlyFieldStructIsADefensiveCopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsFrozen.Set(l.Map(v => v)); Kept.Add(R4CsFrozen.Share.Sample()); return S.Hold(0); });
+
+    // S6682. A method of a struct that a parameter with in gets runs on a copy, so the local of the caller keeps its plain cell.
+    public static Cell<int> Ab268InParameterStructIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsMutable m = new(Plain); Ab268SetIn(in m, l.Map(v => v)); Kept.Add(m.Share.Sample()); return S.Hold(0); });
+
+    // S6683. A method of a struct through a ref readonly local runs on a copy, so the local keeps its plain cell.
+    public static Cell<int> Ab268RefReadonlyLocalStructIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsMutable m = new(Plain); ref readonly R4CsMutable r = ref m; r.Set(l.Map(v => v)); Kept.Add(m.Share.Sample()); return S.Hold(0); });
+
+    // S6684. A method of a struct in a readonly field, called in a method of the class, runs on a copy.
+    public static Cell<int> Ab268ReadonlyInstanceFieldStructIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab268Built b = new(Plain); b.Put(l.Map(v => v)); Kept.Add(b.Share.Sample()); return S.Hold(0); });
+
+    // S6685. Control: a method of a struct in a readonly field, called in the constructor of the class, changes the field.
+    public static Cell<int> Ab268ReadonlyFieldStructChangesInItsConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab268Built b = new(l.Map(v => v)); Kept.Add(b.Share.Sample()); return S.Hold(0); });
+
+    // S6686. Control: a method of a struct through a ref local changes the local.
+    public static Cell<int> Ab268RefLocalStructChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsMutable m = new(Plain); ref R4CsMutable r = ref m; r.Set(l.Map(v => v)); Kept.Add(m.Share.Sample()); return S.Hold(0); });
+
+    // S6687. A constructor of a second type calls a method of a struct in a readonly field of the first type. The call runs on a copy.
+    public static Cell<int> Ab268ReadonlyFieldOfASecondTypeIsACopyInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab268Built b = new(Plain); Kept.Add(new Ab268Other(b, l.Map(v => v))); Kept.Add(b.OpenShare.Sample()); return S.Hold(0); });
+
+    // S6688. Control: an init accessor calls a method of a struct in a readonly field of its type, and the field changes.
+    public static Cell<int> Ab268ReadonlyFieldStructChangesInAnInitAccessor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab268Built b = new(Plain) { Start = l.Map(v => v) }; Kept.Add(b.Share.Sample()); return S.Hold(0); });
+
+    // S6689. Control: a method of a class in a readonly field changes the object of the field.
+    public static Cell<int> Ab268ReadonlyFieldOfAClassChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab268Built b = new(Plain); b.PutInTheBox(l.Map(v => v)); Kept.Add(b.BoxShare.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40680,6 +40716,50 @@ public static class Shapes
             get => share.Sample() + index;
             set { }
         }
+    }
+
+    private static void Ab268SetIn(in R4CsMutable m, Cell<int> c) => m.Set(c);
+
+    public sealed class Ab268Built
+    {
+        public readonly R4CsMutable Open = new(Plain);
+
+        private readonly R4CsMutable inner;
+
+        private readonly Ab268Box box = new();
+
+        public Ab268Built(Cell<int> c)
+        {
+            this.inner = new R4CsMutable(Plain);
+            this.inner.Set(c);
+        }
+
+        public Cell<int> Share => this.inner.Share;
+
+        public Cell<int> OpenShare => this.Open.Share;
+
+        public Cell<int> BoxShare => this.box.Share;
+
+        public Cell<int> Start
+        {
+            init => this.inner.Set(value);
+        }
+
+        public void Put(Cell<int> c) => this.inner.Set(c);
+
+        public void PutInTheBox(Cell<int> c) => this.box.Set(c);
+    }
+
+    public sealed class Ab268Box
+    {
+        public Cell<int> Share { get; private set; } = Plain;
+
+        public void Set(Cell<int> c) => this.Share = c;
+    }
+
+    public sealed class Ab268Other
+    {
+        public Ab268Other(Ab268Built b, Cell<int> c) => b.Open.Set(c);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
