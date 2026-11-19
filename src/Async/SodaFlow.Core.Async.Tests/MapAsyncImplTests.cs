@@ -591,6 +591,80 @@ public sealed class MapAsyncImplTests
         l.Dispose();
     }
 
+    // A Queue pipeline runs 1 and holds 2. A listener disposes the pipeline, and a different thread
+    // then ends 1 while it waits for the lock. The cancel must come before that thread, or the end of
+    // 1 promotes 2 and starts its operation after the disposal. Before, the cancel waited for the
+    // release of the lock, and 2 started about two times in five. Thus, the test does this many
+    // times, and a miss is improbable.
+    [Test]
+    public async Task Dispose_InAListenerCancelsBeforeATransactionOnADifferentThread()
+    {
+        const int rounds = 50;
+        List<int> startsOfTwo = [];
+
+        for (int round = 0; round < rounds; round++)
+        {
+            StreamSink<int> source = Stream.CreateSink<int>();
+            StreamSink<int> results = Stream.CreateSink<int>();
+            StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+            StreamSink<int> disposals = Stream.CreateSink<int>();
+            TaskCompletionSource<bool> endOfOne = new();
+            TaskCompletionSource<bool> startOfTwo = new();
+
+            AsyncMapStatus<int> status =
+                source.MapAsyncImpl(
+                    results: results,
+                    errors: errors,
+                    handleException: TestUtil.Unexpected,
+                    createDeliveryException: TestDeliveryException.Create,
+                    operation: async (v, factory, _) =>
+                    {
+                        if (v == 1)
+                        {
+                            await endOfOne.Task;
+                        }
+                        else
+                        {
+                            startOfTwo.TrySetResult(true);
+                        }
+
+                        return factory.FromValue(v);
+                    },
+                    strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                    inputConverter: static v => v);
+
+            source.Send(1);
+            source.Send(2);
+
+            // The continuation of the operation runs on this thread, and its end waits for the lock.
+            Thread ender = new(() => endOfOne.SetResult(true)) { IsBackground = true };
+
+            using (disposals.Listen(_ =>
+                   {
+                       status.Dispose();
+                       ender.Start();
+
+                       SpinWait.SpinUntil(
+                           condition: () => (ender.ThreadState & ThreadState.WaitSleepJoin) != 0 || !ender.IsAlive,
+                           timeout: TimeSpan.FromSeconds(10));
+                   }))
+            {
+                disposals.Send(0);
+            }
+
+            await Assert.That(ender.Join(TimeSpan.FromSeconds(10))).IsTrue();
+
+            // A start of 2 goes after the release of the lock, on the thread that promoted it.
+            Thread.Sleep(20);
+
+            startsOfTwo.Add(startOfTwo.Task.IsCompleted ? 1 : 0);
+        }
+
+        await Assert.That(startsOfTwo.Distinct())
+            .IsEquivalentTo(expected: [0], ordering: CollectionOrdering.Matching)
+            .Because("A Queued item must not start after a disposal that canceled it.");
+    }
+
     [Test]
     public async Task Dispose_StopsFurtherAdmission()
     {

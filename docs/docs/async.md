@@ -218,7 +218,9 @@ The returned status is itself reactive, which makes progress reporting straightf
 what is queued and running. Bind them directly to your UI. Disposing the status tears the pipeline
 down. With `cancelOnDispose`, that cancels what is in flight even when you dispose inside a
 transaction, and even if that transaction then fails: a disposal is not undone. Disposing from a
-listener callback is fine too; the cancel then happens straight after the transaction.
+listener callback is fine too; the cancel then happens straight after the transaction, before any
+other thread gets a turn, so another thread that finishes a running item cannot start a queued one
+after the disposal. Only when that transaction fails can another thread get in first.
 
 How much of the status you hold is your choice, and you make it by how many type parameters you
 keep. The declared return type is `AsyncMapStatus<TInput, TResult>`, which carries everything;
