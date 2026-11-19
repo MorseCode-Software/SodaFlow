@@ -10,13 +10,15 @@ namespace SodaFlow.Analyzers;
 ///     The state that the body gives to each <c>out</c> or <c>ref</c> parameter.
 /// </param>
 /// <param name="alwaysGives">The value of <see cref="Followed.AlwaysGives" />.</param>
+/// <param name="thrown">The value of <see cref="Followed.Thrown" />.</param>
 internal sealed class Followed(
     in LoopState state,
     in ImmutableArray<Finding> findings,
     in ImmutableDictionary<ISymbol, LoopState> outs,
     in ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> sets,
     in ImmutableArray<(IParameterSymbol Parameter, ISymbol Member, LoopState State)> through,
-    in ImmutableHashSet<ISymbol> alwaysGives)
+    in ImmutableHashSet<ISymbol> alwaysGives,
+    in ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)> thrown = default)
 {
     /// <summary>
     ///     A call that the walk did not read, because no argument has a state.
@@ -58,4 +60,12 @@ internal sealed class Followed(
     ///     argument has that value after the call.
     /// </summary>
     public ImmutableHashSet<ISymbol> AlwaysGives { get; } = alwaysGives;
+
+    /// <summary>
+    ///     Each object that the callee throws to the caller. Each one has the
+    ///     call in the caller, the type that the throw names, and the state of
+    ///     the object. A catch clause of the caller can get the object.
+    /// </summary>
+    public ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)> Thrown { get; } =
+        thrown.IsDefault ? ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)>.Empty : thrown;
 }

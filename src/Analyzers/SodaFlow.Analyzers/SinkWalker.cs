@@ -68,6 +68,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     private bool takesOneItem;
 
+    // The state that each catch clause of this function gets: the object of each throw that can go
+    // to the clause. That throw is in its try block, or in a callee that the block calls.
+    private readonly Dictionary<CatchClauseSyntax, LoopState> caught = [];
+
+    private readonly List<(ITypeSymbol? Type, LoopState State)> thrown = [];
+
+    /// <summary>
+    ///     Each object that a throw sends out of the function to its caller,
+    ///     with the type that the throw names.
+    /// </summary>
+    public IReadOnlyList<(ITypeSymbol? Type, LoopState State)> Thrown => this.thrown;
+
     public override void Visit(SyntaxNode? node)
     {
         this.region.StopWhenCanceled();
@@ -4366,6 +4378,99 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             this.sink(finding);
         }
+
+        // An object that a callee throws to this code comes from the call.
+        foreach ((SyntaxNode call, ITypeSymbol? type, LoopState state) in followed.Thrown)
+        {
+            this.Sends(from: call, type: type, state: state);
+        }
+    }
+
+    public override void VisitThrowStatement(ThrowStatementSyntax node)
+    {
+        base.VisitThrowStatement(node);
+        this.Throws(throwing: node, value: node.Expression);
+    }
+
+    public override void VisitThrowExpression(ThrowExpressionSyntax node)
+    {
+        base.VisitThrowExpression(node);
+        this.Throws(throwing: node, value: node.Expression);
+    }
+
+    // A throw with no value throws the object of its catch clause again.
+    private void Throws(SyntaxNode throwing, ExpressionSyntax? value)
+    {
+        LoopState state =
+            value != null
+                ? this.evaluator.Eval(value)
+                : throwing.FirstAncestorOrSelf<CatchClauseSyntax>() is { } clause
+                  && this.caught.TryGetValue(key: clause, value: out LoopState? again)
+                    ? again
+                    : LoopState.None;
+
+        if (!state.IsNone)
+        {
+            this.Sends(from: throwing, type: value != null ? this.region.TypeOf(value) : null, state: state);
+        }
+    }
+
+    // A thrown object goes to each catch clause around the throw or the call whose type the object
+    // can have. It stops at the first clause with no filter that gets each object of its type.
+    // Otherwise, it leaves the function. A type that the walk does not know can be each type.
+    private void Sends(SyntaxNode from, ITypeSymbol? type, LoopState state)
+    {
+        SyntaxNode child = from;
+
+        for (SyntaxNode? parent = from.Parent;
+             parent is not (null or AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax
+                 or MemberDeclarationSyntax);
+             child = parent, parent = parent.Parent)
+        {
+            if (parent is not TryStatementSyntax attempt || attempt.Block != child)
+            {
+                continue;
+            }
+
+            foreach (CatchClauseSyntax clause in attempt.Catches)
+            {
+                ITypeSymbol? takes =
+                    clause.Declaration is { } declaration ? this.region.TypeOf(declaration.Type) : null;
+
+                if (type != null && takes != null && !this.region.CanBe(from: type, to: takes))
+                {
+                    continue;
+                }
+
+                this.caught[clause] =
+                    this.caught.TryGetValue(key: clause, value: out LoopState? before) ? before.Join(state) : state;
+
+                if (clause.Filter == null
+                    && (takes == null || (type != null && this.region.Converts(from: type, to: takes))))
+                {
+                    return;
+                }
+            }
+        }
+
+        this.thrown.Add((type, state));
+    }
+
+    // The variable of a catch clause gets the object of each throw that goes to the clause. The
+    // filter runs first, and gets no state. The runtime ignores an exception in a filter, and the
+    // filter is then false. Thus, no read in a filter throws out of the try.
+    public override void VisitCatchClause(CatchClauseSyntax node)
+    {
+        this.Visit(node.Filter);
+
+        if (node.Declaration is { } declaration
+            && this.caught.TryGetValue(key: node, value: out LoopState? state)
+            && this.region.ModelFor(declaration).GetDeclaredSymbol(declaration) is { } local)
+        {
+            this.evaluator.Declare(local: local, state: state);
+        }
+
+        this.Visit(node.Block);
     }
 
     /// <summary>

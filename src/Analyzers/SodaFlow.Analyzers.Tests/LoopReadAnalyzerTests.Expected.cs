@@ -3865,6 +3865,16 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab260RecordInequalityCallsEqualsOfAMember"] = ["SF1005"],
             ["Ab260RecordEqualityComparesTheMemberOfABaseRecord"] = ["SF1005"],
             ["Ab260AnonymousTypeGetHashCodeCallsGetHashCodeOfAMember"] = ["SF1005"],
-            ["Ab260RecordEqualityCallsTheTypedEqualsOfAMember"] = ["SF1005"]
+            ["Ab260RecordEqualityCallsTheTypedEqualsOfAMember"] = ["SF1005"],
+            ["R4CsCatchVariableCallsAMethodThatReads"] = ["SF1005"],
+            ["R4CsCatchVariableFromAHelperThatThrows"] = ["SF1001"],
+            ["R4CsCatchVariableGetsAThrownLocal"] = ["SF1001"],
+            ["R4CsCatchVariableGetsTheThrownObject"] = ["SF1001"],
+            ["Ab254CatchOfABaseTypeGetsTheObject"] = ["SF1001"],
+            ["Ab254RethrowGivesTheOuterCatchTheObject"] = ["SF1001"],
+            ["Ab254ThrowInALambdaThatAHelperRuns"] = ["SF1001"],
+            ["Ab254ThrowTwoCallsDeep"] = ["SF1001"],
+            ["Ab254ThrowInAConstructor"] = ["SF1001"],
+            ["Ab254ThrowInTheFunctionOfALazy"] = ["SF1001"]
         };
 }

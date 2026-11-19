@@ -288,7 +288,8 @@ internal sealed partial class LoopStateEvaluator
                 target: target,
                 result: result,
                 found: found,
-                leaving: leaving);
+                leaving: leaving,
+                thrown: walker.Thrown);
 
         if (receiver != null)
         {
@@ -596,7 +597,8 @@ internal sealed partial class LoopStateEvaluator
         LoopState? target,
         LoopState result,
         IEnumerable<Finding> found,
-        IEnumerable<(QueryValue Query, IReadOnlyList<Finding> Found)> leaving)
+        IEnumerable<(QueryValue Query, IReadOnlyList<Finding> Found)> leaving,
+        IReadOnlyList<(ITypeSymbol? Type, LoopState State)> thrown)
     {
         Dictionary<ISymbol, Binding> byParameter = new(SymbolEqualityComparer.Default);
 
@@ -703,7 +705,10 @@ internal sealed partial class LoopStateEvaluator
             outs: outs.ToImmutable(),
             sets: sets,
             through: through.ToImmutable(),
-            alwaysGives: alwaysGives.ToImmutable());
+            alwaysGives: alwaysGives.ToImmutable(),
+            thrown: thrown
+                .Select(one => (call, one.Type, one.State.WithOrigins(Out).FromIfUnknown(inputs)))
+                .ToImmutableArray());
 
         // The findings of the callee, in the names of this code.
         ImmutableArray<Finding> Changed(IEnumerable<Finding> from)

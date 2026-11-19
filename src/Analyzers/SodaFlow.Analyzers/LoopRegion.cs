@@ -357,6 +357,13 @@ internal sealed class LoopRegion(
         this.compilation.ClassifyConversion(source: from, destination: to).MethodSymbol;
 
     /// <summary>
+    ///     True when a value of the first type can be a value of the second
+    ///     type, also through a cast. No operator of the code converts it.
+    /// </summary>
+    public bool CanBe(ITypeSymbol from, ITypeSymbol to) =>
+        this.compilation.ClassifyConversion(source: from, destination: to) is { Exists: true, IsUserDefined: false };
+
+    /// <summary>
     ///     True when the compiler converts the first type to the second one with
     ///     no cast. No operator converts an interface. Thus, each value of a first
     ///     type that is an interface is then a value of the second type.

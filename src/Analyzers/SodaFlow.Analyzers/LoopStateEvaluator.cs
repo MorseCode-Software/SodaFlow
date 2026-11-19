@@ -3600,7 +3600,8 @@ internal sealed partial class LoopStateEvaluator
                 .ToImmutableArray(),
             alwaysGives: followed.AlwaysGives
                 .Select(one => Of(one) ?? one)
-                .ToImmutableHashSet(SymbolEqualityComparer.Default));
+                .ToImmutableHashSet(SymbolEqualityComparer.Default),
+            thrown: followed.Thrown);
 
         IParameterSymbol? Of(ISymbol parameter) =>
             parameter is IParameterSymbol { ContainingSymbol: IMethodSymbol { IsExtensionMethod: false } } own
@@ -3857,7 +3858,8 @@ internal sealed partial class LoopStateEvaluator
                     outs: first.Outs.SetItems(second.Outs),
                     sets: first.Sets.AddRange(second.Sets),
                     through: first.Through.AddRange(second.Through),
-                    alwaysGives: first.AlwaysGives.Intersect(second.AlwaysGives));
+                    alwaysGives: first.AlwaysGives.Intersect(second.AlwaysGives),
+                    thrown: first.Thrown.AddRange(second.Thrown));
 
     private Followed? FollowFunctions(
         SyntaxNode call,
@@ -4355,7 +4357,8 @@ internal sealed partial class LoopStateEvaluator
                     members: members.ToImmutableDictionary(SymbolEqualityComparer.Default),
                     type: definition.ContainingType)),
             found: found,
-            leaving: leaving);
+            leaving: leaving,
+            thrown: walker.Thrown);
 
         void Set(ISymbol? member, ExpressionSyntax value)
         {
@@ -4563,7 +4566,8 @@ internal sealed partial class LoopStateEvaluator
             outs: followed.Outs,
             sets: followed.Sets,
             through: followed.Through,
-            alwaysGives: followed.AlwaysGives);
+            alwaysGives: followed.AlwaysGives,
+            thrown: followed.Thrown);
 
         Followed? Run(LoopState given) =>
             makers.Aggregate(

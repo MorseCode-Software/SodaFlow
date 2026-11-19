@@ -25895,6 +25895,66 @@ public static class Shapes
     public static Cell<int> Ab260RecordEqualityDoesNotCallTheObjectEqualsOfATypedMember() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab260TypedOnlyRecord a = new(new Ab260TypedOnly(l.Map(v => v))); Ab260TypedOnlyRecord b = new(new Ab260TypedOnly(Plain)); Kept.Add(a == b); return S.Hold(0); });
 
+    // S5995. A catch variable gets the thrown object, and a method of that object samples its pending member.
+    public static Cell<int> R4CsCatchVariableCallsAMethodThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Now()); } return S.Hold(0); });
+
+    // S5996. A helper throws an object with a pending member, and the catch of the block samples that member.
+    public static Cell<int> R4CsCatchVariableFromAHelperThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { R4CsThrowWith(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S5997. A local that holds an object with a pending member is thrown, and the catch samples the member.
+    public static Cell<int> R4CsCatchVariableGetsAThrownLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsFault f = new(l.Map(v => v)); try { throw f; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S5998. A catch variable gets the object that the try throws, and the catch samples its pending member.
+    public static Cell<int> R4CsCatchVariableGetsTheThrownObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S5999. A catch of a different type does not take the thrown object, and the next catch takes it. Thus, the read in the first catch never runs.
+    public static Cell<int> Ab254CatchOfADifferentTypeGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (Ab254OtherFault e) { Kept.Add(e.Share.Sample()); } catch (R4CsFault) { Kept.Add(1); } return S.Hold(0); });
+
+    // S6000. The first catch takes the thrown object. Thus, the catch of a base type after it never runs, and its read never runs.
+    public static Cell<int> Ab254EarlierCatchTakesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault) { Kept.Add(1); } catch (Exception e) { Kept.Add(((R4CsFault)e).Share.Sample()); } return S.Hold(0); });
+
+    // S6001. A catch of a base type takes the thrown object, and samples its pending member through a cast.
+    public static Cell<int> Ab254CatchOfABaseTypeGetsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (Exception e) { Kept.Add(((R4CsFault)e).Share.Sample()); } return S.Hold(0); });
+
+    // S6002. An inner catch throws its object again, and the outer catch gets the object and samples its pending member.
+    public static Cell<int> Ab254RethrowGivesTheOuterCatchTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault) { throw; } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S6003. An inner catch takes the thrown object. Thus, the outer catch never runs, and its read never runs.
+    public static Cell<int> Ab254InnerCatchKeepsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault) { Kept.Add(1); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S6004. A helper catches the object that it throws. Thus, the catch of the caller never runs, and its read never runs.
+    public static Cell<int> Ab254HelperThatCatchesKeepsItsThrow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Ab254ThrowAndCatch(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S6005. A helper runs a lambda that throws an object with a pending member, and the catch of the caller samples that member.
+    public static Cell<int> Ab254ThrowInALambdaThatAHelperRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Ab254Run(() => throw new R4CsFault(l.Map(v => v))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S6006. A helper calls a second helper that throws, and the catch of the caller samples the pending member of the object.
+    public static Cell<int> Ab254ThrowTwoCallsDeep() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Ab254ThrowThrough(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S6007. A constructor throws an object with a pending member, and the catch of the caller samples that member.
+    public static Cell<int> Ab254ThrowInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(new Ab254ThrowingMaker(l.Map(v => v))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S6008. The function of a Lazy throws an object with a pending member at the read of Value, and the catch samples that member.
+    public static Cell<int> Ab254ThrowInTheFunctionOfALazy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int> lazy = new(() => throw new R4CsFault(l.Map(v => v))); try { Kept.Add(lazy.Value); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S6009. A catch of a sibling type cannot take the thrown object, and the next catch takes it. Thus, the read of the base member in the first catch never runs.
+    public static Cell<int> Ab254CatchOfASiblingTypeGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new Ab254LeftFault(l.Map(v => v)); } catch (Ab254RightFault e) { Kept.Add(e.Share.Sample()); } catch (Ab254LeftFault) { Kept.Add(1); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -37231,6 +37291,41 @@ public static class Shapes
     }
 
     public sealed record Ab260TypedOnlyRecord(Ab260TypedOnly T);
+
+    public sealed class Ab254OtherFault(Cell<int> share) : Exception
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
+    private static void Ab254ThrowAndCatch(Cell<int> c)
+    {
+        try
+        {
+            throw new R4CsFault(c);
+        }
+        catch (R4CsFault)
+        {
+            Kept.Add(1);
+        }
+    }
+
+    private static void Ab254Run(Action a) => a();
+
+    private static void Ab254ThrowThrough(Cell<int> c) => R4CsThrowWith(c);
+
+    public sealed class Ab254ThrowingMaker
+    {
+        public Ab254ThrowingMaker(Cell<int> c) => throw new R4CsFault(c);
+    }
+
+    public class Ab254BaseFault(Cell<int> share) : Exception
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
+    public sealed class Ab254LeftFault(Cell<int> share) : Ab254BaseFault(share);
+
+    public sealed class Ab254RightFault(Cell<int> share) : Ab254BaseFault(share);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

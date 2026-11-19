@@ -302,7 +302,9 @@ dotnet_diagnostic.SF1003.severity = warning
 The analyzer follows a value made from the placeholder through the code of your project:
 
 - Locals, tuples, deconstructions, patterns, `out` and `ref` arguments, and the fields that the
-  block sets.
+  block sets. The variable of a `catch` clause gets each object that a `throw` in its `try` block,
+  or in a method or a lambda that the block calls, can send to that clause. Its filter gets none,
+  because an exception in a filter is lost and makes the filter false.
 - Collections, arrays, and dictionaries. A list or an array that you write as a literal keeps each
   element apart, so `cells[0]`, `cells[^1]`, and `cells.ElementAt(1)` are each one element. A
   `Dictionary` that you write with constant keys and no comparer, and that the code then only
