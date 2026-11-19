@@ -358,6 +358,85 @@ internal sealed partial class LoopStateEvaluator
         this.region.ReadAfterTheTransaction(function: write, read: () => later.Sends(sink: sink, content: content));
     }
 
+    /// <summary>
+    ///     Reads a map through a task as a send of the result of its operation
+    ///     into its sink of results, after the transaction. The result is the
+    ///     value that the operation gives to <c>FromValue</c>, or the value that
+    ///     the function of <c>Construct</c> returns.
+    /// </summary>
+    /// <remarks>
+    ///     The walk finds each such call in the code of the operation. It does
+    ///     not find a call in a different function that the operation calls.
+    /// </remarks>
+    /// <param name="call">The call of <c>MapAsync</c>.</param>
+    /// <param name="method">The method of the call.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    public void SendsTheResults(
+        InvocationExpressionSyntax call,
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        if ((this.quiet && !this.region.ReadsCodeAfterTheTransaction)
+            || ArgumentFor("results") is not { } results
+            || ArgumentFor("operation") is not { } operation)
+        {
+            return;
+        }
+
+        LoopState content =
+            this.Eval(operation).Functions
+                .SelectMany(static function => function.Declaration.DescendantNodes())
+                .OfType<InvocationExpressionSyntax>()
+                .Where(static result =>
+                    result.Expression is MemberAccessExpressionSyntax
+                    {
+                        Name.Identifier.ValueText: "FromValue" or "Construct"
+                    })
+                .Where(result =>
+                    this.region.SymbolOf(result) is IMethodSymbol { ContainingType.Name: "ResultFactory" } factory
+                    && this.region.Symbols.IsSodaFlow(factory))
+                .Aggregate(seed: LoopState.None, func: (all, result) => all.Join(this.ResultOf(result)));
+
+        if (content.IsNone)
+        {
+            return;
+        }
+
+        LoopStateEvaluator later = this.Quiet();
+
+        this.region.ReadAfterTheTransaction(function: call, read: () => later.Sends(sink: results, content: content));
+
+        return;
+
+        ExpressionSyntax? ArgumentFor(string name) =>
+            arguments
+                .Where((argument, position) =>
+                    ParameterFor(method: method, argument: argument, position: position)?.Name == name)
+                .Select(static argument => argument.Expression)
+                .FirstOrDefault();
+    }
+
+    // The content that a call of FromValue or Construct gives to the sink of results. Each of the
+    // two has one parameter. The function of Construct runs in the transaction of the send, and
+    // its return value is the result.
+    private LoopState ResultOf(InvocationExpressionSyntax result)
+    {
+        ExpressionSyntax value = result.ArgumentList.Arguments[0].Expression;
+
+        if (result.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "FromValue" })
+        {
+            return this.Eval(value).AsContent;
+        }
+
+        return this.Eval(value).Functions
+            .Select(static function => function.Declaration)
+            .OfType<AnonymousFunctionExpressionSyntax>()
+            .Aggregate(
+                seed: LoopState.None,
+                func: (all, function) =>
+                    all.Join(this.EvalBody(expressionBody: function.ExpressionBody, block: function.Block).AsContent));
+    }
+
     // True when a node runs only in the transaction of the block. That is the code of the block,
     // and a function in it that the library or the platform runs only in the call. The function of
     // a map of a constant cell is such a function also, because the transaction computes the first

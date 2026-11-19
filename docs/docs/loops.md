@@ -365,7 +365,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   two-way bindable of a sink, which sends the value into that sink after the transaction.
   `Execute` of a bindable action sends its parameter into the sink of its firings after the
   transaction in the same way. A handler that you add to an event of a bindable runs after the
-  transaction too, because the bindable raises its events through its scheduler.
+  transaction too, because the bindable raises its events through its scheduler. So does each
+  result that the operation of `MapAsync` gives to `FromValue` or `Construct`, which the pipeline
+  sends into the sink of results. The analyzer finds those calls only in the code of the
+  operation itself, and not in a method that the operation calls.
 - Members that C# calls with no call syntax: an indexer, an operator, a conversion, also of each
   element of a spread and of each element of a tuple that the code converts to a different tuple
   type or deconstructs, `operator true` or `operator false` before a user-defined `||` or `&&`, a

@@ -395,8 +395,9 @@ internal static class OperatorTable
             "Immediate",
             "Instance",
             // The map of a stream through a task. MapAsync keeps its function for a firing, and its
-            // status has the state of its inputs. The strategies, the results, and the status of
-            // one item are data.
+            // status has the state of its inputs. The walk reads each result of that function as a
+            // send into the sink of results after the transaction. The strategies, the results, and
+            // the status of one item are data.
             "MapAsync",
             "Construct",
             "FromValue",

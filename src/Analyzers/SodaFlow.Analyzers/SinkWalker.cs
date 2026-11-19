@@ -2860,6 +2860,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.evaluator.RunsAfterTheTransaction(action.Expression);
                 }
 
+                // A map through a task sends the result of its operation into its sink of results
+                // after the transaction.
+                if (method.Name == "MapAsync")
+                {
+                    this.evaluator.SendsTheResults(call: node, method: method, arguments: arguments);
+                }
+
                 // A scheduler of a bindable runs a posted action after the transaction, as
                 // Transaction.Post does. The contract of IBindingScheduler.Post forbids a run while a
                 // transaction is open. Each Post of the library with a receiver is that Post.

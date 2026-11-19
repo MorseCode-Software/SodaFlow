@@ -27643,6 +27643,26 @@ public static class Shapes
     public static Cell<int> Ab237SystemClockTimerSystemDisposeCallsNoFunctionOfTheTime() =>
         Cell.Loop<int>().WithoutCaptures(l => { bool late = Never; Cell<int> c = Plain; SystemClockTimerSystem timers = new(now: () => late ? DateTime.MinValue.AddTicks(c.Sample()) : DateTime.MinValue, handleException: static _ => { }); c = l.Map(v => v); timers.Dispose(); return S.Hold(0); });
 
+    // S6432. A map through a task sends the result of its operation into the results sink after the close. The result is a linked cell, and the switch of a hold of the results as the close selects it.
+    public static Cell<int> R4ApiMapAsyncResultOfALinkedCellReachesASwitchedHold() =>
+        ((Func<Cell<int>>)(() => { List<Exception> caught = []; Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> src = Stream.CreateSink<int>(); StreamSink<Cell<int>> results = Stream.CreateSink<Cell<int>>(); StreamSink<Exception> errors = Stream.CreateSink<Exception>(); Kept.Add(errors.Listen(caught.Add)); Cell<Cell<int>> h = results.Hold(Plain); Kept.Add(src.MapAsync(results: results, errors: errors, handleException: caught.Add, operation: (_, f, _) => Task.FromResult(f.FromValue(l.Map(v => v))), strategy: AsyncConcurrencyStrategy.Parallel())); src.Send(1); return h.SwitchC(); }); R4ApiRethrow(caught); return c; }))();
+
+    // S6433. The same as the result of a map through a task, but the operation gives the result through Construct. The pipeline calls its function in the transaction that sends the result, after the close.
+    public static Cell<int> Ab235ConstructOfALinkedCellReachesASwitchedHold() =>
+        ((Func<Cell<int>>)(() => { List<Exception> caught = []; Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> src = Stream.CreateSink<int>(); StreamSink<Cell<int>> results = Stream.CreateSink<Cell<int>>(); StreamSink<Exception> errors = Stream.CreateSink<Exception>(); Kept.Add(errors.Listen(caught.Add)); Cell<Cell<int>> h = results.Hold(Plain); Kept.Add(src.MapAsync(results: results, errors: errors, handleException: caught.Add, operation: (_, f, _) => Task.FromResult(f.Construct(() => l.Map(v => v))), strategy: AsyncConcurrencyStrategy.Parallel())); src.Send(1); return h.SwitchC(); }); R4ApiRethrow(caught); return c; }))();
+
+    // S6434. The same as the result of a map through a task that Construct gives, but the result has no link.
+    public static Cell<int> Ab235ConstructOfAPlainCellReachesASwitchedHold() =>
+        ((Func<Cell<int>>)(() => { List<Exception> caught = []; Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> src = Stream.CreateSink<int>(); StreamSink<Cell<int>> results = Stream.CreateSink<Cell<int>>(); StreamSink<Exception> errors = Stream.CreateSink<Exception>(); Kept.Add(errors.Listen(caught.Add)); Cell<Cell<int>> h = results.Hold(Plain); Kept.Add(src.MapAsync(results: results, errors: errors, handleException: caught.Add, operation: (v, f, _) => Task.FromResult(f.Construct(() => Cell.Constant(v))), strategy: AsyncConcurrencyStrategy.Parallel())); src.Send(1); return h.SwitchC(); }); R4ApiRethrow(caught); return c; }))();
+
+    // S6435. A map through a task whose operation gives a linked cell to FromValue. The close is a hold of the results with no switch, thus it is not a cycle.
+    public static Cell<int> Ab235MapAsyncResultOfALinkedCellReachesAHoldWithNoSwitch() =>
+        ((Func<Cell<int>>)(() => { List<Exception> caught = []; Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> src = Stream.CreateSink<int>(); StreamSink<Cell<int>> results = Stream.CreateSink<Cell<int>>(); StreamSink<Exception> errors = Stream.CreateSink<Exception>(); Kept.Add(errors.Listen(caught.Add)); Cell<Cell<int>> h = results.Hold(Plain); Kept.Add(src.MapAsync(results: results, errors: errors, handleException: caught.Add, operation: (_, f, _) => Task.FromResult(f.FromValue(l.Map(v => v))), strategy: AsyncConcurrencyStrategy.Parallel())); src.Send(1); return h.Map(_ => 0); }); R4ApiRethrow(caught); return c; }))();
+
+    // S6436. The operation of a map through a task gives a linked cell to a method of this code with the name FromValue. That method returns a cell with no link, which goes to the results. Thus, it is not a cycle.
+    public static Cell<int> Ab235FromValueOfTheCodeIsNoResult() =>
+        ((Func<Cell<int>>)(() => { List<Exception> caught = []; Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> src = Stream.CreateSink<int>(); StreamSink<Cell<int>> results = Stream.CreateSink<Cell<int>>(); StreamSink<Exception> errors = Stream.CreateSink<Exception>(); Kept.Add(errors.Listen(caught.Add)); Cell<Cell<int>> h = results.Hold(Plain); Kept.Add(src.MapAsync(results: results, errors: errors, handleException: caught.Add, operation: (_, f, _) => Task.FromResult(f.FromValue(Ab235Results.FromValue(l.Map(v => v)))), strategy: AsyncConcurrencyStrategy.Parallel())); src.Send(1); return h.SwitchC(); }); R4ApiRethrow(caught); return c; }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -39255,6 +39275,13 @@ public static class Shapes
         public void RunTimersTo(int now)
         {
         }
+    }
+
+    // A type of this code with a method named FromValue. It returns a cell with no link, and not
+    // the cell that it gets.
+    public static class Ab235Results
+    {
+        public static Cell<int> FromValue(Cell<int> value) => Plain;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

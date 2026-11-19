@@ -3969,6 +3969,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab237TimerSystemStartsAClockThatReads"] = ["SF1005"],
             ["Ab237TimerSystemDisposedThroughIDisposable"] = ["SF1005"],
             ["Ab237UsingOfATimerSystemStopsAClockThatReads"] = ["SF1005"],
-            ["Ab237SystemClockTimerSystemCallsItsFunctionOfTheTime"] = ["SF1001"]
+            ["Ab237SystemClockTimerSystemCallsItsFunctionOfTheTime"] = ["SF1001"],
+            ["R4ApiMapAsyncResultOfALinkedCellReachesASwitchedHold"] = ["SF1002"],
+            ["Ab235ConstructOfALinkedCellReachesASwitchedHold"] = ["SF1002"]
         };
 }
