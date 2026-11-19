@@ -27947,6 +27947,30 @@ public static class Shapes
     public static Cell<int> Ab250DoWithAConstantTrueConditionReadsTheSecondTurn() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int k = 0; do { Kept.Add(c.Sample()); c = l.Map(v => v); k++; if (k == 2) { break; } } while (R4LimOn); return S.Hold(0); });
 
+    // S6508. A get-only property with an expression body gives a complete task, so the code after its await samples in the call.
+    public static Cell<int> R4CsAwaitOfAnExpressionBodiedPropertyThatIsComplete() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await R4CsDoneProperty; Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S6509. An async helper samples after an await of Task.Delay of TimeSpan.Zero, which is complete.
+    public static Cell<int> R4LimReadAfterAnAwaitOfADelayOfZeroTime() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4LimReadAfterAZeroDelay(l.Map(v => v)).GetAwaiter().GetResult(); return S.Hold(0); });
+
+    // S6510. An async helper samples after an await of an expression-bodied property that gives a complete task.
+    public static Cell<int> R4LimReadAfterAnAwaitOfAPropertyWithABody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4LimReadAfterADoneBody(l.Map(v => v)).GetAwaiter().GetResult(); return S.Hold(0); });
+
+    // S6511. An async helper samples after an await of a property whose get accessor has a block body that gives a complete task.
+    public static Cell<int> Ab249ReadAfterAnAwaitOfAGetterWithABlockBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab249ReadAfterADoneBlock(l.Map(v => v)).GetAwaiter().GetResult(); return S.Hold(0); });
+
+    // S6512. An async helper samples after an await of an expression-bodied property that gives a task that never completes.
+    public static Cell<int> Ab249ReadAfterAnAwaitOfAPropertyThatGivesAPendingTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab249ReadAfterAPendingBody(l.Map(v => v))); return S.Hold(0); });
+
+    // S6513. An async helper samples after an await of Task.Delay of a field named Zero that is not TimeSpan.Zero.
+    public static Cell<int> Ab249ReadAfterAnAwaitOfADelayOfAFieldNamedZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab249ReadAfterADelayOfAnotherZero(l.Map(v => v))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -39590,6 +39614,36 @@ public static class Shapes
             get => this.share?.Sample() ?? 0;
             set => _ = value;
         }
+    }
+
+    private static Task Ab249DoneBlock
+    {
+        get { return Task.CompletedTask; }
+    }
+
+    private static async Task Ab249ReadAfterADoneBlock(Cell<int> c)
+    {
+        await Ab249DoneBlock;
+        Kept.Add(c.Sample());
+    }
+
+    private static Task Ab249PendingBody => new TaskCompletionSource().Task;
+
+    private static async Task Ab249ReadAfterAPendingBody(Cell<int> c)
+    {
+        await Ab249PendingBody;
+        Kept.Add(c.Sample());
+    }
+
+    public static class Ab249Pause
+    {
+        public static readonly TimeSpan Zero = Timeout.InfiniteTimeSpan;
+    }
+
+    private static async Task Ab249ReadAfterADelayOfAnotherZero(Cell<int> c)
+    {
+        await Task.Delay(Ab249Pause.Zero);
+        Kept.Add(c.Sample());
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

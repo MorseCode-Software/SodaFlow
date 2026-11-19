@@ -598,7 +598,7 @@ Some reads that throw it does not see:
   enumerator at the end of such a loop as code that runs later too. The
   analyzer knows the complete tasks that the platform makes, such as `Task.CompletedTask` and
   `Task.FromResult`, a local, a `readonly` field, or a get-only property whose initializer is such
-  a task, and a method of your own that returns only such tasks.
+  a task, and a method or a getter of your own that returns only such tasks.
 - Two calls of your methods that give the same object, in two cases. A read through a local that
   has a value of its own, written through that local, does not see a later write through a second
   call. And when a method returns a sealed class, the result of a call that comes before the first

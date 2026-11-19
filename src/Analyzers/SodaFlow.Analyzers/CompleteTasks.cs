@@ -14,8 +14,9 @@ namespace SodaFlow.Analyzers;
 ///     The answer is true for a task that the platform gives complete. It is
 ///     also true for a method of this compilation that gives only such tasks,
 ///     and for a local with one such value. A readonly field and a get-only
-///     property with such an initializer count also. For each other task, the
-///     answer is false, and the walk stops at the await.
+///     property with such an initializer count also, and so does a getter that
+///     gives only such tasks. For each other task, the answer is false, and the
+///     walk stops at the await.
 /// </remarks>
 internal static class CompleteTasks
 {
@@ -48,8 +49,11 @@ internal static class CompleteTasks
         return symbol switch
         {
             ILocalSymbol local => HasOneCompleteValue(region: region, local: local, visiting: visiting),
+            // A getter with a body gives the tasks of its return statements, as a method does.
             IFieldSymbol { IsReadOnly: true } or IPropertySymbol { IsReadOnly: true } =>
-                HasACompleteInitializer(region: region, member: symbol.OriginalDefinition, visiting: visiting),
+                HasACompleteInitializer(region: region, member: symbol.OriginalDefinition, visiting: visiting)
+                || (symbol is IPropertySymbol { GetMethod: { } getter }
+                    && GivesOnlyCompleteTasks(region: region, method: getter, visiting: visiting)),
             IMethodSymbol method when written is InvocationExpressionSyntax call =>
                 SodaFlowSymbols.IsTask(method.ContainingType)
                     ? IsCompleteFromThePlatform(region: region, method: method, call: call, visiting: visiting)
@@ -83,7 +87,7 @@ internal static class CompleteTasks
     }
 
     // WhenAll of tasks that are each complete is complete, and so is WhenAll of no task. A Delay
-    // of the constant zero is complete also.
+    // of the constant zero, or of TimeSpan.Zero, is complete also.
     private static bool IsCompleteFromThePlatform(
         LoopRegion region,
         ISymbol method,
@@ -96,9 +100,7 @@ internal static class CompleteTasks
         {
             "WhenAll" => arguments.All(argument =>
                 IsComplete(region: region, task: argument.Expression, visiting: visiting)),
-            "Delay" => arguments.Count == 1
-                       && region.ModelFor(call).GetConstantValue(arguments[0].Expression)
-                           is { HasValue: true, Value: 0 },
+            "Delay" => arguments.Count == 1 && IsZero(region: region, delay: arguments[0].Expression),
             _ => false
         };
     }
@@ -111,6 +113,12 @@ internal static class CompleteTasks
             region: region,
             method: method,
             visiting: new HashSet<ISymbol>(SymbolEqualityComparer.Default));
+
+    private static bool IsZero(LoopRegion region, ExpressionSyntax delay) =>
+        region.ModelFor(delay).GetConstantValue(delay) is { HasValue: true, Value: 0 }
+        || (delay is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Zero" }
+            && region.SymbolOf(delay) is IFieldSymbol { ContainingType: { Name: "TimeSpan" } owner }
+            && owner.ContainingNamespace?.ToDisplayString() == "System");
 
     // A method with async and no await of a task that can be not complete runs to its end in the
     // call. A method with no async gives the task of one of its return statements. A call of a
@@ -131,6 +139,8 @@ internal static class CompleteTasks
                 MethodDeclarationSyntax declared => (SyntaxNode?)declared.Body ?? declared.ExpressionBody?.Expression,
                 LocalFunctionStatementSyntax declared =>
                     (SyntaxNode?)declared.Body ?? declared.ExpressionBody?.Expression,
+                AccessorDeclarationSyntax declared => (SyntaxNode?)declared.Body ?? declared.ExpressionBody?.Expression,
+                ArrowExpressionClauseSyntax declared => declared.Expression,
                 _ => null
             };
 

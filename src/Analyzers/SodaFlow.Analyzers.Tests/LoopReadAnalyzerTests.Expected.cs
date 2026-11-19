@@ -4022,6 +4022,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab250ReadInAConstantTrueConditional"] = ["SF1001"],
             ["Ab250ReadInAForWithAConstantTrueCondition"] = ["SF1001"],
             ["Ab250ForWithAConstantFalseConditionRunsItsInitializer"] = ["SF1001"],
-            ["Ab250DoWithAConstantTrueConditionReadsTheSecondTurn"] = ["SF1001"]
+            ["Ab250DoWithAConstantTrueConditionReadsTheSecondTurn"] = ["SF1001"],
+            ["R4CsAwaitOfAnExpressionBodiedPropertyThatIsComplete"] = ["SF1001"],
+            ["R4LimReadAfterAnAwaitOfADelayOfZeroTime"] = ["SF1004"],
+            ["R4LimReadAfterAnAwaitOfAPropertyWithABody"] = ["SF1004"],
+            ["Ab249ReadAfterAnAwaitOfAGetterWithABlockBody"] = ["SF1004"]
         };
 }
