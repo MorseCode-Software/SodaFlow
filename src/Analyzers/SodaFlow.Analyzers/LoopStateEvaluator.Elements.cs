@@ -365,8 +365,7 @@ internal sealed partial class LoopStateEvaluator
                         DeclaringSyntaxReferences.IsEmpty: true, IsVirtual: false, IsAbstract: false, IsOverride: false
                     }
                     && !SodaFlowSymbols.IsLazyValue(property)
-                    && !(this.region.Symbols.IsSodaFlow(property)
-                         && SodaFlowSymbols.ReadMembers.Contains(property.Name))),
+                    && !this.region.Symbols.ReadsItsOwner(property)),
             ArgumentSyntax argument => argument.RefKindKeyword.IsKind(SyntaxKind.None),
             LocalDeclarationStatementSyntax declaration => declaration.UsingKeyword.IsKind(SyntaxKind.None),
             PostfixUnaryExpressionSyntax postfix => postfix.IsKind(SyntaxKind.SuppressNullableWarningExpression),

@@ -3062,6 +3062,7 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab213MethodReversesTheArrayTwoCallsDown"] = ["SF1001"],
             ["Ab213MethodPutsThroughASpan"] = ["SF1001"],
             ["Ab213MethodPutsThroughASecondField"] = ["SF1001"],
-            ["Ab213MethodRunsALambdaThatPuts"] = ["SF1001"]
+            ["Ab213MethodRunsALambdaThatPuts"] = ["SF1001"],
+            ["Ab217SampleOfAMapThatWritesTheElementBetween"] = ["SF1001"]
         };
 }

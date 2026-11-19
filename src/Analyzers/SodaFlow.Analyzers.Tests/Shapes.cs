@@ -20803,6 +20803,18 @@ public static class Shapes
     public static Cell<int> Ab213MethodRunsALambdaThatPuts() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab213Run; Ab213SetRun(l.Map(v => v)); a[0].Share = Plain; Ab213RunIt(() => Ab213Run[0] = new SettableSlot { Share = l.Map(v => v) }); return S.Hold(a[0].Share!.Sample()); });
 
+    // S4723. A method writes a pending cell through the field, and the block writes a plain cell through the local. The block then reads the Value of an AsyncItem and then the element. That Value is the input of the item, and it reads no cell.
+    public static Cell<int> Ab217AsyncItemValueBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab217Between; Ab217SetBetween(l.Map(v => v)); a[0].Share = Plain; int n = Ab217Item.Value; return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S4724. The same, but the block reads the Value of the AsyncItem before the plain write.
+    public static Cell<int> Ab217AsyncItemValueBeforeThePlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab217Before; Ab217SetBefore(l.Map(v => v)); int n = Ab217Item.Value; a[0].Share = Plain; return S.Hold(a[0].Share!.Sample() + n); });
+
+    // S4725. The same, but with a sample of a map between. The function of the map puts the pending cell in the element again.
+    public static Cell<int> Ab217SampleOfAMapThatWritesTheElementBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab217Mapped; Cell<int> pending = l.Map(v => v); Cell<int> w = Plain.Map(v => { Ab217Mapped[0].Share = pending; return v; }); Ab217SetMapped(pending); a[0].Share = Plain; int n = w.Sample(); return S.Hold(a[0].Share!.Sample() + n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -29099,6 +29111,20 @@ public static class Shapes
     private static void Ab213SetRun(Cell<int> share) => Ab213Run[0].Share = share;
 
     private static void Ab213RunIt(Action act) => act();
+
+    private static readonly AsyncItem<int> Ab217Item = new(value: 4, status: AsyncItemStatus.Queued);
+
+    private static readonly SettableSlot[] Ab217Between = [new()];
+
+    private static void Ab217SetBetween(Cell<int> share) => Ab217Between[0].Share = share;
+
+    private static readonly SettableSlot[] Ab217Before = [new()];
+
+    private static void Ab217SetBefore(Cell<int> share) => Ab217Before[0].Share = share;
+
+    private static readonly SettableSlot[] Ab217Mapped = [new()];
+
+    private static void Ab217SetMapped(Cell<int> share) => Ab217Mapped[0].Share = share;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
