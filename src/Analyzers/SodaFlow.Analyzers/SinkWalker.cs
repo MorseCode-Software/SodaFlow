@@ -2817,11 +2817,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             // An operator keeps its function for a firing after the close, but for the few that
             // run it in the block.
+            // A fold of a collection runs its functions over the items, whose states are the content
+            // of the collection.
             case CalleeKind.Library:
                 this.VisitArguments(
                     arguments: arguments,
                     runs: Runs,
-                    given: LoopState.None,
+                    given: OperatorTable.ReadsReceiverAtConstruction(LoopStateEvaluator.OperatorName(method))
+                        ? this.evaluator.Eval(receiver).Content
+                        : LoopState.None,
                     oneTime: OperatorTable.RunsFunctionOneTime(method));
 
                 if (!OperatorTable.EnumeratesAfterTheClose(method))

@@ -153,6 +153,48 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The state of a reactive collection that its factory makes. A pending
+    ///     cell of initial items makes the collection pending, and a linked stream
+    ///     of edits links it. The items that the code gives in a list are content
+    ///     only.
+    /// </summary>
+    /// <remarks>
+    ///     The collection holds the state of each item, and does not read it or
+    ///     listen to it. Thus, the state of an item does not make the collection
+    ///     pending or linked. A read of the state, as the select of a fold does,
+    ///     gets the content.
+    /// </remarks>
+    private LoopState MadeCollection(
+        LoopState inputs,
+        IReadOnlyList<LoopState> argumentStates,
+        IReadOnlyList<ITypeSymbol?> argumentTypes)
+    {
+        bool pending = false;
+        bool linked = false;
+        LoopState items = LoopState.None;
+
+        for (int i = 0; i < argumentStates.Count; i++)
+        {
+            if (this.region.Symbols.IsCellOrBehaviorType(argumentTypes[i]))
+            {
+                pending |= argumentStates[i].Pending;
+            }
+            else if (this.region.Symbols.IsStreamType(argumentTypes[i])
+                     || (argumentTypes[i] is IArrayTypeSymbol { ElementType: var element }
+                         && this.region.Symbols.IsStreamType(element)))
+            {
+                linked |= argumentStates[i].Linked;
+            }
+            else
+            {
+                items = items.Join(argumentStates[i]);
+            }
+        }
+
+        return inputs.WithPending(pending).WithLinked(linked).WithContent(inputs.Content.Join(items));
+    }
+
+    /// <summary>
     ///     The values that a hold or an accumulation holds. The initial value is
     ///     one. A hold gets the values of its stream after the close, and an
     ///     accumulation gets what its function returns then. A collect keeps no

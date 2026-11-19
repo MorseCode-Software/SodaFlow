@@ -3993,6 +3993,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4ApiLiftOfAListOfCellsHoldingALinkedCell"] = ["SF1002"],
             ["Ab231StaticLiftOfAListOfCellsHoldingALinkedCell"] = ["SF1002"],
             ["Ab231LiftOfAListWhoseSecondCellHoldsALinkedCell"] = ["SF1002"],
-            ["Ab231LiftOfAListOfCellsHoldingAPendingCellSampled"] = ["SF1001"]
+            ["Ab231LiftOfAListOfCellsHoldingAPendingCellSampled"] = ["SF1001"],
+            ["R4ApiFoldOfLinkedStatesSwitched"] = ["SF1002"],
+            ["Ab240FoldThatSamplesAPendingState"] = ["SF1001"],
+            ["Ab240StateCellOfAPendingStateSwitchedAndSampled"] = ["SF1001"],
+            ["Ab240KeysOfACollectionFromAPendingCell"] = ["SF1001"],
+            ["Ab240KeysOfACollectionWithAnArrayOfLinkedEdits"] = ["SF1002"],
+            ["Ab240KeysOfACollectionWithLinkedEdits"] = ["SF1002"]
         };
 }

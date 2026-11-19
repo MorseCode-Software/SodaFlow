@@ -2769,14 +2769,10 @@ internal sealed partial class LoopStateEvaluator
                         method: method,
                         inputs: inputs)
                     .WithMembers(this.ActionParts(method: method, arguments: arguments)),
-                // A cell of initial items is an input that is not a link.
-                OperatorRule.CollectionCreate => inputs.WithLinked(
-                    LinkedStreamInput(
-                        symbols: this.region.Symbols,
-                        receiverState: receiverState,
-                        receiverType: receiverType,
-                        argumentStates: argumentStates,
-                        argumentTypes: argumentTypes)),
+                OperatorRule.CollectionCreate => this.MadeCollection(
+                    inputs: inputs,
+                    argumentStates: argumentStates,
+                    argumentTypes: argumentTypes),
                 _ => throw new ArgumentOutOfRangeException(
                     paramName: nameof(invocation),
                     message: "An operator rule has no case.")

@@ -27755,6 +27755,46 @@ public static class Shapes
     public static Cell<int> Ab231LiftOfAListOfCellsHoldingAPendingCellSampled() =>
         Cell.Loop<int>().WithoutCaptures(l => { int v = new[] { Cell.Constant(l.Map(v => v)) }.Lift().Sample()[0].Sample(); return S.Hold(v); });
 
+    // S6460. A fold of a collection that holds a pending cell as a state counts the items. The fold reads the snapshot at construction, which does not sample the cell. Thus, it does not throw.
+    public static Cell<int> R4ApiFoldCountOfACollectionWithAPendingCellAsState() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> count = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: l.Map(v => v))], Stream.Never<CollectionEdit<int, ItemId, Cell<int>>>()).FoldByIdentity(select: _ => 1, zero: 0, add: (a, b) => a + b, subtract: (a, b) => a - b); return S.Snapshot(count, (a, b) => a + b).Hold(0); });
+
+    // S6461. A fold of a collection takes its first value from the items at construction. The state of the item is a linked cell, and the switch of the fold as the close selects it.
+    public static Cell<int> R4ApiFoldOfLinkedStatesSwitched() =>
+        Cell.Loop<int>().WithoutCaptures(l => ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: l.Map(v => v))], Stream.Never<CollectionEdit<int, ItemId, Cell<int>>>()).Fold(select: (_, c) => c, zero: Plain, add: (_, b) => b, subtract: (a, _) => a).SwitchC());
+
+    // S6462. A collection holds a pending cell as the state of an item. A read of its keys does not sample that cell, thus it does not throw.
+    public static Cell<int> R4ApiKeysOfACollectionWithAPendingCellAsState() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int count = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: l.Map(v => v))], Stream.Never<CollectionEdit<int, ItemId, Cell<int>>>()).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S6463. A collection holds a pending cell as the state of an item. A sample of the state cell of that key gives the cell and does not sample it, thus it does not throw.
+    public static Cell<int> R4ApiStateCellOfACollectionWithAPendingCellAsStateSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { bool has = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: l.Map(v => v))], Stream.Never<CollectionEdit<int, ItemId, Cell<int>>>()).StateCell(1).Sample().HasValue(); return S.Hold(has ? 1 : 0); });
+
+    // S6464. The select of a fold samples the state of each item at construction. The state is a pending cell, thus the sample throws.
+    public static Cell<int> Ab240FoldThatSamplesAPendingState() =>
+        Cell.Loop<int>().WithoutCaptures(l => ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: l.Map(v => v))], Stream.Never<CollectionEdit<int, ItemId, Cell<int>>>()).Fold(select: (_, c) => c.Sample(), zero: 0, add: (a, b) => a + b, subtract: (a, b) => a - b));
+
+    // S6465. The switch of the state cell of a key gives the pending cell that the item holds. A sample of the switch in the block samples that cell, thus it throws.
+    public static Cell<int> Ab240StateCellOfAPendingStateSwitchedAndSampled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int v = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: l.Map(v => v))], Stream.Never<CollectionEdit<int, ItemId, Cell<int>>>()).StateCell(1).Map(m => m.Match(onSome: c => c, onNone: () => Plain)).SwitchC().Sample(); return S.Hold(v); });
+
+    // S6466. The items of the collection come from a local array. The state of the item is a pending cell, and a read of the keys does not sample it.
+    public static Cell<int> Ab240KeysOfACollectionOfItemsInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Item<ItemId, Cell<int>>[] items = [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: l.Map(v => v))]; int count = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: items, Stream.Never<CollectionEdit<int, ItemId, Cell<int>>>()).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S6467. A collection from a pending cell of items reads that cell at the first read. Thus, a read of its keys in the block throws.
+    public static Cell<int> Ab240KeysOfACollectionFromAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int count = ReactiveCollection.Create<int, ItemId, int>(initialEntries: l.Map<int, IEnumerable<Item<ItemId, int>>>(v => [new Item<ItemId, int>(identity: new ItemId(v), state: v)]), Stream.Never<CollectionEdit<int, ItemId, int>>()).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S6468. The edits of the collection come from the updates of the placeholder, in an array of streams. The keys of the collection, as the close, are a cycle.
+    public static Cell<int> Ab240KeysOfACollectionWithAnArrayOfLinkedEdits() =>
+        Cell.Loop<int>().WithoutCaptures(l => ReactiveCollection.Create<int, ItemId, int>(initialEntries: Array.Empty<Item<ItemId, int>>(), new[] { l.Updates().Map(v => CollectionEdit<int, ItemId, int>.Remove(v)) }).KeysCell.Map(k => k.Count));
+
+    // S6469. The edits of the collection come from the updates of the placeholder. The keys of the collection, as the close, are a cycle.
+    public static Cell<int> Ab240KeysOfACollectionWithLinkedEdits() =>
+        Cell.Loop<int>().WithoutCaptures(l => ReactiveCollection.Create<int, ItemId, int>(initialEntries: Array.Empty<Item<ItemId, int>>(), l.Updates().Map(v => CollectionEdit<int, ItemId, int>.Remove(v))).KeysCell.Map(k => k.Count));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -155,9 +155,10 @@ internal enum OperatorRule
     BindableAction,
 
     /// <summary>
-    ///     A reactive collection. Pending when an input is. It samples its cell
-    ///     of initial items lazily and does not listen to it. Thus, only a linked
-    ///     edit stream links it.
+    ///     A reactive collection. It samples its cell of initial items lazily and
+    ///     does not listen to it. Thus, only a pending cell of initial items makes
+    ///     it pending, and only a linked edit stream links it. The items in a list
+    ///     are content.
     /// </summary>
     CollectionCreate,
 
