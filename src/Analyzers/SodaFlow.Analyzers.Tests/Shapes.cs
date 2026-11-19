@@ -27415,6 +27415,10 @@ public static class Shapes
     public static Cell<int> R4PairAb210StoreObjectInElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R4PairUnseen[4]]; SettableSlot d = new(); a[0] = d; d.Share = l.Map(v => v); a[0].Share = Plain; return S.Hold(d.Share!.Sample()); });
 
+    // S6375. Carried AB212: The probe N4 of AB212.
+    public static Cell<int> R4PairAb212PlainThroughLocalAfterPendingThroughField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R4PairK14; R4PairK14[0].Share = l.Map(v => v); a[0].Share = Plain; return S.Hold(R4PairK14[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
