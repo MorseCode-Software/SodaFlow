@@ -40,6 +40,10 @@ build. Unlike the net8.0 builds of the C# packages, it is not marked as compatib
 analyzers that check that mark do not run on F#, and a native AOT publish that roots the F# packages reports warnings
 inside FSharp.Core.
 
+Added: each assembly in the package carries its PDB, with Source Link to the commit on GitHub. A debugger can step into
+the source with no symbol server, and a stack trace on .NET shows line numbers. The package has a readme, and its
+metadata gives the URL of the repository.
+
 2.0.0
 
 Adds fold, for a total, a count, or an average that follows the collection. It takes select, zero, add, and subtract,

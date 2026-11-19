@@ -619,6 +619,10 @@ method of each expansion, and an app does not. The publish of an app that uses G
 OrElse, Merge, Hold, Lift, Updates, and Listen reported none. The build of the repository now publishes that app with
 each warning as an error, and runs it.
 
+Added: each assembly in the package carries its PDB, with Source Link to the commit on GitHub. A debugger can step into
+the source with no symbol server, and a stack trace on .NET shows line numbers. The package has a readme, and its
+metadata gives the URL of the repository.
+
 5.0.0
 
 Adds StreamExtensionMethodsInternal.DebounceImpl, which each language surface gives as a debounce of a stream. It fires

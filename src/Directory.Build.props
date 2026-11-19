@@ -109,8 +109,23 @@
         <Authors>MorseCode Software LLC</Authors>
         <Company>MorseCode Software LLC</Company>
         <PackageProjectUrl>https://github.com/MorseCode-Software/SodaFlow</PackageProjectUrl>
-        <IncludeSource>True</IncludeSource>
-        <IncludeSymbols>True</IncludeSymbols>
+    </PropertyGroup>
+
+    <!--
+        Each assembly carries its PDB inside it. Thus, a debugger finds the PDB with no symbol server, and
+        a stack trace on .NET has line numbers. The SDK already adds Source Link, which maps each document
+        in the PDB to the commit on GitHub. The other choice was a .snupkg on the symbol server of
+        nuget.org. Its push with the key of trusted publishing is not documented. A failure of that push
+        shows only after the package is on nuget.org. The cost is 8 KB to 113 KB for each package.
+
+        PublishRepositoryUrl puts the URL of the repository in the nuspec, beside the commit. On CI,
+        ContinuousIntegrationBuild maps the paths in the PDB to /_/. Thus, a build of one commit gives the
+        same files on each machine. A local build keeps its own paths, which a local debugger uses.
+    -->
+    <PropertyGroup>
+        <DebugType>embedded</DebugType>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
     <!--
