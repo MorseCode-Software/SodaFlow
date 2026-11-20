@@ -1205,7 +1205,7 @@ internal sealed partial class LoopStateEvaluator
         IMethodSymbol system,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         SyntaxNode call,
-        IReadOnlyList<string> members)
+        IEnumerable<string> members)
     {
         if (system.ContainingType is not { Name: "TimerSystem" or "SystemClockTimerSystem" } type
             || !this.region.Symbols.IsSodaFlow(type))
@@ -1217,14 +1217,15 @@ internal sealed partial class LoopStateEvaluator
         // time.
         if (type.Name == "SystemClockTimerSystem")
         {
-            return members.Contains("Now") && ArgumentFor("now") is { } now
+            return members.Contains("Now")
+                   && ArgumentFor(method: system, arguments: arguments, parameter: "now") is { } now
                 ? this.FollowCallback(call: call, callback: now)
                 : null;
         }
 
         if (system.Parameters.FirstOrDefault(static parameter => parameter.Name == "implementation")
                 is not { Type: var contract }
-            || ArgumentFor("implementation") is not { } implementation)
+            || ArgumentFor(method: system, arguments: arguments, parameter: "implementation") is not { } implementation)
         {
             return null;
         }
@@ -1233,7 +1234,9 @@ internal sealed partial class LoopStateEvaluator
 
         // Start gets the handler of the timer system.
         IReadOnlyList<(ExpressionSyntax Written, LoopState State)> handler =
-            ArgumentFor("handleException") is { } given ? [(given, this.Eval(given))] : [];
+            ArgumentFor(method: system, arguments: arguments, parameter: "handleException") is { } given
+                ? [(given, this.Eval(given))]
+                : [];
 
         return members
             .SelectMany(name => contract.GetMembers(name))
@@ -1249,13 +1252,6 @@ internal sealed partial class LoopStateEvaluator
                             member: member,
                             owner: clock,
                             arguments: member.Parameters.IsEmpty ? [] : handler)));
-
-        ExpressionSyntax? ArgumentFor(string name) =>
-            arguments
-                .Where((argument, position) =>
-                    ParameterFor(method: system, argument: argument, position: position)?.Name == name)
-                .Select(static argument => argument.Expression)
-                .FirstOrDefault();
     }
 
     /// <summary>

@@ -102,7 +102,7 @@ internal sealed class OperatorTableTests
             .Concat(type.GetConstructors(Declared).Select(_ => TypeNameOf(type)));
 
     // The name of a generic type has its number of type parameters after a backtick.
-    private static string TypeNameOf(Type type) => type.Name.Split('`')[0];
+    private static string TypeNameOf(MemberInfo type) => type.Name.Split('`')[0];
 
     private static string NameOf(MethodInfo method)
     {
