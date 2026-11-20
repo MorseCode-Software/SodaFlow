@@ -14,7 +14,7 @@ internal sealed partial class LoopStateEvaluator
     // The operator that a binary or a unary operation on a dynamic value calls. Each operand of an
     // object that the walk saw made gives the operators of its type. The evaluator reads one only
     // when the types have one operator with that name and number of operands.
-    private Followed? FollowDynamicOperator(ExpressionSyntax operation, IReadOnlyList<ExpressionSyntax> operands)
+    private Followed? FollowDynamicOperator(CSharpSyntaxNode operation, IReadOnlyCollection<ExpressionSyntax> operands)
     {
         if (OperatorName(operation.Kind()) is not { } name)
         {
@@ -45,7 +45,7 @@ internal sealed partial class LoopStateEvaluator
     // The implicit conversion that the binder calls where the code converts a dynamic value to a type
     // with no cast. It is an operator of the type of the object that gives the type of the
     // conversion.
-    private Followed? FollowDynamicConversion(ExpressionSyntax expression, ITypeSymbol to)
+    private Followed? FollowDynamicConversion(ExpressionSyntax expression, ISymbol to)
     {
         LoopState state = this.Self(expression);
 
