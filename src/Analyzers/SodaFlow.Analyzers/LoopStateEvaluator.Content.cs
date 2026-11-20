@@ -58,9 +58,240 @@ internal sealed partial class LoopStateEvaluator
         ImmutableArray<LoopState> inputs =
             (receiver != null ? given.Prepend(receiverState.Content) : given).ToImmutableArray();
 
+        // Each lift with a function has an input for the function. A lift with no function is a lift
+        // of a list of cells, and its value is the list of their values.
+        if (inputs.Length == 1)
+        {
+            return inputs[0];
+        }
+
         return lambda == null
             ? this.ContentOfANamedFunction(invocation: invocation, given: inputs)
             : this.EvalLambdaResult(lambda: lambda, boundParameters: inputs);
+    }
+
+    /// <summary>
+    ///     The state of what the functions in the cell of an apply return. Each
+    ///     function gets the value of the receiver.
+    /// </summary>
+    /// <remarks>
+    ///     The functions are in the content of the cell, and not at the call.
+    ///     The operator runs them at a time that the walk does not know. Thus,
+    ///     an evaluator that changes nothing reads them, as for a named function.
+    /// </remarks>
+    private LoopState AppliedContent(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        ExpressionSyntax? receiver,
+        LoopState receiverState,
+        LoopState functionCell)
+    {
+        if (functionCell.Content.Functions.IsEmpty
+            || !this.HoldsContent(method)
+            || invocation.ArgumentList.Arguments.FirstOrDefault(argument => argument.Expression != receiver)
+                is not { } written)
+        {
+            return LoopState.None;
+        }
+
+        return this.ResultOfTheFunctions(
+            call: invocation,
+            written: written.Expression,
+            functions: functionCell.Content,
+            given: ImmutableArray.Create(receiverState.Content));
+    }
+
+    // What the functions of a state return, for an operator that runs them at a time that the walk
+    // does not know. Thus, an evaluator that changes nothing reads them.
+    private LoopState ResultOfTheFunctions(
+        SyntaxNode call,
+        ExpressionSyntax written,
+        LoopState functions,
+        ImmutableArray<LoopState> given)
+    {
+        if (functions.Functions.IsEmpty)
+        {
+            return LoopState.None;
+        }
+
+        LoopStateEvaluator quiet = this.Quiet();
+
+        return functions.Functions.Aggregate(
+            seed: LoopState.None,
+            func: (all, function) =>
+                all.Join(
+                    quiet.FollowFunction(
+                            call: call,
+                            name: NameOf(written),
+                            function: function,
+                            target: functions,
+                            arguments: default,
+                            each: (written, LoopState.None, ManyTimes: true),
+                            byPosition: given)
+                        ?.State
+                    ?? LoopState.None));
+    }
+
+    /// <summary>
+    ///     What the transforms of an update of a collection return. The transform
+    ///     of <c>Update</c> is an argument. The transforms of <c>FromUpdates</c>
+    ///     are in the content of its stream. A transform runs when the edit fires,
+    ///     after the close.
+    /// </summary>
+    /// <remarks>
+    ///     A transform gets the state that the item has at that time. The content
+    ///     of the collection holds that state. Thus, the parameter of the transform
+    ///     gets no state here.
+    /// </remarks>
+    private LoopState TransformedContent(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        IReadOnlyList<LoopState> argumentStates)
+    {
+        ImmutableArray<ITypeSymbol> types = method.ContainingType.TypeArguments;
+
+        if (types.Length != 3
+            || !this.region.Symbols.CanHoldState(type: types[2], compilation: this.region.Assembly))
+        {
+            return LoopState.None;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+        ImmutableArray<LoopState> given = ImmutableArray.Create(LoopState.None);
+        LoopState transformed = LoopState.None;
+
+        for (int i = 0; i < arguments.Count && i < argumentStates.Count; i++)
+        {
+            ITypeSymbol? type = ParameterFor(method: method, argument: arguments[i], position: i)?.Type;
+
+            LoopState functions =
+                type?.TypeKind == TypeKind.Delegate
+                    ? this.Eval(arguments[i].Expression)
+                    : this.region.Symbols.IsStreamType(type)
+                        ? argumentStates[i].Content
+                        : LoopState.None;
+
+            transformed =
+                transformed.Join(
+                    this.ResultOfTheFunctions(
+                        call: invocation,
+                        written: arguments[i].Expression,
+                        functions: functions,
+                        given: given));
+        }
+
+        return transformed.AfterTheClose;
+    }
+
+    /// <summary>
+    ///     What the function of a merge returns. The first parameter gets the
+    ///     content of the receiver. The second gets the content of the second
+    ///     stream, or of the list for a merge of a list of streams.
+    /// </summary>
+    /// <remarks>
+    ///     The function runs only when two streams fire in one transaction. The
+    ///     walk does not know when that occurs. Thus, it reads the function as a
+    ///     function that runs, as for a read that occurs only if a condition is
+    ///     true.
+    /// </remarks>
+    private LoopState MergedContent(
+        InvocationExpressionSyntax invocation,
+        IMethodSymbol method,
+        ITypeSymbol? receiverType,
+        LoopState receiverState,
+        IReadOnlyList<LoopState> argumentStates)
+    {
+        // Of the operators of this rule, only Merge takes a function, and each Merge takes one. The
+        // name is the same test with no read of the parameters, which the compiler makes anew.
+        if (method.Name != "Merge" || !this.HoldsContent(method))
+        {
+            return LoopState.None;
+        }
+
+        ImmutableArray<LoopState> given =
+            ImmutableArray.Create(
+                item1: receiverState.Content,
+                item2: this.region.Symbols.IsStreamType(receiverType) && argumentStates.Count > 0
+                    ? argumentStates[0].Content
+                    : receiverState.Content);
+
+        return invocation.ArgumentList.Arguments
+                .Select(static a => a.Expression)
+                .OfType<AnonymousFunctionExpressionSyntax>()
+                .FirstOrDefault() is { } lambda
+            ? this.EvalLambdaResult(lambda: lambda, boundParameters: given)
+            : this.ContentOfANamedFunction(invocation: invocation, given: given);
+    }
+
+    /// <summary>
+    ///     The state of a reactive collection that its factory makes. A pending
+    ///     cell of initial items makes the collection pending, and a linked stream
+    ///     of edits links it. The items that the code gives in a list are content
+    ///     only.
+    /// </summary>
+    /// <remarks>
+    ///     The collection holds the state of each item, and does not read it or
+    ///     listen to it. Thus, the state of an item does not make the collection
+    ///     pending or linked. A read of the state, as the select of a fold does,
+    ///     gets the content.
+    /// </remarks>
+    private LoopState MadeCollection(
+        LoopState inputs,
+        IReadOnlyList<LoopState> argumentStates,
+        IReadOnlyList<ITypeSymbol?> argumentTypes)
+    {
+        bool pending = false;
+        bool linked = false;
+        LoopState items = LoopState.None;
+
+        for (int i = 0; i < argumentStates.Count; i++)
+        {
+            if (this.region.Symbols.IsCellOrBehaviorType(argumentTypes[i]))
+            {
+                pending |= argumentStates[i].Pending;
+            }
+            else if (this.region.Symbols.IsStreamType(argumentTypes[i])
+                     || (argumentTypes[i] is IArrayTypeSymbol { ElementType: var element }
+                         && this.region.Symbols.IsStreamType(element)))
+            {
+                linked |= argumentStates[i].Linked;
+            }
+            else
+            {
+                items = items.Join(argumentStates[i]);
+            }
+        }
+
+        return inputs.WithPending(pending).WithLinked(linked).WithContent(inputs.Content.Join(items));
+    }
+
+    /// <summary>
+    ///     What the sends of the block give to the sinks that a value can be. The
+    ///     walk knows the sends into a sink that it saw made only. Thus, the result
+    ///     is null when the value can be a different object.
+    /// </summary>
+    private LoopState? SentToTheSinks(LoopState value)
+    {
+        ImmutableArray<MadeObject> objects = this.region.Objects.Now(value.Objects);
+
+        if (objects.IsEmpty)
+        {
+            return null;
+        }
+
+        LoopState sent = LoopState.None;
+
+        foreach (MadeObject made in objects)
+        {
+            if (this.region.Objects.CreationOfASink(made) is not { } creation)
+            {
+                return null;
+            }
+
+            sent = sent.Join(this.region.SentBefore.To(creation).Content);
+        }
+
+        return sent;
     }
 
     /// <summary>

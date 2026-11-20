@@ -477,6 +477,10 @@ internal sealed class Construction(
         return null;
     }
 
+    /// <summary>True for an object of an anonymous type.</summary>
+    public bool IsAnonymous =>
+        !this.members.IsEmpty && this.members.Keys.All(static key => key.ContainingType is { IsAnonymousType: true });
+
     /// <summary>True for a tuple that the code wrote with parentheses.</summary>
     public bool IsTuple =>
         !this.members.IsEmpty && this.members.Keys.All(static key => key.ContainingType is { IsTupleType: true });
@@ -534,6 +538,30 @@ internal sealed class Construction(
                     IPropertySymbol { Type: ITypeParameterSymbol parameter } => parameter.Ordinal,
                     _ => -1
                 }, pair.Value));
+
+    /// <summary>
+    ///     The operators and the conversions of the types of this object, and of
+    ///     their base types, that have the name and the number of parameters.
+    /// </summary>
+    public IEnumerable<IMethodSymbol> OperatorsOf(string name, int parameters) =>
+        this.types
+            .SelectMany(static type => BaseTypesAndSelf(type))
+            .SelectMany(type => type.GetMembers(name))
+            .OfType<IMethodSymbol>()
+            .Where(method => method is
+                             {
+                                 IsStatic: true,
+                                 MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion
+                             }
+                             && method.Parameters.Length == parameters);
+
+    private static IEnumerable<INamedTypeSymbol> BaseTypesAndSelf(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
+        {
+            yield return current;
+        }
+    }
 
     /// <summary>
     ///     The instance methods of the types of this object that have the name

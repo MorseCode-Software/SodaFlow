@@ -35,6 +35,22 @@ internal sealed class LoopRegion(
     // make.
     private readonly Dictionary<ISymbol, LoopState> fields = new(SymbolEqualityComparer.Default);
 
+    // For each key of the fields: the number of the writes to a member at the last state that it got.
+    private readonly Dictionary<ISymbol, int> lastWrites = new(SymbolEqualityComparer.Default);
+
+    // For each member: each write through a name that gave the field its state. The record has the
+    // name, the objects of the store that the owner can be, and the number of the write.
+    private readonly Dictionary<ISymbol, List<NamedWrite>> writesThroughNames =
+        new(SymbolEqualityComparer.Default);
+
+    // Each two names that an assignment made two names of one value, from Links.
+    private readonly List<NameLink> links = [];
+
+    // For a field that holds an array: each put into an element through a local that got the array,
+    // with the constant index or -1. See PutsThroughLocalsOf.
+    private readonly Dictionary<ISymbol, List<(int Index, LoopState Held)>> putsThroughLocals =
+        new(SymbolEqualityComparer.Default);
+
     // True when a key of the fields is a property of an interface: see FieldState.
     private bool hasInterfaceFields;
 
@@ -49,7 +65,7 @@ internal sealed class LoopRegion(
 
     // The walk and the evaluator get the symbol and the type of one node many times. The compiler
     // computes them again at each call, thus the region keeps them.
-    private readonly Dictionary<ExpressionSyntax, IMethodSymbol?> conversionOf = [];
+    private readonly Dictionary<ExpressionSyntax, Conversion> conversionOf = [];
     private readonly Dictionary<SyntaxNode, ISymbol?> symbolOf = [];
     private readonly Dictionary<ExpressionSyntax, ITypeSymbol?> typeOf = [];
 
@@ -64,6 +80,7 @@ internal sealed class LoopRegion(
     // The members of the object of a forward reference that the code samples at the end of the
     // transaction, before a switch links to them.
     private readonly HashSet<ISymbol> forced = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<INamedTypeSymbol> startedTypes = new(SymbolEqualityComparer.Default);
 
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
@@ -151,6 +168,12 @@ internal sealed class LoopRegion(
     public bool HasFields => this.fields.Count > 0;
 
     /// <summary>
+    ///     Records that the walk reads the static constructor of a type. True
+    ///     the first time for each type, which is the only time it runs.
+    /// </summary>
+    public bool StartsTheType(INamedTypeSymbol type) => this.startedTypes.Add(type);
+
+    /// <summary>
     ///     Keeps the objects as results of calls that a second call can give
     ///     also. See <see cref="IsAnOlderObject" />.
     /// </summary>
@@ -211,6 +234,8 @@ internal sealed class LoopRegion(
 
         this.fields[key] =
             this.fields.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
+
+        this.lastWrites[key] = this.MemberWrites;
 
         this.hasInterfaceFields |= key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
     }
@@ -310,16 +335,31 @@ internal sealed class LoopRegion(
     ///     The operator that makes the conversion which the compiler adds to an
     ///     expression. Null when it adds none, or one that no operator makes.
     /// </summary>
-    public IMethodSymbol? ConversionOf(ExpressionSyntax expression)
+    public IMethodSymbol? ConversionOf(ExpressionSyntax expression) =>
+        this.ConversionAt(expression) is { IsUserDefined: true, MethodSymbol: { } method } ? method : null;
+
+    /// <summary>
+    ///     True when the compiler converts the value of the expression, a tuple
+    ///     that is not a tuple literal, to a different tuple type. Each element
+    ///     then gets a conversion that no node shows.
+    /// </summary>
+    public bool ConvertsATuple(ExpressionSyntax expression) => this.ConversionAt(expression).IsTupleConversion;
+
+    /// <summary>
+    ///     True when the compiler converts the value of the expression, of the
+    ///     type dynamic, with a conversion that the binder finds at run time.
+    /// </summary>
+    public bool ConvertsADynamic(ExpressionSyntax expression) => this.ConversionAt(expression).IsDynamic;
+
+    private Conversion ConversionAt(ExpressionSyntax expression)
     {
-        if (!this.conversionOf.TryGetValue(key: expression, value: out IMethodSymbol? method))
+        if (!this.conversionOf.TryGetValue(key: expression, value: out Conversion conversion))
         {
-            Conversion conversion = this.ModelFor(expression).GetConversion(expression);
-            method = conversion.IsUserDefined ? conversion.MethodSymbol : null;
-            this.conversionOf[expression] = method;
+            conversion = this.ModelFor(expression).GetConversion(expression);
+            this.conversionOf[expression] = conversion;
         }
 
-        return method;
+        return conversion;
     }
 
     /// <summary>
@@ -340,6 +380,13 @@ internal sealed class LoopRegion(
     /// </summary>
     public IMethodSymbol? ConversionOperator(ITypeSymbol from, ITypeSymbol to) =>
         this.compilation.ClassifyConversion(source: from, destination: to).MethodSymbol;
+
+    /// <summary>
+    ///     True when a value of the first type can be a value of the second
+    ///     type, also through a cast. No operator of the code converts it.
+    /// </summary>
+    public bool CanBe(ITypeSymbol from, ITypeSymbol to) =>
+        this.compilation.ClassifyConversion(source: from, destination: to) is { Exists: true, IsUserDefined: false };
 
     /// <summary>
     ///     True when the compiler converts the first type to the second one with
@@ -410,6 +457,112 @@ internal sealed class LoopRegion(
 
     /// <summary>Records a write to a member of an object.</summary>
     public void AddAMemberWrite() => this.MemberWrites++;
+
+    /// <summary>
+    ///     Records a write to a member through a name, when the write gave the
+    ///     field its state now. See <see cref="WritesThroughNamesOf" />.
+    /// </summary>
+    /// <param name="member">The member.</param>
+    /// <param name="name">The name of the owner, or null when the walk cannot read it again.</param>
+    /// <param name="objects">The objects of the store that the owner can be.</param>
+    public void NotesAWriteThroughAName(ISymbol member, NameKey? name, ImmutableArray<MadeObject> objects)
+    {
+        ISymbol key = member.OriginalDefinition;
+
+        if (name == null || this.LastWriteOf(key) != this.MemberWrites)
+        {
+            return;
+        }
+
+        if (!this.writesThroughNames.TryGetValue(key: key, value: out List<NamedWrite>? writes))
+        {
+            writes = [];
+            this.writesThroughNames[key] = writes;
+        }
+
+        writes.Add(new NamedWrite(name: name.Value, objects: objects, at: this.MemberWrites));
+    }
+
+    /// <summary>
+    ///     Each write to a member through a name that went to the field, from
+    ///     <see cref="NotesAWriteThroughAName" />.
+    /// </summary>
+    public IReadOnlyList<NamedWrite> WritesThroughNamesOf(ISymbol member) =>
+        this.writesThroughNames.TryGetValue(key: member.OriginalDefinition, value: out List<NamedWrite>? writes)
+            ? writes
+            : [];
+
+    /// <summary>Records that an assignment made two names of one value.</summary>
+    public void Links(NameLink link) => this.links.Add(link);
+
+    /// <summary>
+    ///     Takes away each link of a name that gets a different value. An element
+    ///     or a field of a name that gets a different value is in a different
+    ///     object then.
+    /// </summary>
+    public void TakesAwayTheLinksOf(NameKey name)
+    {
+        if (this.links.Count > 0)
+        {
+            this.links.RemoveAll(link => link.One.IsIn(name) || link.Other.IsIn(name));
+        }
+    }
+
+    /// <summary>Each link from <see cref="Links" /> that the record has now.</summary>
+    public IReadOnlyList<NameLink> AllLinks => this.links;
+
+    /// <summary>
+    ///     Records a put into an element of the array of a field, through a local
+    ///     that got the array.
+    /// </summary>
+    /// <param name="field">The field.</param>
+    /// <param name="index">The constant index, or -1.</param>
+    /// <param name="held">The state of the array with the value in it.</param>
+    public void AddAPutThroughALocal(ISymbol field, int index, LoopState held)
+    {
+        ISymbol key = field.OriginalDefinition;
+
+        if (!this.putsThroughLocals.TryGetValue(key: key, value: out List<(int Index, LoopState Held)>? puts))
+        {
+            puts = [];
+            this.putsThroughLocals[key] = puts;
+        }
+
+        puts.Add((index, held));
+    }
+
+    /// <summary>
+    ///     Takes away each put through a local at the given index of the array of
+    ///     a field. A sure put through the field there replaces them.
+    /// </summary>
+    public void ReplacesThePutsThroughLocals(ISymbol field, int index)
+    {
+        if (this.putsThroughLocals.TryGetValue(
+                key: field.OriginalDefinition,
+                value: out List<(int Index, LoopState Held)>? puts))
+        {
+            puts.RemoveAll(put => put.Index == index);
+        }
+    }
+
+    /// <summary>
+    ///     The state of the array of a field from the puts through a local that
+    ///     got it, from <see cref="AddAPutThroughALocal" />.
+    /// </summary>
+    public LoopState PutsThroughLocalsOf(ISymbol field) =>
+        this.putsThroughLocals.Count > 0
+        && this.putsThroughLocals.TryGetValue(
+            key: field.OriginalDefinition,
+            value: out List<(int Index, LoopState Held)>? puts)
+            ? puts.Aggregate(seed: LoopState.None, func: static (all, put) => all.Join(put.Held))
+            : LoopState.None;
+
+    /// <summary>
+    ///     The value of <see cref="MemberWrites" /> when a field last got a state
+    ///     from <see cref="SetField" />. -1 for a field with no state.
+    /// </summary>
+    public int LastWriteOf(ISymbol field) =>
+        this.lastWrites.TryGetValue(key: field.OriginalDefinition, value: out int at) ? at : -1;
 
     /// <summary>
     ///     Counts one more callee body that the walk reads only because the callee
@@ -569,7 +722,8 @@ internal sealed class LoopRegion(
                         location: closing.GetLocation(),
                         this.PlaceholderName));
             }
-            else if (state.Pending)
+            // The close reads the value. A function that calculates the value can read a pending value.
+            else if (state.Pending || evaluator.AtTheFirstRead(read: closing, state: state, always: false).Pending)
             {
                 // A pending close with no link is a lazy sample of the loop in its own initial
                 // value. That sample forces itself at the end of the transaction.

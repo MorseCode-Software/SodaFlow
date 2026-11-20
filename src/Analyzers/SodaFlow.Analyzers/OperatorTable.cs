@@ -75,7 +75,8 @@ internal enum OperatorRule
 
     /// <summary>
     ///     A cell or behavior from cells or behaviors. Pending and linked when
-    ///     any input is.
+    ///     any input is, and the content is what the functions in the cell of
+    ///     functions return.
     /// </summary>
     Combine,
 
@@ -140,7 +141,10 @@ internal enum OperatorRule
     /// </summary>
     SnapshotLatest,
 
-    /// <summary>A merge of streams. Linked when any stream input is.</summary>
+    /// <summary>
+    ///     A merge of streams. Linked when any stream input is. The content is
+    ///     the content of each stream, and what the function returns.
+    /// </summary>
     MergeStreams,
 
     /// <summary>
@@ -151,13 +155,24 @@ internal enum OperatorRule
     BindableAction,
 
     /// <summary>
-    ///     A reactive collection. Pending when an input is. It samples its cell
-    ///     of initial items lazily and does not listen to it. Thus, only a linked
-    ///     edit stream links it.
+    ///     A reactive collection. It samples its cell of initial items lazily and
+    ///     does not listen to it. Thus, only a pending cell of initial items makes
+    ///     it pending, and only a linked edit stream links it. The items in a list
+    ///     are content.
     /// </summary>
     CollectionCreate,
 
-    /// <summary>A deferred function. Pending when the function reads a pending value.</summary>
+    /// <summary>
+    ///     An update of a collection, or a stream of updates. It has the state of
+    ///     its inputs, as with <see cref="Default" />, and also what each
+    ///     transform returns after the close.
+    /// </summary>
+    CollectionUpdate,
+
+    /// <summary>
+    ///     A deferred function. Pending when the function reads a pending value,
+    ///     and the content is what the function returns.
+    /// </summary>
     DeferLazy,
 
     /// <summary>
@@ -249,7 +264,9 @@ internal static class OperatorTable
             "Fold",
             "FoldByIdentity",
             "CreateBindableAction",
-            "Create");
+            "Create",
+            "Update",
+            "FromUpdates");
 
     /// <summary>
     ///     The public members of the library with no row, for which the default
@@ -272,7 +289,6 @@ internal static class OperatorTable
             "FromAdds",
             "FromRemoves",
             "FromStates",
-            "FromUpdates",
             "IdentityCell",
             "ItemCell",
             "StateCell",
@@ -332,7 +348,6 @@ internal static class OperatorTable
             "TryGetItem",
             "TryGetNewState",
             "TryGetState",
-            "Update",
             "WasChanged",
             // The cells and streams that a collection holds. They have the state of the collection,
             // thus a cell of a pending collection is pending.
@@ -342,7 +357,8 @@ internal static class OperatorTable
             "ShapeCell",
             "SnapshotCell",
             // The cell of a bindable, and the members of a bindable action, which CreateBindableAction
-            // gives their own state. An event of a bindable keeps its handler and reads no cell.
+            // gives their own state. An event of a bindable keeps its handler and reads no cell. The
+            // walk reads the handler after the transaction, where the bindable raises the event.
             "Cell",
             "FiringsStream",
             "IsEnabledCell",
@@ -351,8 +367,9 @@ internal static class OperatorTable
             // Execute of ICommand and Dispose of IDisposable. Each reads the enablement of a bindable
             // action, and the walk checks that read. Each other Dispose releases listeners. The Dispose
             // of a map of a collection also runs a function of RunAtDispose, and the walk follows that
-            // function. Execute of an AsyncMapStatus reads its cell in a transaction of its own, after
-            // the close.
+            // function. Execute of a bindable action also posts a send of its parameter, which the
+            // walk reads after the transaction. Execute of an AsyncMapStatus reads its cell in a
+            // transaction of its own, after the close.
             "Dispose",
             "Execute",
             // The sort orders of a collection. Each keeps its function for a view that sorts by it.
@@ -378,7 +395,8 @@ internal static class OperatorTable
             "OnStart",
             // A clock and its timers. Each member gives the time, moves it, or keeps a callback for a
             // time. A timer sends into a sink, and reads no cell. Time is the behavior of the clock,
-            // which no loop gives a state.
+            // which no loop gives a state. RunTimersTo of a clock of the library base runs each
+            // callback that is due, and the walk follows that callback.
             "Cancel",
             "Now",
             "RunTimersTo",
@@ -392,8 +410,9 @@ internal static class OperatorTable
             "Immediate",
             "Instance",
             // The map of a stream through a task. MapAsync keeps its function for a firing, and its
-            // status has the state of its inputs. The strategies, the results, and the status of
-            // one item are data.
+            // status has the state of its inputs. The walk reads each result of that function as a
+            // send into the sink of results after the transaction. The strategies, the results, and
+            // the status of one item are data.
             "MapAsync",
             "Construct",
             "FromValue",
@@ -404,7 +423,22 @@ internal static class OperatorTable
             "QueuePerGroup",
             "Status",
             "SwitchLatest",
-            "UndeliveredError");
+            "UndeliveredError",
+            // The constructors of the library, each with the name of its type. Each keeps what it
+            // gets, or makes an object of the library from it. The constructor of a timer system
+            // also calls Start and Now of its implementation, and the walk follows those calls. The
+            // Now of SystemClockTimerSystem calls its function of the time, and the walk follows it.
+            "AsyncItem",
+            "BindableFactory",
+            "CollectionEdit",
+            "DeferredChainLimitException",
+            "DependencyCycleException",
+            "MapAsyncDeliveryException",
+            "SecondsTimerSystem",
+            "SynchronizationContextBindingScheduler",
+            "SystemClockTimerSystem",
+            "TimerSystem",
+            "UtcClockTimerSystem");
 
     /// <summary>
     ///     The library methods that run a function in the call, before the loop
@@ -744,6 +778,8 @@ internal static class OperatorTable
             "Fold" or "FoldByIdentity" => OperatorRule.FoldCollection,
             "CreateBindableAction" => OperatorRule.BindableAction,
             "Create" when method.ContainingType.Name == "ReactiveCollection" => OperatorRule.CollectionCreate,
+            "Update" or "FromUpdates" when method.ContainingType.Name == "CollectionEdit" =>
+                OperatorRule.CollectionUpdate,
             "Defer" or "Split" or "At" or "Post" or "Listen" or "ListenOnce" or "ListenOnceAsync" or "Send" or "Loop" => OperatorRule.Break,
             _ => OperatorRule.Default
         };

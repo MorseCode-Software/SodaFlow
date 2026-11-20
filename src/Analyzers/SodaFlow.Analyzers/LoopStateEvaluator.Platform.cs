@@ -629,6 +629,12 @@ internal sealed partial class LoopStateEvaluator
         PlatformCallbacks callbacks =
             (forValues == null ? calls : PlatformCallbacks.Equals) & this.region.Symbols.DeclaredCallbacks;
 
+        // A method with a composite format, as string.Format has, formats each value as an
+        // interpolation does.
+        bool formats =
+            (callbacks & PlatformCallbacks.Text) != PlatformCallbacks.None
+            && method.Parameters.Any(static parameter => parameter.Name == "format");
+
         // A callee that gets a comparer calls the comparer. It does not call CompareTo, Equals, or
         // GetHashCode of an object. A factory of a dictionary gets the comparer of its values
         // after the comparer of its keys.
@@ -871,7 +877,7 @@ internal sealed partial class LoopStateEvaluator
                 // can make its hash code or its text.
                 PlatformCallbacks its = owner.Gets ? callbacks : callbacks & ~ComparesTwo;
 
-                return this.CallbackMembers(members: owner.Members, callbacks: its)
+                return this.CallbackMembers(members: owner.Members, callbacks: its, formats: formats)
                     .Aggregate(
                         seed: followed,
                         func: (found, member) =>
@@ -1238,7 +1244,7 @@ internal sealed partial class LoopStateEvaluator
             _ => null
         };
 
-    private IEnumerable<IMethodSymbol> CallbackMembers(Construction members, PlatformCallbacks callbacks)
+    private IEnumerable<IMethodSymbol> CallbackMembers(Construction members, PlatformCallbacks callbacks, bool formats)
     {
         SodaFlowSymbols symbols = this.region.Symbols;
 
@@ -1270,6 +1276,22 @@ internal sealed partial class LoopStateEvaluator
 
         if ((callbacks & PlatformCallbacks.Text) != PlatformCallbacks.None && symbols.ObjectToString is { } text)
         {
+            // A composite format calls TryFormat of ISpanFormattable on an object that implements it.
+            // It calls the ToString of IFormattable when TryFormat fails, or when a width puts spaces
+            // before the text.
+            if (formats
+                && symbols is { SpanFormattableTryFormat: { } tryFormat, FormattableToString: { } formattable }
+                && members.Is(tryFormat.ContainingType))
+            {
+                yield return tryFormat;
+                yield return formattable;
+
+                if (ReferenceEquals(objA: members.Narrow(tryFormat.ContainingType), objB: members))
+                {
+                    yield break;
+                }
+            }
+
             yield return text;
         }
     }

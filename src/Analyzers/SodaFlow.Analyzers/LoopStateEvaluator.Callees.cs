@@ -197,7 +197,8 @@ internal sealed partial class LoopStateEvaluator
                 members: members,
                 function: function,
                 eachRun: manyTimes ? body : null,
-                self: self);
+                self: self,
+                itsObject: receiver?.Members);
 
         // A local of the function is new in each call. A call of the function in its own code
         // keeps the locals as they are, because the first call reads them after it.
@@ -252,7 +253,8 @@ internal sealed partial class LoopStateEvaluator
                         members: members,
                         function: function,
                         eachRun: body,
-                        self: self);
+                        self: self,
+                        itsObject: receiver?.Members);
 
                 if (started != null)
                 {
@@ -288,7 +290,8 @@ internal sealed partial class LoopStateEvaluator
                 target: target,
                 result: result,
                 found: found,
-                leaving: leaving);
+                leaving: leaving,
+                thrown: walker.Thrown);
 
         if (receiver != null)
         {
@@ -299,8 +302,9 @@ internal sealed partial class LoopStateEvaluator
     }
 
     // True when the code enumerates the result of a call for one item and then stops. First,
-    // FirstOrDefault, and Any of Enumerable with no other argument do that. A foreach whose body
-    // ends the loop on each path does that also.
+    // FirstOrDefault, and Any of Enumerable with no other argument do that. Take of one item and
+    // the element at the first position do that also. A Select gives one item for each item that
+    // the code takes from it. A foreach whose body ends the loop on each path takes one item also.
     private bool TakesOneItem(SyntaxNode call) =>
         call.Parent switch
         {
@@ -308,13 +312,29 @@ internal sealed partial class LoopStateEvaluator
             {
                 Name.Identifier.ValueText: "First" or "FirstOrDefault" or "Any",
                 Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } next
+            } => this.IsOfEnumerable(next),
+            MemberAccessExpressionSyntax
+            {
+                Name: { Identifier.ValueText: "Take" or "ElementAt" or "ElementAtOrDefault" } name,
+                Parent: InvocationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } next
             } =>
-                this.region.SymbolOf(next) is IMethodSymbol method
-                && SodaFlowSymbols.IsLinqEnumerable((method.ReducedFrom ?? method).OriginalDefinition.ContainingType),
+                this.region.ModelFor(next).GetConstantValue(arguments[0].Expression)
+                    is { HasValue: true, Value: int value }
+                && value == (name.Identifier.ValueText == "Take" ? 1 : 0)
+                && this.IsOfEnumerable(next),
+            MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "Select",
+                Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 1 } next
+            } => this.IsOfEnumerable(next) && this.TakesOneItem(next),
             CommonForEachStatementSyntax loop =>
                 SinkWalker.EndsTheLoopOnEachPath(loop: loop, body: loop.Statement),
             _ => false
         };
+
+    private bool IsOfEnumerable(SyntaxNode call) =>
+        this.region.SymbolOf(call) is IMethodSymbol method
+        && SodaFlowSymbols.IsLinqEnumerable((method.ReducedFrom ?? method).OriginalDefinition.ContainingType);
 
     // Takes away the state of each local and each parameter that the given function declares,
     // before a call of that function. A local that a function in it reads keeps its state. That
@@ -420,6 +440,8 @@ internal sealed partial class LoopStateEvaluator
     /// <summary>
     ///     The evaluator for the body of a callee, with each parameter bound to
     ///     the state of its argument. The parameter is the origin of that state.
+    ///     The object of a member that the call names on a different object is
+    ///     its receiver, as the caller read it.
     /// </summary>
     private LoopStateEvaluator Inner(
         SyntaxNode call,
@@ -428,7 +450,8 @@ internal sealed partial class LoopStateEvaluator
         Dictionary<ISymbol, LoopState> members,
         SyntaxNode? function,
         SyntaxNode? eachRun,
-        MadeObject? self)
+        MadeObject? self,
+        Construction? itsObject = null)
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
 
@@ -565,6 +588,13 @@ internal sealed partial class LoopStateEvaluator
         inner.builtType =
             definer?.builtType ?? (ReferenceEquals(objA: members, objB: this.thisMembers) ? this.builtType : null);
 
+        // A type that the walk knows says which override a call on this object runs.
+        inner.thisObject =
+            definer != null ? definer.thisObject
+            : ReferenceEquals(objA: members, objB: this.thisMembers) ? this.thisObject
+            : itsObject is { HasType: true } ? itsObject
+            : null;
+
         // The code of a function does not read this record: see TheOneCollectionOf.
         foreach (KeyValuePair<ISymbol, MadeObject> one in collections)
         {
@@ -596,7 +626,8 @@ internal sealed partial class LoopStateEvaluator
         LoopState? target,
         LoopState result,
         IEnumerable<Finding> found,
-        IEnumerable<(QueryValue Query, IReadOnlyList<Finding> Found)> leaving)
+        IEnumerable<(QueryValue Query, IReadOnlyList<Finding> Found)> leaving,
+        IEnumerable<(ITypeSymbol? Type, LoopState State)> thrown)
     {
         Dictionary<ISymbol, Binding> byParameter = new(SymbolEqualityComparer.Default);
 
@@ -703,7 +734,10 @@ internal sealed partial class LoopStateEvaluator
             outs: outs.ToImmutable(),
             sets: sets,
             through: through.ToImmutable(),
-            alwaysGives: alwaysGives.ToImmutable());
+            alwaysGives: alwaysGives.ToImmutable(),
+            thrown: thrown
+                .Select(one => (call, one.Type, one.State.WithOrigins(Out).FromIfUnknown(inputs)))
+                .ToImmutableArray());
 
         // The findings of the callee, in the names of this code.
         ImmutableArray<Finding> Changed(IEnumerable<Finding> from)
@@ -724,7 +758,7 @@ internal sealed partial class LoopStateEvaluator
                 {
                     // An AsCell() at the argument is the assertion of the caller that nothing reads the
                     // value. The analyzer reports a read that it can see, whatever the caller asserted.
-                    if (finding.Escape && IsAsserted(binding.Argument))
+                    if (finding.Escape && this.IsAsserted(binding.Argument))
                     {
                         continue;
                     }
@@ -1075,7 +1109,7 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
     public Followed? FollowEvictionsOfADispose(ExpressionSyntax map, SyntaxNode dispose)
     {
-        if (this.ValueOfALocalThatNoCodeWrites(Unwrapped(map)) is not InvocationExpressionSyntax
+        if (this.MadeValueOf(map) is not InvocationExpressionSyntax
             {
                 Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Map" }
             } creation
@@ -1116,6 +1150,139 @@ internal sealed partial class LoopStateEvaluator
                                         each: (map, objects, ManyTimes: true))));
                 });
     }
+
+    /// <summary>
+    ///     True for a clock whose type derives from
+    ///     <c>TimerSystemImplementationBase</c>. Its <c>SetTimer</c> keeps a
+    ///     callback, and its <c>RunTimersTo</c> runs each callback that is due, in
+    ///     the call. A local of an interface has such a clock when no code writes
+    ///     the local and its value has that type.
+    /// </summary>
+    /// <param name="clock">The expression of the clock.</param>
+    public bool IsAClockOfTheLibraryBase(ExpressionSyntax clock)
+    {
+        for (ITypeSymbol? type = this.region.TypeOf(this.ValueOfALocalThatNoCodeWrites(Unwrapped(clock)));
+             type != null;
+             type = type.BaseType)
+        {
+            if (type.OriginalDefinition.Name == "TimerSystemImplementationBase" && this.region.Symbols.IsSodaFlow(type))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     The run of a callback that a call of the library runs, as
+    ///     <c>RunTimersTo</c> runs the callback of a timer.
+    /// </summary>
+    /// <param name="call">The call that runs the callback.</param>
+    /// <param name="callback">The expression of the callback, where the code gave it.</param>
+    public Followed? FollowCallback(SyntaxNode call, ExpressionSyntax callback)
+    {
+        LoopState functions = this.Eval(callback);
+
+        return this.FollowFunctions(
+            call: call,
+            name: NameOf(callback),
+            functions: functions.Functions,
+            target: functions,
+            arguments: default);
+    }
+
+    // The value of a local that no code writes. A local of IDisposable can have the value of a
+    // different local, thus the search continues through it. The declaration of each local is
+    // before its value, thus the search ends.
+    private ExpressionSyntax MadeValueOf(ExpressionSyntax expression)
+    {
+        ExpressionSyntax value = this.ValueOfALocalThatNoCodeWrites(Unwrapped(expression));
+
+        while (value is IdentifierNameSyntax name
+               && this.ValueOfALocalThatNoCodeWrites(name) is var earlier
+               && earlier.SpanStart < name.SpanStart)
+        {
+            value = earlier;
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    ///     The run of the members of its implementation that a timer system
+    ///     calls in a call. Its constructor calls <c>Start</c> and <c>Now</c>, and
+    ///     its <c>Dispose</c> calls <c>Stop</c>.
+    /// </summary>
+    /// <param name="system">The constructor that made the timer system.</param>
+    /// <param name="arguments">The arguments of that constructor.</param>
+    /// <param name="call">The node that calls the members.</param>
+    /// <param name="members">The names of the members of the implementation.</param>
+    public Followed? FollowClock(
+        IMethodSymbol system,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        SyntaxNode call,
+        IEnumerable<string> members)
+    {
+        if (system.ContainingType is not { Name: "TimerSystem" or "SystemClockTimerSystem" } type
+            || !this.region.Symbols.IsSodaFlow(type))
+        {
+            return null;
+        }
+
+        // SystemClockTimerSystem makes its own implementation, whose Now calls the function of the
+        // time.
+        if (type.Name == "SystemClockTimerSystem")
+        {
+            return members.Contains("Now")
+                   && ArgumentFor(method: system, arguments: arguments, parameter: "now") is { } now
+                ? this.FollowCallback(call: call, callback: now)
+                : null;
+        }
+
+        if (system.Parameters.FirstOrDefault(static parameter => parameter.Name == "implementation")
+                is not { Type: var contract }
+            || ArgumentFor(method: system, arguments: arguments, parameter: "implementation") is not { } implementation)
+        {
+            return null;
+        }
+
+        LoopState clock = this.Eval(implementation);
+
+        // Start gets the handler of the timer system.
+        IReadOnlyList<(ExpressionSyntax Written, LoopState State)> handler =
+            ArgumentFor(method: system, arguments: arguments, parameter: "handleException") is { } given
+                ? [(given, this.Eval(given))]
+                : [];
+
+        return members
+            .SelectMany(name => contract.GetMembers(name))
+            .Select(static member => member is IPropertySymbol property ? property.GetMethod : member as IMethodSymbol)
+            .OfType<IMethodSymbol>()
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, member) =>
+                    Both(
+                        first: all,
+                        second: this.FollowImplied(
+                            call: call,
+                            member: member,
+                            owner: clock,
+                            arguments: member.Parameters.IsEmpty ? [] : handler)));
+    }
+
+    /// <summary>
+    ///     The run of <c>Stop</c> of the implementation of a timer system, at its
+    ///     <c>Dispose</c>. The timer system is a local that no code writes, and that
+    ///     a constructor made, or the call of that constructor itself.
+    /// </summary>
+    /// <param name="system">The expression of the timer system.</param>
+    /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
+    public Followed? FollowClockOfADispose(ExpressionSyntax system, SyntaxNode dispose) =>
+        this.MadeValueOf(system) is BaseObjectCreationExpressionSyntax { ArgumentList: { } arguments } creation
+        && this.region.SymbolOf(creation) is IMethodSymbol constructor
+            ? this.FollowClock(system: constructor, arguments: arguments.Arguments, call: dispose, members: ["Stop"])
+            : null;
 
     // True when code can read the items of the map that the call makes. That is so when a local
     // keeps the map, and the code uses that local for more than a call of Dispose. A map that no

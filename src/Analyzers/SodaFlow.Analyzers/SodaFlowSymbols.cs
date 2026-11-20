@@ -106,10 +106,14 @@ internal sealed class SodaFlowSymbols
     private readonly ConcurrentDictionary<SyntaxTree, ImmutableHashSet<string>> definedSymbols = new();
 
     private readonly Lazy<bool> declaresAdd;
+    private readonly Lazy<bool> declaresAwaiters;
     private readonly Lazy<bool> declaresConversions;
     private readonly Lazy<bool> declaresDeconstruct;
     private readonly Lazy<bool> declaresDispose;
+    private readonly Lazy<bool> declaresDisposeAsync;
     private readonly Lazy<bool> declaresEnumerators;
+    private readonly Lazy<bool> declaresAsyncEnumerators;
+    private readonly Lazy<bool> declaresHandlers;
     private readonly Lazy<bool> declaresIndexers;
     private readonly Lazy<bool> declaresOperators;
     private readonly Lazy<PlatformCallbacks> declaredCallbacks;
@@ -121,6 +125,9 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
     private readonly Lazy<IMethodSymbol?> formattableToString;
+    private readonly Lazy<IMethodSymbol?> asyncDisposableDisposeAsync;
+
+    private readonly Lazy<IMethodSymbol?> spanFormattableTryFormat;
     private readonly ImmutableHashSet<IAssemblySymbol> library;
 
     /// <summary>
@@ -137,6 +144,7 @@ internal sealed class SodaFlowSymbols
                 .ToImmutableHashSet<IAssemblySymbol>(SymbolEqualityComparer.Default);
 
         this.declaresAdd = Declares(compilation: compilation, name: "Add");
+        this.declaresAwaiters = Declares(compilation: compilation, name: "GetAwaiter");
 
         this.declaresConversions =
             new Lazy<bool>(() =>
@@ -145,7 +153,10 @@ internal sealed class SodaFlowSymbols
 
         this.declaresDeconstruct = Declares(compilation: compilation, name: "Deconstruct");
         this.declaresDispose = Declares(compilation: compilation, name: "Dispose");
+        this.declaresDisposeAsync = Declares(compilation: compilation, name: "DisposeAsync");
         this.declaresEnumerators = Declares(compilation: compilation, name: "GetEnumerator");
+        this.declaresAsyncEnumerators = Declares(compilation: compilation, name: "GetAsyncEnumerator");
+        this.declaresHandlers = Declares(compilation: compilation, name: "AppendFormatted");
         this.declaresIndexers = Declares(compilation: compilation, name: "this[]");
         this.declaresSlice = Declares(compilation: compilation, name: "Slice");
         this.declaresToString = Declares(compilation: compilation, name: "ToString");
@@ -212,11 +223,25 @@ internal sealed class SodaFlowSymbols
                     .OfType<IMethodSymbol>()
                     .FirstOrDefault(static method => method.Parameters.Length == 2));
 
+        this.spanFormattableTryFormat =
+            new Lazy<IMethodSymbol?>(() =>
+                compilation.GetTypeByMetadataName("System.ISpanFormattable")
+                    ?.GetMembers("TryFormat")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault());
+
         this.DisposableDispose =
             compilation.GetSpecialType(SpecialType.System_IDisposable)
                 .GetMembers("Dispose")
                 .OfType<IMethodSymbol>()
                 .FirstOrDefault();
+
+        this.asyncDisposableDisposeAsync =
+            new Lazy<IMethodSymbol?>(() =>
+                compilation.GetTypeByMetadataName("System.IAsyncDisposable")
+                    ?.GetMembers("DisposeAsync")
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault());
 
         this.Overrides = new OverrideIndex(compilation);
         this.Implementations = new ImplementationIndex(compilation);
@@ -237,6 +262,12 @@ internal sealed class SodaFlowSymbols
     public bool DeclaresAdd => this.declaresAdd.Value;
 
     /// <summary>
+    ///     True when the compilation declares a <c>GetAwaiter</c> method. An
+    ///     await calls it, and then the members of the awaiter that it gives.
+    /// </summary>
+    public bool DeclaresAwaiters => this.declaresAwaiters.Value;
+
+    /// <summary>
     ///     True when the compilation declares a conversion operator. The walk
     ///     asks the compiler for the conversion of each expression only then.
     /// </summary>
@@ -248,8 +279,20 @@ internal sealed class SodaFlowSymbols
     /// <summary>True when the compilation declares a <c>Dispose</c> method.</summary>
     public bool DeclaresDispose => this.declaresDispose.Value;
 
+    /// <summary>True when the compilation declares a <c>DisposeAsync</c> method.</summary>
+    public bool DeclaresDisposeAsync => this.declaresDisposeAsync.Value;
+
     /// <summary>True when the compilation declares a <c>GetEnumerator</c> method.</summary>
     public bool DeclaresEnumerators => this.declaresEnumerators.Value;
+
+    /// <summary>True when the compilation declares a <c>GetAsyncEnumerator</c> method.</summary>
+    public bool DeclaresAsyncEnumerators => this.declaresAsyncEnumerators.Value;
+
+    /// <summary>
+    ///     True when the compilation declares an <c>AppendFormatted</c> method.
+    ///     An interpolated string handler has one.
+    /// </summary>
+    public bool DeclaresHandlers => this.declaresHandlers.Value;
 
     /// <summary>True when the compilation declares an indexer.</summary>
     public bool DeclaresIndexers => this.declaresIndexers.Value;
@@ -315,6 +358,13 @@ internal sealed class SodaFlowSymbols
     /// </summary>
     public IMethodSymbol? FormattableToString => this.formattableToString.Value;
 
+    /// <summary>
+    ///     <c>TryFormat</c> of <c>ISpanFormattable</c>. An interpolation calls it,
+    ///     and not <see cref="FormattableToString" />, on an object that
+    ///     implements it.
+    /// </summary>
+    public IMethodSymbol? SpanFormattableTryFormat => this.spanFormattableTryFormat.Value;
+
     /// <summary><c>Equals</c> of <c>object</c>, with one parameter.</summary>
     public IMethodSymbol? ObjectEquals { get; }
 
@@ -323,6 +373,12 @@ internal sealed class SodaFlowSymbols
 
     /// <summary><c>Dispose</c> of <c>IDisposable</c>, which a <c>using</c> calls.</summary>
     public IMethodSymbol? DisposableDispose { get; }
+
+    /// <summary>
+    ///     <c>DisposeAsync</c> of <c>IAsyncDisposable</c>, which an
+    ///     <c>await using</c> calls.
+    /// </summary>
+    public IMethodSymbol? AsyncDisposableDisposeAsync => this.asyncDisposableDisposeAsync.Value;
 
     /// <summary>The methods that an override in the compilation replaces.</summary>
     public OverrideIndex Overrides { get; }
@@ -434,7 +490,12 @@ internal sealed class SodaFlowSymbols
     ///     calls it, as it calls a function.
     /// </summary>
     public static bool IsComparer(ITypeSymbol? type) =>
-        type is INamedTypeSymbol named && (IsComparerInterface(named) || named.AllInterfaces.Any(IsComparerInterface));
+        type is INamedTypeSymbol named
+        && (IsComparerInterface(named)
+            // No special type, delegate, or enum is a comparer. The test comes before AllInterfaces,
+            // which the compiler makes anew at each call.
+            || (named is { SpecialType: SpecialType.None, TypeKind: not (TypeKind.Delegate or TypeKind.Enum) }
+                && named.AllInterfaces.Any(IsComparerInterface)));
 
     /// <summary>True for <c>IComparer</c> or <c>IEqualityComparer</c> of the platform.</summary>
     public static bool IsComparerInterface(INamedTypeSymbol type) =>
@@ -575,15 +636,36 @@ internal sealed class SodaFlowSymbols
     ///     enumerates each sequence in the value, and reads the public properties
     ///     of each object in it. The rows are <c>JsonSerializer</c> of
     ///     <c>System.Text.Json</c>, <c>JsonConvert</c> and <c>JsonSerializer</c>
-    ///     of <c>Newtonsoft.Json</c>, and <c>XmlSerializer</c>.
+    ///     of <c>Newtonsoft.Json</c>, and <c>XmlSerializer</c>. <c>FromObject</c>
+    ///     of the tokens of Json.NET and <c>WriteObject</c> of the data contract
+    ///     serializers are rows also.
     /// </summary>
     public static bool IsSerializer(IMethodSymbol definition) =>
-        definition.Name.StartsWith(value: "Serialize", comparisonType: StringComparison.Ordinal)
-        && definition.ContainingType is { } owner
-        && (owner.Name, owner.ContainingNamespace?.ToDisplayString())
-            is ("JsonSerializer", "System.Text.Json")
-            or ("JsonConvert" or "JsonSerializer", "Newtonsoft.Json")
-            or ("XmlSerializer", "System.Xml.Serialization");
+        definition.ContainingType is { } owner
+        && (owner.Name, owner.ContainingNamespace?.ToDisplayString()) switch
+        {
+            ("JsonSerializer", "System.Text.Json")
+                or ("JsonConvert" or "JsonSerializer", "Newtonsoft.Json")
+                or ("XmlSerializer", "System.Xml.Serialization") =>
+                definition.Name.StartsWith(value: "Serialize", comparisonType: StringComparison.Ordinal),
+            ("JToken" or "JObject" or "JArray", "Newtonsoft.Json.Linq") => definition.Name == "FromObject",
+            ("XmlObjectSerializer" or "DataContractSerializer", "System.Runtime.Serialization")
+                or ("DataContractJsonSerializer", "System.Runtime.Serialization.Json") =>
+                definition.Name == "WriteObject",
+            _ => false
+        };
+
+    // The library of a serializer. The tokens of Json.NET are in Json.NET, and the serializer of
+    // JSON data contracts is one of the data contract serializers.
+    private static string? LibraryOf(ISymbol serializer) =>
+        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() switch
+        {
+            "Newtonsoft.Json.Linq" => "Newtonsoft.Json",
+            "System.Runtime.Serialization.Json" => DataContracts,
+            var other => other
+        };
+
+    private const string DataContracts = "System.Runtime.Serialization";
 
     /// <summary>
     ///     True for a member of LINQ to XML that puts content into a node in the
@@ -618,21 +700,32 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>
     ///     True for a property that the serializer reads. It is public, it is
-    ///     not an indexer, and it has no attribute that tells a serializer to
-    ///     ignore it. <c>XmlSerializer</c> reads only a property that it can also
-    ///     set.
+    ///     not an indexer, and it has no attribute that tells this serializer
+    ///     to ignore it. <c>XmlSerializer</c> reads only a property that it can
+    ///     also set, or a property whose type is a collection and not an array.
+    ///     Json.NET reads only the members with <c>JsonProperty</c> of a type
+    ///     with <c>MemberSerialization.OptIn</c>. For the data contract serializers,
+    ///     see <see cref="IsDataMember" />.
     /// </summary>
     public static bool IsSerialized(IPropertySymbol property, IMethodSymbol serializer, SerializerOptions options) =>
         property is { IsStatic: false, IsIndexer: false, GetMethod: not null }
-        && (property is
-            {
-                DeclaredAccessibility: Accessibility.Public,
-                GetMethod.DeclaredAccessibility: Accessibility.Public
-            }
-            || IsIncluded(member: property, serializer: serializer))
-        && ((serializer.ContainingType?.Name != "XmlSerializer" && !options.SkipsReadOnlyProperties)
-            || property.SetMethod is { DeclaredAccessibility: Accessibility.Public })
-        && !IsIgnored(property);
+        && LibraryOf(serializer) switch
+        {
+            DataContracts => IsDataMember(property),
+            "Newtonsoft.Json" when IsOptIn(property.ContainingType) => IsOptedIn(property),
+            _ => (property is
+                  {
+                      DeclaredAccessibility: Accessibility.Public,
+                      GetMethod.DeclaredAccessibility: Accessibility.Public
+                  }
+                  || IsIncluded(member: property, serializer: serializer))
+                 && ((serializer.ContainingType?.Name != "XmlSerializer" && !options.SkipsReadOnlyProperties)
+                     || property.SetMethod is { DeclaredAccessibility: Accessibility.Public }
+                     || (serializer.ContainingType?.Name == "XmlSerializer"
+                         && property.Type is not IArrayTypeSymbol
+                         && IsSequence(property.Type)))
+        }
+        && !IsIgnored(member: property, serializer: serializer);
 
     /// <summary>
     ///     True for a field that the serializer writes. It is public, and the
@@ -640,18 +733,115 @@ internal sealed class SodaFlowSymbols
     /// </summary>
     public static bool IsSerialized(IFieldSymbol field, IMethodSymbol serializer, SerializerOptions options) =>
         field is { IsStatic: false, IsConst: false, IsImplicitlyDeclared: false }
-        && ((field.DeclaredAccessibility == Accessibility.Public
-             && options.WritesFields
-             && !(field.IsReadOnly && options.SkipsReadOnlyFields))
-            || IsIncluded(member: field, serializer: serializer))
-        && !IsIgnored(field);
+        && LibraryOf(serializer) switch
+        {
+            DataContracts => IsDataMember(field),
+            "Newtonsoft.Json" when IsOptIn(field.ContainingType) => IsOptedIn(field),
+            _ => (field.DeclaredAccessibility == Accessibility.Public
+                  && options.WritesFields
+                  && !(field.IsReadOnly && options.SkipsReadOnlyFields))
+                 || IsIncluded(member: field, serializer: serializer)
+        }
+        && !IsIgnored(member: field, serializer: serializer);
 
-    // A condition on JsonIgnore reads the value before it decides.
-    private static bool IsIgnored(ISymbol member) =>
-        member.GetAttributes()
-            .Any(static attribute =>
-                attribute.AttributeClass?.Name is "JsonIgnoreAttribute" or "XmlIgnoreAttribute"
-                && attribute.NamedArguments.IsEmpty);
+    /// <summary>
+    ///     True for a member that a data contract serializer writes. Of a type
+    ///     with <c>DataContract</c>, that is each member with <c>DataMember</c>.
+    ///     Of each other type, it is each public member that the serializer can
+    ///     also set and that has no <c>IgnoreDataMember</c>.
+    /// </summary>
+    private static bool IsDataMember(ISymbol member) =>
+        HasAttribute(symbol: member.ContainingType, name: "DataContractAttribute", space: DataContracts)
+            ? HasAttribute(symbol: member, name: "DataMemberAttribute", space: DataContracts)
+            : member
+                  is IPropertySymbol
+                  {
+                      DeclaredAccessibility: Accessibility.Public,
+                      GetMethod.DeclaredAccessibility: Accessibility.Public,
+                      SetMethod.DeclaredAccessibility: Accessibility.Public
+                  }
+                  or IFieldSymbol { DeclaredAccessibility: Accessibility.Public, IsReadOnly: false }
+              && !HasAttribute(symbol: member, name: "IgnoreDataMemberAttribute", space: DataContracts);
+
+    // The JsonObject of the type, or of the nearest base type with one, says how Json.NET chooses
+    // the members. OptIn (1) is the value of its first argument or of its named argument.
+    private static bool IsOptIn(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
+        {
+            if (current.GetAttributes()
+                    .FirstOrDefault(static attribute =>
+                        attribute.AttributeClass is { Name: "JsonObjectAttribute" } found
+                        && found.ContainingNamespace?.ToDisplayString() == "Newtonsoft.Json")
+                is { } chosen)
+            {
+                return chosen.ConstructorArguments.Concat(chosen.NamedArguments.Select(static pair => pair.Value))
+                    .Any(static argument => argument is { Type.Name: "MemberSerialization", Value: 1 });
+            }
+        }
+
+        return false;
+    }
+
+    // Of a type with OptIn, Json.NET writes a member with JsonProperty. A run found that it does not
+    // write a member with only DataMember.
+    private static bool IsOptedIn(ISymbol member) =>
+        HasAttribute(symbol: member, name: "JsonPropertyAttribute", space: "Newtonsoft.Json");
+
+    private static bool HasAttribute(ISymbol symbol, string name, string space) =>
+        symbol.GetAttributes()
+            .Any(attribute =>
+                attribute.AttributeClass is { } found
+                && found.Name == name
+                && found.ContainingNamespace?.ToDisplayString() == space);
+
+    /// <summary>
+    ///     The method that Json.NET and <c>XmlSerializer</c> call before they
+    ///     write a member. It is a public <c>ShouldSerialize</c> method with the
+    ///     name of the member, no parameter, and a result of type <c>bool</c>.
+    ///     Null when the type has no such method.
+    /// </summary>
+    public static IMethodSymbol? ShouldSerializeOf(ISymbol member, IMethodSymbol serializer)
+    {
+        if (LibraryOf(serializer) is not ("Newtonsoft.Json" or "System.Xml.Serialization"))
+        {
+            return null;
+        }
+
+        string name = "ShouldSerialize" + member.Name;
+
+        for (INamedTypeSymbol? current = member.ContainingType; current != null; current = current.BaseType)
+        {
+            if (current.GetMembers(name)
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(static test =>
+                        test is
+                        {
+                            DeclaredAccessibility: Accessibility.Public,
+                            Parameters.IsEmpty: true,
+                            ReturnType.SpecialType: SpecialType.System_Boolean
+                        })
+                is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    // Each serializer obeys only the ignore attribute of its own library. Condition is the one named
+    // argument of JsonIgnore. Each value but Always (1) reads the value before it decides.
+    private static bool IsIgnored(ISymbol member, ISymbol serializer) =>
+        LibraryOf(serializer) is { } library
+        && member.GetAttributes()
+            .Any(attribute =>
+                attribute.AttributeClass is { } found
+                && (found.Name, found.ContainingNamespace?.ToDisplayString(), library)
+                is ("JsonIgnoreAttribute", "System.Text.Json.Serialization", "System.Text.Json")
+                or ("JsonIgnoreAttribute", "Newtonsoft.Json", "Newtonsoft.Json")
+                or ("XmlIgnoreAttribute", "System.Xml.Serialization", "System.Xml.Serialization")
+                && attribute.NamedArguments.All(static argument => argument.Value.Value is 1));
 
     /// <summary>
     ///     The converter that a <c>JsonConverter</c> attribute of a member or a
@@ -771,7 +961,7 @@ internal sealed class SodaFlowSymbols
     ///     <c>JsonProperty</c> for Json.NET.
     /// </summary>
     private static bool IsIncluded(ISymbol member, ISymbol serializer) =>
-        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() is { } library
+        LibraryOf(serializer) is { } library
         && member.GetAttributes()
             .Any(attribute =>
                 attribute.AttributeClass is { } found
@@ -869,13 +1059,15 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>
     ///     True for a type whose object has the elements of a collection
-    ///     expression in the order of the code. The types are an array,
+    ///     expression in the order of the code. The types are an array, a span,
     ///     <c>List</c>, <c>ArrayList</c>, and each interface that the compiler
     ///     gives a list or an array for. A set or a sorted collection has a
     ///     different order.
     /// </summary>
     public static bool KeepsTheOrder(ITypeSymbol? type) =>
         type is IArrayTypeSymbol
+        || (type is INamedTypeSymbol { Name: "Span" or "ReadOnlySpan", ContainingNamespace: { Name: "System" } system }
+            && system.ContainingNamespace.IsGlobalNamespace)
         || (type is INamedTypeSymbol
             {
                 Name: "List" or "IEnumerable" or "IReadOnlyList" or "IReadOnlyCollection" or "IList" or "ICollection"
@@ -1093,6 +1285,17 @@ internal sealed class SodaFlowSymbols
         && !IsStreamName(named.OriginalDefinition.Name)
         && named.SpecialType == SpecialType.None
         && !IsListenerName(named.OriginalDefinition.Name);
+
+    /// <summary>
+    ///     True for a bindable of the library, as a bindable action or a one-way
+    ///     bindable is, or for a type that implements one. A bindable raises its
+    ///     events in an action that it posts to its scheduler.
+    /// </summary>
+    public bool IsBindable(ITypeSymbol? type) =>
+        type != null && (this.IsBindableInterface(type) || type.AllInterfaces.Any(this.IsBindableInterface));
+
+    private bool IsBindableInterface(ITypeSymbol type) =>
+        type.OriginalDefinition.Name == "IBindable" && this.IsSodaFlow(type);
 
     /// <summary>
     ///     True for a bindable action of the library, or for a type that

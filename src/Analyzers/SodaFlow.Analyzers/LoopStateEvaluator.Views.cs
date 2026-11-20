@@ -1,5 +1,8 @@
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
@@ -63,6 +66,42 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
     /// <summary>
+    ///     The local that a span over it by ref names, as in
+    ///     <c>new Span&lt;T&gt;(ref local)</c>, for an element of that span. The
+    ///     span has one element, which is the local. Null for each other element.
+    /// </summary>
+    public ExpressionSyntax? TheLocalOfASpanOver(ElementAccessExpressionSyntax element)
+    {
+        if (FunctionOf(element) is not { } code)
+        {
+            return null;
+        }
+
+        for (ExpressionSyntax? at = element.Expression; at != null; at = this.OneViewBack(made: at, code: code))
+        {
+            if (Unwrapped(at)
+                    is BaseObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } creation
+                && NameByRef(arguments.First()) is { } name
+                && IsAView(this.region.TypeOf(creation))
+                && this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol
+                {
+                    RefKind: RefKind.None
+                })
+            {
+                return name;
+            }
+        }
+
+        return null;
+    }
+
+    // The name that an argument with ref gives. Null for each other argument.
+    private static IdentifierNameSyntax? NameByRef(ArgumentSyntax argument) =>
+        argument is { RefKindKeyword.RawKind: (int)SyntaxKind.RefKeyword, Expression: IdentifierNameSyntax name }
+            ? name
+            : null;
+
+    /// <summary>
     ///     Records the puts of a call of the platform through a view of a local
     ///     array. <c>Fill</c> of a span puts its value into each element.
     ///     <c>CopyTo</c> and <c>TryCopyTo</c> put each element of their source
@@ -77,10 +116,14 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="method">The method.</param>
     /// <param name="receiver">The owner of the call. For an extension method, it is the first argument.</param>
     /// <param name="arguments">The arguments of the call.</param>
+    /// <param name="replaces">True when the call always runs in its function.</param>
+    /// <param name="turn">The body of the loop whose each turn always runs the call.</param>
     public void PutsThroughViews(
         IMethodSymbol method,
         ExpressionSyntax? receiver,
-        SeparatedSyntaxList<ArgumentSyntax> arguments)
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        bool replaces,
+        SyntaxNode? turn)
     {
         if (this.quiet)
         {
@@ -114,8 +157,18 @@ internal sealed partial class LoopStateEvaluator
             if (arguments.Count == 1 && this.TheArrayOfAView(receiver) is { } filled)
             {
                 ExpressionSyntax value = arguments[0].Expression;
+                LoopState state = this.Eval(value);
 
-                this.PutsThroughAView(array: filled, value: value, state: this.Eval(value));
+                (MadeObject Made, ImmutableArray<LoopState> All, int First, int Count)? before =
+                    this.PositionsThroughAView(
+                        array: filled,
+                        view: receiver,
+                        index: null,
+                        replaces: replaces,
+                        turn: turn);
+
+                this.PutsThroughAView(array: filled, value: value, state: state);
+                this.HasTheValueThroughAView(before: before, value: value, state: state);
             }
 
             return;
@@ -161,6 +214,170 @@ internal sealed partial class LoopStateEvaluator
 
         this.Absorb(target: array, state: state);
         this.PutsIntoALocation(field: null, element: null, state: state, owner: array);
+    }
+
+    /// <summary>
+    ///     The positions of the array of a view before a put through the view,
+    ///     and the positions in the array that the put gets. Null when the walk
+    ///     does not know them. Then, the put reaches each element of the array.
+    /// </summary>
+    /// <remarks>
+    ///     Each step from the array to the view must give a constant start.
+    ///     <c>AsSpan(1)</c> and <c>[1..]</c> are such steps. A step can also
+    ///     give a constant length.
+    /// </remarks>
+    /// <param name="array">The array, from <see cref="TheArrayOfAView" />.</param>
+    /// <param name="view">The expression of the view at the put.</param>
+    /// <param name="index">The constant index of the element of the view. Null for each element of the view.</param>
+    /// <param name="replaces">True when the put always runs in its function.</param>
+    /// <param name="turn">The body of the loop whose each turn always runs the put.</param>
+    public (MadeObject Made, ImmutableArray<LoopState> All, int First, int Count)? PositionsThroughAView(
+        ExpressionSyntax array,
+        ExpressionSyntax view,
+        ArgumentSyntax? index,
+        bool replaces,
+        SyntaxNode? turn)
+    {
+        if (this.quiet
+            || FunctionOf(view) is not { } code
+            || this.RangeInTheArray(view: view, code: code) is not (var start, var length)
+            || this.PositionsBeforeAnAssignment(collection: array, replaces: replaces, turn: turn)
+                is not (var made, var all))
+        {
+            return null;
+        }
+
+        // A write out of the view or of the array throws, and the code after it does not run. Thus,
+        // the bounds need no test.
+        if (index == null)
+        {
+            return (made, all, start, length ?? all.Length - start);
+        }
+
+        return this.ConstantIndexOf(index) is { } at ? (made, all, start + at, 1) : null;
+    }
+
+    /// <summary>
+    ///     Gives the positions of a put through a view the value of the put. See
+    ///     <see cref="PositionsThroughAView" />.
+    /// </summary>
+    /// <param name="before">The result of <see cref="PositionsThroughAView" /> for the put.</param>
+    /// <param name="value">The expression of the value, when the code has one.</param>
+    /// <param name="state">The state of the value.</param>
+    public void HasTheValueThroughAView(
+        (MadeObject Made, ImmutableArray<LoopState> All, int First, int Count)? before,
+        ExpressionSyntax? value,
+        LoopState state)
+    {
+        if (before is not (var made, var all, var first, var count))
+        {
+            return;
+        }
+
+        ImmutableArray<SyntaxNode?> givenBy = this.region.Objects.GivenBy(collection: made, values: all);
+
+        this.region.Objects.HasPositions(
+            collection: made,
+            values: all.Select((old, at) => at >= first && at - first < count ? state : old).ToImmutableArray(),
+            givenBy: givenBy.Select((old, at) => at >= first && at - first < count ? value : old).ToImmutableArray());
+    }
+
+    // The start and the length of a view in its array. Each step back to the array adds its start,
+    // and the last step with a length gives the length. A null length goes to the end of the array.
+    // Null when a step does not give a constant start.
+    private (int Start, int? Length)? RangeInTheArray(ExpressionSyntax view, SyntaxNode code)
+    {
+        List<(int Start, int? Length)> steps = [];
+
+        for (ExpressionSyntax? at = view; at != null; at = this.OneViewBack(made: at, code: code))
+        {
+            if (this.OneViewBack(made: at, code: code) == null)
+            {
+                break;
+            }
+
+            if (this.StepOf(at) is not { } step)
+            {
+                return null;
+            }
+
+            steps.Add(step);
+        }
+
+        int start = 0;
+        int? length = null;
+
+        for (int i = steps.Count - 1; i >= 0; i--)
+        {
+            start += steps[i].Start;
+            length = steps[i].Length ?? length - steps[i].Start;
+        }
+
+        return (start, length);
+    }
+
+    // The start and the length that one step gives a view, from what the step makes it from. A local
+    // of a view, the Span of a memory, and a conversion change nothing. Null for a start that is not
+    // a constant.
+    private (int Start, int? Length)? StepOf(ExpressionSyntax made)
+    {
+        ExpressionSyntax step = Unwrapped(made);
+
+        if (step is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } range })
+        {
+            return range[0].Expression is RangeExpressionSyntax { LeftOperand: var from, RightOperand: var to }
+                   && (from == null ? 0 : Constant(from)) is { } first
+                   && (to == null || Constant(to) != null)
+                ? (first, to == null ? null : Constant(to) - first)
+                : null;
+        }
+
+        (IMethodSymbol Method, SeparatedSyntaxList<ArgumentSyntax> Arguments)? call =
+            step switch
+            {
+                InvocationExpressionSyntax invocation
+                    when this.region.SymbolOf(invocation) is IMethodSymbol method =>
+                    (method, invocation.ArgumentList.Arguments),
+                BaseObjectCreationExpressionSyntax { ArgumentList: { } list } creation
+                    when this.region.SymbolOf(creation) is IMethodSymbol constructor =>
+                    (constructor, list.Arguments),
+                _ => null
+            };
+
+        if (call is not (var callee, var arguments))
+        {
+            return (0, null);
+        }
+
+        ExpressionSyntax? start = null;
+        ExpressionSyntax? length = null;
+
+        for (int position = 0; position < arguments.Count; position++)
+        {
+            switch (SodaFlowSymbols.ParameterOf(callee: callee, argument: arguments[position], position: position))
+            {
+                case { Name: "start" or "index" or "offset" }:
+                    start = arguments[position].Expression;
+
+                    break;
+                case { Name: "length" or "count" }:
+                    length = arguments[position].Expression;
+
+                    break;
+                // A start of the type Index or Range can count from the end.
+                case { Type.TypeKind: not TypeKind.Array }:
+                    return null;
+            }
+        }
+
+        return (start == null ? 0 : Constant(start)) is { } begins && (length == null || Constant(length) != null)
+            ? (begins, length == null ? null : Constant(length))
+            : null;
+
+        int? Constant(SyntaxNode expression) =>
+            this.region.ModelFor(expression).GetConstantValue(expression) is { Value: int number and >= 0 }
+                ? number
+                : null;
     }
 
     // The array of an expression that is the array, or a view of it. Each step goes one view back,

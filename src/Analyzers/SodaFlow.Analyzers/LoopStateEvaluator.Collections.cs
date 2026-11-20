@@ -353,6 +353,39 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     True for <c>Array.Reverse</c> of a whole array, which moves the
+    ///     elements and puts no new value in.
+    /// </summary>
+    public static bool IsArrayReverse(IMethodSymbol method, SeparatedSyntaxList<ArgumentSyntax> arguments) =>
+        method is { Name: "Reverse", ContainingType.SpecialType: SpecialType.System_Array }
+        && arguments.Count == 1;
+
+    /// <summary>
+    ///     Records a call of <c>Array.Reverse</c> of a whole array. A call that
+    ///     is sure to run gives each position the value of the position at the
+    ///     other end. Otherwise, the array has no positions after the call.
+    /// </summary>
+    /// <param name="arguments">The arguments of the call.</param>
+    /// <param name="replaces">True when the call always runs in its function.</param>
+    /// <param name="turn">The body of the loop whose each turn always runs the call.</param>
+    public void Reverses(SeparatedSyntaxList<ArgumentSyntax> arguments, bool replaces, SyntaxNode? turn)
+    {
+        ExpressionSyntax array = arguments[0].Expression;
+
+        if (this.PositionsBefore(collection: array, replaces: replaces, turn: turn) is not (var made, var all))
+        {
+            this.ForgetsThePositionsOf(array);
+
+            return;
+        }
+
+        this.region.Objects.HasPositions(
+            collection: made,
+            values: ImmutableArray.CreateRange(all.Reverse()),
+            givenBy: ImmutableArray.CreateRange(this.region.Objects.GivenBy(collection: made, values: all).Reverse()));
+    }
+
+    /// <summary>
     ///     Records that a method of the platform got its arguments. The method
     ///     can put a value into a collection that it gets, as <c>CopyTo</c> does to
     ///     an array. The parameter must have a type that the method can change.
@@ -367,12 +400,19 @@ internal sealed partial class LoopStateEvaluator
     {
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
 
+        // A call that makes a view of an array, such as AsSpan, changes no element. A put through the
+        // view reaches the array: see PutsThroughAView.
+        if (IsAView(method.ReturnType))
+        {
+            return;
+        }
+
         if (receiver != null
             && method.ReducedFrom != null
             && definition.Parameters.Length > 0
             && CanChangeAValueOf(definition.Parameters[0]))
         {
-            this.CanHoldMore(receiver);
+            this.CanHoldMoreThrough(receiver);
         }
 
         for (int i = 0; i < arguments.Count; i++)
@@ -380,8 +420,20 @@ internal sealed partial class LoopStateEvaluator
             if (ParameterFor(method: method, argument: arguments[i], position: i) is { } parameter
                 && CanChangeAValueOf(parameter))
             {
-                this.CanHoldMore(arguments[i].Expression);
+                this.CanHoldMoreThrough(arguments[i].Expression);
             }
+        }
+    }
+
+    // The same as CanHoldMore. A view of a local array is a name of the elements of that array, as
+    // Reverse of a span changes them. Thus, the array can hold more also.
+    private void CanHoldMoreThrough(ExpressionSyntax collection)
+    {
+        this.CanHoldMore(collection);
+
+        if (IsAView(this.region.TypeOf(collection)) && this.TheArrayOfAView(collection) is { } array)
+        {
+            this.CanHoldMore(array);
         }
     }
 

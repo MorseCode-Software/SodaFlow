@@ -58,7 +58,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["DvLinksEscapeThroughAnIndexerSetter"] = [],
             ["DvLinksEscapeThroughAPropertySetter"] = [],
             ["DvLinksEscapeOfAnArrayOfThePlaceholder"] = [],
-            ["DvLinksEscapeOfThePlaceholderCastToObject"] = []
+            ["DvLinksEscapeOfThePlaceholderCastToObject"] = [],
+            ["Ab252MarkInALocalThatGetsASecondValue"] = [],
+            ["Ab252LocalWithNoMarkGivenAway"] = []
         };
 
     // Core lets an assembly with this name use its internals. The Core block shapes must use them,
@@ -73,6 +75,18 @@ internal sealed partial class LoopReadAnalyzerTests
         "Main",
         // The helper calls itself with no end, and a run overflows the stack.
         "RecursiveHelper"
+    ];
+
+    // The shapes whose rules are a report on the careful side, of a type that docs/docs/loops.md
+    // names. Each one returns at run time.
+    private static readonly HashSet<string> ReportsOnTheCarefulSide =
+    [
+        // The function of a merge runs only when the two streams fire in one transaction. The block
+        // sends into one stream only.
+        "R4ApiMergeFunctionThatReturnsALinkedCellWithOneSend",
+        // The updates of a cell that is not a sink have the content of the cell, with its initial
+        // value.
+        "R4ApiUpdatesOfAHoldWithALinkedInitialValue"
     ];
 
     private static readonly Assembly[] ShapeLibraries =
@@ -308,7 +322,7 @@ internal sealed partial class LoopReadAnalyzerTests
                         : [];
 
             IReadOnlyList<Outcome> permitted =
-                rules.Length == 0
+                rules.Length == 0 || ReportsOnTheCarefulSide.Contains(reportedIn)
                     ? [Outcome.Returns]
                     : [.. rules.Where(static rule => rule != "SF1003").Select(OutcomeOf).Distinct()];
 
@@ -1235,9 +1249,231 @@ internal sealed partial class LoopReadAnalyzerTests
     }
 
     /// <summary>
+    ///     The analyzer reads the <c>DisposeAsync</c> of an <c>await using</c>
+    ///     only in a compilation that declares a method with that name. The
+    ///     shapes file also declares <c>Dispose</c>. This source declares only
+    ///     <c>DisposeAsync</c>, and it samples the pending cell.
+    /// </summary>
+    [Test]
+    public async Task ADisposeAsyncIsReadInACompilationThatDeclaresNoDispose()
+    {
+        const string source =
+            """
+            using System;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> ByAnAwaitUsing() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Func<Task> run = async () => { await using Release release = new(l.Map(v => v)); };
+                        run().Wait(0);
+
+                        return S.Hold(0);
+                    });
+
+                public sealed class Release(Cell<int> share) : IAsyncDisposable
+                {
+                    private readonly Cell<int> share = share;
+
+                    public ValueTask DisposeAsync()
+                    {
+                        Kept.Add(this.share.Sample());
+
+                        return ValueTask.CompletedTask;
+                    }
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyADisposeAsync", images: []))
+            .IsEquivalentTo(["SF1005"]);
+    }
+
+    /// <summary>
+    ///     An await foreach calls <c>GetAsyncEnumerator</c>, and
+    ///     <c>DisposeAsync</c> of the enumerator at the end. The analyzer reads
+    ///     each one only in a compilation that declares a method with that name.
+    ///     The shapes file also declares <c>GetEnumerator</c> and <c>Dispose</c>,
+    ///     and these sources do not. In the first, the enumerator samples the
+    ///     pending cell. In the second, its <c>DisposeAsync</c> does.
+    /// </summary>
+    [Test]
+    public async Task AnAsyncEnumeratorIsReadInACompilationThatDeclaresNoEnumerator()
+    {
+        const string start =
+            """
+            using System;
+            using System.Collections.Generic;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> ByAnAwaitForeach() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Func<Task> run = async () =>
+                        {
+                            await foreach (int item in new Items(l.Map(v => v)))
+                            {
+                                Kept.Add(item);
+                            }
+                        };
+
+                        run().Wait(0);
+
+                        return S.Hold(0);
+                    });
+
+                public sealed class Items(Cell<int> share) : IAsyncEnumerable<int>
+                {
+                    private readonly Cell<int> share = share;
+
+                    public IAsyncEnumerator<int> GetAsyncEnumerator(CancellationToken cancellationToken = default)
+                    {
+                        Kept.Add(this.share.Sample());
+
+                        return new Walker();
+                    }
+                }
+
+                public sealed class Walker : IAsyncEnumerator<int>
+                {
+                    public int Current => 1;
+
+                    public ValueTask<bool> MoveNextAsync() => ValueTask.FromResult(false);
+
+                    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+                }
+            }
+            """;
+
+        const string end =
+            """
+            using System;
+            using System.Collections.Generic;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> ByAnAwaitForeach() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Func<Task> run = async () =>
+                        {
+                            await foreach (int item in new Items(l.Map(v => v)))
+                            {
+                                Kept.Add(item);
+                            }
+                        };
+
+                        run().Wait(0);
+
+                        return S.Hold(0);
+                    });
+
+                public sealed class Items(Cell<int> share) : IAsyncEnumerable<int>
+                {
+                    private readonly Cell<int> share = share;
+
+                    public IAsyncEnumerator<int> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+                        new Walker(this.share);
+                }
+
+                public sealed class Walker(Cell<int> share) : IAsyncEnumerator<int>
+                {
+                    private readonly Cell<int> share = share;
+
+                    public int Current => 1;
+
+                    public ValueTask<bool> MoveNextAsync() => ValueTask.FromResult(false);
+
+                    public ValueTask DisposeAsync()
+                    {
+                        Kept.Add(this.share.Sample());
+
+                        return ValueTask.CompletedTask;
+                    }
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: start, assemblyName: "OnlyAGetAsyncEnumerator", images: []))
+            .IsEquivalentTo(["SF1005"]);
+
+        await Assert.That(await RulesIn(source: end, assemblyName: "OnlyADisposeAsyncOfAnEnumerator", images: []))
+            .IsEquivalentTo(["SF1005"]);
+    }
+
+    /// <summary>
+    ///     The compiler writes the <c>==</c> of a record, and no declaration of
+    ///     the code names it. This source declares a record and no operator or
+    ///     <c>ToString</c>. The <c>==</c> calls the <c>Equals</c> of each member,
+    ///     and that <c>Equals</c> samples the pending cell.
+    /// </summary>
+    [Test]
+    public async Task TheEqualityOfARecordIsReadInACompilationThatDeclaresNoOperator()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> ByTheEqualityOfARecord() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Pair a = new(new Alike(l.Map(v => v)));
+                        Pair b = new(new Alike(Plain));
+                        Kept.Add(a == b);
+
+                        return S.Hold(0);
+                    });
+
+                public sealed record Pair(Alike A);
+
+                public sealed class Alike(Cell<int> share)
+                {
+                    private readonly Cell<int> share = share;
+
+                    public override bool Equals(object? obj) =>
+                        obj is Alike other && other.share.Sample() == this.share.Sample();
+
+                    public override int GetHashCode() => 1;
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyARecord", images: []))
+            .IsEquivalentTo(["SF1005"]);
+    }
+
+    /// <summary>
     ///     A block can be the name of a method with no body, as a method of an
-    ///     interface is. The analyzer has no code to read for that block, and it
-    ///     reports nothing. The method that runs returns and reads nothing.
+    ///     interface is. The analyzer has no code to read for that block. Thus,
+    ///     it reports SF1003 at the block, because an implementation can read the
+    ///     placeholder. The method that runs here returns and reads nothing.
     /// </summary>
     [Test]
     public async Task AMethodWithNoBodyIsNoBlockToRead()
@@ -1266,7 +1502,7 @@ internal sealed partial class LoopReadAnalyzerTests
             """;
 
         await Assert.That(await RulesIn(source: source, assemblyName: "OnlyAnInterfaceBlock", images: []))
-            .IsEmpty();
+            .IsEquivalentTo(["SF1003"]);
     }
 
     /// <summary>

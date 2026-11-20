@@ -211,6 +211,8 @@ internal static class PlatformCallers
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Hash, "GetHashCode"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Compare, "CompareTo"),
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Text, "ToString"),
+            Row(type: "KeyValuePair", callbacks: PlatformCallbacks.Text, "ToString"),
+            Row(type: "DictionaryEntry", callbacks: PlatformCallbacks.Text, "ToString"),
             Row(type: "String", callbacks: PlatformCallbacks.Text, "Join", "Concat", "Format"),
             Row(type: "StringBuilder", callbacks: PlatformCallbacks.Text,
                 "Append", "AppendJoin", "AppendFormat", "Insert"),
@@ -298,7 +300,8 @@ internal static class PlatformCallers
     ///     the rule of <see cref="ComparedTypes" />. <c>Remove</c> of a queue
     ///     compares the elements, and not the priorities. <c>TryUpdate</c>
     ///     compares the key, and the value that it has with the value for the
-    ///     comparison.
+    ///     comparison. <c>ToString</c> of a <c>KeyValuePair</c> calls the
+    ///     <c>ToString</c> of the key and of the value.
     /// </summary>
     private static readonly ImmutableDictionary<(string Type, string Method), ImmutableArray<string>>
         ComparedParameters =
@@ -309,6 +312,9 @@ internal static class PlatformCallers
                     value: ImmutableArray.Create("TElement")),
                 new KeyValuePair<(string Type, string Method), ImmutableArray<string>>(
                     key: ("ConcurrentDictionary", "TryUpdate"),
+                    value: ImmutableArray.Create(item1: "TKey", item2: "TValue")),
+                new KeyValuePair<(string Type, string Method), ImmutableArray<string>>(
+                    key: ("KeyValuePair", "ToString"),
                     value: ImmutableArray.Create(item1: "TKey", item2: "TValue"))
             ]);
 

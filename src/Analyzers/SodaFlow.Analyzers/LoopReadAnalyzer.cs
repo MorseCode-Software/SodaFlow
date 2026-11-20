@@ -7,6 +7,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Text;
 
 namespace SodaFlow.Analyzers;
 
@@ -111,9 +112,33 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                         .TypeKind
                     == TypeKind.Delegate)
                 .FirstOrDefault()
-                ?.Expression is not { } written
-            || BlockOf(written: written, model: model) is not (var placeholder, var body))
+                ?.Expression is not { } written)
         {
+            return;
+        }
+
+        if (BlockOf(written: written, model: model) is not (var placeholder, var body))
+        {
+            // A block with no body to read gets no check. The report says so, as for a callee that the
+            // walk cannot see. A function with no parameter cannot read the placeholder. A block of the
+            // library can give the function of its caller to its own block. That is not such a block,
+            // because the walk checks the function at the call of the caller.
+            if (FunctionIn(written: written, model: model) is not AnonymousFunctionExpressionSyntax
+                && !SymbolEqualityComparer.Default.Equals(x: method.ContainingAssembly, y: model.Compilation.Assembly))
+            {
+                ITypeSymbol? looped =
+                    (model.GetTypeInfo(written).ConvertedType as INamedTypeSymbol)?.DelegateInvokeMethod?.Parameters
+                    .FirstOrDefault()
+                    ?.Type;
+
+                report(
+                    Diagnostic.Create(
+                        descriptor: Diagnostics.Escape,
+                        location: written.GetLocation(),
+                        (looped ?? method.ContainingType).ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        written.ToString()));
+            }
+
             return;
         }
 
@@ -224,14 +249,17 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     ///     anonymous method, or the name of a method or a local function of this
     ///     compilation. It can also be a local of a delegate type that only its
     ///     declaration gives a value. A delegate from a different source has no
-    ///     body to read.
+    ///     body to read. Parentheses, a cast, and a creation of a delegate do not
+    ///     hide the function: see <see cref="FunctionIn" />.
     /// </summary>
     private static (ISymbol Placeholder, SyntaxNode Body)? BlockOf(ExpressionSyntax written, SemanticModel model)
     {
+        written = FunctionIn(written: written, model: model);
+
         if (written is IdentifierNameSyntax
             && model.GetSymbolInfo(written).Symbol is ILocalSymbol { Type.TypeKind: TypeKind.Delegate } delegateLocal)
         {
-            if (OnlyFunctionOf(local: delegateLocal, model: model) is not { } assigned)
+            if (FunctionAt(local: delegateLocal, use: written, model: model) is not { } assigned)
             {
                 return null;
             }
@@ -278,37 +306,94 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    ///     The lambda or the anonymous method that the declaration of a local
-    ///     gives it. Null when the code can give the local a different value, by
-    ///     an assignment or through a reference.
+    ///     The function that an argument gives to a block. Parentheses, a cast,
+    ///     and a creation of a delegate from one function each give that
+    ///     function.
     /// </summary>
-    private static AnonymousFunctionExpressionSyntax? OnlyFunctionOf(ISymbol local, SemanticModel model)
+    private static ExpressionSyntax FunctionIn(ExpressionSyntax written, SemanticModel model)
+    {
+        ExpressionSyntax function = LoopStateEvaluator.Unwrapped(written);
+
+        while (function is ObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } only } creation
+               && model.GetTypeInfo(creation).Type is { TypeKind: TypeKind.Delegate })
+        {
+            function = LoopStateEvaluator.Unwrapped(only[0].Expression);
+        }
+
+        return function;
+    }
+
+    /// <summary>
+    ///     The lambda or the anonymous method that a local has at a use. It is
+    ///     the value of the declaration, or of the last assignment before the
+    ///     statement of the use. Null when the code can give the local a
+    ///     different value there, by a different assignment or through a
+    ///     reference.
+    /// </summary>
+    /// <remarks>
+    ///     A value that the walk knows comes from an assignment that is a
+    ///     statement of the block of the declaration. A label can run such a
+    ///     statement again after the use, and a function around the use can run
+    ///     after a later statement. A write after the statement of the use cannot
+    ///     change the local before the use. An assignment statement that holds
+    ///     the use outside a function cannot give a lambda. Thus, it gives no
+    ///     function, as each other value with no lambda does.
+    /// </remarks>
+    private static AnonymousFunctionExpressionSyntax? FunctionAt(ISymbol local, SyntaxNode use, SemanticModel model)
     {
         if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                is not VariableDeclaratorSyntax
-                {
-                    Initializer.Value: AnonymousFunctionExpressionSyntax function
-                } declarator
+                is not VariableDeclaratorSyntax { Initializer.Value: var value } declarator
             || declarator.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
         {
             return null;
         }
 
-        bool changes =
-            scope.DescendantNodes()
-                .OfType<IdentifierNameSyntax>()
-                .Where(name => name.Identifier.ValueText == local.Name)
-                .Any(name =>
-                    name.Parent switch
-                    {
-                        AssignmentExpressionSyntax assignment => assignment.Left == name,
-                        ArgumentSyntax argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None),
-                        RefExpressionSyntax => true,
-                        _ => false
-                    }
-                    && SymbolEqualityComparer.Default.Equals(x: model.GetSymbolInfo(name).Symbol, y: local));
+        SyntaxNode[] around = [.. use.Ancestors().TakeWhile(node => node != scope)];
 
-        return changes ? null : function;
+        // The statement of the block that holds the use, when the walk knows the order of the code.
+        TextSpan? at =
+            around.OfType<StatementSyntax>().LastOrDefault() is { } statement
+            && !around.Any(static node => node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
+            && !scope.Statements.Any(static each => each is LabeledStatementSyntax)
+                ? statement.Span
+                : null;
+
+        foreach (IdentifierNameSyntax name in scope.DescendantNodes()
+                     .OfType<IdentifierNameSyntax>()
+                     .Where(name => name.Identifier.ValueText == local.Name))
+        {
+            bool writes =
+                name.Parent switch
+                {
+                    AssignmentExpressionSyntax assignment => assignment.Left == name,
+                    ArgumentSyntax argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None),
+                    RefExpressionSyntax => true,
+                    _ => false
+                };
+
+            if (!writes
+                || name.SpanStart >= at?.End
+                || !SymbolEqualityComparer.Default.Equals(x: model.GetSymbolInfo(name).Symbol, y: local))
+            {
+                continue;
+            }
+
+            if (at == null
+                || name.Parent is not AssignmentExpressionSyntax
+                {
+                    RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+                    Parent: ExpressionStatementSyntax { Parent: var block }
+                } assigned
+                || block != scope)
+            {
+                return null;
+            }
+
+            // The names come in the order of the code, thus the last one gives the value.
+            value = assigned.Right;
+        }
+
+        return FunctionIn(written: value, model: model) as AnonymousFunctionExpressionSyntax;
     }
 
     /// <summary>

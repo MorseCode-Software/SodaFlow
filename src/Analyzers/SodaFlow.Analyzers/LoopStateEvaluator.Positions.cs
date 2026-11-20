@@ -75,11 +75,30 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return known != null
-               && KeyOf(this.region.ModelFor(access).GetConstantValue(access.ArgumentList.Arguments[0].Expression))
+               && this.KeyOf(key: access.ArgumentList.Arguments[0].Expression, ofObjects: HasObjectKeys(local))
                    is { } key
                && known.TryGetValue(key: key, value: out ExpressionSyntax? value)
             ? value
             : null;
+    }
+
+    // True for a dictionary whose keys are objects. See KeyOf.
+    private static bool HasObjectKeys(ISymbol local) =>
+        local is ILocalSymbol { Type: INamedTypeSymbol { TypeArguments: { Length: 2 } keyAndValue } }
+        && keyAndValue.First().SpecialType == SpecialType.System_Object;
+
+    // The key that a constant gives in a dictionary. A key of the type object is a boxed value. Its
+    // Equals is true only for a value of the same type, thus the key has the type of the constant.
+    private object? KeyOf(ExpressionSyntax key, bool ofObjects)
+    {
+        SemanticModel model = this.region.ModelFor(key);
+        Optional<object?> constant = model.GetConstantValue(key);
+
+        return ofObjects
+            ? constant is { HasValue: true, Value: { } value } && model.GetTypeInfo(key).Type is { } type
+                ? (type.ToDisplayString(), value)
+                : null
+            : KeyOf(constant);
     }
 
     // The value expression for each constant key of the initializer that made a dictionary in a local,
@@ -99,14 +118,14 @@ internal sealed partial class LoopStateEvaluator
             || this.region.TypeOf(made)
                 is not INamedTypeSymbol { Name: "Dictionary", TypeArguments: { Length: 2 } types } dictionary
             || !SodaFlowSymbols.IsPlatform(dictionary)
-            || !IsATypeOfConstantKeys(types[0])
+            || !(IsATypeOfConstantKeys(types[0]) || HasObjectKeys(local))
             || declarator.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
         {
             return null;
         }
 
         Dictionary<object, ExpressionSyntax> values = [];
-        SemanticModel model = this.region.ModelFor(made);
+        bool ofObjects = HasObjectKeys(local);
 
         foreach (ExpressionSyntax element in initializer.Expressions)
         {
@@ -118,13 +137,13 @@ internal sealed partial class LoopStateEvaluator
                         Left: ImplicitElementAccessSyntax { ArgumentList.Arguments: { Count: 1 } keys },
                         Right: not InitializerExpressionSyntax and var value
                     }
-                    when KeyOf(model.GetConstantValue(keys[0].Expression)) is { } key:
+                    when this.KeyOf(key: keys[0].Expression, ofObjects: ofObjects) is { } key:
                     values[key] = value;
 
                     break;
                 // Add throws an exception for a second value of a key.
                 case InitializerExpressionSyntax { Expressions: { Count: 2 } pair }
-                    when KeyOf(model.GetConstantValue(pair[0])) is { } key && !values.ContainsKey(key):
+                    when this.KeyOf(key: pair[0], ofObjects: ofObjects) is { } key && !values.ContainsKey(key):
                     values[key] = pair[1];
 
                     break;
@@ -222,6 +241,27 @@ internal sealed partial class LoopStateEvaluator
         && SodaFlowSymbols.IsLinqEnumerable(queries)
             ? this.AtAStorePosition(collection: call.Expression, index: arguments[0].Expression)
             : null;
+
+    /// <summary>
+    ///     The state of each element of a collection whose positions the walk
+    ///     knows, in order. Null for each other collection.
+    /// </summary>
+    public IReadOnlyList<LoopState>? StatesAtThePositionsOf(ExpressionSyntax collection)
+    {
+        if (this.ElementsOf(collection) is { } elements)
+        {
+            return [.. elements.Select(this.StateAtAPosition)];
+        }
+
+        if (this.StorePositionsOf(collection) is not (_, var all))
+        {
+            return null;
+        }
+
+        IReadOnlyList<LoopState> kept = all;
+
+        return this.Eval(collection).Origin is { } origin ? [.. kept.Select(state => state.From(origin))] : kept;
+    }
 
     /// <summary>
     ///     The state of the first element of a collection, and the number of
@@ -417,16 +457,16 @@ internal sealed partial class LoopStateEvaluator
     ///     position the value.
     /// </summary>
     /// <param name="before">The result of <see cref="PositionsBefore" /> for the assignment.</param>
-    /// <param name="element">The element.</param>
+    /// <param name="indexes">The indexes of the element.</param>
     /// <param name="value">The expression of the value.</param>
     public void HasThePositionAfter(
         (MadeObject Made, ImmutableArray<LoopState> All)? before,
-        ElementAccessExpressionSyntax element,
+        BracketedArgumentListSyntax indexes,
         ExpressionSyntax value)
     {
         if (before is (var made, var all)
-            && element.ArgumentList.Arguments.Count == 1
-            && this.ConstantIndexOf(element.ArgumentList.Arguments[0]) is { } index
+            && indexes.Arguments.Count == 1
+            && this.ConstantIndexOf(indexes.Arguments[0]) is { } index
             && index < all.Length)
         {
             this.region.Objects.HasPositions(
@@ -1056,15 +1096,12 @@ internal sealed partial class LoopStateEvaluator
                 is IMethodSymbol { ReducedFrom: null, ContainingType: { Name: "List" or "ArrayList" } owner }
             && SodaFlowSymbols.IsPlatform(owner));
 
-    // The elements of a literal whose object has them in the order of the code. A spread has a
-    // number of elements that the code does not say.
+    // The elements of a literal whose object has them in the order of the code.
     private IReadOnlyList<ExpressionSyntax>? LiteralElements(ExpressionSyntax made, ITypeSymbol? type) =>
         made switch
         {
-            CollectionExpressionSyntax collection
-                when SodaFlowSymbols.KeepsTheOrder(type)
-                     && collection.Elements.All(static element => element is ExpressionElementSyntax) =>
-                [.. collection.Elements.Cast<ExpressionElementSyntax>().Select(static element => element.Expression)],
+            CollectionExpressionSyntax collection when SodaFlowSymbols.KeepsTheOrder(type) =>
+                this.ElementsOfACollectionExpression(collection),
             InitializerExpressionSyntax { RawKind: (int)SyntaxKind.ArrayInitializerExpression } initializer =>
                 [.. initializer.Expressions],
             ArrayCreationExpressionSyntax { Initializer: { } initializer } => [.. initializer.Expressions],
@@ -1079,6 +1116,33 @@ internal sealed partial class LoopStateEvaluator
                 when SodaFlowSymbols.KeepsTheOrder(this.region.TypeOf(made)) => [],
             _ => null
         };
+
+    // The elements of a collection expression. A spread of a local whose positions the walk knows
+    // gives those elements. A spread of each other value has a number of elements that the code
+    // does not say.
+    private IReadOnlyList<ExpressionSyntax>? ElementsOfACollectionExpression(CollectionExpressionSyntax collection)
+    {
+        List<ExpressionSyntax> all = [];
+
+        foreach (CollectionElementSyntax element in collection.Elements)
+        {
+            switch (element)
+            {
+                case ExpressionElementSyntax one:
+                    all.Add(one.Expression);
+
+                    break;
+                case SpreadElementSyntax spread when this.ElementsOf(spread.Expression) is { } spreadOnes:
+                    all.AddRange(spreadOnes);
+
+                    break;
+                default:
+                    return null;
+            }
+        }
+
+        return all;
+    }
 
     // The initializer calls Add one time for each element. An element with braces gives the
     // arguments of one Add, and is not the expression of an element.
@@ -1103,6 +1167,8 @@ internal sealed partial class LoopStateEvaluator
                 this.region.SymbolOf(call) is IMethodSymbol { ReducedFrom.ContainingType: { } owner }
                 && SodaFlowSymbols.IsLinqEnumerable(owner),
             CommonForEachStatementSyntax => true,
+            // A spread puts a copy of each element into a second collection.
+            SpreadElementSyntax => true,
             _ => false
         };
 

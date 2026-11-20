@@ -27,6 +27,11 @@ internal sealed partial class LoopStateEvaluator
         ISymbol key = member.OriginalDefinition;
         this.region.AddAMemberWrite();
 
+        if (this.Frame.WrittenThroughANameOfThis.Count > 0)
+        {
+            this.Frame.WrittenThroughANameOfThis.Remove(key);
+        }
+
         // The object can be older than a turn of a loop of this code. The receiver of a method can
         // be older than a turn of a loop of the caller also. A constructor makes a new object.
         state = this.InALocation(
@@ -44,6 +49,12 @@ internal sealed partial class LoopStateEvaluator
             !only && this.thisMembers.TryGetValue(key: key, value: out LoopState? existing)
                 ? existing.Join(state)
                 : state;
+
+        // The member has only this state from now on: see OfThisObject.
+        if (only && !this.quiet)
+        {
+            this.Frame.OwnWriteOf[key] = this.region.MemberWrites;
+        }
 
         this.setOnThis[key] = only && from != null ? this.TheOneCollectionThatIs(from: from, state: state) : null;
     }
@@ -506,6 +517,8 @@ internal sealed partial class LoopStateEvaluator
 
             this.locals[other] =
                 known.WithMembers(had.With(member: member, state: only ? state : had.StateOf(member).Join(state)));
+
+            this.NotesAChangeTo(other);
         }
     }
 
@@ -1004,7 +1017,21 @@ internal sealed partial class LoopStateEvaluator
                     ? (Unwrapped(element.Expression), true)
                     : (Unwrapped(returned), false);
 
-            if (name is not IdentifierNameSyntax || this.region.SymbolOf(name) is not IParameterSymbol parameter)
+            if (name is not IdentifierNameSyntax || this.region.SymbolOf(name) is not { } returnedName)
+            {
+                continue;
+            }
+
+            // A local function or a lambda can return a ref to a local of the code around it. Each
+            // method can return a ref to a static field. The name is the same in the caller.
+            if (returnedName is ILocalSymbol or IFieldSymbol { IsStatic: true })
+            {
+                locations.Add((name, isAnElement));
+
+                continue;
+            }
+
+            if (returnedName is not IParameterSymbol parameter)
             {
                 continue;
             }
@@ -1016,6 +1043,77 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return locations;
+    }
+
+    /// <summary>
+    ///     The members of its object that an indexer or a method of this
+    ///     compilation returns a ref to, as <c>ref this.cells[index]</c> does.
+    ///     Each is the member, with true for an element of it. Empty for each
+    ///     other location.
+    /// </summary>
+    /// <param name="definition">The getter of the indexer, or the method.</param>
+    public IReadOnlyList<(ISymbol Member, bool IsAnElement)> MembersOfARefReturn(IMethodSymbol definition)
+    {
+        if (BodyOf(definition) is not { } body)
+        {
+            return [];
+        }
+
+        List<(ISymbol Member, bool IsAnElement)> members = [];
+
+        foreach (ExpressionSyntax returned in body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+        {
+            (ExpressionSyntax name, bool isAnElement) =
+                Unwrapped(returned) is ElementAccessExpressionSyntax element
+                    ? (Unwrapped(element.Expression), true)
+                    : (Unwrapped(returned), false);
+
+            if (name is IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }
+                && this.region.SymbolOf(name) is { IsStatic: false } member and (IFieldSymbol or IPropertySymbol))
+            {
+                members.Add((member, isAnElement));
+            }
+        }
+
+        return members;
+    }
+
+    /// <summary>
+    ///     Records that a value went into an element of a member of an object,
+    ///     with no expression for that element. An indexer with a ref return can
+    ///     give such an element. The walk does not know the position.
+    /// </summary>
+    /// <param name="owner">The expression of the object.</param>
+    /// <param name="member">The member that holds the collection.</param>
+    /// <param name="state">The state of the value.</param>
+    public void PutsIntoAnElementOf(ExpressionSyntax owner, ISymbol member, LoopState state)
+    {
+        if (this.quiet)
+        {
+            return;
+        }
+
+        LoopState collection =
+            StateOfAMember(
+                owner: this.Eval(owner),
+                member: member,
+                implementations: this.region.Symbols.Implementations);
+
+        foreach (MadeObject made in collection.Objects)
+        {
+            this.region.Objects.HasNoPositions(made);
+        }
+
+        LoopState put = state.AsContainer.WithNoObjects;
+
+        this.Change(
+            owner: collection,
+            change: old => old.Join(put).HoldingWhatCameWith(state),
+            replaces: false,
+            turn: null);
+
+        // The member keeps the collection, which holds the value now.
+        this.SetMemberOf(owner: owner, member: member, state: collection.Join(put), replaces: false, turn: null);
     }
 
     /// <summary>
@@ -1717,7 +1815,9 @@ internal sealed partial class LoopStateEvaluator
         ExpressionSyntax? written,
         ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> sets)
     {
-        if (this.quiet || sets.IsEmpty)
+        // C# calls a method of a struct that the code cannot write on a copy of it. The writes of
+        // the method go to the copy, and the struct keeps its members.
+        if (this.quiet || sets.IsEmpty || (written != null && this.IsAStructThatTheCodeCannotWrite(written)))
         {
             return;
         }
@@ -1765,6 +1865,43 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
+    // True for a struct that the code cannot write. Such a struct is in a readonly field, out of the
+    // code that can write the field. It can also be in a parameter with in or ref readonly, or in a
+    // ref readonly local.
+    private bool IsAStructThatTheCodeCannotWrite(ExpressionSyntax written) =>
+        this.region.SymbolOf(Unwrapped(written)) switch
+        {
+            IFieldSymbol { IsReadOnly: true, Type.IsValueType: true } field =>
+                !this.CanWriteTheField(field: field, at: written),
+            IParameterSymbol { RefKind: RefKind.In or RefKind.RefReadOnlyParameter, Type.IsValueType: true } => true,
+            ILocalSymbol { RefKind: RefKind.RefReadOnly, Type.IsValueType: true } => true,
+            _ => false
+        };
+
+    // A constructor of the type of a readonly field can write the field. An init accessor of that
+    // type can write a field that is not static. A function in that code cannot.
+    private bool CanWriteTheField(ISymbol field, SyntaxNode at) =>
+        at.Ancestors()
+                .FirstOrDefault(static code =>
+                    code is BaseMethodDeclarationSyntax
+                        or AccessorDeclarationSyntax
+                        or AnonymousFunctionExpressionSyntax
+                        or LocalFunctionStatementSyntax)
+            switch
+            {
+                ConstructorDeclarationSyntax constructor =>
+                    constructor.Modifiers.Any(SyntaxKind.StaticKeyword) == field.IsStatic
+                    && SymbolEqualityComparer.Default.Equals(
+                        x: this.region.ModelFor(constructor).GetDeclaredSymbol(constructor)?.ContainingType,
+                        y: field.ContainingType),
+                AccessorDeclarationSyntax { RawKind: (int)SyntaxKind.InitAccessorDeclaration } init =>
+                    !field.IsStatic
+                    && SymbolEqualityComparer.Default.Equals(
+                        x: this.region.ModelFor(init).GetDeclaredSymbol(init)?.ContainingType,
+                        y: field.ContainingType),
+                _ => false
+            };
+
     /// <summary>
     ///     Records a value that the code gives to a member of an object, as in
     ///     <c>row.Share = value</c>. An object in a local keeps the state with its
@@ -1788,6 +1925,17 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode? turn,
         ExpressionSyntax? from = null)
     {
+        // A write through a name that got this is a write to the object that the code is in.
+        if (owner != null && this.IsANameOfThis(owner))
+        {
+            this.SetMember(member: member, state: state, replaces: replaces, from: from);
+
+            if (!this.quiet)
+            {
+                this.Frame.WrittenThroughANameOfThis[member.OriginalDefinition] = state.From(member);
+            }
+        }
+
         if (owner is MemberAccessExpressionSyntax or IdentifierNameSyntax
             && this.region.SymbolOf(owner) is IFieldSymbol { Type.IsValueType: true } field)
         {
@@ -1818,6 +1966,8 @@ internal sealed partial class LoopStateEvaluator
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
         this.region.AddAMemberWrite();
+        this.NotesAnOwnWrite(written);
+        this.NotesAnOwnWrite(owner);
 
         // A field is a location that a parameter with ref can be a name of.
         if (member is IFieldSymbol)
@@ -1854,7 +2004,16 @@ internal sealed partial class LoopStateEvaluator
             from: from,
             sure: replaces && isKnown);
 
-        this.NotesAWriteAtAnElement(written: written, member: member, state: state, replaces: replaces);
+        this.NotesAWriteThroughANameOfOneObject(written: written, member: member, state: state, replaces: replaces);
+
+        this.NotesAWriteAtAnElement(
+            written: written,
+            member: member,
+            state: state,
+            replaces: replaces,
+            has: has,
+            isKnown: isKnown,
+            turn: turn);
 
         if (!replaces
             || isThroughALocation
@@ -1877,6 +2036,7 @@ internal sealed partial class LoopStateEvaluator
                 isReadInTheCaller: isReadInTheCaller);
 
             this.Frame.LastWrite = null;
+            this.region.NotesAWriteThroughAName(member: member, name: this.NameKeyOf(written), objects: has.Objects);
 
             this.GivesTheOtherNames(
                 owner: owner,
@@ -1911,6 +2071,7 @@ internal sealed partial class LoopStateEvaluator
             isKnown: isKnown,
             isReadInTheCaller: false);
 
+        this.region.NotesAWriteThroughAName(member: member, name: this.NameKeyOf(written), objects: has.Objects);
         this.GivesTheOtherNames(owner: owner, at: owner, member: member, state: state, replaces: replaces, turn: turn);
 
         this.Frame.LastWrite =

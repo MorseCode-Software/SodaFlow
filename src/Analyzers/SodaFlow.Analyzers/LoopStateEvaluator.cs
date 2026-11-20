@@ -94,6 +94,11 @@ internal sealed partial class LoopStateEvaluator
     // each other code.
     private INamedTypeSymbol? builtType;
 
+    // The object that this code runs on, when the walk knows its type. It is the receiver of the call
+    // of a method of it, as the caller read it. A call on this object runs the member of that type.
+    // Such a call has no receiver, or its receiver is this. Null for each other code.
+    private Construction? thisObject;
+
     // The code that defines the function that this evaluator reads, or null. See StateAtAPosition.
     private LoopStateEvaluator? definer;
 
@@ -185,7 +190,7 @@ internal sealed partial class LoopStateEvaluator
                     comparer: SymbolEqualityComparer.Default),
                 quiet: true,
                 function: this.function,
-                call: this.call) { walker = this.walker, builtType = this.builtType };
+                call: this.call) { walker = this.walker, builtType = this.builtType, thisObject = this.thisObject };
 
     /// <summary>The frame of the code that this evaluator reads.</summary>
     public LoopFrame Frame { get; }
@@ -305,6 +310,8 @@ internal sealed partial class LoopStateEvaluator
 
         this.locals[local] =
             this.locals.TryGetValue(key: local, value: out LoopState? existing) ? existing.Join(state) : state;
+
+        this.NotesAChangeTo(local);
     }
 
     // Records the collection of a local that has one value. The value is one new object of the
@@ -868,6 +875,13 @@ internal sealed partial class LoopStateEvaluator
         this.NotesASecondName(local: local, value: value, replaces: replaces);
         this.NotesANameOfALocation(local: local, value: value, replaces: replaces);
         this.NotesANameOfAnElement(local: local, value: value);
+
+        if (KeepsItsObject(local))
+        {
+            this.NotesALink(name: new NameKey(of: local, owner: null, index: -1), value: value, replaces: replaces);
+        }
+
+        this.NotesANameOfThis(local: local, location: null, value: value, replaces: replaces);
 
         // A name with ref gets its location here. Each other assignment to the name is an
         // assignment to that location, and the name keeps it.
@@ -1889,7 +1903,11 @@ internal sealed partial class LoopStateEvaluator
                 this.Eval(s.Operand),
             BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } b => this.Eval(b.Left),
             BinaryExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceExpression } b => this.OneOf([b.Left, b.Right]),
-            ConditionalExpressionSyntax c => this.OneOf([c.WhenTrue, c.WhenFalse]),
+            // An arm that a constant condition rules out gives no value.
+            ConditionalExpressionSyntax c =>
+                SinkWalker.ConstantOf(region: this.region, condition: c.Condition) is { } always
+                    ? this.Eval(always ? c.WhenTrue : c.WhenFalse)
+                    : this.OneOf([c.WhenTrue, c.WhenFalse]),
             // The value of an assignment is the value that its target gets. A coalescing assignment
             // gives the value that its target had, when that value is not null.
             AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } a => this.Eval(a.Right),
@@ -1956,6 +1974,7 @@ internal sealed partial class LoopStateEvaluator
                     Construction.Of(this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default))),
             InvocationExpressionSyntax inv => this.WithTheResultOfATask(read: inv, state: this.EvalInvocation(inv)),
             ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => this.EvalCreation(expression),
+            MemberAccessExpressionSyntax read when this.WrittenThroughANameOfItsObject(read) is { } written => written,
             MemberAccessExpressionSyntax read when this.WrittenThroughItsName(read) is { } written => written,
             MemberAccessExpressionSyntax read when this.WrittenAtItsElement(read) is { } written => written,
             IdentifierNameSyntax
@@ -2255,22 +2274,24 @@ internal sealed partial class LoopStateEvaluator
                 }
 
                 // A field that the code set while the loop is open, on an object that the walk does
-                // not know.
+                // not know. A put through a local that got the array of the field is a put into the
+                // field also.
                 LoopState field =
-                    this.region.HasFields
+                    (this.region.HasFields
                         ? this.region.FieldState(field: symbol, canHave: this.KeysOfTheResult(expression))
-                        : LoopState.None;
+                        : LoopState.None)
+                    .Join(this.region.PutsThroughLocalsOf(symbol));
 
                 // A member of this object, in a constructor the evaluator follows, has the state the
                 // constructor gave it.
                 if (expression is IdentifierNameSyntax
                     or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })
                 {
-                    return (this.thisMembers.TryGetValue(key: symbol.OriginalDefinition, value: out LoopState? own)
-                            ? own
-                            : this.OfTheImplementationsOnThis(symbol))
-                        .Join(field)
-                        .Join(this.TypeState(expression));
+                    return this.OfThisObject(
+                        member: symbol,
+                        field: field,
+                        read: expression,
+                        throughThisOrAField: true);
                 }
 
                 // The field has the state from each owner that the walk does not know. The owner
@@ -2284,6 +2305,17 @@ internal sealed partial class LoopStateEvaluator
                         MemberBindingExpressionSyntax binding => ConditionalReceiver(binding),
                         _ => null
                     };
+
+                // A name that got this reads the members of the object that the code is in.
+                if (ownerExpression != null && this.IsANameOfThis(ownerExpression))
+                {
+                    return this.OfThisObject(
+                        member: symbol,
+                        field: field,
+                        read: expression,
+                        throughThisOrAField: this.RootOf(ownerExpression) is { } root
+                                             && this.region.SymbolOf(root) is IFieldSymbol);
+                }
 
                 if (ownerExpression != null)
                 {
@@ -2327,6 +2359,13 @@ internal sealed partial class LoopStateEvaluator
                         {
                             through = through.Join(field);
                         }
+
+                        through = through.Join(
+                            this.WrittenAfterItsOwner(
+                                owner: ownerExpression,
+                                has: owner,
+                                member: symbol,
+                                field: field));
 
                         // The members are of each object that the owner can be. An owner that the
                         // store does not know has a member that the store does not know.
@@ -2469,6 +2508,11 @@ internal sealed partial class LoopStateEvaluator
         // what the analyzer can see.
         if (!this.region.Symbols.IsSodaFlow(method))
         {
+            if (this.StateOfADelegateCall(invocation: invocation, method: method) is { } functions)
+            {
+                return functions;
+            }
+
             CalleeKind kind = this.Classify(call: invocation, method: method);
 
             LoopState result =
@@ -2604,7 +2648,13 @@ internal sealed partial class LoopStateEvaluator
                     pending: inputs.Pending,
                     linked: inputs.Linked,
                     contentPending: false,
-                    contentLinked: false),
+                    contentLinked: false).WithContent(
+                    this.AppliedContent(
+                        invocation: invocation,
+                        method: method,
+                        receiver: receiver,
+                        receiverState: receiverState,
+                        functionCell: firstArgument)),
                 OperatorRule.LiftValue => new LoopState(
                     pending: inputs.Pending,
                     linked: inputs.Linked,
@@ -2674,7 +2724,10 @@ internal sealed partial class LoopStateEvaluator
                             method: method,
                             receiverState: receiverState,
                             initial: firstArgument)),
-                OperatorRule.Updates => source.WithPending(false),
+                // The updates of a sink fire what the sends give it, and not its initial value.
+                OperatorRule.Updates => OperatorName(method) == "Updates" && this.SentToTheSinks(source) is { } sent
+                    ? source.WithPending(false).WithContent(sent)
+                    : source.WithPending(false),
                 OperatorRule.MapTo => new LoopState(
                     pending: false,
                     linked: receiverState.Linked,
@@ -2716,13 +2769,28 @@ internal sealed partial class LoopStateEvaluator
                         receiverType: receiverType,
                         argumentStates: argumentStates,
                         argumentTypes: argumentTypes),
-                    contentPending: inputs.ContentPending,
-                    contentLinked: inputs.ContentLinked),
+                    contentPending: false,
+                    contentLinked: false).WithContent(
+                    new LoopState(
+                            pending: inputs.ContentPending,
+                            linked: inputs.ContentLinked,
+                            contentPending: false,
+                            contentLinked: false)
+                        .Join(
+                            this.MergedContent(
+                                invocation: invocation,
+                                method: method,
+                                receiverType: receiverType,
+                                receiverState: receiverState,
+                                argumentStates: argumentStates))),
                 OperatorRule.DeferLazy => new LoopState(
                     pending: firstArgument.Pending,
                     linked: false,
                     contentPending: false,
-                    contentLinked: false),
+                    contentLinked: false).WithContent(
+                    this.HoldsContent(method)
+                        ? this.MappedContent(invocation: invocation, parameterState: LoopState.None)
+                        : LoopState.None),
                 // A defer, a split, and a debounce fire in a new transaction. Thus, they have no link,
                 // and fire what their stream fires, or each element of it.
                 OperatorRule.Later => LoopState.None.WithContent(source.Content.AsOneOfItsElements),
@@ -2737,14 +2805,30 @@ internal sealed partial class LoopStateEvaluator
                         method: method,
                         inputs: inputs)
                     .WithMembers(this.ActionParts(method: method, arguments: arguments)),
-                // A cell of initial items is an input that is not a link.
-                OperatorRule.CollectionCreate => inputs.WithLinked(
-                    LinkedStreamInput(
-                        symbols: this.region.Symbols,
-                        receiverState: receiverState,
-                        receiverType: receiverType,
-                        argumentStates: argumentStates,
-                        argumentTypes: argumentTypes)),
+                // A transform gives the edit the state that an item of an add gives it.
+                OperatorRule.CollectionUpdate => this.region.Symbols.IsStreamType(method.ReturnType)
+                    ? DefaultLibraryResult(symbols: this.region.Symbols, method: method, inputs: inputs)
+                        .WithContent(
+                            new LoopState(
+                                    pending: inputs.ContentPending,
+                                    linked: inputs.ContentLinked,
+                                    contentPending: false,
+                                    contentLinked: false)
+                                .Join(
+                                    this.TransformedContent(
+                                        invocation: invocation,
+                                        method: method,
+                                        argumentStates: argumentStates)))
+                    : DefaultLibraryResult(symbols: this.region.Symbols, method: method, inputs: inputs)
+                        .Join(
+                            this.TransformedContent(
+                                invocation: invocation,
+                                method: method,
+                                argumentStates: argumentStates)),
+                OperatorRule.CollectionCreate => this.MadeCollection(
+                    inputs: inputs,
+                    argumentStates: argumentStates,
+                    argumentTypes: argumentTypes),
                 _ => throw new ArgumentOutOfRangeException(
                     paramName: nameof(invocation),
                     message: "An operator rule has no case.")
@@ -2778,6 +2862,16 @@ internal sealed partial class LoopStateEvaluator
         {
             state = state.WithPending(true);
         }
+
+        state = this.WithTheComputedValue(
+            state: state,
+            rule: rule,
+            invocation: invocation,
+            method: method,
+            receiverType: receiverType,
+            receiverState: receiverState,
+            firstArgument: firstArgument,
+            inputs: inputs);
 
         if (this.region.ReadsBack)
         {
@@ -3500,6 +3594,23 @@ internal sealed partial class LoopStateEvaluator
                 : null;
         }
 
+        // An anonymous type has an Equals, a GetHashCode, and a ToString that the compiler writes. The
+        // symbol of a call of one is the member of object.
+        if (method is
+            {
+                ContainingType.SpecialType: SpecialType.System_Object,
+                Name: "Equals" or "GetHashCode" or "ToString"
+            }
+            && invocation.Expression is MemberAccessExpressionSyntax { Expression: var receiver }
+            && this.Self(receiver) is { Members.IsAnonymous: true } anonymous)
+        {
+            return this.FollowImplied(
+                call: invocation,
+                member: method,
+                owner: anonymous,
+                arguments: [.. arguments.Select(argument => (argument.Expression, this.Eval(argument.Expression)))]);
+        }
+
         if (this.region.Symbols.IsSodaFlow(method))
         {
             return OperatorTable.FunctionsInTheCall.Contains(OperatorName(method))
@@ -3573,7 +3684,8 @@ internal sealed partial class LoopStateEvaluator
                 .ToImmutableArray(),
             alwaysGives: followed.AlwaysGives
                 .Select(one => Of(one) ?? one)
-                .ToImmutableHashSet(SymbolEqualityComparer.Default));
+                .ToImmutableHashSet(SymbolEqualityComparer.Default),
+            thrown: followed.Thrown);
 
         IParameterSymbol? Of(ISymbol parameter) =>
             parameter is IParameterSymbol { ContainingSymbol: IMethodSymbol { IsExtensionMethod: false } } own
@@ -3675,13 +3787,16 @@ internal sealed partial class LoopStateEvaluator
             return [.. onThis.Select(static found => found.OriginalDefinition)];
         }
 
-        if ((this.builtType != null && receiver is null or ThisExpressionSyntax
-                ? Construction.Of(this.builtType)
-                : receiver == null
-                    ? null
-                    : this.Self(receiver).Members) is not { } members)
+        // A call with no receiver is a call on this.
+        if ((receiver is null or ThisExpressionSyntax
+                ? this.builtType != null ? Construction.Of(this.builtType) : this.thisObject
+                : this.Self(receiver).Members) is not { } members)
         {
-            return this.CanRunAnOverride(receiver: receiver, definition: definition) ? [] : [definition];
+            return !this.CanRunAnOverride(receiver: receiver, definition: definition, call: invocation)
+                ? [definition]
+                : receiver is null or ThisExpressionSyntax
+                    ? this.OnEachClassOfThis(definition: definition, call: invocation)
+                    : [];
         }
 
         IMethodSymbol[] actual =
@@ -3830,7 +3945,8 @@ internal sealed partial class LoopStateEvaluator
                     outs: first.Outs.SetItems(second.Outs),
                     sets: first.Sets.AddRange(second.Sets),
                     through: first.Through.AddRange(second.Through),
-                    alwaysGives: first.AlwaysGives.Intersect(second.AlwaysGives));
+                    alwaysGives: first.AlwaysGives.Intersect(second.AlwaysGives),
+                    thrown: first.Thrown.AddRange(second.Thrown));
 
     private Followed? FollowFunctions(
         SyntaxNode call,
@@ -3978,9 +4094,12 @@ internal sealed partial class LoopStateEvaluator
                 arguments: arguments?.Arguments ?? default)
             : null;
 
-    // The constructor that the creation of a type parameter runs, when the call of this code says
-    // which class the type parameter is. Such a creation has no arguments.
-    private IMethodSymbol? ConstructorOfATypeArgument(SyntaxNode creation) =>
+    /// <summary>
+    ///     The constructor that the creation of a type parameter runs, when the
+    ///     call of this code says which class the type parameter is. Such a
+    ///     creation has no arguments.
+    /// </summary>
+    public IMethodSymbol? ConstructorOfATypeArgument(SyntaxNode creation) =>
         creation is ExpressionSyntax made
         && this.TypeArgumentFor(this.region.TypeOf(made)) is INamedTypeSymbol actual
             ? actual.InstanceConstructors.FirstOrDefault(static constructor => constructor.Parameters.IsEmpty)
@@ -4113,18 +4232,39 @@ internal sealed partial class LoopStateEvaluator
     {
         ImmutableDictionary<ISymbol, ITypeSymbol> all = definer?.call?.TypeArguments ?? NoTypeArguments;
 
-        if (this.region.SymbolOf(call) is not IMethodSymbol { TypeArguments.IsEmpty: false } method)
+        if (this.region.SymbolOf(call) is not IMethodSymbol method)
         {
             return all;
         }
 
-        ImmutableArray<ITypeParameterSymbol> parameters =
-            (method.ReducedFrom ?? method).OriginalDefinition.TypeParameters;
+        all = this.WithTypeArguments(
+            all: all,
+            parameters: (method.ReducedFrom ?? method).OriginalDefinition.TypeParameters,
+            given: method.TypeArguments);
 
-        for (int i = 0; i < parameters.Length && i < method.TypeArguments.Length; i++)
+        // A member of a generic type gets the type arguments of that type, as in Factory<T>.Make().
+        for (INamedTypeSymbol? type = method.ContainingType;
+             type is { IsGenericType: true };
+             type = type.ContainingType)
         {
-            ITypeSymbol given = method.TypeArguments[i];
-            all = all.SetItem(key: parameters[i], value: this.TypeArgumentFor(given) ?? given);
+            all = this.WithTypeArguments(
+                all: all,
+                parameters: type.OriginalDefinition.TypeParameters,
+                given: type.TypeArguments);
+        }
+
+        return all;
+    }
+
+    // The type arguments with the type that each parameter gets.
+    private ImmutableDictionary<ISymbol, ITypeSymbol> WithTypeArguments(
+        ImmutableDictionary<ISymbol, ITypeSymbol> all,
+        ImmutableArray<ITypeParameterSymbol> parameters,
+        ImmutableArray<ITypeSymbol> given)
+    {
+        for (int i = 0; i < parameters.Length && i < given.Length; i++)
+        {
+            all = all.SetItem(key: parameters[i], value: this.TypeArgumentFor(given[i]) ?? given[i]);
         }
 
         return all;
@@ -4328,7 +4468,8 @@ internal sealed partial class LoopStateEvaluator
                     members: members.ToImmutableDictionary(SymbolEqualityComparer.Default),
                     type: definition.ContainingType)),
             found: found,
-            leaving: leaving);
+            leaving: leaving,
+            thrown: walker.Thrown);
 
         void Set(ISymbol? member, ExpressionSyntax value)
         {
@@ -4536,7 +4677,8 @@ internal sealed partial class LoopStateEvaluator
             outs: followed.Outs,
             sets: followed.Sets,
             through: followed.Through,
-            alwaysGives: followed.AlwaysGives);
+            alwaysGives: followed.AlwaysGives,
+            thrown: followed.Thrown);
 
         Followed? Run(LoopState given) =>
             makers.Aggregate(
@@ -5055,23 +5197,39 @@ internal sealed partial class LoopStateEvaluator
     ///     An <c>AsCell()</c> or <c>AsBehavior()</c> on the argument, or on a
     ///     value it is derived from, is the assertion that nothing reads it before the
     ///     close. Parentheses, a cast, and the operator that says not null do not
-    ///     hide it.
+    ///     hide it. A local that gets no value after its declaration has the
+    ///     value of its initializer, also in a lambda.
     /// </summary>
-    public static bool IsAsserted(ExpressionSyntax argument)
+    public bool IsAsserted(ExpressionSyntax argument)
     {
         ExpressionSyntax current = Unwrapped(argument);
 
-        while (current is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access })
+        while (true)
         {
-            if (access.Name.Identifier.ValueText is "AsCell" or "AsBehavior")
+            switch (current)
             {
-                return true;
+                case InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access }:
+                    if (access.Name.Identifier.ValueText is "AsCell" or "AsBehavior")
+                    {
+                        return true;
+                    }
+
+                    current = Unwrapped(access.Expression);
+
+                    break;
+                case IdentifierNameSyntax name
+                    when this.region.SymbolOf(name) is ILocalSymbol local
+                         && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                             is VariableDeclaratorSyntax { Initializer.Value: { } initial } declarator
+                         && FunctionOf(declarator) is { } code
+                         && this.HasOneValueIn(name: local, code: code):
+                    current = Unwrapped(initial);
+
+                    break;
+                default:
+                    return false;
             }
-
-            current = Unwrapped(access.Expression);
         }
-
-        return false;
     }
 
     /// <summary>
