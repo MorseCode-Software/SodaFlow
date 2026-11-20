@@ -119,6 +119,7 @@ config:
   themeVariables:
     xyChart:
       plotColorPalette: "#2a78d6"
+      backgroundColor: "transparent"
 ---
 xychart-beta horizontal
     title "Time at 10,000 orders, main as a share of the release"
@@ -136,6 +137,7 @@ config:
   themeVariables:
     xyChart:
       plotColorPalette: "#2a78d6"
+      backgroundColor: "transparent"
 ---
 xychart-beta horizontal
     title "Allocation at 10,000 orders, main as a share of the release"
@@ -173,6 +175,7 @@ config:
   themeVariables:
     xyChart:
       plotColorPalette: "#2a78d6"
+      backgroundColor: "transparent"
 ---
 xychart-beta horizontal
     title "Time at 1,000 orders, main as a share of the release"
@@ -190,6 +193,7 @@ config:
   themeVariables:
     xyChart:
       plotColorPalette: "#2a78d6"
+      backgroundColor: "transparent"
 ---
 xychart-beta horizontal
     title "Allocation at 1,000 orders, main as a share of the release"
