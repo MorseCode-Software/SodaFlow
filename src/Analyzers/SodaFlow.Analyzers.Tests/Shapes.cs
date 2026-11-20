@@ -28687,7 +28687,7 @@ public static class Shapes
     public static Cell<int> Ag96RefOfALocalThatGetsAnObjectInAForeach() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = Plain }; SettableSlot b = new() { Share = Plain }; SettableSlot first = a; Cell<int> c = l.Map(v => v); ref SettableSlot r = ref a; foreach (int i in new[] { 0, 1 }) { r.Share = c; c = Plain; a = b; } Kept.Add(first.Share!.Sample()); Kept.Add(b); return S.Hold(0); });
 
-    // S6693. A ref local is moved to the second object at the end of a foreach body.
+    // S6693. The end of a foreach body moves a ref local to the second object.
     public static Cell<int> Ag96RefMovedAtTheEndOfAForeach() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot a = new() { Share = Plain }; SettableSlot b = new() { Share = Plain }; SettableSlot first = a; Cell<int> c = l.Map(v => v); ref SettableSlot r = ref a; foreach (int i in new[] { 0, 1 }) { r.Share = c; c = Plain; r = ref b; } Kept.Add(first.Share!.Sample()); Kept.Add(b); return S.Hold(0); });
 
