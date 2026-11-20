@@ -40757,6 +40757,14 @@ public static class Shapes
     public static Cell<int> Ab325DataContractSerializerSkipsANonSerializedField() =>
         Cell.Loop<int>().WithoutCaptures(l => { new System.Runtime.Serialization.DataContractSerializer(typeof(Ab325SerializableSkipped)).WriteObject(System.IO.Stream.Null, new Ab325SerializableSkipped(new Ab243PlainSettableRow(l.Map(v => v)))); return S.Hold(0); });
 
+    // S9710. Json.NET does not write a property with IgnoreDataMember. Its getter samples.
+    public static Cell<int> R5ApiJsonNetSkipsAnIgnoreDataMemberProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R5ApiJsonNetIgnoredDataMember(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S9711. Json.NET with OptIn writes a member with DataMember and IgnoreDataMember of a type with DataContract, and its getter samples.
+    public static Cell<int> Ab323JsonNetOptInReadsAnIgnoreDataMemberWithADataMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new Ab323ContractWithAnIgnoredDataMember(l.Map(v => v)))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58265,6 +58273,16 @@ public static class Shapes
         }
 
         public int Count => this.count + (this.row == null ? 0 : 1);
+    }
+
+    [System.Runtime.Serialization.DataContract]
+    public sealed class Ab323ContractWithAnIgnoredDataMember(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        [System.Runtime.Serialization.DataMember]
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public int Now => this.share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

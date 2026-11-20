@@ -876,19 +876,23 @@ internal sealed class SodaFlowSymbols
     }
 
     // Each serializer obeys only the ignore attribute of its own library. Json.NET also skips a field
-    // with NonSerialized. Condition is the one named argument of JsonIgnore. Each value but Always (1)
-    // reads the value before it decides.
+    // with NonSerialized, and a member with IgnoreDataMember of a type that is not OptIn. Condition is
+    // the one named argument of JsonIgnore. Each value but Always (1) reads the value before it
+    // decides.
     private static bool IsIgnored(ISymbol member, ISymbol serializer) =>
         LibraryOf(serializer) is { } library
-        && member.GetAttributes()
-            .Any(attribute =>
-                attribute.AttributeClass is { } found
-                && (found.Name, found.ContainingNamespace?.ToDisplayString(), library)
-                is ("JsonIgnoreAttribute", "System.Text.Json.Serialization", "System.Text.Json")
-                or ("JsonIgnoreAttribute", "Newtonsoft.Json", "Newtonsoft.Json")
-                or ("XmlIgnoreAttribute", "System.Xml.Serialization", "System.Xml.Serialization")
-                or ("NonSerializedAttribute", "System", "Newtonsoft.Json")
-                && attribute.NamedArguments.All(static argument => argument.Value.Value is 1));
+        && (member.GetAttributes()
+                .Any(attribute =>
+                    attribute.AttributeClass is { } found
+                    && (found.Name, found.ContainingNamespace?.ToDisplayString(), library)
+                    is ("JsonIgnoreAttribute", "System.Text.Json.Serialization", "System.Text.Json")
+                    or ("JsonIgnoreAttribute", "Newtonsoft.Json", "Newtonsoft.Json")
+                    or ("XmlIgnoreAttribute", "System.Xml.Serialization", "System.Xml.Serialization")
+                    or ("NonSerializedAttribute", "System", "Newtonsoft.Json")
+                    && attribute.NamedArguments.All(static argument => argument.Value.Value is 1))
+            || (library == "Newtonsoft.Json"
+                && HasAttribute(symbol: member, name: "IgnoreDataMemberAttribute", space: DataContracts)
+                && MemberSerializationOf(member.ContainingType) != OptIn));
 
     /// <summary>
     ///     The converter that a <c>JsonConverter</c> attribute of a member or a

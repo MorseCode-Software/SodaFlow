@@ -527,7 +527,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   public members that they can set, without `[IgnoreDataMember]`, of each other type.
   Each serializer skips a member that has the ignore attribute of its own library, `[JsonIgnore]`
   or `[XmlIgnore]`, and reads one that has only the attribute of another library. Json.NET also
-  skips a field with `[NonSerialized]`. A `[JsonIgnore]`
+  skips a field with `[NonSerialized]`, and a member with `[IgnoreDataMember]` of a type that is
+  not opt-in. A `[JsonIgnore]`
   with a `Condition` other than `Always` still reads the value to decide, so the analyzer reads that
   member.
   It reads `IncludeFields`, `IgnoreReadOnlyProperties`, and `IgnoreReadOnlyFields` where you create
