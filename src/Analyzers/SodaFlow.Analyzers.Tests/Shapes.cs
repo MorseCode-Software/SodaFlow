@@ -28425,7 +28425,7 @@ public static class Shapes
 
     // S6627. AB211. A local gets the array of a static field that is not readonly. The field then gets a new array, and a pending object goes in through the local. The read through the field gets the new array. A control.
     public static Cell<int> Ab211PutThroughALocalAfterTheFieldGetsANewArray() =>
-        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab211Writable; Ab211Writable = [new SettableSlot()]; fa[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(Ab211Writable[0].Share!.Sample()); });
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] fa = Ab211Writable; Ab211Writable = [new SettableSlot { Share = Plain }]; fa[0] = new SettableSlot { Share = l.Map(v => v) }; return S.Hold(Ab211Writable[0].Share!.Sample()); });
 
     // S6628. AB211. A local gets an array of a struct type from a static field, and a value with a pending cell goes in through it. The read is through the field.
     public static Cell<int> Ab211PutOfAStructThroughALocal() =>
