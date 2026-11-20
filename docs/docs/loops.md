@@ -575,6 +575,9 @@ Some reads that throw it does not see:
   returns, so a cycle through its result gets no `SF1002`.
 - A new element that code adds to a list with `Add` through a local that got the list from a
   field, read through the field.
+- A write into an element of an array in a field that a method you call makes through a `ref`
+  local, through `Array.Copy`, through an array that a call returns, or through a second field that
+  holds the same array, read through a local that got the array before the call.
 - A write through a span, a memory, or a segment that a method gets as a parameter, that
   `CollectionsMarshal` or `MemoryMarshal` makes, or that a lambda or a local function uses. The
   write does not reach the array.

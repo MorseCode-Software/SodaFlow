@@ -4132,6 +4132,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4PairStaticFieldPlainThenThisReadStaticFieldInAMethodOfTheObject"] = ["SF1004"],
             ["R4PairStaticFieldPlainThenThisReadThirdInAMethodOfTheObject"] = ["SF1004"],
             ["Ag93ThirdLocalThroughAStaticFieldOfThis"] = ["SF1004"],
-            ["Ab224PlainThroughThisInABranchAfterPendingThroughAnElement"] = ["SF1005"]
+            ["Ab224PlainThroughThisInABranchAfterPendingThroughAnElement"] = ["SF1005"],
+            ["Ab215SpanPutInACallee"] = ["SF1001"],
+            ["Ab215SpanPutOfAWrittenObject"] = ["SF1001"],
+            ["Ab215PutThroughALocalInACallee"] = ["SF1001"]
         };
 }

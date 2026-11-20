@@ -28563,6 +28563,18 @@ public static class Shapes
     public static Cell<int> Ab224PlainThroughThisInABranchAfterPendingThroughAnElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab224Self s = new(); Ab224Slots[1] = s; int got = s.PlainInABranchAfterPending(l.Map(v => v)); return S.Hold(got); });
 
+    // S6662. A local gets the array of a static field. A plain cell goes in through the local, then a callee puts a new object with a pending cell through a span of the field. The read is through the local.
+    public static Cell<int> Ab215SpanPutInACallee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab215Spans; a[0].Share = Plain; Ab215PutThroughASpan(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S6663. A local gets the array of a static field. A callee writes a pending cell into an object, a plain cell goes in through the local, then a callee puts the object through a span of the field. The read is through the local.
+    public static Cell<int> Ab215SpanPutOfAWrittenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab215SpanObjects; Ab215SetTheObject(l.Map(v => v)); a[0].Share = Plain; Ab215PutTheObjectThroughASpan(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S6664. A local gets the array of a static field. A plain cell goes in through the local, then a callee puts a new object with a pending cell through a local of its own that got the same array. The read is through the local.
+    public static Cell<int> Ab215PutThroughALocalInACallee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab215Locals; a[0].Share = Plain; Ab215PutThroughALocal(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40461,6 +40473,31 @@ public static class Shapes
 
             return this.Share!.Sample();
         }
+    }
+
+    private static readonly SettableSlot[] Ab215Spans = [new()];
+    private static readonly SettableSlot[] Ab215SpanObjects = [new()];
+    private static readonly SettableSlot Ab215TheObject = new();
+    private static readonly SettableSlot[] Ab215Locals = [new()];
+
+    private static void Ab215PutThroughASpan(Cell<int> share)
+    {
+        Span<SettableSlot> view = Ab215Spans;
+        view[0] = new SettableSlot { Share = share };
+    }
+
+    private static void Ab215SetTheObject(Cell<int> share) => Ab215TheObject.Share = share;
+
+    private static void Ab215PutTheObjectThroughASpan()
+    {
+        Span<SettableSlot> view = Ab215SpanObjects;
+        view[0] = Ab215TheObject;
+    }
+
+    private static void Ab215PutThroughALocal(Cell<int> share)
+    {
+        SettableSlot[] other = Ab215Locals;
+        other[0] = new SettableSlot { Share = share };
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
