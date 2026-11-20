@@ -83,33 +83,28 @@ internal sealed partial class LoopStateEvaluator
             return null;
         }
 
-        ExpressionSyntax at = Unwrapped(name);
-
-        if (at is IdentifierNameSyntax && this.region.SymbolOf(at) is (ILocalSymbol or IParameterSymbol) and { } local)
+        return Unwrapped(name) switch
         {
-            return KeepsItsObject(local) ? new NameKey(of: local, owner: null, index: -1) : null;
-        }
-
-        // An element at an index that a local keeps has that local as its owner.
-        if (at is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } element
-            && arguments[0].Expression is var index
-            && Unwrapped(index) is IdentifierNameSyntax
-            && this.region.SymbolOf(index) is ILocalSymbol { RefKind: RefKind.None } kept
-            && Unwrapped(element.Expression) is IdentifierNameSyntax
-            && this.region.SymbolOf(element.Expression) is { } collection
-            && (collection is IFieldSymbol || KeepsItsObject(collection)))
-        {
-            return new NameKey(of: collection, owner: kept, index: -2);
-        }
-
-        return this.LocationKeyOf(at) is not { } key
-            ? null
-            : key.Index >= 0
-              && key.Of is ILocalSymbol array
-              && this.TheFieldThatItNames(array) is { } named
-              && this.region.SymbolOf(named) is IFieldSymbol field
-                ? new NameKey(of: field, owner: null, index: key.Index)
-                : new NameKey(of: key.Of, owner: key.Owner, index: key.Index);
+            IdentifierNameSyntax at when this.region.SymbolOf(at) is (ILocalSymbol or IParameterSymbol) and { } local =>
+                KeepsItsObject(local) ? new NameKey(of: local, owner: null, index: -1) : null,
+            // An element at an index that a local keeps has that local as its owner.
+            ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } element
+                when Unwrapped(arguments[0].Expression) is IdentifierNameSyntax index
+                     && this.region.SymbolOf(index) is ILocalSymbol { RefKind: RefKind.None } kept
+                     && Unwrapped(element.Expression) is IdentifierNameSyntax array
+                     && this.region.SymbolOf(array) is { } collection
+                     && (collection is IFieldSymbol || KeepsItsObject(collection)) =>
+                new NameKey(of: collection, owner: kept, index: -2),
+            var at => this.LocationKeyOf(at) switch
+            {
+                null => null,
+                { Index: >= 0, Of: ILocalSymbol local } key
+                    when this.TheFieldThatItNames(local) is { } named
+                         && this.region.SymbolOf(named) is IFieldSymbol field =>
+                    new NameKey(of: field, owner: null, index: key.Index),
+                { } key => new NameKey(of: key.Of, owner: key.Owner, index: key.Index)
+            }
+        };
     }
 
     /// <summary>
@@ -156,7 +151,7 @@ internal sealed partial class LoopStateEvaluator
 
         for (int i = 0; i < reached.Count; i++)
         {
-            if (reached[i].Equals(other))
+            if (reached[i].IsTheSameAs(other))
             {
                 return true;
             }
@@ -164,14 +159,14 @@ internal sealed partial class LoopStateEvaluator
             foreach (NameLink link in this.region.AllLinks)
             {
                 NameKey? next =
-                    link.One.Equals(reached[i])
+                    link.One.IsTheSameAs(reached[i])
                         ? link.Other
-                        : link.Other.Equals(reached[i])
+                        : link.Other.IsTheSameAs(reached[i])
                             ? link.One
                             : null;
 
                 if (next is { } found
-                    && !reached.Contains(found)
+                    && !reached.Any(known => known.IsTheSameAs(found))
                     && (link.Code != code
                         || code == null
                         || (this.KeepsItsValue(name: link.One, code: code, after: link.Position, before: use.SpanStart)
@@ -263,15 +258,11 @@ internal sealed partial class LoopStateEvaluator
                     this.TheFieldThatItNames(name)
                 ];
 
-                foreach (ExpressionSyntax? other in others)
-                {
-                    if (other != null)
-                    {
-                        last = Math.Max(val1: last, val2: this.LastOwnWriteOf(owner: other, level: level + 1));
-                    }
-                }
-
-                return last;
+                return others.OfType<ExpressionSyntax>()
+                    .Aggregate(
+                        seed: last,
+                        func: (most, other) =>
+                            Math.Max(val1: most, val2: this.LastOwnWriteOf(owner: other, level: level + 1)));
             }
             default:
                 return int.MaxValue;

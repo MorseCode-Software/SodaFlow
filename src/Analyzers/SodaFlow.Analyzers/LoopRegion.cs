@@ -508,7 +508,7 @@ internal sealed class LoopRegion(
         }
     }
 
-    /// <summary>Each link from <see cref="Links" /> that is still in the record.</summary>
+    /// <summary>Each link from <see cref="Links" /> that the record has now.</summary>
     public IReadOnlyList<NameLink> AllLinks => this.links;
 
     /// <summary>
