@@ -81,11 +81,7 @@ internal sealed partial class LoopStateEvaluator
         {
             if (Unwrapped(at)
                     is BaseObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } creation
-                && arguments[0] is
-                {
-                    RefKindKeyword.RawKind: (int)SyntaxKind.RefKeyword,
-                    Expression: IdentifierNameSyntax name
-                }
+                && NameByRef(arguments.First()) is { } name
                 && IsAView(this.region.TypeOf(creation))
                 && this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol
                 {
@@ -98,6 +94,12 @@ internal sealed partial class LoopStateEvaluator
 
         return null;
     }
+
+    // The name that an argument with ref gives. Null for each other argument.
+    private static IdentifierNameSyntax? NameByRef(ArgumentSyntax argument) =>
+        argument is { RefKindKeyword.RawKind: (int)SyntaxKind.RefKeyword, Expression: IdentifierNameSyntax name }
+            ? name
+            : null;
 
     /// <summary>
     ///     Records the puts of a call of the platform through a view of a local
