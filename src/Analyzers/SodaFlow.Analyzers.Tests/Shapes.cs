@@ -40697,6 +40697,66 @@ public static class Shapes
     public static Cell<int> Ab321MappedItemsInAListDisposedInABranch() =>
         Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; List<IDisposable> all = [m]; foreach (IDisposable d in all) { if (Kept.Count >= 0) { d.Dispose(); } } return S.Hold(n); });
 
+    // S9695. Json.NET writes only the members with DataMember of a type with DataContract. A public getter with no DataMember samples, and Json.NET does not call it.
+    public static Cell<int> R5ApiJsonNetSkipsAMemberWithNoDataMemberOfAContract() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R5ApiJsonNetContract(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S9696. Json.NET writes a member with DataMember of a type with DataContract also where it is not public. That getter samples.
+    public static Cell<int> R5ApiJsonNetReadsAPrivateDataMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R5ApiJsonNetPrivateDataMember(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S9697. Json.NET writes only the fields of a type whose JsonObject says MemberSerialization.Fields. A public getter samples, and Json.NET does not call it.
+    public static Cell<int> R5ApiJsonNetFieldsModeSkipsAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R5ApiJsonNetFields(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S9698. Json.NET writes a private field of a type whose JsonObject says MemberSerialization.Fields. The field holds an object whose getter samples.
+    public static Cell<int> R5ApiJsonNetFieldsModeReadsAPrivateField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R5ApiJsonNetFieldsOuter(new SerialRow(l.Map(v => v)))); Kept.Add(text); return S.Hold(0); });
+
+    // S9699. Json.NET writes a private member with [DataMember] of a type with [DataContract], and its getter samples.
+    public static Cell<int> R5LimJsonNetWritesAPrivateDataMemberOfADataContract() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R5LimContractWithAPrivateMember(l.Map(v => v)))); return S.Hold(0); });
+
+    // S9700. Json.NET skips a public property without [DataMember] of a type with [DataContract]. Its getter samples.
+    public static Cell<int> R5LimJsonNetSkipsAPublicPropertyOfADataContract() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R5LimContractWithAPublicMember(l.Map(v => v)))); return S.Hold(0); });
+
+    // S9701. Json.NET with MemberSerialization.Fields writes fields and not properties. The getter of a property samples.
+    public static Cell<int> R5LimJsonNetFieldsModeSkipsAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R5LimFieldsOnly(l.Map(v => v)))); return S.Hold(0); });
+
+    // S9702. DataContractSerializer writes the fields of a type with Serializable and no DataContract, and not its properties. A public property with a setter samples, and the serializer does not call it.
+    public static Cell<int> R5ApiDataContractSerializerSkipsAPropertyOfASerializableType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new System.Runtime.Serialization.DataContractSerializer(typeof(R5ApiSerializableRow)).WriteObject(System.IO.Stream.Null, new R5ApiSerializableRow(l.Map(v => v))); return S.Hold(0); });
+
+    // S9703. Json.NET obeys the JsonObject of a type over its DataContract. With OptOut, it writes a public property with no DataMember, and its getter samples.
+    public static Cell<int> Ab322JsonNetObeysJsonObjectOverADataContract() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new Ab322OptOutContract(l.Map(v => v)))); return S.Hold(0); });
+
+    // S9704. Json.NET obeys a DataContract of a base type. It skips a public property with no DataMember of the derived type, and its getter samples.
+    public static Cell<int> Ab322JsonNetSkipsAPropertyOfATypeWhoseBaseIsAContract() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new Ab322DerivedOfAContract(l.Map(v => v)))); return S.Hold(0); });
+
+    // S9705. Json.NET with OptIn writes a private member with DataMember of a type that also has DataContract, and its getter samples.
+    public static Cell<int> Ab322JsonNetOptInReadsADataMemberOfAContract() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new Ab322OptInContract(l.Map(v => v)))); return S.Hold(0); });
+
+    // S9706. Json.NET with MemberSerialization.Fields skips a field with NonSerialized. The field holds an object whose getter samples.
+    public static Cell<int> Ab322JsonNetFieldsModeSkipsANonSerializedField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new Ab322FieldsWithANonSerializedRow(new SerialRow(l.Map(v => v))))); return S.Hold(0); });
+
+    // S9707. Json.NET with MemberSerialization.Fields writes a public field that holds an object whose getter samples.
+    public static Cell<int> Ab322JsonNetFieldsModeReadsAPublicField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new Ab322FieldsWithAPublicRow(new SerialRow(l.Map(v => v))))); return S.Hold(0); });
+
+    // S9708. DataContractSerializer writes a private field of a type with Serializable and no DataContract. The field holds an object whose property with a setter samples.
+    public static Cell<int> Ab325DataContractSerializerReadsAPrivateFieldOfASerializableType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new System.Runtime.Serialization.DataContractSerializer(typeof(Ab325SerializableOuter)).WriteObject(System.IO.Stream.Null, new Ab325SerializableOuter(new Ab243PlainSettableRow(l.Map(v => v)))); return S.Hold(0); });
+
+    // S9709. DataContractSerializer skips a field with NonSerialized of a type with Serializable. The field holds an object whose property with a setter samples.
+    public static Cell<int> Ab325DataContractSerializerSkipsANonSerializedField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new System.Runtime.Serialization.DataContractSerializer(typeof(Ab325SerializableSkipped)).WriteObject(System.IO.Stream.Null, new Ab325SerializableSkipped(new Ab243PlainSettableRow(l.Map(v => v)))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58120,6 +58180,91 @@ public static class Shapes
         public void Dispose()
         {
         }
+    }
+
+    [System.Runtime.Serialization.DataContract]
+    [Newtonsoft.Json.JsonObject(Newtonsoft.Json.MemberSerialization.OptOut)]
+    public sealed class Ab322OptOutContract(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        public int Now => this.share.Sample();
+    }
+
+    [System.Runtime.Serialization.DataContract]
+    public class Ab322BaseContract
+    {
+        [System.Runtime.Serialization.DataMember]
+        public int Other => 1;
+    }
+
+    public sealed class Ab322DerivedOfAContract(Cell<int> share) : Ab322BaseContract
+    {
+        private readonly Cell<int> share = share;
+
+        public int Now => this.share.Sample();
+    }
+
+    [System.Runtime.Serialization.DataContract]
+    [Newtonsoft.Json.JsonObject(Newtonsoft.Json.MemberSerialization.OptIn)]
+    public sealed class Ab322OptInContract(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        [System.Runtime.Serialization.DataMember]
+        private int Now => this.share.Sample();
+    }
+
+    [Newtonsoft.Json.JsonObject(Newtonsoft.Json.MemberSerialization.Fields)]
+    public sealed class Ab322FieldsWithANonSerializedRow(SerialRow inner)
+    {
+        [NonSerialized]
+        private readonly SerialRow inner = inner;
+
+        private readonly int count = 1;
+
+        public int Size => this.inner == null ? this.count : 1;
+    }
+
+    [Newtonsoft.Json.JsonObject(Newtonsoft.Json.MemberSerialization.Fields)]
+    public sealed class Ab322FieldsWithAPublicRow(SerialRow inner)
+    {
+        public readonly SerialRow Inner = inner;
+    }
+
+    [Serializable]
+    public sealed class Ab325SerializableOuter
+    {
+        private readonly Ab243PlainSettableRow? row;
+
+        public Ab325SerializableOuter()
+        {
+        }
+
+        public Ab325SerializableOuter(Ab243PlainSettableRow row) => this.row = row;
+
+        public bool HasRow => this.row != null;
+    }
+
+    [Serializable]
+    public sealed class Ab325SerializableSkipped
+    {
+        private readonly int count;
+
+        [NonSerialized]
+        private readonly Ab243PlainSettableRow? row;
+
+        public Ab325SerializableSkipped()
+        {
+        }
+
+        public Ab325SerializableSkipped(Ab243PlainSettableRow row)
+        {
+            this.row = row;
+            this.count = 1;
+        }
+
+        public int Count => this.count + (this.row == null ? 0 : 1);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

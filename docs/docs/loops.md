@@ -516,14 +516,18 @@ The analyzer follows a value made from the placeholder through the code of your 
   reads a non-public member with `[JsonInclude]` or with the `[JsonProperty]` of Json.NET, the
   public fields where the serializer writes them, and a converter that a `[JsonConverter]` or the
   `Converters` of the options names. `XmlSerializer` writes a property that it can set, and also a
-  get-only property whose type is a collection other than an array. Json.NET writes only the
-  members with `[JsonProperty]` of a type whose `[JsonObject]` says `MemberSerialization.OptIn`.
+  get-only property whose type is a collection other than an array. Json.NET treats a type with
+  `[DataContract]` as `MemberSerialization.OptIn` unless a `[JsonObject]` says otherwise. Of such a
+  type, it writes only the members with `[JsonProperty]`, and also those with `[DataMember]` where
+  the type has `[DataContract]`, private ones included. With `MemberSerialization.Fields`, it
+  writes every field, private ones included, and no property.
   Json.NET and `XmlSerializer` call a public `ShouldSerialize` method of a member before they write
   it. The data contract serializers write the members with `[DataMember]` of a type with
-  `[DataContract]`, and the public members that they can set, without `[IgnoreDataMember]`, of
-  each other type.
+  `[DataContract]`, the fields without `[NonSerialized]` of a type with `[Serializable]`, and the
+  public members that they can set, without `[IgnoreDataMember]`, of each other type.
   Each serializer skips a member that has the ignore attribute of its own library, `[JsonIgnore]`
-  or `[XmlIgnore]`, and reads one that has only the attribute of another library. A `[JsonIgnore]`
+  or `[XmlIgnore]`, and reads one that has only the attribute of another library. Json.NET also
+  skips a field with `[NonSerialized]`. A `[JsonIgnore]`
   with a `Condition` other than `Always` still reads the value to decide, so the analyzer reads that
   member.
   It reads `IncludeFields`, `IgnoreReadOnlyProperties`, and `IgnoreReadOnlyFields` where you create

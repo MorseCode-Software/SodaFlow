@@ -5795,6 +5795,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5FuTimerSystemInAFieldDisposed"] = ["SF1005"],
             ["R5FuTimerSystemInAListDisposed"] = ["SF1005"],
             ["R5FuMappedItemsInAListDisposed"] = ["SF1001"],
-            ["Ab321MappedItemsInAListDisposedInABranch"] = ["SF1001"]
+            ["Ab321MappedItemsInAListDisposedInABranch"] = ["SF1001"],
+            ["R5ApiJsonNetReadsAPrivateDataMember"] = ["SF1005"],
+            ["R5ApiJsonNetFieldsModeReadsAPrivateField"] = ["SF1005"],
+            ["R5LimJsonNetWritesAPrivateDataMemberOfADataContract"] = ["SF1005"],
+            ["Ab322JsonNetObeysJsonObjectOverADataContract"] = ["SF1005"],
+            ["Ab322JsonNetOptInReadsADataMemberOfAContract"] = ["SF1005"],
+            ["Ab322JsonNetFieldsModeReadsAPublicField"] = ["SF1005"],
+            ["Ab325DataContractSerializerReadsAPrivateFieldOfASerializableType"] = ["SF1005"]
         };
 }
