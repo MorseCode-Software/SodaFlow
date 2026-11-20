@@ -25,7 +25,10 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="access">The member access, as in <c>T.Value</c>.</param>
     public Followed? FollowTheStaticConstructor(MemberAccessExpressionSyntax access)
     {
+        // The name index of the compiler comes first, so that a compilation with no static
+        // constructor does not build the DeclaredCode at each member access.
         if (this.quiet
+            || !this.region.Symbols.DeclaresStaticConstructors
             || !this.region.Symbols.DeclaredCode.HasAStaticConstructor(
                 access.Expression switch
                 {

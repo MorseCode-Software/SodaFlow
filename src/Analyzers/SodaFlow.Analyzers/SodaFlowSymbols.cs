@@ -122,6 +122,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresPlatformMembers;
     private readonly Lazy<bool> declaresRecords;
     private readonly Lazy<bool> declaresSlice;
+    private readonly Lazy<bool> declaresStaticConstructors;
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
     private readonly Lazy<IMethodSymbol?> formattableToString;
@@ -159,6 +160,8 @@ internal sealed class SodaFlowSymbols
         this.declaresHandlers = Declares(compilation: compilation, name: "AppendFormatted");
         this.declaresIndexers = Declares(compilation: compilation, name: "this[]");
         this.declaresSlice = Declares(compilation: compilation, name: "Slice");
+        this.declaresStaticConstructors =
+            Declares(compilation: compilation, name: WellKnownMemberNames.StaticConstructorName);
         this.declaresToString = Declares(compilation: compilation, name: "ToString");
         this.declaresTruth = Declares(compilation: compilation, name: "op_True");
 
@@ -293,6 +296,12 @@ internal sealed class SodaFlowSymbols
     ///     An interpolated string handler has one.
     /// </summary>
     public bool DeclaresHandlers => this.declaresHandlers.Value;
+
+    /// <summary>
+    ///     True when the compilation declares a static constructor. The name
+    ///     index of the compiler answers it with no walk of the syntax.
+    /// </summary>
+    public bool DeclaresStaticConstructors => this.declaresStaticConstructors.Value;
 
     /// <summary>True when the compilation declares an indexer.</summary>
     public bool DeclaresIndexers => this.declaresIndexers.Value;
