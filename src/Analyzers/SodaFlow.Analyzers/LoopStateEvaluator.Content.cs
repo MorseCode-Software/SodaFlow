@@ -201,8 +201,9 @@ internal sealed partial class LoopStateEvaluator
         LoopState receiverState,
         IReadOnlyList<LoopState> argumentStates)
     {
-        if (!method.Parameters.Any(static parameter => parameter.Type.TypeKind == TypeKind.Delegate)
-            || !this.HoldsContent(method))
+        // Of the operators of this rule, only Merge takes a function, and each Merge takes one. The
+        // name is the same test with no read of the parameters, which the compiler makes anew.
+        if (method.Name != "Merge" || !this.HoldsContent(method))
         {
             return LoopState.None;
         }
