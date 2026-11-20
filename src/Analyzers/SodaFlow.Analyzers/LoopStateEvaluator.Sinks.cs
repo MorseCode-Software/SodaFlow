@@ -377,8 +377,8 @@ internal sealed partial class LoopStateEvaluator
         SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
         if ((this.quiet && !this.region.ReadsCodeAfterTheTransaction)
-            || ArgumentFor("results") is not { } results
-            || ArgumentFor("operation") is not { } operation)
+            || ArgumentFor(method: method, arguments: arguments, parameter: "results") is not { } results
+            || ArgumentFor(method: method, arguments: arguments, parameter: "operation") is not { } operation)
         {
             return;
         }
@@ -405,15 +405,6 @@ internal sealed partial class LoopStateEvaluator
         LoopStateEvaluator later = this.Quiet();
 
         this.region.ReadAfterTheTransaction(function: call, read: () => later.Sends(sink: results, content: content));
-
-        return;
-
-        ExpressionSyntax? ArgumentFor(string name) =>
-            arguments
-                .Where((argument, position) =>
-                    ParameterFor(method: method, argument: argument, position: position)?.Name == name)
-                .Select(static argument => argument.Expression)
-                .FirstOrDefault();
     }
 
     // The content that a call of FromValue or Construct gives to the sink of results. Each of the
