@@ -28839,6 +28839,38 @@ public static class Shapes
     public static Cell<int> Ab264TuplePatternAfterAWriteToOneItemGetsThePendingItem() =>
         Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> A, Cell<int> B) p = ValueTuple.Create(l.Map(v => v), l.Map(v => v)); p.A = Plain; if (p is (_, var second)) { Kept.Add(second.Sample()); } return S.Hold(0); });
 
+    // S6731. An indexer with a ref return gives the element of its array, and the write of the pending cell through it reaches the array.
+    public static Cell<int> R4CsRefIndexerWritesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsRefCells h = new(); h[0] = l.Map(v => v); Kept.Add(h.Cells[0].Sample()); return S.Hold(0); });
+
+    // S6732. A local function returns a ref to an element, and the block writes the pending cell through it.
+    public static Cell<int> R4CsRefReturnOfALocalFunctionWritesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain]; At(0) = l.Map(v => v); Kept.Add(all[0].Sample()); return S.Hold(0); ref Cell<int> At(int i) => ref all[i]; });
+
+    // S6733. A span made over a local by ref is a second name of that local, and a write to its element reaches the local.
+    public static Cell<int> R4CsSpanOverALocalWritesTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Span<Cell<int>> s = new(ref c); s[0] = l.Map(v => v); Kept.Add(c.Sample()); return S.Hold(0); });
+
+    // S6734. A method with a ref return gives an element of an array of its object. The write of the pending cell through it reaches the array.
+    public static Cell<int> Ab265RefMethodWritesTheElementOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab265RefHolder h = new(); h.At(0) = l.Map(v => v); Kept.Add(h.Cells[0].Sample()); return S.Hold(0); });
+
+    // S6735. A method with a ref return gives a field of its object, and the write of the pending cell through it reaches the field.
+    public static Cell<int> Ab265RefMethodWritesTheFieldOfItsObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab265RefHolder h = new(); h.One() = l.Map(v => v); Kept.Add(h.Single.Sample()); return S.Hold(0); });
+
+    // S6736. A local function returns a ref to a static field, and the block writes the pending cell through it.
+    public static Cell<int> Ab265RefReturnOfAStaticFieldWritesTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab265Shared = Plain; Shared() = l.Map(v => v); Kept.Add(Ab265Shared.Sample()); return S.Hold(0); static ref Cell<int> Shared() => ref Ab265Shared; });
+
+    // S6737. A span made over a local by ref gets the plain cell over the pending one, and the block samples the local.
+    public static Cell<int> Ab265SpanOverALocalWritesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); Span<Cell<int>> s = new(ref c); s[0] = Plain; Kept.Add(c.Sample()); return S.Hold(0); });
+
+    // S6738. A span made over an array by value is a view of the array. A write to its second element keeps the pending first element.
+    public static Cell<int> Ab265SpanOverAnArrayKeepsTheOtherElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] arr = [l.Map(v => v), Plain]; Span<Cell<int>> s = new(arr); s[1] = Plain; Kept.Add(arr[0].Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40974,6 +41006,19 @@ public static class Shapes
     public sealed class Ab264Row(Cell<int>[] cells)
     {
         public Cell<int>[] Cells { get; } = cells;
+    }
+
+    private static Cell<int> Ab265Shared = Plain;
+
+    public sealed class Ab265RefHolder
+    {
+        public Cell<int>[] Cells { get; } = [Plain];
+
+        public Cell<int> Single = Plain;
+
+        public ref Cell<int> At(int index) => ref this.Cells[index];
+
+        public ref Cell<int> One() => ref this.Single;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

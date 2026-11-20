@@ -327,16 +327,20 @@ The analyzer follows a value made from the placeholder through the code of your 
   local of an element, and `CopyTo` into it put their values into the array, and so do `CopyTo`
   into the array itself and `Array.Copy`. Where each step from the array to the view starts at a
   constant, as `AsSpan(1)` or `[1..]` does, a write to an element at a constant index and a `Fill`
-  reach only the elements of the array that they write. Otherwise, they reach every element. A write
-  to a member through an element of a local array, `List<T>`, or `Dictionary` created with no
-  comparer, at a constant index or key or at an index in a local, replaces what an earlier write
-  gave that member. So does a write through a local that got that element, and a write through any
-  other name of the object in the element, such as `d` after `a[0] = d`, when the analyzer knows
-  which object that is. A later read through the element or the local sees only the last value. An
-  index in a local that gets only a constant is that constant index. A local that gets the array or
-  the list in a field sees each element that code puts in through the field later, also in a method,
-  until the local or the field gets a different value. The other way also holds: a read through the
-  field sees an element that code puts in at an index through such a local.
+  reach only the elements of the array that they write. Otherwise, they reach every element. A span
+  that `new Span<T>(ref local)` makes is another name for that local. A write through a `ref` that
+  an indexer, a method, or a local function of yours returns goes where that `ref` points: a
+  parameter, a local of the code around a local function, a static field, or a member of the object
+  of the call or an element of that member. A write to a member through an element of a local array,
+  `List<T>`, or `Dictionary` created with no comparer, at a constant index or key or at an index in
+  a local, replaces what an earlier write gave that member. So does a write through a local that got
+  that element, and a write through any other name of the object in the element, such as `d` after
+  `a[0] = d`, when the analyzer knows which object that is. A later read through the element or the
+  local sees only the last value. An index in a local that gets only a constant is that constant
+  index. A local that gets the array or the list in a field sees each element that code puts in
+  through the field later, also in a method, until the local or the field gets a different value.
+  The other way also holds: a read through the field sees an element that code puts in at an index
+  through such a local.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, or `var slots = SharedSlots`, the two are names of one object from there. A
   name is a local, a parameter, a static field, a field of the object in a local, or an element of a

@@ -2282,6 +2282,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
+        // An indexer or a method of this compilation can return a ref to a member of its object. An
+        // assignment through it puts the value there, and not into the object.
+        if (this.PutsThroughARefToAMember(target: target, value: value))
+        {
+            return;
+        }
+
         // An assignment to the result of a method that returns a ref is an assignment to the
         // location that the method returns.
         if (target is InvocationExpressionSyntax call)
@@ -2423,6 +2430,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // keeps each index also, as the indexer of a dictionary keeps its key. The walk has
             // no position for the value here: an assignment with a value expression gives one
             // after this.
+            // An element of a span over a local by ref is the local.
+            case ElementAccessExpressionSyntax over when this.evaluator.TheLocalOfASpanOver(over) is { } local:
+                // ReSharper disable once TailRecursiveCall - It runs one time more at most: a local is no element.
+                this.AssignState(target: local, state: state, replaces: replaces, turn: turn, from: from);
+
+                return;
             case ElementAccessExpressionSyntax or ElementBindingExpressionSyntax
                 when ElementTarget(target) is (var collection, var indexes):
                 this.evaluator.ForgetsThePositionsOf(collection);
@@ -2546,6 +2559,49 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
                 break;
         }
+    }
+
+    // The members that an indexer or a method returns a ref to, for an assignment through that ref.
+    // True when the target is such a ref. A write through a ref to a member of this is not one.
+    private bool PutsThroughARefToAMember(SyntaxNode target, ExpressionSyntax value)
+    {
+        (IMethodSymbol? definition, ExpressionSyntax? receiver) =
+            target switch
+            {
+                ElementAccessExpressionSyntax element
+                    when this.region.Symbols.DeclaresIndexers
+                         && this.region.SymbolOf(element) is IPropertySymbol
+                         {
+                             ReturnsByRef: true, GetMethod: { } getter
+                         } => (getter.OriginalDefinition, element.Expression),
+                InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } call
+                    when this.region.SymbolOf(call) is IMethodSymbol { ReturnsByRef: true, ReducedFrom: null } method =>
+                    (method.OriginalDefinition, access.Expression),
+                _ => ((IMethodSymbol?)null, (ExpressionSyntax?)null)
+            };
+
+        if (definition == null
+            || receiver is null or ThisExpressionSyntax
+            || this.evaluator.MembersOfARefReturn(definition) is not { Count: > 0 } members)
+        {
+            return false;
+        }
+
+        LoopState state = this.evaluator.Eval(value);
+
+        foreach ((ISymbol member, bool isAnElement) in members)
+        {
+            if (isAnElement)
+            {
+                this.evaluator.PutsIntoAnElementOf(owner: receiver, member: member, state: state);
+            }
+            else
+            {
+                this.evaluator.SetMemberOf(owner: receiver, member: member, state: state, replaces: false, turn: null);
+            }
+        }
+
+        return true;
     }
 
     // The collection and the indexes of an element that an assignment writes. The collection of a

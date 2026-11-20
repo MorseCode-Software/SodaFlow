@@ -1017,7 +1017,21 @@ internal sealed partial class LoopStateEvaluator
                     ? (Unwrapped(element.Expression), true)
                     : (Unwrapped(returned), false);
 
-            if (name is not IdentifierNameSyntax || this.region.SymbolOf(name) is not IParameterSymbol parameter)
+            if (name is not IdentifierNameSyntax || this.region.SymbolOf(name) is not { } returnedName)
+            {
+                continue;
+            }
+
+            // A local function or a lambda can return a ref to a local of the code around it. Each
+            // method can return a ref to a static field. The name is the same in the caller.
+            if (returnedName is ILocalSymbol or IFieldSymbol { IsStatic: true })
+            {
+                locations.Add((name, isAnElement));
+
+                continue;
+            }
+
+            if (returnedName is not IParameterSymbol parameter)
             {
                 continue;
             }
@@ -1029,6 +1043,77 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return locations;
+    }
+
+    /// <summary>
+    ///     The members of its object that an indexer or a method of this
+    ///     compilation returns a ref to, as <c>ref this.cells[index]</c> does.
+    ///     Each is the member, with true for an element of it. Empty for each
+    ///     other location.
+    /// </summary>
+    /// <param name="definition">The getter of the indexer, or the method.</param>
+    public IReadOnlyList<(ISymbol Member, bool IsAnElement)> MembersOfARefReturn(IMethodSymbol definition)
+    {
+        if (BodyOf(definition) is not { } body)
+        {
+            return [];
+        }
+
+        List<(ISymbol Member, bool IsAnElement)> members = [];
+
+        foreach (ExpressionSyntax returned in body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+        {
+            (ExpressionSyntax name, bool isAnElement) =
+                Unwrapped(returned) is ElementAccessExpressionSyntax element
+                    ? (Unwrapped(element.Expression), true)
+                    : (Unwrapped(returned), false);
+
+            if (name is IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }
+                && this.region.SymbolOf(name) is { IsStatic: false } member and (IFieldSymbol or IPropertySymbol))
+            {
+                members.Add((member, isAnElement));
+            }
+        }
+
+        return members;
+    }
+
+    /// <summary>
+    ///     Records that a value went into an element of a member of an object,
+    ///     with no expression for that element. An indexer with a ref return can
+    ///     give such an element. The walk does not know the position.
+    /// </summary>
+    /// <param name="owner">The expression of the object.</param>
+    /// <param name="member">The member that holds the collection.</param>
+    /// <param name="state">The state of the value.</param>
+    public void PutsIntoAnElementOf(ExpressionSyntax owner, ISymbol member, LoopState state)
+    {
+        if (this.quiet)
+        {
+            return;
+        }
+
+        LoopState collection =
+            StateOfAMember(
+                owner: this.Eval(owner),
+                member: member,
+                implementations: this.region.Symbols.Implementations);
+
+        foreach (MadeObject made in collection.Objects)
+        {
+            this.region.Objects.HasNoPositions(made);
+        }
+
+        LoopState put = state.AsContainer.WithNoObjects;
+
+        this.Change(
+            owner: collection,
+            change: old => old.Join(put).HoldingWhatCameWith(state),
+            replaces: false,
+            turn: null);
+
+        // The member keeps the collection, which holds the value now.
+        this.SetMemberOf(owner: owner, member: member, state: collection.Join(put), replaces: false, turn: null);
     }
 
     /// <summary>

@@ -4173,6 +4173,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab264NestedListPatternGetsThePendingElement"] = ["SF1001"],
             ["Ab264ListPatternLongerThanTheListMatchesNothing"] = ["SF1001"],
             ["Ab264SlicePatternLongerThanTheListMatchesNothing"] = ["SF1001"],
-            ["Ab264TuplePatternAfterAWriteToOneItemGetsThePendingItem"] = ["SF1001"]
+            ["Ab264TuplePatternAfterAWriteToOneItemGetsThePendingItem"] = ["SF1001"],
+            ["R4CsRefIndexerWritesTheElement"] = ["SF1001"],
+            ["R4CsRefReturnOfALocalFunctionWritesTheElement"] = ["SF1001"],
+            ["R4CsSpanOverALocalWritesTheLocal"] = ["SF1001"],
+            ["Ab265RefMethodWritesTheElementOfAMember"] = ["SF1001"],
+            ["Ab265RefMethodWritesTheFieldOfItsObject"] = ["SF1001"],
+            ["Ab265RefReturnOfAStaticFieldWritesTheField"] = ["SF1001"],
+            ["Ab265SpanOverAnArrayKeepsTheOtherElement"] = ["SF1001"]
         };
 }

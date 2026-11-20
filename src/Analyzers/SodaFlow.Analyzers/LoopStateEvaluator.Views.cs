@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
@@ -63,6 +64,40 @@ internal sealed partial class LoopStateEvaluator
         && IsAView(type)
             ? this.TheArrayOfAView(element.Expression)
             : null;
+
+    /// <summary>
+    ///     The local that a span over it by ref names, as in
+    ///     <c>new Span&lt;T&gt;(ref local)</c>, for an element of that span. The
+    ///     span has one element, which is the local. Null for each other element.
+    /// </summary>
+    public ExpressionSyntax? TheLocalOfASpanOver(ElementAccessExpressionSyntax element)
+    {
+        if (FunctionOf(element) is not { } code)
+        {
+            return null;
+        }
+
+        for (ExpressionSyntax? at = element.Expression; at != null; at = this.OneViewBack(made: at, code: code))
+        {
+            if (Unwrapped(at)
+                    is BaseObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } creation
+                && arguments[0] is
+                {
+                    RefKindKeyword.RawKind: (int)SyntaxKind.RefKeyword,
+                    Expression: IdentifierNameSyntax name
+                }
+                && IsAView(this.region.TypeOf(creation))
+                && this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol
+                {
+                    RefKind: RefKind.None
+                })
+            {
+                return name;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     ///     Records the puts of a call of the platform through a view of a local
