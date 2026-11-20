@@ -28831,7 +28831,7 @@ public static class Shapes
     public static Cell<int> Ab264SlicePatternLongerThanTheListMatchesNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v)]; if (cells is [_, _, .. var rest]) { Kept.Add(rest); } Kept.Add(cells[0].Sample()); return S.Hold(0); });
 
-    // S6729. A list pattern gives a designation after a slice the last of three elements, which is the plain cell, and the second is the pending one.
+    // S6729. A list pattern gives a designation after a slice the last of three elements, which is the plain cell. The second element is the pending one.
     public static Cell<int> Ab264ListPatternFromTheEndOfALongerListGetsThePlainElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v), Plain]; if (cells is [.., var last]) { Kept.Add(last.Sample()); } return S.Hold(0); });
 
