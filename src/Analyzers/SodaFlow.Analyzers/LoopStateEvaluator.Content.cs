@@ -95,7 +95,7 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return this.ResultOfTheFunctions(
-            invocation: invocation,
+            call: invocation,
             written: written.Expression,
             functions: functionCell.Content,
             given: ImmutableArray.Create(receiverState.Content));
@@ -104,7 +104,7 @@ internal sealed partial class LoopStateEvaluator
     // What the functions of a state return, for an operator that runs them at a time that the walk
     // does not know. Thus, an evaluator that changes nothing reads them.
     private LoopState ResultOfTheFunctions(
-        InvocationExpressionSyntax invocation,
+        SyntaxNode call,
         ExpressionSyntax written,
         LoopState functions,
         ImmutableArray<LoopState> given)
@@ -121,7 +121,7 @@ internal sealed partial class LoopStateEvaluator
             func: (all, function) =>
                 all.Join(
                     quiet.FollowFunction(
-                            call: invocation,
+                            call: call,
                             name: NameOf(written),
                             function: function,
                             target: functions,
@@ -174,7 +174,7 @@ internal sealed partial class LoopStateEvaluator
             transformed =
                 transformed.Join(
                     this.ResultOfTheFunctions(
-                        invocation: invocation,
+                        call: invocation,
                         written: arguments[i].Expression,
                         functions: functions,
                         given: given));
