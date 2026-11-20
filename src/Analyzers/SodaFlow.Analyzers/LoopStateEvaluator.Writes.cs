@@ -1880,7 +1880,7 @@ internal sealed partial class LoopStateEvaluator
 
     // A constructor of the type of a readonly field can write the field. An init accessor of that
     // type can write a field that is not static. A function in that code cannot.
-    private bool CanWriteTheField(IFieldSymbol field, SyntaxNode at) =>
+    private bool CanWriteTheField(ISymbol field, SyntaxNode at) =>
         at.Ancestors()
                 .FirstOrDefault(static code =>
                     code is BaseMethodDeclarationSyntax
