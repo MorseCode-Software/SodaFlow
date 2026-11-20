@@ -108,6 +108,42 @@ At 10,000 orders:
 | `PageForwardAndBack` | 3.44 ms | 2.23 ms | 0.65x | 2.16 MB | 1.21 MB | 0.56x |
 | `OrderLifecycle` | 5.22 ms | 1.92 ms | 0.37x | 2.42 MB | 1.07 MB | 0.44x |
 
+The two charts give the Time and Alloc columns of the table. The release is 1.0, so a shorter bar is a larger gain.
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 720
+    height: 440
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2a78d6"
+---
+xychart-beta horizontal
+    title "Time at 10,000 orders, main as a share of the release"
+    x-axis [BuildAndDispose, TickOnPage, TickOffPage, FillOnPage, FillOffPage, AmendRow, SelectRows, SearchAndClear, ToggleWorkingOnly, ReverseSort, ChangeSortColumn, PageForwardAndBack, OrderLifecycle]
+    y-axis "main / release, lower is better" 0 --> 1
+    bar [0.48, 0.62, 0.76, 0.45, 0.62, 0.43, 0.36, 0.34, 0.61, 0.39, 0.66, 0.65, 0.37]
+```
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 720
+    height: 440
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2a78d6"
+---
+xychart-beta horizontal
+    title "Allocation at 10,000 orders, main as a share of the release"
+    x-axis [BuildAndDispose, TickOnPage, TickOffPage, FillOnPage, FillOffPage, AmendRow, SelectRows, SearchAndClear, ToggleWorkingOnly, ReverseSort, ChangeSortColumn, PageForwardAndBack, OrderLifecycle]
+    y-axis "main / release, lower is better" 0 --> 1
+    bar [0.67, 0.75, 0.90, 0.44, 0.91, 0.42, 0.55, 0.22, 0.52, 0.40, 0.66, 0.56, 0.44]
+```
+
 At 1,000 orders:
 
 | Benchmark | Release | Main | Time | Release alloc | Main alloc | Alloc |
@@ -125,6 +161,42 @@ At 1,000 orders:
 | `ChangeSortColumn` | 6.67 ms | 3.86 ms | 0.58x | 3.56 MB | 2.01 MB | 0.56x |
 | `PageForwardAndBack` | 3.56 ms | 1.97 ms | 0.55x | 2.16 MB | 1.21 MB | 0.56x |
 | `OrderLifecycle` | 5.28 ms | 1.83 ms | 0.35x | 2.41 MB | 1.07 MB | 0.44x |
+
+The two charts give the Time and Alloc columns of the table. The release is 1.0, so a shorter bar is a larger gain.
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 720
+    height: 440
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2a78d6"
+---
+xychart-beta horizontal
+    title "Time at 1,000 orders, main as a share of the release"
+    x-axis [BuildAndDispose, TickOnPage, TickOffPage, FillOnPage, FillOffPage, AmendRow, SelectRows, SearchAndClear, ToggleWorkingOnly, ReverseSort, ChangeSortColumn, PageForwardAndBack, OrderLifecycle]
+    y-axis "main / release, lower is better" 0 --> 1
+    bar [0.41, 0.62, 0.72, 0.43, 0.58, 0.45, 0.35, 0.76, 0.56, 0.52, 0.58, 0.55, 0.35]
+```
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 720
+    height: 440
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2a78d6"
+---
+xychart-beta horizontal
+    title "Allocation at 1,000 orders, main as a share of the release"
+    x-axis [BuildAndDispose, TickOnPage, TickOffPage, FillOnPage, FillOffPage, AmendRow, SelectRows, SearchAndClear, ToggleWorkingOnly, ReverseSort, ChangeSortColumn, PageForwardAndBack, OrderLifecycle]
+    y-axis "main / release, lower is better" 0 --> 1
+    bar [0.54, 0.75, 0.86, 0.43, 0.93, 0.43, 0.55, 0.77, 0.52, 0.53, 0.56, 0.56, 0.44]
+```
 
 Each side ran once at these commits. On every row, the standard deviation is 4% of the mean or less on both sides.
 Across the 26 rows, the geometric mean of the time ratios is 0.51, and that of the allocation ratios is 0.56. Thus, main
