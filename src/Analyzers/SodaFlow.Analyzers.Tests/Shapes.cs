@@ -28491,6 +28491,78 @@ public static class Shapes
     public static Cell<int> Ag93ThirdLocalThroughAStaticFieldOfThis() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag93Self s = new(); int got = s.ThirdLocalThroughTheField(l.Map(v => v)); return S.Hold(got); });
 
+    // S6644. Pair matrix, this: a method of the object names it as this and as an element of a local array at a constant index. A pending cell goes in through an element of a local array at a constant index, then a plain cell through this. The method reads through an element of a local array at a constant index.
+    public static Cell<int> R4PairElementPendingThenThisReadElementInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1111(l.Map(v => v)); return S.Hold(got); });
+
+    // S6645. Pair matrix, this: a method of the object names it as this and as an element of a local array at a constant index. A pending cell goes in through an element of a local array at a constant index, then a plain cell through this. The method reads through a third local.
+    public static Cell<int> R4PairElementPendingThenThisReadThirdInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1113(l.Map(v => v)); return S.Hold(got); });
+
+    // S6646. Pair matrix, this: a method of the object names it as this and as an element of a local array at a constant index. A pending cell goes in through an element of a local array at a constant index, then a plain cell through this. The method reads through this.
+    public static Cell<int> R4PairElementPendingThenThisReadThisInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1112(l.Map(v => v)); return S.Hold(got); });
+
+    // S6647. Pair matrix, this: a method of the object names it as this and as an element of a static field array, through the field. A pending cell goes in through an element of a static field array, through the field, then a plain cell through this. The method reads through an element of a static field array, through the field.
+    public static Cell<int> R4PairFieldArrayPendingThenThisReadFieldArrayInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1135(l.Map(v => v)); return S.Hold(got); });
+
+    // S6648. Pair matrix, this: a method of the object names it as this and as an element of a static field array, through the field. A pending cell goes in through an element of a static field array, through the field, then a plain cell through this. The method reads through a third local.
+    public static Cell<int> R4PairFieldArrayPendingThenThisReadThirdInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1137(l.Map(v => v)); return S.Hold(got); });
+
+    // S6649. Pair matrix, this: a method of the object names it as this and as an element of a static field array, through the field. A pending cell goes in through an element of a static field array, through the field, then a plain cell through this. The method reads through this.
+    public static Cell<int> R4PairFieldArrayPendingThenThisReadThisInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1136(l.Map(v => v)); return S.Hold(got); });
+
+    // S6650. Pair matrix, this: a method of the object names it as this and as a local. A pending cell goes in through a local, then a plain cell through this. The method reads through a local.
+    public static Cell<int> R4PairLocalPendingThenThisReadLocalInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1099(l.Map(v => v)); return S.Hold(got); });
+
+    // S6651. Pair matrix, this: a method of the object names it as this and as a local. A pending cell goes in through a local, then a plain cell through this. The method reads through a third local.
+    public static Cell<int> R4PairLocalPendingThenThisReadThirdInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1101(l.Map(v => v)); return S.Hold(got); });
+
+    // S6652. Pair matrix, this: a method of the object names it as this and as a local. A pending cell goes in through a local, then a plain cell through this. The method reads through this.
+    public static Cell<int> R4PairLocalPendingThenThisReadThisInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1100(l.Map(v => v)); return S.Hold(got); });
+
+    // S6653. Pair matrix, this: a method of the object names it as this and as a static field. A pending cell goes in through a static field, then a plain cell through this. The method reads through a static field.
+    public static Cell<int> R4PairStaticFieldPendingThenThisReadStaticFieldInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1123(l.Map(v => v)); return S.Hold(got); });
+
+    // S6654. Pair matrix, this: a method of the object names it as this and as a static field. A pending cell goes in through a static field, then a plain cell through this. The method reads through a third local.
+    public static Cell<int> R4PairStaticFieldPendingThenThisReadThirdInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1125(l.Map(v => v)); return S.Hold(got); });
+
+    // S6655. Pair matrix, this: a method of the object names it as this and as a static field. A pending cell goes in through a static field, then a plain cell through this. The method reads through this.
+    public static Cell<int> R4PairStaticFieldPendingThenThisReadThisInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1124(l.Map(v => v)); return S.Hold(got); });
+
+    // S6656. Pair matrix, this: a method of the object names it as this and as an element of a local array at a constant index. A pending cell goes in through this, then a plain cell through an element of a local array at a constant index. The method reads through this.
+    public static Cell<int> R4PairThisPendingThenElementReadThisInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1106(l.Map(v => v)); return S.Hold(got); });
+
+    // S6657. Pair matrix, this: a method of the object names it as this and as an element of a static field array, through the field. A pending cell goes in through this, then a plain cell through an element of a static field array, through the field. The method reads through this.
+    public static Cell<int> R4PairThisPendingThenFieldArrayReadThisInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1130(l.Map(v => v)); return S.Hold(got); });
+
+    // S6658. Pair matrix, this: a method of the object names it as this and as a local. A pending cell goes in through this, then a plain cell through a local. The method reads through this.
+    public static Cell<int> R4PairThisPendingThenLocalReadThisInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1094(l.Map(v => v)); return S.Hold(got); });
+
+    // S6659. Pair matrix, this: a method of the object names it as this and as a static field. A pending cell goes in through this, then a plain cell through a static field. The method reads through this.
+    public static Cell<int> R4PairThisPendingThenStaticFieldReadThisInAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf s = new(); int got = s.Pair1118(l.Map(v => v)); return S.Hold(got); });
+
+    // S6660. AB224. The block puts the object into a static field array. A method writes a pending cell through the element, then a plain cell through this. The read is through this.
+    public static Cell<int> Ab224PlainThroughThisAfterPendingThroughAnElementThatHoldsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab224Self s = new(); Ab224Slots[0] = s; int got = s.PlainAfterPending(l.Map(v => v)); return S.Hold(got); });
+
+    // S6661. AB224. The same, with the write through this in a branch that does not run. The read is through this.
+    public static Cell<int> Ab224PlainThroughThisInABranchAfterPendingThroughAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab224Self s = new(); Ab224Slots[1] = s; int got = s.PlainInABranchAfterPending(l.Map(v => v)); return S.Hold(got); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40361,6 +40433,33 @@ public static class Shapes
             this.Share = pending;
 
             return q.Share!.Sample();
+        }
+    }
+
+    private static readonly Ab224Self[] Ab224Slots = [new(), new()];
+
+    public sealed class Ab224Self
+    {
+        public Cell<int>? Share { get; set; }
+
+        public int PlainAfterPending(Cell<int> pending)
+        {
+            Ab224Slots[0].Share = pending;
+            this.Share = Plain;
+
+            return this.Share!.Sample();
+        }
+
+        public int PlainInABranchAfterPending(Cell<int> pending)
+        {
+            Ab224Slots[1].Share = pending;
+
+            if (Never)
+            {
+                this.Share = Plain;
+            }
+
+            return this.Share!.Sample();
         }
     }
 

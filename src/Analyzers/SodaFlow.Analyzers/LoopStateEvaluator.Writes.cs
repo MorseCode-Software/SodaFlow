@@ -50,6 +50,12 @@ internal sealed partial class LoopStateEvaluator
                 ? existing.Join(state)
                 : state;
 
+        // The member has only this state from now on: see OfThisObject.
+        if (only && !this.quiet)
+        {
+            this.Frame.OwnWriteOf[key] = this.region.MemberWrites;
+        }
+
         this.setOnThis[key] = only && from != null ? this.TheOneCollectionThatIs(from: from, state: state) : null;
     }
 

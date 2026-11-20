@@ -116,6 +116,8 @@ internal sealed partial class LoopStateEvaluator
 
     // The state of a member of the object that the code is in, as a read through this gives it. A
     // read through this or through a field gets the member as the origin of a write through a name.
+    // The region has each write to the member through an owner that can be this object. A sure write
+    // through this replaces each such write before it.
     private LoopState OfThisObject(ISymbol member, LoopState field, ExpressionSyntax read, bool throughThisOrAField) =>
         (throughThisOrAField
          && this.Frame.WrittenThroughANameOfThis.TryGetValue(
@@ -125,6 +127,11 @@ internal sealed partial class LoopStateEvaluator
             : this.thisMembers.TryGetValue(key: member.OriginalDefinition, value: out LoopState? own)
                 ? own
                 : this.OfTheImplementationsOnThis(member))
-        .Join(field)
+        .Join(
+            !field.IsNone
+            && this.Frame.OwnWriteOf.TryGetValue(key: member.OriginalDefinition, value: out int replaced)
+            && this.region.LastWriteOf(member) <= replaced
+                ? LoopState.None
+                : field)
         .Join(this.TypeState(read));
 }
