@@ -607,15 +607,36 @@ internal sealed class SodaFlowSymbols
     ///     enumerates each sequence in the value, and reads the public properties
     ///     of each object in it. The rows are <c>JsonSerializer</c> of
     ///     <c>System.Text.Json</c>, <c>JsonConvert</c> and <c>JsonSerializer</c>
-    ///     of <c>Newtonsoft.Json</c>, and <c>XmlSerializer</c>.
+    ///     of <c>Newtonsoft.Json</c>, and <c>XmlSerializer</c>. <c>FromObject</c>
+    ///     of the tokens of Json.NET and <c>WriteObject</c> of the data contract
+    ///     serializers are rows also.
     /// </summary>
     public static bool IsSerializer(IMethodSymbol definition) =>
-        definition.Name.StartsWith(value: "Serialize", comparisonType: StringComparison.Ordinal)
-        && definition.ContainingType is { } owner
-        && (owner.Name, owner.ContainingNamespace?.ToDisplayString())
-            is ("JsonSerializer", "System.Text.Json")
-            or ("JsonConvert" or "JsonSerializer", "Newtonsoft.Json")
-            or ("XmlSerializer", "System.Xml.Serialization");
+        definition.ContainingType is { } owner
+        && (owner.Name, owner.ContainingNamespace?.ToDisplayString()) switch
+        {
+            ("JsonSerializer", "System.Text.Json")
+                or ("JsonConvert" or "JsonSerializer", "Newtonsoft.Json")
+                or ("XmlSerializer", "System.Xml.Serialization") =>
+                definition.Name.StartsWith(value: "Serialize", comparisonType: StringComparison.Ordinal),
+            ("JToken" or "JObject" or "JArray", "Newtonsoft.Json.Linq") => definition.Name == "FromObject",
+            ("XmlObjectSerializer" or "DataContractSerializer", "System.Runtime.Serialization")
+                or ("DataContractJsonSerializer", "System.Runtime.Serialization.Json") =>
+                definition.Name == "WriteObject",
+            _ => false
+        };
+
+    // The library of a serializer. The tokens of Json.NET are in Json.NET, and the serializer of
+    // JSON data contracts is one of the data contract serializers.
+    private static string? LibraryOf(ISymbol serializer) =>
+        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() switch
+        {
+            "Newtonsoft.Json.Linq" => "Newtonsoft.Json",
+            "System.Runtime.Serialization.Json" => DataContracts,
+            var other => other
+        };
+
+    private const string DataContracts = "System.Runtime.Serialization";
 
     /// <summary>
     ///     True for a member of LINQ to XML that puts content into a node in the
@@ -652,18 +673,29 @@ internal sealed class SodaFlowSymbols
     ///     True for a property that the serializer reads. It is public, it is
     ///     not an indexer, and it has no attribute that tells this serializer
     ///     to ignore it. <c>XmlSerializer</c> reads only a property that it can
-    ///     also set.
+    ///     also set, or a property whose type is a collection and not an array.
+    ///     Json.NET reads only the members with <c>JsonProperty</c> of a type
+    ///     with <c>MemberSerialization.OptIn</c>. For the data contract serializers,
+    ///     see <see cref="IsDataMember" />.
     /// </summary>
     public static bool IsSerialized(IPropertySymbol property, IMethodSymbol serializer, SerializerOptions options) =>
         property is { IsStatic: false, IsIndexer: false, GetMethod: not null }
-        && (property is
-            {
-                DeclaredAccessibility: Accessibility.Public,
-                GetMethod.DeclaredAccessibility: Accessibility.Public
-            }
-            || IsIncluded(member: property, serializer: serializer))
-        && ((serializer.ContainingType?.Name != "XmlSerializer" && !options.SkipsReadOnlyProperties)
-            || property.SetMethod is { DeclaredAccessibility: Accessibility.Public })
+        && LibraryOf(serializer) switch
+        {
+            DataContracts => IsDataMember(property),
+            "Newtonsoft.Json" when IsOptIn(property.ContainingType) => IsOptedIn(property),
+            _ => (property is
+                  {
+                      DeclaredAccessibility: Accessibility.Public,
+                      GetMethod.DeclaredAccessibility: Accessibility.Public
+                  }
+                  || IsIncluded(member: property, serializer: serializer))
+                 && ((serializer.ContainingType?.Name != "XmlSerializer" && !options.SkipsReadOnlyProperties)
+                     || property.SetMethod is { DeclaredAccessibility: Accessibility.Public }
+                     || (serializer.ContainingType?.Name == "XmlSerializer"
+                         && property.Type is not IArrayTypeSymbol
+                         && IsSequence(property.Type)))
+        }
         && !IsIgnored(member: property, serializer: serializer);
 
     /// <summary>
@@ -672,16 +704,107 @@ internal sealed class SodaFlowSymbols
     /// </summary>
     public static bool IsSerialized(IFieldSymbol field, IMethodSymbol serializer, SerializerOptions options) =>
         field is { IsStatic: false, IsConst: false, IsImplicitlyDeclared: false }
-        && ((field.DeclaredAccessibility == Accessibility.Public
-             && options.WritesFields
-             && !(field.IsReadOnly && options.SkipsReadOnlyFields))
-            || IsIncluded(member: field, serializer: serializer))
+        && LibraryOf(serializer) switch
+        {
+            DataContracts => IsDataMember(field),
+            "Newtonsoft.Json" when IsOptIn(field.ContainingType) => IsOptedIn(field),
+            _ => (field.DeclaredAccessibility == Accessibility.Public
+                  && options.WritesFields
+                  && !(field.IsReadOnly && options.SkipsReadOnlyFields))
+                 || IsIncluded(member: field, serializer: serializer)
+        }
         && !IsIgnored(member: field, serializer: serializer);
+
+    /// <summary>
+    ///     True for a member that a data contract serializer writes. Of a type
+    ///     with <c>DataContract</c>, that is each member with <c>DataMember</c>.
+    ///     Of each other type, it is each public member that the serializer can
+    ///     also set and that has no <c>IgnoreDataMember</c>.
+    /// </summary>
+    private static bool IsDataMember(ISymbol member) =>
+        HasAttribute(symbol: member.ContainingType, name: "DataContractAttribute", space: DataContracts)
+            ? HasAttribute(symbol: member, name: "DataMemberAttribute", space: DataContracts)
+            : member
+                  is IPropertySymbol
+                  {
+                      DeclaredAccessibility: Accessibility.Public,
+                      GetMethod.DeclaredAccessibility: Accessibility.Public,
+                      SetMethod.DeclaredAccessibility: Accessibility.Public
+                  }
+                  or IFieldSymbol { DeclaredAccessibility: Accessibility.Public, IsReadOnly: false }
+              && !HasAttribute(symbol: member, name: "IgnoreDataMemberAttribute", space: DataContracts);
+
+    // The JsonObject of the type, or of the nearest base type with one, says how Json.NET chooses
+    // the members. OptIn (1) is the value of its first argument or of its named argument.
+    private static bool IsOptIn(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
+        {
+            if (current.GetAttributes()
+                    .FirstOrDefault(static attribute =>
+                        attribute.AttributeClass is { Name: "JsonObjectAttribute" } found
+                        && found.ContainingNamespace?.ToDisplayString() == "Newtonsoft.Json")
+                is { } chosen)
+            {
+                return chosen.ConstructorArguments.Concat(chosen.NamedArguments.Select(static pair => pair.Value))
+                    .Any(static argument => argument is { Type.Name: "MemberSerialization", Value: 1 });
+            }
+        }
+
+        return false;
+    }
+
+    // Of a type with OptIn, Json.NET writes a member with JsonProperty. A run found that it does not
+    // write a member with only DataMember.
+    private static bool IsOptedIn(ISymbol member) =>
+        HasAttribute(symbol: member, name: "JsonPropertyAttribute", space: "Newtonsoft.Json");
+
+    private static bool HasAttribute(ISymbol symbol, string name, string space) =>
+        symbol.GetAttributes()
+            .Any(attribute =>
+                attribute.AttributeClass is { } found
+                && found.Name == name
+                && found.ContainingNamespace?.ToDisplayString() == space);
+
+    /// <summary>
+    ///     The method that Json.NET and <c>XmlSerializer</c> call before they
+    ///     write a member. It is a public <c>ShouldSerialize</c> method with the
+    ///     name of the member, no parameter, and a result of type <c>bool</c>.
+    ///     Null when the type has no such method.
+    /// </summary>
+    public static IMethodSymbol? ShouldSerializeOf(ISymbol member, IMethodSymbol serializer)
+    {
+        if (LibraryOf(serializer) is not ("Newtonsoft.Json" or "System.Xml.Serialization"))
+        {
+            return null;
+        }
+
+        string name = "ShouldSerialize" + member.Name;
+
+        for (INamedTypeSymbol? current = member.ContainingType; current != null; current = current.BaseType)
+        {
+            if (current.GetMembers(name)
+                    .OfType<IMethodSymbol>()
+                    .FirstOrDefault(static test =>
+                        test is
+                        {
+                            DeclaredAccessibility: Accessibility.Public,
+                            Parameters.IsEmpty: true,
+                            ReturnType.SpecialType: SpecialType.System_Boolean
+                        })
+                is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
 
     // Each serializer obeys only the ignore attribute of its own library. Condition is the one named
     // argument of JsonIgnore. Each value but Always (1) reads the value before it decides.
     private static bool IsIgnored(ISymbol member, ISymbol serializer) =>
-        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() is { } library
+        LibraryOf(serializer) is { } library
         && member.GetAttributes()
             .Any(attribute =>
                 attribute.AttributeClass is { } found
@@ -809,7 +932,7 @@ internal sealed class SodaFlowSymbols
     ///     <c>JsonProperty</c> for Json.NET.
     /// </summary>
     private static bool IsIncluded(ISymbol member, ISymbol serializer) =>
-        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() is { } library
+        LibraryOf(serializer) is { } library
         && member.GetAttributes()
             .Any(attribute =>
                 attribute.AttributeClass is { } found

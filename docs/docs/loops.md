@@ -424,12 +424,20 @@ The analyzer follows a value made from the placeholder through the code of your 
   something enumerates it. A method of `SodaFlow.Functional` that gets a task and returns one, such
   as the `Map` of a `Task<Maybe<T>>`, awaits that task first, so its function runs in the block
   only when the analyzer knows that the task is complete.
-- The serializers of `System.Text.Json`, Json.NET, and `XmlSerializer`, and LINQ to XML, which call
-  your getters and enumerate your sequences. `System.Text.Json` writes the properties of the type
-  that the call or the property names, unless that type is `object` or has `[JsonDerivedType]`, and
-  the others write those of the object. The analyzer also reads a non-public member with
-  `[JsonInclude]` or with the `[JsonProperty]` of Json.NET, the public fields where the serializer
-  writes them, and a converter that a `[JsonConverter]` or the `Converters` of the options names.
+- The serializers of `System.Text.Json`, Json.NET (also `FromObject` of `JToken`, `JObject`, and
+  `JArray`), `XmlSerializer`, and the data contract serializers, and LINQ to XML, which call your
+  getters and enumerate your sequences. `System.Text.Json` writes the properties of the type that
+  the call, a `Type` argument written as `typeof`, or the property names, unless that type is
+  `object` or has `[JsonDerivedType]`, and the others write those of the object. The analyzer also
+  reads a non-public member with `[JsonInclude]` or with the `[JsonProperty]` of Json.NET, the
+  public fields where the serializer writes them, and a converter that a `[JsonConverter]` or the
+  `Converters` of the options names. `XmlSerializer` writes a property that it can set, and also a
+  get-only property whose type is a collection other than an array. Json.NET writes only the
+  members with `[JsonProperty]` of a type whose `[JsonObject]` says `MemberSerialization.OptIn`.
+  Json.NET and `XmlSerializer` call a public `ShouldSerialize` method of a member before they write
+  it. The data contract serializers write the members with `[DataMember]` of a type with
+  `[DataContract]`, and the public members that they can set, without `[IgnoreDataMember]`, of
+  each other type.
   Each serializer skips a member that has the ignore attribute of its own library, `[JsonIgnore]`
   or `[XmlIgnore]`, and reads one that has only the attribute of another library. A `[JsonIgnore]`
   with a `Condition` other than `Always` still reads the value to decide, so the analyzer reads that

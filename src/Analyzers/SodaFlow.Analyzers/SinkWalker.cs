@@ -3682,6 +3682,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         if (SodaFlowSymbols.IsSerializer(callee))
         {
             SerializerOptions options = SerializerOptions.Of(region: this.region, method: method, arguments: arguments);
+            ITypeSymbol? named = SodaFlowSymbols.WritesTheDeclaredType(callee) ? this.NamedType(arguments) : null;
 
             foreach (ArgumentSyntax argument in arguments)
             {
@@ -3699,7 +3700,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                                       argument: argument,
                                       position: arguments.IndexOf(argument))
                                   is { } parameter
-                        ? method.Parameters[parameter.Ordinal].Type
+                        ? named ?? method.Parameters[parameter.Ordinal].Type
                         : null,
                     depth: 0);
             }
@@ -3747,6 +3748,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
     }
+
+    // A Type argument of System.Text.Json names the type that it writes for the value. Each other
+    // argument of such a call is an object of the platform, which has no getter of the code. The
+    // walk knows the type only from a typeof.
+    private ITypeSymbol? NamedType(SeparatedSyntaxList<ArgumentSyntax> arguments) =>
+        arguments.Select(static argument => argument.Expression).OfType<TypeOfExpressionSyntax>().FirstOrDefault()
+            is { } type
+            ? this.region.ModelFor(type).GetTypeInfo(type.Type).Type
+            : null;
 
     // A member of LINQ to XML enumerates each sequence in the content that it gets. That includes
     // a sequence in an array or in a second sequence, and a sequence of this compilation.
@@ -3837,10 +3847,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         foreach (IPropertySymbol property in own == null ? members.Properties : Construction.PropertiesOf(own))
         {
-            if (property.GetMethod is { } read
-                && SodaFlowSymbols.IsSerialized(property: property, serializer: serializer, options: options)
-                && this.evaluator.FollowImplied(call: written, member: read, owner: state, arguments: [])
-                    is { } getter)
+            if (property.GetMethod is not { } read
+                || !SodaFlowSymbols.IsSerialized(property: property, serializer: serializer, options: options))
+            {
+                continue;
+            }
+
+            this.Report(
+                this.FollowShouldSerialize(written: written, state: state, serializer: serializer, member: property));
+
+            if (this.evaluator.FollowImplied(call: written, member: read, owner: state, arguments: []) is { } getter)
             {
                 this.Report(getter);
 
@@ -3861,6 +3877,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         foreach (IFieldSymbol field in fields)
         {
+            this.Report(
+                this.FollowShouldSerialize(written: written, state: state, serializer: serializer, member: field));
+
             this.Serialize(
                 written: written,
                 state: LoopStateEvaluator.StateOfAMember(
@@ -3874,6 +3893,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 depth: depth + 1);
         }
     }
+
+    private Followed? FollowShouldSerialize(
+        SyntaxNode written,
+        LoopState state,
+        IMethodSymbol serializer,
+        ISymbol member) =>
+        SodaFlowSymbols.ShouldSerializeOf(member: member, serializer: serializer) is { } test
+            ? this.evaluator.FollowImplied(call: written, member: test, owner: state, arguments: [])
+            : null;
 
     /// <summary>
     ///     A converter that writes a value for the serializer. The first

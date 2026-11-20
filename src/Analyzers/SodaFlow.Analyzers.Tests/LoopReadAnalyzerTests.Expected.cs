@@ -4030,6 +4030,16 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab251TakeTwoOfAnIteratorReadsTheSecondItem"] = ["SF1004"],
             ["Ab251ElementAtOneOfAnIteratorReadsTheSecondItem"] = ["SF1004"],
             ["Ab251FirstOfAWhereOfAnIteratorReadsTheSecondItem"] = ["SF1004"],
-            ["Ab251ToListOfASelectOfAnIteratorReadsTheSecondItem"] = ["SF1004"]
+            ["Ab251ToListOfASelectOfAnIteratorReadsTheSecondItem"] = ["SF1004"],
+            ["R4LimDataContractSerializerReadsADataMember"] = ["SF1005"],
+            ["R4LimJTokenFromObjectReadsAGetter"] = ["SF1005"],
+            ["R4LimJsonNetCallsAShouldSerializeMethod"] = ["SF1005"],
+            ["R4LimXmlSerializerReadsAGetOnlyListProperty"] = ["SF1005"],
+            ["Ab243XmlSerializerCallsAShouldSerializeMethod"] = ["SF1005"],
+            ["Ab243JObjectFromObjectReadsAGetter"] = ["SF1005"],
+            ["Ab243DataContractSerializerReadsAPropertyOfATypeWithNoContract"] = ["SF1005"],
+            ["Ab243DataContractJsonSerializerReadsADataMember"] = ["SF1005"],
+            ["Ab243JsonNetWritesTheObjectAlsoWithATypeArgument"] = ["SF1005"],
+            ["Ab243JsonNetOptOutReadsAPropertyWithNoAttribute"] = ["SF1005"]
         };
 }

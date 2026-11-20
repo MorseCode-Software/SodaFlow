@@ -28027,6 +28027,86 @@ public static class Shapes
     public static Cell<int> Ab251GotoBackInsideTheBodyStopsAtTheFirstYield() =>
         Cell.Loop<int>().WithoutCaptures(l => { foreach (int n in R4LimTwoItems(l.Map(v => v))) { int k = 0; again: k++; Kept.Add(n); if (k > 1) { break; } goto again; } return S.Hold(0); });
 
+    // S6528. DataContractSerializer reads a member with DataMember, and its getter samples.
+    public static Cell<int> R4LimDataContractSerializerReadsADataMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new System.Runtime.Serialization.DataContractSerializer(typeof(R4LimContractRow)).WriteObject(System.IO.Stream.Null, new R4LimContractRow(l.Map(v => v))); return S.Hold(0); });
+
+    // S6529. JToken.FromObject of Json.NET reads the getters of the object that it gets, and a getter samples.
+    public static Cell<int> R4LimJTokenFromObjectReadsAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object token = Newtonsoft.Json.Linq.JToken.FromObject(new SerialRow(l.Map(v => v))); Kept.Add(token); return S.Hold(0); });
+
+    // S6530. Json.NET calls the ShouldSerialize method of a property, and that method samples.
+    public static Cell<int> R4LimJsonNetCallsAShouldSerializeMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R4LimShouldWrite(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6531. Json.NET writes only the members with JsonProperty of a type with MemberSerialization.OptIn, and the getter that samples has none.
+    public static Cell<int> R4LimJsonNetOptInSkipsAPropertyWithNoAttribute() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R4LimOptIn(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6532. System.Text.Json writes the properties of the type that the Type argument names, and that type does not sample.
+    public static Cell<int> R4LimSystemTextJsonWritesTheTypeOfTheTypeArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R4LimReadingDerived(l.Map(v => v)), typeof(R4LimQuietBase)); Kept.Add(text); return S.Hold(0); });
+
+    // S6533. XmlSerializer reads a get-only property whose type is a list, and its getter samples.
+    public static Cell<int> R4LimXmlSerializerReadsAGetOnlyListProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new XmlSerializer(typeof(R4LimXmlListRow)).Serialize(TextWriter.Null, new R4LimXmlListRow(l.Map(v => v))); return S.Hold(0); });
+
+    // S6534. XmlSerializer does not read a get-only property whose type is an array, and its getter samples.
+    public static Cell<int> Ab243XmlSerializerSkipsAGetOnlyArrayProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new XmlSerializer(typeof(Ab243XmlArrayRow)).Serialize(TextWriter.Null, new Ab243XmlArrayRow(l.Map(v => v))); return S.Hold(0); });
+
+    // S6535. XmlSerializer calls the ShouldSerialize method of a property, and that method samples.
+    public static Cell<int> Ab243XmlSerializerCallsAShouldSerializeMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new XmlSerializer(typeof(Ab243XmlShouldWrite)).Serialize(TextWriter.Null, new Ab243XmlShouldWrite(l.Map(v => v))); return S.Hold(0); });
+
+    // S6536. System.Text.Json does not call the ShouldSerialize method of a property, which samples.
+    public static Cell<int> Ab243SystemTextJsonDoesNotCallAShouldSerializeMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R4LimShouldWrite(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6537. Json.NET does not call a ShouldSerialize method that is not public, and that method samples.
+    public static Cell<int> Ab243JsonNetSkipsAPrivateShouldSerializeMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new Ab243PrivateShouldWrite(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6538. JObject.FromObject of Json.NET reads the getters of the object that it gets, and a getter samples.
+    public static Cell<int> Ab243JObjectFromObjectReadsAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object token = Newtonsoft.Json.Linq.JObject.FromObject(new SerialRow(l.Map(v => v))); Kept.Add(token); return S.Hold(0); });
+
+    // S6539. DataContractSerializer does not read a member with no DataMember of a type with DataContract, and its getter samples.
+    public static Cell<int> Ab243DataContractSerializerSkipsAMemberWithNoDataMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new System.Runtime.Serialization.DataContractSerializer(typeof(Ab243ContractWithAPlainMember)).WriteObject(System.IO.Stream.Null, new Ab243ContractWithAPlainMember(l.Map(v => v))); return S.Hold(0); });
+
+    // S6540. DataContractSerializer reads a public property with a setter of a type with no DataContract, and its getter samples.
+    public static Cell<int> Ab243DataContractSerializerReadsAPropertyOfATypeWithNoContract() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new System.Runtime.Serialization.DataContractSerializer(typeof(Ab243PlainSettableRow)).WriteObject(System.IO.Stream.Null, new Ab243PlainSettableRow(l.Map(v => v))); return S.Hold(0); });
+
+    // S6541. DataContractSerializer does not read a get-only property, or one with IgnoreDataMember, of a type with no DataContract, and each getter samples.
+    public static Cell<int> Ab243DataContractSerializerSkipsAGetOnlyAndAnIgnoredProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new System.Runtime.Serialization.DataContractSerializer(typeof(Ab243PlainSkippedRow)).WriteObject(System.IO.Stream.Null, new Ab243PlainSkippedRow(l.Map(v => v))); return S.Hold(0); });
+
+    // S6542. DataContractJsonSerializer reads a member with DataMember, and its getter samples.
+    public static Cell<int> Ab243DataContractJsonSerializerReadsADataMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new System.Runtime.Serialization.Json.DataContractJsonSerializer(typeof(R4LimContractRow)).WriteObject(System.IO.Stream.Null, new R4LimContractRow(l.Map(v => v))); return S.Hold(0); });
+
+    // S6543. System.Text.Json writes the properties of the interface that the Type argument names, and the interface does not sample.
+    public static Cell<int> Ab243SystemTextJsonWritesTheInterfaceOfTheTypeArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R4LimQuietWithAReader(l.Map(v => v)), typeof(IR4LimQuiet)); Kept.Add(text); return S.Hold(0); });
+
+    // S6544. Json.NET writes the properties of the object also when the call names a base type, and the derived type samples.
+    public static Cell<int> Ab243JsonNetWritesTheObjectAlsoWithATypeArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R4LimReadingDerived(l.Map(v => v)), typeof(R4LimQuietBase), (Newtonsoft.Json.JsonSerializerSettings?)null); Kept.Add(text); return S.Hold(0); });
+
+    // S6545. Json.NET writes a property with no JsonProperty of a type whose JsonObject says OptOut, and its getter samples.
+    public static Cell<int> Ab243JsonNetOptOutReadsAPropertyWithNoAttribute() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new Ab243OptOut(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6546. Json.NET does not write a member with only DataMember of a type with MemberSerialization.OptIn, and its getter samples.
+    public static Cell<int> Ab243JsonNetOptInSkipsAMemberWithOnlyDataMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new Ab243OptInDataMember(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S6547. DataContractSerializer does not read a property with IgnoreDataMember of a type with no DataContract, and its getter samples.
+    public static Cell<int> Ab243DataContractSerializerSkipsAnIgnoredProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new System.Runtime.Serialization.DataContractSerializer(typeof(Ab243PlainIgnoredRow)).WriteObject(System.IO.Stream.Null, new Ab243PlainIgnoredRow(l.Map(v => v))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -39700,6 +39780,132 @@ public static class Shapes
     {
         await Task.Delay(Ab249Pause.Zero);
         Kept.Add(c.Sample());
+    }
+
+    public sealed class Ab243XmlArrayRow
+    {
+        private readonly Cell<int>? share;
+
+        public Ab243XmlArrayRow()
+        {
+        }
+
+        public Ab243XmlArrayRow(Cell<int> share) => this.share = share;
+
+        public int[] Values => [this.share?.Sample() ?? 0];
+    }
+
+    public sealed class Ab243XmlShouldWrite
+    {
+        private readonly Cell<int>? share;
+
+        public Ab243XmlShouldWrite()
+        {
+        }
+
+        public Ab243XmlShouldWrite(Cell<int> share) => this.share = share;
+
+        public int Number { get; set; }
+
+        public bool ShouldSerializeNumber() => (this.share?.Sample() ?? 0) > 0;
+    }
+
+    public sealed class Ab243PrivateShouldWrite(Cell<int> share)
+    {
+        public int Number => 1;
+
+        public bool Has() => this.ShouldSerializeNumber();
+
+        private bool ShouldSerializeNumber() => share.Sample() > 0;
+    }
+
+    [System.Runtime.Serialization.DataContract]
+    public sealed class Ab243ContractWithAPlainMember(Cell<int> share)
+    {
+        [System.Runtime.Serialization.DataMember]
+        public int Number
+        {
+            get => 1;
+            private set => _ = value;
+        }
+
+        public int Now
+        {
+            get => share.Sample();
+            set => _ = value;
+        }
+    }
+
+    public sealed class Ab243PlainSettableRow
+    {
+        private readonly Cell<int>? share;
+
+        public Ab243PlainSettableRow()
+        {
+        }
+
+        public Ab243PlainSettableRow(Cell<int> share) => this.share = share;
+
+        public int Now
+        {
+            get => this.share?.Sample() ?? 0;
+            set => _ = value;
+        }
+    }
+
+    public sealed class Ab243PlainSkippedRow
+    {
+        private readonly Cell<int>? share;
+
+        public Ab243PlainSkippedRow()
+        {
+        }
+
+        public Ab243PlainSkippedRow(Cell<int> share) => this.share = share;
+
+        public int Number { get; set; }
+
+        public int Now => this.share?.Sample() ?? 0;
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public int Later
+        {
+            get => this.share?.Sample() ?? 0;
+            set => _ = value;
+        }
+    }
+
+    [Newtonsoft.Json.JsonObject(Newtonsoft.Json.MemberSerialization.OptOut)]
+    public sealed class Ab243OptOut(Cell<int> share)
+    {
+        public int Now => share.Sample();
+    }
+
+    [Newtonsoft.Json.JsonObject(Newtonsoft.Json.MemberSerialization.OptIn)]
+    public sealed class Ab243OptInDataMember(Cell<int> share)
+    {
+        [System.Runtime.Serialization.DataMember]
+        public int Now => share.Sample();
+    }
+
+    public sealed class Ab243PlainIgnoredRow
+    {
+        private readonly Cell<int>? share;
+
+        public Ab243PlainIgnoredRow()
+        {
+        }
+
+        public Ab243PlainIgnoredRow(Cell<int> share) => this.share = share;
+
+        public int Number { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public int Later
+        {
+            get => this.share?.Sample() ?? 0;
+            set => _ = value;
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
