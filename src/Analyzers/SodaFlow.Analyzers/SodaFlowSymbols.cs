@@ -499,7 +499,12 @@ internal sealed class SodaFlowSymbols
     ///     calls it, as it calls a function.
     /// </summary>
     public static bool IsComparer(ITypeSymbol? type) =>
-        type is INamedTypeSymbol named && (IsComparerInterface(named) || named.AllInterfaces.Any(IsComparerInterface));
+        type is INamedTypeSymbol named
+        && (IsComparerInterface(named)
+            // No special type, delegate, or enum is a comparer. The test comes before AllInterfaces,
+            // which the compiler makes anew at each call.
+            || (named is { SpecialType: SpecialType.None, TypeKind: not (TypeKind.Delegate or TypeKind.Enum) }
+                && named.AllInterfaces.Any(IsComparerInterface)));
 
     /// <summary>True for <c>IComparer</c> or <c>IEqualityComparer</c> of the platform.</summary>
     public static bool IsComparerInterface(INamedTypeSymbol type) =>
