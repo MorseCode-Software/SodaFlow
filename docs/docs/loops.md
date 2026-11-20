@@ -440,6 +440,9 @@ careful side, so it can report a read that does not throw:
   runs inside another loop. It can also leave the value for a list that the code changes in a way
   other than `Add`, `Insert`, or `AddRange`, or that gets an item under a condition with no loop
   that adds on every pass, and for an item that an `AddRange` of anything but a literal put in.
+- The `Updates` of a cell count as firing the first value of the cell too, unless the cell is a
+  sink that the analyzer sees made. So a hold of the updates of a hold, switched as the close, can
+  get `SF1002` although it returns.
 - Serializer options that you do not create in the call, such as options in a local or a field,
   count as options that write public fields and read-only properties.
 - A sample in the function of a task that `RunSynchronously` runs gets `SF1001`, although the task

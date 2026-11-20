@@ -83,7 +83,10 @@ internal sealed partial class LoopReadAnalyzerTests
     [
         // The function of a merge runs only when the two streams fire in one transaction. The block
         // sends into one stream only.
-        "R4ApiMergeFunctionThatReturnsALinkedCellWithOneSend"
+        "R4ApiMergeFunctionThatReturnsALinkedCellWithOneSend",
+        // The updates of a cell that is not a sink have the content of the cell, with its initial
+        // value.
+        "R4ApiUpdatesOfAHoldWithALinkedInitialValue"
     ];
 
     private static readonly Assembly[] ShapeLibraries =

@@ -2691,7 +2691,10 @@ internal sealed partial class LoopStateEvaluator
                             method: method,
                             receiverState: receiverState,
                             initial: firstArgument)),
-                OperatorRule.Updates => source.WithPending(false),
+                // The updates of a sink fire what the sends give it, and not its initial value.
+                OperatorRule.Updates => OperatorName(method) == "Updates" && this.SentToTheSinks(source) is { } sent
+                    ? source.WithPending(false).WithContent(sent)
+                    : source.WithPending(false),
                 OperatorRule.MapTo => new LoopState(
                     pending: false,
                     linked: receiverState.Linked,

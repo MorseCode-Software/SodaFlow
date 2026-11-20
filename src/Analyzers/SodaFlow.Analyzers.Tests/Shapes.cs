@@ -27831,6 +27831,26 @@ public static class Shapes
     public static Cell<int> Ab230KeysOfACollectionWithLinkedTransforms() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> trigger = Stream.CreateSink<int>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: Plain)], CollectionEdit<int, ItemId, Cell<int>>.FromUpdates(key: 1, transformsStream: trigger.Map<int, Func<Cell<int>, Cell<int>>>(_ => _ => l.Map(v => v)))); trigger.Send(1); return all.KeysCell.Map(k => k.Count); });
 
+    // S6479. Operational.Updates of a behavior sink does not fire its initial value, which is linked. Thus, the switch of a hold of it as the close is not a cycle.
+    public static Cell<int> R4ApiOperationalUpdatesOfABehaviorSinkWithALinkedInitialValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => Operational.Updates(Behavior.CreateSink(l.Map(v => v))).Hold(Plain).SwitchC());
+
+    // S6480. The updates of a cell sink do not fire its initial value. The initial value is linked, but the hold of the updates keeps its own value. Thus, the switch as the close is not a cycle.
+    public static Cell<int> R4ApiUpdatesOfACellSinkWithALinkedInitialValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => Cell.CreateSink(l.Map(v => v)).Updates().Hold(Plain).SwitchC());
+
+    // S6481. The updates of a hold do not fire its initial value, which is linked. Thus, the switch of a hold of the updates as the close is not a cycle.
+    public static Cell<int> R4ApiUpdatesOfAHoldWithALinkedInitialValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => Stream.Never<Cell<int>>().Hold(l.Map(v => v)).Updates().Hold(Plain).SwitchC());
+
+    // S6482. The cell sink is in a local, and its initial value is linked. Its updates do not fire that value, and the hold of the updates keeps its own value. Thus, the switch as the close is not a cycle.
+    public static Cell<int> Ab239UpdatesOfACellSinkInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink(l.Map(v => v)); return c.Updates().Hold(Plain).SwitchC(); });
+
+    // S6483. The updates of a map of a cell sink fire when the block sends into the sink. The map gives a linked cell, and the switch of the hold of the updates as the close is a cycle.
+    public static Cell<int> Ab239UpdatesOfAMapOfASinkThatGetsASend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<int> c = Cell.CreateSink(0); Cell<Cell<int>> h = c.Map(_ => l.Map(v => v)).Updates().Hold(Plain); c.Send(1); return h.SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

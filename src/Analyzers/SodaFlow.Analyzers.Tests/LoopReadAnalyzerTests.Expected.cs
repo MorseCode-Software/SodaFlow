@@ -4003,6 +4003,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R4ApiStateCellOfAnUpdateToALinkedStateSwitched"] = ["SF1002"],
             ["Ab230UpdateOfATransformInALocal"] = ["SF1002"],
             ["Ab230FromUpdatesOfAMapToATransformThatReturnsALinkedCell"] = ["SF1002"],
-            ["Ab230FromUpdatesOfAMapToPairs"] = ["SF1002"]
+            ["Ab230FromUpdatesOfAMapToPairs"] = ["SF1002"],
+            ["Ab239UpdatesOfAMapOfASinkThatGetsASend"] = ["SF1002"],
+            ["R4ApiUpdatesOfAHoldWithALinkedInitialValue"] = ["SF1002"]
         };
 }

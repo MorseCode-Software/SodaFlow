@@ -265,6 +265,35 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     What the sends of the block give to the sinks that a value can be. The
+    ///     walk knows the sends into a sink that it saw made only. Thus, the result
+    ///     is null when the value can be a different object.
+    /// </summary>
+    private LoopState? SentToTheSinks(LoopState value)
+    {
+        ImmutableArray<MadeObject> objects = this.region.Objects.Now(value.Objects);
+
+        if (objects.IsEmpty)
+        {
+            return null;
+        }
+
+        LoopState sent = LoopState.None;
+
+        foreach (MadeObject made in objects)
+        {
+            if (this.region.Objects.CreationOfASink(made) is not { } creation)
+            {
+                return null;
+            }
+
+            sent = sent.Join(this.region.SentBefore.To(creation).Content);
+        }
+
+        return sent;
+    }
+
+    /// <summary>
     ///     The values that a hold or an accumulation holds. The initial value is
     ///     one. A hold gets the values of its stream after the close, and an
     ///     accumulation gets what its function returns then. A collect keeps no
