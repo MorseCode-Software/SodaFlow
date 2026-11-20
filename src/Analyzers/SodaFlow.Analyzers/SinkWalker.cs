@@ -1589,7 +1589,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     // The state of each item of a tuple that a positional pattern is for, in order. Null for a value
     // that is not a tuple with a state for each item.
-    private IReadOnlyList<LoopState>? ItemsOfATuple(PositionalPatternClauseSyntax clause, LoopState state) =>
+    private IReadOnlyList<LoopState>? ItemsOfATuple(SyntaxNode clause, LoopState state) =>
         state.Members is { IsTuple: true } members
         && clause.Parent is { } pattern
         && (this.region.ModelFor(pattern).GetOperation(pattern) as IRecursivePatternOperation)?.MatchedType

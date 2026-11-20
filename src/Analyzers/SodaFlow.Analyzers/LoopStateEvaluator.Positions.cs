@@ -258,12 +258,9 @@ internal sealed partial class LoopStateEvaluator
             return null;
         }
 
-        if (this.Eval(collection).Origin is not { } origin)
-        {
-            return all;
-        }
+        IReadOnlyList<LoopState> kept = all;
 
-        return [.. all.Select(state => state.From(origin))];
+        return this.Eval(collection).Origin is { } origin ? [.. kept.Select(state => state.From(origin))] : kept;
     }
 
     /// <summary>
