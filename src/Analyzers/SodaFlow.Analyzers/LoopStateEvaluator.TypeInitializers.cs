@@ -25,18 +25,16 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="access">The member access, as in <c>T.Value</c>.</param>
     public Followed? FollowTheStaticConstructor(MemberAccessExpressionSyntax access)
     {
-        // The name index of the compiler comes first, so that a compilation with no static
-        // constructor does not build the DeclaredCode at each member access.
+        // The walk asks for the symbol of each call, and of each other member access. Thus, the
+        // symbol here is no new question. A question about each type of the compilation is one,
+        // because the driver can make the symbols of the analyzer again for each file.
         if (this.quiet
-            || !this.region.Symbols.DeclaresStaticConstructors
-            || !this.region.Symbols.DeclaredCode.HasAStaticConstructor(
-                access.Expression switch
-                {
-                    SimpleNameSyntax name => name.Identifier.ValueText,
-                    MemberAccessExpressionSyntax qualified => qualified.Name.Identifier.ValueText,
-                    _ => string.Empty
-                })
-            || this.region.SymbolOf(access) is not { IsStatic: true, ContainingType: { } owner } member
+            || (access.Parent is InvocationExpressionSyntax call
+                && call.Expression == access
+                && this.region.SymbolOf(call) is IMethodSymbol { MethodKind: not MethodKind.DelegateInvoke } called
+                    ? called
+                    : this.region.SymbolOf(access))
+                is not { IsStatic: true, ContainingType: { DeclaringSyntaxReferences.IsEmpty: false } owner } member
             || member is IFieldSymbol { IsConst: true }
             || owner.OriginalDefinition.StaticConstructors.FirstOrDefault()?.DeclaringSyntaxReferences.FirstOrDefault()
                 ?.GetSyntax() is not ConstructorDeclarationSyntax constructor

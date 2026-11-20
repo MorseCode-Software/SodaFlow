@@ -4180,6 +4180,7 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab265RefMethodWritesTheElementOfAMember"] = ["SF1001"],
             ["Ab265RefMethodWritesTheFieldOfItsObject"] = ["SF1001"],
             ["Ab265RefReturnOfAStaticFieldWritesTheField"] = ["SF1001"],
-            ["Ab265SpanOverAnArrayKeepsTheOtherElement"] = ["SF1001"]
+            ["Ab265SpanOverAnArrayKeepsTheOtherElement"] = ["SF1001"],
+            ["Ab248StaticConstructorRunsAtACallThroughADelegateField"] = ["SF1005"]
         };
 }

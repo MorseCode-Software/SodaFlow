@@ -24,18 +24,15 @@ internal sealed class DeclaredCode
     private readonly ImmutableHashSet<string> getters;
     private readonly ImmutableHashSet<string> madeWithCode;
     private readonly ImmutableHashSet<string> operators;
-    private readonly ImmutableHashSet<string> staticallyMade;
 
     private DeclaredCode(
         ImmutableHashSet<string> getters,
         ImmutableHashSet<string> madeWithCode,
-        ImmutableHashSet<string> operators,
-        ImmutableHashSet<string> staticallyMade)
+        ImmutableHashSet<string> operators)
     {
         this.getters = getters;
         this.madeWithCode = madeWithCode;
         this.operators = operators;
-        this.staticallyMade = staticallyMade;
     }
 
     /// <summary>
@@ -48,7 +45,6 @@ internal sealed class DeclaredCode
         ImmutableHashSet<string>.Builder getters = ImmutableHashSet.CreateBuilder<string>();
         ImmutableHashSet<string>.Builder madeWithCode = ImmutableHashSet.CreateBuilder<string>();
         ImmutableHashSet<string>.Builder operators = ImmutableHashSet.CreateBuilder<string>();
-        ImmutableHashSet<string>.Builder staticallyMade = ImmutableHashSet.CreateBuilder<string>();
         List<(string Name, string[] Bases)> others = [];
 
         foreach (TypeDeclarationSyntax type in compilation.SyntaxTrees
@@ -71,10 +67,6 @@ internal sealed class DeclaredCode
                         runsCode |= constructor.Body != null
                                     || constructor.ExpressionBody != null
                                     || constructor.Initializer != null;
-
-                        break;
-                    case ConstructorDeclarationSyntax:
-                        staticallyMade.Add(type.Identifier.ValueText);
 
                         break;
                     case FieldDeclarationSyntax field when !field.Modifiers.Any(SyntaxKind.StaticKeyword):
@@ -137,17 +129,8 @@ internal sealed class DeclaredCode
         return new DeclaredCode(
             getters: getters.ToImmutable(),
             madeWithCode: madeWithCode.ToImmutable(),
-            operators: operators.ToImmutable(),
-            staticallyMade: staticallyMade.ToImmutable());
+            operators: operators.ToImmutable());
     }
-
-    /// <summary>
-    ///     True when a type with the given name declares a static constructor.
-    ///     A use of a static member of such a type can run it.
-    /// </summary>
-    /// <param name="name">The name of the type. It has no namespace and no type arguments.</param>
-    public bool HasAStaticConstructor(string name) =>
-        this.staticallyMade.Count > 0 && this.staticallyMade.Contains(name);
 
     /// <summary>
     ///     True when a node can run code of the compilation with no call

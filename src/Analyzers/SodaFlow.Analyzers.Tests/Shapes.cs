@@ -28871,6 +28871,14 @@ public static class Shapes
     public static Cell<int> Ab265SpanOverAnArrayKeepsTheOtherElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] arr = [l.Map(v => v), Plain]; Span<Cell<int>> s = new(arr); s[1] = Plain; Kept.Add(arr[0].Sample()); return S.Hold(0); });
 
+    // S6739. The block puts a pending cell into a static field, and then calls a delegate in a static field of a class whose static constructor samples that cell.
+    public static Cell<int> Ab248StaticConstructorRunsAtACallThroughADelegateField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab248DelegateShare.Cell = l.Map(v => v); Kept.Add(Ab248ReadAtADelegateCall.Get()); return S.Hold(0); });
+
+    // S6740. A class whose static constructor samples a static field ran that constructor when a field of the shapes made an object of it. The block puts a pending cell into the field, and then reads a member of that object, which runs no constructor.
+    public static Cell<int> Ab248InstanceMemberOfAnObjectMadeBeforeRunsNoStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab248LaterShare.Cell = l.Map(v => v); Kept.Add(Ab248MadeBefore.Value); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -41019,6 +41027,44 @@ public static class Shapes
         public ref Cell<int> At(int index) => ref this.Cells[index];
 
         public ref Cell<int> One() => ref this.Single;
+    }
+
+    public static class Ab248DelegateShare
+    {
+        public static Cell<int>? Cell;
+    }
+
+    public static class Ab248ReadAtADelegateCall
+    {
+        public static readonly Func<int> Get;
+
+        static Ab248ReadAtADelegateCall()
+        {
+            int read = Ab248DelegateShare.Cell!.Sample();
+            Get = () => read;
+        }
+    }
+
+    public static readonly Ab248WithAStaticConstructor Ab248MadeBefore = new();
+
+    public static class Ab248LaterShare
+    {
+        public static Cell<int>? Cell;
+    }
+
+    public sealed class Ab248WithAStaticConstructor
+    {
+        private static readonly int Read;
+
+        static Ab248WithAStaticConstructor()
+        {
+            if (Ab248LaterShare.Cell is { } cell)
+            {
+                Read = cell.Sample();
+            }
+        }
+
+        public int Value => Read;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
