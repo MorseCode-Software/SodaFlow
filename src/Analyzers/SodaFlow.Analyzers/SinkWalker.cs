@@ -7,6 +7,9 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
+using KeptTimers =
+    System.Collections.Generic.List<(Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax Time,
+        Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax Callback)>;
 
 namespace SodaFlow.Analyzers;
 
@@ -84,7 +87,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // The timers of each local that has a clock of the library base. Each timer has the time and
     // the callback that SetTimer gave it, until RunTimersTo runs it. Null until the walk sees such a
     // clock.
-    private Dictionary<ISymbol, List<(ExpressionSyntax Time, ExpressionSyntax Callback)>>? timers;
+    private Dictionary<ISymbol, KeptTimers>? timers;
 
     public override void Visit(SyntaxNode? node)
     {
@@ -3165,30 +3168,32 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.CheckRead(node: node, owner: receiver, name: method.Name);
             }
 
-            // The Dispose of a map of a collection runs its eviction handler in the call. The code
-            // can call it through IDisposable. An extension method with the same name is not that
-            // Dispose.
-            if (operatorName == "Dispose" && method.ReducedFrom == null)
+            // An extension method with the name of a member of the library is not that member.
+            switch (operatorName)
             {
-                this.Report(this.evaluator.FollowEvictionsOfADispose(map: receiver, dispose: node));
-                this.Report(this.evaluator.FollowClockOfADispose(system: receiver, dispose: node));
-            }
+                // The Dispose of a map of a collection runs its eviction handler in the call, and the
+                // Dispose of a timer system calls Stop of its implementation. The code can call each
+                // one through IDisposable.
+                case "Dispose" when method.ReducedFrom == null:
+                    this.Report(this.evaluator.FollowEvictionsOfADispose(map: receiver, dispose: node));
+                    this.Report(this.evaluator.FollowClockOfADispose(system: receiver, dispose: node));
 
-            // A clock of the library base keeps the callback of SetTimer. Its RunTimersTo runs each
-            // callback that is due, in the call.
-            if (operatorName is "SetTimer" or "RunTimersTo"
-                && method.ReducedFrom == null
-                && this.region.SymbolOf(LoopStateEvaluator.Unwrapped(receiver)) is ILocalSymbol clock
-                && this.evaluator.IsAClockOfTheLibraryBase(receiver))
-            {
-                this.RunsTimers(clock: clock, method: method, arguments: arguments, call: node);
-            }
+                    break;
+                // A clock of the library base keeps the callback of SetTimer. Its RunTimersTo runs
+                // each callback that is due, in the call.
+                case "SetTimer" or "RunTimersTo"
+                    when method.ReducedFrom == null
+                         && this.region.SymbolOf(LoopStateEvaluator.Unwrapped(receiver)) is ILocalSymbol clock
+                         && this.evaluator.IsAClockOfTheLibraryBase(receiver):
+                    this.RunsTimers(clock: clock, method: method, arguments: arguments, call: node);
 
-            // Execute of a bindable action posts a send of its parameter into the sink of its
-            // firings. An extension method with the same name is not that Execute.
-            if (operatorName == "Execute" && method.ReducedFrom == null && arguments.Count == 1)
-            {
-                this.evaluator.PostsAWrite(bindable: receiver, value: arguments[0].Expression, write: node);
+                    break;
+                // Execute of a bindable action posts a send of its parameter into the sink of its
+                // firings.
+                case "Execute" when method.ReducedFrom == null && arguments.Count == 1:
+                    this.evaluator.PostsAWrite(bindable: receiver, value: arguments[0].Expression, write: node);
+
+                    break;
             }
         }
 
@@ -3211,13 +3216,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         ISymbol clock,
         IMethodSymbol method,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
-        InvocationExpressionSyntax call)
+        SyntaxNode call)
     {
-        this.timers ??= new(SymbolEqualityComparer.Default);
+        this.timers ??= new Dictionary<ISymbol, KeptTimers>(SymbolEqualityComparer.Default);
 
-        if (!this.timers.TryGetValue(
-                key: clock,
-                value: out List<(ExpressionSyntax Time, ExpressionSyntax Callback)>? kept))
+        if (!this.timers.TryGetValue(key: clock, value: out KeptTimers? kept))
         {
             kept = [];
             this.timers[clock] = kept;
@@ -3258,10 +3261,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     }
 
     // True when two times are integer constants, and the first is after the second.
-    private bool IsAfter(ExpressionSyntax time, ExpressionSyntax now) =>
+    private bool IsAfter(SyntaxNode time, SyntaxNode now) =>
         this.IntegerOf(time) is { } later && this.IntegerOf(now) is { } at && later > at;
 
-    private decimal? IntegerOf(ExpressionSyntax expression) =>
+    private decimal? IntegerOf(SyntaxNode expression) =>
         this.region.ModelFor(expression).GetConstantValue(expression) is
         {
             HasValue: true, Value: sbyte or byte or short or ushort or int or uint or long or ulong
