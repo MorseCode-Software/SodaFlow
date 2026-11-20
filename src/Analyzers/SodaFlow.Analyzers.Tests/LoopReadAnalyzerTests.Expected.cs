@@ -4163,6 +4163,16 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab262InterpolationWithAnAlignmentCallsTryFormat"] = ["SF1005"],
             ["Ab262StringJoinCallsThePlainToString"] = ["SF1005", "SF1005"],
             ["R4CsCustomInterpolatedStringHandlerReads"] = ["SF1004"],
-            ["Ab263CustomHandlerReadsTheSecondValue"] = ["SF1004"]
+            ["Ab263CustomHandlerReadsTheSecondValue"] = ["SF1004"],
+            ["Ab264ListPatternFromTheEndGetsThePendingElement"] = ["SF1001"],
+            ["Ab264SlicePatternGetsThePendingRest"] = ["SF1001"],
+            ["Ab264ListPatternInAPropertyPatternGetsThePendingElement"] = ["SF1001"],
+            ["Ab264TuplePatternGetsThePendingItem"] = ["SF1001"],
+            ["Ab264SpreadAfterAnElementKeepsThePendingElement"] = ["SF1001"],
+            ["Ab264SpanLiteralElementGetsThePendingCell"] = ["SF1001"],
+            ["Ab264NestedListPatternGetsThePendingElement"] = ["SF1001"],
+            ["Ab264ListPatternLongerThanTheListMatchesNothing"] = ["SF1001"],
+            ["Ab264SlicePatternLongerThanTheListMatchesNothing"] = ["SF1001"],
+            ["Ab264TuplePatternAfterAWriteToOneItemGetsThePendingItem"] = ["SF1001"]
         };
 }

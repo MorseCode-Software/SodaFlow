@@ -311,8 +311,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   block sets. The variable of a `catch` clause gets each object that a `throw` in its `try` block,
   or in a method or a lambda that the block calls, can send to that clause. Its filter gets none,
   because an exception in a filter is lost and makes the filter false.
-- Collections, arrays, and dictionaries. A list or an array that you write as a literal keeps each
-  element apart, so `cells[0]`, `cells[^1]`, and `cells.ElementAt(1)` are each one element. A
+- Collections, arrays, and dictionaries. A list, an array, or a span that you write as a literal
+  keeps each element apart, also where the literal spreads a second such local, so `cells[0]`,
+  `cells[^1]`, `cells.ElementAt(1)`, and each element of a list pattern in an `is` or a `switch` on
+  `cells` are each one element. A positional pattern on a tuple gives each part its own item. A
   `Dictionary` that you write with constant keys and no comparer, and that the code then only
   reads, keeps the value of each key apart, so `cells["total"]` is that one value. A key of the type
   `object` has the type of its constant too, so the `int` 1 and the `long` 1 are two keys.

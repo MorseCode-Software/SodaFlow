@@ -1054,13 +1054,15 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>
     ///     True for a type whose object has the elements of a collection
-    ///     expression in the order of the code. The types are an array,
+    ///     expression in the order of the code. The types are an array, a span,
     ///     <c>List</c>, <c>ArrayList</c>, and each interface that the compiler
     ///     gives a list or an array for. A set or a sorted collection has a
     ///     different order.
     /// </summary>
     public static bool KeepsTheOrder(ITypeSymbol? type) =>
         type is IArrayTypeSymbol
+        || (type is INamedTypeSymbol { Name: "Span" or "ReadOnlySpan", ContainingNamespace: { Name: "System" } system }
+            && system.ContainingNamespace.IsGlobalNamespace)
         || (type is INamedTypeSymbol
             {
                 Name: "List" or "IEnumerable" or "IReadOnlyList" or "IReadOnlyCollection" or "IList" or "ICollection"

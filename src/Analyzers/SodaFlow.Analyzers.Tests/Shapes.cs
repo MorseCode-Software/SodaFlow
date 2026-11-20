@@ -28755,6 +28755,90 @@ public static class Shapes
     public static Cell<int> Ab263CustomHandlerReadsTheSecondValue() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4CsLog($"n{Plain} and {l.Map(v => v)}"); return S.Hold(0); });
 
+    // S6710. A list pattern gives its second designation the second element of a literal array, which is the plain cell.
+    public static Cell<int> R4CsListPatternGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; if (cells is [_, var second]) { Kept.Add(second.Sample()); } return S.Hold(0); });
+
+    // S6711. A slice pattern gives its designation the elements after the first, and the first is the only pending one.
+    public static Cell<int> R4CsSlicePatternGetsThePlainRest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; if (cells is [_, .. var rest]) { Kept.Add(rest[0].Sample()); } return S.Hold(0); });
+
+    // S6712. A span written as a collection expression keeps each element apart, and its first element is the plain cell.
+    public static Cell<int> R4CsSpanLiteralGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Span<Cell<int>> s = [Plain, l.Map(v => v)]; Kept.Add(s[0].Sample()); return S.Hold(0); });
+
+    // S6713. A spread keeps the position of each element, and the first element is the plain cell of the spread.
+    public static Cell<int> R4CsSpreadKeepsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] first = [Plain]; Cell<int>[] all = [.. first, l.Map(v => v)]; Kept.Add(all[0].Sample()); return S.Hold(0); });
+
+    // S6714. A positional pattern on a tuple gives its second designation the plain item.
+    public static Cell<int> R4CsTuplePatternGetsThePlainItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> A, Cell<int> B) p = (l.Map(v => v), Plain); if (p is (_, var second)) { Kept.Add(second.Sample()); } return S.Hold(0); });
+
+    // S6715. A list pattern gives a designation after a slice the last element, which is the plain cell.
+    public static Cell<int> Ab264ListPatternFromTheEndGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; if (cells is [.., var last]) { Kept.Add(last.Sample()); } return S.Hold(0); });
+
+    // S6716. A list pattern gives a designation after a slice the last element, which is the pending cell.
+    public static Cell<int> Ab264ListPatternFromTheEndGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; if (cells is [.., var last]) { Kept.Add(last.Sample()); } return S.Hold(0); });
+
+    // S6717. A slice pattern gives its designation the elements after the first, and the second is the pending one.
+    public static Cell<int> Ab264SlicePatternGetsThePendingRest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v)]; if (cells is [_, .. var rest]) { Kept.Add(rest[0].Sample()); } return S.Hold(0); });
+
+    // S6718. A list pattern in a switch section gives its second designation the plain cell.
+    public static Cell<int> Ab264ListPatternInASwitchGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; switch (cells) { case [_, var second]: Kept.Add(second.Sample()); break; } return S.Hold(0); });
+
+    // S6719. A list pattern inside a property pattern gives no position, and the walk reads each element.
+    public static Cell<int> Ab264ListPatternInAPropertyPatternGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab264Row row = new([l.Map(v => v), Plain]); if (row is { Cells: [var first, _] }) { Kept.Add(first.Sample()); } return S.Hold(0); });
+
+    // S6720. A positional pattern on a tuple gives its second designation the pending item.
+    public static Cell<int> Ab264TuplePatternGetsThePendingItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> A, Cell<int> B) p = (Plain, l.Map(v => v)); if (p is (_, var second)) { Kept.Add(second.Sample()); } return S.Hold(0); });
+
+    // S6721. A positional pattern on a tuple in a switch section gives its first designation the plain item.
+    public static Cell<int> Ab264TuplePatternInASwitchGetsThePlainItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> A, Cell<int> B) p = (Plain, l.Map(v => v)); switch (p) { case (var first, _): Kept.Add(first.Sample()); break; } return S.Hold(0); });
+
+    // S6722. A spread after an element keeps the position of each element, and the first element is the plain cell.
+    public static Cell<int> Ab264SpreadAfterAnElementKeepsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] rest = [l.Map(v => v)]; Cell<int>[] all = [Plain, .. rest]; Kept.Add(all[0].Sample()); return S.Hold(0); });
+
+    // S6723. A spread after an element keeps the position of each element, and the second element is the pending cell of the spread.
+    public static Cell<int> Ab264SpreadAfterAnElementKeepsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] rest = [l.Map(v => v)]; Cell<int>[] all = [Plain, .. rest]; Kept.Add(all[1].Sample()); return S.Hold(0); });
+
+    // S6724. A read-only span written as a collection expression keeps each element apart, and its first element is the plain cell.
+    public static Cell<int> Ab264ReadOnlySpanLiteralGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ReadOnlySpan<Cell<int>> s = [Plain, l.Map(v => v)]; Kept.Add(s[0].Sample()); return S.Hold(0); });
+
+    // S6725. A write of the pending cell to an element of a span literal reaches the element, which the block samples.
+    public static Cell<int> Ab264SpanLiteralElementGetsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Span<Cell<int>> s = [Plain, Plain]; s[0] = l.Map(v => v); Kept.Add(s[0].Sample()); return S.Hold(0); });
+
+    // S6726. A list pattern inside a list pattern gives no position of its own, and its designation gets each element of the inner array.
+    public static Cell<int> Ab264NestedListPatternGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] grid = [[Plain, l.Map(v => v)], [Plain, Plain]]; if (grid is [[_, var a], _]) { Kept.Add(a.Sample()); } return S.Hold(0); });
+
+    // S6727. A list pattern with more elements than the literal matches nothing, and the block samples the pending element.
+    public static Cell<int> Ab264ListPatternLongerThanTheListMatchesNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v)]; if (cells is [var a, var b]) { Kept.Add(a); Kept.Add(b); } Kept.Add(cells[0].Sample()); return S.Hold(0); });
+
+    // S6728. A slice pattern with more elements than the literal matches nothing, and the block samples the pending element.
+    public static Cell<int> Ab264SlicePatternLongerThanTheListMatchesNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v)]; if (cells is [_, _, .. var rest]) { Kept.Add(rest); } Kept.Add(cells[0].Sample()); return S.Hold(0); });
+
+    // S6729. A list pattern gives a designation after a slice the last of three elements, which is the plain cell, and the second is the pending one.
+    public static Cell<int> Ab264ListPatternFromTheEndOfALongerListGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [Plain, l.Map(v => v), Plain]; if (cells is [.., var last]) { Kept.Add(last.Sample()); } return S.Hold(0); });
+
+    // S6730. A positional pattern on a tuple that a platform method made, after a write to its first item, gives the second designation the pending item.
+    public static Cell<int> Ab264TuplePatternAfterAWriteToOneItemGetsThePendingItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> A, Cell<int> B) p = ValueTuple.Create(l.Map(v => v), l.Map(v => v)); p.A = Plain; if (p is (_, var second)) { Kept.Add(second.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40885,6 +40969,11 @@ public static class Shapes
 
     private static void Ab263Quiet(Ab263QuietHandler message)
     {
+    }
+
+    public sealed class Ab264Row(Cell<int>[] cells)
+    {
+        public Cell<int>[] Cells { get; } = cells;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

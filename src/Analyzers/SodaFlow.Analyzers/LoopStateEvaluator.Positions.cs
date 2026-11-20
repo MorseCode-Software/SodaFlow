@@ -243,6 +243,30 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
     /// <summary>
+    ///     The state of each element of a collection whose positions the walk
+    ///     knows, in order. Null for each other collection.
+    /// </summary>
+    public IReadOnlyList<LoopState>? StatesAtThePositionsOf(ExpressionSyntax collection)
+    {
+        if (this.ElementsOf(collection) is { } elements)
+        {
+            return [.. elements.Select(this.StateAtAPosition)];
+        }
+
+        if (this.StorePositionsOf(collection) is not (_, var all))
+        {
+            return null;
+        }
+
+        if (this.Eval(collection).Origin is not { } origin)
+        {
+            return all;
+        }
+
+        return [.. all.Select(state => state.From(origin))];
+    }
+
+    /// <summary>
     ///     The state of the first element of a collection, and the number of
     ///     elements, when the walk knows the positions. Null for each other
     ///     collection.
@@ -1075,15 +1099,12 @@ internal sealed partial class LoopStateEvaluator
                 is IMethodSymbol { ReducedFrom: null, ContainingType: { Name: "List" or "ArrayList" } owner }
             && SodaFlowSymbols.IsPlatform(owner));
 
-    // The elements of a literal whose object has them in the order of the code. A spread has a
-    // number of elements that the code does not say.
+    // The elements of a literal whose object has them in the order of the code.
     private IReadOnlyList<ExpressionSyntax>? LiteralElements(ExpressionSyntax made, ITypeSymbol? type) =>
         made switch
         {
-            CollectionExpressionSyntax collection
-                when SodaFlowSymbols.KeepsTheOrder(type)
-                     && collection.Elements.All(static element => element is ExpressionElementSyntax) =>
-                [.. collection.Elements.Cast<ExpressionElementSyntax>().Select(static element => element.Expression)],
+            CollectionExpressionSyntax collection when SodaFlowSymbols.KeepsTheOrder(type) =>
+                this.ElementsOfACollectionExpression(collection),
             InitializerExpressionSyntax { RawKind: (int)SyntaxKind.ArrayInitializerExpression } initializer =>
                 [.. initializer.Expressions],
             ArrayCreationExpressionSyntax { Initializer: { } initializer } => [.. initializer.Expressions],
@@ -1098,6 +1119,33 @@ internal sealed partial class LoopStateEvaluator
                 when SodaFlowSymbols.KeepsTheOrder(this.region.TypeOf(made)) => [],
             _ => null
         };
+
+    // The elements of a collection expression. A spread of a local whose positions the walk knows
+    // gives those elements. A spread of each other value has a number of elements that the code
+    // does not say.
+    private IReadOnlyList<ExpressionSyntax>? ElementsOfACollectionExpression(CollectionExpressionSyntax collection)
+    {
+        List<ExpressionSyntax> all = [];
+
+        foreach (CollectionElementSyntax element in collection.Elements)
+        {
+            switch (element)
+            {
+                case ExpressionElementSyntax one:
+                    all.Add(one.Expression);
+
+                    break;
+                case SpreadElementSyntax spread when this.ElementsOf(spread.Expression) is { } spreadOnes:
+                    all.AddRange(spreadOnes);
+
+                    break;
+                default:
+                    return null;
+            }
+        }
+
+        return all;
+    }
 
     // The initializer calls Add one time for each element. An element with braces gives the
     // arguments of one Add, and is not the expression of an element.
@@ -1122,6 +1170,8 @@ internal sealed partial class LoopStateEvaluator
                 this.region.SymbolOf(call) is IMethodSymbol { ReducedFrom.ContainingType: { } owner }
                 && SodaFlowSymbols.IsLinqEnumerable(owner),
             CommonForEachStatementSyntax => true,
+            // A spread puts a copy of each element into a second collection.
+            SpreadElementSyntax => true,
             _ => false
         };
 

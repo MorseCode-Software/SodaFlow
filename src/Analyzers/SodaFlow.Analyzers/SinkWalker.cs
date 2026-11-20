@@ -1367,14 +1367,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 case ListPatternSyntax list:
                     this.Report(this.evaluator.FollowListPattern(pattern: list, owner: state));
                     this.DeclareDesignation(designation: list.Designation, state: state);
-
-                    // A slice is a part of the list. Each other pattern is for one element.
-                    foreach (PatternSyntax element in list.Patterns)
-                    {
-                        this.DeclarePattern(
-                            pattern: element,
-                            state: element is SlicePatternSyntax ? state : state.AsElement);
-                    }
+                    this.DeclareElements(list: list, state: state);
 
                     return;
                 case SlicePatternSyntax { Pattern: { } rest }:
@@ -1384,6 +1377,54 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 default:
                     return;
             }
+        }
+    }
+
+    /// <summary>
+    ///     Gives each pattern of a list pattern the state of its element. A slice
+    ///     is a part of the list. Each other pattern is for one element.
+    /// </summary>
+    /// <remarks>
+    ///     A list pattern for the value of an <c>is</c> expression or a
+    ///     <c>switch</c> can have a collection whose positions the walk knows.
+    ///     The pattern matches only a collection with a sufficient number of
+    ///     elements. Then, a pattern before the slice is for the element at its
+    ///     position from the start. A pattern after the slice is for the element
+    ///     at its position from the end. The slice is for the elements between.
+    /// </remarks>
+    private void DeclareElements(ListPatternSyntax list, LoopState state)
+    {
+        SeparatedSyntaxList<PatternSyntax> patterns = list.Patterns;
+        int slice = patterns.IndexOf(static pattern => pattern is SlicePatternSyntax);
+
+        IReadOnlyList<LoopState>? positions =
+            list.Parent is IsPatternExpressionSyntax or CasePatternSwitchLabelSyntax or SwitchExpressionArmSyntax
+            && MatchedValueOf(list) is { } matched
+                ? this.evaluator.StatesAtThePositionsOf(matched)
+                : null;
+
+        if (positions != null && (slice < 0 ? positions.Count != patterns.Count : positions.Count < patterns.Count - 1))
+        {
+            positions = null;
+        }
+
+        for (int i = 0; i < patterns.Count; i++)
+        {
+            int last = positions == null ? 0 : positions.Count - (patterns.Count - i);
+
+            this.DeclarePattern(
+                pattern: patterns[i],
+                state: (positions, i == slice) switch
+                {
+                    (null, true) => state,
+                    (null, false) => state.AsElement,
+                    ({ } known, true) => known
+                        .Skip(i)
+                        .Take(last - i + 1)
+                        .Aggregate(seed: LoopState.None, func: static (joined, one) => joined.Join(one))
+                        .AsContainer,
+                    ({ } known, false) => known[slice < 0 || i < slice ? i : last]
+                });
         }
     }
 
@@ -1519,7 +1560,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 ? this.region.ModelFor(clause).GetSymbolInfo(clause).Symbol as IMethodSymbol
                 : null;
 
-        IReadOnlyList<LoopState>? states = method == null ? null : PartsOfAPair(pair: state, deconstruct: method);
+        IReadOnlyList<LoopState>? states =
+            method == null
+                ? this.ItemsOfATuple(clause: clause, state: state)
+                : PartsOfAPair(pair: state, deconstruct: method);
 
         if (states == null
             && method != null
@@ -1542,6 +1586,17 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         : LoopState.None);
         }
     }
+
+    // The state of each item of a tuple that a positional pattern is for, in order. Null for a value
+    // that is not a tuple with a state for each item.
+    private IReadOnlyList<LoopState>? ItemsOfATuple(PositionalPatternClauseSyntax clause, LoopState state) =>
+        state.Members is { IsTuple: true } members
+        && clause.Parent is { } pattern
+        && (this.region.ModelFor(pattern).GetOperation(pattern) as IRecursivePatternOperation)?.MatchedType
+            is INamedTypeSymbol { IsTupleType: true } tuple
+        && tuple.TupleElements.All(members.Has)
+            ? [.. tuple.TupleElements.Select(item => members.StateOf(item).FromIfUnknown(state.Origin))]
+            : null;
 
     // The state that a followed Deconstruct method gives to each out parameter, in order.
     private static IReadOnlyList<LoopState> OutStates(IMethodSymbol method, Followed followed) =>
