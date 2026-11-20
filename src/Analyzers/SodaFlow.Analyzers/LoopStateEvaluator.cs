@@ -94,9 +94,9 @@ internal sealed partial class LoopStateEvaluator
     // each other code.
     private INamedTypeSymbol? builtType;
 
-    // The object that this code runs on, when the walk knows its type: the receiver of the call of a
-    // method of it, as the caller read it. A call on this object runs the member of that type. Such a
-    // call has no receiver, or its receiver is this. Null for each other code.
+    // The object that this code runs on, when the walk knows its type. It is the receiver of the call
+    // of a method of it, as the caller read it. A call on this object runs the member of that type.
+    // Such a call has no receiver, or its receiver is this. Null for each other code.
     private Construction? thisObject;
 
     // The code that defines the function that this evaluator reads, or null. See StateAtAPosition.

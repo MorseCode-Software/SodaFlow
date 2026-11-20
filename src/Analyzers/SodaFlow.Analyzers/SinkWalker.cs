@@ -3368,7 +3368,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             // An extension method with the name of a member of the library is not that member.
             switch (operatorName)
             {
-                // The Dispose of a map of a collection runs its eviction handler in the call, and the
+                // The Dispose of a map of a collection runs its eviction handler in the call. The
                 // Dispose of a timer system calls Stop of its implementation. The code can call each
                 // one through IDisposable.
                 case "Dispose" when method.ReducedFrom == null:

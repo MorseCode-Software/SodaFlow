@@ -4,8 +4,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
 
-// The part of the evaluator for the methods of Delegate that make one delegate of the functions of others, or that give
-// those functions one by one.
+// The part of the evaluator for two methods of Delegate. One makes one delegate of the functions of others. The other
+// gives those functions one by one.
 internal sealed partial class LoopStateEvaluator
 {
     /// <summary>
