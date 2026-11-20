@@ -15,8 +15,9 @@ namespace SodaFlow.Analyzers;
 ///     also true for a method of this compilation that gives only such tasks,
 ///     and for a local with one such value. A readonly field and a get-only
 ///     property with such an initializer count also, and so does a getter that
-///     gives only such tasks. For each other task, the answer is false, and the
-///     walk stops at the await.
+///     gives only such tasks. An awaiter whose IsCompleted always gives true is
+///     complete also. For each other task, the answer is false, and the walk
+///     stops at the await.
 /// </remarks>
 internal static class CompleteTasks
 {
@@ -37,6 +38,11 @@ internal static class CompleteTasks
         {
             return region.TypeOf(written) is INamedTypeSymbol { Name: "ValueTask" } type
                    && SodaFlowSymbols.IsTask(type);
+        }
+
+        if (HasACompleteAwaiter(region: region, task: task))
+        {
+            return true;
         }
 
         ISymbol? symbol = region.SymbolOf(written);
@@ -61,6 +67,24 @@ internal static class CompleteTasks
             _ => false
         };
     }
+
+    // The awaiter of a custom awaitable is complete when its IsCompleted always gives the constant
+    // true. Then, the await calls GetResult in the call. A virtual IsCompleted can run a different
+    // body, thus the answer for it is false.
+    private static bool HasACompleteAwaiter(LoopRegion region, SyntaxNode task) =>
+        region.Symbols.DeclaresAwaiters
+        && task.Parent is AwaitExpressionSyntax awaited
+        && region.ModelFor(awaited).GetAwaitExpressionInfo(awaited).IsCompletedProperty
+            is { IsVirtual: false, IsAbstract: false, IsOverride: false, GetMethod: { } test }
+        && test.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() switch
+        {
+            ArrowExpressionClauseSyntax body => body.Expression,
+            AccessorDeclarationSyntax { ExpressionBody: { } body } => body.Expression,
+            AccessorDeclarationSyntax { Body.Statements: { Count: 1 } statements } =>
+                (statements[0] as ReturnStatementSyntax)?.Expression,
+            _ => null
+        } is { } given
+        && region.ModelFor(given).GetConstantValue(given) is { HasValue: true, Value: true };
 
     // The task in parentheses, and the task that ConfigureAwait gets.
     private static ExpressionSyntax Unwrapped(ExpressionSyntax task)

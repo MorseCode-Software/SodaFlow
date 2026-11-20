@@ -4135,6 +4135,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab224PlainThroughThisInABranchAfterPendingThroughAnElement"] = ["SF1005"],
             ["Ab215SpanPutInACallee"] = ["SF1001"],
             ["Ab215SpanPutOfAWrittenObject"] = ["SF1001"],
-            ["Ab215PutThroughALocalInACallee"] = ["SF1001"]
+            ["Ab215PutThroughALocalInACallee"] = ["SF1001"],
+            ["R4CsCodeAfterACompleteCustomAwaitRunsNow"] = ["SF1001"],
+            ["Ab256GetResultOfACompleteAwaiterReads"] = ["SF1005"],
+            ["Ab249CodeAfterAnAwaiterWithABlockGetterRunsNow"] = ["SF1001"]
         };
 }

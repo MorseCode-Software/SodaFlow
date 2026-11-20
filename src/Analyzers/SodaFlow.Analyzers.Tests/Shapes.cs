@@ -28575,6 +28575,30 @@ public static class Shapes
     public static Cell<int> Ab215PutThroughALocalInACallee() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab215Locals; a[0].Share = Plain; Ab215PutThroughALocal(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
 
+    // S6665. The awaiter of a custom awaitable is complete, so the code after the await samples the placeholder in the call.
+    public static Cell<int> R4CsCodeAfterACompleteCustomAwaitRunsNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new R4CsDone(); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S6666. The awaiter of a custom awaitable is complete, so the await calls GetResult in the call, and GetResult samples.
+    public static Cell<int> Ab256GetResultOfACompleteAwaiterReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new Ab256DoneReads(l.Map(v => v)); }; run().Wait(0); return S.Hold(0); });
+
+    // S6667. The IsCompleted of the awaiter has a block body that gives true, so the code after the await samples in the call.
+    public static Cell<int> Ab249CodeAfterAnAwaiterWithABlockGetterRunsNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new Ab249BlockDone(); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S6668. The IsCompleted of the awaiter gives false, and nothing calls the continuation, so the code after the await does not run.
+    public static Cell<int> Ab249CodeAfterAnAwaiterThatIsNotCompleteDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new Ab249NotDone(); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S6669. The IsCompleted of the awaiter gives a field that is false, so the code after the await does not run.
+    public static Cell<int> Ab249CodeAfterAnAwaiterWithAFlagDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new Ab249FlagDone(); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S6670. The awaiter overrides a virtual IsCompleted that gives true with one that gives false, so the code after the await does not run.
+    public static Cell<int> Ab249CodeAfterAnAwaiterWithAnOverriddenGetterDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await new Ab249OverriddenDone(); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -40498,6 +40522,104 @@ public static class Shapes
     {
         SettableSlot[] other = Ab215Locals;
         other[0] = new SettableSlot { Share = share };
+    }
+
+    public sealed class Ab256DoneReads(Cell<int> share)
+    {
+        public Ab256DoneReadsAwaiter GetAwaiter() => new(share);
+    }
+
+    public sealed class Ab256DoneReadsAwaiter(Cell<int> share) : System.Runtime.CompilerServices.INotifyCompletion
+    {
+        public bool IsCompleted => true;
+
+        public void GetResult() => Kept.Add(share.Sample());
+
+        public void OnCompleted(Action continuation)
+        {
+        }
+    }
+
+    public sealed class Ab249BlockDone
+    {
+        public Ab249BlockDoneAwaiter GetAwaiter() => new();
+    }
+
+    public sealed class Ab249BlockDoneAwaiter : System.Runtime.CompilerServices.INotifyCompletion
+    {
+        public bool IsCompleted
+        {
+            get { return true; }
+        }
+
+        public void GetResult()
+        {
+        }
+
+        public void OnCompleted(Action continuation)
+        {
+        }
+    }
+
+    public sealed class Ab249NotDone
+    {
+        public Ab249NotDoneAwaiter GetAwaiter() => new();
+    }
+
+    public sealed class Ab249NotDoneAwaiter : System.Runtime.CompilerServices.INotifyCompletion
+    {
+        public bool IsCompleted => false;
+
+        public void GetResult()
+        {
+        }
+
+        public void OnCompleted(Action continuation)
+        {
+        }
+    }
+
+    public sealed class Ab249FlagDone
+    {
+        public Ab249FlagDoneAwaiter GetAwaiter() => new();
+    }
+
+    public sealed class Ab249FlagDoneAwaiter : System.Runtime.CompilerServices.INotifyCompletion
+    {
+        private readonly bool done = Kept.Count < 0;
+
+        public bool IsCompleted => this.done;
+
+        public void GetResult()
+        {
+        }
+
+        public void OnCompleted(Action continuation)
+        {
+        }
+    }
+
+    public sealed class Ab249OverriddenDone
+    {
+        public Ab249DoneAwaiterBase GetAwaiter() => new Ab249NotDoneAwaiterOfTheBase();
+    }
+
+    public class Ab249DoneAwaiterBase : System.Runtime.CompilerServices.INotifyCompletion
+    {
+        public virtual bool IsCompleted => true;
+
+        public void GetResult()
+        {
+        }
+
+        public void OnCompleted(Action continuation)
+        {
+        }
+    }
+
+    public sealed class Ab249NotDoneAwaiterOfTheBase : Ab249DoneAwaiterBase
+    {
+        public override bool IsCompleted => false;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
