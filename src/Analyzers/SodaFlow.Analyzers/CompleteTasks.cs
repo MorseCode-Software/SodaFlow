@@ -114,7 +114,7 @@ internal static class CompleteTasks
             method: method,
             visiting: new HashSet<ISymbol>(SymbolEqualityComparer.Default));
 
-    private static bool IsZero(LoopRegion region, ExpressionSyntax delay) =>
+    private static bool IsZero(LoopRegion region, SyntaxNode delay) =>
         region.ModelFor(delay).GetConstantValue(delay) is { HasValue: true, Value: 0 }
         || (delay is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Zero" }
             && region.SymbolOf(delay) is IFieldSymbol { ContainingType: { Name: "TimeSpan" } owner }
