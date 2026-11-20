@@ -80,11 +80,12 @@ work:
 
 ## Results
 
-Intel Core i7-9700, Windows 11, .NET 10.0.14, BenchmarkDotNet 0.15.8, out of process, measured on 2026-11-08.
+Intel Core i7-9700, Windows 11, .NET 10.0.15, BenchmarkDotNet 0.15.8, out of process, measured on 2026-11-20. No other
+build, test, or benchmark ran on the machine during the two runs.
 
 - **Release** is the last tag of each package: SodaFlow 5.0.1, SodaFlow.Core 5.0.0, SodaFlow.Collections 2.0.0 (core
   2.0.0), and SodaFlow.Bindable.ObjectModel 4.0.4 (core 4.3.0), as `packages.release.lock.json` records.
-- **Main** is `origin/main` at `e3560ac`, the merge of #207, with no local change.
+- **Main** is `origin/main` at `f0de695`, the merge of #251, with no local change.
 
 Times are medians. Allocation is per operation. A ratio is main divided by the release, so a lower ratio is a larger
 gain.
@@ -93,42 +94,135 @@ At 10,000 orders:
 
 | Benchmark | Release | Main | Time | Release alloc | Main alloc | Alloc |
 |---|---|---|---|---|---|---|
-| `BuildAndDispose` | 49.1 ms | 40.6 ms | 0.83x | 13.33 MB | 11.72 MB | 0.88x |
-| `TickOnPage` | 97.6 μs | 59.6 μs | 0.61x | 99.9 KB | 74.9 KB | 0.75x |
-| `TickOffPage` | 2.0 μs | 1.5 μs | 0.75x | 3.2 KB | 3.0 KB | 0.92x |
-| `FillOnPage` | 96.1 μs | 43.7 μs | 0.45x | 93.3 KB | 41.0 KB | 0.44x |
-| `FillOffPage` | 22.7 μs | 13.7 μs | 0.60x | 20.3 KB | 18.5 KB | 0.91x |
-| `AmendRow` | 194.9 μs | 88.6 μs | 0.45x | 187.8 KB | 80.9 KB | 0.43x |
-| `SelectRows` | 18.8 μs | 7.1 μs | 0.38x | 16.3 KB | 9.2 KB | 0.56x |
-| `SearchAndClear` | 29.4 ms | 26.6 ms | 0.90x | 9.20 MB | 8.61 MB | 0.94x |
-| `ToggleWorkingOnly` | 5.17 ms | 4.85 ms | 0.94x | 1.26 MB | 689.1 KB | 0.54x |
-| `ReverseSort` | 7.87 ms | 2.07 ms | 0.26x | 3.06 MB | 1.25 MB | 0.41x |
-| `ChangeSortColumn` | 15.3 ms | 10.7 ms | 0.70x | 5.59 MB | 3.75 MB | 0.67x |
-| `PageForwardAndBack` | 3.43 ms | 2.20 ms | 0.64x | 2.16 MB | 1.24 MB | 0.58x |
-| `OrderLifecycle` | 5.23 ms | 1.95 ms | 0.37x | 2.42 MB | 1.10 MB | 0.45x |
+| `BuildAndDispose` | 54.1 ms | 26.0 ms | 0.48x | 13.33 MB | 8.94 MB | 0.67x |
+| `TickOnPage` | 96.4 μs | 59.8 μs | 0.62x | 100.0 KB | 74.9 KB | 0.75x |
+| `TickOffPage` | 1.85 μs | 1.40 μs | 0.76x | 3.3 KB | 2.9 KB | 0.90x |
+| `FillOnPage` | 94.4 μs | 42.2 μs | 0.45x | 93.3 KB | 40.7 KB | 0.44x |
+| `FillOffPage` | 22.1 μs | 13.8 μs | 0.62x | 20.3 KB | 18.4 KB | 0.91x |
+| `AmendRow` | 201.2 μs | 86.9 μs | 0.43x | 188.8 KB | 80.1 KB | 0.42x |
+| `SelectRows` | 18.8 μs | 6.80 μs | 0.36x | 16.3 KB | 8.9 KB | 0.55x |
+| `SearchAndClear` | 29.6 ms | 9.97 ms | 0.34x | 9.20 MB | 2.05 MB | 0.22x |
+| `ToggleWorkingOnly` | 5.47 ms | 3.36 ms | 0.61x | 1.26 MB | 669.5 KB | 0.52x |
+| `ReverseSort` | 5.46 ms | 2.14 ms | 0.39x | 3.06 MB | 1.21 MB | 0.40x |
+| `ChangeSortColumn` | 15.7 ms | 10.4 ms | 0.66x | 5.59 MB | 3.69 MB | 0.66x |
+| `PageForwardAndBack` | 3.44 ms | 2.23 ms | 0.65x | 2.16 MB | 1.21 MB | 0.56x |
+| `OrderLifecycle` | 5.22 ms | 1.92 ms | 0.37x | 2.42 MB | 1.07 MB | 0.44x |
+
+The two charts give the Time and Alloc columns of the table. The release is 1.0, so a shorter bar is a larger gain.
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 720
+    height: 440
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2a78d6"
+      backgroundColor: "transparent"
+---
+xychart-beta horizontal
+    title "Time at 10,000 orders, main as a share of the release"
+    x-axis [BuildAndDispose, TickOnPage, TickOffPage, FillOnPage, FillOffPage, AmendRow, SelectRows, SearchAndClear, ToggleWorkingOnly, ReverseSort, ChangeSortColumn, PageForwardAndBack, OrderLifecycle]
+    y-axis "main / release, lower is better" 0 --> 1
+    bar [0.48, 0.62, 0.76, 0.45, 0.62, 0.43, 0.36, 0.34, 0.61, 0.39, 0.66, 0.65, 0.37]
+```
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 720
+    height: 440
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2a78d6"
+      backgroundColor: "transparent"
+---
+xychart-beta horizontal
+    title "Allocation at 10,000 orders, main as a share of the release"
+    x-axis [BuildAndDispose, TickOnPage, TickOffPage, FillOnPage, FillOffPage, AmendRow, SelectRows, SearchAndClear, ToggleWorkingOnly, ReverseSort, ChangeSortColumn, PageForwardAndBack, OrderLifecycle]
+    y-axis "main / release, lower is better" 0 --> 1
+    bar [0.67, 0.75, 0.90, 0.44, 0.91, 0.42, 0.55, 0.22, 0.52, 0.40, 0.66, 0.56, 0.44]
+```
 
 At 1,000 orders:
 
 | Benchmark | Release | Main | Time | Release alloc | Main alloc | Alloc |
 |---|---|---|---|---|---|---|
-| `BuildAndDispose` | 11.2 ms | 6.06 ms | 0.54x | 4.31 MB | 2.67 MB | 0.62x |
-| `TickOnPage` | 99.7 μs | 58.3 μs | 0.58x | 100.2 KB | 75.0 KB | 0.75x |
-| `TickOffPage` | 2.0 μs | 1.4 μs | 0.74x | 3.4 KB | 2.9 KB | 0.85x |
-| `FillOnPage` | 92.7 μs | 41.3 μs | 0.45x | 93.1 KB | 40.4 KB | 0.43x |
-| `FillOffPage` | 21.5 μs | 12.8 μs | 0.60x | 20.2 KB | 18.4 KB | 0.91x |
-| `AmendRow` | 194.8 μs | 84.4 μs | 0.43x | 188.4 KB | 80.7 KB | 0.43x |
-| `SelectRows` | 19.2 μs | 7.3 μs | 0.38x | 16.3 KB | 9.2 KB | 0.56x |
-| `SearchAndClear` | 3.59 ms | 3.19 ms | 0.89x | 2.60 MB | 2.02 MB | 0.78x |
-| `ToggleWorkingOnly` | 2.27 ms | 1.45 ms | 0.64x | 1.26 MB | 688.8 KB | 0.54x |
-| `ReverseSort` | 3.73 ms | 3.23 ms | 0.87x | 2.26 MB | 1.25 MB | 0.55x |
-| `ChangeSortColumn` | 6.60 ms | 4.38 ms | 0.66x | 3.56 MB | 2.07 MB | 0.58x |
-| `PageForwardAndBack` | 3.51 ms | 2.55 ms | 0.73x | 2.16 MB | 1.24 MB | 0.57x |
-| `OrderLifecycle` | 5.21 ms | 2.00 ms | 0.38x | 2.41 MB | 1.09 MB | 0.45x |
+| `BuildAndDispose` | 11.6 ms | 4.70 ms | 0.41x | 4.31 MB | 2.33 MB | 0.54x |
+| `TickOnPage` | 97.2 μs | 60.5 μs | 0.62x | 99.9 KB | 74.7 KB | 0.75x |
+| `TickOffPage` | 1.82 μs | 1.30 μs | 0.72x | 3.1 KB | 2.7 KB | 0.86x |
+| `FillOnPage` | 96.1 μs | 41.7 μs | 0.43x | 93.1 KB | 40.0 KB | 0.43x |
+| `FillOffPage` | 22.0 μs | 12.7 μs | 0.58x | 20.2 KB | 18.8 KB | 0.93x |
+| `AmendRow` | 192.7 μs | 86.3 μs | 0.45x | 187.5 KB | 80.9 KB | 0.43x |
+| `SelectRows` | 19.0 μs | 6.75 μs | 0.35x | 16.3 KB | 8.9 KB | 0.55x |
+| `SearchAndClear` | 3.80 ms | 2.88 ms | 0.76x | 2.60 MB | 2.00 MB | 0.77x |
+| `ToggleWorkingOnly` | 2.28 ms | 1.28 ms | 0.56x | 1.26 MB | 669.0 KB | 0.52x |
+| `ReverseSort` | 3.75 ms | 1.96 ms | 0.52x | 2.28 MB | 1.21 MB | 0.53x |
+| `ChangeSortColumn` | 6.67 ms | 3.86 ms | 0.58x | 3.56 MB | 2.01 MB | 0.56x |
+| `PageForwardAndBack` | 3.56 ms | 1.97 ms | 0.55x | 2.16 MB | 1.21 MB | 0.56x |
+| `OrderLifecycle` | 5.28 ms | 1.83 ms | 0.35x | 2.41 MB | 1.07 MB | 0.44x |
 
-Each side ran once at these commits, so the run-to-run spread is not known for every row. At 1,000 orders, the main
-runs of `ReverseSort`, `ChangeSortColumn`, and `PageForwardAndBack` have a standard deviation of 16 to 23% of the mean.
-Thus, read those three ratios as approximate. The release's `ReverseSort` at 10,000 orders was bimodal (mean 7.50 ms,
-standard deviation 1.40 ms), and its median is the figure above.
+The two charts give the Time and Alloc columns of the table. The release is 1.0, so a shorter bar is a larger gain.
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 720
+    height: 440
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2a78d6"
+      backgroundColor: "transparent"
+---
+xychart-beta horizontal
+    title "Time at 1,000 orders, main as a share of the release"
+    x-axis [BuildAndDispose, TickOnPage, TickOffPage, FillOnPage, FillOffPage, AmendRow, SelectRows, SearchAndClear, ToggleWorkingOnly, ReverseSort, ChangeSortColumn, PageForwardAndBack, OrderLifecycle]
+    y-axis "main / release, lower is better" 0 --> 1
+    bar [0.41, 0.62, 0.72, 0.43, 0.58, 0.45, 0.35, 0.76, 0.56, 0.52, 0.58, 0.55, 0.35]
+```
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 720
+    height: 440
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2a78d6"
+      backgroundColor: "transparent"
+---
+xychart-beta horizontal
+    title "Allocation at 1,000 orders, main as a share of the release"
+    x-axis [BuildAndDispose, TickOnPage, TickOffPage, FillOnPage, FillOffPage, AmendRow, SelectRows, SearchAndClear, ToggleWorkingOnly, ReverseSort, ChangeSortColumn, PageForwardAndBack, OrderLifecycle]
+    y-axis "main / release, lower is better" 0 --> 1
+    bar [0.54, 0.75, 0.86, 0.43, 0.93, 0.43, 0.55, 0.77, 0.52, 0.53, 0.56, 0.56, 0.44]
+```
+
+Each side ran once at these commits. On every row, the standard deviation is 4% of the mean or less on both sides.
+Across the 26 rows, the geometric mean of the time ratios is 0.51, and that of the allocation ratios is 0.56. Thus, main
+does each of these operations in about half the time of the release, and with a little more than half the allocation.
+
+### Main since #207
+
+The first run of main was on 2026-11-08, at `e3560ac`, the merge of #207. Against that run, three rows at 10,000 orders
+changed the most:
+
+- `SearchAndClear` went from 26.6 ms and 8.61 MB to 9.97 ms and 2.05 MB.
+- `BuildAndDispose` went from 40.6 ms and 11.72 MB to 26.0 ms and 8.94 MB.
+- `ToggleWorkingOnly` went from 4.85 ms to 3.36 ms, with the same allocation within 3%.
+
+At 1,000 orders, `BuildAndDispose` went from 6.06 ms to 4.70 ms. `ReverseSort` and `PageForwardAndBack` are 39% and
+23% faster than in that run. That run had a standard deviation of 16 to 23% on those two rows, so read those two
+changes as approximate. The other rows of main agree with that run within 13% on time and 8% on allocation. No run
+measured which commit between the two gave each gain.
+
+The release reads as it did on 2026-11-08. Its times agree within 11% on all rows but `ReverseSort` at 10,000 orders,
+which was bimodal then and is not now. Its allocation agrees within 2% on all rows but `TickOffPage` at 1,000 orders,
+which allocates 8% less.
 
 ### Main before #207
 
@@ -137,7 +231,7 @@ strong listener on the blotter. The cause was #174, which made a switch's keep-a
 and its inner. In this view model, a `SwitchS` over the `ForwardReference` selects a stream from the view model's own
 output. Thus, the call came back to the switch and never ended. #207 makes the switch stop a call that comes back to it.
 
-Two earlier main runs at `d546b14` used a local guard that does the same as #207. Against them, the times above agree
-within 10% on most rows. Allocation is lower here on most rows, by up to 23%, and higher on `TickOffPage`. Main also
-took #205 between the two commits. It changed the immediate binding scheduler, which this project binds through, to run
-a posted action after the transaction releases its lock. That is the probable cause, but no run measured it on its own.
+Two earlier main runs at `d546b14` used a local guard that does the same as #207. Against them, the times of the #207
+run agreed within 10% on most rows. Its allocation was lower on most rows, by up to 23%, and higher on `TickOffPage`.
+Main also took #205 between the two commits. It changed the immediate binding scheduler, which this project binds
+through, to run a posted action after the transaction releases its lock. That is the probable cause, but no run measured it on its own.
