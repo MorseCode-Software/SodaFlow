@@ -1147,7 +1147,7 @@ internal sealed partial class LoopStateEvaluator
     // The call of a member of an interface on the objects of a value that implement it, and the
     // calls that the other objects get.
     private Followed? FollowNarrowed(
-        ExpressionSyntax value,
+        SyntaxNode value,
         IMethodSymbol member,
         LoopState owner,
         Func<Followed?> others)
