@@ -63,6 +63,7 @@
         <Compile Include="MaybeCompareBenchmarks.cs"/>
         <Compile Include="OneWayScaleBenchmarks.cs"/>
         <Compile Include="PerKeyCellBenchmarks.cs"/>
+        <Compile Include="PerKeyEditBenchmarks.cs"/>
         <Compile Include="Program.cs"/>
         <Compile Include="RankPropagationBenchmarks.cs"/>
         <Compile Include="SelectAllBenchmarks.cs"/>

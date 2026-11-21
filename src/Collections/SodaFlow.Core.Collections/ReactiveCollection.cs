@@ -132,6 +132,9 @@ public abstract class ReactiveCollection<TKey, TIdentity, TState>
     /// </remarks>
     internal abstract RootCollection<TKey, TIdentity, TState> Root { get; }
 
+    /// <summary>The number of keys that have a per-key stream in the router of this collection. Tests read it.</summary>
+    internal abstract int RoutedKeyCount { get; }
+
     /// <summary>
     ///     Defines a collection from its initial contents and each stream that edits
     ///     it. There is no imperative entry point. This construction sets the code

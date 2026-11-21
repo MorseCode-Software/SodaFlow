@@ -363,6 +363,29 @@ public class Stream<T> : ILastAction
         public override void Discard(Exception cause) => (this.action as IFailedFiringAction)?.FiringFailed(cause);
     }
 
+    /// <summary>
+    ///     Sends a new listener the first <paramref name="count" /> values that this
+    ///     transaction sent, as a call to listen does for each value.
+    /// </summary>
+    /// <remarks>
+    ///     This is for a listener that links to a different stream than the stream
+    ///     that sends its values. The router of the per-key cells of a collection is
+    ///     one: it sends each change to the cells of the keys that the change names.
+    ///     The count is the number of values that the router sent. A value that the
+    ///     router sends after this call goes to the new listener from the router.
+    /// </remarks>
+    internal void ReplayEarlierFirings(TransactionInternal trans, Node target, IStreamAction<T> action, int count)
+    {
+        if (count > 0 && this.firings is { Count: > 0 } current)
+        {
+            trans.Prioritized(
+                new ReplayEntry(
+                    target: target,
+                    action: action,
+                    firings: current.GetRange(index: 0, count: Math.Min(val1: count, val2: current.Count))));
+        }
+    }
+
     internal Stream<TResult> MapImpl<TResult>(Func<T, TResult> f)
     {
         Stream<TResult> @out = new(this.KeepListenersAlive);
