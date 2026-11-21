@@ -41061,6 +41061,22 @@ public static class Shapes
     public static Cell<int> Ag98MapThroughAnImplicitConversionSampledLater() =>
         Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Cell<long> m = Plain.Map<int, long>(_ => t); Kept.Add(m.Sample()); return S.Hold(0); });
 
+    // S9786. Carried from Round 4 (AG95, R4LimWriteThroughCollectionsMarshalReachesTheList). A write through the span of CollectionsMarshal puts a pending cell into a list, and the block samples it.
+    public static Cell<int> R5FuCLimWriteThroughCollectionsMarshalReachesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [Plain]; System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list)[0] = l.Map(v => v); Kept.Add(list[0].Sample()); return S.Hold(0); });
+
+    // S9787. A local gets the span of CollectionsMarshal.AsSpan of a list, a write through the local puts a pending cell into the list, and the block samples it.
+    public static Cell<int> Ag98WriteThroughALocalSpanOfCollectionsMarshal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [Plain]; Span<Cell<int>> span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list); span[0] = l.Map(v => v); Kept.Add(list[0].Sample()); return S.Hold(0); });
+
+    // S9788. Fill of the span of CollectionsMarshal.AsSpan puts a pending cell into the list, and the block samples it.
+    public static Cell<int> Ag98FillThroughCollectionsMarshal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [Plain]; System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list).Fill(l.Map(v => v)); Kept.Add(list[0].Sample()); return S.Hold(0); });
+
+    // S9789. Control: a write through the span of CollectionsMarshal.AsSpan puts a plain cell into the list, and the block samples it.
+    public static Cell<int> Ag98PlainWriteThroughCollectionsMarshal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [Plain]; System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list)[0] = Plain.Map(v => v); Kept.Add(list[0].Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -31,12 +31,12 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     /// <remarks>
     ///     The code makes the view at the use from a local or a parameter that
-    ///     is an array. Or, the view is a local that the same function made so.
+    ///     is an array. <c>CollectionsMarshal.AsSpan</c> makes one from a local
+    ///     list also. Or, the view is a local that the same function made so.
     ///     The view and each local of the chain get no value after their
     ///     declarations. Thus, the array has the same object at the use as where
     ///     the code made the view. A view that a method gets as a parameter, or
-    ///     that a call of the platform makes, such as
-    ///     <c>CollectionsMarshal.AsSpan</c>, is no such view.
+    ///     that a different call of the platform makes, is no such view.
     /// </remarks>
     /// <param name="view">The expression of the view at the use.</param>
     private ExpressionSyntax? TheArrayOfAView(ExpressionSyntax view) =>
@@ -58,12 +58,33 @@ internal sealed partial class LoopStateEvaluator
             IdentifierNameSyntax name => name,
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Span", Expression: IdentifierNameSyntax name } =>
                 name,
+            InvocationExpressionSyntax call when this.IsTheSpanOfAList(call) => (ExpressionSyntax)call,
             _ => null
         } is { } local
-        && this.region.SymbolOf(local) is ILocalSymbol { Type: var type }
-        && IsAView(type)
+        && (local is InvocationExpressionSyntax
+            || (this.region.SymbolOf(local) is ILocalSymbol { Type: var type } && IsAView(type)))
             ? this.TheArrayOfAView(element.Expression)
             : null;
+
+    // True for CollectionsMarshal.AsSpan, whose span is a view of the elements of its list. The name
+    // comes first, thus the walk asks for no symbol of a different call.
+    private bool IsTheSpanOfAList(InvocationExpressionSyntax call) =>
+        call is
+        {
+            Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "AsSpan" },
+            ArgumentList.Arguments.Count: 1
+        }
+        && this.region.SymbolOf(call) is IMethodSymbol
+        {
+            IsStatic: true,
+            ReducedFrom: null,
+            ContainingType:
+            {
+                Name: "CollectionsMarshal",
+                ContainingNamespace.Name: "InteropServices"
+            } marshal
+        }
+        && SodaFlowSymbols.IsPlatform(marshal);
 
     /// <summary>
     ///     The local that a span over it by ref names, as in
@@ -380,16 +401,22 @@ internal sealed partial class LoopStateEvaluator
                 : null;
     }
 
-    // The array of an expression that is the array, or a view of it. Each step goes one view back,
-    // to an earlier declaration or to a part of the expression. Thus, the chain has an end.
+    // The array of an expression that is the array, or a view of it. The span of a list makes the list
+    // such an array. Each step goes one view back, to an earlier declaration or to a part of the
+    // expression. Thus, the chain has an end.
     private ExpressionSyntax? ArrayOf(ExpressionSyntax made, SyntaxNode code)
     {
         for (ExpressionSyntax? at = made; at != null; at = this.OneViewBack(made: at, code: code))
         {
             if (Unwrapped(at) is IdentifierNameSyntax name
                 && this.region.SymbolOf(name) is { } array
-                    and (ILocalSymbol { RefKind: RefKind.None, Type: IArrayTypeSymbol { Rank: 1 } }
-                    or IParameterSymbol { RefKind: RefKind.None, Type: IArrayTypeSymbol { Rank: 1 } })
+                    and (ILocalSymbol
+                        {
+                            RefKind: RefKind.None,
+                            Type: IArrayTypeSymbol { Rank: 1 }
+                            or INamedTypeSymbol { Name: "List", Arity: 1, ContainingNamespace.Name: "Generic" }
+                        }
+                        or IParameterSymbol { RefKind: RefKind.None, Type: IArrayTypeSymbol { Rank: 1 } })
                 && this.HasOneValueIn(name: array, code: code))
             {
                 return name;
@@ -405,6 +432,8 @@ internal sealed partial class LoopStateEvaluator
     private ExpressionSyntax? OneViewBack(ExpressionSyntax made, SyntaxNode code) =>
         Unwrapped(made) switch
         {
+            InvocationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } list } call
+                when this.IsTheSpanOfAList(call) => list[0].Expression,
             IdentifierNameSyntax name =>
                 this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None } local
                 && IsAView(local.Type)

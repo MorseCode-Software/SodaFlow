@@ -5846,6 +5846,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5FuCLimMapThatReadsThroughAnImplicitConversion"] = ["SF1001"],
             ["Ag98MapWithABlockThatReadsThroughAnImplicitConversion"] = ["SF1001"],
             ["Ag98MapThatConvertsIntoALocal"] = ["SF1001"],
-            ["Ag98MapThroughAnImplicitConversionSampledLater"] = ["SF1001"]
+            ["Ag98MapThroughAnImplicitConversionSampledLater"] = ["SF1001"],
+            ["R5FuCLimWriteThroughCollectionsMarshalReachesTheList"] = ["SF1001"],
+            ["Ag98WriteThroughALocalSpanOfCollectionsMarshal"] = ["SF1001"],
+            ["Ag98FillThroughCollectionsMarshal"] = ["SF1001"]
         };
 }
