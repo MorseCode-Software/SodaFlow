@@ -786,7 +786,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The send of a statement of the block with no return or goto statement before it. The send
     // then always runs before the close. Null for each other send.
-    private SyntaxNode? SendOfTheBlock(ExpressionSyntax sink) =>
+    private SyntaxNode? SendOfTheBlock(SyntaxNode sink) =>
         sink.Parent is MemberAccessExpressionSyntax
         {
             Parent: InvocationExpressionSyntax
