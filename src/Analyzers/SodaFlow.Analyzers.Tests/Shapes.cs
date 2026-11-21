@@ -41481,6 +41481,14 @@ public static class Shapes
     public static Cell<int> Ag99ALambdaInAFieldOfAClassWithAStaticConstructorSamplesItsCell() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ag99SamplerOwner.Sampler(l.Map(v => v))));
 
+    // S9891. The constructor of a list enumerates a sequence of the code. The platform does not call Reset of the enumerator, and only Reset samples the cell. Thus, the block returns.
+    public static Cell<int> Ag99AListOfASequenceDoesNotCallReset() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<int> all = new(new Ag99Rewound(l.Map(v => v))); return S.Hold(all.Count); });
+
+    // S9892. A spread enumerates a sequence of the code. It does not call Reset of the enumerator, and only Reset samples the cell. Thus, the block returns.
+    public static Cell<int> Ag99ASpreadOfASequenceDoesNotCallReset() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int[] all = [.. new Ag99Rewound(l.Map(v => v))]; return S.Hold(all.Length); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -59419,6 +59427,29 @@ public static class Shapes
         public static readonly int Other;
 
         static Ag99SamplerOwner() => Other = 1;
+    }
+
+    // A sequence whose enumerator samples its cell only in Reset.
+    public sealed class Ag99Rewound(Cell<int> share) : IEnumerable<int>
+    {
+        public IEnumerator<int> GetEnumerator() => new Ag99RewoundWalk(share);
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class Ag99RewoundWalk(Cell<int> share) : IEnumerator<int>
+    {
+        public int Current => 0;
+
+        object IEnumerator.Current => 0;
+
+        public bool MoveNext() => false;
+
+        public void Reset() => Kept.Add(share.Sample());
+
+        public void Dispose()
+        {
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
