@@ -1284,16 +1284,8 @@ internal sealed partial class LoopStateEvaluator
 
     /// <summary>
     ///     The run of a callback that a call of the library runs, as
-    ///     <c>RunTimersTo</c> runs the callback of a timer.
-    /// </summary>
-    /// <param name="call">The call that runs the callback.</param>
-    /// <param name="callback">The expression of the callback, where the code gave it.</param>
-    public Followed? FollowCallback(SyntaxNode call, ExpressionSyntax callback) =>
-        this.FollowCallback(call: call, callback: callback, functions: this.Eval(callback));
-
-    /// <summary>
-    ///     The run of a callback whose state the walk took where the code gave
-    ///     it, as <c>SetTimer</c> gets the callback of a timer.
+    ///     <c>RunTimersTo</c> runs the callback of a timer. The walk can take the
+    ///     state of the callback where the code gave it.
     /// </summary>
     /// <param name="call">The call that runs the callback.</param>
     /// <param name="callback">The expression of the callback, where the code gave it.</param>
@@ -1366,7 +1358,7 @@ internal sealed partial class LoopStateEvaluator
         {
             return members.Contains("Now")
                    && ArgumentFor(method: system, arguments: arguments, parameter: "now") is { } now
-                ? this.FollowCallback(call: call, callback: now)
+                ? this.FollowCallback(call: call, callback: now, functions: this.Eval(now))
                 : null;
         }
 
@@ -1449,13 +1441,8 @@ internal sealed partial class LoopStateEvaluator
     {
         bool? onEachPath = null;
 
-        foreach (MadeObject made in this.region.Objects.Now(this.Eval(value).Objects))
-        {
-            if (made.IsFrom(this.Frame) || (onEachPath ??= runsOnEachPath()))
-            {
-                yield return made;
-            }
-        }
+        return this.region.Objects.Now(this.Eval(value).Objects)
+            .Where(made => made.IsFrom(this.Frame) || (onEachPath ??= runsOnEachPath()));
     }
 
     /// <summary>

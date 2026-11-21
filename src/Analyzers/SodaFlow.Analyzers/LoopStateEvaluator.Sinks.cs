@@ -422,14 +422,14 @@ internal sealed partial class LoopStateEvaluator
         method.Name switch
         {
             "CreateTwoWay" => this.ATwoWayBindable(creation: call, method: method, state: state),
-            "Construct" => this.AConstructedResult(construct: call, method: method, state: state),
+            "Construct" => this.AConstructedResult(construct: call, state: state),
             _ => this.AMapWithAHandler(map: call, method: method, state: state)
         };
 
     // The result of Construct of a map through a task holds what its function returns. The function
     // runs in the transaction of the send of the result, after the close. Thus, an evaluator that
     // changes nothing reads it. The library has no other method of that name.
-    private LoopState AConstructedResult(InvocationExpressionSyntax construct, IMethodSymbol method, LoopState state)
+    private LoopState AConstructedResult(InvocationExpressionSyntax construct, LoopState state)
     {
         if (construct.ArgumentList.Arguments.FirstOrDefault()?.Expression is not { } function)
         {
@@ -535,7 +535,7 @@ internal sealed partial class LoopStateEvaluator
     }
 
     private void SendsTheResults(
-        InvocationExpressionSyntax call,
+        SyntaxNode call,
         IMethodSymbol method,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         LoopState input)

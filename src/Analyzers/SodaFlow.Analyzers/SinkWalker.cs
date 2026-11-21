@@ -287,6 +287,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         this.Report(
             this.evaluator.FollowEvictionsOfADispose(map: resource, dispose: resource, runsOnEachPath: runsOnEachPath));
+
         this.Report(
             this.evaluator.FollowClockOfADispose(system: resource, dispose: resource, runsOnEachPath: runsOnEachPath));
 
@@ -3197,44 +3198,49 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     this.evaluator.RunsAfterTheTransaction(action.Expression);
                 }
 
-                // A map through a task sends the result of its operation into its sink of results
-                // after the transaction.
-                if (method.Name == "MapAsync")
+                switch (method.Name)
                 {
-                    this.evaluator.SendsTheResults(call: node, method: method, arguments: arguments);
-                }
+                    // A map through a task sends the result of its operation into its sink of
+                    // results after the transaction.
+                    case "MapAsync":
+                        this.evaluator.SendsTheResults(call: node, method: method, arguments: arguments);
 
-                // Debounce reads the time of its timer system, and calls its At, in the call.
-                if (method.Name == "Debounce")
-                {
-                    this.Report(
-                        this.evaluator.FollowTheTimersOfADebounce(call: node, method: method, arguments: arguments));
-                }
+                        break;
+                    // Debounce reads the time of its timer system, and calls its At, in the call.
+                    case "Debounce":
+                        this.Report(
+                            this.evaluator.FollowTheTimersOfADebounce(
+                                call: node,
+                                method: method,
+                                arguments: arguments));
 
-                // Execute of the status of a map through a task gives the operation a value after
-                // the transaction.
-                if (receiver != null && method.Name == "Execute" && arguments.Count == 1)
-                {
-                    this.evaluator.SendsTheResultsOf(execute: method, status: receiver, value: arguments[0].Expression);
-                }
+                        break;
+                    // Execute of the status of a map through a task gives the operation a value
+                    // after the transaction.
+                    case "Execute" when receiver != null && arguments.Count == 1:
+                        this.evaluator.SendsTheResultsOf(
+                            execute: method,
+                            status: receiver,
+                            value: arguments[0].Expression);
 
-                // A scheduler of a bindable runs a posted action after the transaction, as
-                // Transaction.Post does. The contract of IBindingScheduler.Post forbids a run while a
-                // transaction is open. Each Post of the library with a receiver is that Post. A
-                // scheduler of this code can run the action in the call, against that contract.
-                // Thus, the walk also reads the Post of the class of an object that it knows.
-                if (receiver != null
-                    && method.Name == "Post"
-                    && arguments.Count == 1)
-                {
-                    this.Report(
-                        this.evaluator.FollowImplied(
-                            call: node,
-                            member: method,
-                            owner: this.evaluator.Eval(receiver),
-                            arguments: [(arguments[0].Expression, this.evaluator.Eval(arguments[0].Expression))]));
+                        break;
+                    // A scheduler of a bindable runs a posted action after the transaction, as
+                    // Transaction.Post does. The contract of IBindingScheduler.Post forbids a run
+                    // while a transaction is open. Each Post of the library with a receiver is that
+                    // Post. A scheduler of this code can run the action in the call, against that
+                    // contract. Thus, the walk also reads the Post of the class of an object that
+                    // it knows.
+                    case "Post" when receiver != null && arguments.Count == 1:
+                        this.Report(
+                            this.evaluator.FollowImplied(
+                                call: node,
+                                member: method,
+                                owner: this.evaluator.Eval(receiver),
+                                arguments: [(arguments[0].Expression, this.evaluator.Eval(arguments[0].Expression))]));
 
-                    this.evaluator.RunsAfterTheTransaction(arguments[0].Expression);
+                        this.evaluator.RunsAfterTheTransaction(arguments[0].Expression);
+
+                        break;
                 }
 
                 break;
