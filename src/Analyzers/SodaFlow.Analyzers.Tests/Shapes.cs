@@ -40521,6 +40521,18 @@ public static class Shapes
     public static Cell<int> Ab312ExecuteOfAnObjectOfTheCodeWithAFiringsStream() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); Ab312FiringsHolder holder = new(fire); holder.Execute(l.Map(v => v)); return sw; });
 
+    // S9651. A scheduler of this code runs a posted action at once, in the call. The block posts a sample of the placeholder through the interface, and the sample throws.
+    public static Cell<int> R5ApiInlineSchedulerThroughTheInterfaceRunsASample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindingScheduler scheduler = new R5ApiInlineScheduler(); scheduler.Post(() => Kept.Add(l.Sample())); return S.Hold(0); });
+
+    // S9652. A static field of the interface type holds a scheduler of this code that runs a posted action at once. The block posts a sample of the placeholder through the field, and the sample throws.
+    public static Cell<int> Ab313InlineSchedulerInAFieldThroughTheInterfaceRunsASample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab313Scheduler.Post(() => Kept.Add(l.Sample())); return S.Hold(0); });
+
+    // S9653. Control: a scheduler of this code keeps a posted action and never runs it. The block posts a sample of the placeholder through the interface, and nothing reads it.
+    public static Cell<int> Ab313KeepingSchedulerThroughTheInterfaceRunsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SodaFlow.Bindable.ObjectModel.IBindingScheduler scheduler = new Ab313KeepingScheduler(); scheduler.Post(() => Kept.Add(l.Sample())); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -57885,6 +57897,19 @@ public static class Shapes
         public void Execute(Cell<int> value)
         {
         }
+    }
+
+    private static readonly SodaFlow.Bindable.ObjectModel.IBindingScheduler Ab313Scheduler =
+        new R5ApiInlineScheduler();
+
+    // A scheduler that keeps each posted action and runs none.
+    public sealed class Ab313KeepingScheduler : SodaFlow.Bindable.ObjectModel.IBindingScheduler
+    {
+        public List<Action> Posted { get; } = [];
+
+        public bool CheckAccess() => true;
+
+        public void Post(Action action) => this.Posted.Add(action);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

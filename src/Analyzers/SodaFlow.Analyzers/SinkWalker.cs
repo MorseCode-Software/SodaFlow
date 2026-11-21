@@ -3197,11 +3197,20 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
                 // A scheduler of a bindable runs a posted action after the transaction, as
                 // Transaction.Post does. The contract of IBindingScheduler.Post forbids a run while a
-                // transaction is open. Each Post of the library with a receiver is that Post.
+                // transaction is open. Each Post of the library with a receiver is that Post. A
+                // scheduler of this code can run the action in the call, against that contract.
+                // Thus, the walk also reads the Post of the class of an object that it knows.
                 if (receiver != null
                     && method.Name == "Post"
                     && arguments.Count == 1)
                 {
+                    this.Report(
+                        this.evaluator.FollowImplied(
+                            call: node,
+                            member: method,
+                            owner: this.evaluator.Eval(receiver),
+                            arguments: [(arguments[0].Expression, this.evaluator.Eval(arguments[0].Expression))]));
+
                     this.evaluator.RunsAfterTheTransaction(arguments[0].Expression);
                 }
 

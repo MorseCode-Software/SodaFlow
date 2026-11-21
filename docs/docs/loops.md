@@ -406,7 +406,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   `Execute` of a bindable action sends its parameter into the sink of its firings after the
   transaction in the same way. Both hold wherever the code keeps the bindable or the action: in
   a local, a field, a property of an object, a parameter, or the result of a method. Outside a
-  local that the creation call made, the sink must be one that the block made.
+  local that the creation call made, the sink must be one that the block made. The analyzer also
+  reads the `Post` of a scheduler of your own where it knows the class of the scheduler, because
+  such a `Post` can run the action at once.
   A handler that you add to an event of a bindable runs after the
   transaction too, because the bindable raises its events through its scheduler. So does each
   result that the operation of `MapAsync` gives to `FromValue` or `Construct`, which the pipeline

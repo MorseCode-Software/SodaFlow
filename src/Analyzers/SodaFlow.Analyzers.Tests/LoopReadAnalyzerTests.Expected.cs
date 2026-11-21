@@ -5765,6 +5765,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5ApiActionThroughASecondLocalExecuteSendsALinkedCell"] = ["SF1002"],
             ["R5ApiActionExecutedInAHelperSendsALinkedCell"] = ["SF1002"],
             ["Ab312TwoWayWithEditsInAPropertyWriteSendsALinkedCell"] = ["SF1002"],
-            ["Ab312ActionInAFieldExecuteSendsALinkedCell"] = ["SF1002"]
+            ["Ab312ActionInAFieldExecuteSendsALinkedCell"] = ["SF1002"],
+            ["R5ApiInlineSchedulerThroughTheInterfaceRunsASample"] = ["SF1001"],
+            ["Ab313InlineSchedulerInAFieldThroughTheInterfaceRunsASample"] = ["SF1001"]
         };
 }
