@@ -40297,6 +40297,66 @@ public static class Shapes
     public static Cell<int> Ab301InArgumentOfTheLocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Ab301Read(in d); SettableSlot e = d; e.Share = l.Map(v => v); d.Share = Plain; return S.Hold(e.Share!.Sample()); });
 
+    // S9595. The block sends two cells into a stream sink in one transaction. The coalesce function of the sink runs for the second send and returns a linked cell, which the hold takes. The switch of the hold as the close is a cycle.
+    public static Cell<int> R5ApiCoalesceOfAStreamSinkReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, _) => l.Map(v => v)); Cell<Cell<int>> h = s.Hold(Plain); s.Send(Plain); s.Send(Plain); return h.SwitchC(); });
+
+    // S9596. The coalesce function of a stream sink is in a local. It returns a linked cell for the second send, and the switch of the hold as the close is a cycle.
+    public static Cell<int> R5ApiCoalesceInALocalReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, Cell<int>, Cell<int>> join = (_, _) => l.Map(v => v); StreamSink<Cell<int>> s = Stream.CreateSink(join); Cell<Cell<int>> h = s.Hold(Plain); s.Send(Plain); s.Send(Plain); return h.SwitchC(); });
+
+    // S9597. The block sends two cells into a cell sink. Its coalesce function returns a linked cell, which the sink holds at the end of the transaction. The switch of the sink as the close is a cycle.
+    public static Cell<int> R5ApiCoalesceOfACellSinkReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink<Cell<int>>(Plain, (_, _) => l.Map(v => v)); c.Send(Plain); c.Send(Plain); return c.SwitchC(); });
+
+    // S9598. The block sends two cells into a behavior sink. Its coalesce function returns a linked cell, and the switch of the sink as the close is a cycle.
+    public static Cell<int> R5ApiCoalesceOfABehaviorSinkReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { BehaviorSink<Cell<int>> b = Behavior.CreateSink<Cell<int>>(Plain, (_, _) => l.Map(v => v)); b.Send(Plain); b.Send(Plain); return b.SwitchC(); });
+
+    // S9599. The block sends two cells into a cell stream sink. Its coalesce function returns a linked cell, which the hold takes, and the switch of the hold as the close is a cycle.
+    public static Cell<int> R5ApiCoalesceOfACellStreamSinkReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellStreamSink<Cell<int>> s = Cell.CreateStreamSink<Cell<int>>((_, _) => l.Map(v => v)); Cell<Cell<int>> h = s.Hold(Plain); s.Send(Plain); s.Send(Plain); return h.SwitchC(); });
+
+    // S9600. The block sends two linked cells into a stream sink. Its coalesce function returns a plain cell, thus the hold takes only that cell, and the switch of the hold as the close is not a cycle.
+    public static Cell<int> R5ApiCoalesceDropsTheLinkedSends() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, _) => Plain); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); s.Send(l.Map(v => v)); return h.SwitchC(); });
+
+    // S9601. The coalesce function of a stream sink drops the values of the sends. A return between the two sends runs, thus only the first linked send goes into the sink, and the switch of the hold as the close is a cycle.
+    public static Cell<int> Ab309CoalesceWithAReturnBetweenTheSends() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, _) => Plain); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); if (!Never) { return h.SwitchC(); } s.Send(l.Map(v => v)); return h.SwitchC(); });
+
+    // S9602. The coalesce function of a stream sink drops the values of the sends. A goto between the two sends jumps over the second send, thus the switch of the hold as the close is a cycle.
+    public static Cell<int> Ab309CoalesceWithAGotoOverTheSecondSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, _) => Plain); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); if (!Never) { goto end; } s.Send(l.Map(v => v)); end: return h.SwitchC(); });
+
+    // S9603. The coalesce function of a stream sink drops the values of the sends. The second send goes into one of two sinks, and at run time into the other sink. Thus, the switch of the hold as the close is a cycle.
+    public static Cell<int> Ab309CoalesceWithASecondSendIntoOneOfTwoSinks() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, _) => Plain); Cell<Cell<int>> h = s.Hold(Plain); StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>((_, _) => Plain); s.Send(l.Map(v => v)); (Never ? s : t).Send(l.Map(v => v)); return h.SwitchC(); });
+
+    // S9604. The coalesce function of a stream sink drops the values of the sends. The second send is under a condition that is false at run time, thus the switch of the hold as the close is a cycle.
+    public static Cell<int> Ab309CoalesceWithASecondSendUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, _) => Plain); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); if (Never) { s.Send(Plain); } return h.SwitchC(); });
+
+    // S9605. The coalesce function of a stream sink drops the values of the two sends of the block. A posted send of a linked cell goes into the sink in a later transaction, thus the switch of the hold as the close is a cycle.
+    public static Cell<int> Ab309CoalesceWithAPostedSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, _) => Plain); Cell<Cell<int>> h = s.Hold(Plain); s.Send(Plain); s.Send(Plain); Transaction.Post(() => s.Send(l.Map(v => v))); return h.SwitchC(); });
+
+    // S9606. Two sends under one condition that is true at run time go into a stream sink. Its coalesce function returns a linked cell, thus the switch of the hold as the close is a cycle.
+    public static Cell<int> Ab309CoalesceOfTwoSendsUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, _) => l.Map(v => v)); Cell<Cell<int>> h = s.Hold(Plain); if (!Never) { s.Send(Plain); s.Send(Plain); } return h.SwitchC(); });
+
+    // S9607. The coalesce function of a stream sink returns its second value, which is a linked cell. The switch of the hold as the close is a cycle.
+    public static Cell<int> Ab309CoalesceReturnsTheSecondSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, b) => b); Cell<Cell<int>> h = s.Hold(Plain); s.Send(Plain); s.Send(l.Map(v => v)); return h.SwitchC(); });
+
+    // S9608. The coalesce function of a stream sink drops the values of the sends. A lambda with a return comes before the sends, and does not stop them. Thus, the switch of the hold as the close is not a cycle.
+    public static Cell<int> Ab309CoalesceAfterALambdaWithAReturn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int> f = () => { return 1; }; Kept.Add(f); StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, _) => Plain); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); s.Send(l.Map(v => v)); return h.SwitchC(); });
+
+    // S9609. The coalesce function of a cell sink returns the placeholder. The block sends two cells and then samples a switch of the sink, which gives the initial value of the sink. Thus, the sample does not throw.
+    public static Cell<int> Ab309CoalesceThatReturnsTheLoopSampledInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink<Cell<int>>(Plain, (_, _) => l); c.Send(Plain); c.Send(Plain); int v = c.SwitchC().Sample(); return S.Hold(v); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

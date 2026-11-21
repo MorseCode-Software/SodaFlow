@@ -576,6 +576,12 @@ careful side, so it can report a read that does not throw:
   a `do`, a `while (true)`, a `for` with no condition or from a constant up to a larger one, and a
   `foreach` over an array literal with an item. Inside any loop, a read that each turn runs counts
   for the turns after it.
+- The coalesce function of a sink runs only when two sends go into the sink in one transaction. The
+  analyzer counts the sends that are statements of the block itself, with no `return` or `goto`
+  before them: one such send does not run the function, and two or more fire only what it returns.
+  Any other send, such as one under a condition, in a loop, or in a function, counts as a send that
+  can run the function, and its own value counts as well. A value that you make from the sink after
+  the sends also gets the value of each send.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
   one. An element counts as one object from a write through it to a read through it only in a
   straight line: in one function, with no loop, `goto` label, or `switch` section around the read

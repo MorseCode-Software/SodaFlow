@@ -1265,7 +1265,8 @@ internal sealed partial class LoopStateEvaluator
         // function comes after the close, thus no part of its content is pending.
         bool later = this.region.ReadsCodeAfterTheTransaction;
 
-        if ((this.quiet && !later) || content.IsNone)
+        // A send of no content also counts for the coalesce function of a sink.
+        if ((this.quiet && !later) || (content.IsNone && !this.region.Sent.HasCoalescing))
         {
             return;
         }
@@ -1276,14 +1277,31 @@ internal sealed partial class LoopStateEvaluator
         }
 
         bool toAnObject = false;
+        ImmutableArray<MadeObject> sinks = this.region.Objects.Now(this.Eval(sink).Objects);
 
-        foreach (MadeObject made in this.region.Objects.Now(this.Eval(sink).Objects))
+        foreach (MadeObject made in sinks)
         {
             if (this.region.Objects.CreationOfASink(made) is { } creation)
             {
-                this.region.Sent.Add(creation: creation, content: content);
+                if (this.region.Sent.Coalesces(creation))
+                {
+                    this.region.Sent.Count(
+                        creation: creation,
+                        inTheBlock: sinks.Length == 1 ? this.SendOfTheBlock(sink) : null);
+                }
+
+                if (!content.IsNone)
+                {
+                    this.region.Sent.Add(creation: creation, content: content);
+                }
+
                 toAnObject = true;
             }
+        }
+
+        if (content.IsNone)
+        {
+            return;
         }
 
         if (!toAnObject
@@ -1297,12 +1315,12 @@ internal sealed partial class LoopStateEvaluator
 
     // A sink that a call makes is an object of the store. It has the content that the sends of
     // the read before gave it.
-    private LoopState ASink(ExpressionSyntax creation, LoopState state)
+    private LoopState ASink(InvocationExpressionSyntax creation, IMethodSymbol method, LoopState state)
     {
         LoopState made =
             this.MadeHere(
                 place: creation,
-                state: state.Join(this.region.SentBefore.To(creation)),
+                state: state.Join(this.SentBefore(creation: creation, method: method)),
                 exact: false);
 
         foreach (MadeObject sink in made.Objects)

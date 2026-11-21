@@ -2898,7 +2898,7 @@ internal sealed partial class LoopStateEvaluator
         state = state.FromIfUnknown(inputs.Origin);
 
         return rule == OperatorRule.Content && OperatorName(method) is "CreateSink" or "CreateStreamSink"
-            ? this.ASink(creation: invocation, state: state)
+            ? this.ASink(creation: invocation, method: method, state: state)
             : state;
     }
 

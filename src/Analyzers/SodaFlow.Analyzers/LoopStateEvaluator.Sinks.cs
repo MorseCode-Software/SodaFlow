@@ -732,4 +732,73 @@ internal sealed partial class LoopStateEvaluator
 
         return made is BaseObjectCreationExpressionSyntax { Initializer: null } creation ? creation : null;
     }
+
+    /// <summary>
+    ///     What the sends of the read before give to the sink that the call
+    ///     made. A sink with a coalesce function fires what that function returns
+    ///     when two sends go into it in one transaction.
+    /// </summary>
+    /// <remarks>
+    ///     The function replaces the values of the sends only where each send is
+    ///     in the block and two of them always run. Otherwise, the sink can also
+    ///     fire the value of a send.
+    /// </remarks>
+    private LoopState SentBefore(InvocationExpressionSyntax creation, IMethodSymbol method)
+    {
+        LoopState sent = this.region.SentBefore.To(creation);
+
+        // A sink of a stream takes only the function, and a sink of a cell takes its initial value
+        // also. The count of the arguments is a test that reads no parameter. Only a sink of values
+        // that can hold a state can get a state from the function.
+        int withAFunction = method.ContainingType.Name == "Stream" || method.Name == "CreateStreamSink" ? 1 : 2;
+
+        if (creation.ArgumentList.Arguments.Count != withAFunction
+            || !this.HoldsContent(method)
+            || creation.ArgumentList.Arguments
+                    .Where((argument, position) =>
+                        ParameterFor(method: method, argument: argument, position: position) is { Name: "coalesce" })
+                    .Select(static argument => argument.Expression)
+                    .FirstOrDefault()
+                is not { } coalesce)
+        {
+            return sent;
+        }
+
+        this.region.Sent.AddCoalescing(creation);
+
+        if (!this.region.SentBefore.CanCoalesce(creation))
+        {
+            return sent;
+        }
+
+        // The function runs after the close. Each parameter gets the value of a send.
+        LoopState coalesced =
+            this.ResultOfTheFunctions(
+                    call: creation,
+                    written: coalesce,
+                    functions: this.Eval(coalesce),
+                    given: ImmutableArray.Create(item1: sent.Content, item2: sent.Content))
+                .AfterTheClose
+                .AsContent;
+
+        return this.region.SentBefore.AlwaysCoalesces(creation) ? coalesced : sent.Join(coalesced);
+    }
+
+    // The send of a statement of the block with no return or goto statement before it. The send
+    // then always runs before the close. Null for each other send.
+    private SyntaxNode? SendOfTheBlock(ExpressionSyntax sink) =>
+        sink.Parent is MemberAccessExpressionSyntax
+        {
+            Parent: InvocationExpressionSyntax
+            {
+                Parent: ExpressionStatementSyntax { Parent: BlockSyntax block } statement
+            } send
+        }
+        && block == this.region.Root
+        && !block.Statements.TakeWhile(each => each != statement).Any(static each => each
+            .DescendantNodesAndSelf(descendIntoChildren: static node =>
+                node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+            .Any(static node => node is ReturnStatementSyntax or GotoStatementSyntax))
+            ? send
+            : null;
 }

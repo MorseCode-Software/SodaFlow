@@ -5720,6 +5720,18 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab305SecondLocalOfAnArrayWhoseFirstLocalGetsAnArrayFromAMethod"] = ["SF1001"],
             ["R5PairStaleRefLocalNewObjectPendingThroughSecondLocalPlainThroughLocal"] = ["SF1001"],
             ["R5PairStaleRefLocalNewObjectTwoLocalsInAMethod"] = ["SF1001"],
-            ["R5PairStaleSpanOfLocalNewObjectTwoLocals"] = ["SF1001"]
+            ["R5PairStaleSpanOfLocalNewObjectTwoLocals"] = ["SF1001"],
+            ["R5ApiCoalesceOfAStreamSinkReturnsALinkedCell"] = ["SF1002"],
+            ["R5ApiCoalesceInALocalReturnsALinkedCell"] = ["SF1002"],
+            ["R5ApiCoalesceOfACellSinkReturnsALinkedCell"] = ["SF1002"],
+            ["R5ApiCoalesceOfABehaviorSinkReturnsALinkedCell"] = ["SF1002"],
+            ["R5ApiCoalesceOfACellStreamSinkReturnsALinkedCell"] = ["SF1002"],
+            ["Ab309CoalesceWithAReturnBetweenTheSends"] = ["SF1002", "SF1002"],
+            ["Ab309CoalesceWithAGotoOverTheSecondSend"] = ["SF1002"],
+            ["Ab309CoalesceWithASecondSendIntoOneOfTwoSinks"] = ["SF1002"],
+            ["Ab309CoalesceWithASecondSendUnderACondition"] = ["SF1002"],
+            ["Ab309CoalesceWithAPostedSend"] = ["SF1002"],
+            ["Ab309CoalesceOfTwoSendsUnderACondition"] = ["SF1002"],
+            ["Ab309CoalesceReturnsTheSecondSend"] = ["SF1002"]
         };
 }
