@@ -37,7 +37,7 @@ internal sealed partial class SinkWalker
     /// </remarks>
     private Action<ComputedValue>? MarksOfAFirstRead(SyntaxNode read)
     {
-        if (WhereItAlwaysRuns(read) is not { } place)
+        if (WhereItAlwaysRuns(expression: read, constants: null) is not { } place)
         {
             return null;
         }

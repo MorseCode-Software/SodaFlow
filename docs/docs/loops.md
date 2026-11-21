@@ -448,7 +448,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   end of a shorter sequence. An `async` method or
   lambda runs in the block up to its first `await` of a task that may not be complete, and the rest
   of it runs later. That holds for an `await` in a `switch` section, in a `finally` block, in the
-  condition of a `do`, or in the header of a `for`, `foreach`, `switch`, `while`, or `using` too.
+  condition of a `do`, or in the header of a `for`, `foreach`, `switch`, `while`, `using`, or `lock`
+  too. It also holds for an `await` in the branch of an `if` or the arm of a `?:` that a constant
+  condition selects, and in the one `catch` clause of a `try` whose block starts with a `throw`.
   The `Dispose` at the end of a `using` or a
   `foreach` runs later as well when such an `await` comes before it in its scope. An `await using`
   awaits the task of each `DisposeAsync` that it calls, so the code after its scope runs later

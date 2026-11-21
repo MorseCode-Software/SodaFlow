@@ -230,7 +230,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 continue;
             }
 
-            if (PartAround(scope) is { } block)
+            if (this.PartAround(scope) is { } block)
             {
                 this.later.Add((block, scope.Span.End));
             }
@@ -377,7 +377,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         {
             AwaitExpressionSyntax awaited =>
                 !CompleteTasks.IsComplete(region: this.region, task: awaited.Expression)
-                && LaterPartOf(awaited) is { } block
+                && this.LaterPartOf(awaited) is { } block
                     ? (block, awaited.Span.End)
                     : null,
             CommonForEachStatementSyntax loop when loop.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword) =>
@@ -404,7 +404,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 ? this.EnumeratorGivesAtOnce(loop: loop, enumerator: enumerator)
                 : CompleteTasks.ItemsComeAtOnce(region: this.region, sequence: loop.Expression);
 
-        return !each && PartAround(loop) is { } block
+        return !each && this.PartAround(loop) is { } block
             ? (block, first ? loop.Statement.Span.End : loop.Statement.SpanStart)
             : null;
     }
@@ -427,17 +427,21 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     // The largest block or switch section that always runs the statement of the await to its end.
     // Null when a statement, a branch, or a function between the two can skip the await. A goto to
-    // a label after the await can skip it also.
-    private static SyntaxNode? LaterPartOf(SyntaxNode node) =>
-        (WhereItAlwaysRuns(node) ?? HeaderOf(node)) is StatementSyntax statement ? PartAround(statement) : null;
+    // a label after the await can skip it also. A constant condition skips no part that the walk
+    // reads.
+    private SyntaxNode? LaterPartOf(SyntaxNode node) =>
+        (WhereItAlwaysRuns(expression: node, constants: this.region)
+         ?? HeaderOf(expression: node, constants: this.region)) is StatementSyntax statement
+            ? this.PartAround(statement)
+            : null;
 
-    private static SyntaxNode? PartAround(SyntaxNode statement)
+    private SyntaxNode? PartAround(SyntaxNode statement)
     {
         SyntaxNode? block = null;
         SyntaxNode part = statement;
 
         for (SyntaxNode? place = statement.Parent;
-             place != null && RunsToItsEnd(statement: place, part: part);
+             place != null && this.RunsToItsEnd(statement: place, part: part);
              part = place, place = place.Parent)
         {
             block = place is BlockSyntax or SwitchSectionSyntax ? place : block;
@@ -447,10 +451,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     }
 
     // The statement that always runs an expression of its header. That expression is the collection
-    // of a foreach, the value of a switch, or the resource of a using. It is also the first
-    // condition of a while or a for, the condition of a do, and each initializer of a for. Null for
-    // each other expression.
-    private static StatementSyntax? HeaderOf(SyntaxNode expression)
+    // of a foreach, the value of a switch, the resource of a using, or the object of a lock. It is
+    // also the first condition of a while or a for, the condition of a do, and each initializer of a
+    // for. Null for each other expression.
+    private static StatementSyntax? HeaderOf(SyntaxNode expression, LoopRegion? constants)
     {
         SyntaxNode child = expression;
 
@@ -474,6 +478,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     return loop.Condition == child ? loop : null;
                 case UsingStatementSyntax used:
                     return used.Expression == child || used.Declaration == child ? used : null;
+                case LockStatementSyntax locked:
+                    return locked.Expression == child ? locked : null;
                 case StatementSyntax
                     or AnonymousFunctionExpressionSyntax
                     or SwitchExpressionArmSyntax
@@ -482,7 +488,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     return null;
             }
 
-            if (CanSkip(parent: parent, child: child))
+            if (CanSkip(parent: parent, child: child, constants: constants))
             {
                 return null;
             }
@@ -495,8 +501,9 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     // least. A try runs its block. With a catch clause, the code after the try can run when the
     // block stops before the await. Thus, only a try with no catch clause counts. A try always runs
     // its finally block, also with a catch clause. A switch section runs its statements in their
-    // order, as a block does.
-    private static bool RunsToItsEnd(SyntaxNode statement, SyntaxNode part) =>
+    // order, as a block does. An if on a constant runs the branch that the constant selects, and the
+    // walk reads no other branch of it.
+    private bool RunsToItsEnd(SyntaxNode statement, SyntaxNode part) =>
         statement switch
         {
             BlockSyntax
@@ -506,12 +513,23 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 or CheckedStatementSyntax
                 or UnsafeStatementSyntax
                 or FixedStatementSyntax
+                or ElseClauseSyntax
+                or CatchClauseSyntax
                 or FinallyClauseSyntax => true,
             DoStatementSyntax loop => loop.Statement == part,
+            IfStatementSyntax choice => this.ConstantOf(choice.Condition) != null,
             TryStatementSyntax attempt =>
-                (attempt.Block == part && attempt.Catches.Count == 0) || attempt.Finally == part,
+                (attempt.Block == part && attempt.Catches.Count == 0)
+                || attempt.Finally == part
+                || (part is CatchClauseSyntax && EndsInItsCatch(attempt)),
             _ => false
         };
+
+    // True when the code after a try runs only after its one catch clause. The block of the try
+    // starts with a throw, and never runs to its end. The object goes to the clause, or it leaves
+    // the try statement. In the second case, the code after the try does not run.
+    private static bool EndsInItsCatch(TryStatementSyntax attempt) =>
+        attempt.Catches.Count == 1 && attempt.Block.Statements.FirstOrDefault() is ThrowStatementSyntax;
 
     // True when each turn of a loop runs an await of a task that is not complete. That await is in
     // the body, and its block holds the body. The next turn then runs after the task completes,
@@ -578,7 +596,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         SyntaxNode part = yielded;
 
         for (SyntaxNode? place = yielded.Parent;
-             place != null && RunsToItsEnd(statement: place, part: part);
+             place != null && this.RunsToItsEnd(statement: place, part: part);
              part = place, place = place.Parent)
         {
             if (place is TryStatementSyntax { Finally: not null } attempt)
@@ -2030,7 +2048,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     /// </returns>
     public (bool InItsFunction, SyntaxNode? Turn) WhereACallRuns(SyntaxNode call)
     {
-        if (WhereItAlwaysRuns(call) is not { } place)
+        if (WhereItAlwaysRuns(expression: call, constants: null) is not { } place)
         {
             return (false, null);
         }
@@ -2043,8 +2061,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     // The statement that always evaluates an expression when the statement runs. For the
     // expression that is the body of a lambda or of a local function, that expression or its
     // clause. Null when an operator, a conditional expression, or a function between the two can
-    // skip the expression.
-    private static SyntaxNode? WhereItAlwaysRuns(SyntaxNode expression)
+    // skip the expression. With the region, a constant condition skips no part that the walk reads.
+    private static SyntaxNode? WhereItAlwaysRuns(SyntaxNode expression, LoopRegion? constants)
     {
         SyntaxNode child = expression;
 
@@ -2066,7 +2084,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     return null;
             }
 
-            if (CanSkip(parent: parent, child: child))
+            if (CanSkip(parent: parent, child: child, constants: constants))
             {
                 return null;
             }
@@ -2077,11 +2095,14 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     // True when an expression can skip one of its parts. Such a part is an arm of a conditional
     // expression, or the part after a conditional access. The right side of an operator that stops
-    // at its left side is one also.
-    private static bool CanSkip(SyntaxNode parent, SyntaxNode child) =>
+    // at its left side is one also. With the region, a conditional expression on a constant skips
+    // nothing, because the walk reads only the arm that the constant selects.
+    private static bool CanSkip(SyntaxNode parent, SyntaxNode child, LoopRegion? constants) =>
         parent switch
         {
-            ConditionalExpressionSyntax conditional => conditional.Condition != child,
+            ConditionalExpressionSyntax conditional =>
+                conditional.Condition != child
+                && (constants == null || ConstantOf(region: constants, condition: conditional.Condition) == null),
             BinaryExpressionSyntax
             {
                 RawKind: (int)SyntaxKind.LogicalAndExpression

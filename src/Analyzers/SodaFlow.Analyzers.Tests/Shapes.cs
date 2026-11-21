@@ -39257,6 +39257,34 @@ public static class Shapes
     public static Cell<int> Ab281ThrowInAFilterIsLost() =>
         Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new InvalidOperationException(); } catch (InvalidOperationException) when (Ab281Throw(l.Map(v => v))) { Kept.Add(1); } } catch (InvalidOperationException) { Kept.Add(2); } catch (R4CsFault x) { Kept.Add(x.Share.Sample()); } return S.Hold(0); });
 
+    // S9335. The try always throws, so its catch always runs, and an await in the catch stops the call. The code after the try runs later.
+    public static Cell<int> R5CsAwaitInACatchAfterAThrowDefersTheRest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { throw new InvalidOperationException(); } catch (InvalidOperationException) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9336. The expression of a lock always runs, so an await there stops the call before the code after the lock.
+    public static Cell<int> R5CsAwaitInALockExpressionDefersTheRest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { lock (await R5CsNeverObject.Task) { Kept.Add(1); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9337. The arm of a constant true condition always runs, so an await there stops the call.
+    public static Cell<int> R5CsAwaitInAConstantTrueArmDefersTheRest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { int n = R4LimOn ? await R4CsNeverInt.Task : 0; Kept.Add(n + l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9338. The branch of an if on a constant true condition always runs, so an await there stops the call.
+    public static Cell<int> R5CsAwaitUnderAConstantTrueIfDefersTheRest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { if (R4LimOn) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9339. An if on a constant false condition runs its else branch, and an await there stops the call.
+    public static Cell<int> Ab282AwaitInTheElseOfAConstantFalseIfDefersTheRest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { if (!R4LimOn) { Kept.Add(1); } else { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9340. The try throws to its first catch, and the await is in the second catch, which does not run. The code after the try runs in the call.
+    public static Cell<int> Ab282AwaitInTheOtherCatchOfATryThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { throw new InvalidOperationException(); } catch (InvalidOperationException) { Kept.Add(1); } catch (Exception) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9341. The arm of a constant true condition in the value of a foreach always runs, so an await there stops the call before the code after the loop.
+    public static Cell<int> Ab282AwaitInAConstantTrueArmOfAForeachDefersTheRest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int n in R4LimOn ? await R3CsNeverNumbers.Task : [1]) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
