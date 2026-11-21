@@ -41873,6 +41873,66 @@ public static class Shapes
     public static Cell<int> Ab275LazyOfABuilderThatGetsStateReadsAMemberSetAfter() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab275StateLazy m = new(); m.Build(l.Map(v => v)); return S.Hold(m.SetAndRead(l.Map(v => v))); });
 
+    // S9989. Take(1) stops an iterator at its first yield return. A break before the yield return of a do loop ends the loop, and the code after it samples.
+    public static Cell<int> Ab347BreakBeforeTheYieldInADo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { do { if (Kept.Count >= 0) { break; } yield return 1; } while (false); Kept.Add(l.Sample()); } });
+
+    // S9990. A continue before the yield return of a do loop goes to its false condition, and the code after the loop samples.
+    public static Cell<int> Ab347ContinueBeforeTheYieldInADo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { do { if (Kept.Count >= 0) { continue; } yield return 1; } while (false); Kept.Add(l.Sample()); } });
+
+    // S9991. A break before the yield return of a do loop whose condition is not a constant ends the loop, and the code after it samples.
+    public static Cell<int> Ab347BreakBeforeTheYieldInADoThatRepeats() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { do { if (Kept.Count >= 0) { break; } yield return 1; } while (Kept.Count >= 0); Kept.Add(l.Sample()); } });
+
+    // S9992. Control: a do loop with no break yields in its first turn, and the iterator stops there.
+    public static Cell<int> Ab347YieldInADoWithNoBreak() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { do { yield return 1; } while (false); Kept.Add(l.Sample()); } });
+
+    // S9993. A break after the yield return never runs, because the iterator stops at the yield return.
+    public static Cell<int> Ab347BreakAfterTheYieldInADo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { do { yield return 1; if (Kept.Count >= 0) { break; } } while (Kept.Count >= 0); Kept.Add(l.Sample()); } });
+
+    // S9994. A for loop from 0 to 1 always runs its first turn, which yields. The code after the loop does not run.
+    public static Cell<int> Ab347YieldInAForLoopFromZeroToOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { for (int i = 0; i < 1; i++) { yield return 1; } Kept.Add(l.Sample()); } });
+
+    // S9995. A while loop on true yields before its break. The code after the loop does not run.
+    public static Cell<int> Ab347YieldInAWhileTrue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { while (true) { yield return 1; break; } Kept.Add(l.Sample()); } });
+
+    // S9996. A foreach over an array literal with an element yields in its first turn.
+    public static Cell<int> Ab347YieldInAForeachOverAnArrayLiteral() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { foreach (int n in new[] { 1 }) { yield return 1; } Kept.Add(l.Sample()); } });
+
+    // S9997. An inner loop yields in its first turn, and the outer loop always runs its first turn.
+    public static Cell<int> Ab347YieldInANestedLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { for (int i = 0; i < 1; i++) { for (int j = 0; j < 1; j++) { yield return 1; } } Kept.Add(l.Sample()); } });
+
+    // S9998. A break of an inner loop before the yield return ends only the inner loop. The outer turn then yields.
+    public static Cell<int> Ab347BreakOfAnInnerLoopBeforeTheYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { for (int i = 0; i < 1; i++) { while (true) { break; } yield return 1; } Kept.Add(l.Sample()); } });
+
+    // S9999. Control: a break before the yield return of a for loop ends the loop, and the code after it samples.
+    public static Cell<int> Ab347BreakBeforeTheYieldInAFor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { for (int i = 0; i < 1; i++) { if (Kept.Count >= 0) { break; } yield return 1; } Kept.Add(l.Sample()); } });
+
+    // S10000. Control: a continue before the yield return ends the only turn of a for loop.
+    public static Cell<int> Ab347ContinueBeforeTheYieldInAFor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { for (int i = 0; i < 1; i++) { if (Kept.Count >= 0) { continue; } yield return 1; } Kept.Add(l.Sample()); } });
+
+    // S10001. Control: a break before the yield return of a while loop on true ends the loop.
+    public static Cell<int> Ab347BreakBeforeTheYieldInAWhileTrue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { while (true) { if (Kept.Count >= 0) { break; } yield return 1; } Kept.Add(l.Sample()); } });
+
+    // S10002. Control: a for loop whose condition is not a constant runs no turn, and the code after it samples.
+    public static Cell<int> Ab347YieldInALoopThatRunsNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { for (int i = 0; i < Kept.Count * 0; i++) { yield return 1; } Kept.Add(l.Sample()); } });
+
+    // S10003. Control: a break of the inner loop before its yield return ends the inner loop and the only outer turn. The code after the outer loop samples.
+    public static Cell<int> Ab347BreakInAnInnerLoopBeforeTheYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { for (int i = 0; i < 1; i++) { while (true) { if (Kept.Count >= 0) { break; } yield return 1; } } Kept.Add(l.Sample()); } });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

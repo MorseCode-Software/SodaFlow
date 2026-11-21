@@ -508,10 +508,13 @@ The analyzer follows a value made from the placeholder through the code of your 
   `Select`, an `AsEnumerable`, or a query expression with only a `select` clause, or with a
   `foreach` that leaves the loop in its first pass on every path, by a `break`, a `return`, a
   `throw`, or a `goto`, the iterator runs only up to its first `yield return` and the `finally`
-  blocks around it. Where the code takes no item, with `Take` of zero or of a negative count, the
-  iterator does not run at all. The analyzer still reads the whole iterator where the code moves its
-  enumerator by hand, where a method of yours gets the call and takes one item, and where `Zip`
-  stops at the end of a shorter sequence. An `async` method or lambda runs in the block up to its
+  blocks around it. For a `yield return` in a loop, the code after the loop is skipped only when the
+  loop always runs its first turn and no `break` or `continue` of the loop comes before the
+  `yield return`, the same rule as for an `await` below. Where the code takes no item, with `Take`
+  of zero or of a negative count, the iterator does not run at all. The analyzer still reads the
+  whole iterator where the code moves its enumerator by hand, where a method of yours gets the call
+  and takes one item, and where `Zip` stops at the end of a shorter sequence. An `async` method or
+  lambda runs in the block up to its
   first `await` of a task that may not be complete, and the rest of it runs later, also where its
   body is a single expression, such as `async () => await t + x`. That holds for an `await` in a
   `switch` section, in a `finally` block, in the condition of a `do`, or in the header of a `for`,

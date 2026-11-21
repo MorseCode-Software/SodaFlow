@@ -5965,6 +5965,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab275BuildThroughTwoLocals"] = ["SF1004"],
             ["Ab275DerivedBuildsAFieldOfTheBaseReadInTheBlock"] = ["SF1001"],
             ["Ab275LazyWhoseFunctionReadsAGetter"] = ["SF1004"],
-            ["Ab275LazyOfABuilderThatGetsStateReadsAMemberSetAfter"] = ["SF1004"]
+            ["Ab275LazyOfABuilderThatGetsStateReadsAMemberSetAfter"] = ["SF1004"],
+            ["Ab347BreakBeforeTheYieldInADo"] = ["SF1001"],
+            ["Ab347ContinueBeforeTheYieldInADo"] = ["SF1001"],
+            ["Ab347BreakBeforeTheYieldInADoThatRepeats"] = ["SF1001"],
+            ["Ab347BreakBeforeTheYieldInAFor"] = ["SF1001"],
+            ["Ab347ContinueBeforeTheYieldInAFor"] = ["SF1001"],
+            ["Ab347BreakBeforeTheYieldInAWhileTrue"] = ["SF1001"],
+            ["Ab347YieldInALoopThatRunsNoTurn"] = ["SF1001"],
+            ["Ab347BreakInAnInnerLoopBeforeTheYield"] = ["SF1001"]
         };
 }

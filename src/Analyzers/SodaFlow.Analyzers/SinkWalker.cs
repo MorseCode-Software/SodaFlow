@@ -469,10 +469,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         int start = at ?? statement.SpanStart;
 
         for (SyntaxNode? place = statement.Parent;
-             place != null
-             && (LoopStateEvaluator.LoopBodyOf(place) is { } body
-                 ? this.EndsOnlyAfter(loop: place, body: body, at: start)
-                 : this.RunsToItsEnd(statement: place, part: part));
+             place != null && this.RunsToItsEnd(statement: place, part: part, at: start);
              part = place, place = place.Parent)
         {
             block = place is BlockSyntax or SwitchSectionSyntax ? place : block;
@@ -528,15 +525,18 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         return null;
     }
 
-    // True when each run of a statement runs a part of it to its end. A do runs its body one time at
-    // least. A try runs its block. With a catch clause, the code after the try can run when the
-    // block stops before the await. Thus, only a try with no catch clause counts. A try always runs
-    // its finally block, also with a catch clause. A switch section runs its statements in their
-    // order, as a block does. An if on a constant runs the branch that the constant selects, and the
-    // walk reads no other branch of it.
-    private bool RunsToItsEnd(SyntaxNode statement, SyntaxNode part) =>
+    // True when each run of a statement runs a part of it to its end, up to a position in that part.
+    // A loop does that when it always runs its first turn with no break or continue of the loop
+    // before the position. A try runs its block. With a catch clause, the code after the try
+    // can run when the block stops before the await. Thus, only a try with no catch clause counts. A
+    // try always runs its finally block, also with a catch clause. A switch section runs its
+    // statements in their order, as a block does. An if on a constant runs the branch that the
+    // constant selects, and the walk reads no other branch of it.
+    private bool RunsToItsEnd(SyntaxNode statement, SyntaxNode part, int at) =>
         statement switch
         {
+            ForStatementSyntax or CommonForEachStatementSyntax or WhileStatementSyntax or DoStatementSyntax =>
+                this.EndsOnlyAfter(loop: statement, body: part, at: at),
             BlockSyntax
                 or SwitchSectionSyntax
                 or UsingStatementSyntax
@@ -547,7 +547,6 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 or ElseClauseSyntax
                 or CatchClauseSyntax
                 or FinallyClauseSyntax => true,
-            DoStatementSyntax loop => loop.Statement == part,
             IfStatementSyntax choice => this.ConstantOf(choice.Condition) != null,
             TryStatementSyntax attempt =>
                 (attempt.Block == part && attempt.Catches.Count == 0)
@@ -618,7 +617,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     // Records the code that does not run after the yield return of the first item. A try statement
     // with a finally block splits that code: the finally block runs, and the code after the try
-    // statement does not. A goto to a label after the yield return can skip it.
+    // statement does not. A goto to a label after the yield return can skip it. A break or a
+    // continue before it can end a loop around it, and the code after that loop then runs.
     private void StopsAfter(SyntaxNode yielded)
     {
         List<(SyntaxNode Block, int From)> parts = [];
@@ -627,7 +627,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         SyntaxNode part = yielded;
 
         for (SyntaxNode? place = yielded.Parent;
-             place != null && this.RunsToItsEnd(statement: place, part: part);
+             place != null && this.RunsToItsEnd(statement: place, part: part, at: yielded.SpanStart);
              part = place, place = place.Parent)
         {
             if (place is TryStatementSyntax { Finally: not null } attempt)
