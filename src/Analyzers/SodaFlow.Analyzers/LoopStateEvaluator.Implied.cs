@@ -199,6 +199,15 @@ internal sealed partial class LoopStateEvaluator
 
         if (!hashes
             && type.IsRecord
+            && given.Length == 2
+            && definition.IsStatic
+            && this.ReturnsAtOnce(call: call, left: given[0].Written, right: given[1].Written))
+        {
+            return null;
+        }
+
+        if (!hashes
+            && type.IsRecord
             && other is { } argument
             && type.GetMembers("Equals")
                     .OfType<IMethodSymbol>()
@@ -230,6 +239,22 @@ internal sealed partial class LoopStateEvaluator
                                         implementations: this.region.Symbols.Implementations))
                                 : null,
                             hashes: hashes)));
+    }
+
+    // The == and the != of a record call no Equals of a member for null on the right. The same is
+    // true for one object on each side. Null on the left gives no members to read,
+    // and the walk stops before this test. A record struct has no null, and no name holds it.
+    private bool ReturnsAtOnce(SyntaxNode call, ExpressionSyntax left, ExpressionSyntax right)
+    {
+        if (Unwrapped(right) is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression })
+        {
+            return true;
+        }
+
+        return this.NameOfAnObjectIn(left) is { Owner: null, Index: null } one
+               && this.NameOfAnObjectIn(right) is { Owner: null, Index: null } other
+               && (SymbolEqualityComparer.Default.Equals(x: one.Of, y: other.Of)
+                   || this.AreOneObject(one: one.Of, other: other.Of, use: call, before: null));
     }
 
     // The members that the equality of a record compares. Each field gives its property, or itself

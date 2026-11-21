@@ -407,18 +407,19 @@ The analyzer follows a value made from the placeholder through the code of your 
   `Slice` for an index from the end, a range, or a list pattern, the `ToString` and the copy
   constructor of a record, the `ToString` of each value that a record or a tuple prints, the
   `Equals` or `GetHashCode` of each member that the `Equals`, `GetHashCode`, `==`, and `!=` of a
-  record or an anonymous type call, the `ToString` of each value that an anonymous type prints, and
-  the `==` of each element of a tuple comparison. The explicit static constructor of a class runs,
-  with the static initializers of that class, once in the block, at the first use that runs it: the
-  first object of the class or of a class derived from it, or the first read, write, or call of a
-  static member, through the name of the class or through a simple name in the code of another
-  class, such as a name that `using static` gives. Each type argument of a generic class, as in
-  `Cache<int>` and `Cache<string>`, has a run of its own. A member of a nested class runs only the
-  static constructor of the nested class, and a delegate of a static method runs it where something
-  calls the delegate, not where the code makes the delegate. A first use that the code can skip,
-  such as one in a branch or in an arm of `?:`, counts only for itself, so the analyzer reads the
-  constructor again at the next use. A use in a loop counts for the rest of the block, also when the
-  loop has no turn.
+  record or an anonymous type call, but not where the `==` or `!=` of a record gets `null` on the
+  right or two names that hold one object, which return at once, the `ToString` of each value that
+  an anonymous type prints, and the `==` of each element of a tuple comparison. The explicit static
+  constructor of a class runs, with the static initializers of that class, once in the block, at the
+  first use that runs it: the first object of the class or of a class derived from it, or the first
+  read, write, or call of a static member, through the name of the class or through a simple name in
+  the code of another class, such as a name that `using static` gives. Each type argument of a
+  generic class, as in `Cache<int>` and `Cache<string>`, has a run of its own. A member of a nested
+  class runs only the static constructor of the nested class, and a delegate of a static method runs
+  it where something calls the delegate, not where the code makes the delegate. A first use that the
+  code can skip, such as one in a branch or in an arm of `?:`, counts only for itself, so the
+  analyzer reads the constructor again at the next use. A use in a loop counts for the rest of the
+  block, also when the loop has no turn.
 - A value of the type `dynamic` whose object the analyzer saw made. It reads the method, the getter
   or the setter, the indexer, the event accessor of a `+=` or a `-=`, the operator, also of `++`,
   `--`, and a compound assignment, the conversion, with or without a cast, the `operator true` or

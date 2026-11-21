@@ -39561,6 +39561,42 @@ public static class Shapes
     public static Cell<int> Ab288DynamicCallWithANameThatOneOverloadLacks() =>
         Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab288Pair(l.Map(v => v)); int x = d.One(a: 1, b: 2); return S.Hold(x); });
 
+    // S9411. The == of a record and null calls no Equals of a member.
+    public static Cell<int> R5CsRecordEqualityWithNullCallsNoMemberEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); Kept.Add(a == null); return S.Hold(0); });
+
+    // S9412. The == of two names of one record object is true at once, and calls no Equals of a member.
+    public static Cell<int> R5CsRecordEqualityOfOneObjectCallsNoMemberEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); R4CsAlikeRecord b = a; Kept.Add(a == b); return S.Hold(0); });
+
+    // S9413. The == of null and a record calls no Equals of a member.
+    public static Cell<int> Ab289RecordEqualityWithNullOnTheLeftCallsNoMemberEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); Kept.Add(null == a); return S.Hold(0); });
+
+    // S9414. The != of a record and null calls no Equals of a member.
+    public static Cell<int> Ab289RecordInequalityWithNullCallsNoMemberEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); Kept.Add(a != null); return S.Hold(0); });
+
+    // S9415. Equals of a record with null calls no Equals of a member.
+    public static Cell<int> Ab289RecordEqualsOfNullCallsNoMemberEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); Kept.Add(a.Equals(null)); return S.Hold(0); });
+
+    // S9416. Equals of a record with itself is true at once, and calls no Equals of a member.
+    public static Cell<int> Ab289RecordEqualsOfItselfCallsNoMemberEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); Kept.Add(a.Equals(a)); return S.Hold(0); });
+
+    // S9417. A second name of a record gets a different object before the ==, so the == calls Equals of each member.
+    public static Cell<int> Ab289RecordEqualityAfterASecondObjectCallsMemberEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); R4CsAlikeRecord b = a; b = new(new Alike(Plain)); Kept.Add(a == b); return S.Hold(0); });
+
+    // S9418. The == of the record fields of two objects compares two records, and calls Equals of each member.
+    public static Cell<int> Ab289RecordEqualityOfTheFieldsOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab289Holder h1 = new(new(new Alike(l.Map(v => v)))); Ab289Holder h2 = new(new(new Alike(Plain))); Kept.Add(h1.R == h2.R); return S.Hold(0); });
+
+    // S9419. The == of one name of a record with itself is true at once, and calls no Equals of a member.
+    public static Cell<int> Ab289RecordEqualityOfANameWithItselfCallsNoMemberEquals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); Kept.Add(a == a); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -56648,6 +56684,11 @@ public static class Shapes
         public int One(int a) => a;
 
         public int One(int a, int b) => share.Sample() + a + b;
+    }
+
+    public sealed class Ab289Holder(R4CsAlikeRecord r)
+    {
+        public readonly R4CsAlikeRecord R = r;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -5648,6 +5648,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab288DynamicCallThatSkipsAnOptionalParameterReads"] = ["SF1005"],
             ["Ab288DynamicCallGivesANamedArgumentToItsParameter"] = ["SF1004"],
             ["Ab288DynamicCallPicksTheOverloadWithTwoParameters"] = ["SF1005"],
-            ["Ab288DynamicCallWithANameThatOneOverloadLacks"] = ["SF1005"]
+            ["Ab288DynamicCallWithANameThatOneOverloadLacks"] = ["SF1005"],
+            ["Ab289RecordEqualityAfterASecondObjectCallsMemberEquals"] = ["SF1005"],
+            ["Ab289RecordEqualityOfTheFieldsOfTwoObjects"] = ["SF1005"]
         };
 }
