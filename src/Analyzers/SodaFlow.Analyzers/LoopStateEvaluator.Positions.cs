@@ -1169,6 +1169,10 @@ internal sealed partial class LoopStateEvaluator
             CommonForEachStatementSyntax => true,
             // A spread puts a copy of each element into a second collection.
             SpreadElementSyntax => true,
+            // A pattern only reads the value that it tests.
+            IsPatternExpressionSyntax test => test.Expression == name,
+            SwitchExpressionSyntax choice => choice.GoverningExpression == name,
+            SwitchStatementSyntax choice => choice.Expression == name,
             _ => false
         };
 

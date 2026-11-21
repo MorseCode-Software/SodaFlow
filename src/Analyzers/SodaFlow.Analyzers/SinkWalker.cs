@@ -1438,17 +1438,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     {
         SeparatedSyntaxList<PatternSyntax> patterns = list.Patterns;
         int slice = patterns.IndexOf(static pattern => pattern is SlicePatternSyntax);
-
-        IReadOnlyList<LoopState>? positions =
-            list.Parent is IsPatternExpressionSyntax or CasePatternSwitchLabelSyntax or SwitchExpressionArmSyntax
-            && MatchedValueOf(list) is { } matched
-                ? this.evaluator.StatesAtThePositionsOf(matched)
-                : null;
-
-        if (positions != null && (slice < 0 ? positions.Count != patterns.Count : positions.Count < patterns.Count - 1))
-        {
-            positions = null;
-        }
+        IReadOnlyList<LoopState>? positions = this.PositionsFor(list);
 
         for (int i = 0; i < patterns.Count; i++)
         {
@@ -1468,6 +1458,32 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     ({ } known, false) => known[slice < 0 || i < slice ? i : last]
                 });
         }
+    }
+
+    // The state at each position of the collection that a list pattern is for, when the walk knows
+    // them. An and pattern and parentheses keep the value that they test.
+    private IReadOnlyList<LoopState>? PositionsFor(ListPatternSyntax list)
+    {
+        SyntaxNode? above = list.Parent;
+
+        while (above is ParenthesizedPatternSyntax or BinaryPatternSyntax { RawKind: (int)SyntaxKind.AndPattern })
+        {
+            above = above.Parent;
+        }
+
+        IReadOnlyList<LoopState>? positions =
+            above is IsPatternExpressionSyntax or CasePatternSwitchLabelSyntax or SwitchExpressionArmSyntax
+            && MatchedValueOf(list) is { } matched
+                ? this.evaluator.StatesAtThePositionsOf(matched)
+                : null;
+
+        SeparatedSyntaxList<PatternSyntax> patterns = list.Patterns;
+        int slice = patterns.IndexOf(static pattern => pattern is SlicePatternSyntax);
+
+        return positions != null
+               && (slice < 0 ? positions.Count == patterns.Count : positions.Count >= patterns.Count - 1)
+            ? positions
+            : null;
     }
 
     private void DeclareVar(VarPatternSyntax pattern, LoopState state)

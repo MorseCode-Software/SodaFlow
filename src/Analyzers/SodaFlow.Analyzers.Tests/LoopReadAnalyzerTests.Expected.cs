@@ -5655,6 +5655,7 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5FuHandlerAppendLiteralSamples"] = ["SF1005"],
             ["Ab290GatedHandlerConstructorRuns"] = ["SF1005"],
             ["Ab290HandlerWithAComputedShouldAppendReads"] = ["SF1004"],
-            ["Ab290HandlerWithAFlagThatIsNoShouldAppendReads"] = ["SF1004"]
+            ["Ab290HandlerWithAFlagThatIsNoShouldAppendReads"] = ["SF1004"],
+            ["Ab291ListPatternAfterAnAndGetsThePendingElement"] = ["SF1001"]
         };
 }

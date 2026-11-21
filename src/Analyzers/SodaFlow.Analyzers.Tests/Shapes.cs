@@ -39629,6 +39629,30 @@ public static class Shapes
     public static Cell<int> Ab290HandlerWithAFlagThatIsNoShouldAppendReads() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab290LogFlagged(true, $"n{l.Map(v => v)}"); return S.Hold(0); });
 
+    // S9428. A list pattern after an and keeps the position of each element.
+    public static Cell<int> R5CsListPatternAfterAnAndGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; if (cells is { Length: 2 } and [_, var second]) { Kept.Add(second.Sample()); } return S.Hold(0); });
+
+    // S9429. A list pattern on a span literal gets the element at its position.
+    public static Cell<int> R5CsListPatternOnASpanLiteralGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Span<Cell<int>> cells = [l.Map(v => v), Plain]; if (cells is [_, var second]) { Kept.Add(second.Sample()); } return S.Hold(0); });
+
+    // S9430. A list pattern in parentheses keeps the position of each element.
+    public static Cell<int> Ab291ListPatternInParenthesesGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; if (cells is ([_, var second])) { Kept.Add(second.Sample()); } return S.Hold(0); });
+
+    // S9431. A list pattern after an and takes the pending element at its position, and the body samples it.
+    public static Cell<int> Ab291ListPatternAfterAnAndGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] cells = [l.Map(v => v), Plain]; if (cells is { Length: 2 } and [var first, _]) { Kept.Add(first.Sample()); } return S.Hold(0); });
+
+    // S9432. A list pattern in a switch expression on a span literal gets the element at its position.
+    public static Cell<int> Ab291SwitchExpressionOnASpanLiteralGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Span<Cell<int>> cells = [l.Map(v => v), Plain]; int x = cells switch { [_, var second] => second.Sample(), _ => 0 }; return S.Hold(x); });
+
+    // S9433. A list pattern in a switch statement on a span literal gets the element at its position.
+    public static Cell<int> Ab291SwitchStatementOnASpanLiteralGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Span<Cell<int>> cells = [l.Map(v => v), Plain]; switch (cells) { case [_, var second]: Kept.Add(second.Sample()); break; } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
