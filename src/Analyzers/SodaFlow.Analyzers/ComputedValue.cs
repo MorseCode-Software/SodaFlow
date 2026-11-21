@@ -48,17 +48,17 @@ internal sealed class ComputedValue(
     // The number of turn marks of the loops that the walk reads now. See RunsInATurn.
     private int turns;
 
-    /// <summary>True after a read that the walk knows to run the functions.</summary>
-    public bool HasRun { get; private set; }
+    // True after a read that the walk knows to run the functions.
+    private bool hasRun;
 
     /// <summary>
     ///     True after a read that the walk knows to run the functions. Also true
     ///     after such a read in each turn of a loop that the walk reads now.
     /// </summary>
-    public bool HasRunNow => this.HasRun || this.turns > 0;
+    public bool HasRunNow => this.hasRun || this.turns > 0;
 
     /// <summary>Records a read that runs the functions.</summary>
-    public void Runs() => this.HasRun = true;
+    public void Runs() => this.hasRun = true;
 
     /// <summary>
     ///     Records a read that runs the functions in each turn of a loop. The

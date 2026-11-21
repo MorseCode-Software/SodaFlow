@@ -8,9 +8,9 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace SodaFlow.Analyzers;
 
 // The part of the walker that records the first read of a cell. That record has its own rule for
-// where a read runs. The record of writes does not count a try block, because a call in the block
-// can throw before the write, and a catch clause then runs. With no catch clause, the code after
-// the try runs only when the block runs to its end.
+// where a read runs. The record of writes does not count a try block. A call in the block can throw
+// before the write, and a catch clause then runs. With no catch clause, the code after the try runs
+// only when the block runs to its end.
 internal sealed partial class SinkWalker
 {
     // Each if on the constant true that the walk read.
