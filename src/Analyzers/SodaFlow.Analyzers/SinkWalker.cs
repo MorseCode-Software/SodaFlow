@@ -4207,7 +4207,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         ISymbol? member,
         ITypeSymbol? declared,
         int depth,
-        HashSet<(Construction, INamedTypeSymbol?)> seen)
+        ISet<(Construction, INamedTypeSymbol?)> seen)
     {
         // The elements of a tuple are fields, and not each serializer writes a field.
         if (state.Members is { IsTuple: true } && !options.WritesFields)
