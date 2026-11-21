@@ -137,6 +137,12 @@ internal sealed partial class LoopStateEvaluator
         bool manyTimes = false,
         ExpressionSyntax? owner = null)
     {
+        // Take of no item gives an empty sequence and does not start the iterator.
+        if (this.TakesNoItem(call) && IsAnIteratorBody(body))
+        {
+            return Followed.Nothing;
+        }
+
         // Nothing from the loop goes in, thus nothing from the loop comes out. A lambda or a local
         // function can read the locals of the code that it is in, thus the walk always reads it.
         // A callee that gets an object of the store can give the object a second name. A callee
@@ -305,6 +311,8 @@ internal sealed partial class LoopStateEvaluator
     // FirstOrDefault, and Any of Enumerable with no other argument do that. Take of one item and
     // the element at the first position do that also. A Select gives one item for each item that
     // the code takes from it. A foreach whose body ends the loop on each path takes one item also.
+    // FirstOrDefault with a default value does as First does. AsEnumerable, and a query with one
+    // select clause, do as Select does. The type of a from clause adds a Cast, which does the same.
     private bool TakesOneItem(SyntaxNode call) =>
         call.Parent switch
         {
@@ -313,6 +321,26 @@ internal sealed partial class LoopStateEvaluator
                 Name.Identifier.ValueText: "First" or "FirstOrDefault" or "Any",
                 Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } next
             } => this.IsOfEnumerable(next),
+            MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "FirstOrDefault",
+                Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 1 } next
+            } =>
+                this.IsOfEnumerable(next)
+                && this.region.SymbolOf(next) is IMethodSymbol { Parameters: { Length: > 0 } parameters }
+                && parameters[parameters.Length - 1].Type.TypeKind != TypeKind.Delegate,
+            MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "AsEnumerable",
+                Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } next
+            } => this.IsOfEnumerable(next) && this.TakesOneItem(next),
+            FromClauseSyntax
+            {
+                Parent: QueryExpressionSyntax
+                {
+                    Body: { Clauses.Count: 0, Continuation: null, SelectOrGroup: SelectClauseSyntax select }
+                } query
+            } => this.IsOfEnumerable(select) && this.TakesOneItem(OutsideItsParentheses(query)),
             MemberAccessExpressionSyntax
             {
                 Name: { Identifier.ValueText: "Take" or "ElementAt" or "ElementAtOrDefault" } name,
@@ -331,6 +359,34 @@ internal sealed partial class LoopStateEvaluator
                 SinkWalker.EndsTheLoopOnEachPath(loop: loop, body: loop.Statement),
             _ => false
         };
+
+    // True when the code takes no item from the result of a call: Take of zero or fewer items.
+    private bool TakesNoItem(SyntaxNode call) =>
+        call.Parent is MemberAccessExpressionSyntax
+        {
+            Name.Identifier.ValueText: "Take",
+            Parent: InvocationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } next
+        }
+        && this.region.ModelFor(next).GetConstantValue(arguments[0].Expression) is { HasValue: true, Value: int value }
+        && value <= 0
+        && this.IsOfEnumerable(next);
+
+    private static bool IsAnIteratorBody(SyntaxNode body) =>
+        body is BlockSyntax block
+        && block.DescendantNodes(
+                descendIntoChildren: static node =>
+                    node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+            .Any(static node => node is YieldStatementSyntax);
+
+    private static SyntaxNode OutsideItsParentheses(SyntaxNode node)
+    {
+        while (node.Parent is ParenthesizedExpressionSyntax parentheses)
+        {
+            node = parentheses;
+        }
+
+        return node;
+    }
 
     private bool IsOfEnumerable(SyntaxNode call) =>
         this.region.SymbolOf(call) is IMethodSymbol method

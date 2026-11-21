@@ -39329,6 +39329,74 @@ public static class Shapes
     public static Cell<int> Ab284AwaitUsingOfAConfigureAwaitOfTheCodeDisposesWhatItGives() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Ab284Tally t = new(l.Map(v => v)); await using (t.ConfigureAwait(false)) { Kept.Add(1); } }; run().Wait(0); return S.Hold(0); });
 
+    // S9353. Take(0) returns an empty sequence and does not start the iterator, so the sample before its first yield never runs.
+    public static Cell<int> R5CsIteratorTakeZeroRunsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4CsReadsFirst(l.Map(v => v)).Take(0).ToList()); return S.Hold(0); });
+
+    // S9354. FirstOrDefault with a default value takes one item, so the iterator stops at its first yield.
+    public static Cell<int> R5CsIteratorFirstOrDefaultWithADefaultStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4CsOneThenRead(l.Map(v => v)).FirstOrDefault(0)); return S.Hold(0); });
+
+    // S9355. First of a query expression over an iterator takes one item, so the iterator stops at its first yield.
+    public static Cell<int> R5CsIteratorFirstOfAQueryStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add((from n in R4CsOneThenRead(l.Map(v => v)) select n + 1).First()); return S.Hold(0); });
+
+    // S9356. AsEnumerable and then First of an iterator that samples after its first yield.
+    public static Cell<int> R5LimFirstAfterAsEnumerableRunsToTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R5LimSamplesAfterTheFirst(l.Map(v => v)).AsEnumerable().First()); return S.Hold(0); });
+
+    // S9357. Take of a negative count returns an empty sequence and does not start the iterator.
+    public static Cell<int> Ab286IteratorTakeOfANegativeCountRunsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4CsReadsFirst(l.Map(v => v)).Take(-1).ToList()); return S.Hold(0); });
+
+    // S9358. Take(0) of a method that is not an iterator: the method samples in the call.
+    public static Cell<int> Ab286TakeZeroOfAMethodThatIsNoIteratorRunsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab286ListAfterRead(l.Map(v => v)).Take(0).ToList()); return S.Hold(0); });
+
+    // S9359. Take(0) of the code enumerates each item, so the iterator samples before its first yield.
+    public static Cell<int> Ab286TakeZeroOfTheCodeRunsTheIterator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab286ItemsReadFirst(l.Map(v => v)).Take(0).ToList()); return S.Hold(0); });
+
+    // S9360. FirstOrDefault with a predicate that the first item fails takes the second item, so the iterator samples.
+    public static Cell<int> Ab286IteratorFirstOrDefaultWithAPredicateRunsOn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4CsOneThenRead(l.Map(v => v)).FirstOrDefault(n => n > 5)); return S.Hold(0); });
+
+    // S9361. FirstOrDefault of the code with a default value enumerates each item, so the iterator samples.
+    public static Cell<int> Ab286FirstOrDefaultOfTheCodeRunsTheIterator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab286ItemsThenRead(l.Map(v => v)).FirstOrDefault(new Ab286Item(0))); return S.Hold(0); });
+
+    // S9362. AsEnumerable and then ToList of an iterator runs it to its end, and the sample after the first yield runs.
+    public static Cell<int> Ab286IteratorAsEnumerableToListRunsToTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R4CsOneThenRead(l.Map(v => v)).AsEnumerable().ToList()); return S.Hold(0); });
+
+    // S9363. AsEnumerable of the code enumerates each item, so First after it does not stop the iterator.
+    public static Cell<int> Ab286AsEnumerableOfTheCodeRunsTheIterator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab286ItemsThenRead(l.Map(v => v)).AsEnumerable().First()); return S.Hold(0); });
+
+    // S9364. First of a query whose from clause names a type: Cast and Select give one item for each item, so the iterator stops at its first yield.
+    public static Cell<int> Ab286IteratorFirstOfAQueryWithATypeStopsAtTheFirstYield() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add((from int n in R4CsOneThenRead(l.Map(v => v)) select n + 1).First()); return S.Hold(0); });
+
+    // S9365. FirstOrDefault of a query with a where clause that the first item fails takes the second item, so the iterator samples.
+    public static Cell<int> Ab286IteratorFirstOfAQueryWithAWhereRunsOn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add((from n in R4CsOneThenRead(l.Map(v => v)) where n > 5 select n + 1).FirstOrDefault()); return S.Hold(0); });
+
+    // S9366. FirstOrDefault of a query with a continuation that filters takes the second item, so the iterator samples.
+    public static Cell<int> Ab286IteratorFirstOfAQueryWithAContinuationRunsOn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add((from n in R4CsOneThenRead(l.Map(v => v)) select n into m where m > 5 select m).FirstOrDefault()); return S.Hold(0); });
+
+    // S9367. First of a group query: GroupBy enumerates each item before it gives the first group, so the iterator samples.
+    public static Cell<int> Ab286IteratorFirstOfAGroupQueryRunsOn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add((from n in R4CsOneThenRead(l.Map(v => v)) group n by n).First()); return S.Hold(0); });
+
+    // S9368. First of a query whose Select is a method of the code that enumerates each item, so the iterator samples.
+    public static Cell<int> Ab286FirstOfAQueryOfTheCodeRunsTheIterator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add((from i in Ab286ItemsThenRead(l.Map(v => v)) select i.N).First()); return S.Hold(0); });
+
+    // S9369. ToList of a query runs the iterator to its end, and the sample after the first yield runs.
+    public static Cell<int> Ab286IteratorToListOfAQueryRunsToTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add((from n in R4CsOneThenRead(l.Map(v => v)) select n + 1).ToList()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -56336,6 +56404,29 @@ public static class Shapes
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
+    public sealed record Ab286Item(int N);
+
+    private static IEnumerable<int> Ab286ListAfterRead(Cell<int> c)
+    {
+        Kept.Add(c.Sample());
+
+        return [1];
+    }
+
+    private static IEnumerable<Ab286Item> Ab286ItemsReadFirst(Cell<int> c)
+    {
+        Kept.Add(c.Sample());
+
+        yield return new Ab286Item(1);
+    }
+
+    private static IEnumerable<Ab286Item> Ab286ItemsThenRead(Cell<int> c)
+    {
+        yield return new Ab286Item(1);
+
+        Kept.Add(c.Sample());
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -56344,6 +56435,22 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static IEnumerable<T> Select<T>(this IEnumerable<Shapes.Ab286Item> items, Func<Shapes.Ab286Item, T> f) =>
+        Enumerable.Select(source: items.ToArray(), selector: f).ToArray();
+
+    public static IEnumerable<Shapes.Ab286Item> AsEnumerable(this IEnumerable<Shapes.Ab286Item> items) =>
+        items.ToArray();
+
+    public static Shapes.Ab286Item FirstOrDefault(
+        this IEnumerable<Shapes.Ab286Item> items,
+        Shapes.Ab286Item defaultValue) =>
+        items.ToArray().Length > 0 ? defaultValue : defaultValue;
+
+    // A Take, a FirstOrDefault, an AsEnumerable, and a Select of this code for Ab286Item. Each one
+    // enumerates every item before it returns.
+    public static IEnumerable<Shapes.Ab286Item> Take(this IEnumerable<Shapes.Ab286Item> items, int count) =>
+        Enumerable.Take(source: items.ToArray(), count: count);
+
     public static Shapes.Ab284Plain ConfigureAwait(this Shapes.Ab284Tally tally, bool continueOnCapturedContext) =>
         new();
 

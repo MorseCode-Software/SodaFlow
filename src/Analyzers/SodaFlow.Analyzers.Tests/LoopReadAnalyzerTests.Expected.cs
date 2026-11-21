@@ -5602,6 +5602,17 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab282AwaitInTheOtherCatchOfATryThatThrows"] = ["SF1001"],
             ["R5CsAwaitUsingOfConfigureAwaitCallsDisposeAsync"] = ["SF1005"],
             ["Ab284AwaitUsingOfConfigureAwaitCallsTheMemberOfTheInterface"] = ["SF1005"],
-            ["Ab284AwaitUsingOfConfigureAwaitOfACompleteDisposalRunsTheRest"] = ["SF1001"]
+            ["Ab284AwaitUsingOfConfigureAwaitOfACompleteDisposalRunsTheRest"] = ["SF1001"],
+            ["Ab286TakeZeroOfAMethodThatIsNoIteratorRunsIt"] = ["SF1004"],
+            ["Ab286TakeZeroOfTheCodeRunsTheIterator"] = ["SF1004"],
+            ["Ab286IteratorFirstOrDefaultWithAPredicateRunsOn"] = ["SF1004"],
+            ["Ab286FirstOrDefaultOfTheCodeRunsTheIterator"] = ["SF1004"],
+            ["Ab286IteratorAsEnumerableToListRunsToTheEnd"] = ["SF1004"],
+            ["Ab286AsEnumerableOfTheCodeRunsTheIterator"] = ["SF1004"],
+            ["Ab286IteratorFirstOfAQueryWithAWhereRunsOn"] = ["SF1004"],
+            ["Ab286IteratorFirstOfAQueryWithAContinuationRunsOn"] = ["SF1004"],
+            ["Ab286IteratorFirstOfAGroupQueryRunsOn"] = ["SF1004"],
+            ["Ab286FirstOfAQueryOfTheCodeRunsTheIterator"] = ["SF1004"],
+            ["Ab286IteratorToListOfAQueryRunsToTheEnd"] = ["SF1004"]
         };
 }
