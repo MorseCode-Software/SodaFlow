@@ -1234,7 +1234,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The resource of ConfigureAwait of the platform, as in r.ConfigureAwait(false). Null for each
     // other expression, also for a ConfigureAwait of this compilation.
-    private ExpressionSyntax? ResourceOfConfigureAwait(ExpressionSyntax resource) =>
+    private ExpressionSyntax? ResourceOfConfigureAwait(SyntaxNode resource) =>
         resource is InvocationExpressionSyntax
         {
             Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ConfigureAwait" } access
