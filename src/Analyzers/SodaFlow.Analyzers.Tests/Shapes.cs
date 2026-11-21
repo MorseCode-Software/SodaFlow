@@ -40897,6 +40897,22 @@ public static class Shapes
     public static Cell<int> Ab333StringFormatWithAWidthAndAFormatReadsToString() =>
         Cell.Loop<int>().WithoutCaptures(l => { R5LimFormatsByToString f = new(l.Map(v => v)); Kept.Add(string.Format("{0,5:D}", f)); return S.Hold(0); });
 
+    // S9745. The block runs only the second element of the invocation list of a combined delegate, which does not read.
+    public static Cell<int> R5LimDelegateAtAnIndexOfItsInvocationList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); Action read = () => Kept.Add(c.Sample()); Action plain = () => Kept.Add(1); Delegate[] all = ((Action)Delegate.Combine(read, plain)!).GetInvocationList(); ((Action)all[1])(); return S.Hold(0); });
+
+    // S9746. The block runs only the first element of the invocation list of a combined delegate, which samples.
+    public static Cell<int> Ab334DelegateAtTheFirstIndexOfItsInvocationListSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); Action read = () => Kept.Add(c.Sample()); Action plain = () => Kept.Add(1); Delegate[] all = ((Action)Delegate.Combine(read, plain)!).GetInvocationList(); ((Action)all[0])(); return S.Hold(0); });
+
+    // S9747. The block runs only the second element of the invocation list of a sum of two delegates, which does not read.
+    public static Cell<int> Ab334DelegateAtAnIndexOfTheListOfASum() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); Action read = () => Kept.Add(c.Sample()); Action plain = () => Kept.Add(1); Delegate[] all = (read + plain).GetInvocationList(); ((Action)all[1])(); return S.Hold(0); });
+
+    // S9748. The block runs only the third element of the invocation list of a delegate that combines a sum in a local with a third one, which does not read.
+    public static Cell<int> Ab334DelegateAtAnIndexAfterASumInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); Action read = () => Kept.Add(c.Sample()); Action sum = read + (() => Kept.Add(c.Sample())); Action plain = () => Kept.Add(1); Delegate[] all = ((Action)Delegate.Combine(sum, plain)!).GetInvocationList(); ((Action)all[2])(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

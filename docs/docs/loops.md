@@ -400,7 +400,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   and the constructor that `new T()` runs, where the call says the type of `T`.
 - Events and delegates: the handlers added with `+=` run where the event is raised, and a delegate
   made with `+` or `Delegate.Combine` runs each of its functions. Each element of the
-  `GetInvocationList()` of a delegate is one of those functions.
+  `GetInvocationList()` of a delegate is one of those functions. An element at a constant index is
+  the one function at that place where a local holds the list and the analyzer knows the functions
+  in order: the delegate is a lambda, a method given by name, or a `+` or a `Delegate.Combine` of
+  two such delegates, directly or through locals that get no other value.
 - Loops: each pass of a `for`, `foreach`, `while`, or `do`, of a `goto` back to a label, or of a
   `goto case` or `goto default` back to an earlier section of a `switch`, is read until a pass adds
   nothing new.

@@ -1119,6 +1119,19 @@ internal sealed partial class LoopStateEvaluator
             // The same with no initializer: the list has no element.
             BaseObjectCreationExpressionSyntax { ArgumentList: null or { Arguments.Count: 0 }, Initializer: null }
                 when SodaFlowSymbols.KeepsTheOrder(this.region.TypeOf(made)) => [],
+            // The invocation list of a delegate whose functions the walk knows in order.
+            InvocationExpressionSyntax
+                {
+                    Expression: MemberAccessExpressionSyntax
+                    {
+                        Name.Identifier.ValueText: "GetInvocationList", Expression: var owner
+                    },
+                    ArgumentList.Arguments.Count: 0
+                } list
+                when this.region.SymbolOf(list) is IMethodSymbol
+                {
+                    ContainingType.SpecialType: SpecialType.System_Delegate or SpecialType.System_MulticastDelegate
+                } => this.FunctionsInOrder(owner),
             _ => null
         };
 
