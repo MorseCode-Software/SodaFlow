@@ -40789,6 +40789,14 @@ public static class Shapes
     public static Cell<int> Ab324SystemTextJsonSkipsAnIgnoredSpecifiedProperty() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(System.Text.Json.JsonSerializer.Serialize(new Ab324StjSpecified(l.Map(v => v)))); return S.Hold(0); });
 
+    // S9718. Activator.CreateInstance<T>() runs a constructor that samples a field that the block set. The page names reflection as a miss.
+    public static Cell<int> R5LimActivatorCreateInstanceOfATypeArgumentRunsTheConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimSource = l.Map(v => v); Kept.Add(Activator.CreateInstance<R5LimReadsTheSource>()); R5LimSource = Plain; return S.Hold(0); });
+
+    // S9719. Activator.CreateInstance(typeof(T)) with no arguments runs the public constructor of T, which samples a field that the block set.
+    public static Cell<int> R5LimActivatorCreateInstanceOfATypeofWithNoArguments() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimSource = l.Map(v => v); Kept.Add(Activator.CreateInstance(typeof(R5LimReadsTheSource))!); R5LimSource = Plain; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

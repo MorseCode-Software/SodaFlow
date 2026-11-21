@@ -662,11 +662,12 @@ careful side, so it can report a read that does not throw:
 Some reads that throw it does not see:
 
 - Reflection, such as `Activator.CreateInstance` or `MethodInfo.Invoke`. A value made from the
-  placeholder that you pass to one of these gets `SF1003`. The analyzer follows two literal forms:
-  `typeof(T).GetMethod("M").Invoke(obj, [a])`, where `T` and its base types have one public method
-  named `M`, which is not generic and not virtual and takes those arguments, and
+  placeholder that you pass to one of these gets `SF1003`. The analyzer follows these literal
+  forms: `typeof(T).GetMethod("M").Invoke(obj, [a])`, where `T` and its base types have one public
+  method named `M`, which is not generic and not virtual and takes those arguments,
   `Activator.CreateInstance(typeof(T), a)`, where one public constructor of `T` takes that many
-  arguments. The name can be a string or a `nameof`, and the arguments must be written in the call,
+  arguments, also with no arguments, and `Activator.CreateInstance<T>()`, which it reads as
+  `new T()`. The name can be a string or a `nameof`, and the arguments must be written in the call,
   one by one or as an array or a collection expression. Arguments in an array held in a local are
   not followed, and a value there gets `SF1003` when the local's own block puts it in: in the
   declaration, by an assignment to the local or to an element, or by `Array.Fill`. It reads those
