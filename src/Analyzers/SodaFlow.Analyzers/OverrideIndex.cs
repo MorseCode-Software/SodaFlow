@@ -23,6 +23,8 @@ internal sealed class OverrideIndex(in Compilation compilation)
     private readonly Lazy<ImmutableDictionary<IMethodSymbol, ImmutableArray<INamedTypeSymbol>>> byMethod =
         IndexOf(compilation);
 
+    private readonly Lazy<ImmutableHashSet<IPropertySymbol>> replacedWithCode = PropertiesOf(compilation);
+
     /// <summary>
     ///     True when an override that the compilation declares can run for a
     ///     call of the method on a value of the given type. The override must be
@@ -51,6 +53,69 @@ internal sealed class OverrideIndex(in Compilation compilation)
             value: out ImmutableArray<INamedTypeSymbol> types)
             ? types.Where(type => IsOrDerivesFrom(type: type, other: receiver.OriginalDefinition))
             : [];
+
+    /// <summary>
+    ///     True when an override that the compilation declares replaces the
+    ///     property with an accessor that has a body. A read or a write of the
+    ///     property can then run that code.
+    /// </summary>
+    /// <remarks>
+    ///     The first call makes the set from declarations only. Only a virtual
+    ///     or an abstract property needs it.
+    /// </remarks>
+    public bool ReplacesWithCode(IPropertySymbol property) =>
+        this.replacedWithCode.Value.Contains(property.OriginalDefinition);
+
+    private static Lazy<ImmutableHashSet<IPropertySymbol>> PropertiesOf(Compilation compilation) =>
+        new(() => ReplacedWithCode(compilation));
+
+    private static ImmutableHashSet<IPropertySymbol> ReplacedWithCode(Compilation compilation)
+    {
+        // The syntax gives the names of the properties with the override modifier and a body. The
+        // search reads the declarations of types only, and not the bodies.
+        ImmutableHashSet<string> names =
+            compilation.SyntaxTrees
+                .SelectMany(static tree =>
+                    tree.GetRoot()
+                        .DescendantNodes(static node =>
+                            node is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax or TypeDeclarationSyntax))
+                .OfType<PropertyDeclarationSyntax>()
+                .Where(static property => property.Modifiers.Any(SyntaxKind.OverrideKeyword) && HasCode(property))
+                .Select(static property => property.Identifier.ValueText)
+                .ToImmutableHashSet(StringComparer.Ordinal);
+
+        ImmutableHashSet<IPropertySymbol>.Builder found =
+            ImmutableHashSet.CreateBuilder<IPropertySymbol>(SymbolEqualityComparer.Default);
+
+        if (names.IsEmpty)
+        {
+            return found.ToImmutable();
+        }
+
+        foreach (IPropertySymbol property in compilation
+                     .GetSymbolsWithName(predicate: names.Contains, filter: SymbolFilter.Member)
+                     .OfType<IPropertySymbol>()
+                     .Where(static property =>
+                         property.DeclaringSyntaxReferences.Any(static reference =>
+                             reference.GetSyntax() is PropertyDeclarationSyntax declaration && HasCode(declaration))))
+        {
+            // An override of an override replaces each property in the chain. A property with the
+            // name that is no override replaces nothing.
+            for (IPropertySymbol? replaced = property.OverriddenProperty;
+                 replaced != null;
+                 replaced = replaced.OverriddenProperty)
+            {
+                found.Add(replaced.OriginalDefinition);
+            }
+        }
+
+        return found.ToImmutable();
+    }
+
+    private static bool HasCode(PropertyDeclarationSyntax property) =>
+        property.ExpressionBody != null
+        || property.AccessorList?.Accessors.Any(static accessor =>
+            accessor.Body != null || accessor.ExpressionBody != null) == true;
 
     private static Lazy<ImmutableDictionary<IMethodSymbol, ImmutableArray<INamedTypeSymbol>>> IndexOf(
         Compilation compilation) =>

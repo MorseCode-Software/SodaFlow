@@ -7,9 +7,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
-using KeptTimers =
-    System.Collections.Generic.List<(Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax Time,
-        Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax Callback)>;
 
 namespace SodaFlow.Analyzers;
 
@@ -26,7 +23,7 @@ namespace SodaFlow.Analyzers;
 ///     walker reports what that walk found.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage - This class has its own summary, which says more than the base class does.
-internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator evaluator, in Action<Finding> sink)
+internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvaluator evaluator, in Action<Finding> sink)
     : CSharpSyntaxWalker
 {
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
@@ -38,6 +35,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // The number is only a guard for a defect of the analyzer: no code has that many locals in a
     // chain.
     internal const int MaxReadsOfALoop = 1000;
+
+    // The most objects that a serializer goes into, in each other. See Serialize.
+    private const int MaxSerializedDepth = 64;
 
     private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
@@ -57,7 +57,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     private readonly HashSet<AnonymousFunctionExpressionSyntax> once = [];
     private readonly LoopStateEvaluator evaluator = evaluator;
     private readonly LoopRegion region = region;
-    private readonly Action<Finding> sink = sink;
+    private Action<Finding> sink = sink;
 
     // The query whose code the walk reads now, when something enumerates that query.
     private QueryValue? running;
@@ -83,11 +83,6 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     with the type that the throw names.
     /// </summary>
     public IReadOnlyList<(ITypeSymbol? Type, LoopState State)> Thrown => this.thrown;
-
-    // The timers of each local that has a clock of the library base. Each timer has the time and
-    // the callback that SetTimer gave it, until RunTimersTo runs it. Null until the walk sees such a
-    // clock.
-    private Dictionary<ISymbol, KeptTimers>? timers;
 
     public override void Visit(SyntaxNode? node)
     {
@@ -205,20 +200,22 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
-        if (awaits && declaration.Parent?.Parent is { } scope && !this.EndsLater(declaration))
+        if (awaits && declaration.Parent is { Parent: { } scope } statement && !this.EndsLater(declaration))
         {
             this.DisposeEachAsync(
                 resources: declaration.Variables
                     .Select(static declarator => declarator.Initializer?.Value)
                     .OfType<ExpressionSyntax>(),
-                scope: scope);
+                scope: scope,
+                at: statement.SpanStart);
         }
     }
 
     // An await using calls DisposeAsync on each resource, from the last to the first, and awaits
     // each task. A task that is not complete stops the call. The code after the scope then runs
-    // later, and so do the calls for the resources before it.
-    private void DisposeEachAsync(IEnumerable<ExpressionSyntax> resources, SyntaxNode scope)
+    // later, and so do the calls for the resources before it. The position is the start of the
+    // await using.
+    private void DisposeEachAsync(IEnumerable<ExpressionSyntax> resources, SyntaxNode scope, int at)
     {
         foreach (ExpressionSyntax resource in resources.Reverse())
         {
@@ -230,7 +227,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 continue;
             }
 
-            if (PartAround(scope) is { } block)
+            if (this.PartAround(statement: scope, at: at) is { } block)
             {
                 this.later.Add((block, scope.Span.End));
             }
@@ -288,8 +285,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        this.Report(this.evaluator.FollowEvictionsOfADispose(map: resource, dispose: resource));
-        this.Report(this.evaluator.FollowClockOfADispose(system: resource, dispose: resource));
+        // A using disposes its resource where the code reaches the statement.
+        Func<bool> runsOnEachPath = () =>
+            resource.FirstAncestorOrSelf<StatementSyntax>() is { } statement
+            && this.AlwaysRunsAt(place: statement, turn: out _);
+
+        this.Report(
+            this.evaluator.FollowEvictionsOfADispose(map: resource, dispose: resource, runsOnEachPath: runsOnEachPath));
+
+        this.Report(
+            this.evaluator.FollowClockOfADispose(system: resource, dispose: resource, runsOnEachPath: runsOnEachPath));
 
         LoopState state = this.evaluator.Eval(resource);
 
@@ -336,15 +341,32 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (node.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword))
         {
-            this.DisposeEachAsync(resources: resources, scope: node);
+            this.DisposeEachAsync(resources: resources, scope: node, at: node.SpanStart);
 
             return;
         }
 
+        // The statement always disposes its resource when the code leaves it. Only a clock of the
+        // library base keeps a timer.
+        bool disposesEachTime =
+            this.region.Objects.HasTimers && this.AlwaysRunsAt(place: node, turn: out SyntaxNode? turn) && turn == null;
+
         foreach (ExpressionSyntax resource in resources)
         {
+            if (disposesEachTime)
+            {
+                this.CancelsATimer(resource);
+            }
+
             this.CheckDisposed(resource);
         }
+    }
+
+    // An interpolated string handler of the code runs its constructor and an AppendLiteral for each text.
+    public override void VisitInterpolatedStringExpression(InterpolatedStringExpressionSyntax node)
+    {
+        this.Report(this.evaluator.FollowHandler(node));
+        base.VisitInterpolatedStringExpression(node);
     }
 
     // An interpolation calls ToString on its value.
@@ -377,7 +399,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             AwaitExpressionSyntax awaited =>
                 !CompleteTasks.IsComplete(region: this.region, task: awaited.Expression)
-                && LaterPartOf(awaited) is { } block
+                && this.LaterPartOf(awaited) is { } block
                     ? (block, awaited.Span.End)
                     : null,
             CommonForEachStatementSyntax loop when loop.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword) =>
@@ -404,7 +426,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 ? this.EnumeratorGivesAtOnce(loop: loop, enumerator: enumerator)
                 : CompleteTasks.ItemsComeAtOnce(region: this.region, sequence: loop.Expression);
 
-        return !each && PartAround(loop) is { } block
+        return !each && this.PartAround(loop) is { } block
             ? (block, first ? loop.Statement.Span.End : loop.Statement.SpanStart)
             : null;
     }
@@ -427,17 +449,27 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     // The largest block or switch section that always runs the statement of the await to its end.
     // Null when a statement, a branch, or a function between the two can skip the await. A goto to
-    // a label after the await can skip it also.
-    private static SyntaxNode? LaterPartOf(SyntaxNode node) =>
-        (WhereItAlwaysRuns(node) ?? HeaderOf(node)) is StatementSyntax statement ? PartAround(statement) : null;
+    // a label after the await can skip it also. A constant condition skips no part that the walk
+    // reads. In a function whose body is an expression, that expression is the part.
+    private SyntaxNode? LaterPartOf(SyntaxNode node) =>
+        (WhereItAlwaysRuns(expression: node, constants: this.region)
+         ?? HeaderOf(expression: node, constants: this.region)) switch
+        {
+            StatementSyntax statement => this.PartAround(statement),
+            ArrowExpressionClauseSyntax arrow => arrow.Expression,
+            ExpressionSyntax body => body,
+            _ => null
+        };
 
-    private static SyntaxNode? PartAround(SyntaxNode statement)
+    // The position is where the await starts. A break or a continue before it can skip the await.
+    private SyntaxNode? PartAround(SyntaxNode statement, int? at = null)
     {
         SyntaxNode? block = null;
         SyntaxNode part = statement;
+        int start = at ?? statement.SpanStart;
 
         for (SyntaxNode? place = statement.Parent;
-             place != null && RunsToItsEnd(statement: place, part: part);
+             place != null && this.RunsToItsEnd(statement: place, part: part, at: start);
              part = place, place = place.Parent)
         {
             block = place is BlockSyntax or SwitchSectionSyntax ? place : block;
@@ -447,10 +479,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     }
 
     // The statement that always runs an expression of its header. That expression is the collection
-    // of a foreach, the value of a switch, or the resource of a using. It is also the first
-    // condition of a while or a for, the condition of a do, and each initializer of a for. Null for
-    // each other expression.
-    private static StatementSyntax? HeaderOf(SyntaxNode expression)
+    // of a foreach, the value of a switch, the resource of a using, or the object of a lock. It is
+    // also the first condition of a while or a for, the condition of a do, and each initializer of a
+    // for. Null for each other expression.
+    private static StatementSyntax? HeaderOf(SyntaxNode expression, LoopRegion? constants)
     {
         SyntaxNode child = expression;
 
@@ -474,6 +506,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     return loop.Condition == child ? loop : null;
                 case UsingStatementSyntax used:
                     return used.Expression == child || used.Declaration == child ? used : null;
+                case LockStatementSyntax locked:
+                    return locked.Expression == child ? locked : null;
                 case StatementSyntax
                     or AnonymousFunctionExpressionSyntax
                     or SwitchExpressionArmSyntax
@@ -482,7 +516,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     return null;
             }
 
-            if (CanSkip(parent: parent, child: child))
+            if (CanSkip(parent: parent, child: child, constants: constants))
             {
                 return null;
             }
@@ -491,14 +525,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         return null;
     }
 
-    // True when each run of a statement runs a part of it to its end. A do runs its body one time at
-    // least. A try runs its block. With a catch clause, the code after the try can run when the
-    // block stops before the await. Thus, only a try with no catch clause counts. A try always runs
-    // its finally block, also with a catch clause. A switch section runs its statements in their
-    // order, as a block does.
-    private static bool RunsToItsEnd(SyntaxNode statement, SyntaxNode part) =>
+    // True when each run of a statement runs a part of it to its end, up to a position in that part.
+    // A loop does that when it always runs its first turn with no break or continue of the loop
+    // before the position. A try runs its block. With a catch clause, the code after the try
+    // can run when the block stops before the await. Thus, only a try with no catch clause counts. A
+    // try always runs its finally block, also with a catch clause. A switch section runs its
+    // statements in their order, as a block does. An if on a constant runs the branch that the
+    // constant selects, and the walk reads no other branch of it.
+    private bool RunsToItsEnd(SyntaxNode statement, SyntaxNode part, int at) =>
         statement switch
         {
+            ForStatementSyntax or CommonForEachStatementSyntax or WhileStatementSyntax or DoStatementSyntax =>
+                this.EndsOnlyAfter(loop: statement, body: part, at: at),
             BlockSyntax
                 or SwitchSectionSyntax
                 or UsingStatementSyntax
@@ -506,12 +544,22 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 or CheckedStatementSyntax
                 or UnsafeStatementSyntax
                 or FixedStatementSyntax
+                or ElseClauseSyntax
+                or CatchClauseSyntax
                 or FinallyClauseSyntax => true,
-            DoStatementSyntax loop => loop.Statement == part,
+            IfStatementSyntax choice => this.ConstantOf(choice.Condition) != null,
             TryStatementSyntax attempt =>
-                (attempt.Block == part && attempt.Catches.Count == 0) || attempt.Finally == part,
+                (attempt.Block == part && attempt.Catches.Count == 0)
+                || attempt.Finally == part
+                || (part is CatchClauseSyntax && EndsInItsCatch(attempt)),
             _ => false
         };
+
+    // True when the code after a try runs only after its one catch clause. The block of the try
+    // starts with a throw, and never runs to its end. The object goes to the clause, or it leaves
+    // the try statement. In the second case, the code after the try does not run.
+    private static bool EndsInItsCatch(TryStatementSyntax attempt) =>
+        attempt.Catches.Count == 1 && attempt.Block.Statements.FirstOrDefault() is ThrowStatementSyntax;
 
     // True when each turn of a loop runs an await of a task that is not complete. That await is in
     // the body, and its block holds the body. The next turn then runs after the task completes,
@@ -569,7 +617,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     // Records the code that does not run after the yield return of the first item. A try statement
     // with a finally block splits that code: the finally block runs, and the code after the try
-    // statement does not. A goto to a label after the yield return can skip it.
+    // statement does not. A goto to a label after the yield return can skip it. A break or a
+    // continue before it can end a loop around it, and the code after that loop then runs.
     private void StopsAfter(SyntaxNode yielded)
     {
         List<(SyntaxNode Block, int From)> parts = [];
@@ -578,7 +627,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         SyntaxNode part = yielded;
 
         for (SyntaxNode? place = yielded.Parent;
-             place != null && RunsToItsEnd(statement: place, part: part);
+             place != null && this.RunsToItsEnd(statement: place, part: part, at: yielded.SpanStart);
              part = place, place = place.Parent)
         {
             if (place is TryStatementSyntax { Finally: not null } attempt)
@@ -857,6 +906,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
+        if (always)
+        {
+            this.alwaysTaken.Add(node);
+        }
+
         this.Visit(node.Condition);
         this.Visit(always ? node.Statement : node.Else);
     }
@@ -879,13 +933,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     /// <summary>
     ///     The value of a condition that is a constant. Null for each other
-    ///     condition. Only names, literals, and operators can make a constant.
-    ///     Thus, the walk asks the compiler only about such a condition.
+    ///     condition. Only names, literals, operators, <c>default</c>,
+    ///     <c>sizeof</c>, and <c>nameof</c> can make a constant. Thus, the walk
+    ///     asks the compiler only about such a condition.
     /// </summary>
     /// <param name="region">The region, for the semantic model.</param>
     /// <param name="condition">The condition.</param>
     public static bool? ConstantOf(LoopRegion region, SyntaxNode condition) =>
-        condition.DescendantNodesAndSelf()
+        condition.DescendantNodesAndSelf(descendIntoChildren: static part => !IsAConstantForm(part))
             .All(static part =>
                 part
                     is IdentifierNameSyntax
@@ -893,10 +948,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     or LiteralExpressionSyntax
                     or ParenthesizedExpressionSyntax
                     or PrefixUnaryExpressionSyntax
-                    or BinaryExpressionSyntax)
+                    or BinaryExpressionSyntax
+                || IsAConstantForm(part))
         && region.ModelFor(condition).GetConstantValue(condition) is { Value: bool value }
             ? value
             : null;
+
+    // An expression that can be a constant with any type or name in it. The walk does not read the
+    // nodes in it.
+    private static bool IsAConstantForm(SyntaxNode part) =>
+        part is DefaultExpressionSyntax
+            or SizeOfExpressionSyntax
+            or InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } };
 
     public override void VisitWhileStatement(WhileStatementSyntax node)
     {
@@ -1081,6 +1144,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.evaluator.GivesBackWhatATurnReplaced(body);
+        this.EndsTheTurnsOf(body);
     }
 
     // True when each path through the body of a loop statement ends the loop. The loop then has one
@@ -1152,6 +1216,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         if (enumerator == null)
         {
             return LoopState.None;
+        }
+
+        // The enumerator of an iterator runs the code of the iterator at MoveNext. A GetEnumerator of
+        // IEnumerable that calls such a GetEnumerator gives it, as a foreach over a dynamic value does.
+        if (!enumerator.State.Queries.IsEmpty)
+        {
+            this.Run(state: enumerator.State, enumerated: null);
         }
 
         // An iterator has no enumerator object of this compilation, and a method can give the
@@ -1232,6 +1303,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         if (this.JumpsBack(node) is not (var first, var last))
         {
             base.VisitSwitchStatement(node);
+            this.AwaitsInEachSection(node);
 
             return;
         }
@@ -1244,6 +1316,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             body: node.Sections[first],
             before: before,
             parts: [.. node.Sections.Skip(first).Take(last - first + 1)]);
+
+        this.AwaitsInEachSection(node);
     }
 
     // The first section that a goto case or a goto default goes back to, and the last section with
@@ -1396,17 +1470,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     {
         SeparatedSyntaxList<PatternSyntax> patterns = list.Patterns;
         int slice = patterns.IndexOf(static pattern => pattern is SlicePatternSyntax);
-
-        IReadOnlyList<LoopState>? positions =
-            list.Parent is IsPatternExpressionSyntax or CasePatternSwitchLabelSyntax or SwitchExpressionArmSyntax
-            && MatchedValueOf(list) is { } matched
-                ? this.evaluator.StatesAtThePositionsOf(matched)
-                : null;
-
-        if (positions != null && (slice < 0 ? positions.Count != patterns.Count : positions.Count < patterns.Count - 1))
-        {
-            positions = null;
-        }
+        IReadOnlyList<LoopState>? positions = this.PositionsFor(list);
 
         for (int i = 0; i < patterns.Count; i++)
         {
@@ -1426,6 +1490,32 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     ({ } known, false) => known[slice < 0 || i < slice ? i : last]
                 });
         }
+    }
+
+    // The state at each position of the collection that a list pattern is for, when the walk knows
+    // them. An and pattern and parentheses keep the value that they test.
+    private IReadOnlyList<LoopState>? PositionsFor(ListPatternSyntax list)
+    {
+        SyntaxNode? above = list.Parent;
+
+        while (above is ParenthesizedPatternSyntax or BinaryPatternSyntax { RawKind: (int)SyntaxKind.AndPattern })
+        {
+            above = above.Parent;
+        }
+
+        IReadOnlyList<LoopState>? positions =
+            above is IsPatternExpressionSyntax or CasePatternSwitchLabelSyntax or SwitchExpressionArmSyntax
+            && MatchedValueOf(list) is { } matched
+                ? this.evaluator.StatesAtThePositionsOf(matched)
+                : null;
+
+        SeparatedSyntaxList<PatternSyntax> patterns = list.Patterns;
+        int slice = patterns.IndexOf(static pattern => pattern is SlicePatternSyntax);
+
+        return positions != null
+               && (slice < 0 ? positions.Count == patterns.Count : positions.Count >= patterns.Count - 1)
+            ? positions
+            : null;
     }
 
     private void DeclareVar(VarPatternSyntax pattern, LoopState state)
@@ -1703,6 +1793,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             states = OutStates(method: method, followed: followed);
         }
 
+        // An out parameter converts to the type of its variable with no node that names the operator.
+        if (this.region.Symbols.DeclaresConversions)
+        {
+            this.Report(this.evaluator.FollowOutConversions(deconstruction: call, value: value, states: states));
+        }
+
         for (int i = 0; i < parts.Count; i++)
         {
             LoopState part = i < states.Count ? states[i] : LoopState.None;
@@ -1922,6 +2018,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Visit(node.Right);
+
+        // A write to a static member runs the static constructor of its type, after the value.
+        this.Report(
+            node.Left switch
+            {
+                MemberAccessExpressionSyntax access => this.evaluator.FollowTheStaticConstructor(access),
+                IdentifierNameSyntax name => this.evaluator.FollowTheStaticConstructor(name),
+                _ => null
+            });
+
         this.CheckAccessor(node);
 
         bool replaces = this.AlwaysRuns(assignment: node, turn: out SyntaxNode? turn);
@@ -1991,9 +2097,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             ExpressionStatementSyntax statement => this.AlwaysRunsAt(place: statement, turn: out turn),
             // A null-conditional assignment runs when its owner is not null. Each object that the
-            // owner can name then gets the write.
-            ConditionalAccessExpressionSyntax { Parent: ExpressionStatementSyntax statement } conditional
-                when conditional.WhenNotNull == assignment =>
+            // owner can name then gets the write. A chain of such accesses is the same.
+            ConditionalAccessExpressionSyntax conditional
+                when conditional.WhenNotNull == assignment
+                     && AroundTheChain(conditional) is ExpressionStatementSyntax statement =>
                 this.AlwaysRunsAt(place: statement, turn: out turn),
             // The expression that is the body of a function is the one statement of that function.
             ArrowExpressionClauseSyntax clause => this.AlwaysRunsAt(place: clause, turn: out turn),
@@ -2001,6 +2108,20 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.AlwaysRunsAt(place: assignment, turn: out turn),
             _ => false
         };
+    }
+
+    // The node around a chain of null-conditional accesses, where each access is the part after the
+    // mark of the access around it.
+    private static SyntaxNode? AroundTheChain(SyntaxNode conditional)
+    {
+        SyntaxNode node = conditional;
+
+        while (node.Parent is ConditionalAccessExpressionSyntax outer && outer.WhenNotNull == node)
+        {
+            node = outer;
+        }
+
+        return node.Parent;
     }
 
     /// <summary>
@@ -2014,7 +2135,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     /// </returns>
     public (bool InItsFunction, SyntaxNode? Turn) WhereACallRuns(SyntaxNode call)
     {
-        if (WhereItAlwaysRuns(call) is not { } place)
+        if (WhereItAlwaysRuns(expression: call, constants: null) is not { } place)
         {
             return (false, null);
         }
@@ -2027,8 +2148,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     // The statement that always evaluates an expression when the statement runs. For the
     // expression that is the body of a lambda or of a local function, that expression or its
     // clause. Null when an operator, a conditional expression, or a function between the two can
-    // skip the expression.
-    private static SyntaxNode? WhereItAlwaysRuns(SyntaxNode expression)
+    // skip the expression. With the region, a constant condition skips no part that the walk reads.
+    private static SyntaxNode? WhereItAlwaysRuns(SyntaxNode expression, LoopRegion? constants)
     {
         SyntaxNode child = expression;
 
@@ -2050,7 +2171,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     return null;
             }
 
-            if (CanSkip(parent: parent, child: child))
+            if (CanSkip(parent: parent, child: child, constants: constants))
             {
                 return null;
             }
@@ -2061,11 +2182,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     // True when an expression can skip one of its parts. Such a part is an arm of a conditional
     // expression, or the part after a conditional access. The right side of an operator that stops
-    // at its left side is one also.
-    private static bool CanSkip(SyntaxNode parent, SyntaxNode child) =>
+    // at its left side is one also. With the region, a conditional expression on a constant skips
+    // nothing, because the walk reads only the arm that the constant selects.
+    private static bool CanSkip(SyntaxNode parent, SyntaxNode child, LoopRegion? constants) =>
         parent switch
         {
-            ConditionalExpressionSyntax conditional => conditional.Condition != child,
+            ConditionalExpressionSyntax conditional =>
+                conditional.Condition != child
+                && (constants == null || ConstantOf(region: constants, condition: conditional.Condition) == null),
             BinaryExpressionSyntax
             {
                 RawKind: (int)SyntaxKind.LogicalAndExpression
@@ -2079,9 +2203,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         };
 
     // The same as AlwaysRuns, for a statement or for the expression that is the body of a function.
-    private bool AlwaysRunsAt(SyntaxNode place, out SyntaxNode? turn)
+    // For a first read, also see MarksOfAFirstRead.
+    private bool AlwaysRunsAt(SyntaxNode place, bool forAFirstRead, out SyntaxNode? turn, out TryStatementSyntax? after)
     {
         turn = null;
+        after = null;
 
         bool inALambda = false;
 
@@ -2113,9 +2239,23 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     when !inALambda
                          && LoopStateEvaluator.LoopBodyOf(ancestor) is { } body
                          && this.FirstEndOfATurnOf(body) > place.SpanStart:
+                    if (forAFirstRead && this.HasAFirstTurn(ancestor))
+                    {
+                        continue;
+                    }
+
                     turn = body;
 
                     return false;
+                // The walk reads only the statement of an if on the constant true.
+                case IfStatementSyntax branch when this.alwaysTaken.Contains(branch):
+                    continue;
+                // The code after a try with no catch clause runs only when the block runs to its end.
+                // The finally block can run before that.
+                case TryStatementSyntax { Catches.Count: 0 } attempt when forAFirstRead:
+                    after = attempt;
+
+                    continue;
                 // A call of the function that ends at a statement before the assignment does not
                 // run the assignment.
                 case AnonymousFunctionExpressionSyntax
@@ -2262,6 +2402,22 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         while (target is ParenthesizedExpressionSyntax around)
         {
             target = around.Expression;
+        }
+
+        // A conditional ref is the location of one of its two branches, and the walk does not know which.
+        if (target is ConditionalExpressionSyntax
+            {
+                WhenTrue: RefExpressionSyntax whenTrue, WhenFalse: RefExpressionSyntax whenFalse
+            })
+        {
+            ExpressionSyntax[] locations = [whenTrue.Expression, whenFalse.Expression];
+
+            foreach (ExpressionSyntax location in locations)
+            {
+                this.Assign(target: location, value: value, replaces: false, turn: null);
+            }
+
+            return;
         }
 
         // An assignment to a name with ref, with no ref for the value, is an assignment to the
@@ -2561,7 +2717,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
     }
 
-    // The members that an indexer or a method returns a ref to, for an assignment through that ref.
+    // The members that an indexer, a property, or a method returns a ref to, for an assignment through that ref.
     // True when the target is such a ref. A write through a ref to a member of this is not one.
     private bool PutsThroughARefToAMember(SyntaxNode target, ExpressionSyntax value)
     {
@@ -2577,6 +2733,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } call
                     when this.region.SymbolOf(call) is IMethodSymbol { ReturnsByRef: true, ReducedFrom: null } method =>
                     (method.OriginalDefinition, access.Expression),
+                MemberAccessExpressionSyntax access
+                    when this.region.SymbolOf(access)
+                        is IPropertySymbol { ReturnsByRef: true, GetMethod: { } getter } =>
+                    (getter.OriginalDefinition, access.Expression),
                 _ => ((IMethodSymbol?)null, (ExpressionSyntax?)null)
             };
 
@@ -3060,21 +3220,49 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     this.evaluator.RunsAfterTheTransaction(action.Expression);
                 }
 
-                // A map through a task sends the result of its operation into its sink of results
-                // after the transaction.
-                if (method.Name == "MapAsync")
+                switch (method.Name)
                 {
-                    this.evaluator.SendsTheResults(call: node, method: method, arguments: arguments);
-                }
+                    // A map through a task sends the result of its operation into its sink of
+                    // results after the transaction.
+                    case "MapAsync":
+                        this.evaluator.SendsTheResults(call: node, method: method, arguments: arguments);
 
-                // A scheduler of a bindable runs a posted action after the transaction, as
-                // Transaction.Post does. The contract of IBindingScheduler.Post forbids a run while a
-                // transaction is open. Each Post of the library with a receiver is that Post.
-                if (receiver != null
-                    && method.Name == "Post"
-                    && arguments.Count == 1)
-                {
-                    this.evaluator.RunsAfterTheTransaction(arguments[0].Expression);
+                        break;
+                    // Debounce reads the time of its timer system, and calls its At, in the call.
+                    case "Debounce":
+                        this.Report(
+                            this.evaluator.FollowTheTimersOfADebounce(
+                                call: node,
+                                method: method,
+                                arguments: arguments));
+
+                        break;
+                    // Execute of the status of a map through a task gives the operation a value
+                    // after the transaction.
+                    case "Execute" when receiver != null && arguments.Count == 1:
+                        this.evaluator.SendsTheResultsOf(
+                            execute: method,
+                            status: receiver,
+                            value: arguments[0].Expression);
+
+                        break;
+                    // A scheduler of a bindable runs a posted action after the transaction, as
+                    // Transaction.Post does. The contract of IBindingScheduler.Post forbids a run
+                    // while a transaction is open. Each Post of the library with a receiver is that
+                    // Post. A scheduler of this code can run the action in the call, against that
+                    // contract. Thus, the walk also reads the Post of the class of an object that
+                    // it knows.
+                    case "Post" when receiver != null && arguments.Count == 1:
+                        this.Report(
+                            this.evaluator.FollowImplied(
+                                call: node,
+                                member: method,
+                                owner: this.evaluator.Eval(receiver),
+                                arguments: [(arguments[0].Expression, this.evaluator.Eval(arguments[0].Expression))]));
+
+                        this.evaluator.RunsAfterTheTransaction(arguments[0].Expression);
+
+                        break;
                 }
 
                 break;
@@ -3187,9 +3375,15 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     }
                     else
                     {
-                        this.evaluator.Absorb(
-                            target: receiver,
-                            state: this.evaluator.Moved(invocation: node, method: method, withReceiver: false));
+                        LoopState added = this.evaluator.Moved(invocation: node, method: method, withReceiver: false);
+
+                        this.evaluator.Absorb(target: receiver, state: added);
+
+                        this.evaluator.AddsThroughALocalOfAField(
+                            list: receiver,
+                            call: node,
+                            method: method,
+                            state: added);
                     }
 
                     // A search reads its argument, and the collection does not get it. An object
@@ -3372,17 +3566,36 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 // Dispose of a timer system calls Stop of its implementation. The code can call each
                 // one through IDisposable.
                 case "Dispose" when method.ReducedFrom == null:
-                    this.Report(this.evaluator.FollowEvictionsOfADispose(map: receiver, dispose: node));
-                    this.Report(this.evaluator.FollowClockOfADispose(system: receiver, dispose: node));
+                    this.CancelsATimerAt(call: node, timer: receiver);
+                    Func<bool> runsOnEachPath = () => this.WhereACallRuns(node).InItsFunction;
+
+                    this.Report(
+                        this.evaluator.FollowEvictionsOfADispose(
+                            map: receiver,
+                            dispose: node,
+                            runsOnEachPath: runsOnEachPath));
+
+                    this.Report(
+                        this.evaluator.FollowClockOfADispose(
+                            system: receiver,
+                            dispose: node,
+                            runsOnEachPath: runsOnEachPath));
 
                     break;
                 // A clock of the library base keeps the callback of SetTimer. Its RunTimersTo runs
                 // each callback that is due, in the call.
                 case "SetTimer" or "RunTimersTo"
-                    when method.ReducedFrom == null
-                         && this.region.SymbolOf(LoopStateEvaluator.Unwrapped(receiver)) is ILocalSymbol clock
-                         && this.evaluator.IsAClockOfTheLibraryBase(receiver):
-                    this.RunsTimers(clock: clock, method: method, arguments: arguments, call: node);
+                    when method.ReducedFrom == null && this.evaluator.IsAClockOfTheLibraryBase(receiver):
+                    this.RunsTimers(
+                        clocks: this.evaluator.Eval(receiver).Objects,
+                        method: method,
+                        arguments: arguments,
+                        call: node);
+
+                    break;
+                // Cancel of a timer of a clock of the library base takes that timer from its clock.
+                case "Cancel" when method.ReducedFrom == null && arguments.Count == 0:
+                    this.CancelsATimerAt(call: node, timer: receiver);
 
                     break;
                 // Execute of a bindable action posts a send of its parameter into the sink of its
@@ -3408,26 +3621,27 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     // SetTimer of a clock of the library base keeps a timer. RunTimersTo runs the callback of each
     // timer whose time is not after the time of the run, one time. A time that is not a constant
-    // can be due.
+    // can be due. The store keeps the timers of each clock that it has, thus a field, a property, a
+    // callee, and a second name each find them. The callback keeps the state that it had at the
+    // call of SetTimer. A callee that runs it cannot read the code that gave it.
     private void RunsTimers(
-        ISymbol clock,
+        ImmutableArray<MadeObject> clocks,
         IMethodSymbol method,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         SyntaxNode call)
     {
-        this.timers ??= new Dictionary<ISymbol, KeptTimers>(SymbolEqualityComparer.Default);
-
-        if (!this.timers.TryGetValue(key: clock, value: out KeptTimers? kept))
-        {
-            kept = [];
-            this.timers[clock] = kept;
-        }
-
         if (method.Name == "SetTimer")
         {
             if (Argument("time") is { } time && Argument("callback") is { } callback)
             {
-                kept.Add((time, callback));
+                this.region.Objects.KeepsATimer(
+                    clocks: this.region.Objects.Now(clocks),
+                    timer: new KeptTimer(
+                        set: call,
+                        time: time,
+                        callback: callback,
+                        functions: this.evaluator.Eval(callback),
+                        keeper: this));
             }
 
             return;
@@ -3438,12 +3652,18 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
-        foreach ((ExpressionSyntax Time, ExpressionSyntax Callback) timer in kept
-                     .Where(timer => !this.IsAfter(time: timer.Time, now: now))
+        // A callee runs a timer of a different code only where the call runs on all paths. The walk
+        // does not know the path that the arguments of the callee select.
+        bool always = this.WhereACallRuns(call) is (true, null);
+
+        foreach (KeptTimer timer in this.region.Objects.TimersOf(this.region.Objects.Now(clocks))
+                     .Where(timer => (always || timer.Keeper == this) && !this.IsAfter(time: timer.Time, now: now))
                      .ToList())
         {
-            kept.Remove(timer);
-            this.Report(this.evaluator.FollowCallback(call: call, callback: timer.Callback));
+            this.region.Objects.TakesTheTimer(timer.Set);
+
+            this.Report(
+                this.evaluator.FollowCallback(call: call, callback: timer.Callback, functions: timer.Functions));
         }
 
         return;
@@ -3455,6 +3675,26 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     == name)
                 .Select(static argument => argument.Expression)
                 .FirstOrDefault();
+    }
+
+    // A call that the code can skip, or that a loop runs, keeps the timer.
+    private void CancelsATimerAt(SyntaxNode call, ExpressionSyntax timer)
+    {
+        if (this.region.Objects.HasTimers && this.WhereACallRuns(call) is (true, null))
+        {
+            this.CancelsATimer(timer);
+        }
+    }
+
+    // A Cancel or a Dispose of a timer takes it from its clock, which then does not run its
+    // callback. The timer is the result of a call of SetTimer, or a local that no code writes and
+    // that has that result.
+    private void CancelsATimer(ExpressionSyntax timer)
+    {
+        if (this.evaluator.CallOfSetTimer(timer) is { } set)
+        {
+            this.region.Objects.TakesTheTimer(set);
+        }
     }
 
     // True when two times are integer constants, and the first is after the second.
@@ -3568,6 +3808,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
+        // The static constructors run before the constructor of the object.
+        if (node is BaseObjectCreationExpressionSyntax)
+        {
+            this.Report(this.evaluator.FollowTheStaticConstructors(creation: node, constructor: constructor));
+        }
+
         this.Visit(initializer);
 
         Followed? followed = this.evaluator.Follow(node);
@@ -3615,6 +3861,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                         arguments: arguments.Arguments,
                         call: node,
                         members: ["Start", "Now"]));
+
+                this.evaluator.NotesATimerSystem(
+                    creation: node,
+                    system: constructor,
+                    arguments: arguments.Arguments);
 
                 break;
             default:
@@ -3864,7 +4115,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                                   is { } parameter
                         ? named ?? method.Parameters[parameter.Ordinal].Type
                         : null,
-                    depth: 0);
+                    depth: 0,
+                    seen: new HashSet<(Construction, INamedTypeSymbol?)>(SerializedObjects.Instance));
             }
 
             return;
@@ -3953,6 +4205,10 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
     ///     serializer that writes it. Null for each other serializer.
     /// </param>
     /// <param name="depth">The number of objects that the value is in.</param>
+    /// <param name="seen">
+    ///     Each object of this compilation whose members the walk read for the
+    ///     argument, with the type that the serializer wrote it as.
+    /// </param>
     private void Serialize(
         ExpressionSyntax written,
         LoopState state,
@@ -3960,7 +4216,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         SerializerOptions options,
         ISymbol? member,
         ITypeSymbol? declared,
-        int depth)
+        int depth,
+        ISet<(Construction, INamedTypeSymbol?)> seen)
     {
         // The elements of a tuple are fields, and not each serializer writes a field.
         if (state.Members is { IsTuple: true } && !options.WritesFields)
@@ -3970,8 +4227,9 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         this.Run(state: state, enumerated: null);
 
-        // An object in an object in an object: the depth has an end, as a followed call has.
-        if (state.Members is not { } members || depth > 3)
+        // System.Text.Json stops with an error at this depth by default. Json.NET has no such
+        // limit, and the walk stops there also.
+        if (state.Members is not { } members || depth > MaxSerializedDepth)
         {
             return;
         }
@@ -3988,7 +4246,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     options: options,
                     member: null,
                     declared: null,
-                    depth: depth + 1);
+                    depth: depth + 1,
+                    seen: seen);
             }
 
             return;
@@ -4007,6 +4266,13 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
+        // A second read of the same object as the same type finds the same reads, at the same
+        // node. A getter of the object can give the object again, thus the walk stops there.
+        if (!seen.Add((members, own)))
+        {
+            return;
+        }
+
         foreach (IPropertySymbol property in own == null ? members.Properties : Construction.PropertiesOf(own))
         {
             if (property.GetMethod is not { } read
@@ -4015,8 +4281,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 continue;
             }
 
-            this.Report(
-                this.FollowShouldSerialize(written: written, state: state, serializer: serializer, member: property));
+            this.ReadTheTestsOf(written: written, state: state, serializer: serializer, member: property);
 
             if (this.evaluator.FollowImplied(call: written, member: read, owner: state, arguments: []) is { } getter)
             {
@@ -4029,7 +4294,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     options: options,
                     member: property,
                     declared: declared == null ? null : property.Type,
-                    depth: depth + 1);
+                    depth: depth + 1,
+                    seen: seen);
             }
         }
 
@@ -4039,8 +4305,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         foreach (IFieldSymbol field in fields)
         {
-            this.Report(
-                this.FollowShouldSerialize(written: written, state: state, serializer: serializer, member: field));
+            this.ReadTheTestsOf(written: written, state: state, serializer: serializer, member: field);
 
             this.Serialize(
                 written: written,
@@ -4052,18 +4317,25 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 options: options,
                 member: field,
                 declared: declared == null ? null : field.Type,
-                depth: depth + 1);
+                depth: depth + 1,
+                seen: seen);
         }
     }
 
-    private Followed? FollowShouldSerialize(
-        SyntaxNode written,
-        LoopState state,
-        IMethodSymbol serializer,
-        ISymbol member) =>
-        SodaFlowSymbols.ShouldSerializeOf(member: member, serializer: serializer) is { } test
-            ? this.evaluator.FollowImplied(call: written, member: test, owner: state, arguments: [])
-            : null;
+    // The serializer reads the ShouldSerialize method and the Specified getter of a member before it
+    // writes the member.
+    private void ReadTheTestsOf(SyntaxNode written, LoopState state, IMethodSymbol serializer, ISymbol member)
+    {
+        if (SodaFlowSymbols.ShouldSerializeOf(member: member, serializer: serializer) is { } test)
+        {
+            this.Report(this.evaluator.FollowImplied(call: written, member: test, owner: state, arguments: []));
+        }
+
+        if (SodaFlowSymbols.SpecifiedOf(member: member, serializer: serializer) is { } specified)
+        {
+            this.Report(this.evaluator.FollowImplied(call: written, member: specified, owner: state, arguments: []));
+        }
+    }
 
     /// <summary>
     ///     A converter that writes a value for the serializer. The first
@@ -4522,21 +4794,28 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             SyntaxNode target =
                 this.TargetThroughARef(written: arguments[i].Expression, state: state, gets: gives);
 
-            // A callee that always gives the parameter its value replaces the element. A second
-            // argument with ref or out can be the same element, and the walk does not know which
-            // value goes there last.
-            (MadeObject Made, ImmutableArray<LoopState> All)? positions =
-                target is ElementAccessExpressionSyntax indexed
-                && followed != null
+            // A callee that always gives the parameter its value replaces the element, and each other
+            // location, when the call always runs. A second argument with ref or out can be the same
+            // location, and the walk does not know which value goes there last.
+            SyntaxNode? call =
+                followed != null
                 && followed.AlwaysGives.Contains(parameter)
-                && arguments[i].Parent?.Parent is { } call
                 && arguments.Count(static argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None)) == 1
+                    ? arguments[i].Parent?.Parent
+                    : null;
+
+            (MadeObject Made, ImmutableArray<LoopState> All)? positions =
+                target is ElementAccessExpressionSyntax indexed && call != null
                     ? this.PositionsBeforeAGive(collection: indexed.Expression, call: call)
                     : null;
 
             if (target is not ElementAccessExpressionSyntax || gives)
             {
-                this.AssignState(target: target, state: state, replaces: false, turn: null);
+                this.AssignState(
+                    target: target,
+                    state: state,
+                    replaces: call != null && this.WhereACallRuns(call).InItsFunction,
+                    turn: null);
             }
 
             if (target is ElementAccessExpressionSyntax given)
@@ -4673,6 +4952,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     public override void VisitIdentifierName(IdentifierNameSyntax node)
     {
+        this.Report(this.evaluator.FollowTheStaticConstructor(node));
+
         // A name with no owner can be a property of the object that the code is in. Its getter
         // can read a member of that object.
         if (this.evaluator.HasThisMembers
@@ -4682,6 +4963,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             this.ReadGetter(node: node, property: property);
         }
+    }
+
+    public override void VisitGenericName(GenericNameSyntax node)
+    {
+        base.VisitGenericName(node);
+        this.Report(this.evaluator.FollowTheStaticConstructor(node));
     }
 
     // The name of a called method is not a property. The compiler keeps the symbol of a call, but
@@ -4720,10 +5007,14 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     /// <summary>A member that reads the current value of its owner.</summary>
     private void CheckRead(SyntaxNode node, ExpressionSyntax owner, string name) =>
-        this.CheckRead(node: node, state: this.evaluator.Eval(owner), name: name);
+        this.CheckRead(
+            node: node,
+            state: this.evaluator.WithTheBuildOfAMember(heldIn: owner, state: this.evaluator.Eval(owner)),
+            name: name,
+            heldIn: owner);
 
     /// <summary>A member that reads the current value of an owner with the given state.</summary>
-    private void CheckRead(SyntaxNode node, LoopState state, string name)
+    private void CheckRead(SyntaxNode node, LoopState state, string name, ExpressionSyntax? heldIn = null)
     {
         // The first read of a cell runs the functions that calculate its value.
         if (!state.Computed.IsEmpty)
@@ -4732,7 +5023,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.evaluator.AtTheFirstRead(
                     read: node,
                     state: state,
-                    always: this.WhereACallRuns(node).InItsFunction);
+                    marks: this.MarksOfAFirstRead(node),
+                    heldIn: heldIn);
         }
 
         if (!state.Pending)
@@ -4804,16 +5096,27 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     // A thrown object goes to each catch clause around the throw or the call whose type the object
     // can have. It stops at the first clause with no filter that gets each object of its type.
-    // Otherwise, it leaves the function. A type that the walk does not know can be each type.
+    // Otherwise, it leaves the function. A type that the walk does not know can be each type. A
+    // lambda that the walk entered runs in the call that gets it, so the object goes on to that call.
+    // A query runs its lambdas where something enumerates it, and not where its code is. An async
+    // function puts the object into its task.
     private void Sends(SyntaxNode from, ITypeSymbol? type, LoopState state)
     {
         SyntaxNode child = from;
+        SyntaxNode? parent = from.Parent;
 
-        for (SyntaxNode? parent = from.Parent;
-             parent is not (null or AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax
-                 or MemberDeclarationSyntax);
+        for (;
+             parent is not (null or LocalFunctionStatementSyntax or MemberDeclarationSyntax)
+             && (parent is not AnonymousFunctionExpressionSyntax lambda
+                 || (this.running == null && this.entered.Contains(lambda) && !IsAsync(lambda)));
              child = parent, parent = parent.Parent)
         {
+            // The runtime ignores an exception in a filter, and the object goes nowhere.
+            if (parent is CatchFilterClauseSyntax)
+            {
+                return;
+            }
+
             if (parent is not TryStatementSyntax attempt || attempt.Block != child)
             {
                 continue;
@@ -4840,21 +5143,42 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
+        if (parent != null && IsAsync(parent))
+        {
+            this.IntoTheTask(function: parent, type: type, state: state);
+
+            return;
+        }
+
         this.thrown.Add((type, state));
     }
 
     // The variable of a catch clause gets the object of each throw that goes to the clause. The
-    // filter runs first, and gets no state. The runtime ignores an exception in a filter, and the
-    // filter is then false. Thus, no read in a filter throws out of the try.
+    // filter gets it too. The runtime ignores an exception in a filter, and the filter is then
+    // false. Thus, no read in a filter throws out of the try, and the walk reports none there. A
+    // value that the filter gives to a local stays in the local.
     public override void VisitCatchClause(CatchClauseSyntax node)
     {
-        this.Visit(node.Filter);
-
         if (node.Declaration is { } declaration
             && this.caught.TryGetValue(key: node, value: out LoopState? state)
             && this.region.ModelFor(declaration).GetDeclaredSymbol(declaration) is { } local)
         {
             this.evaluator.Declare(local: local, state: state);
+        }
+
+        if (node.Filter != null)
+        {
+            Action<Finding> reports = this.sink;
+            this.sink = static _ => { };
+
+            try
+            {
+                this.Visit(node.Filter);
+            }
+            finally
+            {
+                this.sink = reports;
+            }
         }
 
         this.Visit(node.Block);
@@ -4878,16 +5202,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
         if (node.Expression is MemberAccessExpressionSyntax access
             && this.evaluator.Eval(access.Expression) is { Members: { } members } owner
-            && members.MethodsOf(name: access.Name.Identifier.ValueText, parameters: arguments.Count)
-                .ToList() is { Count: 1 } found)
+            && this.evaluator.DynamicMethodOf(
+                    members: members,
+                    name: access.Name.Identifier.ValueText,
+                    arguments: arguments)
+                is ({ } found, var inOrder))
         {
             this.Report(
                 this.evaluator.FollowImplied(
                     call: node,
-                    member: found[0],
+                    member: found,
                     owner: owner,
-                    arguments: arguments.Select(argument =>
-                        (argument.Expression, this.evaluator.Eval(argument.Expression)))));
+                    arguments: inOrder.Select(argument =>
+                        argument == null
+                            ? (node, LoopState.None)
+                            : (argument.Expression, this.evaluator.Eval(argument.Expression)))));
 
             return;
         }
@@ -5298,7 +5627,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             is "System.Collections.Generic.List<T>" or "System.Linq.Enumerable";
 
     // Add, Insert, and AddRange of List<T>.
-    private static bool PutsIntoAList(IMethodSymbol method) =>
+    internal static bool PutsIntoAList(IMethodSymbol method) =>
         method is { Name: "Add" or "Insert" or "AddRange" }
         && method.ContainingType.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.List<T>";
 
@@ -5307,4 +5636,21 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         && this.region.ModelFor(element).GetConstantValue(arguments[0].Expression) is { Value: int index }
             ? index
             : null;
+
+    // Two reads of a serializer are of the same object when they have one record of its members and
+    // one type.
+    private sealed class SerializedObjects : IEqualityComparer<(Construction Members, INamedTypeSymbol? Own)>
+    {
+        public static readonly SerializedObjects Instance = new();
+
+        public bool Equals(
+            (Construction Members, INamedTypeSymbol? Own) x,
+            (Construction Members, INamedTypeSymbol? Own) y) =>
+            ReferenceEquals(objA: x.Members, objB: y.Members)
+            && SymbolEqualityComparer.Default.Equals(x: x.Own, y: y.Own);
+
+        public int GetHashCode((Construction Members, INamedTypeSymbol? Own) read) =>
+            (read.Members.GetHashCode() * 397)
+            ^ (read.Own == null ? 0 : SymbolEqualityComparer.Default.GetHashCode(read.Own));
+    }
 }

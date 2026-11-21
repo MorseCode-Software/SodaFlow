@@ -288,6 +288,18 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
+        // An object can override a virtual method, and the walk does not know the class of the object.
+        // A name through base, or on a value of a sealed type, gives the method that it binds to.
+        if (named is { IsVirtual: true } or { IsOverride: true }
+            && written is not MemberAccessExpressionSyntax { Expression: BaseExpressionSyntax }
+            && (written is MemberAccessExpressionSyntax access
+                    ? model.GetTypeInfo(access.Expression).Type
+                    : named.ContainingType)
+                is not { IsSealed: true })
+        {
+            return null;
+        }
+
         // The definition, because its body binds to its own parameters. For an extension method on
         // a value, that value is the first parameter and the placeholder is the second.
         IMethodSymbol method = (named.ReducedFrom ?? named).OriginalDefinition;
@@ -324,11 +336,11 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    ///     The lambda or the anonymous method that a local has at a use. It is
-    ///     the value of the declaration, or of the last assignment before the
-    ///     statement of the use. Null when the code can give the local a
-    ///     different value there, by a different assignment or through a
-    ///     reference.
+    ///     The lambda, the anonymous method, or the name of a method that a local
+    ///     has at a use. It is the value of the declaration, or of the last
+    ///     assignment before the statement of the use. Null when the code can
+    ///     give the local a different value there, by a different assignment or
+    ///     through a reference.
     /// </summary>
     /// <remarks>
     ///     A value that the walk knows comes from an assignment that is a
@@ -339,14 +351,21 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     ///     the use outside a function cannot give a lambda. Thus, it gives no
     ///     function, as each other value with no lambda does.
     /// </remarks>
-    private static AnonymousFunctionExpressionSyntax? FunctionAt(ISymbol local, SyntaxNode use, SemanticModel model)
+    private static ExpressionSyntax? FunctionAt(ISymbol local, SyntaxNode use, SemanticModel model)
     {
         if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax { Initializer.Value: var value } declarator
-            || declarator.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
+            || declarator.Ancestors().FirstOrDefault(static node => node is BlockSyntax or SwitchSectionSyntax)
+                is not { } scope)
         {
             return null;
         }
+
+        // Each section of a switch can use a local that one section declares.
+        (SyntaxList<StatementSyntax> statements, SyntaxNode uses) =
+            scope is SwitchSectionSyntax { Parent: { } whole } section
+                ? (section.Statements, whole)
+                : (((BlockSyntax)scope).Statements, scope);
 
         SyntaxNode[] around = [.. use.Ancestors().TakeWhile(node => node != scope)];
 
@@ -354,11 +373,11 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         TextSpan? at =
             around.OfType<StatementSyntax>().LastOrDefault() is { } statement
             && !around.Any(static node => node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
-            && !scope.Statements.Any(static each => each is LabeledStatementSyntax)
+            && !statements.Any(static each => each is LabeledStatementSyntax)
                 ? statement.Span
                 : null;
 
-        foreach (IdentifierNameSyntax name in scope.DescendantNodes()
+        foreach (IdentifierNameSyntax name in uses.DescendantNodes()
                      .OfType<IdentifierNameSyntax>()
                      .Where(name => name.Identifier.ValueText == local.Name))
         {
@@ -366,7 +385,8 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 name.Parent switch
                 {
                     AssignmentExpressionSyntax assignment => assignment.Left == name,
-                    ArgumentSyntax argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None),
+                    ArgumentSyntax argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None)
+                                               || IsDeconstructedInto(argument),
                     RefExpressionSyntax => true,
                     _ => false
                 };
@@ -379,22 +399,66 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             }
 
             if (at == null
-                || name.Parent is not AssignmentExpressionSyntax
+                || ValueGiven(name) is not
                 {
-                    RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
-                    Parent: ExpressionStatementSyntax { Parent: var block }
-                } assigned
+                    Assignment.Parent: ExpressionStatementSyntax { Parent: var block }, Value: var given
+                }
                 || block != scope)
             {
                 return null;
             }
 
             // The names come in the order of the code, thus the last one gives the value.
-            value = assigned.Right;
+            value = given;
         }
 
-        return FunctionIn(written: value, model: model) as AnonymousFunctionExpressionSyntax;
+        // A name of a method or of a local function gives that function. BlockOf reads it.
+        return FunctionIn(written: value, model: model)
+            is (AnonymousFunctionExpressionSyntax or SimpleNameSyntax or MemberAccessExpressionSyntax)
+            and var function
+                ? function
+                : null;
     }
+
+    // True for an element of a tuple on the left of a deconstruction, also of a tuple in a tuple. A
+    // foreach can deconstruct only into new locals.
+    private static bool IsDeconstructedInto(SyntaxNode argument)
+    {
+        for (SyntaxNode? element = argument; element is ArgumentSyntax { Parent: TupleExpressionSyntax tuple };)
+        {
+            if (tuple.Parent is AssignmentExpressionSyntax { Left: var left } && left == tuple)
+            {
+                return true;
+            }
+
+            element = tuple.Parent;
+        }
+
+        return false;
+    }
+
+    // The value that a simple assignment gives a name. A deconstruction of a tuple literal into a
+    // tuple of names gives each name the element at the same position.
+    private static (AssignmentExpressionSyntax Assignment, ExpressionSyntax Value)? ValueGiven(SyntaxNode name) =>
+        name.Parent switch
+        {
+            AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assigned =>
+                (assigned, assigned.Right),
+            ArgumentSyntax
+                {
+                    Parent: TupleExpressionSyntax
+                    {
+                        Parent: AssignmentExpressionSyntax
+                        {
+                            RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+                            Right: TupleExpressionSyntax right
+                        } assigned
+                    } left
+                } element
+                when assigned.Left == left && right.Arguments.Count == left.Arguments.Count =>
+                (assigned, right.Arguments[left.Arguments.IndexOf(element)].Expression),
+            _ => null
+        };
 
     /// <summary>
     ///     The element of a returned tuple literal that closes the loop. C# converts

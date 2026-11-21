@@ -104,10 +104,15 @@ internal sealed partial class LoopStateEvaluator
                     ? (callee, receiver, elements)
                     : null;
             }
+            // CreateInstance<T>() runs the constructor of T with no parameters, as new T() does.
             case "CreateInstance"
-                when ArgumentFor(method: method, arguments: arguments, parameter: "type")
-                         is TypeOfExpressionSyntax typeOf
-                     && this.ReflectedType(typeOf) is { IsAbstract: false } type
+                when (method.IsGenericMethod
+                         ? method.TypeArguments.FirstOrDefault()
+                         : ArgumentFor(method: method, arguments: arguments, parameter: "type")
+                             is TypeOfExpressionSyntax typeOf
+                             ? this.ReflectedType(typeOf)
+                             : null)
+                     is INamedTypeSymbol { IsAbstract: false } type
                      && this.FindsPublicConstructors(method: method, arguments: arguments)
                      && this.ArgumentsOfAConstructor(method: method, arguments: arguments) is { } elements:
             {
@@ -161,14 +166,15 @@ internal sealed partial class LoopStateEvaluator
             && (value & PublicInstance) == PublicInstance);
 
     // The arguments that a call of Activator gives the constructor. A call can give them one by one
-    // to the params parameter, or in an array that it writes.
+    // to the params parameter, or in an array that it writes. A method with no such parameter gives
+    // no arguments.
     private ImmutableArray<ExpressionSyntax>? ArgumentsOfAConstructor(
         IMethodSymbol method,
         SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
         if (method.Parameters.FirstOrDefault(static parameter => parameter.Name == "args") is not { } args)
         {
-            return null;
+            return ImmutableArray<ExpressionSyntax>.Empty;
         }
 
         ExpressionSyntax[] given =

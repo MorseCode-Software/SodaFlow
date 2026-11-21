@@ -309,10 +309,9 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     /// <summary>
     ///     Each local and each location of this code that got the object that the
     ///     code is in. The record has the function of the assignment and the end
-    ///     of its value. A location has the key of LocationKeyOf.
+    ///     of its value. A location has the key of ThisKeyOf.
     /// </summary>
-    public List<(ISymbol? Local, (ISymbol Of, ISymbol? Owner, int Index)? Key, SyntaxNode Code, int From)>
-        NamesOfThis { get; } = [];
+    public List<(ISymbol? Local, NameKey? Key, SyntaxNode Code, int From)> NamesOfThis { get; } = [];
 
     /// <summary>
     ///     The state of the last write to a member of this object, when that

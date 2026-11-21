@@ -100,6 +100,9 @@ internal sealed class SodaFlowSymbols
     private readonly ConcurrentDictionary<IMethodSymbol, bool> takesASequence = new(SymbolEqualityComparer.Default);
     private readonly ConcurrentDictionary<IMethodSymbol, bool> takesAFunction = new(SymbolEqualityComparer.Default);
 
+    // The constructors whose code uses this as a value, as in a put of this into a name.
+    private readonly ConcurrentDictionary<IMethodSymbol, bool> givesThisAway = new(SymbolEqualityComparer.Default);
+
     private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
         new(SymbolEqualityComparer.Default);
 
@@ -122,6 +125,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresPlatformMembers;
     private readonly Lazy<bool> declaresRecords;
     private readonly Lazy<bool> declaresSlice;
+    private readonly Lazy<bool> declaresStaticConstructors;
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
     private readonly Lazy<IMethodSymbol?> formattableToString;
@@ -159,6 +163,10 @@ internal sealed class SodaFlowSymbols
         this.declaresHandlers = Declares(compilation: compilation, name: "AppendFormatted");
         this.declaresIndexers = Declares(compilation: compilation, name: "this[]");
         this.declaresSlice = Declares(compilation: compilation, name: "Slice");
+
+        this.declaresStaticConstructors =
+            Declares(compilation: compilation, name: WellKnownMemberNames.StaticConstructorName);
+
         this.declaresToString = Declares(compilation: compilation, name: "ToString");
         this.declaresTruth = Declares(compilation: compilation, name: "op_True");
 
@@ -324,6 +332,12 @@ internal sealed class SodaFlowSymbols
     ///     it.
     /// </summary>
     public bool DeclaresSlice => this.declaresSlice.Value;
+
+    /// <summary>
+    ///     True when the compilation declares a static constructor. A creation
+    ///     and a simple name can run one.
+    /// </summary>
+    public bool DeclaresStaticConstructors => this.declaresStaticConstructors.Value;
 
     /// <summary>True when the compilation declares a <c>ToString</c> method.</summary>
     public bool DeclaresToString => this.declaresToString.Value;
@@ -703,8 +717,9 @@ internal sealed class SodaFlowSymbols
     ///     not an indexer, and it has no attribute that tells this serializer
     ///     to ignore it. <c>XmlSerializer</c> reads only a property that it can
     ///     also set, or a property whose type is a collection and not an array.
-    ///     Json.NET reads only the members with <c>JsonProperty</c> of a type
-    ///     with <c>MemberSerialization.OptIn</c>. For the data contract serializers,
+    ///     Json.NET reads only the members that it opts in of a type with
+    ///     <c>MemberSerialization.OptIn</c>, and no property with
+    ///     <c>MemberSerialization.Fields</c>. For the data contract serializers,
     ///     see <see cref="IsDataMember" />.
     /// </summary>
     public static bool IsSerialized(IPropertySymbol property, IMethodSymbol serializer, SerializerOptions options) =>
@@ -712,7 +727,8 @@ internal sealed class SodaFlowSymbols
         && LibraryOf(serializer) switch
         {
             DataContracts => IsDataMember(property),
-            "Newtonsoft.Json" when IsOptIn(property.ContainingType) => IsOptedIn(property),
+            "Newtonsoft.Json" when MemberSerializationOf(property.ContainingType) is not OptOut and var mode =>
+                mode == OptIn && IsOptedIn(property),
             _ => (property is
                   {
                       DeclaredAccessibility: Accessibility.Public,
@@ -730,13 +746,15 @@ internal sealed class SodaFlowSymbols
     /// <summary>
     ///     True for a field that the serializer writes. It is public, and the
     ///     serializer writes fields, or it has the attribute that includes it.
+    ///     Json.NET writes each field with <c>MemberSerialization.Fields</c>.
     /// </summary>
     public static bool IsSerialized(IFieldSymbol field, IMethodSymbol serializer, SerializerOptions options) =>
         field is { IsStatic: false, IsConst: false, IsImplicitlyDeclared: false }
         && LibraryOf(serializer) switch
         {
             DataContracts => IsDataMember(field),
-            "Newtonsoft.Json" when IsOptIn(field.ContainingType) => IsOptedIn(field),
+            "Newtonsoft.Json" when MemberSerializationOf(field.ContainingType) is not OptOut and var mode =>
+                mode == Fields || IsOptedIn(field),
             _ => (field.DeclaredAccessibility == Accessibility.Public
                   && options.WritesFields
                   && !(field.IsReadOnly && options.SkipsReadOnlyFields))
@@ -747,25 +765,36 @@ internal sealed class SodaFlowSymbols
     /// <summary>
     ///     True for a member that a data contract serializer writes. Of a type
     ///     with <c>DataContract</c>, that is each member with <c>DataMember</c>.
-    ///     Of each other type, it is each public member that the serializer can
-    ///     also set and that has no <c>IgnoreDataMember</c>.
+    ///     Of a type with <c>Serializable</c>, it is each field that has no
+    ///     <c>NonSerialized</c>. Of each other type, it is each public member
+    ///     that the serializer can also set and that has no
+    ///     <c>IgnoreDataMember</c>.
     /// </summary>
     private static bool IsDataMember(ISymbol member) =>
         HasAttribute(symbol: member.ContainingType, name: "DataContractAttribute", space: DataContracts)
             ? HasAttribute(symbol: member, name: "DataMemberAttribute", space: DataContracts)
-            : member
-                  is IPropertySymbol
-                  {
-                      DeclaredAccessibility: Accessibility.Public,
-                      GetMethod.DeclaredAccessibility: Accessibility.Public,
-                      SetMethod.DeclaredAccessibility: Accessibility.Public
-                  }
-                  or IFieldSymbol { DeclaredAccessibility: Accessibility.Public, IsReadOnly: false }
-              && !HasAttribute(symbol: member, name: "IgnoreDataMemberAttribute", space: DataContracts);
+            : HasAttribute(symbol: member.ContainingType, name: "SerializableAttribute", space: "System")
+                ? member is IFieldSymbol
+                  && !HasAttribute(symbol: member, name: "NonSerializedAttribute", space: "System")
+                : member
+                      is IPropertySymbol
+                      {
+                          DeclaredAccessibility: Accessibility.Public,
+                          GetMethod.DeclaredAccessibility: Accessibility.Public,
+                          SetMethod.DeclaredAccessibility: Accessibility.Public
+                      }
+                      or IFieldSymbol { DeclaredAccessibility: Accessibility.Public, IsReadOnly: false }
+                  && !HasAttribute(symbol: member, name: "IgnoreDataMemberAttribute", space: DataContracts);
 
-    // The JsonObject of the type, or of the nearest base type with one, says how Json.NET chooses
-    // the members. OptIn (1) is the value of its first argument or of its named argument.
-    private static bool IsOptIn(INamedTypeSymbol type)
+    // The values of MemberSerialization of Json.NET.
+    private const int OptOut = 0;
+    private const int OptIn = 1;
+    private const int Fields = 2;
+
+    // How Json.NET chooses the members of a type. The JsonObject of the type, or of the nearest base
+    // type with one, says it in its first argument or in its named argument. With no JsonObject, a
+    // DataContract of the type or of a base type gives OptIn.
+    private static int MemberSerializationOf(INamedTypeSymbol type)
     {
         for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
         {
@@ -776,17 +805,36 @@ internal sealed class SodaFlowSymbols
                 is { } chosen)
             {
                 return chosen.ConstructorArguments.Concat(chosen.NamedArguments.Select(static pair => pair.Value))
-                    .Any(static argument => argument is { Type.Name: "MemberSerialization", Value: 1 });
+                        .FirstOrDefault(static argument => argument.Type is { Name: "MemberSerialization" })
+                    is { Value: int mode }
+                    ? mode
+                    : OptOut;
+            }
+        }
+
+        return IsDataContract(type) ? OptIn : OptOut;
+    }
+
+    private static bool IsDataContract(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
+        {
+            if (HasAttribute(symbol: current, name: "DataContractAttribute", space: DataContracts))
+            {
+                return true;
             }
         }
 
         return false;
     }
 
-    // Of a type with OptIn, Json.NET writes a member with JsonProperty. A run found that it does not
-    // write a member with only DataMember.
+    // Of a type with OptIn, Json.NET writes a member with JsonProperty, and also a member with
+    // DataMember where the type is a data contract. A run found that it does not write a member with
+    // only DataMember of a different type.
     private static bool IsOptedIn(ISymbol member) =>
-        HasAttribute(symbol: member, name: "JsonPropertyAttribute", space: "Newtonsoft.Json");
+        HasAttribute(symbol: member, name: "JsonPropertyAttribute", space: "Newtonsoft.Json")
+        || (HasAttribute(symbol: member, name: "DataMemberAttribute", space: DataContracts)
+            && IsDataContract(member.ContainingType));
 
     private static bool HasAttribute(ISymbol symbol, string name, string space) =>
         symbol.GetAttributes()
@@ -830,18 +878,61 @@ internal sealed class SodaFlowSymbols
         return null;
     }
 
-    // Each serializer obeys only the ignore attribute of its own library. Condition is the one named
-    // argument of JsonIgnore. Each value but Always (1) reads the value before it decides.
+    /// <summary>
+    ///     The getter that Json.NET and <c>XmlSerializer</c> read before they
+    ///     write a member. It is the public getter of a public property of type
+    ///     <c>bool</c> with the name of the member and <c>Specified</c>. Json.NET
+    ///     reads it also where an ignore attribute is on that property. Null when
+    ///     the type has no such property.
+    /// </summary>
+    public static IMethodSymbol? SpecifiedOf(ISymbol member, IMethodSymbol serializer)
+    {
+        if (LibraryOf(serializer) is not ("Newtonsoft.Json" or "System.Xml.Serialization"))
+        {
+            return null;
+        }
+
+        string name = member.Name + "Specified";
+
+        for (INamedTypeSymbol? current = member.ContainingType; current != null; current = current.BaseType)
+        {
+            if (current.GetMembers(name)
+                    .OfType<IPropertySymbol>()
+                    .FirstOrDefault(static flag =>
+                        flag is
+                        {
+                            IsStatic: false,
+                            DeclaredAccessibility: Accessibility.Public,
+                            Type.SpecialType: SpecialType.System_Boolean,
+                            GetMethod.DeclaredAccessibility: Accessibility.Public
+                        })
+                is { GetMethod: { } read })
+            {
+                return read;
+            }
+        }
+
+        return null;
+    }
+
+    // Each serializer obeys only the ignore attribute of its own library. Json.NET also skips a field
+    // with NonSerialized, and a member with IgnoreDataMember of a type that is not OptIn. Condition is
+    // the one named argument of JsonIgnore. Each value but Always (1) reads the value before it
+    // decides.
     private static bool IsIgnored(ISymbol member, ISymbol serializer) =>
         LibraryOf(serializer) is { } library
-        && member.GetAttributes()
-            .Any(attribute =>
-                attribute.AttributeClass is { } found
-                && (found.Name, found.ContainingNamespace?.ToDisplayString(), library)
-                is ("JsonIgnoreAttribute", "System.Text.Json.Serialization", "System.Text.Json")
-                or ("JsonIgnoreAttribute", "Newtonsoft.Json", "Newtonsoft.Json")
-                or ("XmlIgnoreAttribute", "System.Xml.Serialization", "System.Xml.Serialization")
-                && attribute.NamedArguments.All(static argument => argument.Value.Value is 1));
+        && (member.GetAttributes()
+                .Any(attribute =>
+                    attribute.AttributeClass is { } found
+                    && (found.Name, found.ContainingNamespace?.ToDisplayString(), library)
+                    is ("JsonIgnoreAttribute", "System.Text.Json.Serialization", "System.Text.Json")
+                    or ("JsonIgnoreAttribute", "Newtonsoft.Json", "Newtonsoft.Json")
+                    or ("XmlIgnoreAttribute", "System.Xml.Serialization", "System.Xml.Serialization")
+                    or ("NonSerializedAttribute", "System", "Newtonsoft.Json")
+                    && attribute.NamedArguments.All(static argument => argument.Value.Value is 1))
+            || (library == "Newtonsoft.Json"
+                && HasAttribute(symbol: member, name: "IgnoreDataMemberAttribute", space: DataContracts)
+                && MemberSerializationOf(member.ContainingType) != OptIn));
 
     /// <summary>
     ///     The converter that a <c>JsonConverter</c> attribute of a member or a
@@ -996,6 +1087,22 @@ internal sealed class SodaFlowSymbols
         member.ContainingType is { } owner
         && (owner.ContainingNamespace?.ToDisplayString() == "System.Reflection"
             || (owner.Name == "Activator" && IsSystem(owner.ContainingNamespace)));
+
+    /// <summary>
+    ///     True for a constructor whose code uses <c>this</c> as a value, and not
+    ///     only as the owner of a member. Such a constructor can give the new
+    ///     object a second name. The answer for a constructor is the same at each
+    ///     creation.
+    /// </summary>
+    public bool GivesThisAway(IMethodSymbol definition) =>
+        this.givesThisAway.GetOrAdd(
+            key: definition,
+            valueFactory: static constructor =>
+                constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is ConstructorDeclarationSyntax code
+                && code.DescendantNodes()
+                    .OfType<ThisExpressionSyntax>()
+                    .Any(static used => used.Parent is not MemberAccessExpressionSyntax { Expression: var owner }
+                                        || owner != used));
 
     /// <summary>
     ///     True for a method that has a parameter whose type is a delegate. Most
@@ -1285,6 +1392,14 @@ internal sealed class SodaFlowSymbols
         && !IsStreamName(named.OriginalDefinition.Name)
         && named.SpecialType == SpecialType.None
         && !IsListenerName(named.OriginalDefinition.Name);
+
+    /// <summary>
+    ///     True for a type of a package with no graph, such as <c>Maybe</c>. A
+    ///     method of the library that returns such a value, as <c>Lookup</c>
+    ///     does, gives it the state of what the method reads.
+    /// </summary>
+    public static bool IsOfAPackageWithNoGraph(ITypeSymbol? type) =>
+        PackagesWithNoGraph.Contains(type?.ContainingAssembly?.Name ?? string.Empty);
 
     /// <summary>
     ///     True for a bindable of the library, as a bindable action or a one-way

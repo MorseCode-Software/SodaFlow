@@ -189,13 +189,17 @@ internal sealed partial class LoopStateEvaluator
         }
 
         bool hashes = definition.Name == "GetHashCode";
+        INamedTypeSymbol type = definition.ContainingType;
 
-        if (self?.Members is not { } members)
+        if (self?.Members is not { } members
+            || (!hashes
+                && type.IsRecord
+                && given.Length == 2
+                && definition.IsStatic
+                && this.ReturnsAtOnce(call: call, left: given[0].Written, right: given[1].Written)))
         {
             return null;
         }
-
-        INamedTypeSymbol type = definition.ContainingType;
 
         if (!hashes
             && type.IsRecord
@@ -230,6 +234,22 @@ internal sealed partial class LoopStateEvaluator
                                         implementations: this.region.Symbols.Implementations))
                                 : null,
                             hashes: hashes)));
+    }
+
+    // The == and the != of a record call no Equals of a member for null on the right. The same is
+    // true for one object on each side. Null on the left gives no members to read,
+    // and the walk stops before this test. A record struct has no null, and no name holds it.
+    private bool ReturnsAtOnce(SyntaxNode call, ExpressionSyntax left, ExpressionSyntax right)
+    {
+        if (Unwrapped(right) is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression })
+        {
+            return true;
+        }
+
+        return this.NameOfAnObjectIn(left) is { Owner: null, Index: null } one
+               && this.NameOfAnObjectIn(right) is { Owner: null, Index: null } other
+               && (SymbolEqualityComparer.Default.Equals(x: one.Of, y: other.Of)
+                   || this.AreOneObject(one: one.Of, other: other.Of, use: call, before: null));
     }
 
     // The members that the equality of a record compares. Each field gives its property, or itself
@@ -706,21 +726,26 @@ internal sealed partial class LoopStateEvaluator
                         operation: this.region.SymbolOf(prefix),
                         operands: [prefix.Operand]),
             PostfixUnaryExpressionSyntax postfix when this.region.Symbols.DeclaresOperators =>
-                this.FollowOperator(
-                    call: postfix,
-                    operation: this.region.SymbolOf(postfix),
-                    operands: [postfix.Operand]),
-            CastExpressionSyntax cast when this.region.Symbols.DeclaresOperators =>
-                this.FollowOperator(call: cast, operation: this.region.SymbolOf(cast), operands: [cast.Expression]),
+                this.region.SymbolOf(postfix)
+                    is IMethodSymbol { MethodKind: MethodKind.BuiltinOperator, ReturnType.TypeKind: TypeKind.Dynamic }
+                    ? this.FollowDynamicOperator(operation: postfix, operands: [postfix.Operand])
+                    : this.FollowOperator(
+                        call: postfix,
+                        operation: this.region.SymbolOf(postfix),
+                        operands: [postfix.Operand]),
+            CastExpressionSyntax cast when this.region.Symbols.DeclaresOperators => this.FollowCast(cast),
             // The compiler gives a plain assignment no operator, and only an operator of this
             // compilation has a body to read. Thus, these two tests are only for speed.
             AssignmentExpressionSyntax compound
                 when this.region.Symbols.DeclaresOperators
                      && !compound.IsKind(SyntaxKind.SimpleAssignmentExpression) =>
-                this.FollowOperator(
-                    call: compound,
-                    operation: this.region.SymbolOf(compound),
-                    operands: [compound.Left, compound.Right]),
+                this.region.SymbolOf(compound)
+                    is IMethodSymbol { MethodKind: MethodKind.BuiltinOperator, ReturnType.TypeKind: TypeKind.Dynamic }
+                    ? this.FollowDynamicOperator(operation: compound, operands: [compound.Left, compound.Right])
+                    : this.FollowOperator(
+                        call: compound,
+                        operation: this.region.SymbolOf(compound),
+                        operands: [compound.Left, compound.Right]),
             _ => null
         };
 
@@ -900,7 +925,7 @@ internal sealed partial class LoopStateEvaluator
         if (this.region.ConvertsADynamic(expression))
         {
             return this.region.ModelFor(expression).GetTypeInfo(expression).ConvertedType is { } to
-                ? this.FollowDynamicConversion(expression: expression, to: to)
+                ? this.FollowDynamicConversion(call: expression, expression: expression, to: to)
                 : null;
         }
 
@@ -908,10 +933,85 @@ internal sealed partial class LoopStateEvaluator
             ? this.FollowElementConversions(
                 call: expression,
                 parts: this.ElementConversions(
-                    from: this.region.TypeOf(expression),
-                    to: this.region.ModelFor(expression).GetTypeInfo(expression).ConvertedType,
+                    from: UnderNullable(this.region.TypeOf(expression)),
+                    to: UnderNullable(this.region.ModelFor(expression).GetTypeInfo(expression).ConvertedType),
                     whole: this.Eval(expression)))
             : null;
+    }
+
+    // A cast with no operator of the code can convert a tuple to a different tuple type. That
+    // conversion converts each element. No node or symbol names the operator of an element.
+    private Followed? FollowCast(CastExpressionSyntax cast)
+    {
+        ISymbol? operation = this.region.SymbolOf(cast);
+
+        // The binder converts a dynamic value with the conversion of the type of its object.
+        if (operation == null
+            && this.region.Symbols.DeclaresConversions
+            && this.region.TypeOf(cast.Expression) is { TypeKind: TypeKind.Dynamic }
+            && this.region.TypeOf(cast) is { } type)
+        {
+            return this.FollowDynamicConversion(call: cast, expression: cast.Expression, to: type);
+        }
+
+        return operation == null
+               && this.region.Symbols.DeclaresConversions
+               && UnderNullable(this.region.TypeOf(cast)) is INamedTypeSymbol { IsTupleType: true } to
+            ? this.FollowElementConversions(
+                call: cast,
+                parts: this.ElementConversions(
+                    from: UnderNullable(this.region.TypeOf(cast.Expression)),
+                    to: to,
+                    whole: this.Eval(cast.Expression)))
+            : this.FollowOperator(call: cast, operation: operation, operands: [cast.Expression]);
+    }
+
+    private static ITypeSymbol? UnderNullable(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+            ? nullable.TypeArguments[0]
+            : type;
+
+    /// <summary>
+    ///     The conversions of the parts that a <c>Deconstruct</c> method gives
+    ///     to the variables of a deconstruction. No node names them, and the
+    ///     compiler gives each one in the deconstruction information.
+    /// </summary>
+    /// <param name="deconstruction">
+    ///     The assignment, or the variable of the foreach statement.
+    /// </param>
+    /// <param name="value">The expression of the value, for a report.</param>
+    /// <param name="states">The state of each out parameter, in order.</param>
+    public Followed? FollowOutConversions(
+        SyntaxNode deconstruction,
+        ExpressionSyntax value,
+        IReadOnlyList<LoopState> states)
+    {
+        DeconstructionInfo info =
+            this.DeconstructionInfoOf(
+                deconstruction.Parent is ForEachVariableStatementSyntax loop && loop.Variable == deconstruction
+                    ? loop
+                    : deconstruction);
+
+        if (info.Method is not { } method)
+        {
+            return null;
+        }
+
+        IParameterSymbol[] outs = [.. method.Parameters.Where(static parameter => parameter.RefKind == RefKind.Out)];
+
+        return this.FollowElementConversions(
+            call: value,
+            parts: info.Nested.SelectMany((part, position) =>
+            {
+                LoopState state = position < states.Count ? states[position] : LoopState.None;
+
+                return part.Conversion is { IsUserDefined: true, MethodSymbol: { } conversion }
+                    ? [(conversion, state)]
+                    : PartConversions(
+                        info: part,
+                        type: position < outs.Length ? outs[position].Type : null,
+                        whole: state);
+            }));
     }
 
     /// <summary>
@@ -929,17 +1029,18 @@ internal sealed partial class LoopStateEvaluator
         LoopState tuple,
         ITypeSymbol? type)
     {
-        DeconstructionInfo info =
-            deconstruction switch
-            {
-                AssignmentExpressionSyntax assignment =>
-                    this.region.ModelFor(assignment).GetDeconstructionInfo(assignment),
-                ForEachVariableStatementSyntax loop => this.region.ModelFor(loop).GetDeconstructionInfo(loop),
-                _ => default
-            };
+        DeconstructionInfo info = this.DeconstructionInfoOf(deconstruction);
 
         return this.FollowElementConversions(call: value, parts: PartConversions(info: info, type: type, whole: tuple));
     }
+
+    private DeconstructionInfo DeconstructionInfoOf(SyntaxNode deconstruction) =>
+        deconstruction switch
+        {
+            AssignmentExpressionSyntax assignment => this.region.ModelFor(assignment).GetDeconstructionInfo(assignment),
+            ForEachVariableStatementSyntax loop => this.region.ModelFor(loop).GetDeconstructionInfo(loop),
+            _ => default
+        };
 
     // The conversion of each element of a tuple to the element of a second tuple type, with the
     // state of the element. An element that is a tuple gives the conversions of its own elements.
@@ -1095,11 +1196,14 @@ internal sealed partial class LoopStateEvaluator
                     ?.AppendCall
                 is IInvocationOperation { TargetMethod: { DeclaringSyntaxReferences.IsEmpty: false } append })
         {
-            return this.FollowImplied(
-                call: interpolation,
-                member: append,
-                owner: LoopState.None,
-                arguments: [(interpolation.Expression, this.Eval(interpolation.Expression))]);
+            return content.Parent is IInterpolatedStringHandlerCreationOperation creation
+                   && this.AppendsNothing(creation)
+                ? null
+                : this.FollowImplied(
+                    call: interpolation,
+                    member: append,
+                    owner: LoopState.None,
+                    arguments: [(interpolation.Expression, this.Eval(interpolation.Expression))]);
         }
 
         // A KeyValuePair, a DictionaryEntry, or a Tuple object prints the ToString of each part. Its
@@ -1143,6 +1247,74 @@ internal sealed partial class LoopStateEvaluator
                 owner: owner,
                 others: () => this.FollowImplied(call: value, member: toString, owner: owner, arguments: []));
     }
+
+    /// <summary>
+    ///     The constructor of an interpolated string handler of this
+    ///     compilation, and its <c>AppendLiteral</c> for each part of text. No
+    ///     node names them. A constructor that sets <c>shouldAppend</c> to the
+    ///     constant false stops each append.
+    /// </summary>
+    /// <param name="handled">The interpolated string.</param>
+    public Followed? FollowHandler(InterpolatedStringExpressionSyntax handled)
+    {
+        if (!this.region.Symbols.DeclaresHandlers
+            || this.region.ModelFor(handled).GetOperation(handled)
+                is not IInterpolatedStringOperation
+                {
+                    Parent: IInterpolatedStringHandlerCreationOperation creation
+                } content)
+        {
+            return null;
+        }
+
+        Followed? made =
+            creation.HandlerCreation is IObjectCreationOperation
+            {
+                Constructor: { DeclaringSyntaxReferences.IsEmpty: false } constructor
+            }
+                ? this.FollowConstructor(call: handled, constructor: constructor, arguments: default)
+                : null;
+
+        return this.AppendsNothing(creation)
+            ? made
+            : content.Parts
+                .OfType<IInterpolatedStringAppendOperation>()
+                .Where(static part => part.Syntax is InterpolatedStringTextSyntax)
+                .Select(static part => part.AppendCall)
+                .OfType<IInvocationOperation>()
+                .Where(static literal => !literal.TargetMethod.DeclaringSyntaxReferences.IsEmpty)
+                .Aggregate(
+                    seed: made,
+                    func: (all, literal) =>
+                        Both(
+                            first: all,
+                            second: this.FollowImplied(
+                                call: literal.Syntax,
+                                member: literal.TargetMethod,
+                                owner: LoopState.None,
+                                arguments: [])));
+    }
+
+    // True when the constructor of a handler sets its shouldAppend parameter only to the constant
+    // false. The compiler then calls no append. A compound assignment of false to false gives false.
+    private bool AppendsNothing(IInterpolatedStringHandlerCreationOperation creation) =>
+        creation is
+        {
+            HandlerCreationHasSuccessParameter: true,
+            HandlerCreation: IObjectCreationOperation
+            {
+                Constructor: { Parameters: { Length: > 0 } parameters } constructor
+            }
+        }
+        && constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is ConstructorDeclarationSyntax declaration
+        && declaration.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(name => name.Identifier.ValueText == parameters[parameters.Length - 1].Name)
+            .All(use =>
+                use.Parent is AssignmentExpressionSyntax assignment
+                && this.region.ModelFor(assignment).GetConstantValue(assignment.Right)
+                    is { HasValue: true, Value: false });
 
     // The call of a member of an interface on the objects of a value that implement it, and the
     // calls that the other objects get.
@@ -1201,16 +1373,29 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     public (Followed? Followed, bool Complete) FollowDisposeAsync(ExpressionSyntax resource)
     {
-        // The compiler looks for the method on the type of the local, which can be an interface of
-        // the type of its initializer.
-        if (!this.region.Symbols.DeclaresDisposeAsync
-            || this.region.ModelFor(resource).GetTypeInfo(resource).ConvertedType is not { } type
-            || this.DisposeAsyncOf(type) is not { } dispose)
+        if (!this.region.Symbols.DeclaresDisposeAsync)
         {
             return (null, false);
         }
 
-        LoopState owner = this.Self(resource);
+        // ConfigureAwait of a resource gives a struct of the platform, whose DisposeAsync calls the
+        // member of IAsyncDisposable on the resource. Otherwise, the compiler looks for the method on
+        // the type of the local, which can be an interface of the type of its initializer.
+        ExpressionSyntax? configured = this.ResourceOfConfigureAwait(resource);
+
+        IMethodSymbol? dispose =
+            configured != null
+                ? this.region.Symbols.AsyncDisposableDisposeAsync
+                : this.region.ModelFor(resource).GetTypeInfo(resource).ConvertedType is { } type
+                    ? this.DisposeAsyncOf(type)
+                    : null;
+
+        if (dispose == null)
+        {
+            return (null, false);
+        }
+
+        LoopState owner = this.Self(configured ?? resource);
 
         return (
             owner.Members == null
@@ -1218,6 +1403,20 @@ internal sealed partial class LoopStateEvaluator
                 : this.FollowImplied(call: resource, member: dispose, owner: owner, arguments: []),
             this.GivesOnlyCompleteTasks(owner: owner, member: dispose));
     }
+
+    // The resource of ConfigureAwait of the platform, as in r.ConfigureAwait(false). Null for each
+    // other expression, also for a ConfigureAwait of this compilation.
+    private ExpressionSyntax? ResourceOfConfigureAwait(SyntaxNode resource) =>
+        resource is InvocationExpressionSyntax
+        {
+            Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ConfigureAwait" } access
+        }
+        && this.region.SymbolOf(resource) is IMethodSymbol
+        {
+            ContainingType.Name: "TaskAsyncEnumerableExtensions"
+        }
+            ? access.Expression
+            : null;
 
     // The compiler calls a DisposeAsync of the type that needs no argument and that the code can
     // call. Otherwise, it calls the member of IAsyncDisposable. Thus, a type with both calls its own

@@ -213,6 +213,7 @@ internal static class PlatformCallers
             Row(type: "ValueTuple", callbacks: PlatformCallbacks.Text, "ToString"),
             Row(type: "KeyValuePair", callbacks: PlatformCallbacks.Text, "ToString"),
             Row(type: "DictionaryEntry", callbacks: PlatformCallbacks.Text, "ToString"),
+            Row(type: "Lazy", callbacks: PlatformCallbacks.Text, "ToString"),
             Row(type: "String", callbacks: PlatformCallbacks.Text, "Join", "Concat", "Format"),
             Row(type: "StringBuilder", callbacks: PlatformCallbacks.Text,
                 "Append", "AppendJoin", "AppendFormat", "Insert"),

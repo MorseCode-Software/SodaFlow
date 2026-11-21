@@ -82,6 +82,10 @@ internal sealed class LoopRegion(
     private readonly HashSet<ISymbol> forced = new(SymbolEqualityComparer.Default);
     private readonly HashSet<INamedTypeSymbol> startedTypes = new(SymbolEqualityComparer.Default);
 
+    // The types whose static constructor the walk reads now. A use of such a type in its own static constructor
+    // runs it no second time.
+    private readonly HashSet<INamedTypeSymbol> startingTypes = new(SymbolEqualityComparer.Default);
+
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
 
@@ -101,6 +105,13 @@ internal sealed class LoopRegion(
 
     /// <summary>The content that the sends of this read give to the sinks.</summary>
     public SentContent Sent { get; } = new();
+
+    /// <summary>
+    ///     The field behind each property that the walk asked about, or null
+    ///     for a property with no such field. The evaluator reads the
+    ///     declaration of a property one time.
+    /// </summary>
+    public Dictionary<ISymbol, IFieldSymbol?> FieldsBehind { get; } = new(SymbolEqualityComparer.Default);
 
     // The functions that run after the transaction of the block, while the walk reads them.
     private readonly HashSet<SyntaxNode> readAfterTheTransaction = [];
@@ -164,14 +175,43 @@ internal sealed class LoopRegion(
     /// <summary>The assembly that the block is in.</summary>
     public IAssemblySymbol Assembly => this.compilation.Assembly;
 
+    /// <summary>
+    ///     The type of the platform with the metadata name. Null when the
+    ///     compilation has no such type.
+    /// </summary>
+    /// <param name="name">The metadata name, such as <c>System.Exception</c>.</param>
+    public INamedTypeSymbol? TypeOfThePlatform(string name) => this.compilation.GetTypeByMetadataName(name);
+
     /// <summary>True when the code set a field to a value with a state.</summary>
     public bool HasFields => this.fields.Count > 0;
 
     /// <summary>
-    ///     Records that the walk reads the static constructor of a type. True
-    ///     the first time for each type, which is the only time it runs.
+    ///     Records that the walk reads the static constructor of a type. False
+    ///     when a use that is sure to run read it before, or when the walk reads
+    ///     it now. Call <see cref="EndsTheStaticConstructorOf" /> after the read.
     /// </summary>
-    public bool StartsTheType(INamedTypeSymbol type) => this.startedTypes.Add(type);
+    /// <param name="type">The type.</param>
+    /// <param name="sure">
+    ///     True when the use always runs. Only such a use runs the constructor
+    ///     for each use after it.
+    /// </param>
+    public bool StartsTheType(INamedTypeSymbol type, bool sure)
+    {
+        if (this.startedTypes.Contains(type) || !this.startingTypes.Add(type))
+        {
+            return false;
+        }
+
+        if (sure)
+        {
+            this.startedTypes.Add(type);
+        }
+
+        return true;
+    }
+
+    /// <summary>Records the end of the read of the static constructor of a type.</summary>
+    public void EndsTheStaticConstructorOf(INamedTypeSymbol type) => this.startingTypes.Remove(type);
 
     /// <summary>
     ///     Keeps the objects as results of calls that a second call can give
@@ -222,18 +262,31 @@ internal sealed class LoopRegion(
     ///     which object has the field, thus each object of the type has that state
     ///     to the end of the block.
     /// </summary>
-    public void SetField(ISymbol field, LoopState state)
+    /// <param name="field">The field.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="replaces">
+    ///     True for a field with one location, such as a static field, and a
+    ///     write that always runs. The value then replaces the value before it.
+    /// </param>
+    public void SetField(ISymbol field, LoopState state, bool replaces)
     {
+        ISymbol key = field.OriginalDefinition;
+
         // A state that only holds objects of the store says what the owner of the field holds.
         if (state is { IsNone: true, HoldsAnObject: false })
         {
+            if (replaces)
+            {
+                this.fields.Remove(key);
+            }
+
             return;
         }
 
-        ISymbol key = field.OriginalDefinition;
-
         this.fields[key] =
-            this.fields.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
+            !replaces && this.fields.TryGetValue(key: key, value: out LoopState? existing)
+                ? existing.Join(state)
+                : state;
 
         this.lastWrites[key] = this.MemberWrites;
 
@@ -341,9 +394,11 @@ internal sealed class LoopRegion(
     /// <summary>
     ///     True when the compiler converts the value of the expression, a tuple
     ///     that is not a tuple literal, to a different tuple type. Each element
-    ///     then gets a conversion that no node shows.
+    ///     then gets a conversion that no node shows. A nullable conversion can
+    ///     contain such a conversion, and the caller looks at the types.
     /// </summary>
-    public bool ConvertsATuple(ExpressionSyntax expression) => this.ConversionAt(expression).IsTupleConversion;
+    public bool ConvertsATuple(ExpressionSyntax expression) =>
+        this.ConversionAt(expression) is { IsTupleConversion: true } or { IsNullable: true };
 
     /// <summary>
     ///     True when the compiler converts the value of the expression, of the
@@ -463,13 +518,16 @@ internal sealed class LoopRegion(
     ///     field its state now. See <see cref="WritesThroughNamesOf" />.
     /// </summary>
     /// <param name="member">The member.</param>
-    /// <param name="name">The name of the owner, or null when the walk cannot read it again.</param>
+    /// <param name="name">
+    ///     The name of the owner, or null when the walk cannot read it again.
+    ///     Such a write can be through each name.
+    /// </param>
     /// <param name="objects">The objects of the store that the owner can be.</param>
     public void NotesAWriteThroughAName(ISymbol member, NameKey? name, ImmutableArray<MadeObject> objects)
     {
         ISymbol key = member.OriginalDefinition;
 
-        if (name == null || this.LastWriteOf(key) != this.MemberWrites)
+        if (this.LastWriteOf(key) != this.MemberWrites)
         {
             return;
         }
@@ -480,7 +538,7 @@ internal sealed class LoopRegion(
             this.writesThroughNames[key] = writes;
         }
 
-        writes.Add(new NamedWrite(name: name.Value, objects: objects, at: this.MemberWrites));
+        writes.Add(new NamedWrite(name: name, objects: objects, at: this.MemberWrites));
     }
 
     /// <summary>
@@ -723,7 +781,7 @@ internal sealed class LoopRegion(
                         this.PlaceholderName));
             }
             // The close reads the value. A function that calculates the value can read a pending value.
-            else if (state.Pending || evaluator.AtTheFirstRead(read: closing, state: state, always: false).Pending)
+            else if (state.Pending || evaluator.AtTheFirstRead(read: closing, state: state, marks: null).Pending)
             {
                 // A pending close with no link is a lazy sample of the loop in its own initial
                 // value. That sample forces itself at the end of the transaction.

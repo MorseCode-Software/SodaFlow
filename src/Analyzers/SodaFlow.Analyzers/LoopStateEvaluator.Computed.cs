@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -38,6 +39,9 @@ internal sealed partial class LoopStateEvaluator
             OperatorRule.LiftValue or OperatorRule.Combine or OperatorRule.SameValues =>
                 state.Computing(inputs.Computed),
             OperatorRule.HoldLazy => state.Computing(firstArgument.Computed),
+            // A read of the switch reads the cell that holds the selected cell, and then that cell.
+            OperatorRule.SwitchValue =>
+                state.Computing(receiverState.Computed).Computing(receiverState.Content.Computed),
             _ => state
         };
 
@@ -115,7 +119,8 @@ internal sealed partial class LoopStateEvaluator
     ///     it makes the lambda. That is a name from the code around the lambda,
     ///     a member of an object, a static member, or a function of this
     ///     compilation. This is a check of the syntax. Only the first name of a
-    ///     member access needs the compiler, because it can be a type.
+    ///     member access needs the compiler, because it can be a type. Then, the
+    ///     member after the type needs it also.
     /// </summary>
     private bool CanReadALaterValue(AnonymousFunctionExpressionSyntax lambda, LoopState given)
     {
@@ -138,7 +143,8 @@ internal sealed partial class LoopStateEvaluator
                     if (!own.Contains(name.Identifier.ValueText)
                         && (name.Parent is not MemberAccessExpressionSyntax access
                             || access.Expression != name
-                            || this.region.SymbolOf(name) is not (ITypeSymbol or INamespaceSymbol)))
+                            || this.region.SymbolOf(name) is not (ITypeSymbol or INamespaceSymbol)
+                            || this.CanHoldALaterValue(access)))
                     {
                         return true;
                     }
@@ -157,6 +163,53 @@ internal sealed partial class LoopStateEvaluator
                 _ => !SyntaxFacts.IsInTypeOnlyContext(name)
             };
     }
+
+    /// <summary>
+    ///     True when a member access with a type or a namespace at its head names
+    ///     a static member that can change after the build. A method or a getter
+    ///     of this compilation can read each field. A field or a property can
+    ///     hold a state when its type can. The access can also run a static
+    ///     constructor of its type. A call such as <c>Math.Max</c> does none of
+    ///     these.
+    /// </summary>
+    private bool CanHoldALaterValue(ExpressionSyntax access)
+    {
+        // A namespace or a nested type in the access names the type of the member after it.
+        ExpressionSyntax used = access;
+        ISymbol? member = this.MemberOf(used);
+
+        while (member is INamespaceOrTypeSymbol
+               && used.Parent is MemberAccessExpressionSyntax next
+               && next.Expression == used)
+        {
+            used = next;
+            member = this.MemberOf(used);
+        }
+
+        return member switch
+            {
+                IMethodSymbol { IsStatic: true } method => !method.DeclaringSyntaxReferences.IsEmpty,
+                IFieldSymbol { IsStatic: true, IsConst: false } field => this.CanHoldState(field.Type),
+                IPropertySymbol { IsStatic: true } property =>
+                    GetterOf(property) != null || this.CanHoldState(property.Type),
+                _ => false
+            }
+            || (member is { IsStatic: true, ContainingType: { DeclaringSyntaxReferences.IsEmpty: false } owner }
+                && owner.OriginalDefinition.StaticConstructors.Any(static constructor =>
+                    !constructor.IsImplicitlyDeclared));
+    }
+
+    // The member that a part of a member access names. The compiler keeps the symbol of a call, and not the symbol
+    // of the name of its method. A call of a delegate gets the member that holds the delegate.
+    private ISymbol? MemberOf(SyntaxNode used) =>
+        used.Parent is InvocationExpressionSyntax call
+        && call.Expression == used
+        && this.region.SymbolOf(call) is IMethodSymbol { MethodKind: not MethodKind.DelegateInvoke } called
+            ? called
+            : this.region.SymbolOf(used);
+
+    private bool CanHoldState(ITypeSymbol type) =>
+        this.region.Symbols.CanHoldState(type: type, compilation: this.region.Assembly);
 
     // The names of the parameters and the locals that a lambda declares, with those of each function in it.
     private static HashSet<string> NamesDeclaredIn(AnonymousFunctionExpressionSyntax lambda)
@@ -212,18 +265,29 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     /// <param name="read">The read, which is where the walk reports what the functions read.</param>
     /// <param name="state">The state of the cell.</param>
-    /// <param name="always">True when the read always runs where its code runs.</param>
-    public LoopState AtTheFirstRead(SyntaxNode read, LoopState state, bool always)
+    /// <param name="marks">
+    ///     What records the run of a cell. The position of the read tells the
+    ///     walk how. Null when the walk cannot know that the read runs.
+    /// </param>
+    /// <param name="heldIn">
+    ///     The expression of the cell at the read, for a cell in a member. Null
+    ///     for a read with no such expression.
+    /// </param>
+    public LoopState AtTheFirstRead(
+        SyntaxNode read,
+        LoopState state,
+        Action<ComputedValue>? marks,
+        ExpressionSyntax? heldIn = null)
     {
         List<Finding> found = [];
 
-        foreach (ComputedValue cell in state.Computed.Where(static cell => !cell.HasRun))
+        foreach (ComputedValue cell in state.Computed.Where(static cell => !cell.HasRunNow))
         {
             // The mark comes before the walk of the functions. Thus, a function that reads its own
             // cell does not run again.
-            if (always && !this.quiet)
+            if (!this.quiet)
             {
-                cell.Runs();
+                marks?.Invoke(cell);
             }
 
             // An object of the store can get a pending member through a second name, which the
@@ -246,7 +310,8 @@ internal sealed partial class LoopStateEvaluator
                                 function: function,
                                 target: functions,
                                 arguments: default,
-                                each: (written, cell.Given, cell.ManyTimes))
+                                each: (written, cell.Given, cell.ManyTimes),
+                                heldIn: heldIn)
                             ?.Findings
                             .Where(static finding => !finding.Escape)
                         ?? []);
@@ -254,10 +319,17 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
-        return found.Count == 0
-            ? state
-            : state.WithPending(true)
-                .FromIfUnknown(
-                    found.FirstOrDefault(finding => finding.Home == this.Frame && finding.Origin != null)?.Origin);
+        if (found.Count == 0)
+        {
+            return state;
+        }
+
+        ISymbol? origin = found.FirstOrDefault(finding => finding.Home == this.Frame && finding.Origin != null)?.Origin;
+
+        // A function that reads a parameter of this code makes the read a read of that parameter, also
+        // for a cell in a member. Thus, the caller reports the read at the argument.
+        return origin is IParameterSymbol parameter
+            ? state.WithPending(true).From(parameter)
+            : state.WithPending(true).FromIfUnknown(origin);
     }
 }
