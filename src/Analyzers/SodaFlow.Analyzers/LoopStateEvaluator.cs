@@ -4838,7 +4838,9 @@ internal sealed partial class LoopStateEvaluator
                 contentLinked: inputs.ContentLinked);
         }
 
-        return symbols.IsCarrierType(returnType) ? inputs : LoopState.None;
+        return symbols.IsCarrierType(returnType) || SodaFlowSymbols.IsOfAPackageWithNoGraph(returnType)
+            ? inputs
+            : LoopState.None;
     }
 
     /// <summary>

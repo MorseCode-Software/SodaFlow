@@ -1298,6 +1298,14 @@ internal sealed class SodaFlowSymbols
         && !IsListenerName(named.OriginalDefinition.Name);
 
     /// <summary>
+    ///     True for a type of a package with no graph, such as <c>Maybe</c>. A
+    ///     method of the library that returns such a value, as <c>Lookup</c>
+    ///     does, gives it the state of what the method reads.
+    /// </summary>
+    public static bool IsOfAPackageWithNoGraph(ITypeSymbol? type) =>
+        PackagesWithNoGraph.Contains(type?.ContainingAssembly?.Name ?? string.Empty);
+
+    /// <summary>
     ///     True for a bindable of the library, as a bindable action or a one-way
     ///     bindable is, or for a type that implements one. A bindable raises its
     ///     events in an action that it posts to its scheduler.

@@ -5736,6 +5736,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5ApiEditConstructorWithALinkedTransform"] = ["SF1002"],
             ["Ab310EditConstructorWithADictionaryInALocal"] = ["SF1002"],
             ["Ab310EditConstructorWithATransformInALocal"] = ["SF1002"],
-            ["Ab310EditConstructorWithADictionaryThatAddFills"] = ["SF1002"]
+            ["Ab310EditConstructorWithADictionaryThatAddFills"] = ["SF1002"],
+            ["R5ApiSnapshotCellOfAnAddedLinkedStateSwitched"] = ["SF1002"],
+            ["R5ApiItemChangesOfAnAddedLinkedStateSwitched"] = ["SF1002"],
+            ["R5ApiKeyChangesOfAnAddedLinkedStateSwitched"] = ["SF1002"],
+            ["Ab311StatesOfTheSnapshotCellLookedUpAndSwitched"] = ["SF1002"],
+            ["Ab311ChangeForOfAnAddedLinkedStateSwitched"] = ["SF1002"]
         };
 }
