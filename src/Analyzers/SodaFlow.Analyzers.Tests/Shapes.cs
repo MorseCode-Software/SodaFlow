@@ -39073,6 +39073,22 @@ public static class Shapes
     public static Cell<int> Ab274WriteInATryAfterAThrowReadInTheFinally() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); try { d.Share = l.Map(v => v); Ab221Throw(); d.Share = Plain; } finally { Kept.Add(d.Share!.Sample()); } return S.Hold(0); });
 
+    // S9289. A switch of a constant of a map that samples a captured local that the block sets pending after.
+    public static Cell<int> R5SmpSwitchOfAMapReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Cell.Constant(Plain.Map(v => v + c.Sample())).SwitchC(); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S9290. A switch of a map that gives a second map. The second map samples a captured local that the block sets pending after.
+    public static Cell<int> R5SmpSwitchOfAMapThatGivesAMapSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = Plain.Map(v => v + c.Sample()); Cell<int> w = Plain.Map(_ => m).SwitchC(); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S9291. A switch of a constant of a map that samples a captured local. The block samples the switch, then sets the local pending and samples the switch again, which does not run the function.
+    public static Cell<int> Ab276SwitchOfAMapReadTwiceSetPendingBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Cell.Constant(Plain.Map(v => v + c.Sample())).SwitchC(); int n = w.Sample(); c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9292. A switch of a map whose own function samples a captured local that the block sets pending after. The function gives a plain cell.
+    public static Cell<int> Ab276SwitchOfAMapWhoseFunctionReadsALocalSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(_ => { Kept.Add(c.Sample()); return Plain; }).SwitchC(); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -39,6 +39,9 @@ internal sealed partial class LoopStateEvaluator
             OperatorRule.LiftValue or OperatorRule.Combine or OperatorRule.SameValues =>
                 state.Computing(inputs.Computed),
             OperatorRule.HoldLazy => state.Computing(firstArgument.Computed),
+            // A read of the switch reads the cell that holds the selected cell, and then that cell.
+            OperatorRule.SwitchValue =>
+                state.Computing(receiverState.Computed).Computing(receiverState.Content.Computed),
             _ => state
         };
 

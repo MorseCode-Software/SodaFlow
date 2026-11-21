@@ -5572,6 +5572,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab274InnerLoopWithNoTurnFirstThenSetPending"] = ["SF1001"],
             ["Ab274ReadInAForEachLambdaOfAnEmptyListFirst"] = ["SF1001"],
             ["Ab274FirstReadInAWhileOfNoTurnThenSetPending"] = ["SF1001"],
-            ["Ab274WriteInATryAfterAThrowReadInTheFinally"] = ["SF1001"]
+            ["Ab274WriteInATryAfterAThrowReadInTheFinally"] = ["SF1001"],
+            ["R5SmpSwitchOfAMapReadsALocalSetPendingAfter"] = ["SF1001"],
+            ["R5SmpSwitchOfAMapThatGivesAMapSetPendingAfter"] = ["SF1001"],
+            ["Ab276SwitchOfAMapWhoseFunctionReadsALocalSetPendingAfter"] = ["SF1001"]
         };
 }
