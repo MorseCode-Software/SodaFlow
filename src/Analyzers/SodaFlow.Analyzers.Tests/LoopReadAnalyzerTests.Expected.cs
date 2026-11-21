@@ -5559,6 +5559,19 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5LimStaticConstructorSkippedInABranchRunsLater"] = ["SF1005"],
             ["R5SmpStaticConstructorFirstInABranch"] = ["SF1005"],
             ["Ab273FirstReadInAConditionalArm"] = ["SF1005"],
-            ["Ab273FirstReadInAMethodInABranch"] = ["SF1005"]
+            ["Ab273FirstReadInAMethodInABranch"] = ["SF1005"],
+            ["Ab274FirstReadInAForOfNoTurnThenSetPending"] = ["SF1001"],
+            ["Ab274FirstReadInAForFromAnUnknownStartThenSetPending"] = ["SF1001"],
+            ["Ab274FirstReadInAForOnASecondLocalThenSetPending"] = ["SF1001"],
+            ["Ab274FirstReadInAForToAnUnknownEndThenSetPending"] = ["SF1001"],
+            ["Ab274FirstReadInAForeachOfAnEmptyArrayThenSetPending"] = ["SF1001"],
+            ["Ab274ReadAfterAContinueInALoopThatRuns"] = ["SF1001"],
+            ["Ab274FirstReadInATryWithACatchAfterAThrow"] = ["SF1001"],
+            ["Ab274FirstReadInATryAfterAThrowReadInTheFinally"] = ["SF1001"],
+            ["Ab274FirstReadInAForOfAGreaterThanThenSetPending"] = ["SF1001"],
+            ["Ab274InnerLoopWithNoTurnFirstThenSetPending"] = ["SF1001"],
+            ["Ab274ReadInAForEachLambdaOfAnEmptyListFirst"] = ["SF1001"],
+            ["Ab274FirstReadInAWhileOfNoTurnThenSetPending"] = ["SF1001"],
+            ["Ab274WriteInATryAfterAThrowReadInTheFinally"] = ["SF1001"]
         };
 }

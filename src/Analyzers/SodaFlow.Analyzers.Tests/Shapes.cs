@@ -38981,6 +38981,98 @@ public static class Shapes
     public static Cell<int> Ab273ReadInEachTurnOfALoop() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab273Share.C = Plain; for (int i = 0; i < 2; i++) { Kept.Add(Ab273InALoop.Value); Ab273Share.C = l.Map(v => v); } Ab273Share.C = Plain; return S.Hold(0); });
 
+    // S9266. The first read is in the body of a for loop that runs one time.
+    public static Cell<int> R5SmpFirstReadInAForLoopThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; for (int i = 0; i < 1; i++) { n += w.Sample(); } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9267. The first read is in a try block.
+    public static Cell<int> R5SmpFirstReadInATryThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n; try { n = w.Sample(); } finally { Kept.Add(1); } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9268. A for loop samples the map and then sets the captured local pending, two times. The second sample does not run the function.
+    public static Cell<int> R5SmpLoopReadsThenSetsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; for (int i = 0; i < 2; i++) { n += w.Sample(); c = l.Map(v => v); } return S.Hold(n); });
+
+    // S9269. The first read is in a foreach over an array of one item.
+    public static Cell<int> R5SmpFirstReadInAForeachThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; foreach (int i in new[] { 1 }) { n += w.Sample() + i; } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9270. The first read is in an if whose condition is the constant true.
+    public static Cell<int> R5SmpFirstReadInAnIfOfAConstantThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; if (true) { n = w.Sample(); } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9271. The first read is in the body of a do loop, which always runs one turn.
+    public static Cell<int> Ab274FirstReadInADoLoopThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; do { n += w.Sample(); } while (Never); c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9272. The first read is in the body of a while loop on the constant true, before its break.
+    public static Cell<int> Ab274FirstReadInAWhileTrueThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; while (true) { n = w.Sample(); break; } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9273. The first read is in the body of a for loop with no condition, before its break.
+    public static Cell<int> Ab274FirstReadInAForWithNoConditionThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; for (;;) { n = w.Sample(); break; } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9274. The first read is in a foreach over an array of one item that names its type.
+    public static Cell<int> Ab274FirstReadInAForeachOfATypedArrayThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; foreach (int i in new int[] { 2 }) { n += w.Sample() + i; } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9275. A for loop that runs no turn has the first read. The block then sets the captured local pending and samples the map, which runs the function.
+    public static Cell<int> Ab274FirstReadInAForOfNoTurnThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; for (int i = 0; i < 0; i++) { n += w.Sample(); } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9276. A for loop from a value that the analyzer cannot know runs no turn and has the first read. The block then sets the local pending and samples the map.
+    public static Cell<int> Ab274FirstReadInAForFromAnUnknownStartThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; for (int i = Kept.Count + 1; i < 1; i++) { n += w.Sample(); } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9277. The condition of a for loop compares a second local, and the loop runs no turn. The block then sets the local pending and samples the map.
+    public static Cell<int> Ab274FirstReadInAForOnASecondLocalThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; int k = 5; for (int i = 0; k < 1; i++) { n += w.Sample(); } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9278. A for loop up to a value that the analyzer cannot know runs no turn and has the first read. The block then sets the local pending and samples the map.
+    public static Cell<int> Ab274FirstReadInAForToAnUnknownEndThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; for (int i = 0; i < Kept.Count * 0; i++) { n += w.Sample(); } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9279. A foreach over an empty array has the first read. The block then sets the local pending and samples the map.
+    public static Cell<int> Ab274FirstReadInAForeachOfAnEmptyArrayThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; foreach (int i in new int[] { }) { n += w.Sample() + i; } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9280. A for loop that runs two turns skips the read in its first turn. The second turn samples the map after the local is pending.
+    public static Cell<int> Ab274ReadAfterAContinueInALoopThatRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; for (int i = 0; i < 2; i++) { c = i == 0 ? Plain : l.Map(v => v); if (i == 0) { continue; } n += w.Sample(); } return S.Hold(n); });
+
+    // S9281. A for loop up to a value that the analyzer cannot know samples the map and then sets the local pending in each turn. A later turn does not run the function.
+    public static Cell<int> Ab274ReadsInEachTurnOfAnUnknownLoopThenSetsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; for (int i = 0; i < Kept.Count + 2; i++) { n += w.Sample(); c = l.Map(v => v); } return S.Hold(n); });
+
+    // S9282. A try with a catch clause has a call that throws and then the first read. The block samples the map after the catch, which runs the function.
+    public static Cell<int> Ab274FirstReadInATryWithACatchAfterAThrow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; try { Ab221Throw(); n = w.Sample(); } catch (InvalidOperationException) { n = 1; } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9283. A try block has a call that throws and then the first read. The finally block sets the local pending and samples the map, which runs the function.
+    public static Cell<int> Ab274FirstReadInATryAfterAThrowReadInTheFinally() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; try { Ab221Throw(); n = w.Sample(); } finally { c = l.Map(v => v); n += w.Sample(); } return S.Hold(n); });
+
+    // S9284. The condition of a for loop is a greater-than test that is false at the start, and the loop runs no turn. The block then sets the local pending and samples the map.
+    public static Cell<int> Ab274FirstReadInAForOfAGreaterThanThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; for (int i = 0; i > 1; i++) { n += w.Sample(); } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9285. An inner loop samples the map in each turn, and has no turn in the first turn of the outer loop. The outer loop then sets the local pending, and the next inner turn samples the map.
+    public static Cell<int> Ab274InnerLoopWithNoTurnFirstThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; for (int o = 0; o < 2; o++) { for (int i = 0; i < o; i++) { n += w.Sample(); } c = l.Map(v => v); } return S.Hold(n); });
+
+    // S9286. A ForEach of a list that is empty in the first turn of a loop samples the map in its lambda. The loop then sets the local pending, and the next ForEach samples the map.
+    public static Cell<int> Ab274ReadInAForEachLambdaOfAnEmptyListFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; for (int o = 0; o < 2; o++) { List<int> items = o == 0 ? [] : [1]; items.ForEach(_ => { n += w.Sample(); }); c = l.Map(v => v); } return S.Hold(n); });
+
+    // S9287. A while loop whose condition is false at the start has the first read. The block then sets the local pending and samples the map.
+    public static Cell<int> Ab274FirstReadInAWhileOfNoTurnThenSetPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => v + c.Sample()); int n = 0; while (Kept.Count < 0) { n += w.Sample(); } c = l.Map(v => v); return S.Hold(w.Sample() + n); });
+
+    // S9288. In a try block with no catch clause, a pending cell goes into a member, a call that throws comes next, and then a plain cell. The finally block reads the member.
+    public static Cell<int> Ab274WriteInATryAfterAThrowReadInTheFinally() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); try { d.Share = l.Map(v => v); Ab221Throw(); d.Share = Plain; } finally { Kept.Add(d.Share!.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -26,7 +26,7 @@ namespace SodaFlow.Analyzers;
 ///     walker reports what that walk found.
 /// </remarks>
 // ReSharper disable once InheritdocConsiderUsage - This class has its own summary, which says more than the base class does.
-internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator evaluator, in Action<Finding> sink)
+internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvaluator evaluator, in Action<Finding> sink)
     : CSharpSyntaxWalker
 {
     private readonly HashSet<AnonymousFunctionExpressionSyntax> entered = [];
@@ -857,6 +857,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             return;
         }
 
+        if (always)
+        {
+            this.alwaysTaken.Add(node);
+        }
+
         this.Visit(node.Condition);
         this.Visit(always ? node.Statement : node.Else);
     }
@@ -1081,6 +1086,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.evaluator.GivesBackWhatATurnReplaced(body);
+        this.EndsTheTurnsOf(body);
     }
 
     // True when each path through the body of a loop statement ends the loop. The loop then has one
@@ -2089,9 +2095,11 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         };
 
     // The same as AlwaysRuns, for a statement or for the expression that is the body of a function.
-    private bool AlwaysRunsAt(SyntaxNode place, out SyntaxNode? turn)
+    // For a first read, also see MarksOfAFirstRead.
+    private bool AlwaysRunsAt(SyntaxNode place, bool forAFirstRead, out SyntaxNode? turn, out TryStatementSyntax? after)
     {
         turn = null;
+        after = null;
 
         bool inALambda = false;
 
@@ -2123,9 +2131,23 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                     when !inALambda
                          && LoopStateEvaluator.LoopBodyOf(ancestor) is { } body
                          && this.FirstEndOfATurnOf(body) > place.SpanStart:
+                    if (forAFirstRead && this.HasAFirstTurn(ancestor))
+                    {
+                        continue;
+                    }
+
                     turn = body;
 
                     return false;
+                // The walk reads only the statement of an if on the constant true.
+                case IfStatementSyntax branch when this.alwaysTaken.Contains(branch):
+                    continue;
+                // The code after a try with no catch clause runs only when the block runs to its end.
+                // The finally block can run before that.
+                case TryStatementSyntax { Catches.Count: 0 } attempt when forAFirstRead:
+                    after = attempt;
+
+                    continue;
                 // A call of the function that ends at a statement before the assignment does not
                 // run the assignment.
                 case AnonymousFunctionExpressionSyntax
@@ -4756,7 +4778,7 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
                 this.evaluator.AtTheFirstRead(
                     read: node,
                     state: state,
-                    always: this.WhereACallRuns(node).InItsFunction);
+                    marks: this.MarksOfAFirstRead(node));
         }
 
         if (!state.Pending)

@@ -262,7 +262,8 @@ is quiet.
   loop with it, the analyzer reports the sample or the close. It reads the function at that first
   read, with the values that the function reads then, so a capture or a member that becomes pending
   after you build the cell counts too, and what the function writes there counts for the code after
-  the read. A second read of the cell does not run the function again. Collection views work the
+  the read. A second read of the cell does not run the function again, when the analyzer knows that
+  the first read ran (see the limits below). Collection views work the
   same way. Their predicates, selectors, sort orders, and comparers run when something reads the
   view. The eviction handler of a `Map` on a collection runs when a key leaves the view, and in a
   call of `Dispose` for each object the map built. The analyzer reads the handler at a `Dispose` in
@@ -508,6 +509,14 @@ careful side, so it can report a read that does not throw:
   condition is the constant `false`, and the second turn of a `do` whose condition is the constant
   `false`. It still reads a `switch` section that a constant rules out, and the code after an `if`
   on a constant whose branch always returns.
+- A first read of a cell that the analyzer cannot be sure runs leaves the cell for the next read,
+  which then runs the function again. That is a read in a branch of an `if` or an arm of a `?:`
+  whose condition is not a constant, and a read in a `catch` or `finally` block. A read in a `try`
+  block counts only for the code after the `try`, and only when the `try` has no `catch` clause. A
+  read in a loop counts for the code after the loop only when the loop always runs its first turn:
+  a `do`, a `while (true)`, a `for` with no condition or from a constant up to a larger one, and a
+  `foreach` over an array literal with an item. Inside any loop, a read that each turn runs counts
+  for the turns after it.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
   one. An element counts as one object from a write through it to a read through it only in a
   straight line: in one function, with no loop, `goto` label, or `switch` section around the read

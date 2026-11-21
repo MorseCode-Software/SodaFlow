@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -261,18 +262,21 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     /// <param name="read">The read, which is where the walk reports what the functions read.</param>
     /// <param name="state">The state of the cell.</param>
-    /// <param name="always">True when the read always runs where its code runs.</param>
-    public LoopState AtTheFirstRead(SyntaxNode read, LoopState state, bool always)
+    /// <param name="marks">
+    ///     What records the run of a cell. The position of the read tells the
+    ///     walk how. Null when the walk cannot know that the read runs.
+    /// </param>
+    public LoopState AtTheFirstRead(SyntaxNode read, LoopState state, Action<ComputedValue>? marks)
     {
         List<Finding> found = [];
 
-        foreach (ComputedValue cell in state.Computed.Where(static cell => !cell.HasRun))
+        foreach (ComputedValue cell in state.Computed.Where(static cell => !cell.HasRunNow))
         {
             // The mark comes before the walk of the functions. Thus, a function that reads its own
             // cell does not run again.
-            if (always && !this.quiet)
+            if (!this.quiet)
             {
-                cell.Runs();
+                marks?.Invoke(cell);
             }
 
             // An object of the store can get a pending member through a second name, which the
