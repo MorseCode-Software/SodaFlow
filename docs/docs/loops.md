@@ -466,8 +466,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   or `string.Format`, the `ToString` of each part that a `KeyValuePair`, a `DictionaryEntry`, or a
   `Tuple` object prints, and the `ToString` of the value of a `Lazy<T>`, which its own `ToString`
   calls. A method with a format string, such as `string.Format`, calls `TryFormat`
-  of a value that implements `ISpanFormattable`, and the `ToString` of `IFormattable` where
-  `TryFormat` fails or a width pads the text.
+  of a value that implements `ISpanFormattable`. It calls the `ToString` of `IFormattable` where
+  `TryFormat` returns false, and to pad the text for a positive width, such as `{0,5}`. The analyzer
+  reads that `ToString` unless the format is a constant with no positive width and the `TryFormat`
+  of the object returns only `true`.
 - Members that SodaFlow calls for you: `CompareTo` of each sort value of a collection view that
   sorts with no comparer, at the first read of the view, and `Equals` of the comparer of a two-way
   bindable, when you write its `Value`. `RunTimersTo` of a clock built on

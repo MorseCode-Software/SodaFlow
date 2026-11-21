@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -635,6 +636,8 @@ internal sealed partial class LoopStateEvaluator
             (callbacks & PlatformCallbacks.Text) != PlatformCallbacks.None
             && method.Parameters.Any(static parameter => parameter.Name == "format");
 
+        bool pads = formats && this.CanPad(operands);
+
         // A callee that gets a comparer calls the comparer. It does not call CompareTo, Equals, or
         // GetHashCode of an object. A factory of a dictionary gets the comparer of its values
         // after the comparer of its keys.
@@ -898,7 +901,7 @@ internal sealed partial class LoopStateEvaluator
                 // can make its hash code or its text.
                 PlatformCallbacks its = owner.Gets ? callbacks : callbacks & ~ComparesTwo;
 
-                return this.CallbackMembers(members: owner.Members, callbacks: its, formats: formats)
+                return this.CallbackMembers(members: owner.Members, callbacks: its, formats: formats, pads: pads)
                     .Aggregate(
                         seed: followed,
                         func: (found, member) =>
@@ -1265,7 +1268,11 @@ internal sealed partial class LoopStateEvaluator
             _ => null
         };
 
-    private IEnumerable<IMethodSymbol> CallbackMembers(Construction members, PlatformCallbacks callbacks, bool formats)
+    private IEnumerable<IMethodSymbol> CallbackMembers(
+        Construction members,
+        PlatformCallbacks callbacks,
+        bool formats,
+        bool pads)
     {
         SodaFlowSymbols symbols = this.region.Symbols;
 
@@ -1298,14 +1305,18 @@ internal sealed partial class LoopStateEvaluator
         if ((callbacks & PlatformCallbacks.Text) != PlatformCallbacks.None && symbols.ObjectToString is { } text)
         {
             // A composite format calls TryFormat of ISpanFormattable on an object that implements it.
-            // It calls the ToString of IFormattable when TryFormat fails, or when a width puts spaces
+            // It calls the ToString of IFormattable where TryFormat fails, or where a width puts spaces
             // before the text.
             if (formats
                 && symbols is { SpanFormattableTryFormat: { } tryFormat, FormattableToString: { } formattable }
                 && members.Is(tryFormat.ContainingType))
             {
                 yield return tryFormat;
-                yield return formattable;
+
+                if (pads || !AlwaysFormats(members: members, tryFormat: tryFormat))
+                {
+                    yield return formattable;
+                }
 
                 if (ReferenceEquals(objA: members.Narrow(tryFormat.ContainingType), objB: members))
                 {
@@ -1315,6 +1326,66 @@ internal sealed partial class LoopStateEvaluator
 
             yield return text;
         }
+    }
+
+    // True when the TryFormat of each type of the object returns only the literal true. Then, it
+    // never fails.
+    private static bool AlwaysFormats(Construction members, IMethodSymbol tryFormat) =>
+        members.Types.Any()
+        && members.Types.All(type =>
+            type.FindImplementationForInterfaceMember(tryFormat)
+                    ?.DeclaringSyntaxReferences.FirstOrDefault()
+                    ?.GetSyntax()
+                is MethodDeclarationSyntax declaration
+            && (declaration.ExpressionBody is { } arrow
+                ? arrow.Expression.IsKind(SyntaxKind.TrueLiteralExpression)
+                : declaration.Body is { } body
+                  && body.DescendantNodes(descendIntoChildren: static node =>
+                          node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+                      .OfType<ReturnStatementSyntax>()
+                      .All(static returned => returned.Expression.IsKind(SyntaxKind.TrueLiteralExpression))));
+
+    // True when a composite format can put spaces before a value: a run found that only a positive
+    // width does that. The format is the first argument of type string. A format that is not a
+    // constant can have such a width.
+    private bool CanPad(IEnumerable<Operand> operands) =>
+        operands.FirstOrDefault(static operand => operand.Parameter is { SpecialType: SpecialType.System_String })
+            is not { Written: { } format }
+        || this.region.ModelFor(format).GetConstantValue(format) is not { Value: string text }
+        || HasAPositiveWidth(text);
+
+    // True for a composite format with an item such as {0,5}. Two { characters in a sequence are one
+    // { character of the text.
+    private static bool HasAPositiveWidth(string format)
+    {
+        for (int at = format.IndexOf('{'); at >= 0; at = format.IndexOf(value: '{', startIndex: at + 1))
+        {
+            if (at + 1 < format.Length && format[at + 1] == '{')
+            {
+                at++;
+
+                continue;
+            }
+
+            // The index and the width come before the format of the item.
+            int end = format.IndexOfAny(anyOf: [':', '}'], startIndex: at);
+            string head =
+                end < 0 ? format.Substring(at + 1) : format.Substring(startIndex: at + 1, length: end - at - 1);
+            int comma = head.IndexOf(',');
+
+            if (comma >= 0
+                && int.TryParse(
+                    s: head.Substring(comma + 1).Trim(),
+                    style: NumberStyles.AllowLeadingSign,
+                    provider: CultureInfo.InvariantCulture,
+                    result: out int width)
+                && width > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // An argument that is null or default, or a local that only gets such a value. A callee that

@@ -5821,6 +5821,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5LimBlockOfAVirtualMethodOfAnUnseenObject"] = ["SF1003"],
             ["Ab328BlockOfAnOverrideOfAnUnseenObject"] = ["SF1003"],
             ["Ab331MarkInALocalAssignedTwiceGivenAway"] = ["SF1003"],
-            ["R5LimLazyToStringCallsToStringOfTheValue"] = ["SF1005"]
+            ["R5LimLazyToStringCallsToStringOfTheValue"] = ["SF1005"],
+            ["Ab333StringFormatWithAFormatThatIsNotAConstantReadsToString"] = ["SF1005"],
+            ["Ab333StringFormatWithAWidthAndAFormatReadsToString"] = ["SF1005"]
         };
 }

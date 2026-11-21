@@ -40877,6 +40877,26 @@ public static class Shapes
     public static Cell<int> R5LimLazyToStringCallsToStringOfTheValue() =>
         Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Lazy<Tally> z = new(() => t); Kept.Add(z.Value); Kept.Add(z.ToString()); return S.Hold(0); });
 
+    // S9740. string.Format with no width: TryFormat succeeds, and the ToString of IFormattable, which alone samples, does not run.
+    public static Cell<int> R5LimStringFormatOfASpanFormattableWithNoWidth() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimFormatsByToString f = new(l.Map(v => v)); Kept.Add(string.Format("{0}", f)); return S.Hold(0); });
+
+    // S9741. string.Format with a width on the left of the text.
+    public static Cell<int> R5LimStringFormatOfASpanFormattableWithALeftWidth() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimFormatsByToString f = new(l.Map(v => v)); Kept.Add(string.Format("{0,-5}", f)); return S.Hold(0); });
+
+    // S9742. string.Format with a format that is not a constant. Its positive width calls the ToString of IFormattable, which samples.
+    public static Cell<int> Ab333StringFormatWithAFormatThatIsNotAConstantReadsToString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimFormatsByToString f = new(l.Map(v => v)); string format = Kept.Count > -1 ? "{0,5}" : "{0}"; Kept.Add(string.Format(format, f)); return S.Hold(0); });
+
+    // S9743. string.Format with two braces around a width, which are text, and an item with no width.
+    public static Cell<int> Ab333StringFormatWithABraceOfTheTextHasNoWidth() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimFormatsByToString f = new(l.Map(v => v)); Kept.Add(string.Format("{{0,5}} {0}", f)); return S.Hold(0); });
+
+    // S9744. string.Format with a positive width and a format of the item. The ToString of IFormattable samples.
+    public static Cell<int> Ab333StringFormatWithAWidthAndAFormatReadsToString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimFormatsByToString f = new(l.Map(v => v)); Kept.Add(string.Format("{0,5:D}", f)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
