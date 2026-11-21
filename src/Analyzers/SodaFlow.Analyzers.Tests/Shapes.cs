@@ -41517,6 +41517,10 @@ public static class Shapes
     public static Cell<int> Ag99AMapFunctionReadsOnlyAnArrowGetter() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag99ArrowGetter g = new(l.Map(v => v)); return S.Hold(Plain.Map(_ => g.Ag99ArrowNow).Sample()); });
 
+    // S9900. A map function reads a dictionary of the platform through its indexer. The dictionary has an item, thus the indexer calls GetHashCode of the key, which samples a pending cell.
+    public static Cell<int> Ag99AMapFunctionReadsADictionaryWhoseKeySamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Hashed, int> all = new() { [new Hashed(Plain)] = 1 }; Hashed key = new(l.Map(v => v)); return S.Hold(Plain.Map(_ => all[key]).Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

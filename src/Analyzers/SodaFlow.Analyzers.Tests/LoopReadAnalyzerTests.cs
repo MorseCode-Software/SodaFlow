@@ -1217,6 +1217,48 @@ internal sealed partial class LoopReadAnalyzerTests
     }
 
     /// <summary>
+    ///     An indexer of the platform calls <c>GetHashCode</c> of a key of this
+    ///     compilation. The walk reads a function whose only code is such an
+    ///     indexer also in a compilation that declares no indexer. The shapes
+    ///     file declares one, thus it cannot show this case. The function of the
+    ///     map reads a dictionary, and the key samples the pending cell.
+    /// </summary>
+    [Test]
+    public async Task APlatformIndexerIsReadInACompilationThatDeclaresNoIndexer()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> ByADictionary() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Dictionary<Key, int> all = new() { [new Key(Plain)] = 1 };
+                        Key key = new(l.Map(v => v));
+
+                        return S.Hold(Plain.Map(_ => all[key]).Sample());
+                    });
+
+                public sealed class Key(Cell<int> share)
+                {
+                    private readonly Cell<int> share = share;
+
+                    public override int GetHashCode() => this.share.Sample();
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyAKey", images: []))
+            .IsEquivalentTo(["SF1001"]);
+    }
+
+    /// <summary>
     ///     The analyzer reads a conversion that the compiler adds only when the
     ///     compilation declares an implicit or an explicit operator. The shapes
     ///     file declares the two. Each source here declares only one of them, and

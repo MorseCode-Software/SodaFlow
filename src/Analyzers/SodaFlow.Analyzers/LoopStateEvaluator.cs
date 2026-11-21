@@ -5030,6 +5030,7 @@ internal sealed partial class LoopStateEvaluator
     // True when a lambda can read a value. It has a call, or a member named Value or CanExecute. It
     // can also have a node that runs code of this compilation with no call syntax. That is a getter
     // with a body, a creation of a type that runs code, an indexer, or an operator. See DeclaredCode.
+    // An indexer of the platform can call a member of a key, as a dictionary calls GetHashCode.
     private bool CanRead(SyntaxNode body)
     {
         SodaFlowSymbols symbols = this.region.Symbols;
@@ -5039,7 +5040,8 @@ internal sealed partial class LoopStateEvaluator
                 node is InvocationExpressionSyntax
                     or MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Value" or "CanExecute" }
                     or MemberBindingExpressionSyntax { Name.Identifier.ValueText: "Value" or "CanExecute" }
-                || (node is ElementAccessExpressionSyntax or ElementBindingExpressionSyntax && symbols.DeclaresIndexers)
+                || (node is ElementAccessExpressionSyntax or ElementBindingExpressionSyntax
+                    && (symbols.DeclaresIndexers || symbols.DeclaresKeyMembers))
                 || symbols.DeclaredCode.CanRunCode(node));
     }
 
