@@ -39,9 +39,11 @@ runs locally with `dotnet tool restore && dotnet cake`. GitHub Actions runs the 
 `.github/workflows/build.yml`.
 
 A pull request that changes the loop analyzer is also timed against the analyzer on its base
-branch, and fails if the analyzer got slower; see `.github/workflows/analyzer-timing.yml`. To run
-the same comparison locally, use `dotnet cake --target=Time-Analyzer --baseline=origin/main`. It
-takes several minutes, and its numbers are only meaningful on an otherwise idle machine.
+branch, on several runners at once, and fails if the analyzer got slower by the median of those
+runners; see `.github/workflows/analyzer-timing.yml`. To run the comparison on one machine locally,
+use `dotnet cake --target=Time-Analyzer --baseline=origin/main`. It takes several minutes, and its
+numbers are only meaningful on an otherwise idle machine. One machine can disagree with the median by
+a few points, so a local result close to the limit does not settle what CI will decide.
 
 ## Documentation
 
