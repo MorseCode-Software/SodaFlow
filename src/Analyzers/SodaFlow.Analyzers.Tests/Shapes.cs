@@ -41521,6 +41521,14 @@ public static class Shapes
     public static Cell<int> Ag99AMapFunctionReadsADictionaryWhoseKeySamples() =>
         Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Hashed, int> all = new() { [new Hashed(Plain)] = 1 }; Hashed key = new(l.Map(v => v)); return S.Hold(Plain.Map(_ => all[key]).Sample()); });
 
+    // S9901. A forward reference whose object has a member whose lazy initial value samples that same member. A method group is the function of the lazy map.
+    public static Cell<int> Ag99ALazyMemberReadsItselfThroughAMethodGroup() =>
+        ForwardReference<DvLinksBox>.WithoutCaptures(r => new DvLinksBox(Cell.ConstantLazy(r.SampleLazy().Map(Ag99ReadA)))).A;
+
+    // S9902. A forward reference whose object has a member whose lazy initial value samples that same member. A local delegate is the function of the lazy map.
+    public static Cell<int> Ag99ALazyMemberReadsItselfThroughADelegateLocal() =>
+        ForwardReference<DvLinksBox>.WithoutCaptures(r => { Func<DvLinksBox, int> read = b => b.A.Sample() + 1; return new DvLinksBox(Cell.ConstantLazy(r.SampleLazy().Map(read))); }).A;
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -59499,6 +59507,8 @@ public static class Shapes
     {
         public int Ag99ArrowNow => share.Sample();
     }
+
+    private static int Ag99ReadA(DvLinksBox box) => box.A.Sample() + 1;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

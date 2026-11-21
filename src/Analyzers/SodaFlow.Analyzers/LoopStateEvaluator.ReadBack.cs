@@ -84,9 +84,10 @@ internal sealed partial class LoopStateEvaluator
             .Select((argument, position) =>
                 (Written: argument.Expression,
                     Parameter: ParameterFor(method: method, argument: argument, position: position)))
-            .Where(argument => argument.Written is AnonymousFunctionExpressionSyntax lambda
-                               && this.CanRead(lambda.Body)
-                               && OperatorTable.ComputesValue(method: method, parameter: argument.Parameter))
+            // A method by its name and a delegate in a local are functions also, as in FunctionReadsPending.
+            .Where(argument =>
+                (argument.Written is not AnonymousFunctionExpressionSyntax lambda || this.CanRead(lambda.Body))
+                && OperatorTable.ComputesValue(method: method, parameter: argument.Parameter))
             .SelectMany(argument =>
             {
                 LoopState functions = this.Eval(argument.Written);

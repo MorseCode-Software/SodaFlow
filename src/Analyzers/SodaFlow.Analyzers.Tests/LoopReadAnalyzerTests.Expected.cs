@@ -5903,6 +5903,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag99ALambdaInAFieldOfAClassWithAStaticConstructorSamplesItsCell"] = ["SF1004"],
             ["Ag99ALoopWithNoTurnGivesBackTheElementOfTheSecondArray"] = ["SF1001"],
             ["Ag99AMapFunctionReadsOnlyAnArrowGetter"] = ["SF1001"],
-            ["Ag99AMapFunctionReadsADictionaryWhoseKeySamples"] = ["SF1001"]
+            ["Ag99AMapFunctionReadsADictionaryWhoseKeySamples"] = ["SF1001"],
+            ["Ag99ALazyMemberReadsItselfThroughAMethodGroup"] = ["SF1006"],
+            ["Ag99ALazyMemberReadsItselfThroughADelegateLocal"] = ["SF1006"]
         };
 }
