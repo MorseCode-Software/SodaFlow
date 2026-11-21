@@ -39241,6 +39241,22 @@ public static class Shapes
     public static Cell<int> Ab280ForeachOverTheInnerExceptionsOfAnAggregateException() =>
         Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R5LimFault(l.Map(v => v))); } catch (AggregateException e) { foreach (Exception x in e.InnerExceptions) { Kept.Add(((R5LimFault)x).Share.Sample()); } } return S.Hold(0); });
 
+    // S9331. The filter of a catch copies the pending member of the caught object into a local, and the catch samples the local.
+    public static Cell<int> R5CsCatchFilterGivesTheObjectToALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> saved = Plain; try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) when ((saved = e.Share) != null) { Kept.Add(saved.Sample()); } return S.Hold(0); });
+
+    // S9332. The filter of a catch copies the pending member of the caught object into a local, and the code after the try samples the local.
+    public static Cell<int> Ab281CatchFilterGivesTheObjectToALocalReadAfterTheTry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> saved = Plain; try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) when ((saved = e.Share) == null) { Kept.Add(1); } catch (R4CsFault) { Kept.Add(2); } Kept.Add(saved.Sample()); return S.Hold(0); });
+
+    // S9333. The filter of a catch copies the pending member of the caught object into a local and then samples it. The exception in the filter is lost, and the filter is false.
+    public static Cell<int> Ab281CatchFilterThatSamplesTheLocalReportsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> saved = Plain; try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) when ((saved = e.Share).Sample() > 0) { Kept.Add(1); } catch (R4CsFault) { Kept.Add(2); } return S.Hold(0); });
+
+    // S9334. A method in the filter of a catch throws an object with a pending member. The runtime ignores the exception, and the filter is false. The catch of the object around the try never runs.
+    public static Cell<int> Ab281ThrowInAFilterIsLost() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new InvalidOperationException(); } catch (InvalidOperationException) when (Ab281Throw(l.Map(v => v))) { Kept.Add(1); } } catch (InvalidOperationException) { Kept.Add(2); } catch (R4CsFault x) { Kept.Add(x.Share.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -56230,6 +56246,8 @@ public static class Shapes
 
         public static int Value => 1;
     }
+
+    private static bool Ab281Throw(Cell<int> c) => throw new R4CsFault(c);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

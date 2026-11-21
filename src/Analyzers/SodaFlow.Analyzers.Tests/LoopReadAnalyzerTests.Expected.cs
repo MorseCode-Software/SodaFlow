@@ -5596,6 +5596,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab280CatchGetsTheInnerExceptionOfATypeInitializationException"] = ["SF1001"],
             ["Ab280CatchGetsTheInnerExceptionOfATargetInvocationException"] = ["SF1001"],
             ["Ab280CatchGetsTheInnerExceptionOfAnAggregateException"] = ["SF1001"],
-            ["Ab280ForeachOverTheInnerExceptionsOfAnAggregateException"] = ["SF1001"]
+            ["Ab280ForeachOverTheInnerExceptionsOfAnAggregateException"] = ["SF1001"],
+            ["R5CsCatchFilterGivesTheObjectToALocal"] = ["SF1001"],
+            ["Ab281CatchFilterGivesTheObjectToALocalReadAfterTheTry"] = ["SF1001"]
         };
 }

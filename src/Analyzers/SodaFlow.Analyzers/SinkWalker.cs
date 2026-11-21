@@ -57,7 +57,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     private readonly HashSet<AnonymousFunctionExpressionSyntax> once = [];
     private readonly LoopStateEvaluator evaluator = evaluator;
     private readonly LoopRegion region = region;
-    private readonly Action<Finding> sink = sink;
+    private Action<Finding> sink = sink;
 
     // The query whose code the walk reads now, when something enumerates that query.
     private QueryValue? running;
@@ -4865,6 +4865,12 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                  || (this.running == null && this.entered.Contains(lambda) && !IsAsync(lambda)));
              child = parent, parent = parent.Parent)
         {
+            // The runtime ignores an exception in a filter, and the object goes nowhere.
+            if (parent is CatchFilterClauseSyntax)
+            {
+                return;
+            }
+
             if (parent is not TryStatementSyntax attempt || attempt.Block != child)
             {
                 continue;
@@ -4902,17 +4908,31 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     }
 
     // The variable of a catch clause gets the object of each throw that goes to the clause. The
-    // filter runs first, and gets no state. The runtime ignores an exception in a filter, and the
-    // filter is then false. Thus, no read in a filter throws out of the try.
+    // filter gets it too. The runtime ignores an exception in a filter, and the filter is then
+    // false. Thus, no read in a filter throws out of the try, and the walk reports none there. A
+    // value that the filter gives to a local stays in the local.
     public override void VisitCatchClause(CatchClauseSyntax node)
     {
-        this.Visit(node.Filter);
-
         if (node.Declaration is { } declaration
             && this.caught.TryGetValue(key: node, value: out LoopState? state)
             && this.region.ModelFor(declaration).GetDeclaredSymbol(declaration) is { } local)
         {
             this.evaluator.Declare(local: local, state: state);
+        }
+
+        if (node.Filter != null)
+        {
+            Action<Finding> reports = this.sink;
+            this.sink = static _ => { };
+
+            try
+            {
+                this.Visit(node.Filter);
+            }
+            finally
+            {
+                this.sink = reports;
+            }
         }
 
         this.Visit(node.Block);

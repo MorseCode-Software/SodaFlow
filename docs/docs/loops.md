@@ -323,8 +323,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   such an exception has the object, and so does the `InnerException` of an exception of the platform
   that you create with an inner exception, and each of the `InnerExceptions` of an
   `AggregateException`. `GetResult` of the awaiter of a task throws the object that a function of
-  the task threw. Its filter gets none, because an exception in a filter is lost and makes the
-  filter false.
+  the task threw. Its filter gets the object too, and a local that the filter sets keeps it. The
+  analyzer reports no read in a filter, because an exception there is lost and makes the filter
+  false.
 - Collections, arrays, and dictionaries. A list, an array, or a span that you write as a literal
   keeps each element apart, also where the literal spreads a second such local, so `cells[0]`,
   `cells[^1]`, `cells.ElementAt(1)`, and each element of a list pattern in an `is` or a `switch` on
