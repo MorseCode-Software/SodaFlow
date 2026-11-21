@@ -18,7 +18,7 @@ internal sealed partial class LoopStateEvaluator
     ///     C# lets no code read a local before it gets a value. Thus, each read
     ///     of a local with one assignment gets the value of that assignment.
     /// </remarks>
-    private ExpressionSyntax? OnlyValueOf(ILocalSymbol local)
+    private ExpressionSyntax? OnlyValueOf(ISymbol local)
     {
         if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not VariableDeclaratorSyntax declarator
             || FunctionOf(declarator) is not { } code)
