@@ -288,6 +288,18 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
+        // An object can override a virtual method, and the walk does not know the class of the object.
+        // A name through base, or on a value of a sealed type, gives the method that it binds to.
+        if (named is { IsVirtual: true } or { IsOverride: true }
+            && written is not MemberAccessExpressionSyntax { Expression: BaseExpressionSyntax }
+            && (written is MemberAccessExpressionSyntax access
+                    ? model.GetTypeInfo(access.Expression).Type
+                    : named.ContainingType)
+                is not { IsSealed: true })
+        {
+            return null;
+        }
+
         // The definition, because its body binds to its own parameters. For an extension method on
         // a value, that value is the first parameter and the placeholder is the second.
         IMethodSymbol method = (named.ReducedFrom ?? named).OriginalDefinition;

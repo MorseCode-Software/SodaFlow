@@ -40841,6 +40841,18 @@ public static class Shapes
     public static Cell<int> Ab327BlockInALocalReadInATupleSamples() =>
         ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; (Func<LoopedCell<int>, Cell<int>>, int) pair; pair = (block, 1); Kept.Add(pair); return Cell.Loop<int>().WithoutCaptures(block); }))();
 
+    // S9731. The block is a virtual method of an object in a static array, given by name. The object overrides the method with a body that samples.
+    public static Cell<int> R5LimBlockOfAVirtualMethodOfAnUnseenObject() =>
+        Cell.Loop<int>().WithoutCaptures(R5LimBuilders[0].Build);
+
+    // S9732. The block is a virtual method, given by name, of an element of a static array of a sealed type. The override of that type does not sample.
+    public static Cell<int> Ab328BlockOfAnOverrideOfASealedTypeDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures(Ab328SealedBuilders[0].Build);
+
+    // S9733. The block is an override, given by name, of an element of a static array of a type that is not sealed. A further override samples.
+    public static Cell<int> Ab328BlockOfAnOverrideOfAnUnseenObject() =>
+        Cell.Loop<int>().WithoutCaptures(Ab328MiddleBuilders[0].Build);
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58420,6 +58432,30 @@ public static class Shapes
 
             return S.Hold(0);
         }, 1);
+
+    public sealed class Ab328SealedBuilder : R5LimBuilder
+    {
+        public override Cell<int> Build(LoopedCell<int> l) => S.Hold(l == null ? 1 : 0);
+    }
+
+    private static readonly Ab328SealedBuilder[] Ab328SealedBuilders = [new()];
+
+    public class Ab328MiddleBuilder : R5LimBuilder
+    {
+        public override Cell<int> Build(LoopedCell<int> l) => S.Hold(0);
+    }
+
+    public sealed class Ab328LastBuilder : Ab328MiddleBuilder
+    {
+        public override Cell<int> Build(LoopedCell<int> l)
+        {
+            Kept.Add(l.Sample());
+
+            return S.Hold(0);
+        }
+    }
+
+    private static readonly Ab328MiddleBuilder[] Ab328MiddleBuilders = [new Ab328LastBuilder()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

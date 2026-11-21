@@ -234,9 +234,11 @@ block, where both are statements of one block or of one `switch` section. That a
 deconstruction of a tuple literal, such as `(block, n) = (Build, 1)`, which gives the local the
 element at its place. A block whose function the analyzer cannot find this way, such as a delegate
 from a field or a parameter, a local that gets its function under a condition, or a local that a
-different deconstruction gives a value, gets `SF1003`, because none of its code is checked. When
-that code calls your own methods, constructors, local functions, or property getters, the analyzer
-reads them too.
+different deconstruction gives a value, gets `SF1003`, because none of its code is checked. So does
+a virtual or override method given by name, unless you give it through `base` or on a value of a
+sealed type: an object can override it with a body that the analyzer does not see. When that code
+calls your own methods, constructors, local functions, or property getters, the analyzer reads them
+too.
 
 ### The rules
 
