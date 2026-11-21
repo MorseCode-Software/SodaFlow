@@ -184,6 +184,48 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     What the transforms of an edit that the constructor of
+    ///     <c>CollectionEdit</c> makes return. The transforms are the values of
+    ///     the dictionary that the constructor gets, and each one runs as the
+    ///     transform of <c>Update</c> does.
+    /// </summary>
+    private LoopState TransformedByTheConstructor(
+        SyntaxNode creation,
+        ArgumentListSyntax arguments,
+        IMethodSymbol constructor)
+    {
+        ImmutableArray<ITypeSymbol> types = constructor.ContainingType.TypeArguments;
+
+        if (constructor.ContainingType.Name != "CollectionEdit"
+            || types.Length != 3
+            || !this.region.Symbols.CanHoldState(type: types[2], compilation: this.region.Assembly))
+        {
+            return LoopState.None;
+        }
+
+        ImmutableArray<LoopState> given = ImmutableArray.Create(LoopState.None);
+        LoopState transformed = LoopState.None;
+
+        for (int i = 0; i < arguments.Arguments.Count; i++)
+        {
+            if (ParameterFor(method: constructor, argument: arguments.Arguments[i], position: i) is { Name: "updates" })
+            {
+                ExpressionSyntax written = arguments.Arguments[i].Expression;
+
+                transformed =
+                    transformed.Join(
+                        this.ResultOfTheFunctions(
+                            call: creation,
+                            written: written,
+                            functions: this.Eval(written),
+                            given: given));
+            }
+        }
+
+        return transformed.AfterTheClose;
+    }
+
+    /// <summary>
     ///     What the function of a merge returns. The first parameter gets the
     ///     content of the receiver. The second gets the content of the second
     ///     stream, or of the list for a merge of a list of streams.

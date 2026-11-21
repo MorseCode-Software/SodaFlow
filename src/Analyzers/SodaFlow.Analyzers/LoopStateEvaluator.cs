@@ -3523,8 +3523,13 @@ internal sealed partial class LoopStateEvaluator
         && this.Classify(call: creation, method: constructor) == CalleeKind.Library
         && this.region.Symbols.IsCarrierType(constructor.ContainingType)
             ? arguments.Arguments.Aggregate(
-                seed: LoopState.None,
-                func: (all, argument) => all.Join(this.EvalArgument(argument: argument.Expression, runsNow: false)))
+                    seed: LoopState.None,
+                    func: (all, argument) => all.Join(this.EvalArgument(argument: argument.Expression, runsNow: false)))
+                .Join(
+                    this.TransformedByTheConstructor(
+                        creation: creation,
+                        arguments: arguments,
+                        constructor: constructor))
             : LoopState.None;
 
     private LoopState MovedInto(SyntaxNode creation)

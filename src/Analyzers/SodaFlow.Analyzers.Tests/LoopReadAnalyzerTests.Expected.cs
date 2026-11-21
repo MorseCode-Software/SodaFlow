@@ -5732,6 +5732,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab309CoalesceWithASecondSendUnderACondition"] = ["SF1002"],
             ["Ab309CoalesceWithAPostedSend"] = ["SF1002"],
             ["Ab309CoalesceOfTwoSendsUnderACondition"] = ["SF1002"],
-            ["Ab309CoalesceReturnsTheSecondSend"] = ["SF1002"]
+            ["Ab309CoalesceReturnsTheSecondSend"] = ["SF1002"],
+            ["R5ApiEditConstructorWithALinkedTransform"] = ["SF1002"],
+            ["Ab310EditConstructorWithADictionaryInALocal"] = ["SF1002"],
+            ["Ab310EditConstructorWithATransformInALocal"] = ["SF1002"],
+            ["Ab310EditConstructorWithADictionaryThatAddFills"] = ["SF1002"]
         };
 }

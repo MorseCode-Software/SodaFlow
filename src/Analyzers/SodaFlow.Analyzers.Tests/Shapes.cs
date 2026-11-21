@@ -40357,6 +40357,22 @@ public static class Shapes
     public static Cell<int> Ab309CoalesceThatReturnsTheLoopSampledInTheBlock() =>
         Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> c = Cell.CreateSink<Cell<int>>(Plain, (_, _) => l); c.Send(Plain); c.Send(Plain); int v = c.SwitchC().Sample(); return S.Hold(v); });
 
+    // S9610. The block sends an edit that the constructor of CollectionEdit makes from a dictionary of transforms. The transform returns a linked cell, and the switch of the state cell of that key as the close selects it.
+    public static Cell<int> R5ApiEditConstructorWithALinkedTransform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<CollectionEdit<int, ItemId, Cell<int>>> edits = Stream.CreateSink<CollectionEdit<int, ItemId, Cell<int>>>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: Plain)], edits); Cell<int> sw = all.StateCell(1).Map(m => m.Match(onSome: c => c, onNone: () => Plain)).SwitchC(); edits.Send(new CollectionEdit<int, ItemId, Cell<int>>(updates: new Dictionary<int, Func<Cell<int>, Cell<int>>> { [1] = _ => l.Map(v => v) }, adds: Array.Empty<Item<ItemId, Cell<int>>>(), removes: Array.Empty<int>())); return sw; });
+
+    // S9611. The block sends an edit that the constructor of CollectionEdit makes from a dictionary in a local. The transform returns a linked cell, and the switch of the state cell of that key as the close selects it.
+    public static Cell<int> Ab310EditConstructorWithADictionaryInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<CollectionEdit<int, ItemId, Cell<int>>> edits = Stream.CreateSink<CollectionEdit<int, ItemId, Cell<int>>>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: Plain)], edits); Cell<int> sw = all.StateCell(1).Map(m => m.Match(onSome: c => c, onNone: () => Plain)).SwitchC(); Dictionary<int, Func<Cell<int>, Cell<int>>> updates = new() { [1] = _ => l.Map(v => v) }; edits.Send(new CollectionEdit<int, ItemId, Cell<int>>(updates: updates, adds: Array.Empty<Item<ItemId, Cell<int>>>(), removes: Array.Empty<int>())); return sw; });
+
+    // S9612. The block sends an edit that the constructor of CollectionEdit makes. The transform is in a local and returns a linked cell, and the switch of the state cell of that key as the close selects it.
+    public static Cell<int> Ab310EditConstructorWithATransformInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<CollectionEdit<int, ItemId, Cell<int>>> edits = Stream.CreateSink<CollectionEdit<int, ItemId, Cell<int>>>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: Plain)], edits); Cell<int> sw = all.StateCell(1).Map(m => m.Match(onSome: c => c, onNone: () => Plain)).SwitchC(); Func<Cell<int>, Cell<int>> link = _ => l.Map(v => v); edits.Send(new CollectionEdit<int, ItemId, Cell<int>>(updates: new Dictionary<int, Func<Cell<int>, Cell<int>>> { [1] = link }, adds: Array.Empty<Item<ItemId, Cell<int>>>(), removes: Array.Empty<int>())); return sw; });
+
+    // S9613. The block sends an edit that the constructor of CollectionEdit makes from a dictionary that gets its transform from Add. The transform returns a linked cell, and the switch of the state cell of that key as the close selects it.
+    public static Cell<int> Ab310EditConstructorWithADictionaryThatAddFills() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<CollectionEdit<int, ItemId, Cell<int>>> edits = Stream.CreateSink<CollectionEdit<int, ItemId, Cell<int>>>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: Plain)], edits); Cell<int> sw = all.StateCell(1).Map(m => m.Match(onSome: c => c, onNone: () => Plain)).SwitchC(); Dictionary<int, Func<Cell<int>, Cell<int>>> updates = []; updates.Add(1, _ => l.Map(v => v)); edits.Send(new CollectionEdit<int, ItemId, Cell<int>>(updates: updates, adds: Array.Empty<Item<ItemId, Cell<int>>>(), removes: Array.Empty<int>())); return sw; });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
