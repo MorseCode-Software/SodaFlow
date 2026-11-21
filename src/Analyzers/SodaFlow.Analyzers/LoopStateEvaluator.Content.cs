@@ -193,25 +193,19 @@ internal sealed partial class LoopStateEvaluator
     ///     An operator does not use the state of an argument with functions as
     ///     an input, and <c>CombineWith</c> gets an edit as an argument.
     /// </remarks>
-    private LoopState TransformsOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
-    {
-        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
-        LoopState transforms = LoopState.None;
-
-        for (int i = 0; i < arguments.Count; i++)
-        {
-            if (ParameterFor(method: method, argument: arguments[i], position: i)
-                is { Type.TypeKind: TypeKind.Delegate })
-            {
-                transforms = OnlyTheFunctions(state: this.Eval(arguments[i].Expression), seed: transforms);
-            }
-        }
-
-        return KeptInTheUpdates(edit: method.ContainingType, transforms: transforms);
-    }
+    private LoopState TransformsOf(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
+        KeptInTheUpdates(
+            edit: method.ContainingType,
+            transforms: invocation.ArgumentList.Arguments
+                .Where((argument, position) =>
+                    ParameterFor(method: method, argument: argument, position: position)
+                        is { Type.TypeKind: TypeKind.Delegate })
+                .Aggregate(
+                    seed: LoopState.None,
+                    func: (all, argument) => OnlyTheFunctions(state: this.Eval(argument.Expression), seed: all)));
 
     // The state of an edit whose Updates member holds the functions.
-    private static LoopState KeptInTheUpdates(INamedTypeSymbol edit, LoopState transforms) =>
+    private static LoopState KeptInTheUpdates(INamespaceOrTypeSymbol edit, LoopState transforms) =>
         transforms.Functions.IsEmpty
         || edit.GetMembers("Updates").OfType<IPropertySymbol>().FirstOrDefault() is not { } updates
             ? LoopState.None
