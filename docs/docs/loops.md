@@ -390,15 +390,17 @@ The analyzer follows a value made from the placeholder through the code of your 
   reaches a later read through each name whose object the analyzer cannot tell apart from the object
   of the write. A write in a method that the block calls counts as well, where the block always
   calls the method one time and the method writes through a static field, an element of an array in
-  one, or a parameter whose argument is such a name. A new object that goes into a name with an
-  object initializer, as in `slots[0] = new Slot { Cell = value }`, gives the name only the values
-  that the initializer sets, also where such a method puts it and keeps it there to its end. A
-  method that always gives its `ref` or `out` parameter a value replaces what a local, or a field of
-  the object in a local, held before, where the block always calls it and passes no second `ref` or
-  `out` argument. A constructor that puts `this` into a name makes that name a name of the new
-  object, as a registry does with a static field or a static property. The name can also be an
-  element of an array or a list that the constructor gets, a value of a dictionary that it gets, or
-  a field of an object that it gets.
+  one, or a parameter whose argument is such a name. So does a write through `this` in a method that
+  the block calls on one of the names, and a read through `this` in such a method sees the last
+  value too. A new object that goes into a name with an object initializer, as in
+  `slots[0] = new Slot { Cell = value }`, gives the name only the values that the initializer sets,
+  also where such a method puts it and keeps it there to its end. A method that always gives its
+  `ref` or `out` parameter a value replaces what a local, or a field of the object in a local, held
+  before, where the block always calls it and passes no second `ref` or `out` argument. A
+  constructor that puts `this` into a name makes that name a name of the new object, as a registry
+  does with a static field or a static property. The name can also be an element of an array or a
+  list that the constructor gets, a value of a dictionary that it gets, or a field of an object that
+  it gets.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a
