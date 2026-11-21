@@ -106,7 +106,7 @@ internal sealed partial class LoopStateEvaluator
 
         // The evaluator keeps the value of each expression. Thus, a second read of a member of this
         // gets the same cell, and does not run its functions again.
-        return values.Aggregate(seed: state, func: (all, value) => all.Join(reader.Eval(value)));
+        return values.Aggregate(seed: state, func: (all, value) => all.Join(reader.EvalABuild(value)));
     }
 
     /// <summary>

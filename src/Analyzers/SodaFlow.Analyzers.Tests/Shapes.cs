@@ -42085,6 +42085,114 @@ public static class Shapes
     public static Cell<int> Ab346MethodGroupOfALocalObjectSetPendingThenPlain() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab346Slot s = new(); Cell<int> c = Cell.Constant(1).Map(s.Add); s.Share = l.Map(v => v); s.Share = Plain; Kept.Add(c.Sample()); return S.Hold(0); });
 
+    // S10042. A constructor puts a method group of the object in a delegate local and builds a map with the local. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab348CtorMapOfAMethodGroupLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorMapOfAGroupLocal().SetAndRead(l.Map(v => v))));
+
+    // S10043. The same with a lambda in the local that calls the method of the object.
+    public static Cell<int> Ab348CtorMapOfALambdaLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorMapOfALambdaLocalOf().SetAndRead(l.Map(v => v))));
+
+    // S10044. A constructor puts a method group of the object in a delegate local and builds a lazy value with the local. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab348CtorLazyOfAMethodGroupLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorLazyOfAGroupLocal().SetAndRead(l.Map(v => v))));
+
+    // S10045. The same with a lambda in the local that samples the member.
+    public static Cell<int> Ab348CtorLazyOfALambdaLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorLazyOfALambdaLocalOf().SetAndRead(l.Map(v => v))));
+
+    // S10046. A constructor puts a method group of the object in a delegate local and builds a lift with the local. A method sets the member to a pending cell and samples the lift.
+    public static Cell<int> Ab348CtorLiftOfAMethodGroupLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorLiftOfAGroupLocal().SetAndRead(l.Map(v => v))));
+
+    // S10047. A constructor puts a method group in a delegate local, puts that local in a second local, and builds a map with the second local. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab348CtorMapOfALocalOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorMapOfASecondLocal().SetAndRead(l.Map(v => v))));
+
+    // S10048. A constructor gives a delegate local a function that does not sample, and then a method group that samples. It builds a map with the local. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab348CtorMapOfALocalSetAgainBeforeTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorMapOfALocalSetAgain().SetAndRead(l.Map(v => v))));
+
+    // S10049. A constructor gives a delegate local a method group that samples only when its parameter is true. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab348CtorMapOfALocalSetInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorMapOfABranchLocal(true).SetAndRead(l.Map(v => v))));
+
+    // S10050. A method puts a method group of the object in a delegate local and builds a map with the local. A second method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab348MethodMapOfAMethodGroupLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab348MethodMapOfALocal m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S10051. One method puts a lambda in a delegate local and builds a map with the local. It sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab348OneMethodBuildsALambdaLocalSetsAndReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab348MethodMapOfALocal m = new(); return S.Hold(m.BuildThroughALambdaSetAndRead(l.Map(v => v))); });
+
+    // S10052. A constructor gives a delegate local a function that does not sample and adds a method group that samples. It builds a lazy value with the local. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab348CtorLazyOfALocalWithAnAddedMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorLazyOfAnAddedLocal().SetAndRead(l.Map(v => v))));
+
+    // S10053. A loop in a constructor builds a lazy value with a delegate local, and then gives the local a method group that samples. The second turn builds the value with the method group. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab348CtorLazyOfALocalSetAfterTheBuildInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorLazyInALoop().SetAndRead(l.Map(v => v))));
+
+    // S10054. A constructor builds a map with a lambda that calls a delegate local of a method group. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab348CtorMapOfALambdaThatCallsADelegateLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorMapOfALambdaThatCallsALocal().SetAndRead(l.Map(v => v))));
+
+    // S10055. A constructor keeps a lambda that gives a delegate local a method group. It gives the local a function that does not sample, runs the lambda, and builds a lazy value with the local. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab348CtorLazyOfALocalThatALambdaSets() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorLazyOfALocalSetInALambda().SetAndRead(l.Map(v => v))));
+
+    // S10056. A lambda in a constructor builds a lazy value with a delegate local of the constructor. Then, the constructor gives the local a method group that samples and runs the lambda. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab348CtorLazyBuiltInALambdaWithALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorLazyBuiltInALambda().SetAndRead(l.Map(v => v))));
+
+    // S10057. A constructor gives a delegate local that is null a method group with a coalesce and builds a lazy value with the local. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab348CtorLazyOfALocalGivenByACoalesce() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorLazyOfACoalescedLocal(null).SetAndRead(l.Map(v => v))));
+
+    // S10058. A constructor keeps a map of a method group in a cell local and builds a second map of the local. A method sets the member to a pending cell and samples the second map.
+    public static Cell<int> Ab348CtorMapOfACellLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorMapOfAMapLocal().SetAndRead(l.Map(v => v))));
+
+    // S10059. A constructor keeps a lazy value of a method group in a local. It builds a second lazy value with a lambda that reads the first. A method sets the member to a pending cell and reads the second value.
+    public static Cell<int> Ab348CtorLazyOfALazyLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorLazyOfALazyLocalOf().SetAndRead(l.Map(v => v))));
+
+    // S10060. A constructor builds a lazy value with a lambda that calls a delegate local of a method group. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab348CtorLazyOfALambdaThatCallsADelegateLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorLazyOfALambdaThatCallsALocal().SetAndRead(l.Map(v => v))));
+
+    // S10061. Control: a constructor builds a map with a delegate local whose method samples a member that no code sets again. A method sets a different member to a pending cell and samples the map.
+    public static Cell<int> Ab348LocalMethodGroupReadsAMemberThatStaysPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorMapOfALocalOfAFixedMember().SetAndRead(l.Map(v => v))));
+
+    // S10062. Control: a constructor builds a map with a delegate local of a method group. A method sets the member to a plain cell and samples the map.
+    public static Cell<int> Ab348LocalMethodGroupWithTheMemberSetPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab348CtorMapOfAGroupLocal().SetAndRead(Plain)); return S.Hold(0); });
+
+    // S10063. Control: a constructor builds a lazy value with a delegate local of a method group. A method sets the member to a plain cell and reads the value.
+    public static Cell<int> Ab348LocalLazyWithTheMemberSetPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab348CtorLazyOfAGroupLocal().SetAndRead(Plain)); return S.Hold(0); });
+
+    // S10064. Control: a constructor builds a map with a delegate local whose method does not sample. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab348LocalMethodGroupThatDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorMapOfALocalThatDoesNotSample().SetAndRead(l.Map(v => v))));
+
+    // S10065. Control: a constructor gives a delegate local a method group that samples, and then a function that does not sample. It builds a map with the local. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab348LocalSetAgainBeforeTheBuildToAFunctionThatDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorMapOfALocalSetToPlain().SetAndRead(l.Map(v => v))));
+
+    // S10066. Control: a constructor builds a map with a delegate local of a function that does not sample. Then, it gives the local a method group that samples. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab348LocalSetAgainAfterTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorMapOfALocalSetAfter().SetAndRead(l.Map(v => v))));
+
+    // S10067. Control: a loop in a constructor gives two delegate locals a function that does not sample, through each other. Then, the constructor builds a lazy value with one of them. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab348LocalsThatNameEachOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorLazyOfTwoLocals().SetAndRead(l.Map(v => v))));
+
+    // S10068. Control: a constructor builds a lazy value with a delegate local of a method group. Then, it gives the local a function that does not sample and builds a second lazy value with the local. A method reads the first value, sets the member to a pending cell, and reads the second value.
+    public static Cell<int> Ab348LocalSetAgainBetweenTwoBuilds() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorTwoLazyValuesOfALocal().ReadSetAndReadTheSecond(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -60932,6 +61040,583 @@ public static class Shapes
         public Ab346CtorLazyOfAGiven(Ab346Slot slot) => this.value = new Lazy<int>(slot.Read);
 
         public int Read() => this.value.Value;
+    }
+
+    private static int Ab348Plus(int v) => v + 1;
+
+    private static int Ab348Zero() => 0;
+
+    // Helpers of the AB348 shapes: a delegate local as the function of a map, a lift, or a Lazy.
+    public sealed class Ab348CtorMapOfAGroupLocal
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorMapOfAGroupLocal()
+        {
+            Func<int, int> add = this.Add;
+            this.map = Cell.Constant(1).Map(add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab348CtorMapOfALambdaLocalOf
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorMapOfALambdaLocalOf()
+        {
+            Func<int, int> add = v => this.Add(v);
+            this.map = Cell.Constant(1).Map(add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab348CtorLazyOfAGroupLocal
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorLazyOfAGroupLocal()
+        {
+            Func<int> read = this.Read;
+            this.value = new Lazy<int>(read);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab348CtorLazyOfALambdaLocalOf
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorLazyOfALambdaLocalOf()
+        {
+            Func<int> read = () => this.share.Sample();
+            this.value = new Lazy<int>(read);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+    }
+
+    public sealed class Ab348CtorLiftOfAGroupLocal
+    {
+        private readonly Cell<int> lift;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorLiftOfAGroupLocal()
+        {
+            Func<int, int, int> add = this.Add;
+            this.lift = Cell.Constant(1).Lift(Cell.Constant(2), add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.lift.Sample();
+        }
+
+        private int Add(int a, int b) => a + b + this.share.Sample();
+    }
+
+    public sealed class Ab348CtorMapOfASecondLocal
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorMapOfASecondLocal()
+        {
+            Func<int, int> first = this.Add;
+            Func<int, int> add = first;
+            this.map = Cell.Constant(1).Map(add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab348CtorMapOfALocalSetAgain
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorMapOfALocalSetAgain()
+        {
+            Func<int, int> add = Ab348Plus;
+            add = this.Add;
+            this.map = Cell.Constant(1).Map(add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab348CtorMapOfABranchLocal
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorMapOfABranchLocal(bool sample)
+        {
+            Func<int, int> add = Ab348Plus;
+
+            if (sample)
+            {
+                add = this.Add;
+            }
+
+            this.map = Cell.Constant(1).Map(add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab348MethodMapOfALocal
+    {
+        private Cell<int> map = Cell.Constant(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public void Build()
+        {
+            Func<int, int> add = this.Add;
+            this.map = Cell.Constant(1).Map(add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        public int BuildThroughALambdaSetAndRead(Cell<int> pending)
+        {
+            Func<int, int> add = v => this.Add(v);
+            this.map = Cell.Constant(1).Map(add);
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab348CtorMapOfALocalOfAFixedMember
+    {
+        private readonly Cell<int> map;
+
+        private readonly Cell<int> fixedShare = Cell.Constant(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorMapOfALocalOfAFixedMember()
+        {
+            Func<int, int> add = this.Add;
+            this.map = Cell.Constant(1).Map(add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample() + this.share.GetHashCode();
+        }
+
+        private int Add(int v) => v + this.fixedShare.Sample();
+    }
+
+    public sealed class Ab348CtorMapOfALocalThatDoesNotSample
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorMapOfALocalThatDoesNotSample()
+        {
+            Func<int, int> add = this.Add;
+            this.map = Cell.Constant(1).Map(add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample() + this.share.GetHashCode();
+        }
+
+        private int Add(int v) => v + this.share.GetHashCode();
+    }
+
+    public sealed class Ab348CtorMapOfALocalSetToPlain
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorMapOfALocalSetToPlain()
+        {
+            Func<int, int> add = this.Add;
+            add = Ab348Plus;
+            this.map = Cell.Constant(1).Map(add);
+            Kept.Add(add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab348CtorMapOfALocalSetAfter
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorMapOfALocalSetAfter()
+        {
+            Func<int, int> add = Ab348Plus;
+            this.map = Cell.Constant(1).Map(add);
+            add = this.Add;
+            Kept.Add(add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab348CtorLazyOfAnAddedLocal
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorLazyOfAnAddedLocal()
+        {
+            Func<int> read = Ab348Zero;
+            read += this.Read;
+            this.value = new Lazy<int>(read);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab348CtorLazyInALoop
+    {
+        private readonly Lazy<int> value = new(static () => 0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorLazyInALoop()
+        {
+            Func<int> read = Ab348Zero;
+
+            for (int i = 0; i < 2; i++)
+            {
+                this.value = new Lazy<int>(read);
+                read = this.Read;
+            }
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab348CtorMapOfALambdaThatCallsALocal
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorMapOfALambdaThatCallsALocal()
+        {
+            Func<int, int> add = this.Add;
+            this.map = Cell.Constant(1).Map(v => add(v));
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab348CtorLazyOfALocalSetInALambda
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorLazyOfALocalSetInALambda()
+        {
+            Func<int> read = Ab348Zero;
+            Action set = () => read = this.Read;
+            read = Ab348Zero;
+            set();
+            this.value = new Lazy<int>(read);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab348CtorLazyBuiltInALambda
+    {
+        private Lazy<int> value = new(static () => 0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorLazyBuiltInALambda()
+        {
+            Func<int> read = Ab348Zero;
+            Action build = () => this.value = new Lazy<int>(read);
+            read = this.Read;
+            build();
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab348CtorLazyOfTwoLocals
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorLazyOfTwoLocals()
+        {
+            Func<int> read = Ab348Zero;
+            Func<int> other = Ab348Zero;
+
+            for (int i = 0; i < 2; i++)
+            {
+                read = other;
+                other = read;
+            }
+
+            this.value = new Lazy<int>(read);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value + this.share.GetHashCode();
+        }
+    }
+
+    public sealed class Ab348CtorLazyOfACoalescedLocal
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorLazyOfACoalescedLocal(Func<int>? given)
+        {
+            Func<int>? read = given;
+            read ??= this.Read;
+            this.value = new Lazy<int>(read);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab348CtorTwoLazyValuesOfALocal
+    {
+        private readonly Lazy<int> first;
+
+        private readonly Lazy<int> second;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorTwoLazyValuesOfALocal()
+        {
+            Func<int> read = this.Read;
+            this.first = new Lazy<int>(read);
+            read = Ab348Zero;
+            this.second = new Lazy<int>(read);
+        }
+
+        public int ReadSetAndReadTheSecond(Cell<int> pending)
+        {
+            int read = this.first.Value;
+            this.share = pending;
+
+            return read + this.second.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab348CtorMapOfAMapLocal
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorMapOfAMapLocal()
+        {
+            Cell<int> first = Cell.Constant(1).Map(this.Add);
+            this.map = first.Map(v => v + 1);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab348CtorLazyOfALazyLocalOf
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorLazyOfALazyLocalOf()
+        {
+            Lazy<int> inner = new(this.Read);
+            this.value = new Lazy<int>(() => inner.Value);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab348CtorLazyOfALambdaThatCallsALocal
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab348CtorLazyOfALambdaThatCallsALocal()
+        {
+            Func<int> read = this.Read;
+            this.value = new Lazy<int>(() => read());
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

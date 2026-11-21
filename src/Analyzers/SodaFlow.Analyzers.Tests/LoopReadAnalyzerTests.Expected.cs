@@ -5997,6 +5997,25 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab346CtorMapOfALambdaOfAGivenObject"] = ["SF1005"],
             ["Ab346CtorLazyOfAMethodGroupOfAGivenObject"] = ["SF1005"],
             ["Ab346MapOfAMethodGroupOfALocalObjectSetAfter"] = ["SF1001"],
-            ["Ab346MapOfALambdaOfALocalObjectSetAfter"] = ["SF1001"]
+            ["Ab346MapOfALambdaOfALocalObjectSetAfter"] = ["SF1001"],
+            ["Ab348CtorMapOfAMethodGroupLocal"] = ["SF1004"],
+            ["Ab348CtorMapOfALambdaLocal"] = ["SF1004"],
+            ["Ab348CtorLazyOfAMethodGroupLocal"] = ["SF1004"],
+            ["Ab348CtorLazyOfALambdaLocal"] = ["SF1004"],
+            ["Ab348CtorLiftOfAMethodGroupLocal"] = ["SF1004"],
+            ["Ab348CtorMapOfALocalOfALocal"] = ["SF1004"],
+            ["Ab348CtorMapOfALocalSetAgainBeforeTheBuild"] = ["SF1004"],
+            ["Ab348CtorMapOfALocalSetInABranch"] = ["SF1004"],
+            ["Ab348MethodMapOfAMethodGroupLocal"] = ["SF1004"],
+            ["Ab348OneMethodBuildsALambdaLocalSetsAndReads"] = ["SF1004"],
+            ["Ab348CtorLazyOfALocalWithAnAddedMethodGroup"] = ["SF1004"],
+            ["Ab348CtorLazyOfALocalSetAfterTheBuildInALoop"] = ["SF1004"],
+            ["Ab348CtorMapOfALambdaThatCallsADelegateLocal"] = ["SF1004"],
+            ["Ab348CtorLazyOfALocalThatALambdaSets"] = ["SF1004"],
+            ["Ab348CtorLazyBuiltInALambdaWithALocal"] = ["SF1004"],
+            ["Ab348CtorLazyOfALocalGivenByACoalesce"] = ["SF1004"],
+            ["Ab348CtorMapOfACellLocal"] = ["SF1004"],
+            ["Ab348CtorLazyOfALazyLocal"] = ["SF1004"],
+            ["Ab348CtorLazyOfALambdaThatCallsADelegateLocal"] = ["SF1004"]
         };
 }

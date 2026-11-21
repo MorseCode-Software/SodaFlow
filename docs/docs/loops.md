@@ -698,6 +698,10 @@ careful side, so it can report a read that does not throw:
   of a hold kept in a member that code can set again, in a list that code can change, or in a list
   at an index that is not a constant, gets each value sent into the sink as well. A close with such
   a sample can then get `SF1002`, although the sample runs before the end of the transaction.
+- A local of a constructor or a method of your object, such as a delegate or a cell that the code
+  gives to a `Map`, a `Lift`, or a `Lazy<T>` that a different method reads, counts with each of
+  its values when a branch, a loop, or a lambda can give it a value before the build. Where the last
+  value before the build is sure, only that value counts.
 
 Some reads that throw it does not see:
 
@@ -723,12 +727,13 @@ Some reads that throw it does not see:
   the method makes itself or that a call inside it puts there, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
-- A delegate that a constructor or a method of your object keeps in a local or in a member before
-  it gives it to a `Map` or a `Lazy<T>`, such as `Func<int, int> add = this.Add;` and then
-  `Map(add)`, or `this.factory = this.Read;` and then `new Lazy<int>(this.factory)`, where a
-  different method of the object reads the value. This holds for a lambda as well as for a method
-  group. Where one method keeps the delegate in a local, builds the value, sets the member, and
-  reads the value, the read gets its report.
+- A delegate that a constructor or a method of your object keeps in a member before it gives it to
+  a `Map` or a `Lazy<T>`, such as `this.factory = this.Read;` and then
+  `new Lazy<int>(this.factory)`, where a different method of the object reads the value. This holds
+  for a lambda as well as for a method group. Where one method keeps the delegate in the member,
+  builds the value, sets the member that the delegate reads, and reads the value, the read gets its
+  report. A delegate kept in a local, such as `Func<int, int> add = this.Add;` and then
+  `Map(add)`, is seen in both cases.
 - An object that a lambda of a LINQ query throws, for a `catch` around the code that enumerates
   the query. The analyzer does not give the object to that clause.
 - The `AggregateException` that `Wait` or `Result` of a task throws when a function of the task
