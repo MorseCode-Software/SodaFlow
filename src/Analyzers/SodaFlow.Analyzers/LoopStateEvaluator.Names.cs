@@ -625,7 +625,7 @@ internal sealed partial class LoopStateEvaluator
     // are good only when this frame saw each member write after them.
     private void GivesTheCalleeTheWritesThroughAName(
         ExpressionSyntax owner,
-        Dictionary<ISymbol, LoopState> members,
+        IDictionary<ISymbol, LoopState> members,
         LoopFrame callee)
     {
         if (this.Frame.NamesOfOneObject.Count == 0
