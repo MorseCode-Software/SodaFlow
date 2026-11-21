@@ -41505,6 +41505,10 @@ public static class Shapes
     public static Cell<int> Ag99ASortValueWhoseCompareToReadsNoCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { int count = TwoItems().SortBy(selector: (_, state) => new Ag99CalmKey(state, l)).KeysCell.Sample().Count; return S.Hold(count); });
 
+    // S9897. A loop that runs no turn would put plain objects into the elements of two arrays. After the loop, the element of the second array can have its pending object from before the loop.
+    public static Cell<int> Ag99ALoopWithNoTurnGivesBackTheElementOfTheSecondArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] first = [new SettableSlot { Share = Plain }]; SettableSlot[] second = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < Kept.Count * 0; i++) { first[0] = new SettableSlot { Share = Plain }; second[0] = new SettableSlot { Share = Plain }; } return S.Hold(second[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
