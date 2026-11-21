@@ -286,3 +286,20 @@ internal sealed class Keeper<T, TBox>(string list) : IKeeper<T, TBox>
 
     public List<T> Made() => [new T()];
 }
+
+// A method whose only parameter is a function. It counts the values of the sequence that the
+// function gives.
+public static class Ag99NoBodyCounter
+{
+    public static int CountOf(Func<IEnumerable<int>> make)
+    {
+        int count = 0;
+
+        foreach (int _ in make())
+        {
+            count++;
+        }
+
+        return count;
+    }
+}

@@ -41509,6 +41509,10 @@ public static class Shapes
     public static Cell<int> Ag99ALoopWithNoTurnGivesBackTheElementOfTheSecondArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] first = [new SettableSlot { Share = Plain }]; SettableSlot[] second = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < Kept.Count * 0; i++) { first[0] = new SettableSlot { Share = Plain }; second[0] = new SettableSlot { Share = Plain }; } return S.Hold(second[0].Share!.Sample()); });
 
+    // S9898. A callee with no body gets only a function, and counts the query that the function gives. The query samples a pending cell. With no reference to the library, the callee is a package, and the walk follows the query. A query is no value of the library, thus code that can know the library gets no SF1003 for it.
+    public static Cell<int> Ag99ACalleeWithOnlyAFunctionCountsTheQueryThatItGives() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m = l.Map(v => v); return S.Hold(Ag99NoBodyCounter.CountOf(() => new[] { 1 }.Select(v => v + m.Sample()))); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
