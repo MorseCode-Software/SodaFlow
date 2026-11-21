@@ -88,7 +88,12 @@ internal sealed partial class LoopReadAnalyzerTests
         "R4ApiMergeFunctionThatReturnsALinkedCellWithOneSend",
         // The updates of a cell that is not a sink have the content of the cell, with its initial
         // value.
-        "R4ApiUpdatesOfAHoldWithALinkedInitialValue"
+        "R4ApiUpdatesOfAHoldWithALinkedInitialValue",
+        // The switch has no default and no pattern that matches each value. Thus, the analyzer
+        // cannot know that a section runs before the code after the switch.
+        "R5FuAwaitUsingInASwitchSectionStopsTheCodeAfter",
+        "Ab285AwaitInTheOnlySectionOfASwitchWithNoDefault",
+        "Ab285AwaitInTheSectionsOfASwitchOnTrueAndFalse"
     ];
 
     private static readonly Assembly[] ShapeLibraries =

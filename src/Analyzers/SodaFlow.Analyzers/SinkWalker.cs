@@ -200,20 +200,22 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             }
         }
 
-        if (awaits && declaration.Parent?.Parent is { } scope && !this.EndsLater(declaration))
+        if (awaits && declaration.Parent is { Parent: { } scope } statement && !this.EndsLater(declaration))
         {
             this.DisposeEachAsync(
                 resources: declaration.Variables
                     .Select(static declarator => declarator.Initializer?.Value)
                     .OfType<ExpressionSyntax>(),
-                scope: scope);
+                scope: scope,
+                at: statement.SpanStart);
         }
     }
 
     // An await using calls DisposeAsync on each resource, from the last to the first, and awaits
     // each task. A task that is not complete stops the call. The code after the scope then runs
-    // later, and so do the calls for the resources before it.
-    private void DisposeEachAsync(IEnumerable<ExpressionSyntax> resources, SyntaxNode scope)
+    // later, and so do the calls for the resources before it. The position is the start of the
+    // await using.
+    private void DisposeEachAsync(IEnumerable<ExpressionSyntax> resources, SyntaxNode scope, int at)
     {
         foreach (ExpressionSyntax resource in resources.Reverse())
         {
@@ -225,7 +227,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 continue;
             }
 
-            if (this.PartAround(scope) is { } block)
+            if (this.PartAround(statement: scope, at: at) is { } block)
             {
                 this.later.Add((block, scope.Span.End));
             }
@@ -339,7 +341,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         if (node.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword))
         {
-            this.DisposeEachAsync(resources: resources, scope: node);
+            this.DisposeEachAsync(resources: resources, scope: node, at: node.SpanStart);
 
             return;
         }
@@ -459,13 +461,18 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             _ => null
         };
 
-    private SyntaxNode? PartAround(SyntaxNode statement)
+    // The position is where the await starts. A break or a continue before it can skip the await.
+    private SyntaxNode? PartAround(SyntaxNode statement, int? at = null)
     {
         SyntaxNode? block = null;
         SyntaxNode part = statement;
+        int start = at ?? statement.SpanStart;
 
         for (SyntaxNode? place = statement.Parent;
-             place != null && this.RunsToItsEnd(statement: place, part: part);
+             place != null
+             && (LoopStateEvaluator.LoopBodyOf(place) is { } body
+                 ? this.EndsOnlyAfter(loop: place, body: body, at: start)
+                 : this.RunsToItsEnd(statement: place, part: part));
              part = place, place = place.Parent)
         {
             block = place is BlockSyntax or SwitchSectionSyntax ? place : block;
@@ -1296,6 +1303,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         if (this.JumpsBack(node) is not (var first, var last))
         {
             base.VisitSwitchStatement(node);
+            this.AwaitsInEachSection(node);
 
             return;
         }
@@ -1308,6 +1316,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             body: node.Sections[first],
             before: before,
             parts: [.. node.Sections.Skip(first).Take(last - first + 1)]);
+
+        this.AwaitsInEachSection(node);
     }
 
     // The first section that a goto case or a goto default goes back to, and the last section with

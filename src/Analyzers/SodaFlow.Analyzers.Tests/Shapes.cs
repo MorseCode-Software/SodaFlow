@@ -41557,6 +41557,182 @@ public static class Shapes
     public static Cell<int> Ag99APlainWriteInALambdaAfterAPendingOne() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; SettableSlot q = Ab83Unseen[0]; q.Share = l.Map(v => v); Action put = () => c.Share = Plain; put(); return S.Hold(q.Share!.Sample()); });
 
+    // S9910. An await using declaration in the body of a loop never completes, so the code after the loop does not run.
+    public static Cell<int> R5FuAwaitUsingInALoopBodyStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { await using Ab255NeverDisposed t = new(); Kept.Add(i); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9911. An await using in a switch section never completes. The switch has no default, so the analyzer cannot know that a section runs, and it reports on the careful side.
+    public static Cell<int> R5FuAwaitUsingInASwitchSectionStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count >= 0) { case true: await using (Ab255NeverDisposed t = new()) { Kept.Add(1); } break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9912. A for loop from 0 to 1 always runs its first turn, which awaits a task that never completes. The code after the loop does not run.
+    public static Cell<int> Ab285AwaitInAForLoopBodyStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { await R2NeverDone.Task; Kept.Add(i); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9913. A while loop on true awaits a task that never completes before its break. The code after the loop does not run.
+    public static Cell<int> Ab285AwaitInAWhileTrueBodyStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { while (true) { await R2NeverDone.Task; break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9914. A while loop on true declares an await using and then breaks. The break awaits the DisposeAsync, which never completes.
+    public static Cell<int> Ab285AwaitUsingInAWhileTrueBodyStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { while (true) { await using Ab255NeverDisposed t = new(); break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9915. A for loop with no condition awaits a task that never completes before its break.
+    public static Cell<int> Ab285AwaitInAForWithNoConditionStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (;;) { await R2NeverDone.Task; break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9916. A foreach over an array literal with an element awaits a task that never completes in its first turn.
+    public static Cell<int> Ab285AwaitInAForeachOverAnArrayLiteralStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int n in new[] { 1 }) { await R2NeverDone.Task; Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9917. An await foreach in the body of a loop gets no item before an await that never completes.
+    public static Cell<int> Ab285AwaitForeachInALoopBodyStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { await foreach (int n in R3CsYieldsAfterAnAwait()) { Kept.Add(n); } } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9918. An inner loop awaits in its first turn, and the outer loop always runs its first turn. The code after the outer loop does not run.
+    public static Cell<int> Ab285AwaitInANestedLoopStopsTheCodeAfterTheOuterLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { for (int j = 0; j < 1; j++) { await R2NeverDone.Task; } } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9919. A break after the await ends the loop only after the task completes, which never occurs.
+    public static Cell<int> Ab285BreakAfterTheAwaitStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 2; i++) { await R2NeverDone.Task; if (Kept.Count >= 0) { break; } } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9920. A break in an inner loop before the await ends only the inner loop. The outer turn then awaits a task that never completes.
+    public static Cell<int> Ab285BreakOfAnInnerLoopBeforeTheAwaitStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { while (true) { break; } await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9921. A break in a switch before the await ends only the switch. The turn then awaits a task that never completes.
+    public static Cell<int> Ab285BreakOfASwitchBeforeTheAwaitStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { switch (Kept.Count) { default: break; } await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9922. A do loop awaits a task that never completes before its break.
+    public static Cell<int> Ab285AwaitInADoBeforeABreakStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { do { await R2NeverDone.Task; if (Kept.Count >= 0) { break; } } while (Kept.Count < 0); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9923. Each section of a switch with a default awaits a task that never completes. The code after the switch does not run.
+    public static Cell<int> Ab285AwaitInEachSectionOfASwitchWithADefaultStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count >= 0) { case true: await R2NeverDone.Task; break; default: await R2NeverDone.Task; break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9924. Each section of a switch with a default has an await using whose DisposeAsync never completes.
+    public static Cell<int> Ab285AwaitUsingInEachSectionOfASwitchWithADefaultStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count >= 0) { case true: await using (Ab255NeverDisposed t = new()) { Kept.Add(1); } break; default: await using (Ab255NeverDisposed u = new()) { Kept.Add(2); } break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9925. The last section of a switch has a var pattern with a discard, which matches each value. Each section awaits a task that never completes.
+    public static Cell<int> Ab285AwaitInEachSectionOfASwitchWithAVarPatternStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count) { case 0: await R2NeverDone.Task; break; case var _: await R2NeverDone.Task; break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9926. A section of a switch returns, and the default awaits a task that never completes. No section gets to the code after the switch now.
+    public static Cell<int> Ab285SectionThatReturnsAndADefaultThatAwaits() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count) { case < 0: return; default: await R2NeverDone.Task; break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9927. A switch in the body of a loop awaits in its default. The loop always runs its first turn, so the code after the loop does not run.
+    public static Cell<int> Ab285AwaitInASwitchInALoopStopsTheCodeAfterTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { switch (i) { default: await R2NeverDone.Task; break; } } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9928. A loop in the default of a switch awaits in its first turn. The code after the switch does not run.
+    public static Cell<int> Ab285AwaitInALoopInASwitchSectionStopsTheCodeAfterTheSwitch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count) { default: for (int i = 0; i < 1; i++) { await R2NeverDone.Task; } break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9929. The only section of a switch with no default awaits a task that never completes. The analyzer cannot know that the section runs, and it reports on the careful side.
+    public static Cell<int> Ab285AwaitInTheOnlySectionOfASwitchWithNoDefault() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count >= 0) { case true: await R2NeverDone.Task; break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9930. The sections of a switch on a bool are for true and for false, and each awaits a task that never completes. The analyzer knows no default, and it reports on the careful side.
+    public static Cell<int> Ab285AwaitInTheSectionsOfASwitchOnTrueAndFalse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count >= 0) { case true: await R2NeverDone.Task; break; case false: await R2NeverDone.Task; break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9931. Control: a for loop whose condition is not a constant runs no turn, so the code after it runs now.
+    public static Cell<int> Ab285AwaitInALoopThatRunsNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < Kept.Count * 0; i++) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9932. Control: a for loop whose condition is not a constant runs no turn, and does not declare its await using.
+    public static Cell<int> Ab285AwaitUsingInALoopThatRunsNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < Kept.Count * 0; i++) { await using Ab255NeverDisposed t = new(); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9933. Control: a while loop whose condition is false runs no turn.
+    public static Cell<int> Ab285AwaitInAWhileThatRunsNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { while (Kept.Count < 0) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9934. Control: a foreach over an empty array literal runs no turn.
+    public static Cell<int> Ab285AwaitInAForeachOverAnEmptyArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int n in new int[] { }) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9935. Control: a for loop whose variable starts at its end runs no turn.
+    public static Cell<int> Ab285AwaitInAForLoopFromItsEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 1; i < 1; i++) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9936. Control: a break before the await ends the loop, and the code after it runs now.
+    public static Cell<int> Ab285BreakBeforeTheAwaitInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { if (Kept.Count >= 0) { break; } await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9937. Control: a break before the await using declaration ends the loop, and the code after it runs now.
+    public static Cell<int> Ab285BreakBeforeTheAwaitUsingInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { if (Kept.Count >= 0) { break; } await using Ab255NeverDisposed t = new(); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9938. Control: a continue before the await ends the only turn, and the code after the loop runs now.
+    public static Cell<int> Ab285ContinueBeforeTheAwaitInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { if (Kept.Count >= 0) { continue; } await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9939. Control: a continue before the await using declaration ends the only turn.
+    public static Cell<int> Ab285ContinueBeforeTheAwaitUsingInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { if (Kept.Count >= 0) { continue; } await using Ab255NeverDisposed t = new(); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9940. Control: a break before the await of a do loop ends the loop, and the code after it runs now.
+    public static Cell<int> Ab285BreakBeforeTheAwaitInADo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { do { if (Kept.Count >= 0) { break; } await R2NeverDone.Task; } while (Kept.Count < 0); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9941. Control: a continue before the await of a do loop goes to its false condition, and the code after it runs now.
+    public static Cell<int> Ab285ContinueBeforeTheAwaitInADo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { do { if (Kept.Count >= 0) { continue; } await R2NeverDone.Task; } while (Kept.Count < 0); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9942. Control: a break before the await using declaration of a do loop ends the loop.
+    public static Cell<int> Ab285BreakBeforeTheAwaitUsingInADo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { do { if (Kept.Count >= 0) { break; } await using Ab255NeverDisposed t = new(); } while (Kept.Count < 0); Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9943. Control: a section of a switch with a default breaks with no await, and the code after the switch runs now.
+    public static Cell<int> Ab285SectionThatDoesNotAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count >= 0) { case true: break; default: await R2NeverDone.Task; break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9944. Control: a section of a switch with a default breaks with no await using.
+    public static Cell<int> Ab285SectionThatDoesNotAwaitUsing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count >= 0) { case true: break; default: await using (Ab255NeverDisposed t = new()) { Kept.Add(1); } break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9945. Control: the default breaks before its await, and the code after the switch runs now.
+    public static Cell<int> Ab285BreakBeforeTheAwaitInASection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count) { default: if (Kept.Count >= 0) { break; } await R2NeverDone.Task; break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9946. Control: no section of a switch with no default matches, and the code after the switch runs now.
+    public static Cell<int> Ab285SwitchWithNoDefaultMatchesNoSection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count) { case -1: await R2NeverDone.Task; break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9947. Control: no section of a switch with no default matches, so no await using runs.
+    public static Cell<int> Ab285SwitchWithNoDefaultMatchesNoAwaitUsing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count) { case -1: await using (Ab255NeverDisposed t = new()) { Kept.Add(1); } break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9948. Control: a type pattern does not match null, and the code after the switch runs now.
+    public static Cell<int> Ab285TypePatternDoesNotMatchNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { string? none = null; switch (none) { case string s: await R2NeverDone.Task; Kept.Add(s); break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9949. Control: a var pattern with a when clause does not match each value.
+    public static Cell<int> Ab285VarPatternWithAWhenClause() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count) { case var n when n < 0: await R2NeverDone.Task; break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9950. Control: the default awaits only in a branch, and the code after the switch runs now.
+    public static Cell<int> Ab285SectionThatAwaitsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count) { default: if (Kept.Count < 0) { await R2NeverDone.Task; } break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9951. Control: a loop in the default of a switch runs no turn, and the code after the switch runs now.
+    public static Cell<int> Ab285LoopInASectionThatRunsNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count) { default: for (int i = 0; i < Kept.Count * 0; i++) { await R2NeverDone.Task; } break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9952. Control: a continue in a switch before the await is of the loop. It ends the only turn, and the code after the loop runs now.
+    public static Cell<int> Ab285ContinueInASwitchBeforeTheAwaitInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i < 1; i++) { switch (Kept.Count) { default: if (Kept.Count >= 0) { continue; } break; } await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9953. Control: the first section awaits, and the default after it breaks with no await. The default runs, and the code after the switch runs now.
+    public static Cell<int> Ab285LaterSectionThatDoesNotAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count >= 0) { case false: await R2NeverDone.Task; break; default: break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

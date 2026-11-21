@@ -522,8 +522,15 @@ The analyzer follows a value made from the placeholder through the code of your 
   task of each `DisposeAsync` that it calls, so the code after its scope runs later unless each of
   them is a method of yours that returns only complete tasks. That code is the rest of the block
   around the `await using`. Where that block is the body of a loop or a `switch` section, the code
-  after the loop or the `switch` still counts as code that runs in the block, as it does after an
-  `await` there, because the loop can run no turn and a different section can run. An
+  after the loop or the `switch` runs later only when every way to it passes the `await`, and the
+  same holds for an `await` or an `await foreach` there. For a loop, that means the loop always
+  runs its first turn and no `break` or `continue` of the loop comes before the `await`. The loops
+  that always run their first turn are a `do`, a `while (true)`, a `for` with no condition or from
+  a constant up to a larger one, and a `foreach` over an array literal with an item. For a
+  `switch`, it means each section awaits before each `break` of the `switch`, and one section takes
+  every value: a `default`, or a `var` pattern with no `when`. Otherwise, the code after the loop or
+  the `switch` counts as code that runs in the block, because the loop can run no turn, a section
+  can leave before its `await`, or no section can run. An
   `await foreach` runs its body in the block only for an item that the sequence gives at once, and
   the code after it only when every item comes at once. An async iterator runs nothing until
   something enumerates it. A method of `SodaFlow.Functional` that gets a task and returns one, such
@@ -578,6 +585,10 @@ careful side, so it can report a read that does not throw:
   keeps the exception and the code after the call goes on. Only a later `Wait` or `Result` throws.
   The same holds for a sample before the first `await` of an `async` method, local function, or
   lambda whose task nothing waits for.
+- A read after a `switch` whose sections all await, where no `default` or `var` pattern takes
+  every value, also when its `case` labels cover every value, as `case true` and `case false` do.
+  The analyzer cannot know that a section runs, so it reads the code after the `switch` as code
+  that runs in the block.
 - An `await using` whose `DisposeAsync` never completes. The exception of a read in its block, or
   in a `DisposeAsync` that runs before that one, stays in the task, and a `DisposeAsync` after that
   one never runs. Nothing throws, but the analyzer cannot know that the task never completes, so
