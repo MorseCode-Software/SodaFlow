@@ -400,7 +400,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   class, such as a name that `using static` gives. Each type argument of a generic class, as in
   `Cache<int>` and `Cache<string>`, has a run of its own. A member of a nested class runs only the
   static constructor of the nested class, and a delegate of a static method runs it where something
-  calls the delegate, not where the code makes the delegate.
+  calls the delegate, not where the code makes the delegate. A first use that the code can skip,
+  such as one in a branch or in an arm of `?:`, counts only for itself, so the analyzer reads the
+  constructor again at the next use. A use in a loop counts for the rest of the block, also when
+  the loop has no turn.
 - A value of the type `dynamic` whose object the analyzer saw made. It reads the method, the getter
   or the setter, the indexer, the operator, the implicit conversion, or the `operator true` or
   `operator false` that the runtime binder finds on the type of that object.

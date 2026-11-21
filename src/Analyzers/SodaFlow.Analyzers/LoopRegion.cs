@@ -82,6 +82,10 @@ internal sealed class LoopRegion(
     private readonly HashSet<ISymbol> forced = new(SymbolEqualityComparer.Default);
     private readonly HashSet<INamedTypeSymbol> startedTypes = new(SymbolEqualityComparer.Default);
 
+    // The types whose static constructor the walk reads now. A use of such a type in its own static constructor
+    // runs it no second time.
+    private readonly HashSet<INamedTypeSymbol> startingTypes = new(SymbolEqualityComparer.Default);
+
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
 
@@ -168,10 +172,32 @@ internal sealed class LoopRegion(
     public bool HasFields => this.fields.Count > 0;
 
     /// <summary>
-    ///     Records that the walk reads the static constructor of a type. True
-    ///     the first time for each type, which is the only time it runs.
+    ///     Records that the walk reads the static constructor of a type. False
+    ///     when a use that is sure to run read it before, or when the walk reads
+    ///     it now. Call <see cref="EndsTheStaticConstructorOf" /> after the read.
     /// </summary>
-    public bool StartsTheType(INamedTypeSymbol type) => this.startedTypes.Add(type);
+    /// <param name="type">The type.</param>
+    /// <param name="sure">
+    ///     True when the use always runs. Only such a use runs the constructor
+    ///     for each use after it.
+    /// </param>
+    public bool StartsTheType(INamedTypeSymbol type, bool sure)
+    {
+        if (this.startedTypes.Contains(type) || !this.startingTypes.Add(type))
+        {
+            return false;
+        }
+
+        if (sure)
+        {
+            this.startedTypes.Add(type);
+        }
+
+        return true;
+    }
+
+    /// <summary>Records the end of the read of the static constructor of a type.</summary>
+    public void EndsTheStaticConstructorOf(INamedTypeSymbol type) => this.startingTypes.Remove(type);
 
     /// <summary>
     ///     Keeps the objects as results of calls that a second call can give

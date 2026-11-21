@@ -108,41 +108,53 @@ internal sealed partial class LoopStateEvaluator
     // own run.
     private Followed? FollowTheStaticConstructorOf(SyntaxNode use, INamedTypeSymbol owner)
     {
+        // A use that the code can skip, as in a branch, runs the constructor only when it runs. Thus,
+        // the walk reads the constructor there, and the next use reads it again. A use in each turn of
+        // a loop counts as sure.
         if (owner.OriginalDefinition.StaticConstructors.FirstOrDefault()?.DeclaringSyntaxReferences.FirstOrDefault()
                 ?.GetSyntax() is not ConstructorDeclarationSyntax constructor
-            || !this.region.StartsTheType(owner))
+            || !this.region.StartsTheType(
+                type: owner,
+                sure: this.WhereItRuns(use) is (true, _) or (_, not null)))
         {
             return null;
         }
 
-        // The static initializers run in the order of the code, and then the body.
-        IEnumerable<SyntaxNode> parts =
-            constructor.Parent is TypeDeclarationSyntax type
-                ? type.Members
-                    .Where(static part => part.Modifiers.Any(SyntaxKind.StaticKeyword))
-                    .SelectMany(InitializersOf)
-                    .OfType<SyntaxNode>()
-                : [];
-
-        if ((constructor.Body ?? (SyntaxNode?)constructor.ExpressionBody?.Expression) is { } body)
+        try
         {
-            parts = parts.Append(body);
-        }
+            // The static initializers run in the order of the code, and then the body.
+            IEnumerable<SyntaxNode> parts =
+                constructor.Parent is TypeDeclarationSyntax type
+                    ? type.Members
+                        .Where(static part => part.Modifiers.Any(SyntaxKind.StaticKeyword))
+                        .SelectMany(InitializersOf)
+                        .OfType<SyntaxNode>()
+                    : [];
 
-        return parts.Aggregate(
-            seed: (Followed?)null,
-            func: (all, part) =>
-                Both(
-                    first: all,
-                    second: this.Enter(
-                        call: use,
-                        name: owner.Name,
-                        body: part,
-                        bindings: [],
-                        definer: null,
-                        members: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
-                        receiver: null,
-                        target: null)));
+            if ((constructor.Body ?? (SyntaxNode?)constructor.ExpressionBody?.Expression) is { } body)
+            {
+                parts = parts.Append(body);
+            }
+
+            return parts.Aggregate(
+                seed: (Followed?)null,
+                func: (all, part) =>
+                    Both(
+                        first: all,
+                        second: this.Enter(
+                            call: use,
+                            name: owner.Name,
+                            body: part,
+                            bindings: [],
+                            definer: null,
+                            members: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
+                            receiver: null,
+                            target: null)));
+        }
+        finally
+        {
+            this.region.EndsTheStaticConstructorOf(owner);
+        }
 
         static IEnumerable<ExpressionSyntax?> InitializersOf(MemberDeclarationSyntax part) =>
             part switch

@@ -38961,6 +38961,26 @@ public static class Shapes
     public static Cell<int> Ab270DelegateOfAnInstanceMethodRunsNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab270OwnShare.A = l.Map(v => v); Func<int> f = Ab270OwnMade.CallOwn; Kept.Add(f()); Ab270OwnShare.A = Plain; return S.Hold(0); });
 
+    // S9261. A branch that does not run calls a static method while the field is plain. A second call after the field is pending runs the static constructor.
+    public static Cell<int> R5LimStaticConstructorSkippedInABranchRunsLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimCctorShared.Sixth = Plain; if (Kept.Count < 0) { Kept.Add(R5LimCctorInABranch.Get()); } R5LimCctorShared.Sixth = l.Map(v => v); Kept.Add(R5LimCctorInABranch.Get()); return S.Hold(0); });
+
+    // S9262. The block reads a static field in a branch that does not run, then sets the field that the static constructor samples pending, and reads the static field again.
+    public static Cell<int> R5SmpStaticConstructorFirstInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpCtorShare.T8 = Plain; if (Never) { Kept.Add(R5SmpT8.Value); } R5SmpCtorShare.T8 = l.Map(v => v); return S.Hold(R5SmpT8.Value); });
+
+    // S9263. The first read of a static field is in an arm of a conditional expression that does not run. A second read after the field is pending runs the static constructor.
+    public static Cell<int> Ab273FirstReadInAConditionalArm() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab273Share.A = Plain; int n = Never ? Ab273InAnArm.Value : 0; Ab273Share.A = l.Map(v => v); Kept.Add(Ab273InAnArm.Value + n); return S.Hold(0); });
+
+    // S9264. A method that the block calls in a branch that does not run reads a static field. A second read after the field is pending runs the static constructor.
+    public static Cell<int> Ab273FirstReadInAMethodInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab273Share.B = Plain; if (Never) { Kept.Add(Ab273ReadInAMethod()); } Ab273Share.B = l.Map(v => v); Kept.Add(Ab273InAMethod.Value); return S.Hold(0); });
+
+    // S9265. A loop reads a static field in each turn, and then sets the field that the static constructor samples pending. Only the first turn runs the static constructor. A control.
+    public static Cell<int> Ab273ReadInEachTurnOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab273Share.C = Plain; for (int i = 0; i < 2; i++) { Kept.Add(Ab273InALoop.Value); Ab273Share.C = l.Map(v => v); } Ab273Share.C = Plain; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -55845,6 +55865,36 @@ public static class Shapes
     }
 
     private static readonly Ab270Own Ab270OwnMade = new();
+
+    public static class Ab273Share
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+        public static Cell<int>? C;
+    }
+
+    public static class Ab273InAnArm
+    {
+        public static readonly int Value;
+
+        static Ab273InAnArm() => Value = Ab273Share.A!.Sample();
+    }
+
+    public static class Ab273InAMethod
+    {
+        public static readonly int Value;
+
+        static Ab273InAMethod() => Value = Ab273Share.B!.Sample();
+    }
+
+    private static int Ab273ReadInAMethod() => Ab273InAMethod.Value;
+
+    public static class Ab273InALoop
+    {
+        public static readonly int Value;
+
+        static Ab273InALoop() => Value = Ab273Share.C!.Sample();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

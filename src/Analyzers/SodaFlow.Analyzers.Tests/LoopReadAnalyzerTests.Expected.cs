@@ -5555,6 +5555,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab269SimpleNameOfABaseMemberRunsTheBaseStaticConstructor"] = ["SF1005"],
             ["Ab269GenericMethodThroughUsingStatic"] = ["SF1005"],
             ["R5LimStaticConstructorDoesNotRunAtADelegateCreation"] = ["SF1005"],
-            ["Ab270MethodGroupInAMapRunsTheStaticConstructorAtTheRead"] = ["SF1001"]
+            ["Ab270MethodGroupInAMapRunsTheStaticConstructorAtTheRead"] = ["SF1001"],
+            ["R5LimStaticConstructorSkippedInABranchRunsLater"] = ["SF1005"],
+            ["R5SmpStaticConstructorFirstInABranch"] = ["SF1005"],
+            ["Ab273FirstReadInAConditionalArm"] = ["SF1005"],
+            ["Ab273FirstReadInAMethodInABranch"] = ["SF1005"]
         };
 }
