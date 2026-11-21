@@ -723,11 +723,15 @@ Some reads that throw it does not see:
   the method makes itself or that a call inside it puts there, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
-- A method of your object that you give a `Map` or a `Lazy<T>` as a method group, such as
-  `Map(this.Add)` or `new Lazy<int>(this.Read)`, where that method samples a member of the object.
-  The analyzer reads the method without the members of the object, so a member that is pending at
-  the first read of the value gets no report, even where one method builds the value, sets the
-  member, and reads the value.
+- A delegate that a constructor or a method of your object keeps in a local or in a member before
+  it gives it to a `Map` or a `Lazy<T>`, such as `Func<int, int> add = this.Add;` and then
+  `Map(add)`, or `this.factory = this.Read;` and then `new Lazy<int>(this.factory)`, where a
+  different method of the object reads the value. This holds for a lambda as well as for a method
+  group. Where one method keeps the delegate in a local, builds the value, sets the member, and
+  reads the value, the read gets its report.
+- A method group of an object that a constructor gets as a parameter, such as `Map(slot.Add)`,
+  where a different method of the object reads the value. A lambda that calls the same method, such
+  as `Map(v => slot.Add(v))`, gets `SF1005`.
 - An object that a lambda of a LINQ query throws, for a `catch` around the code that enumerates
   the query. The analyzer does not give the object to that clause.
 - The `AggregateException` that `Wait` or `Result` of a task throws when a function of the task

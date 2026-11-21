@@ -124,7 +124,7 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="walk">The walk of the function.</param>
     private Followed? WithTheMembersAtTheRead(ExpressionSyntax heldIn, FunctionValue function, Func<Followed?> walk)
     {
-        if (function.Definer is not { } definer
+        if ((function.Definer ?? function.OfThis) is not { } definer
             || ReferenceEquals(objA: definer.thisMembers, objB: this.thisMembers)
             || this.MembersAtTheRead(heldIn) is not { } atTheRead)
         {

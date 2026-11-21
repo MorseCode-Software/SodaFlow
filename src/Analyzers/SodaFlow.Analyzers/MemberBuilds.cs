@@ -118,7 +118,8 @@ internal static class MemberBuilds
         };
 
     // The value of an assignment when it can be a function. A local gives the value of its
-    // declaration in the same member, also through more locals. Null for each other value.
+    // declaration in the same member, also through more locals. A creation with a name as an
+    // argument can get a method group, as new Lazy<int>(this.Read) does. Null for each other value.
     private static ExpressionSyntax? ValueOf(SyntaxNode code, ExpressionSyntax value)
     {
         HashSet<string> seen = [];
@@ -136,7 +137,11 @@ internal static class MemberBuilds
 
         // A call can return a function that it built.
         return value.DescendantNodesAndSelf()
-            .Any(static node => node is AnonymousFunctionExpressionSyntax or InvocationExpressionSyntax)
+            .Any(static node =>
+                node is AnonymousFunctionExpressionSyntax or InvocationExpressionSyntax
+                || (node is BaseObjectCreationExpressionSyntax { ArgumentList.Arguments: var arguments }
+                    && arguments.Any(static argument =>
+                        argument.Expression is SimpleNameSyntax or MemberAccessExpressionSyntax)))
             ? value
             : null;
     }

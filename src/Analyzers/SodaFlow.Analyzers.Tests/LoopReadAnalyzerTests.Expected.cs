@@ -5973,6 +5973,25 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab347ContinueBeforeTheYieldInAFor"] = ["SF1001"],
             ["Ab347BreakBeforeTheYieldInAWhileTrue"] = ["SF1001"],
             ["Ab347YieldInALoopThatRunsNoTurn"] = ["SF1001"],
-            ["Ab347BreakInAnInnerLoopBeforeTheYield"] = ["SF1001"]
+            ["Ab347BreakInAnInnerLoopBeforeTheYield"] = ["SF1001"],
+            ["Ab346CtorMapOfAMethodGroup"] = ["SF1004"],
+            ["Ab346CtorLazyOfAMethodGroup"] = ["SF1004"],
+            ["Ab346CtorMapOfAMethodGroupWithNoThis"] = ["SF1004"],
+            ["Ab346CtorLazyOfAMethodGroupWithNoThis"] = ["SF1004"],
+            ["Ab346MethodMapOfAMethodGroup"] = ["SF1004"],
+            ["Ab346OneMethodBuildsSetsAndReadsAMap"] = ["SF1004"],
+            ["Ab346OneMethodBuildsSetsAndReadsALazy"] = ["SF1004"],
+            ["Ab346OneMethodBuildsADelegateLocalSetsAndReads"] = ["SF1004"],
+            ["Ab346CtorMapOfAMethodGroupSetAndReadInTheBlock"] = ["SF1001"],
+            ["Ab346CtorLiftOfAMethodGroup"] = ["SF1004"],
+            ["Ab346CtorMapOfAMethodGroupOfTheBase"] = ["SF1004"],
+            ["Ab346CtorMapOfAMethodGroupThroughBase"] = ["SF1004"],
+            ["Ab346CtorMapOfAMethodGroupThatCallsAMethod"] = ["SF1004"],
+            ["Ab346CtorMapOfAMethodGroupOfAKeptObject"] = ["SF1005"],
+            ["Ab346StaticMethodGroupReadsAStaticSetAfter"] = ["SF1005"],
+            ["Ab346RunOfAMethodGroupAfterTheSet"] = ["SF1004"],
+            ["Ab346SelectOfAMethodGroupAfterTheSet"] = ["SF1004"],
+            ["Ab346BuilderThatGetsStateMapOfAMethodGroup"] = ["SF1004"],
+            ["Ab346BuilderThatGetsStateLazyOfAMethodGroup"] = ["SF1004"]
         };
 }

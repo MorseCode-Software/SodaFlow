@@ -1973,7 +1973,8 @@ internal sealed partial class LoopStateEvaluator
                     .Join(this.TypeState(expression)),
             // A lambda is a value. Its code runs when something calls it.
             AnonymousFunctionExpressionSyntax function =>
-                LoopState.OfFunction(new FunctionValue(declaration: function, definer: this, receiver: null)),
+                LoopState.OfFunction(
+                    new FunctionValue(declaration: function, definer: this, receiver: null, ofThis: null)),
             // The object that the code is in, with the members that the evaluator knows.
             ThisExpressionSyntax when this.thisInTheStore is { } built => this.ThisInTheStore(built),
             ThisExpressionSyntax when this.thisMembers.Count > 0 =>
@@ -2477,7 +2478,8 @@ internal sealed partial class LoopStateEvaluator
                 definer: declaration is LocalFunctionStatementSyntax ? this : null,
                 receiver: expression is MemberAccessExpressionSyntax { Expression: not ThisExpressionSyntax } owned
                     ? this.Eval(owned.Expression).Members
-                    : null));
+                    : null,
+                ofThis: NamesAMethodOfThis(expression: expression, group: group) ? this : null));
     }
 
     private LoopState EvalInvocation(InvocationExpressionSyntax invocation)
@@ -3960,7 +3962,11 @@ internal sealed partial class LoopStateEvaluator
                     .Select(static method => method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax())
                     .OfType<MethodDeclarationSyntax>()
                     .Select(declaration =>
-                        new FunctionValue(declaration: declaration, definer: null, receiver: state.Members)));
+                        new FunctionValue(
+                            declaration: declaration,
+                            definer: null,
+                            receiver: state.Members,
+                            ofThis: null)));
 
     private static Followed? Both(Followed? first, Followed? second) =>
         first == null
@@ -4115,6 +4121,7 @@ internal sealed partial class LoopStateEvaluator
 
                 LoopState owner = LoopState.None.WithMembers(function.Receiver);
 
+                // A method group of this gets the members of this, as a call on this does.
                 return Both(
                     first: this.FollowTheStaticConstructorAtACallOf(call: call, method: method),
                     second: this.Enter(
@@ -4123,7 +4130,7 @@ internal sealed partial class LoopStateEvaluator
                         body: body,
                         bindings: bindings,
                         definer: null,
-                        members: TaggedMembers(owner),
+                        members: function.OfThis?.thisMembers ?? TaggedMembers(owner),
                         receiver: owner,
                         target: null,
                         returnsAnObject: this.DoesNotSayItsClass(method.ReturnType),

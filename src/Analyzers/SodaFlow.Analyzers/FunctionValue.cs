@@ -18,14 +18,23 @@ namespace SodaFlow.Analyzers;
 ///     The members of the object, for a method of an object whose construction
 ///     the evaluator followed.
 /// </param>
+/// <param name="ofThis">
+///     For a method of this object that the code names as a method group, the
+///     evaluator of that code. The method reads the members of this through
+///     the record of that evaluator, as a call of the method on this does.
+///     Null for each other function.
+/// </param>
 internal sealed class FunctionValue(
     in SyntaxNode declaration,
     in LoopStateEvaluator? definer,
-    in Construction? receiver)
+    in Construction? receiver,
+    in LoopStateEvaluator? ofThis)
 {
     public SyntaxNode Declaration { get; } = declaration;
 
     public LoopStateEvaluator? Definer { get; } = definer;
 
     public Construction? Receiver { get; } = receiver;
+
+    public LoopStateEvaluator? OfThis { get; } = ofThis;
 }

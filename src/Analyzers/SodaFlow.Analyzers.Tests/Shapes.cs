@@ -41933,6 +41933,126 @@ public static class Shapes
     public static Cell<int> Ab347BreakInAnInnerLoopBeforeTheYield() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { for (int i = 0; i < 1; i++) { while (true) { if (Kept.Count >= 0) { break; } yield return 1; } } Kept.Add(l.Sample()); } });
 
+    // S10004. A constructor builds a map with a method group of the object. The method samples a member. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab346CtorMapOfAMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorMap().SetAndRead(l.Map(v => v))));
+
+    // S10005. A constructor builds a lazy value with a method group of the object. The method samples a member. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab346CtorLazyOfAMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorLazy().SetAndRead(l.Map(v => v))));
+
+    // S10006. A constructor builds a map with a method group that has no this. A method sets the member to a pending cell and samples the map, also with no this.
+    public static Cell<int> Ab346CtorMapOfAMethodGroupWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorMapWithNoThis().SetAndRead(l.Map(v => v))));
+
+    // S10007. A constructor builds a lazy value with a method group that has no this. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab346CtorLazyOfAMethodGroupWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorLazyWithNoThis().SetAndRead(l.Map(v => v))));
+
+    // S10008. A method builds a map with a method group of the object. A second method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab346MethodMapOfAMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346MethodMap m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S10009. One method builds a map with a method group of the object, sets the member to a pending cell, and samples the map.
+    public static Cell<int> Ab346OneMethodBuildsSetsAndReadsAMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346MethodMap m = new(); return S.Hold(m.BuildSetAndRead(l.Map(v => v))); });
+
+    // S10010. One method builds a lazy value with a method group of the object, sets the member to a pending cell, and reads the value.
+    public static Cell<int> Ab346OneMethodBuildsSetsAndReadsALazy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346MethodLazy m = new(); return S.Hold(m.BuildSetAndRead(l.Map(v => v))); });
+
+    // S10011. One method puts a method group of the object in a delegate local and builds a map with the local. It sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab346OneMethodBuildsADelegateLocalSetsAndReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346MethodMap m = new(); return S.Hold(m.BuildThroughALocalSetAndRead(l.Map(v => v))); });
+
+    // S10012. A constructor builds a map into a property with a method group of the object. The block sets the member through a property and samples the map through a property.
+    public static Cell<int> Ab346CtorMapOfAMethodGroupSetAndReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346OpenMap m = new(); m.Share = l.Map(v => v); Kept.Add(m.Map.Sample()); return S.Hold(0); });
+
+    // S10013. A constructor builds a lift with a method group of the object. A method sets the member to a pending cell and samples the lift.
+    public static Cell<int> Ab346CtorLiftOfAMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorLift().SetAndRead(l.Map(v => v))));
+
+    // S10014. A constructor of a derived type builds a map with a method group of its base type. A method sets the member of the base type to a pending cell and samples the map.
+    public static Cell<int> Ab346CtorMapOfAMethodGroupOfTheBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346DerivedMap().SetAndRead(l.Map(v => v))));
+
+    // S10015. A constructor of a derived type builds a map with a method group of its base type through base. A method sets the member of the base type to a pending cell and samples the map.
+    public static Cell<int> Ab346CtorMapOfAMethodGroupThroughBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346DerivedThroughBase().SetAndRead(l.Map(v => v))));
+
+    // S10016. A constructor builds a map with a method group of the object. The method calls a second method, which samples a member. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab346CtorMapOfAMethodGroupThatCallsAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorMapOfACaller().SetAndRead(l.Map(v => v))));
+
+    // S10017. A constructor builds a map with a method group of an object that it keeps in a member. A method sets the member of that object to a pending cell and samples the map. A lambda that calls the method gets the same rule.
+    public static Cell<int> Ab346CtorMapOfAMethodGroupOfAKeptObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorMapOfAKept().SetAndRead(l.Map(v => v))));
+
+    // S10018. A constructor builds a map with a static method group that samples a static member. The block sets the static member to a pending cell, and a method samples the map.
+    public static Cell<int> Ab346StaticMethodGroupReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346CtorMapOfAStaticMethod m = new(); Ab275Statics.Share = l.Map(v => v); int read = m.Read(); Ab275Statics.Share = Plain; return S.Hold(read); });
+
+    // S10019. A method sets the member to a pending cell and gives Transaction.Run a method group of the object. The method samples the member, and Transaction.Run calls it before it returns.
+    public static Cell<int> Ab346RunOfAMethodGroupAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346Runner().SetAndRun(l.Map(v => v))));
+
+    // S10020. A method sets the member to a pending cell and gives Select a method group of the object. The method samples the member, and ToArray calls it.
+    public static Cell<int> Ab346SelectOfAMethodGroupAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346Runner().SetAndSelect(l.Map(v => v))));
+
+    // S10021. A method that gets a pending cell builds a map with a method group of the object. A second method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab346BuilderThatGetsStateMapOfAMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346StateBuild m = new(); m.Build(l.Map(v => v)); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S10022. A method that gets a pending cell builds a lazy value with a method group of the object. A second method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab346BuilderThatGetsStateLazyOfAMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346StateBuild m = new(); m.BuildLazy(l.Map(v => v)); return S.Hold(m.SetAndReadLazy(l.Map(v => v))); });
+
+    // S10023. Control: a constructor builds a map with a method group whose method samples a member that no code sets again. A method sets a different member to a pending cell and samples the map.
+    public static Cell<int> Ab346MethodGroupReadsAMemberThatStaysPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorMapOfAFixedMember().SetAndRead(l.Map(v => v))));
+
+    // S10024. Control: a constructor builds a lazy value with a method group whose method samples a member that no code sets again. A method sets a different member to a pending cell and reads the value.
+    public static Cell<int> Ab346LazyMethodGroupReadsAMemberThatStaysPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorLazyOfAFixedMember().SetAndRead(l.Map(v => v))));
+
+    // S10025. Control: a constructor builds a map with a method group of the object. A method sets the member to a plain cell and samples the map.
+    public static Cell<int> Ab346MethodGroupWithTheMemberSetPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab346CtorMap().SetAndRead(Plain)); return S.Hold(0); });
+
+    // S10026. Control: a constructor builds a lazy value with a method group of the object. A method sets the member to a plain cell and reads the value.
+    public static Cell<int> Ab346LazyMethodGroupWithTheMemberSetPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab346CtorLazy().SetAndRead(Plain)); return S.Hold(0); });
+
+    // S10027. Control: a constructor builds a map with a method group whose method does not sample. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab346MethodGroupThatDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorMapThatDoesNotSample().SetAndRead(l.Map(v => v))));
+
+    // S10028. Control: a constructor builds a map with a static method group that samples a plain cell. A method sets a member to a pending cell and samples the map.
+    public static Cell<int> Ab346StaticMethodGroupWithNothingPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorMapOfAPlainStatic().SetAndRead(l.Map(v => v))));
+
+    // S10029. Control: a constructor builds a map with a method group of the object. A method samples the map with the member plain, sets the member to a pending cell, and samples the map again. The second read does not run the function again.
+    public static Cell<int> Ab346MethodGroupReadBeforeTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorMap().ReadSetAndReadAgain(l.Map(v => v))));
+
+    // S10030. Control: one method builds a map with a method group of the object and samples the map with the member plain. Then, it sets the member to a pending cell.
+    public static Cell<int> Ab346OneMethodReadsBeforeItSets() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346MethodMap m = new(); return S.Hold(m.BuildReadAndSet(l.Map(v => v))); });
+
+    // S10031. Control: a constructor builds a map with a method group of a kept object. A method sets the member of this, not of that object, to a pending cell and samples the map.
+    public static Cell<int> Ab346MethodGroupOfAKeptObjectWithAMemberOfThisSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab346CtorMapOfAKept().SetOwnAndRead(l.Map(v => v))));
+
+    // S10032. Control: a method sets the member to a plain cell and gives Transaction.Run a method group of the object that samples the member.
+    public static Cell<int> Ab346RunOfAMethodGroupWithTheMemberPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab346Runner().SetAndRun(Plain)); return S.Hold(0); });
+
+    // S10033. Control: a method that gets a pending cell builds a map with a method group of the object. A second method sets the member to a plain cell and samples the map.
+    public static Cell<int> Ab346BuilderThatGetsStateWithTheMemberPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346StateBuild m = new(); m.Build(l.Map(v => v)); Kept.Add(m.SetAndRead(Plain)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -60335,6 +60455,422 @@ public static class Shapes
 
             return this.value.Value;
         }
+    }
+
+    // Helpers of the AB346 shapes: a method group as the function of a map, a lift, or a Lazy.
+    public sealed class Ab346CtorMap
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab346CtorMap() => this.map = Cell.Constant(1).Map(this.Add);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        public int ReadSetAndReadAgain(Cell<int> pending)
+        {
+            int first = this.map.Sample();
+            this.share = pending;
+
+            return first + this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab346CtorLazy
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab346CtorLazy() => this.value = new Lazy<int>(this.Read);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab346CtorMapWithNoThis
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab346CtorMapWithNoThis() => map = Cell.Constant(1).Map(Add);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            share = pending;
+
+            return map.Sample();
+        }
+
+        private int Add(int v) => v + share.Sample();
+    }
+
+    public sealed class Ab346CtorLazyWithNoThis
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab346CtorLazyWithNoThis() => value = new Lazy<int>(Read);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            share = pending;
+
+            return value.Value;
+        }
+
+        private int Read() => share.Sample();
+    }
+
+    public sealed class Ab346MethodMap
+    {
+        private Cell<int> map = Cell.Constant(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public void Build() => this.map = Cell.Constant(1).Map(this.Add);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        public int BuildSetAndRead(Cell<int> pending)
+        {
+            this.map = Cell.Constant(1).Map(this.Add);
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        public int BuildThroughALocalSetAndRead(Cell<int> pending)
+        {
+            Func<int, int> add = this.Add;
+            this.map = Cell.Constant(1).Map(add);
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        public int BuildReadAndSet(Cell<int> pending)
+        {
+            this.map = Cell.Constant(1).Map(this.Add);
+            int read = this.map.Sample();
+            this.share = pending;
+
+            return read;
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab346MethodLazy
+    {
+        private Lazy<int> value = new(static () => 0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public int BuildSetAndRead(Cell<int> pending)
+        {
+            this.value = new Lazy<int>(this.Read);
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab346OpenMap
+    {
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab346OpenMap() => this.Map = Cell.Constant(1).Map(this.Add);
+
+        public Cell<int> Map { get; }
+
+        public Cell<int> Share
+        {
+            set => this.share = value;
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab346Slot
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public int Add(int v) => v + this.Share.Sample();
+    }
+
+    public sealed class Ab346CtorMapOfAKept
+    {
+        private readonly Ab346Slot slot = new();
+
+        private readonly Cell<int> map;
+
+        private Cell<int> own = Cell.Constant(0);
+
+        public Ab346CtorMapOfAKept() => this.map = Cell.Constant(1).Map(this.slot.Add);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.slot.Share = pending;
+
+            return this.map.Sample();
+        }
+
+        public int SetOwnAndRead(Cell<int> pending)
+        {
+            this.own = pending;
+
+            return this.map.Sample();
+        }
+
+        public Cell<int> Own => this.own;
+    }
+
+    public sealed class Ab346CtorLift
+    {
+        private readonly Cell<int> lift;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab346CtorLift() => this.lift = Cell.Constant(1).Lift(Cell.Constant(2), this.Add);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.lift.Sample();
+        }
+
+        private int Add(int a, int b) => a + b + this.share.Sample();
+    }
+
+    public class Ab346BaseOfAMap
+    {
+        protected Cell<int> Share { get; set; } = Cell.Constant(0);
+
+        protected int Add(int v) => v + this.Share.Sample();
+    }
+
+    public sealed class Ab346DerivedMap : Ab346BaseOfAMap
+    {
+        private readonly Cell<int> map;
+
+        public Ab346DerivedMap() => this.map = Cell.Constant(1).Map(this.Add);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+
+            return this.map.Sample();
+        }
+    }
+
+    public sealed class Ab346DerivedThroughBase : Ab346BaseOfAMap
+    {
+        private readonly Cell<int> map;
+
+        public Ab346DerivedThroughBase() => this.map = Cell.Constant(1).Map(base.Add);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+
+            return this.map.Sample();
+        }
+    }
+
+    public sealed class Ab346CtorMapOfACaller
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab346CtorMapOfACaller() => this.map = Cell.Constant(1).Map(this.Add);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.ReadShare();
+
+        private int ReadShare() => this.share.Sample();
+    }
+
+    public sealed class Ab346CtorMapOfAStaticMethod
+    {
+        private readonly Cell<int> map;
+
+        public Ab346CtorMapOfAStaticMethod() => this.map = Cell.Constant(1).Map(AddStatic);
+
+        public int Read() => this.map.Sample();
+
+        private static int AddStatic(int v) => v + Ab275Statics.Share.Sample();
+    }
+
+    public sealed class Ab346CtorMapOfAFixedMember
+    {
+        private readonly Cell<int> fixedShare = Cell.Constant(2);
+
+        private readonly Cell<int> map;
+
+        public Ab346CtorMapOfAFixedMember() => this.map = Cell.Constant(1).Map(this.Add);
+
+        public Cell<int> Share { get; private set; } = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.fixedShare.Sample();
+    }
+
+    public sealed class Ab346CtorLazyOfAFixedMember
+    {
+        private readonly Cell<int> fixedShare = Cell.Constant(2);
+
+        private readonly Lazy<int> value;
+
+        public Ab346CtorLazyOfAFixedMember() => this.value = new Lazy<int>(this.Read);
+
+        public Cell<int> Share { get; private set; } = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.fixedShare.Sample();
+    }
+
+    public sealed class Ab346CtorMapThatDoesNotSample
+    {
+        private readonly Cell<int> map;
+
+        public Ab346CtorMapThatDoesNotSample() => this.map = Cell.Constant(1).Map(this.AddOne);
+
+        public Cell<int> Share { get; private set; } = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int AddOne(int v) => v + 1;
+    }
+
+    public sealed class Ab346CtorMapOfAPlainStatic
+    {
+        private readonly Cell<int> map;
+
+        public Ab346CtorMapOfAPlainStatic() => this.map = Cell.Constant(1).Map(AddPlain);
+
+        public Cell<int> Share { get; private set; } = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+
+            return this.map.Sample();
+        }
+
+        private static int AddPlain(int v) => v + Plain.Sample();
+    }
+
+    public sealed class Ab346Runner
+    {
+        private Cell<int> share = Cell.Constant(0);
+
+        public int SetAndRun(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return Transaction.Run(this.ReadShare);
+        }
+
+        public int SetAndSelect(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return new[] { 1 }.Select(this.Add).ToArray()[0];
+        }
+
+        private int ReadShare() => this.share.Sample();
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab346StateBuild
+    {
+        private Cell<int> map = Cell.Constant(0);
+
+        private Lazy<int> value = new(static () => 0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Cell<int> Given { get; private set; } = Cell.Constant(0);
+
+        public void Build(Cell<int> given)
+        {
+            this.Given = given;
+            this.map = Cell.Constant(1).Map(this.Add);
+        }
+
+        public void BuildLazy(Cell<int> given)
+        {
+            this.Given = given;
+            this.value = new Lazy<int>(this.Read);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        public int SetAndReadLazy(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+
+        private int Read() => this.share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
