@@ -5885,6 +5885,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab300BaseConstructorGivesThisReadField"] = ["SF1001"],
             ["Ab300ConstructorGivesThisInALambdaReadField"] = ["SF1001"],
             ["Ab303AnArgumentGivesTheNameADifferentObject"] = ["SF1001"],
-            ["Ab303AChangeOfTheElementBeforeAReadThroughACall"] = ["SF1001"]
+            ["Ab303AChangeOfTheElementBeforeAReadThroughACall"] = ["SF1001"],
+            ["Ab304AConstructorThatPutsIntoTheElementBetween"] = ["SF1001"],
+            ["Ab304AConstructorThatWritesThroughTheElementBetween"] = ["SF1001"],
+            ["Ab304ABaseConstructorPutsIntoTheElementBetween"] = ["SF1001"],
+            ["Ab304AChainedConstructorPutsIntoTheElementBetween"] = ["SF1001"],
+            ["Ab304AFieldInitializerPutsIntoTheElementBetween"] = ["SF1001"],
+            ["Ab304AConstructorThatSetsTheFieldBetween"] = ["SF1001"],
+            ["Ab304APropertyInitializerPutsIntoTheElementBetween"] = ["SF1001"]
         };
 }

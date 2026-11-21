@@ -378,12 +378,12 @@ internal sealed partial class LoopStateEvaluator
                          || this.CannotChangeTheElement(node: node, collection: type, callees: callees));
     }
 
-    // True for a node that cannot change an element of a collection of the given type, and that
-    // runs no code of the project. It is a write to a local or to a member that is a location. It
-    // is a call that CannotChangeItsCollection allows, or a read of a name, a member, or an element
-    // with no code. A read of a cell or of a Lazy runs only the functions that the walk follows. Only
-    // those can change the element: see RunsNoFunctionThatTheWalkKnows. An operator of the
-    // platform on two numbers runs no code. Statements, declarations, literals, lambdas, and
+    // True for a node that cannot change an element of a collection of the given type, and that runs
+    // no code of the project. It is a write to a local, to a discard, or to a member that is a
+    // location. It is a call that CannotChangeItsCollection allows, or a read of a name, a member, or
+    // an element with no code. A read of a cell or of a Lazy runs only the functions that the walk
+    // follows. Only those can change the element: see RunsNoFunctionThatTheWalkKnows. An operator of
+    // the platform on two numbers runs no code. Statements, declarations, literals, lambdas, and
     // conditional expressions that it is part of are such nodes also. The scan reads each branch of
     // such an expression. Each other node is not, such as a creation or a loop. The last argument is
     // the call whose body the node is in, for a node of a callee.
@@ -401,6 +401,7 @@ internal sealed partial class LoopStateEvaluator
                 {
                     ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol { RefKind: RefKind.None } =>
                         assignment.Left is IdentifierNameSyntax,
+                    // A discard keeps no value. The creation or the call at its right is a node of its own.
                     IDiscardSymbol => true,
                     { } member => assignment.Left is IdentifierNameSyntax or MemberAccessExpressionSyntax
                                   && IsAMemberLocation(member),
@@ -546,6 +547,36 @@ internal sealed partial class LoopStateEvaluator
                     collection: collection,
                     callees: callees - 1,
                     callee: (call, method, First: callee == null)));
+
+    // True for a constructor of this compilation whose body can come between, as CanStandBetween
+    // says for a method. The creation must run only that body. Thus, the constructor calls no
+    // second constructor, and the type gives no member that is not static an initializer. The body
+    // has no callee record, thus a read of a parameter there passes no test that needs the argument.
+    private bool ConstructorCanStandBetween(IMethodSymbol constructor, ITypeSymbol collection, int callees) =>
+        constructor.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is ConstructorDeclarationSyntax { Initializer: null } declaration
+        && constructor.ContainingType is
+        {
+            BaseType: null or { SpecialType: SpecialType.System_Object or SpecialType.System_ValueType }
+        } made
+        && made.DeclaringSyntaxReferences
+            .Select(static reference => reference.GetSyntax())
+            .OfType<TypeDeclarationSyntax>()
+            .SelectMany(static type => type.Members)
+            .All(static member => member switch
+            {
+                FieldDeclarationSyntax field =>
+                    field.Modifiers.Any(SyntaxKind.StaticKeyword)
+                    || field.Declaration.Variables.All(static one => one.Initializer == null),
+                PropertyDeclarationSyntax property =>
+                    property.Modifiers.Any(SyntaxKind.StaticKeyword) || property.Initializer == null,
+                _ => true
+            })
+        && (declaration.Body ?? (SyntaxNode?)declaration.ExpressionBody?.Expression) is { } body
+        && body.DescendantNodesAndSelf()
+            .All(node => node is ElementAccessExpressionSyntax element
+                ? this.region.SymbolOf(element) == null
+                : this.CannotChangeTheElement(node: node, collection: collection, callees: callees - 1));
 
     // The owner of a property that a node reads: the owner of a member access, or of the member
     // access whose name the node is. Null for a property with no owner in the code.

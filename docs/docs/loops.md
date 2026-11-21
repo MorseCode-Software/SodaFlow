@@ -632,8 +632,10 @@ careful side, so it can report a read that does not throw:
   wrote: a sample, a `Value`, or a `CanExecute` of a cell whose function the analyzer saw you give
   it, or the `Value` of a `Lazy<T>` whose function it knows. Names of one object hold the same way,
   from the assignment that makes them one, and a call of one of your methods with such a body can
-  come between them if it gives none of the names a new object. A conversion of your own makes a new
-  object, so it gives no second name.
+  come between them if it gives none of the names a new object. So can a `new` of one of your types
+  whose constructor has such a body, calls no other constructor with code, and has no initializer
+  of an instance field or property to run. A conversion of your own makes a new object, so it gives
+  no second name.
 - The objects that calls of your methods return share one state for each member, where the
   analyzer did not see the object made. A write to a member through the result of one call adds to
   what writes through other calls gave that member, and does not replace it, because the analyzer

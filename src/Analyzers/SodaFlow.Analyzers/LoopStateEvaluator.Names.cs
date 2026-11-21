@@ -810,10 +810,11 @@ internal sealed partial class LoopStateEvaluator
     // True when no node between two positions can change the object of a name, or a member of an
     // object. Each such node is one that CannotChangeTheElement allows for the type of the
     // collection, of the owner, or of the name. A method of this compilation can come between where
-    // CanStandBetween permits its code. This is so also when the method gets the collection or the
-    // owner. That code puts nothing into an element, and the walk reads its writes to a member. When
-    // the last argument is true, an assignment to the field of the name is no such node also. That
-    // is so in the code between and in the code of such a method.
+    // CanStandBetween permits its code, and a constructor where ConstructorCanStandBetween does.
+    // This is so also when the method gets the collection or the owner. That code puts nothing
+    // into an element, and the walk reads its writes to a member. When the last argument is true,
+    // an assignment to the field of the name is no such node also. That is so in the code between
+    // and in the code of such a method.
     private bool NothingBetweenChanges(NameOfAnObject name, int after, int before, bool ofTheName)
     {
         if (after > before)
@@ -875,6 +876,17 @@ internal sealed partial class LoopStateEvaluator
                                             || SetsNoName(
                                                 method: method.ReducedFrom ?? method,
                                                 callees: MaxCalleesBetween)),
+                                    BaseObjectCreationExpressionSyntax creation
+                                        when this.region.SymbolOf(creation) is IMethodSymbol
+                                             {
+                                                 MethodKind: MethodKind.Constructor,
+                                                 DeclaringSyntaxReferences.IsEmpty: false
+                                             } constructor =>
+                                        this.ConstructorCanStandBetween(
+                                            constructor: constructor,
+                                            collection: type,
+                                            callees: MaxCalleesBetween)
+                                        && (!ofTheName || SetsNoName(method: constructor, callees: MaxCalleesBetween)),
                                     _ => this.CannotChangeTheElement(node: node, collection: type, callees: 0)
                                 });
 
@@ -883,7 +895,7 @@ internal sealed partial class LoopStateEvaluator
         bool SetsNoName(IMethodSymbol method, int callees) =>
             callees > 0
             && method.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                is MethodDeclarationSyntax declaration
+                is BaseMethodDeclarationSyntax declaration
             && declaration.DescendantNodes()
                 .All(node => node switch
                 {

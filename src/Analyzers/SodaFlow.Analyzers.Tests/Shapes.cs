@@ -41333,6 +41333,106 @@ public static class Shapes
     public static Cell<int> Ab303AChangeOfTheElementBeforeAReadThroughACall() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab303Self[] a = [new Ab303Self(), new Ab303Self()]; a[1].Share = l.Map(v => v); a[0].Share = Plain; Array.Reverse(a); return S.Hold(a[0].GetThis()!.Sample()); });
 
+    // S9854. Pair matrix, Round 5: a static field gets the object of an element of a static field array. A pending cell goes in through an element of a static field array, then a plain cell through a static field. The first write is in a constructor that gets the name as a parameter. The read is through an element of a static field array.
+    public static Cell<int> R5PairFieldArrayPendingThenStaticFieldReadFieldArrayFirstInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairXSf625 = R5PairXFa625[0]; SettableSlot q = R5PairXSf625; _ = new R5PairWriter(R5PairXFa625[0], l.Map(v => v)); R5PairXSf625.Share = Plain; return S.Hold(R5PairXFa625[0].Share!.Sample()); });
+
+    // S9855. Pair matrix, Round 5: a static field gets the object of an element of a static field array. A pending cell goes in through an element of a static field array, then a plain cell through a static field. The second write is in a constructor that gets the name as a parameter. The read is through an element of a static field array.
+    public static Cell<int> R5PairFieldArrayPendingThenStaticFieldReadFieldArraySecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairXSf627 = R5PairXFa627[0]; SettableSlot q = R5PairXSf627; R5PairXFa627[0].Share = l.Map(v => v); _ = new R5PairWriter(R5PairXSf627, Plain); return S.Hold(R5PairXFa627[0].Share!.Sample()); });
+
+    // S9856. Pair matrix, Round 5: an instance field of a local holder gets the object of an element of a static field array. A pending cell goes in through an element of a static field array, then a plain cell through an instance field of a local holder. The first write is in a constructor that gets the name as a parameter. The read is through an element of a static field array.
+    public static Cell<int> R5PairFieldArrayPendingThenInstanceFieldReadFieldArrayFirstInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairBox h = new(); h.Slot = R5PairXFa633[0]; SettableSlot q = h.Slot; _ = new R5PairWriter(R5PairXFa633[0], l.Map(v => v)); h.Slot.Share = Plain; return S.Hold(R5PairXFa633[0].Share!.Sample()); });
+
+    // S9857. Pair matrix, Round 5: an instance field of a local holder gets the object of an element of a static field array. A pending cell goes in through an element of a static field array, then a plain cell through an instance field of a local holder. The second write is in a constructor that gets the name as a parameter. The read is through an element of a static field array.
+    public static Cell<int> R5PairFieldArrayPendingThenInstanceFieldReadFieldArraySecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairBox h = new(); h.Slot = R5PairXFa635[0]; SettableSlot q = h.Slot; R5PairXFa635[0].Share = l.Map(v => v); _ = new R5PairWriter(h.Slot, Plain); return S.Hold(R5PairXFa635[0].Share!.Sample()); });
+
+    // S9858. Pair matrix, Round 5: a local gets the object of an element of a static field array. A pending cell goes in through an element of a static field array, then a plain cell through a local. The first write is in a constructor that gets the name as a parameter. The read is through an element of a static field array.
+    public static Cell<int> R5PairFieldArrayPendingThenLocalReadFieldArrayFirstInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R5PairXFa641[0]; SettableSlot q = d; _ = new R5PairWriter(R5PairXFa641[0], l.Map(v => v)); d.Share = Plain; return S.Hold(R5PairXFa641[0].Share!.Sample()); });
+
+    // S9859. Pair matrix, Round 5: a local gets the object of an element of a static field array. A pending cell goes in through an element of a static field array, then a plain cell through a local. The second write is in a constructor that gets the name as a parameter. The read is through an element of a static field array.
+    public static Cell<int> R5PairFieldArrayPendingThenLocalReadFieldArraySecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R5PairXFa643[0]; SettableSlot q = d; R5PairXFa643[0].Share = l.Map(v => v); _ = new R5PairWriter(d, Plain); return S.Hold(R5PairXFa643[0].Share!.Sample()); });
+
+    // S9860. Pair matrix, Round 5: an element of a local array gets the object of an element of a static field array. A pending cell goes in through an element of a static field array, then a plain cell through an element of a local array. The first write is in a constructor that gets the name as a parameter. The read is through an element of a static field array.
+    public static Cell<int> R5PairFieldArrayPendingThenElementReadFieldArrayFirstInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R5PairSpare]; a[0] = R5PairXFa649[0]; SettableSlot q = a[0]; _ = new R5PairWriter(R5PairXFa649[0], l.Map(v => v)); a[0].Share = Plain; return S.Hold(R5PairXFa649[0].Share!.Sample()); });
+
+    // S9861. Pair matrix, Round 5: an element of a local array gets the object of an element of a static field array. A pending cell goes in through an element of a static field array, then a plain cell through an element of a local array. The second write is in a constructor that gets the name as a parameter. The read is through an element of a static field array.
+    public static Cell<int> R5PairFieldArrayPendingThenElementReadFieldArraySecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R5PairSpare]; a[0] = R5PairXFa651[0]; SettableSlot q = a[0]; R5PairXFa651[0].Share = l.Map(v => v); _ = new R5PairWriter(a[0], Plain); return S.Hold(R5PairXFa651[0].Share!.Sample()); });
+
+    // S9862. Pair matrix, Round 5: an instance field of a local holder gets the object of a static field. A pending cell goes in through a static field, then a plain cell through an instance field of a local holder. The first write is in a constructor that gets the name as a parameter. The read is through a static field.
+    public static Cell<int> R5PairStaticFieldPendingThenInstanceFieldReadStaticFieldFirstInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairBox h = new(); h.Slot = R5PairXSf657; SettableSlot q = h.Slot; _ = new R5PairWriter(R5PairXSf657, l.Map(v => v)); h.Slot.Share = Plain; return S.Hold(R5PairXSf657.Share!.Sample()); });
+
+    // S9863. Pair matrix, Round 5: an instance field of a local holder gets the object of a static field. A pending cell goes in through a static field, then a plain cell through an instance field of a local holder. The second write is in a constructor that gets the name as a parameter. The read is through a static field.
+    public static Cell<int> R5PairStaticFieldPendingThenInstanceFieldReadStaticFieldSecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairBox h = new(); h.Slot = R5PairXSf659; SettableSlot q = h.Slot; R5PairXSf659.Share = l.Map(v => v); _ = new R5PairWriter(h.Slot, Plain); return S.Hold(R5PairXSf659.Share!.Sample()); });
+
+    // S9864. Pair matrix, Round 5: a local gets the object of a static field. A pending cell goes in through a static field, then a plain cell through a local. The first write is in a constructor that gets the name as a parameter. The read is through a static field.
+    public static Cell<int> R5PairStaticFieldPendingThenLocalReadStaticFieldFirstInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R5PairXSf665; SettableSlot q = d; _ = new R5PairWriter(R5PairXSf665, l.Map(v => v)); d.Share = Plain; return S.Hold(R5PairXSf665.Share!.Sample()); });
+
+    // S9865. Pair matrix, Round 5: a local gets the object of a static field. A pending cell goes in through a static field, then a plain cell through a local. The second write is in a constructor that gets the name as a parameter. The read is through a static field.
+    public static Cell<int> R5PairStaticFieldPendingThenLocalReadStaticFieldSecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R5PairXSf667; SettableSlot q = d; R5PairXSf667.Share = l.Map(v => v); _ = new R5PairWriter(d, Plain); return S.Hold(R5PairXSf667.Share!.Sample()); });
+
+    // S9866. Pair matrix, Round 5: an element of a local array gets the object of a static field. A pending cell goes in through a static field, then a plain cell through an element of a local array. The first write is in a constructor that gets the name as a parameter. The read is through a static field.
+    public static Cell<int> R5PairStaticFieldPendingThenElementReadStaticFieldFirstInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R5PairSpare]; a[0] = R5PairXSf673; SettableSlot q = a[0]; _ = new R5PairWriter(R5PairXSf673, l.Map(v => v)); a[0].Share = Plain; return S.Hold(R5PairXSf673.Share!.Sample()); });
+
+    // S9867. Pair matrix, Round 5: an element of a local array gets the object of a static field. A pending cell goes in through a static field, then a plain cell through an element of a local array. The second write is in a constructor that gets the name as a parameter. The read is through a static field.
+    public static Cell<int> R5PairStaticFieldPendingThenElementReadStaticFieldSecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R5PairSpare]; a[0] = R5PairXSf675; SettableSlot q = a[0]; R5PairXSf675.Share = l.Map(v => v); _ = new R5PairWriter(a[0], Plain); return S.Hold(R5PairXSf675.Share!.Sample()); });
+
+    // S9868. Pair matrix, Round 5: a local gets the object of an instance field of a local holder. A pending cell goes in through an instance field of a local holder, then a plain cell through a local. The first write is in a constructor that gets the name as a parameter. The read is through an instance field of a local holder.
+    public static Cell<int> R5PairInstanceFieldPendingThenLocalReadInstanceFieldFirstInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairBox h = new(); SettableSlot d = h.Slot; SettableSlot q = d; _ = new R5PairWriter(h.Slot, l.Map(v => v)); d.Share = Plain; return S.Hold(h.Slot.Share!.Sample()); });
+
+    // S9869. Pair matrix, Round 5: an element of a local array gets the object of an instance field of a local holder. A pending cell goes in through an instance field of a local holder, then a plain cell through an element of a local array. The first write is in a constructor that gets the name as a parameter. The read is through an instance field of a local holder.
+    public static Cell<int> R5PairInstanceFieldPendingThenElementReadInstanceFieldFirstInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairBox h = new(); SettableSlot[] a = [R5PairSpare]; a[0] = h.Slot; SettableSlot q = a[0]; _ = new R5PairWriter(h.Slot, l.Map(v => v)); a[0].Share = Plain; return S.Hold(h.Slot.Share!.Sample()); });
+
+    // S9870. Pair matrix, Round 5: an element of a local array gets the object of a local. A pending cell goes in through a local, then a plain cell through an element of a local array. The first write is in a constructor that gets the name as a parameter. The read is through a local.
+    public static Cell<int> R5PairLocalPendingThenElementReadLocalFirstInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R5PairSpare]; a[0] = d; SettableSlot q = a[0]; _ = new R5PairWriter(d, l.Map(v => v)); a[0].Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S9871. Pair matrix, Round 5: an element of a local array gets the object of a local. A pending cell goes in through a local, then a plain cell through an element of a local array. The second write is in a constructor that gets the name as a parameter. The read is through a local.
+    public static Cell<int> R5PairLocalPendingThenElementReadLocalSecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R5PairSpare]; a[0] = d; SettableSlot q = a[0]; d.Share = l.Map(v => v); _ = new R5PairWriter(a[0], Plain); return S.Hold(d.Share!.Sample()); });
+
+    // S9872. Pair matrix, Round 5: a control: a constructor between the two writes puts a new object into the element. The element is then no name of the object of the local. A pending cell goes in through the local, and a plain cell through the element after the constructor. The read is through the local.
+    public static Cell<int> Ab304AConstructorThatPutsIntoTheElementBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R5PairSpare]; a[0] = d; d.Share = l.Map(v => v); _ = new Ab304Putter(a); a[0].Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S9873. Pair matrix, Round 5: a control: the same with a constructor that writes the member through the array that it gets. The read is through the local.
+    public static Cell<int> Ab304AConstructorThatWritesThroughTheElementBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot[] a = [R5PairSpare]; a[0] = d; d.Share = Plain; _ = new Ab304ElementWriter(a, l.Map(v => v)); return S.Hold(d.Share!.Sample()); });
+
+    // S9874. Pair matrix, Round 5: a control: a constructor between the two writes has an empty body, and the constructor of its base type puts a new object into the element. A pending cell goes in through the local, and a plain cell through the element after the creation. The read is through the local.
+    public static Cell<int> Ab304ABaseConstructorPutsIntoTheElementBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab304SlotsA[0]; d.Share = l.Map(v => v); _ = new Ab304Derived(); Ab304SlotsA[0].Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S9875. Pair matrix, Round 5: a control: the same with a constructor that calls a second constructor of its type, which puts a new object into the element.
+    public static Cell<int> Ab304AChainedConstructorPutsIntoTheElementBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab304SlotsB[0]; d.Share = l.Map(v => v); _ = new Ab304Chained(); Ab304SlotsB[0].Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S9876. Pair matrix, Round 5: a control: the same with a type whose field initializer calls a method that puts a new object into the element.
+    public static Cell<int> Ab304AFieldInitializerPutsIntoTheElementBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab304SlotsC[0]; d.Share = l.Map(v => v); _ = new Ab304Initialized(); Ab304SlotsC[0].Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S9877. Pair matrix, Round 5: a control: a constructor between the two writes gives the static field that is the second name a new object. A pending cell goes in through the local, and a plain cell through the static field after the creation. The read is through the local.
+    public static Cell<int> Ab304AConstructorThatSetsTheFieldBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Ab304Field = d; d.Share = l.Map(v => v); _ = new Ab304FieldSetter(); Ab304Field.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S9878. Pair matrix, Round 5: a control: the same with a type whose property initializer calls a method that puts a new object into the element.
+    public static Cell<int> Ab304APropertyInitializerPutsIntoTheElementBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab304SlotsD[0]; d.Share = l.Map(v => v); _ = new Ab304PropertyInitialized(); Ab304SlotsD[0].Share = Plain; return S.Hold(d.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -59127,6 +59227,92 @@ public static class Shapes
         name = new Ab303Self { Share = kept };
 
         return share;
+    }
+
+    public sealed class Ab304Putter
+    {
+        public Ab304Putter(SettableSlot[] into)
+        {
+            into[0] = new SettableSlot();
+        }
+    }
+
+    public sealed class Ab304ElementWriter
+    {
+        public Ab304ElementWriter(SettableSlot[] into, Cell<int> share)
+        {
+            into[0].Share = share;
+        }
+    }
+
+    private static readonly SettableSlot[] Ab304SlotsA = [new()];
+    private static readonly SettableSlot[] Ab304SlotsB = [new()];
+    private static readonly SettableSlot[] Ab304SlotsC = [new()];
+
+    public class Ab304SwapBase
+    {
+        public Ab304SwapBase() => Ab304SlotsA[0] = new SettableSlot();
+    }
+
+    public sealed class Ab304Derived : Ab304SwapBase
+    {
+        public Ab304Derived()
+        {
+        }
+    }
+
+    public sealed class Ab304Chained
+    {
+        public Ab304Chained()
+            : this(0)
+        {
+        }
+
+        private Ab304Chained(int unused) => Ab304SlotsB[0] = new SettableSlot();
+    }
+
+    public sealed class Ab304Initialized
+    {
+        private readonly int swapped = Ab304Swap();
+
+        public Ab304Initialized()
+        {
+        }
+
+        public int Swapped => this.swapped;
+    }
+
+    private static int Ab304Swap()
+    {
+        Ab304SlotsC[0] = new SettableSlot();
+
+        return 0;
+    }
+
+    private static SettableSlot Ab304Field = new();
+    private static readonly SettableSlot Ab304Other = new();
+
+    public sealed class Ab304FieldSetter
+    {
+        public Ab304FieldSetter() => Ab304Field = Ab304Other;
+    }
+
+    private static readonly SettableSlot[] Ab304SlotsD = [new()];
+
+    public sealed class Ab304PropertyInitialized
+    {
+        public Ab304PropertyInitialized()
+        {
+        }
+
+        public int Swapped { get; } = Ab304SwapD();
+    }
+
+    private static int Ab304SwapD()
+    {
+        Ab304SlotsD[0] = new SettableSlot();
+
+        return 0;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
