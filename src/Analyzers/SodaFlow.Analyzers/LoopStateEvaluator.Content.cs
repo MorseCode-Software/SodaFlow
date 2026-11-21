@@ -230,7 +230,7 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     private LoopState TransformedByTheConstructor(
         SyntaxNode creation,
-        ArgumentListSyntax arguments,
+        BaseArgumentListSyntax arguments,
         IMethodSymbol constructor)
     {
         ImmutableArray<ITypeSymbol> types = constructor.ContainingType.TypeArguments;
