@@ -537,11 +537,12 @@ internal sealed partial class LoopStateEvaluator
         this.FromARecordOf(read: read, accurate: false);
 
     /// <summary>
-    ///     The state of a read of a name, with a pending value from a record of
-    ///     <see cref="NotesAWriteThroughANameOfOneObject" /> that is accurate.
+    ///     The state of a read of a member through a name, with a pending value
+    ///     from a record of <see cref="NotesAWriteThroughANameOfOneObject" />
+    ///     that is accurate.
     ///     The given state when it has a pending value itself, or when no such
-    ///     record is for the read. The given state comes from the other records
-    ///     of the walk, also from the last write through the name.
+    ///     record is for the read. The given state comes from the last write
+    ///     through the name, or from a write at its element.
     /// </summary>
     /// <remarks>
     ///     A record that got no write through a different owner is accurate.
@@ -549,12 +550,10 @@ internal sealed partial class LoopStateEvaluator
     ///     walk can say where a pending value came from, thus a read that finds one
     ///     there keeps it.
     /// </remarks>
-    /// <param name="expression">The read.</param>
+    /// <param name="read">The read.</param>
     /// <param name="state">The state that the other records give the read.</param>
-    private LoopState WithAnAccurateRecord(ExpressionSyntax expression, LoopState state) =>
-        state is { Pending: false, Linked: false }
-        && expression is MemberAccessExpressionSyntax read
-        && this.FromARecordOf(read: read, accurate: true) is { } recorded
+    private LoopState WithAnAccurateRecord(MemberAccessExpressionSyntax read, LoopState state) =>
+        state is { Pending: false, Linked: false } && this.FromARecordOf(read: read, accurate: true) is { } recorded
             ? recorded
             : state;
 
