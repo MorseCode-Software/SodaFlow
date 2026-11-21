@@ -1922,6 +1922,16 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         }
 
         this.Visit(node.Right);
+
+        // A write to a static member runs the static constructor of its type, after the value.
+        this.Report(
+            node.Left switch
+            {
+                MemberAccessExpressionSyntax access => this.evaluator.FollowTheStaticConstructor(access),
+                IdentifierNameSyntax name => this.evaluator.FollowTheStaticConstructor(name),
+                _ => null
+            });
+
         this.CheckAccessor(node);
 
         bool replaces = this.AlwaysRuns(assignment: node, turn: out SyntaxNode? turn);
@@ -3568,6 +3578,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
             }
         }
 
+        // The static constructors run before the constructor of the object.
+        if (node is BaseObjectCreationExpressionSyntax)
+        {
+            this.Report(this.evaluator.FollowTheStaticConstructors(creation: node, constructor: constructor));
+        }
+
         this.Visit(initializer);
 
         Followed? followed = this.evaluator.Follow(node);
@@ -4673,6 +4689,8 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
 
     public override void VisitIdentifierName(IdentifierNameSyntax node)
     {
+        this.Report(this.evaluator.FollowTheStaticConstructor(node));
+
         // A name with no owner can be a property of the object that the code is in. Its getter
         // can read a member of that object.
         if (this.evaluator.HasThisMembers
@@ -4682,6 +4700,12 @@ internal sealed class SinkWalker(in LoopRegion region, in LoopStateEvaluator eva
         {
             this.ReadGetter(node: node, property: property);
         }
+    }
+
+    public override void VisitGenericName(GenericNameSyntax node)
+    {
+        base.VisitGenericName(node);
+        this.Report(this.evaluator.FollowTheStaticConstructor(node));
     }
 
     // The name of a called method is not a property. The compiler keeps the symbol of a call, but

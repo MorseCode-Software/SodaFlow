@@ -5542,6 +5542,17 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab272BranchWritesPlainOverAStaticField"] = ["SF1001"],
             ["Ab272PlainForASecondTypeArgumentKeepsThePendingField"] = ["SF1001"],
             ["Ab272MethodInABranchWritesPlainOverAStaticField"] = ["SF1001"],
-            ["Ab272MapInABranchWritesPlainOverAStaticField"] = ["SF1001"]
+            ["Ab272MapInABranchWritesPlainOverAStaticField"] = ["SF1001"],
+            ["R5CsStaticConstructorRunsAtTheFirstNew"] = ["SF1005"],
+            ["R5CsStaticConstructorRunsForEachTypeArgument"] = ["SF1005"],
+            ["R5CsStaticConstructorRunsAtAWriteToAStaticField"] = ["SF1005"],
+            ["R5LimStaticConstructorRunsAtTheFirstObject"] = ["SF1005"],
+            ["R5LimStaticConstructorOfASecondGenericInstanceRuns"] = ["SF1005"],
+            ["R5LimStaticConstructorRunsAtACallThroughUsingStatic"] = ["SF1005"],
+            ["R5LimStaticConstructorOfABaseClassRunsAtANewDerivedObject"] = ["SF1005"],
+            ["Ab269ImplicitNewRunsTheStaticConstructor"] = ["SF1005"],
+            ["Ab269WriteToAStaticPropertyRunsTheStaticConstructor"] = ["SF1005"],
+            ["Ab269SimpleNameOfABaseMemberRunsTheBaseStaticConstructor"] = ["SF1005"],
+            ["Ab269GenericMethodThroughUsingStatic"] = ["SF1005"]
         };
 }

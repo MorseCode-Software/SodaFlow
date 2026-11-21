@@ -23,22 +23,77 @@ internal sealed partial class LoopStateEvaluator
     ///     code of the type can be the first use, when it runs on an object.
     /// </remarks>
     /// <param name="access">The member access, as in <c>T.Value</c>.</param>
-    public Followed? FollowTheStaticConstructor(MemberAccessExpressionSyntax access)
-    {
+    public Followed? FollowTheStaticConstructor(MemberAccessExpressionSyntax access) =>
         // The walk asks for the symbol of each call, and of each other member access. Thus, the
         // symbol here is no new question. A question about each type of the compilation is one,
         // because the driver can make the symbols of the analyzer again for each file.
-        if (this.quiet
-            || (access.Parent is InvocationExpressionSyntax call
-                && call.Expression == access
-                && this.region.SymbolOf(call) is IMethodSymbol { MethodKind: not MethodKind.DelegateInvoke } called
-                    ? called
-                    : this.region.SymbolOf(access))
-                is not { IsStatic: true, ContainingType: { DeclaringSyntaxReferences.IsEmpty: false } owner } member
-            || member is IFieldSymbol { IsConst: true }
-            || owner.OriginalDefinition.StaticConstructors.FirstOrDefault()?.DeclaringSyntaxReferences.FirstOrDefault()
+        this.quiet || this.StaticMemberOf(access) is not { ContainingType: { } owner }
+            ? null
+            : this.FollowTheStaticConstructorOf(use: access, owner: owner);
+
+    /// <summary>
+    ///     The same for a simple name of a static member of a different type,
+    ///     such as a name that <c>using static</c> or a base type gives. The code
+    ///     of the type itself runs after its static constructor.
+    /// </summary>
+    /// <param name="name">The simple name.</param>
+    public Followed? FollowTheStaticConstructor(SimpleNameSyntax name) =>
+        // Most names are locals and types. The syntax and a test of the declarations come before
+        // the question to the compiler.
+        this.quiet
+        || !this.region.Symbols.DeclaresStaticConstructors
+        || (name.Parent is MemberAccessExpressionSyntax access && access.Name == name)
+        || name.Parent is MemberBindingExpressionSyntax or QualifiedNameSyntax or NameColonSyntax or NameEqualsSyntax
+        || SyntaxFacts.IsInTypeOnlyContext(name)
+        || this.StaticMemberOf(name) is not { ContainingType: { } type }
+        || IsInTheCodeOf(node: name, type: type)
+            ? null
+            : this.FollowTheStaticConstructorOf(use: name, owner: type);
+
+    /// <summary>
+    ///     The results of the static constructors that a creation runs: the one
+    ///     of its class, and then the one of each base class.
+    /// </summary>
+    /// <param name="creation">The creation, as in <c>new T()</c>.</param>
+    /// <param name="constructor">The constructor that the creation calls.</param>
+    public Followed? FollowTheStaticConstructors(SyntaxNode creation, IMethodSymbol constructor)
+    {
+        Followed? all = null;
+
+        if (this.quiet || !this.region.Symbols.DeclaresStaticConstructors)
+        {
+            return all;
+        }
+
+        for (INamedTypeSymbol? type = constructor.ContainingType;
+             type is { TypeKind: TypeKind.Class, DeclaringSyntaxReferences.IsEmpty: false };
+             type = type.BaseType)
+        {
+            all = Both(first: all, second: this.FollowTheStaticConstructorOf(use: creation, owner: type));
+        }
+
+        return all;
+    }
+
+    // The static member that a use names, when the use can run the static constructor of its type.
+    private ISymbol? StaticMemberOf(ExpressionSyntax used) =>
+        this.MemberOf(used) is { IsStatic: true, ContainingType.DeclaringSyntaxReferences.IsEmpty: false } member
+        and not IFieldSymbol { IsConst: true }
+            ? member
+            : null;
+
+    // True when a node is in the code of a type itself, and not in a type in it.
+    private static bool IsInTheCodeOf(SyntaxNode node, INamedTypeSymbol type) =>
+        node.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } code
+        && type.OriginalDefinition.DeclaringSyntaxReferences.Any(declared => declared.GetSyntax() == code);
+
+    // The static constructor of a type at a use of the type. Each constructed generic type has its
+    // own run.
+    private Followed? FollowTheStaticConstructorOf(SyntaxNode use, INamedTypeSymbol owner)
+    {
+        if (owner.OriginalDefinition.StaticConstructors.FirstOrDefault()?.DeclaringSyntaxReferences.FirstOrDefault()
                 ?.GetSyntax() is not ConstructorDeclarationSyntax constructor
-            || !this.region.StartsTheType(owner.OriginalDefinition))
+            || !this.region.StartsTheType(owner))
         {
             return null;
         }
@@ -63,7 +118,7 @@ internal sealed partial class LoopStateEvaluator
                 Both(
                     first: all,
                     second: this.Enter(
-                        call: access,
+                        call: use,
                         name: owner.Name,
                         body: part,
                         bindings: [],

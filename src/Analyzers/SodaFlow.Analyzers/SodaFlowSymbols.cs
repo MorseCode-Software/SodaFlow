@@ -122,6 +122,7 @@ internal sealed class SodaFlowSymbols
     private readonly Lazy<bool> declaresPlatformMembers;
     private readonly Lazy<bool> declaresRecords;
     private readonly Lazy<bool> declaresSlice;
+    private readonly Lazy<bool> declaresStaticConstructors;
     private readonly Lazy<bool> declaresToString;
     private readonly Lazy<bool> declaresTruth;
     private readonly Lazy<IMethodSymbol?> formattableToString;
@@ -159,6 +160,10 @@ internal sealed class SodaFlowSymbols
         this.declaresHandlers = Declares(compilation: compilation, name: "AppendFormatted");
         this.declaresIndexers = Declares(compilation: compilation, name: "this[]");
         this.declaresSlice = Declares(compilation: compilation, name: "Slice");
+
+        this.declaresStaticConstructors =
+            Declares(compilation: compilation, name: WellKnownMemberNames.StaticConstructorName);
+
         this.declaresToString = Declares(compilation: compilation, name: "ToString");
         this.declaresTruth = Declares(compilation: compilation, name: "op_True");
 
@@ -324,6 +329,12 @@ internal sealed class SodaFlowSymbols
     ///     it.
     /// </summary>
     public bool DeclaresSlice => this.declaresSlice.Value;
+
+    /// <summary>
+    ///     True when the compilation declares a static constructor. A creation
+    ///     and a simple name can run one.
+    /// </summary>
+    public bool DeclaresStaticConstructors => this.declaresStaticConstructors.Value;
 
     /// <summary>True when the compilation declares a <c>ToString</c> method.</summary>
     public bool DeclaresToString => this.declaresToString.Value;

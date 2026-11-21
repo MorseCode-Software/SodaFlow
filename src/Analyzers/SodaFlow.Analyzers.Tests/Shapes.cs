@@ -40,6 +40,7 @@ using SodaFlow.Async;
 using SodaFlow.Collections;
 using SodaFlow.Functional;
 using SodaFlow.Time;
+using static SodaFlow.Analyzers.Shapes.Shapes.Ab269ByUsingGeneric;
 using static SodaFlow.Analyzers.Shapes.Shapes.R5LimCctorByUsing;
 
 namespace SodaFlow.Analyzers.Shapes;
@@ -38876,6 +38877,58 @@ public static class Shapes
     public static Cell<int> Ab272MapInABranchWritesPlainOverAStaticField() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab272Q5.Share = l.Map(v => v); Cell<int> w = Plain.Map(static v => { Ab272Q5.Share = Cell.Constant(1); return v; }); int n = Never ? w.Sample() : 0; return S.Hold(Ab272Q5.Share.Sample() + n); });
 
+    // S9240. The first new of a class runs its static constructor, which samples a static field that holds a pending cell.
+    public static Cell<int> R5CsStaticConstructorRunsAtTheFirstNew() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsInit.A = l.Map(v => v); Kept.Add(new R5CsNewRunsInit().Value); R5CsInit.A = Plain; return S.Hold(0); });
+
+    // S9241. A generic class has one static constructor run for each type argument. The second type argument runs it again after the field gets a pending cell.
+    public static Cell<int> R5CsStaticConstructorRunsForEachTypeArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsInit.B = Plain; Kept.Add(R5CsPerType<int>.Value); R5CsInit.B = l.Map(v => v); Kept.Add(R5CsPerType<long>.Value); R5CsInit.B = Plain; return S.Hold(0); });
+
+    // S9242. A write to a static field runs the static constructor of its class, which samples a pending cell.
+    public static Cell<int> R5CsStaticConstructorRunsAtAWriteToAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsInit.H = l.Map(v => v); R5CsWriteInit.Count = 1; R5CsInit.H = Plain; return S.Hold(0); });
+
+    // S9243. The block puts a pending cell into a static field and then makes an object of a class whose static constructor samples it.
+    public static Cell<int> R5LimStaticConstructorRunsAtTheFirstObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimCctorShared.First = l.Map(v => v); Kept.Add(new R5LimCctorAtNew()); return S.Hold(0); });
+
+    // S9244. A generic class has a static constructor that samples a static field. The block reads it for int with a plain cell, and then for string with a pending cell.
+    public static Cell<int> R5LimStaticConstructorOfASecondGenericInstanceRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimCctorShared.Third = Plain; Kept.Add(R5LimGenericCctor<int>.Value); R5LimCctorShared.Third = l.Map(v => v); Kept.Add(R5LimGenericCctor<string>.Value); return S.Hold(0); });
+
+    // S9245. A static method is called with no class name, through using static, after the field is pending.
+    public static Cell<int> R5LimStaticConstructorRunsAtACallThroughUsingStatic() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimCctorShared.Seventh = l.Map(v => v); Kept.Add(R5LimByUsingGet()); return S.Hold(0); });
+
+    // S9246. The block makes an object of a class whose base class has a static constructor that samples a field that the block set.
+    public static Cell<int> R5LimStaticConstructorOfABaseClassRunsAtANewDerivedObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimCctorShared.Eighth = l.Map(v => v); Kept.Add(new R5LimCctorDerived()); return S.Hold(0); });
+
+    // S9247. A creation with new() and no type name runs the static constructor of its class, which samples a pending cell.
+    public static Cell<int> Ab269ImplicitNewRunsTheStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab269Share.A = l.Map(v => v); Ab269AtNew made = new(); Kept.Add(made); Ab269Share.A = Plain; return S.Hold(0); });
+
+    // S9248. A write to a static property runs the static constructor of its class, which samples a pending cell.
+    public static Cell<int> Ab269WriteToAStaticPropertyRunsTheStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab269Share.B = l.Map(v => v); Ab269AtAPropertyWrite.Count = 1; Ab269Share.B = Plain; return S.Hold(0); });
+
+    // S9249. A static method of a derived class reads a static field of its base class by its simple name. That read runs the static constructor of the base class.
+    public static Cell<int> Ab269SimpleNameOfABaseMemberRunsTheBaseStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab269Share.C = l.Map(v => v); Kept.Add(Ab269DerivedReader.Read()); Ab269Share.C = Plain; return S.Hold(0); });
+
+    // S9250. A method of an object made before the block reads a static field of its own class by its simple name. The static constructor ran before the block. A control.
+    public static Cell<int> Ab269SimpleNameInTheCodeOfItsClassRunsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab269Share.D = l.Map(v => v); Kept.Add(Ab269MadeBefore.Read()); Ab269Share.D = Plain; return S.Hold(0); });
+
+    // S9251. The block makes an object of a class twice: first while the field is plain, then after it is pending. Only the first creation runs the static constructor. A control.
+    public static Cell<int> Ab269SecondNewRunsNoStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab269Share.E = Plain; Kept.Add(new Ab269AtNewOnce()); Ab269Share.E = l.Map(v => v); Kept.Add(new Ab269AtNewOnce()); Ab269Share.E = Plain; return S.Hold(0); });
+
+    // S9252. A generic static method of another class, called by its simple name through using static, runs the static constructor of that class.
+    public static Cell<int> Ab269GenericMethodThroughUsingStatic() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab269Share.F = l.Map(v => v); Kept.Add(Ab269GenericGet<int>()); Ab269Share.F = Plain; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -55647,6 +55700,63 @@ public static class Shapes
     public static class Ab272Q5
     {
         public static Cell<int> Share = Cell.Constant(0);
+    }
+
+    public static class Ab269Share
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+        public static Cell<int>? C;
+        public static Cell<int>? D;
+        public static Cell<int>? E;
+        public static Cell<int>? F;
+    }
+
+    public sealed class Ab269AtNew
+    {
+        static Ab269AtNew() => Kept.Add(Ab269Share.A!.Sample());
+    }
+
+    public static class Ab269AtAPropertyWrite
+    {
+        static Ab269AtAPropertyWrite() => Kept.Add(Ab269Share.B!.Sample());
+
+        public static int Count { get; set; }
+    }
+
+    public class Ab269BaseWithAConstructor
+    {
+        public static readonly int Value;
+
+        static Ab269BaseWithAConstructor() => Value = Ab269Share.C!.Sample();
+    }
+
+    public sealed class Ab269DerivedReader : Ab269BaseWithAConstructor
+    {
+        public static int Read() => Value;
+    }
+
+    public sealed class Ab269Own
+    {
+        private static readonly int Value;
+
+        static Ab269Own() => Value = Ab269Share.D?.Sample() ?? 0;
+
+        public int Read() => Value;
+    }
+
+    private static readonly Ab269Own Ab269MadeBefore = new();
+
+    public sealed class Ab269AtNewOnce
+    {
+        static Ab269AtNewOnce() => Kept.Add(Ab269Share.E!.Sample());
+    }
+
+    public static class Ab269ByUsingGeneric
+    {
+        static Ab269ByUsingGeneric() => Kept.Add(Ab269Share.F!.Sample());
+
+        public static int Ab269GenericGet<T>() => 1;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
