@@ -456,9 +456,12 @@ The analyzer follows a value made from the placeholder through the code of your 
   The `Dispose` at the end of a `using` or a
   `foreach` runs later as well when such an `await` comes before it in its scope. An `await using`
   awaits the task of each `DisposeAsync` that it calls, so the code after its scope runs later
-  unless each of them is a method of yours that returns only complete tasks. An
-  `await foreach` runs its body in the block only for an item that the sequence gives at once, and
-  the code after it only when every item comes at once. An async iterator runs nothing until
+  unless each of them is a method of yours that returns only complete tasks. That code is the rest
+  of the block around the `await using`. Where that block is the body of a loop or a `switch`
+  section, the code after the loop or the `switch` still counts as code that runs in the block, as
+  it does after an `await` there, because the loop can run no turn and a different section can run.
+  An `await foreach` runs its body in the block only for an item that the sequence gives at once,
+  and the code after it only when every item comes at once. An async iterator runs nothing until
   something enumerates it. A method of `SodaFlow.Functional` that gets a task and returns one, such
   as the `Map` of a `Task<Maybe<T>>`, awaits that task first, so its function runs in the block
   only when the analyzer knows that the task is complete.
@@ -502,8 +505,12 @@ careful side, so it can report a read that does not throw:
   count as options that write public fields and read-only properties.
 - A sample in the function of a task that `RunSynchronously` runs gets `SF1001`, although the task
   keeps the exception and the code after the call goes on. Only a later `Wait` or `Result` throws.
-  The same holds for a sample before the first `await` of an `async` local function or lambda whose
-  task nothing waits for.
+  The same holds for a sample before the first `await` of an `async` method, local function, or
+  lambda whose task nothing waits for.
+- An `await using` whose `DisposeAsync` never completes. The exception of a read in its block, or
+  in a `DisposeAsync` that runs before that one, stays in the task, and a `DisposeAsync` after that
+  one never runs. Nothing throws, but the analyzer cannot know that the task never completes, so
+  it still reports the read.
 - The function of a `Map`, a `Lift`, a collection view, or a `LazySample.Defer` also counts with
   the values that it read where you built the cell. If it read a pending value there, the first
   read of the cell gets a report, even when the code gave that capture or member a plain value
