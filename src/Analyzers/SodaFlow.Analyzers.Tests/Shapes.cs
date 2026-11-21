@@ -39653,6 +39653,30 @@ public static class Shapes
     public static Cell<int> Ab291SwitchStatementOnASpanLiteralGetsThePlainElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Span<Cell<int>> cells = [l.Map(v => v), Plain]; switch (cells) { case [_, var second]: Kept.Add(second.Sample()); break; } return S.Hold(0); });
 
+    // S9434. An assignment through a ref that a property returns writes the field, and the block samples the field through a getter.
+    public static Cell<int> R5CsRefPropertyWritesTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsRefSlot h = new(); h.Slot = l.Map(v => v); Kept.Add(h.Cell.Sample()); return S.Hold(0); });
+
+    // S9435. An assignment through a conditional ref writes the local that the condition picks.
+    public static Cell<int> R5CsConditionalRefWritesTheChosenLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = Plain; Cell<int> b = Plain; (Kept.Count >= 0 ? ref a : ref b) = l.Map(v => v); Kept.Add(a.Sample()); return S.Hold(0); });
+
+    // S9436. A ref local of a ref indexer is a name of the element, and a write through it writes the element.
+    public static Cell<int> R5CsRefLocalOfARefIndexerWritesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsRefCells h = new(); ref Cell<int> r = ref h[0]; r = l.Map(v => v); Kept.Add(h.Cells[0].Sample()); return S.Hold(0); });
+
+    // S9437. An assignment through a conditional ref writes the local that the condition picks, here the second one.
+    public static Cell<int> Ab292ConditionalRefWritesTheSecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = Plain; Cell<int> b = Plain; (Kept.Count < 0 ? ref a : ref b) = l.Map(v => v); Kept.Add(b.Sample()); return S.Hold(0); });
+
+    // S9438. An assignment through a conditional ref leaves a third local.
+    public static Cell<int> Ab292ConditionalRefLeavesAThirdLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = Plain; Cell<int> b = Plain; Cell<int> c = Plain; (Kept.Count >= 0 ? ref a : ref b) = l.Map(v => v); Kept.Add(c.Sample()); return S.Hold(0); });
+
+    // S9439. An assignment of a plain cell through a ref that a property returns leaves the plain field.
+    public static Cell<int> Ab292RefPropertyWritesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsRefSlot h = new(); h.Slot = Plain; Kept.Add(h.Cell.Sample()); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

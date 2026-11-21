@@ -1190,6 +1190,22 @@ internal sealed partial class LoopStateEvaluator
     // True for the expression of a location that TheLocationOf can give. That is a local, an
     // element of an array in a local, or a field of an object in a local or of this object. An
     // element of a view of such an array is one also.
+    // An element of a ref indexer of the code, on a local, at a constant index or at an index in a
+    // local. The walk reads that ref again at each use of a ref local of it.
+    private bool IsARefIndexerOfALocal(ExpressionSyntax location) =>
+        Unwrapped(location) is ElementAccessExpressionSyntax
+        {
+            ArgumentList.Arguments: { Count: 1 } indexes,
+            Expression: IdentifierNameSyntax holder
+        } element
+        && this.region.SymbolOf(element) is IPropertySymbol { ReturnsByRef: true }
+        && this.region.SymbolOf(holder) is { } local
+        && KeepsItsObject(local)
+        && (indexes[0].Expression is LiteralExpressionSyntax
+            || (indexes[0].Expression is IdentifierNameSyntax index
+                && this.region.SymbolOf(index) is { } number
+                && KeepsItsObject(number)));
+
     private bool IsALocationThatTheWalkCanReadAgain(ExpressionSyntax location) =>
         Unwrapped(location) switch
         {

@@ -5656,6 +5656,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab290GatedHandlerConstructorRuns"] = ["SF1005"],
             ["Ab290HandlerWithAComputedShouldAppendReads"] = ["SF1004"],
             ["Ab290HandlerWithAFlagThatIsNoShouldAppendReads"] = ["SF1004"],
-            ["Ab291ListPatternAfterAnAndGetsThePendingElement"] = ["SF1001"]
+            ["Ab291ListPatternAfterAnAndGetsThePendingElement"] = ["SF1001"],
+            ["R5CsRefPropertyWritesTheField"] = ["SF1001"],
+            ["R5CsConditionalRefWritesTheChosenLocal"] = ["SF1001"],
+            ["R5CsRefLocalOfARefIndexerWritesTheElement"] = ["SF1001"],
+            ["Ab292ConditionalRefWritesTheSecondLocal"] = ["SF1001"]
         };
 }

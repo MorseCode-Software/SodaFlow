@@ -2357,6 +2357,18 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             target = around.Expression;
         }
 
+        // A conditional ref is the location of one of its two branches, and the walk does not know which.
+        if (target is ConditionalExpressionSyntax
+            {
+                WhenTrue: RefExpressionSyntax whenTrue, WhenFalse: RefExpressionSyntax whenFalse
+            })
+        {
+            this.Assign(target: whenTrue.Expression, value: value, replaces: false, turn: null);
+            this.Assign(target: whenFalse.Expression, value: value, replaces: false, turn: null);
+
+            return;
+        }
+
         // An assignment to a name with ref, with no ref for the value, is an assignment to the
         // location of the name.
         if (value is not RefExpressionSyntax && target is IdentifierNameSyntax aliased)
@@ -2654,7 +2666,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         }
     }
 
-    // The members that an indexer or a method returns a ref to, for an assignment through that ref.
+    // The members that an indexer, a property, or a method returns a ref to, for an assignment through that ref.
     // True when the target is such a ref. A write through a ref to a member of this is not one.
     private bool PutsThroughARefToAMember(SyntaxNode target, ExpressionSyntax value)
     {
@@ -2670,6 +2682,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } call
                     when this.region.SymbolOf(call) is IMethodSymbol { ReturnsByRef: true, ReducedFrom: null } method =>
                     (method.OriginalDefinition, access.Expression),
+                MemberAccessExpressionSyntax access
+                    when this.region.SymbolOf(access)
+                        is IPropertySymbol { ReturnsByRef: true, GetMethod: { } getter } =>
+                    (getter.OriginalDefinition, access.Expression),
                 _ => ((IMethodSymbol?)null, (ExpressionSyntax?)null)
             };
 
