@@ -5588,6 +5588,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab279CatchOfAThrowThatValueOfALazyGives"] = ["SF1001"],
             ["Ab279CatchOfAThrowOfAStaticMethodOfATypeWithAStaticConstructor"] = ["SF1001"],
             ["Ab279CatchAroundAnAwaitUsingOfALocalGetsTheObjectOfDisposeAsync"] = ["SF1001"],
-            ["Ab279CatchAroundAnAwaitUsingDeclarationGetsTheObjectOfDisposeAsync"] = ["SF1001"]
+            ["Ab279CatchAroundAnAwaitUsingDeclarationGetsTheObjectOfDisposeAsync"] = ["SF1001"],
+            ["R5CsCatchOfAWrappedObject"] = ["SF1001"],
+            ["R5CsCatchOfAThrowThatGetResultGives"] = ["SF1001"],
+            ["R5LimCatchGetsAnInnerObjectOfAnAggregateException"] = ["SF1001"],
+            ["R5LimCatchGetsAnInnerExceptionOfAWrapper"] = ["SF1001"],
+            ["Ab280CatchGetsTheInnerExceptionOfATypeInitializationException"] = ["SF1001"],
+            ["Ab280CatchGetsTheInnerExceptionOfATargetInvocationException"] = ["SF1001"],
+            ["Ab280CatchGetsTheInnerExceptionOfAnAggregateException"] = ["SF1001"],
+            ["Ab280ForeachOverTheInnerExceptionsOfAnAggregateException"] = ["SF1001"]
         };
 }

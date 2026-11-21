@@ -39197,6 +39197,50 @@ public static class Shapes
     public static Cell<int> Ab279CatchAroundAnAwaitOfAMethodWhoseLambdaThrowsGetsNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await Ab279ConvertsAll(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
 
+    // S9320. A catch wraps the caught object in a new exception, and the outer catch samples the pending member of its InnerException.
+    public static Cell<int> R5CsCatchOfAWrappedObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { throw new InvalidOperationException("n", e); } } catch (InvalidOperationException x) { Kept.Add(((R4CsFault)x.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S9321. GetResult of the awaiter of a faulted task throws the object that its function threw, and the catch samples it.
+    public static Cell<int> R5CsCatchOfAThrowThatGetResultGives() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task t = new(() => throw new R4CsFault(l.Map(v => v))); t.RunSynchronously(); try { t.GetAwaiter().GetResult(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9322. An AggregateException holds the object, and the catch samples the cell of its first inner exception.
+    public static Cell<int> R5LimCatchGetsAnInnerObjectOfAnAggregateException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R5LimFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(((R5LimFault)e.InnerExceptions[0]).Share.Sample()); } return S.Hold(0); });
+
+    // S9323. An exception of the platform holds the object as its inner exception, and the catch samples that cell.
+    public static Cell<int> R5LimCatchGetsAnInnerExceptionOfAWrapper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new ArgumentException("wrap", new R5LimFault(l.Map(v => v))); } catch (ArgumentException e) { Kept.Add(((R5LimFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S9324. A static constructor throws an object with a pending member. The runtime wraps it in a TypeInitializationException, and the catch samples the member of its InnerException.
+    public static Cell<int> Ab280CatchGetsTheInnerExceptionOfATypeInitializationException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab280Held.Share = l.Map(v => v); try { Kept.Add(Ab280ThrowingInit.Value); } catch (TypeInitializationException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } Ab280Held.Share = Plain; return S.Hold(0); });
+
+    // S9325. MethodInfo.Invoke wraps the object that the method throws in a TargetInvocationException, and the catch samples the member of its InnerException.
+    public static Cell<int> Ab280CatchGetsTheInnerExceptionOfATargetInvocationException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { typeof(R5CsReflected).GetMethod("Throw")!.Invoke(null, [l.Map(v => v)]); } catch (System.Reflection.TargetInvocationException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S9326. An exception of this code has no inner exception, and the catch reads its InnerException. The object is not its own inner exception.
+    public static Cell<int> Ab280InnerExceptionOfAnExceptionOfTheCodeIsNotTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.InnerException is R4CsFault f ? f.Share.Sample() : 0); } return S.Hold(0); });
+
+    // S9327. The InnerException of an AggregateException is its first inner exception, and the catch samples its cell.
+    public static Cell<int> Ab280CatchGetsTheInnerExceptionOfAnAggregateException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R5LimFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(((R5LimFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S9328. A function of a task returns, and GetResult of its awaiter throws nothing. The catch never runs.
+    public static Cell<int> Ab280CatchAroundGetResultOfATaskThatReturnsGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task t = new(() => Kept.Add(l.Map(v => v))); t.RunSynchronously(); try { t.GetAwaiter().GetResult(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9329. A function of a task throws, and RunSynchronously keeps the object. OnCompleted of the awaiter of the task throws nothing, and the catch around it never runs.
+    public static Cell<int> Ab280CatchAroundOnCompletedOfAFaultedTaskGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task t = new(() => throw new R4CsFault(l.Map(v => v))); t.RunSynchronously(); try { t.GetAwaiter().OnCompleted(() => Kept.Add(1)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9330. A foreach over the InnerExceptions of an AggregateException gets the object, and the body samples its cell.
+    public static Cell<int> Ab280ForeachOverTheInnerExceptionsOfAnAggregateException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R5LimFault(l.Map(v => v))); } catch (AggregateException e) { foreach (Exception x in e.InnerExceptions) { Kept.Add(((R5LimFault)x).Share.Sample()); } } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -56170,6 +56214,21 @@ public static class Shapes
 
                 return n;
             }));
+    }
+
+    public static class Ab280Held
+    {
+        public static Cell<int>? Share;
+    }
+
+    public static class Ab280ThrowingInit
+    {
+        static Ab280ThrowingInit()
+        {
+            throw new R4CsFault(Ab280Held.Share!);
+        }
+
+        public static int Value => 1;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

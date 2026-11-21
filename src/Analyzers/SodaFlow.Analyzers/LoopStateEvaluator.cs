@@ -2326,6 +2326,11 @@ internal sealed partial class LoopStateEvaluator
                         return inMember;
                     }
 
+                    if (InnerExceptionsOf(owner: owner, member: symbol) is { } inner)
+                    {
+                        return inner.Join(this.TypeState(expression));
+                    }
+
                     // An object whose construction was followed gives each member its own state,
                     // wherever the object came from: a local, a hold, or a lambda parameter. The
                     // code can read the member through an interface of the object. A tuple with
@@ -3618,6 +3623,11 @@ internal sealed partial class LoopStateEvaluator
             return OperatorTable.FunctionsInTheCall.Contains(OperatorName(method))
                 ? this.FollowGivenFunctions(invocation: invocation, method: method)
                 : null;
+        }
+
+        if (method.Name == "GetResult" && this.FaultOfATask(invocation: invocation, method: method) is { } fault)
+        {
+            return fault;
         }
 
         // RunSynchronously runs the function of a task in the call, as a read of Value does for a

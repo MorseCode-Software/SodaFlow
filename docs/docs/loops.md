@@ -319,8 +319,12 @@ The analyzer follows a value made from the placeholder through the code of your 
   `await using` whose `DisposeAsync` throws it. A task that `RunSynchronously` runs keeps the object
   as well. The runtime throws a `TypeInitializationException` in place of an object that a static
   constructor throws, and a `TargetInvocationException` in place of one that a method throws through
-  `MethodInfo.Invoke` or a constructor through `Activator.CreateInstance`. Its filter gets none,
-  because an exception in a filter is lost and makes the filter false.
+  `MethodInfo.Invoke` or a constructor through `Activator.CreateInstance`. The `InnerException` of
+  such an exception has the object, and so does the `InnerException` of an exception of the platform
+  that you create with an inner exception, and each of the `InnerExceptions` of an
+  `AggregateException`. `GetResult` of the awaiter of a task throws the object that a function of
+  the task threw. Its filter gets none, because an exception in a filter is lost and makes the
+  filter false.
 - Collections, arrays, and dictionaries. A list, an array, or a span that you write as a literal
   keeps each element apart, also where the literal spreads a second such local, so `cells[0]`,
   `cells[^1]`, `cells.ElementAt(1)`, and each element of a list pattern in an `is` or a `switch` on
@@ -610,6 +614,8 @@ Some reads that throw it does not see:
   later.
 - An object that a lambda of a LINQ query throws, for a `catch` around the code that enumerates
   the query. The analyzer does not give the object to that clause.
+- The `AggregateException` that `Wait` or `Result` of a task throws when a function of the task
+  threw. The analyzer gives a `catch` of it no object.
 - A static initializer of a class with no static constructor. The runtime can run such initializers
   at any time before the first read of a field, so the analyzer does not read them.
 - A function that the block sends into a sink, where an `Apply` of that sink, or a
