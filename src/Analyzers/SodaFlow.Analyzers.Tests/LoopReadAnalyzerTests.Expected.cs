@@ -5758,6 +5758,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5FuOnceOfARowWithALinkedMember"] = ["SF1002"],
             ["R5FuOrElseOfAListOfStreamsOfARowWithALinkedMember"] = ["SF1002"],
             ["Ab320FilterSomeOfARowWithALinkedMember"] = ["SF1002"],
-            ["Ab320CalmOfARowWithALinkedMember"] = ["SF1002"]
+            ["Ab320CalmOfARowWithALinkedMember"] = ["SF1002"],
+            ["R5ApiActionInAPropertyExecuteSendsALinkedCell"] = ["SF1002"],
+            ["R5ApiActionFromAMethodExecuteSendsALinkedCell"] = ["SF1002"],
+            ["R5ApiTwoWayInAPropertyWriteSendsALinkedCell"] = ["SF1002"],
+            ["R5ApiActionThroughASecondLocalExecuteSendsALinkedCell"] = ["SF1002"],
+            ["R5ApiActionExecutedInAHelperSendsALinkedCell"] = ["SF1002"],
+            ["Ab312TwoWayWithEditsInAPropertyWriteSendsALinkedCell"] = ["SF1002"],
+            ["Ab312ActionInAFieldExecuteSendsALinkedCell"] = ["SF1002"]
         };
 }

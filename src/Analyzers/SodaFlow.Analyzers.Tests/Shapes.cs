@@ -40481,6 +40481,46 @@ public static class Shapes
     public static Cell<int> Ab320FilterOfARowWithAPlainMember() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = b.Filter(_ => true).Hold(new RecordRow(Plain)); b.Send(new RecordRow(Plain)); return h.Map(r => r.Share).SwitchC(); });
 
+    // S9641. A bindable action is in a property of an object that the block makes, as a view model holds it. Execute through that property posts a send of a linked cell, and the switch of the hold of the sink as the close selects it.
+    public static Cell<int> R5ApiActionInAPropertyExecuteSendsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); R5ApiActionHolder holder = new(R2ApiFactory.CreateBindableAction(fire, Cell.Constant(true))); holder.Action.Execute(l.Map(v => v)); return sw; });
+
+    // S9642. A method of this code makes a bindable action and returns it. Execute of the local that gets it posts a send of a linked cell, and the switch of the hold of the sink as the close selects it.
+    public static Cell<int> R5ApiActionFromAMethodExecuteSendsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>> a = R5ApiMakeAction(fire); a.Execute(l.Map(v => v)); return sw; });
+
+    // S9643. A two-way bindable of a cell sink is in a property of an object that the block makes. A write to its Value posts a send of a linked cell into the sink, and the switch of the sink as the close selects it.
+    public static Cell<int> R5ApiTwoWayInAPropertyWriteSendsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> sink = Cell.CreateSink(Plain); R5ApiTwoWayHolder holder = new(R2ApiFactory.CreateTwoWay(sink)); holder.Bound.Value = l.Map(v => v); return sink.SwitchC(); });
+
+    // S9644. A second local gets a bindable action from the first. Execute through the second local posts a send of a linked cell, and the switch of the hold of the sink as the close selects it.
+    public static Cell<int> R5ApiActionThroughASecondLocalExecuteSendsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>> a = R2ApiFactory.CreateBindableAction(fire, Cell.Constant(true)); System.Windows.Input.ICommand command = a; command.Execute(l.Map(v => v)); return sw; });
+
+    // S9645. A method of this code gets a bindable action and a cell, and calls Execute of the action with the cell. The cell is linked, and the switch of the hold of the sink as the close selects it.
+    public static Cell<int> R5ApiActionExecutedInAHelperSendsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); R5ApiRun(R2ApiFactory.CreateBindableAction(fire, Cell.Constant(true)), l.Map(v => v)); return sw; });
+
+    // S9646. A two-way bindable of a cell and a sink of edits is in a property of an object that the block makes. A write to its Value posts a send of a linked cell into the edits, and the switch of the hold of the edits as the close selects it.
+    public static Cell<int> Ab312TwoWayWithEditsInAPropertyWriteSendsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> edits = Stream.CreateSink<Cell<int>>(); Cell<int> sw = edits.Hold(Plain).SwitchC(); R5ApiTwoWayHolder holder = new(R2ApiFactory.CreateTwoWay(cell: Cell.Constant(Plain), editsStreamSink: edits)); holder.Bound.Value = l.Map(v => v); return sw; });
+
+    // S9647. Control: a two-way bindable of a cell sink and a different sink of edits is in a property. A write to its Value sends a linked cell into the edits only, thus the switch of the cell sink as the close is no cycle.
+    public static Cell<int> Ab312TwoWayWithEditsInAPropertyWriteSendsNothingIntoTheCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> cell = Cell.CreateSink(Plain); R5ApiTwoWayHolder holder = new(R2ApiFactory.CreateTwoWay(cell: cell, editsStreamSink: Stream.CreateSink<Cell<int>>())); holder.Bound.Value = l.Map(v => v); return cell.SwitchC(); });
+
+    // S9648. A static field gets a bindable action in the block. Execute through the field posts a send of a linked cell, and the switch of the hold of the sink as the close selects it.
+    public static Cell<int> Ab312ActionInAFieldExecuteSendsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); Ab312Action = R2ApiFactory.CreateBindableAction(fire, Cell.Constant(true)); Ab312Action.Execute(l.Map(v => v)); return sw; });
+
+    // S9649. Control: the action in a property sends into a different sink. Execute posts a linked cell into that sink, thus the switch of the hold of the first sink as the close is no cycle.
+    public static Cell<int> Ab312ActionInAPropertyExecuteSendsIntoADifferentSink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); R5ApiActionHolder holder = new(R2ApiFactory.CreateBindableAction(Stream.CreateSink<Cell<int>>(), Cell.Constant(true))); holder.Action.Execute(l.Map(v => v)); return sw; });
+
+    // S9650. Control: an object of this code has a member with the name FiringsStream and an Execute of its own, which sends nothing. Thus, the switch of the hold of the sink as the close is no cycle.
+    public static Cell<int> Ab312ExecuteOfAnObjectOfTheCodeWithAFiringsStream() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); Ab312FiringsHolder holder = new(fire); holder.Execute(l.Map(v => v)); return sw; });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -57834,6 +57874,18 @@ public static class Shapes
     private static SettableSlot[] Ab305NewArray() => [new SettableSlot()];
 
     private static void Ab301Read(in SettableSlot slot) => GC.KeepAlive(slot);
+
+    private static SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>>? Ab312Action;
+
+    // An object with a member of the name FiringsStream, and an Execute that sends nothing.
+    public sealed class Ab312FiringsHolder(StreamSink<Cell<int>> firings)
+    {
+        public StreamSink<Cell<int>> FiringsStream { get; } = firings;
+
+        public void Execute(Cell<int> value)
+        {
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

@@ -322,6 +322,31 @@ internal sealed class ObjectStore
     public SyntaxNode? CreationOfASink(MadeObject made) =>
         this.sinks.TryGetValue(key: made, value: out SyntaxNode? creation) ? creation : null;
 
+    // The sink that each two-way bindable of the store sends a write into.
+    private readonly Dictionary<MadeObject, LoopState> sinksOfBindables = [];
+
+    /// <summary>
+    ///     Records that an object is a two-way bindable that sends each write
+    ///     into the sink of the given state. Each object of the turns before it
+    ///     is such a bindable also.
+    /// </summary>
+    public void IsABindableOf(MadeObject made, LoopState sink)
+    {
+        for (MadeObject? each = made;
+             each != null && !this.sinksOfBindables.ContainsKey(each);
+             each = this.before.TryGetValue(key: each, value: out MadeObject? older) ? older : null)
+        {
+            this.sinksOfBindables[each] = sink;
+        }
+    }
+
+    /// <summary>
+    ///     The state of the sink of a two-way bindable of the store. Null for
+    ///     each other object.
+    /// </summary>
+    public LoopState? SinkOfABindable(MadeObject made) =>
+        this.sinksOfBindables.TryGetValue(key: made, value: out LoopState? sink) ? sink : null;
+
     /// <summary>
     ///     The object in a member of an object of the store. Null when no read of
     ///     that member made it.

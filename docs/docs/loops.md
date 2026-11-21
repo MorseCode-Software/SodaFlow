@@ -404,7 +404,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   an action that you post to any `IBindingScheduler`, and for a write to the `Value` of a
   two-way bindable of a sink, which sends the value into that sink after the transaction.
   `Execute` of a bindable action sends its parameter into the sink of its firings after the
-  transaction in the same way. A handler that you add to an event of a bindable runs after the
+  transaction in the same way. Both hold wherever the code keeps the bindable or the action: in
+  a local, a field, a property of an object, a parameter, or the result of a method. Outside a
+  local that the creation call made, the sink must be one that the block made.
+  A handler that you add to an event of a bindable runs after the
   transaction too, because the bindable raises its events through its scheduler. So does each
   result that the operation of `MapAsync` gives to `FromValue` or `Construct`, which the pipeline
   sends into the sink of results. The analyzer finds those calls only in the code of the

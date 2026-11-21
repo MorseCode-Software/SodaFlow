@@ -312,16 +312,22 @@ internal sealed partial class LoopStateEvaluator
     ///     into that sink after the transaction. The setter posts that send, as
     ///     <c>Transaction.Post</c> does. <c>Execute</c> of a bindable action posts
     ///     a send of its parameter into the sink of its firings also. The bindable
-    ///     is a local that no code writes, and that <c>CreateTwoWay</c> or
-    ///     <c>CreateBindableAction</c> made.
+    ///     is the object that the receiver has. A local, a member, a parameter,
+    ///     or a callee can give the receiver that object.
     /// </summary>
     /// <param name="bindable">The expression of the bindable.</param>
     /// <param name="value">The value that the code writes, or the parameter of <c>Execute</c>.</param>
     /// <param name="write">The assignment, or the call of <c>Execute</c>.</param>
     public void PostsAWrite(ExpressionSyntax bindable, ExpressionSyntax value, SyntaxNode write)
     {
-        if ((this.quiet && !this.region.ReadsCodeAfterTheTransaction)
-            || this.ValueOfALocalThatNoCodeWrites(Unwrapped(bindable)) is not InvocationExpressionSyntax
+        if (this.quiet && !this.region.ReadsCodeAfterTheTransaction)
+        {
+            return;
+        }
+
+        // A local that the creation made names the sink. A sink in a field or in a parameter has no
+        // object of the store. Thus, the send then goes to the name of the sink.
+        if (this.ValueOfALocalThatNoCodeWrites(Unwrapped(bindable)) is not InvocationExpressionSyntax
             {
                 Expression: MemberAccessExpressionSyntax
                 {
@@ -331,21 +337,12 @@ internal sealed partial class LoopStateEvaluator
             || this.region.SymbolOf(creation) is not IMethodSymbol method
             || !this.region.Symbols.IsSodaFlow(method))
         {
+            this.PostsAWriteToItsObject(bindable: bindable, value: value, write: write);
+
             return;
         }
 
-        // The write of a bindable of a cell sink sends into that sink. The write of a bindable of
-        // a cell sends into its sink of edits. An action sends into its sink of firings.
-        ExpressionSyntax? sink =
-            creation.ArgumentList.Arguments
-                .Where((argument, position) =>
-                    ParameterFor(method: method, argument: argument, position: position)?.Type is INamedTypeSymbol
-                    {
-                        OriginalDefinition.Name: "CellSink" or "StreamSink"
-                    } type
-                    && this.region.Symbols.IsSodaFlow(type))
-                .Select(static argument => argument.Expression)
-                .FirstOrDefault();
+        ExpressionSyntax? sink = this.SinkArgumentOf(creation: creation, method: method);
 
         if (sink == null)
         {
@@ -356,6 +353,87 @@ internal sealed partial class LoopStateEvaluator
         LoopStateEvaluator later = this.Quiet();
 
         this.region.ReadAfterTheTransaction(function: write, read: () => later.Sends(sink: sink, content: content));
+    }
+
+    // A write to the bindable that the receiver has. A member, a callee, or a second name can give
+    // the receiver that bindable. An action carries the sink of its firings as a member. The store
+    // has the sink of each two-way bindable that the code made.
+    private void PostsAWriteToItsObject(ExpressionSyntax bindable, ExpressionSyntax value, SyntaxNode write)
+    {
+        LoopState carried = this.Eval(bindable);
+
+        LoopState sinks =
+            this.region.Objects.Now(carried.Objects)
+                .Select(made => this.region.Objects.SinkOfABindable(made))
+                .OfType<LoopState>()
+                .Concat(
+                    carried.Members?.Members
+                        .Where(member =>
+                            member.Key.Name == "FiringsStream"
+                            && this.region.Symbols.IsBindableAction(member.Key.ContainingType))
+                        .Select(static member => member.Value)
+                    ?? [])
+                .Aggregate(seed: LoopState.None, func: static (all, each) => all.Join(each));
+
+        if (sinks.Objects.IsEmpty)
+        {
+            return;
+        }
+
+        LoopState content = this.Eval(value).AsContent;
+        LoopStateEvaluator later = this.Quiet();
+
+        this.region.ReadAfterTheTransaction(
+            function: write,
+            read: () => later.SendsInto(sinks: sinks, content: content));
+    }
+
+    // Gives content to each sink of the store that a state has, as a send into a name of it does.
+    private void SendsInto(LoopState sinks, LoopState content)
+    {
+        content = content.AfterTheClose;
+
+        foreach (MadeObject made in this.region.Objects.Now(sinks.Objects))
+        {
+            if (this.region.Objects.CreationOfASink(made) is { } creation)
+            {
+                this.region.Sent.Add(creation: creation, content: content);
+            }
+        }
+    }
+
+    // The argument of the creation of a bindable that is its sink. The write of a bindable of a
+    // cell sink sends into that sink. The write of a bindable of a cell sends into its sink of
+    // edits. An action sends into its sink of firings.
+    private ExpressionSyntax? SinkArgumentOf(InvocationExpressionSyntax creation, IMethodSymbol method) =>
+        creation.ArgumentList.Arguments
+            .Where((argument, position) =>
+                ParameterFor(method: method, argument: argument, position: position)?.Type is INamedTypeSymbol
+                {
+                    OriginalDefinition.Name: "CellSink" or "StreamSink"
+                } type
+                && this.region.Symbols.IsSodaFlow(type))
+            .Select(static argument => argument.Expression)
+            .FirstOrDefault();
+
+    // A two-way bindable that a call makes is an object of the store. The store has the sink that
+    // the bindable sends a write into.
+    private LoopState ATwoWayBindable(InvocationExpressionSyntax creation, IMethodSymbol method, LoopState state)
+    {
+        if (this.SinkArgumentOf(creation: creation, method: method) is not { } sink)
+        {
+            return state;
+        }
+
+        LoopState made = this.MadeHere(place: creation, state: state, exact: false);
+        LoopState ofTheSink = this.Eval(sink);
+
+        foreach (MadeObject bindable in made.Objects)
+        {
+            this.region.Objects.IsABindableOf(made: bindable, sink: ofTheSink);
+        }
+
+        return made;
     }
 
     /// <summary>
