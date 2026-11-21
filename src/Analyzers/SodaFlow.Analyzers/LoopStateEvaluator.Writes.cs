@@ -2746,7 +2746,18 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
-        this.SetField(field: member, state: state);
+        // A static field of a type that is not generic has one location. Thus, a write that always
+        // runs in the block replaces the value before it.
+        this.SetField(
+            field: member,
+            state: state,
+            replaces: replaces
+                      && (this.call?.AlwaysRuns ?? true)
+                      && member is IFieldSymbol { IsStatic: true, ContainingType: var type }
+                      && !IsGeneric(type));
+
+        static bool IsGeneric(INamedTypeSymbol? type) =>
+            type != null && (type.IsGenericType || IsGeneric(type.ContainingType));
     }
 
     // True for a name of a value with no object that has a second name, or had one.

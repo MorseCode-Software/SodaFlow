@@ -38776,6 +38776,106 @@ public static class Shapes
     public static Cell<int> R5PairStaleRefLocalTwoLocalsNoNewObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); ref SettableSlot r = ref d; SettableSlot e = d; _ = r; e.Share = l.Map(v => v); d.Share = Plain; return S.Hold(e.Share!.Sample()); });
 
+    // S9215. A map function samples a static field through the name of its class. The block sets the field pending after it builds the map.
+    public static Cell<int> R5SmpQualifiedStaticFieldSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpQ1.Share = Plain; Cell<int> w = Plain.Map(v => v + R5SmpQ1.Share.Sample()); R5SmpQ1.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S9216. A map function samples a static field of the Shapes class through the name of the class. The block sets it pending after.
+    public static Cell<int> R5SmpQualifiedOwnClassFieldSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpF3 = Plain; Cell<int> w = Plain.Map(v => v + Shapes.R5SmpF3.Sample()); R5SmpF3 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S9217. A map function calls a static method through the name of its class. The method samples a static field that the block sets pending after.
+    public static Cell<int> R5SmpQualifiedStaticMethodReadsAFieldSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpQ4.Share = Plain; Cell<int> w = Plain.Map(v => v + R5SmpQ4.Read()); R5SmpQ4.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S9218. A map function reads a static property with a getter through the name of its class. The getter samples a field that the block sets pending after.
+    public static Cell<int> R5SmpQualifiedStaticPropertySetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpQ6.Share = Plain; Cell<int> w = Plain.Map(v => v + R5SmpQ6.Current); R5SmpQ6.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S9219. A map function samples a member of an object in a static field of another class. The block sets the member pending after.
+    public static Cell<int> R5SmpQualifiedStaticObjectMemberSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> w = Plain.Map(v => v + R5SmpQ7.Slot.Share!.Sample()); R5SmpQ7.Slot.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S9220. A static map function gives a static field of another class the pending cell from a second field of that class. The block samples the map and then the field.
+    public static Cell<int> R5SmpStaticLambdaWritesAQualifiedField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpQ8.Share = Plain; R5SmpQ8.Pending = l.Map(v => v); Cell<int> w = Plain.Map(static v => { R5SmpQ8.Share = R5SmpQ8.Pending!; return v; }); int n = w.Sample(); return S.Hold(R5SmpQ8.Share.Sample() + n); });
+
+    // S9221. A static map function puts a plain cell over a pending one in a static field of another class. The block samples the map and then the field.
+    public static Cell<int> R5SmpStaticLambdaWritesPlainOverAQualifiedField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpQ10.Share = l.Map(v => v); Cell<int> w = Plain.Map(static v => { R5SmpQ10.Share = Cell.Constant(1); return v; }); int n = w.Sample(); return S.Hold(R5SmpQ10.Share.Sample() + n); });
+
+    // S9222. A predicate of a view samples a static field through the name of its class. The block sets the field pending after it builds the view.
+    public static Cell<int> R5SmpViewReadsAQualifiedStaticFieldSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpQ11.Share = Plain; ReactiveCollection<int, ItemId, int> view = Items().Filter(predicate: (_, state) => state > R5SmpQ11.Share.Sample()); R5SmpQ11.Share = l.Map(v => v); return S.Hold(view.KeysCell.Sample().Count); });
+
+    // S9223. A map function reads a static field of a class whose static constructor samples a pending cell that the block put in a field before the map.
+    public static Cell<int> R5SmpMapRunsAStaticConstructorThatReadsPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpCtorShare.T1 = l.Map(v => v); Cell<int> w = Plain.Map(v => v + R5SmpT1.Value); return S.Hold(w.Sample()); });
+
+    // S9224. The same, with the field set pending after the map.
+    public static Cell<int> R5SmpMapRunsAStaticConstructorSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpCtorShare.T2 = Plain; Cell<int> w = Plain.Map(v => v + R5SmpT2.Value); R5SmpCtorShare.T2 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S9225. The block closes the loop with a map whose function reads the static field of a class whose static constructor samples the placeholder.
+    public static Cell<int> R5SmpCloseWithAMapThatRunsAStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpCtorShare.T7 = l; return Plain.Map(v => v + R5SmpT7.Value); });
+
+    // S9226. A map function calls a static method of a class whose static constructor samples the pending cell.
+    public static Cell<int> R5SmpMapCallsAQualifiedStaticMethodThatRunsAStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5SmpCtorShare.T10 = l.Map(v => v); Cell<int> w = Plain.Map(v => v + R5SmpT10.Get()); return S.Hold(w.Sample()); });
+
+    // S9227. The block puts a pending cell into a static field, and then samples a Map whose function only reads a static field of a class whose static constructor samples that cell.
+    public static Cell<int> R5FuStaticCtorReadInAMapFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuStaticShare.A = l.Map(v => v); Kept.Add(Plain.Map(_ => R5FuInitA.Value).Sample()); return S.Hold(0); });
+
+    // S9228. The same, and the Map function calls a static method of the class.
+    public static Cell<int> R5FuStaticCtorRunByAMethodInAMapFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuStaticShare.B = l.Map(v => v); Kept.Add(Plain.Map(_ => R5FuInitB.Get()).Sample()); return S.Hold(0); });
+
+    // S9229. A map function samples a static field through the name of its namespace and class. The block sets the field pending after it builds the map.
+    public static Cell<int> Ab272NamespaceQualifiedStaticFieldSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab272Q1.Share = Plain; Cell<int> w = Plain.Map(v => v + SodaFlow.Analyzers.Shapes.Shapes.Ab272Q1.Share.Sample()); Ab272Q1.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S9230. A map function samples a static field of a nested class through the names of both classes. The block sets the field pending after it builds the map.
+    public static Cell<int> Ab272NestedClassStaticFieldSetPendingAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab272Outer.Inner.Share = Plain; Cell<int> w = Plain.Map(v => v + Ab272Outer.Inner.Share.Sample()); Ab272Outer.Inner.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S9231. A static map function puts a plain cell over a pending one in a static field of the Shapes class by its simple name. The block samples the map and then the field.
+    public static Cell<int> Ab272StaticLambdaWritesPlainOverAnUnqualifiedField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab272F1 = l.Map(v => v); Cell<int> w = Plain.Map(static v => { Ab272F1 = Cell.Constant(1); return v; }); int n = w.Sample(); return S.Hold(Ab272F1.Sample() + n); });
+
+    // S9232. A map function calls a static method of the platform through the name of its class, and reads nothing else. A control.
+    public static Cell<int> Ab272PlatformStaticMethodInAMapFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(l.Map(v => v)); Cell<int> w = Plain.Map(v => Math.Max(v, 1)); return S.Hold(w.Sample()); });
+
+    // S9233. The block puts a plain cell over a pending one in a static field of another class, and then samples the field.
+    public static Cell<int> Ab272BlockWritesPlainOverAQualifiedField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab272Q2.Share = l.Map(v => v); Ab272Q2.Share = Cell.Constant(1); return S.Hold(Ab272Q2.Share.Sample()); });
+
+    // S9234. The same, with a static field of the Shapes class by its simple name.
+    public static Cell<int> Ab272BlockWritesPlainOverAnUnqualifiedField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab272F2 = l.Map(v => v); Ab272F2 = Cell.Constant(1); return S.Hold(Ab272F2.Sample()); });
+
+    // S9235. The block puts a plain cell over a pending one in a static field under a condition that is false, and then samples the field.
+    public static Cell<int> Ab272BranchWritesPlainOverAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab272Q3.Share = l.Map(v => v); if (Never) { Ab272Q3.Share = Cell.Constant(1); } return S.Hold(Ab272Q3.Share.Sample()); });
+
+    // S9236. A static field of a generic class gets a pending cell for one type argument and a plain cell for a second one. The block samples the first.
+    public static Cell<int> Ab272PlainForASecondTypeArgumentKeepsThePendingField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab272G<int>.Share = l.Map(v => v); Ab272G<long>.Share = Cell.Constant(1); return S.Hold(Ab272G<int>.Share.Sample()); });
+
+    // S9237. A method that the block calls under a condition that is false puts a plain cell over a pending one in a static field. The block samples the field.
+    public static Cell<int> Ab272MethodInABranchWritesPlainOverAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab272Q4.Share = l.Map(v => v); if (Never) { Ab272WritePlain(); } return S.Hold(Ab272Q4.Share.Sample()); });
+
+    // S9238. A method that the block always calls puts a plain cell over a pending one in a static field. The block samples the field.
+    public static Cell<int> Ab272MethodWritesPlainOverAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab272Q4.Share = l.Map(v => v); Ab272WritePlain(); return S.Hold(Ab272Q4.Share.Sample()); });
+
+    // S9239. A map function puts a plain cell over a pending one in a static field. The block samples the map in a branch that does not run, and then samples the field.
+    public static Cell<int> Ab272MapInABranchWritesPlainOverAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab272Q5.Share = l.Map(v => v); Cell<int> w = Plain.Map(static v => { Ab272Q5.Share = Cell.Constant(1); return v; }); int n = Never ? w.Sample() : 0; return S.Hold(Ab272Q5.Share.Sample() + n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -55503,6 +55603,50 @@ public static class Shapes
         }
 
         public Cell<int>? Share { get; set; }
+    }
+
+    public static class Ab272Q1
+    {
+        public static Cell<int> Share = Cell.Constant(0);
+    }
+
+    public static class Ab272Outer
+    {
+        public static class Inner
+        {
+            public static Cell<int> Share = Cell.Constant(0);
+        }
+    }
+
+    private static Cell<int> Ab272F1 = Plain;
+
+    public static class Ab272Q2
+    {
+        public static Cell<int> Share = Cell.Constant(0);
+    }
+
+    private static Cell<int> Ab272F2 = Plain;
+
+    public static class Ab272Q3
+    {
+        public static Cell<int> Share = Cell.Constant(0);
+    }
+
+    public static class Ab272G<T>
+    {
+        public static Cell<int> Share = Cell.Constant(0);
+    }
+
+    public static class Ab272Q4
+    {
+        public static Cell<int> Share = Cell.Constant(0);
+    }
+
+    private static void Ab272WritePlain() => Ab272Q4.Share = Cell.Constant(1);
+
+    public static class Ab272Q5
+    {
+        public static Cell<int> Share = Cell.Constant(0);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

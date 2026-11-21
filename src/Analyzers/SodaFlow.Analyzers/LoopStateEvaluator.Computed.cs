@@ -115,7 +115,8 @@ internal sealed partial class LoopStateEvaluator
     ///     it makes the lambda. That is a name from the code around the lambda,
     ///     a member of an object, a static member, or a function of this
     ///     compilation. This is a check of the syntax. Only the first name of a
-    ///     member access needs the compiler, because it can be a type.
+    ///     member access needs the compiler, because it can be a type. Then, the
+    ///     member after the type needs it also.
     /// </summary>
     private bool CanReadALaterValue(AnonymousFunctionExpressionSyntax lambda, LoopState given)
     {
@@ -138,7 +139,8 @@ internal sealed partial class LoopStateEvaluator
                     if (!own.Contains(name.Identifier.ValueText)
                         && (name.Parent is not MemberAccessExpressionSyntax access
                             || access.Expression != name
-                            || this.region.SymbolOf(name) is not (ITypeSymbol or INamespaceSymbol)))
+                            || this.region.SymbolOf(name) is not (ITypeSymbol or INamespaceSymbol)
+                            || this.CanHoldALaterValue(access)))
                     {
                         return true;
                     }
@@ -157,6 +159,52 @@ internal sealed partial class LoopStateEvaluator
                 _ => !SyntaxFacts.IsInTypeOnlyContext(name)
             };
     }
+
+    /// <summary>
+    ///     True when a member access with a type or a namespace at its head names
+    ///     a static member that can change after the build. A method or a getter
+    ///     of this compilation can read each field. A field or a property can
+    ///     hold a state when its type can. The access can also run a static
+    ///     constructor of its type. A call such as <c>Math.Max</c> does none of
+    ///     these.
+    /// </summary>
+    private bool CanHoldALaterValue(MemberAccessExpressionSyntax access)
+    {
+        // A namespace or a nested type in the access names the type of the member after it.
+        ExpressionSyntax used = access;
+        ISymbol? member = this.MemberOf(used);
+
+        while (member is INamespaceOrTypeSymbol
+               && used.Parent is MemberAccessExpressionSyntax next
+               && next.Expression == used)
+        {
+            used = next;
+            member = this.MemberOf(used);
+        }
+
+        return member switch
+            {
+                IMethodSymbol { IsStatic: true } method => !method.DeclaringSyntaxReferences.IsEmpty,
+                IFieldSymbol { IsStatic: true, IsConst: false } field => this.CanHoldState(field.Type),
+                IPropertySymbol { IsStatic: true } property =>
+                    GetterOf(property) != null || this.CanHoldState(property.Type),
+                _ => false
+            }
+            || member is { IsStatic: true, ContainingType: { DeclaringSyntaxReferences.IsEmpty: false } owner }
+            && owner.OriginalDefinition.StaticConstructors.Any(static constructor => !constructor.IsImplicitlyDeclared);
+    }
+
+    // The member that a part of a member access names. The compiler keeps the symbol of a call, and not the symbol
+    // of the name of its method. A call of a delegate gets the member that holds the delegate.
+    private ISymbol? MemberOf(ExpressionSyntax used) =>
+        used.Parent is InvocationExpressionSyntax call
+        && call.Expression == used
+        && this.region.SymbolOf(call) is IMethodSymbol { MethodKind: not MethodKind.DelegateInvoke } called
+            ? called
+            : this.region.SymbolOf(used);
+
+    private bool CanHoldState(ITypeSymbol type) =>
+        this.region.Symbols.CanHoldState(type: type, compilation: this.region.Assembly);
 
     // The names of the parameters and the locals that a lambda declares, with those of each function in it.
     private static HashSet<string> NamesDeclaredIn(AnonymousFunctionExpressionSyntax lambda)

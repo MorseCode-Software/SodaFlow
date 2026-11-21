@@ -1012,12 +1012,12 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
-    private void SetField(ISymbol field, LoopState state)
+    private void SetField(ISymbol field, LoopState state, bool replaces = false)
     {
         if (!this.quiet)
         {
             // The owner of the field is not known, thus it is new in no turn.
-            this.region.SetField(field: field, state: this.InAnOldLocation(state));
+            this.region.SetField(field: field, state: this.InAnOldLocation(state), replaces: replaces);
         }
     }
 

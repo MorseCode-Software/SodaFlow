@@ -5523,6 +5523,25 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5PairStaleSpanOfLocalNewObject"] = ["SF1001"],
             ["R5PairStaleRefLocalMadeAfterTheNames"] = ["SF1001"],
             ["R5PairVirtualNamePendingThroughNamePlainThroughLocalOfASealedType"] = ["SF1001"],
-            ["R5PairStaleRefLocalTwoLocalsMadeAfterTheNames"] = ["SF1001"]
+            ["R5PairStaleRefLocalTwoLocalsMadeAfterTheNames"] = ["SF1001"],
+            ["R5SmpQualifiedStaticFieldSetPendingAfter"] = ["SF1001"],
+            ["R5SmpQualifiedOwnClassFieldSetPendingAfter"] = ["SF1001"],
+            ["R5SmpQualifiedStaticMethodReadsAFieldSetPendingAfter"] = ["SF1001"],
+            ["R5SmpQualifiedStaticPropertySetPendingAfter"] = ["SF1001"],
+            ["R5SmpQualifiedStaticObjectMemberSetPendingAfter"] = ["SF1001"],
+            ["R5SmpStaticLambdaWritesAQualifiedField"] = ["SF1001"],
+            ["R5SmpViewReadsAQualifiedStaticFieldSetPendingAfter"] = ["SF1001"],
+            ["R5SmpMapRunsAStaticConstructorThatReadsPending"] = ["SF1001"],
+            ["R5SmpMapRunsAStaticConstructorSetPendingAfter"] = ["SF1001"],
+            ["R5SmpCloseWithAMapThatRunsAStaticConstructor"] = ["SF1006"],
+            ["R5SmpMapCallsAQualifiedStaticMethodThatRunsAStaticConstructor"] = ["SF1001"],
+            ["R5FuStaticCtorReadInAMapFunction"] = ["SF1001"],
+            ["R5FuStaticCtorRunByAMethodInAMapFunction"] = ["SF1001"],
+            ["Ab272NamespaceQualifiedStaticFieldSetPendingAfter"] = ["SF1001"],
+            ["Ab272NestedClassStaticFieldSetPendingAfter"] = ["SF1001"],
+            ["Ab272BranchWritesPlainOverAStaticField"] = ["SF1001"],
+            ["Ab272PlainForASecondTypeArgumentKeepsThePendingField"] = ["SF1001"],
+            ["Ab272MethodInABranchWritesPlainOverAStaticField"] = ["SF1001"],
+            ["Ab272MapInABranchWritesPlainOverAStaticField"] = ["SF1001"]
         };
 }

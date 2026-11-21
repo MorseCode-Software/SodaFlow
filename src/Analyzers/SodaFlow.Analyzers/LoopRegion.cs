@@ -222,18 +222,31 @@ internal sealed class LoopRegion(
     ///     which object has the field, thus each object of the type has that state
     ///     to the end of the block.
     /// </summary>
-    public void SetField(ISymbol field, LoopState state)
+    /// <param name="field">The field.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="replaces">
+    ///     True for a field with one location, such as a static field, and a
+    ///     write that always runs. The value then replaces the value before it.
+    /// </param>
+    public void SetField(ISymbol field, LoopState state, bool replaces)
     {
+        ISymbol key = field.OriginalDefinition;
+
         // A state that only holds objects of the store says what the owner of the field holds.
         if (state is { IsNone: true, HoldsAnObject: false })
         {
+            if (replaces)
+            {
+                this.fields.Remove(key);
+            }
+
             return;
         }
 
-        ISymbol key = field.OriginalDefinition;
-
         this.fields[key] =
-            this.fields.TryGetValue(key: key, value: out LoopState? existing) ? existing.Join(state) : state;
+            !replaces && this.fields.TryGetValue(key: key, value: out LoopState? existing)
+                ? existing.Join(state)
+                : state;
 
         this.lastWrites[key] = this.MemberWrites;
 

@@ -308,7 +308,9 @@ dotnet_diagnostic.SF1003.severity = warning
 The analyzer follows a value made from the placeholder through the code of your project:
 
 - Locals, tuples, deconstructions, patterns, `out` and `ref` arguments, and the fields that the
-  block sets. The variable of a `catch` clause gets each object that a `throw` in its `try` block,
+  block sets. A write to a static field of a class that is not generic replaces what the field
+  held, where the write always runs: in the block, in a method that the block always calls, or in
+  the function of a `Map` at a first read that always runs. The variable of a `catch` clause gets each object that a `throw` in its `try` block,
   or in a method or a lambda that the block calls, can send to that clause. Its filter gets none,
   because an exception in a filter is lost and makes the filter false.
 - Collections, arrays, and dictionaries. A list, an array, or a span that you write as a literal
