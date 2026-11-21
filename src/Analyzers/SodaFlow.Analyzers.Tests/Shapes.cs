@@ -41529,6 +41529,34 @@ public static class Shapes
     public static Cell<int> Ag99ALazyMemberReadsItselfThroughADelegateLocal() =>
         ForwardReference<DvLinksBox>.WithoutCaptures(r => { Func<DvLinksBox, int> read = b => b.A.Sample() + 1; return new DvLinksBox(Cell.ConstantLazy(r.SampleLazy().Map(read))); }).A;
 
+    // S9903. A lambda that the block calls writes through the first read of the element. The write goes to the second read.
+    public static Cell<int> Ag99AWriteInALambdaThroughTheFirstReadGoesToTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = Plain; SettableSlot q = Ab83Unseen[0]; Action put = () => c.Share = l.Map(v => v); put(); return S.Hold(q.Share!.Sample()); });
+
+    // S9904. A local function that the block calls writes through the first read of the element. The write goes to the second read.
+    public static Cell<int> Ag99AWriteInALocalFunctionThroughTheFirstReadGoesToTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = Plain; SettableSlot q = Ab83Unseen[0]; void Put() => c.Share = l.Map(v => v); Put(); return S.Hold(q.Share!.Sample()); });
+
+    // S9905. A lambda that writes through the first read of the element does not run in the block. Thus, the second read keeps the plain cell.
+    public static Cell<int> Ag99AWriteInALambdaThatTheBlockKeeps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = Plain; SettableSlot q = Ab83Unseen[0]; Action put = () => c.Share = l.Map(v => v); Kept.Add(put); return S.Hold(q.Share!.Sample()); });
+
+    // S9906. A lambda that the block calls writes a pending cell through the element itself. The local that read the element before gets the write.
+    public static Cell<int> Ag99AWriteInALambdaThroughTheElementGoesToALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab83Unseen[0]; q.Share = Plain; Action put = () => Ab83Unseen[0].Share = l.Map(v => v); put(); return S.Hold(q.Share!.Sample()); });
+
+    // S9907. The block reads the element again after a lambda wrote a pending cell through the first read.
+    public static Cell<int> Ag99AReadAfterALambdaWroteThroughTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; c.Share = Plain; Action put = () => c.Share = l.Map(v => v); put(); SettableSlot q = Ab83Unseen[0]; return S.Hold(q.Share!.Sample()); });
+
+    // S9908. A lambda gives the second name a different element, which holds a pending cell, and then writes a plain cell through the first name. The plain cell does not go to the second name.
+    public static Cell<int> Ag99ALambdaMovesTheSecondNameBeforeAPlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag99Unseen[0]; SettableSlot q = Ag99Unseen[0]; Ag99Unseen[1].Share = l.Map(v => v); Action put = () => { q = Ag99Unseen[1]; c.Share = Plain; }; put(); return S.Hold(q.Share!.Sample()); });
+
+    // S9909. A lambda that the block always calls writes a plain cell through the first read of the element, after the second read got a pending cell. The plain cell replaces it.
+    public static Cell<int> Ag99APlainWriteInALambdaAfterAPendingOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; SettableSlot q = Ab83Unseen[0]; q.Share = l.Map(v => v); Action put = () => c.Share = Plain; put(); return S.Hold(q.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -59509,6 +59537,8 @@ public static class Shapes
     }
 
     private static int Ag99ReadA(DvLinksBox box) => box.A.Sample() + 1;
+
+    private static readonly SettableSlot[] Ag99Unseen = [new(), new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

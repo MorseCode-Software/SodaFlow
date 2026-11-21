@@ -5905,6 +5905,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag99AMapFunctionReadsOnlyAnArrowGetter"] = ["SF1001"],
             ["Ag99AMapFunctionReadsADictionaryWhoseKeySamples"] = ["SF1001"],
             ["Ag99ALazyMemberReadsItselfThroughAMethodGroup"] = ["SF1006"],
-            ["Ag99ALazyMemberReadsItselfThroughADelegateLocal"] = ["SF1006"]
+            ["Ag99ALazyMemberReadsItselfThroughADelegateLocal"] = ["SF1006"],
+            ["Ag99AWriteInALambdaThroughTheFirstReadGoesToTheSecond"] = ["SF1001"],
+            ["Ag99AWriteInALocalFunctionThroughTheFirstReadGoesToTheSecond"] = ["SF1001"],
+            ["Ag99AWriteInALambdaThroughTheElementGoesToALocal"] = ["SF1001"],
+            ["Ag99AReadAfterALambdaWroteThroughTheFirstRead"] = ["SF1001"],
+            ["Ag99ALambdaMovesTheSecondNameBeforeAPlainWrite"] = ["SF1001"]
         };
 }

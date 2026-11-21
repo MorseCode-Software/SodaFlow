@@ -391,8 +391,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   reaches a later read through each name whose object the analyzer cannot tell apart from the object
   of the write. A write in a method that the block calls counts as well, where the block always
   calls the method one time and the method writes through a static field, an element of an array in
-  one, or a parameter whose argument is such a name. So does a write through `this` in a method that
-  the block calls on one of the names, and a read through `this` in such a method sees the last
+  one, or a parameter whose argument is such a name. So does a write through one of the names in a
+  lambda or a local function that the block itself calls. So does a write through `this` in a method
+  that the block calls on one of the names, and a read through `this` in such a method sees the last
   value too. A new object that goes into a name with an object initializer, as in
   `slots[0] = new Slot { Cell = value }`, gives the name only the values that the initializer sets,
   also where such a method puts it and keeps it there to its end. A method that always gives its

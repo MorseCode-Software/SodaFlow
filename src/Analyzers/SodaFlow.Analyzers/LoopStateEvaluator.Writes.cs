@@ -471,9 +471,16 @@ internal sealed partial class LoopStateEvaluator
         bool replaces,
         SyntaxNode? turn)
     {
+        // A write in a function counts at the call of the function. The function has the frame of this
+        // code, thus its own code changes the records of the names before the write. A call in a
+        // different function is not in the code of the names, and the check then finds no name.
+        if (this.function != null)
+        {
+            at = this.call?.Site;
+        }
+
         if ((this.Frame.ReadFrom.Count == 0 && this.Frame.GaveTo.Count == 0)
             || this.quiet
-            || this.function != null
             || owner == null
             || at == null)
         {
