@@ -5744,6 +5744,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab311ChangeForOfAnAddedLinkedStateSwitched"] = ["SF1002"],
             ["R5ApiTransformCalledThroughUpdates"] = ["SF1001"],
             ["Ab318ConstructorTransformCalledThroughUpdates"] = ["SF1001"],
-            ["Ab318TransformInALocalCalledThroughUpdates"] = ["SF1001"]
+            ["Ab318TransformInALocalCalledThroughUpdates"] = ["SF1001"],
+            ["R5ApiCollectLazyFunctionReturnsALinkedCell"] = ["SF1002"],
+            ["R5ApiCollectLazyFiresItsLinkedState"] = ["SF1002"],
+            ["R5ApiCollectLazyOfAFunctionInALocal"] = ["SF1002"],
+            ["Ab319CollectOfAFunctionInALocal"] = ["SF1002"],
+            ["Ab319CollectLazyOfALocalFunction"] = ["SF1002"]
         };
 }

@@ -399,6 +399,11 @@ internal sealed partial class LoopStateEvaluator
             : OperatorName(method) switch
             {
                 "HoldLazy" => initial.Join(receiverState.Content.AfterTheClose),
+                "CollectLazy" => this.CollectedContent(
+                    invocation: invocation,
+                    method: method,
+                    receiverState: receiverState,
+                    initial: initial),
                 "Accum" or "AccumLazy" => initial.Join(
                     this.AccumulatesValuesOfTheGraph(method)
                     || this.FunctionCanGiveAState(
@@ -462,21 +467,23 @@ internal sealed partial class LoopStateEvaluator
         LoopState receiverState,
         LoopState initial)
     {
-        if (!this.HoldsContent(method)
-            || invocation.ArgumentList.Arguments
-                .Select(static a => a.Expression)
-                .OfType<AnonymousFunctionExpressionSyntax>()
-                .FirstOrDefault() is not { } lambda)
+        if (!this.HoldsContent(method))
         {
             return LoopState.None;
         }
 
+        ImmutableArray<LoopState> given =
+            ImmutableArray.Create(item1: receiverState.Content.AfterTheClose, item2: initial.AfterTheClose);
+
+        // A function that is not a lambda at the call is a lambda in a local, a local function, or a
+        // method.
         LoopState returned =
-            this.EvalLambdaResult(
-                lambda: lambda,
-                boundParameters: ImmutableArray.Create(
-                    item1: receiverState.Content.AfterTheClose,
-                    item2: initial.AfterTheClose));
+            invocation.ArgumentList.Arguments
+                    .Select(static a => a.Expression)
+                    .OfType<AnonymousFunctionExpressionSyntax>()
+                    .FirstOrDefault() is { } lambda
+                ? this.EvalLambdaResult(lambda: lambda, boundParameters: given)
+                : this.ContentOfANamedFunction(invocation: invocation, given: given);
 
         return returned.Members?.PartsAt(ofATuple: true).ToList() is { Count: > 0 } parts
             ? parts.Where(static part => part.Position == 0).Select(static part => part.State).FirstOrDefault()

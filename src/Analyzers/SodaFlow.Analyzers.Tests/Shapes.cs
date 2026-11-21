@@ -40413,6 +40413,30 @@ public static class Shapes
     public static Cell<int> Ab318PlainTransformCalledThroughUpdates() =>
         Cell.Loop<int>().WithoutCaptures(l => { CollectionEdit<int, ItemId, int> e = CollectionEdit<int, ItemId, int>.Update(key: 1, transform: s => s + 1); int v = e.Updates[1](0); return S.Hold(v); });
 
+    // S9624. CollectLazy fires what its function returns, which is a linked cell. The switch of a hold of the stream as the close is a cycle.
+    public static Cell<int> R5ApiCollectLazyFunctionReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<int> sw = s.CollectLazy(LazySample.Defer(() => 0), (_, st) => (l.Map(v => v), st)).Hold(Plain).SwitchC(); s.Send(1); return sw; });
+
+    // S9625. CollectLazy fires its state, which is the linked cell of the lazy initial state. The switch of a hold of the stream as the close is a cycle.
+    public static Cell<int> R5ApiCollectLazyFiresItsLinkedState() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<int> sw = s.CollectLazy(LazySample.Defer(() => l.Map(v => v)), (_, st) => (st, st)).Hold(Plain).SwitchC(); s.Send(1); return sw; });
+
+    // S9626. The function of CollectLazy is in a local, and it fires a linked cell. The switch of a hold of the stream as the close is a cycle.
+    public static Cell<int> R5ApiCollectLazyOfAFunctionInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int, int, (Cell<int>, int)> f = (_, st) => (l.Map(v => v), st); StreamSink<int> s = Stream.CreateSink<int>(); Cell<int> sw = s.CollectLazy(LazySample.Defer(() => 0), f).Hold(Plain).SwitchC(); s.Send(1); return sw; });
+
+    // S9627. The function of Collect is in a local, and it fires a linked cell. The switch of a hold of the stream as the close is a cycle.
+    public static Cell<int> Ab319CollectOfAFunctionInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int, int, (Cell<int>, int)> f = (_, st) => (l.Map(v => v), st); StreamSink<int> s = Stream.CreateSink<int>(); Cell<int> sw = s.Collect(0, f).Hold(Plain).SwitchC(); s.Send(1); return sw; });
+
+    // S9628. The function of CollectLazy is a local function, and it fires a linked cell. The switch of a hold of the stream as the close is a cycle.
+    public static Cell<int> Ab319CollectLazyOfALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<int> s = Stream.CreateSink<int>(); Cell<int> sw = s.CollectLazy(LazySample.Defer(() => 0), Fire).Hold(Plain).SwitchC(); s.Send(1); return sw; (Cell<int>, int) Fire(int _, int st) => (l.Map(v => v), st); });
+
+    // S9629. Control: the function of CollectLazy is in a local, and it fires a plain cell. The switch of a hold of the stream as the close is not a cycle.
+    public static Cell<int> Ab319CollectLazyOfAPlainFunctionInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int, int, (Cell<int>, int)> f = (_, st) => (Plain, st); StreamSink<int> s = Stream.CreateSink<int>(); Cell<int> sw = s.CollectLazy(LazySample.Defer(() => 0), f).Hold(Plain).SwitchC(); s.Send(1); return sw; });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
