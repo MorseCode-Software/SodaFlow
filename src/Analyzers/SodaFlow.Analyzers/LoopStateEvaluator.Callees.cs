@@ -367,8 +367,8 @@ internal sealed partial class LoopStateEvaluator
             Name.Identifier.ValueText: "Take",
             Parent: InvocationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } next
         }
-        && this.region.ModelFor(next).GetConstantValue(arguments[0].Expression) is { HasValue: true, Value: int value }
-        && value <= 0
+        && this.region.ModelFor(next).GetConstantValue(arguments[0].Expression)
+            is { HasValue: true, Value: <= 0 }
         && this.IsOfEnumerable(next);
 
     private static bool IsAnIteratorBody(SyntaxNode body) =>

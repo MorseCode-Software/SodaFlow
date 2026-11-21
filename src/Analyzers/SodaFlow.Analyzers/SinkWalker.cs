@@ -2080,7 +2080,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     // The node around a chain of null-conditional accesses, where each access is the part after the
     // mark of the access around it.
-    private static SyntaxNode? AroundTheChain(ConditionalAccessExpressionSyntax conditional)
+    private static SyntaxNode? AroundTheChain(SyntaxNode conditional)
     {
         SyntaxNode node = conditional;
 
@@ -2378,8 +2378,12 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 WhenTrue: RefExpressionSyntax whenTrue, WhenFalse: RefExpressionSyntax whenFalse
             })
         {
-            this.Assign(target: whenTrue.Expression, value: value, replaces: false, turn: null);
-            this.Assign(target: whenFalse.Expression, value: value, replaces: false, turn: null);
+            ExpressionSyntax[] locations = [whenTrue.Expression, whenFalse.Expression];
+
+            foreach (ExpressionSyntax location in locations)
+            {
+                this.Assign(target: location, value: value, replaces: false, turn: null);
+            }
 
             return;
         }

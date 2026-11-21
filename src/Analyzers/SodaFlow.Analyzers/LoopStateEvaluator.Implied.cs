@@ -189,19 +189,14 @@ internal sealed partial class LoopStateEvaluator
         }
 
         bool hashes = definition.Name == "GetHashCode";
-
-        if (self?.Members is not { } members)
-        {
-            return null;
-        }
-
         INamedTypeSymbol type = definition.ContainingType;
 
-        if (!hashes
-            && type.IsRecord
-            && given.Length == 2
-            && definition.IsStatic
-            && this.ReturnsAtOnce(call: call, left: given[0].Written, right: given[1].Written))
+        if (self?.Members is not { } members
+            || (!hashes
+                && type.IsRecord
+                && given.Length == 2
+                && definition.IsStatic
+                && this.ReturnsAtOnce(call: call, left: given[0].Written, right: given[1].Written)))
         {
             return null;
         }

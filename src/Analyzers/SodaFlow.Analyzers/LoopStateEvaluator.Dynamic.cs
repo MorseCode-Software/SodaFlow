@@ -90,9 +90,10 @@ internal sealed partial class LoopStateEvaluator
                 .OfType<IMethodSymbol>()
                 .Where(static method => method is { IsStatic: false, MethodKind: MethodKind.Ordinary })
                 .Distinct<IMethodSymbol>(SymbolEqualityComparer.Default)
-                .Select(method => (method, this.InTheOrderOfTheParameters(method: method, arguments: arguments)))
-                .Where(static pair => pair.Item2 != null)
-                .Select(static pair => (pair.method, (IReadOnlyList<ArgumentSyntax?>)pair.Item2!))
+                .SelectMany<IMethodSymbol, (IMethodSymbol Method, IReadOnlyList<ArgumentSyntax?> InOrder)>(method =>
+                    this.InTheOrderOfTheParameters(method: method, arguments: arguments) is { } inOrder
+                        ? [(method, inOrder)]
+                        : [])
         ];
 
         return found.Length == 1 ? found[0] : null;
@@ -127,7 +128,7 @@ internal sealed partial class LoopStateEvaluator
             : placed;
     }
 
-    private static int IndexOf(ImmutableArray<IParameterSymbol> parameters, IdentifierNameSyntax name)
+    private static int IndexOf(ImmutableArray<IParameterSymbol> parameters, SimpleNameSyntax name)
     {
         for (int i = 0; i < parameters.Length; i++)
         {
@@ -150,7 +151,7 @@ internal sealed partial class LoopStateEvaluator
     ///     complete, and the walk knows no complete task of a dynamic value.
     /// </remarks>
     /// <param name="awaited">The await.</param>
-    public Followed? FollowDynamicAwaiter(AwaitExpressionSyntax awaited)
+    private Followed? FollowDynamicAwaiter(AwaitExpressionSyntax awaited)
     {
         LoopState value = this.Self(awaited.Expression);
 
