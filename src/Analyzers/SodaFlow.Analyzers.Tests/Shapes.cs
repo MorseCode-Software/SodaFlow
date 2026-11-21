@@ -39693,6 +39693,14 @@ public static class Shapes
     public static Cell<int> R5FuChainedNullConditionalAssignmentReplaces() =>
         Cell.Loop<int>().WithoutCaptures(l => { R5FuChain? h = new(); h.Holder.Slot.Share = l.Map(v => v); h?.Holder?.Slot.Share = Plain; Kept.Add(h.Holder.Slot.Share!.Sample()); return S.Hold(0); });
 
+    // S9444. A local gets the array of a static field. A plain cell goes into a field of an element through the local, then a callee writes a pending cell there through a ref local. The read is through the local.
+    public static Cell<int> R5FuArrRefLocalWriteInACallee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuFieldSlot[] a = R5FuRefs; a[0].Field = Plain; R5FuWriteThroughARefLocal(l.Map(v => v)); return S.Hold(a[0].Field!.Sample()); });
+
+    // S9445. A callee writes a pending cell through a ref local into the field of an element at an index in a parameter. The block reads that element.
+    public static Cell<int> Ab296RefLocalWriteAtAnIndexOfAParameterReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuFieldSlot[] a = Ab296Slots; a[1].Field = Plain; Ab296WriteAt(1, l.Map(v => v)); return S.Hold(a[1].Field!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -56868,6 +56876,14 @@ public static class Shapes
         bool flag,
         [System.Runtime.CompilerServices.InterpolatedStringHandlerArgument("flag")] Ab290FlaggedHandler message)
     {
+    }
+
+    private static readonly R5FuFieldSlot[] Ab296Slots = [new(), new()];
+
+    private static void Ab296WriteAt(int index, Cell<int> share)
+    {
+        ref Cell<int>? location = ref Ab296Slots[index].Field;
+        location = share;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

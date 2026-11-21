@@ -1206,6 +1206,25 @@ internal sealed partial class LoopStateEvaluator
                 && this.region.SymbolOf(index) is { } number
                 && KeepsItsObject(number)));
 
+    // A field of an element of an array in a static field, at a constant index or at an index in a
+    // local. A ref local of it in a method is a name of that field, which the caller then sees through
+    // the static field.
+    private bool IsAFieldOfAnElementOfAStaticArray(ExpressionSyntax location) =>
+        Unwrapped(location) is MemberAccessExpressionSyntax
+        {
+            Expression: ElementAccessExpressionSyntax
+            {
+                ArgumentList.Arguments: { Count: 1 } indexes,
+                Expression: IdentifierNameSyntax array
+            }
+        } access
+        && this.region.SymbolOf(access) is IFieldSymbol { IsStatic: false }
+        && (indexes[0].Expression is LiteralExpressionSyntax
+            || (indexes[0].Expression is IdentifierNameSyntax index
+                && this.region.SymbolOf(index) is { } number
+                && KeepsItsObject(number)))
+        && this.region.SymbolOf(array) is IFieldSymbol { IsStatic: true, Type: IArrayTypeSymbol };
+
     private bool IsALocationThatTheWalkCanReadAgain(ExpressionSyntax location) =>
         Unwrapped(location) switch
         {

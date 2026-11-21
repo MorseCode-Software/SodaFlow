@@ -891,7 +891,8 @@ internal sealed partial class LoopStateEvaluator
                 && local is ILocalSymbol
                 && (this.IsALocationThatTheWalkCanReadAgain(location)
                     || this.IsAStaticField(location)
-                    || this.IsARefIndexerOfALocal(location)))
+                    || this.IsARefIndexerOfALocal(location)
+                    || this.IsAFieldOfAnElementOfAStaticArray(location)))
             {
                 this.Frame.LocationOf[local] = location;
             }

@@ -5660,6 +5660,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5CsRefPropertyWritesTheField"] = ["SF1001"],
             ["R5CsConditionalRefWritesTheChosenLocal"] = ["SF1001"],
             ["R5CsRefLocalOfARefIndexerWritesTheElement"] = ["SF1001"],
-            ["Ab292ConditionalRefWritesTheSecondLocal"] = ["SF1001"]
+            ["Ab292ConditionalRefWritesTheSecondLocal"] = ["SF1001"],
+            ["R5FuArrRefLocalWriteInACallee"] = ["SF1001"],
+            ["Ab296RefLocalWriteAtAnIndexOfAParameterReads"] = ["SF1001"]
         };
 }
