@@ -39597,6 +39597,38 @@ public static class Shapes
     public static Cell<int> Ab289RecordEqualityOfANameWithItselfCallsNoMemberEquals() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); Kept.Add(a == a); return S.Hold(0); });
 
+    // S9420. The constructor of a custom handler sets shouldAppend to false, so the compiler calls no AppendFormatted.
+    public static Cell<int> R5CsCustomHandlerThatShouldNotAppendReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsGatedLog($"n{l.Map(v => v)}"); return S.Hold(0); });
+
+    // S9421. The constructor of an interpolated string handler of the code samples a static field that the block made pending.
+    public static Cell<int> R5FuHandlerConstructorSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuHandlerShares.A = l.Map(v => v); R5FuLogA($"n{1}"); return S.Hold(0); });
+
+    // S9422. AppendLiteral of an interpolated string handler of the code samples a static field that the block made pending.
+    public static Cell<int> R5FuHandlerAppendLiteralSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuHandlerShares.B = l.Map(v => v); R5FuLogB($"n{1}"); return S.Hold(0); });
+
+    // S9423. The constructor of a handler that sets shouldAppend to false still runs, and it samples.
+    public static Cell<int> Ab290GatedHandlerConstructorRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab290Shares.A = l.Map(v => v); Ab290LogGatedReading($"n{1}"); return S.Hold(0); });
+
+    // S9424. A handler whose constructor sets shouldAppend to false calls no AppendLiteral, which alone samples.
+    public static Cell<int> Ab290GatedHandlerCallsNoAppendLiteral() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab290Shares.B = l.Map(v => v); Ab290LogGatedText($"n{1}"); return S.Hold(0); });
+
+    // S9425. A handler whose constructor computes shouldAppend appends, and AppendFormatted samples.
+    public static Cell<int> Ab290HandlerWithAComputedShouldAppendReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab290LogComputed($"n{l.Map(v => v)}"); return S.Hold(0); });
+
+    // S9426. An interpolated string with no text calls no AppendLiteral, which alone samples.
+    public static Cell<int> Ab290HandlerWithNoTextCallsNoAppendLiteral() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuHandlerShares.B = l.Map(v => v); R5FuLogB($"{1}"); return S.Hold(0); });
+
+    // S9427. A handler whose constructor sets a bool parameter that is no shouldAppend to false appends, and AppendFormatted samples.
+    public static Cell<int> Ab290HandlerWithAFlagThatIsNoShouldAppendReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab290LogFlagged(true, $"n{l.Map(v => v)}"); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -56689,6 +56721,89 @@ public static class Shapes
     public sealed class Ab289Holder(R4CsAlikeRecord r)
     {
         public readonly R4CsAlikeRecord R = r;
+    }
+
+    public static class Ab290Shares
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+    }
+
+    [System.Runtime.CompilerServices.InterpolatedStringHandler]
+    public ref struct Ab290GatedReadingHandler
+    {
+        public Ab290GatedReadingHandler(int literalLength, int formattedCount, out bool shouldAppend)
+        {
+            Kept.Add(Ab290Shares.A!.Sample());
+            shouldAppend = false;
+        }
+
+        public void AppendLiteral(string literal)
+        {
+        }
+
+        public void AppendFormatted<T>(T value)
+        {
+        }
+    }
+
+    [System.Runtime.CompilerServices.InterpolatedStringHandler]
+    public ref struct Ab290GatedTextHandler
+    {
+        public Ab290GatedTextHandler(int literalLength, int formattedCount, out bool shouldAppend) =>
+            shouldAppend = false;
+
+        public void AppendLiteral(string literal) => Kept.Add(Ab290Shares.B!.Sample());
+
+        public void AppendFormatted<T>(T value)
+        {
+        }
+    }
+
+    [System.Runtime.CompilerServices.InterpolatedStringHandler]
+    public ref struct Ab290ComputedHandler
+    {
+        public Ab290ComputedHandler(int literalLength, int formattedCount, out bool shouldAppend) =>
+            shouldAppend = formattedCount > 0;
+
+        public void AppendLiteral(string literal)
+        {
+        }
+
+        public void AppendFormatted(Cell<int> value) => Kept.Add(value.Sample());
+    }
+
+    private static void Ab290LogGatedReading(Ab290GatedReadingHandler message)
+    {
+    }
+
+    private static void Ab290LogGatedText(Ab290GatedTextHandler message)
+    {
+    }
+
+    private static void Ab290LogComputed(Ab290ComputedHandler message)
+    {
+    }
+
+    [System.Runtime.CompilerServices.InterpolatedStringHandler]
+    public ref struct Ab290FlaggedHandler
+    {
+        public Ab290FlaggedHandler(int literalLength, int formattedCount, bool flag)
+        {
+            flag = false;
+        }
+
+        public void AppendLiteral(string literal)
+        {
+        }
+
+        public void AppendFormatted(Cell<int> value) => Kept.Add(value.Sample());
+    }
+
+    private static void Ab290LogFlagged(
+        bool flag,
+        [System.Runtime.CompilerServices.InterpolatedStringHandlerArgument("flag")] Ab290FlaggedHandler message)
+    {
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

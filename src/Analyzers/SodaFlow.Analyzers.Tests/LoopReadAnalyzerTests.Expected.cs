@@ -5650,6 +5650,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab288DynamicCallPicksTheOverloadWithTwoParameters"] = ["SF1005"],
             ["Ab288DynamicCallWithANameThatOneOverloadLacks"] = ["SF1005"],
             ["Ab289RecordEqualityAfterASecondObjectCallsMemberEquals"] = ["SF1005"],
-            ["Ab289RecordEqualityOfTheFieldsOfTwoObjects"] = ["SF1005"]
+            ["Ab289RecordEqualityOfTheFieldsOfTwoObjects"] = ["SF1005"],
+            ["R5FuHandlerConstructorSamples"] = ["SF1005"],
+            ["R5FuHandlerAppendLiteralSamples"] = ["SF1005"],
+            ["Ab290GatedHandlerConstructorRuns"] = ["SF1005"],
+            ["Ab290HandlerWithAComputedShouldAppendReads"] = ["SF1004"],
+            ["Ab290HandlerWithAFlagThatIsNoShouldAppendReads"] = ["SF1004"]
         };
 }

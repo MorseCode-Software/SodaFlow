@@ -347,6 +347,13 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         }
     }
 
+    // An interpolated string handler of the code runs its constructor and an AppendLiteral for each text.
+    public override void VisitInterpolatedStringExpression(InterpolatedStringExpressionSyntax node)
+    {
+        this.Report(this.evaluator.FollowHandler(node));
+        base.VisitInterpolatedStringExpression(node);
+    }
+
     // An interpolation calls ToString on its value.
     public override void VisitInterpolation(InterpolationSyntax node)
     {

@@ -1201,11 +1201,14 @@ internal sealed partial class LoopStateEvaluator
                     ?.AppendCall
                 is IInvocationOperation { TargetMethod: { DeclaringSyntaxReferences.IsEmpty: false } append })
         {
-            return this.FollowImplied(
-                call: interpolation,
-                member: append,
-                owner: LoopState.None,
-                arguments: [(interpolation.Expression, this.Eval(interpolation.Expression))]);
+            return content.Parent is IInterpolatedStringHandlerCreationOperation creation
+                   && this.AppendsNothing(creation)
+                ? null
+                : this.FollowImplied(
+                    call: interpolation,
+                    member: append,
+                    owner: LoopState.None,
+                    arguments: [(interpolation.Expression, this.Eval(interpolation.Expression))]);
         }
 
         // A KeyValuePair, a DictionaryEntry, or a Tuple object prints the ToString of each part. Its
@@ -1249,6 +1252,74 @@ internal sealed partial class LoopStateEvaluator
                 owner: owner,
                 others: () => this.FollowImplied(call: value, member: toString, owner: owner, arguments: []));
     }
+
+    /// <summary>
+    ///     The constructor of an interpolated string handler of this
+    ///     compilation, and its <c>AppendLiteral</c> for each part of text. No
+    ///     node names them. A constructor that sets <c>shouldAppend</c> to the
+    ///     constant false stops each append.
+    /// </summary>
+    /// <param name="handled">The interpolated string.</param>
+    public Followed? FollowHandler(InterpolatedStringExpressionSyntax handled)
+    {
+        if (!this.region.Symbols.DeclaresHandlers
+            || this.region.ModelFor(handled).GetOperation(handled)
+                is not IInterpolatedStringOperation
+                {
+                    Parent: IInterpolatedStringHandlerCreationOperation creation
+                } content)
+        {
+            return null;
+        }
+
+        Followed? made =
+            creation.HandlerCreation is IObjectCreationOperation
+            {
+                Constructor: { DeclaringSyntaxReferences.IsEmpty: false } constructor
+            }
+                ? this.FollowConstructor(call: handled, constructor: constructor, arguments: default)
+                : null;
+
+        return this.AppendsNothing(creation)
+            ? made
+            : content.Parts
+                .OfType<IInterpolatedStringAppendOperation>()
+                .Where(static part => part.Syntax is InterpolatedStringTextSyntax)
+                .Select(static part => part.AppendCall)
+                .OfType<IInvocationOperation>()
+                .Where(static literal => !literal.TargetMethod.DeclaringSyntaxReferences.IsEmpty)
+                .Aggregate(
+                    seed: made,
+                    func: (all, literal) =>
+                        Both(
+                            first: all,
+                            second: this.FollowImplied(
+                                call: literal.Syntax,
+                                member: literal.TargetMethod,
+                                owner: LoopState.None,
+                                arguments: [])));
+    }
+
+    // True when the constructor of a handler sets its shouldAppend parameter only to the constant
+    // false. The compiler then calls no append. A compound assignment of false to false gives false.
+    private bool AppendsNothing(IInterpolatedStringHandlerCreationOperation creation) =>
+        creation is
+        {
+            HandlerCreationHasSuccessParameter: true,
+            HandlerCreation: IObjectCreationOperation
+            {
+                Constructor: { Parameters: { Length: > 0 } parameters } constructor
+            }
+        }
+        && constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is ConstructorDeclarationSyntax declaration
+        && declaration.DescendantNodes()
+            .OfType<IdentifierNameSyntax>()
+            .Where(name => name.Identifier.ValueText == parameters[parameters.Length - 1].Name)
+            .All(use =>
+                use.Parent is AssignmentExpressionSyntax assignment
+                && this.region.ModelFor(assignment).GetConstantValue(assignment.Right)
+                    is { HasValue: true, Value: false });
 
     // The call of a member of an interface on the objects of a value that implement it, and the
     // calls that the other objects get.
