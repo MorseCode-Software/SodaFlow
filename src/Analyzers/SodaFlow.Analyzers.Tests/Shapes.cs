@@ -41505,7 +41505,7 @@ public static class Shapes
     public static Cell<int> Ag99ASortValueWhoseCompareToReadsNoCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { int count = TwoItems().SortBy(selector: (_, state) => new Ag99CalmKey(state, l)).KeysCell.Sample().Count; return S.Hold(count); });
 
-    // S9897. A loop that runs no turn would put plain objects into the elements of two arrays. After the loop, the element of the second array can have its pending object from before the loop.
+    // S9897. The body of a loop that runs no turn puts plain objects into the elements of two arrays. After the loop, the element of the second array can have its pending object from before the loop.
     public static Cell<int> Ag99ALoopWithNoTurnGivesBackTheElementOfTheSecondArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] first = [new SettableSlot { Share = Plain }]; SettableSlot[] second = [new SettableSlot { Share = l.Map(v => v) }]; for (int i = 0; i < Kept.Count * 0; i++) { first[0] = new SettableSlot { Share = Plain }; second[0] = new SettableSlot { Share = Plain }; } return S.Hold(second[0].Share!.Sample()); });
 
@@ -41553,7 +41553,7 @@ public static class Shapes
     public static Cell<int> Ag99ALambdaMovesTheSecondNameBeforeAPlainWrite() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag99Unseen[0]; SettableSlot q = Ag99Unseen[0]; Ag99Unseen[1].Share = l.Map(v => v); Action put = () => { q = Ag99Unseen[1]; c.Share = Plain; }; put(); return S.Hold(q.Share!.Sample()); });
 
-    // S9909. A lambda that the block always calls writes a plain cell through the first read of the element, after the second read got a pending cell. The plain cell replaces it.
+    // S9909. The second read of the element gets a pending cell. Then a lambda that the block always calls writes a plain cell through the first read, and the plain cell replaces it.
     public static Cell<int> Ag99APlainWriteInALambdaAfterAPendingOne() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab83Unseen[0]; SettableSlot q = Ab83Unseen[0]; q.Share = l.Map(v => v); Action put = () => c.Share = Plain; put(); return S.Hold(q.Share!.Sample()); });
 
