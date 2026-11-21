@@ -41477,6 +41477,10 @@ public static class Shapes
     public static Cell<int> R5PairPutPendingThenPlainPutByStaticFieldSecondInAMethodThroughRef() =>
         Cell.Loop<int>().WithoutCaptures(l => { R5PairXSf949 = new SettableSlot { Share = l.Map(v => v) }; R5PairPutRef(ref R5PairXSf949, Plain); return S.Hold(R5PairXSf949.Share!.Sample()); });
 
+    // S9890. A static lambda in a readonly field of a class with a static constructor samples its cell. The static constructor does not name the field, thus the field keeps its lambda.
+    public static Cell<int> Ag99ALambdaInAFieldOfAClassWithAStaticConstructorSamplesItsCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ag99SamplerOwner.Sampler(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -59404,6 +59408,17 @@ public static class Shapes
             get => this.first;
             set => this.first ??= value;
         }
+    }
+
+    // A static lambda in a readonly field of a class with a static constructor. The static
+    // constructor does not name the field.
+    private static class Ag99SamplerOwner
+    {
+        public static readonly Func<Cell<int>, int> Sampler = static cell => cell.Sample();
+
+        public static readonly int Other;
+
+        static Ag99SamplerOwner() => Other = 1;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
