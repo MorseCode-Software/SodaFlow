@@ -387,9 +387,11 @@ internal sealed class LoopRegion(
     /// <summary>
     ///     True when the compiler converts the value of the expression, a tuple
     ///     that is not a tuple literal, to a different tuple type. Each element
-    ///     then gets a conversion that no node shows.
+    ///     then gets a conversion that no node shows. A nullable conversion can
+    ///     contain such a conversion, and the caller looks at the types.
     /// </summary>
-    public bool ConvertsATuple(ExpressionSyntax expression) => this.ConversionAt(expression).IsTupleConversion;
+    public bool ConvertsATuple(ExpressionSyntax expression) =>
+        this.ConversionAt(expression) is { IsTupleConversion: true } or { IsNullable: true };
 
     /// <summary>
     ///     True when the compiler converts the value of the expression, of the

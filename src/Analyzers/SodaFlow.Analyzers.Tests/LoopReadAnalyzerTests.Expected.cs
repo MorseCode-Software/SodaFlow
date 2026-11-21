@@ -5613,6 +5613,17 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab286IteratorFirstOfAQueryWithAContinuationRunsOn"] = ["SF1004"],
             ["Ab286IteratorFirstOfAGroupQueryRunsOn"] = ["SF1004"],
             ["Ab286FirstOfAQueryOfTheCodeRunsTheIterator"] = ["SF1004"],
-            ["Ab286IteratorToListOfAQueryRunsToTheEnd"] = ["SF1004"]
+            ["Ab286IteratorToListOfAQueryRunsToTheEnd"] = ["SF1004"],
+            ["R5CsNullableTupleConvertsAnElement"] = ["SF1004"],
+            ["R5CsDeconstructMethodConvertsAnOut"] = ["SF1004"],
+            ["R5CsForeachDeconstructMethodConvertsAnOut"] = ["SF1004"],
+            ["R5FuTupleCastToAnotherTupleType"] = ["SF1004"],
+            ["Ab287DeconstructMethodGivesATupleThatConverts"] = ["SF1004"],
+            ["Ab287RecordDeconstructionConvertsAPart"] = ["SF1004"],
+            ["Ab287NullableTupleToANullableTupleConverts"] = ["SF1004"],
+            ["Ab287TupleCastToANullableTupleType"] = ["SF1004"],
+            ["Ab287TupleCastWithAnExplicitElementConversion"] = ["SF1004"],
+            ["Ab287CastByAnOperatorToATupleType"] = ["SF1004"],
+            ["Ab287NullableTupleCastToANullableTupleType"] = ["SF1004"]
         };
 }

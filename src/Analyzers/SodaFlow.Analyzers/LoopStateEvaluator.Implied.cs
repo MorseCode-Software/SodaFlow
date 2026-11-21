@@ -710,8 +710,7 @@ internal sealed partial class LoopStateEvaluator
                     call: postfix,
                     operation: this.region.SymbolOf(postfix),
                     operands: [postfix.Operand]),
-            CastExpressionSyntax cast when this.region.Symbols.DeclaresOperators =>
-                this.FollowOperator(call: cast, operation: this.region.SymbolOf(cast), operands: [cast.Expression]),
+            CastExpressionSyntax cast when this.region.Symbols.DeclaresOperators => this.FollowCast(cast),
             // The compiler gives a plain assignment no operator, and only an operator of this
             // compilation has a body to read. Thus, these two tests are only for speed.
             AssignmentExpressionSyntax compound
@@ -908,10 +907,76 @@ internal sealed partial class LoopStateEvaluator
             ? this.FollowElementConversions(
                 call: expression,
                 parts: this.ElementConversions(
-                    from: this.region.TypeOf(expression),
-                    to: this.region.ModelFor(expression).GetTypeInfo(expression).ConvertedType,
+                    from: UnderNullable(this.region.TypeOf(expression)),
+                    to: UnderNullable(this.region.ModelFor(expression).GetTypeInfo(expression).ConvertedType),
                     whole: this.Eval(expression)))
             : null;
+    }
+
+    // A cast with no operator of the code can convert a tuple to a different tuple type. That
+    // conversion converts each element. No node or symbol names the operator of an element.
+    private Followed? FollowCast(CastExpressionSyntax cast)
+    {
+        ISymbol? operation = this.region.SymbolOf(cast);
+
+        return operation == null
+               && this.region.Symbols.DeclaresConversions
+               && UnderNullable(this.region.TypeOf(cast)) is INamedTypeSymbol { IsTupleType: true } to
+            ? this.FollowElementConversions(
+                call: cast,
+                parts: this.ElementConversions(
+                    from: UnderNullable(this.region.TypeOf(cast.Expression)),
+                    to: to,
+                    whole: this.Eval(cast.Expression)))
+            : this.FollowOperator(call: cast, operation: operation, operands: [cast.Expression]);
+    }
+
+    private static ITypeSymbol? UnderNullable(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+            ? nullable.TypeArguments[0]
+            : type;
+
+    /// <summary>
+    ///     The conversions of the parts that a <c>Deconstruct</c> method gives
+    ///     to the variables of a deconstruction. No node names them, and the
+    ///     compiler gives each one in the deconstruction information.
+    /// </summary>
+    /// <param name="deconstruction">
+    ///     The assignment, or the variable of the foreach statement.
+    /// </param>
+    /// <param name="value">The expression of the value, for a report.</param>
+    /// <param name="states">The state of each out parameter, in order.</param>
+    public Followed? FollowOutConversions(
+        SyntaxNode deconstruction,
+        ExpressionSyntax value,
+        IReadOnlyList<LoopState> states)
+    {
+        DeconstructionInfo info =
+            this.DeconstructionInfoOf(
+                deconstruction.Parent is ForEachVariableStatementSyntax loop && loop.Variable == deconstruction
+                    ? loop
+                    : deconstruction);
+
+        if (info.Method is not { } method)
+        {
+            return null;
+        }
+
+        IParameterSymbol[] outs = [.. method.Parameters.Where(static parameter => parameter.RefKind == RefKind.Out)];
+
+        return this.FollowElementConversions(
+            call: value,
+            parts: info.Nested.SelectMany((part, position) =>
+            {
+                LoopState state = position < states.Count ? states[position] : LoopState.None;
+
+                return part.Conversion is { IsUserDefined: true, MethodSymbol: { } conversion }
+                    ? [(conversion, state)]
+                    : PartConversions(
+                        info: part,
+                        type: position < outs.Length ? outs[position].Type : null,
+                        whole: state);
+            }));
     }
 
     /// <summary>
@@ -929,17 +994,18 @@ internal sealed partial class LoopStateEvaluator
         LoopState tuple,
         ITypeSymbol? type)
     {
-        DeconstructionInfo info =
-            deconstruction switch
-            {
-                AssignmentExpressionSyntax assignment =>
-                    this.region.ModelFor(assignment).GetDeconstructionInfo(assignment),
-                ForEachVariableStatementSyntax loop => this.region.ModelFor(loop).GetDeconstructionInfo(loop),
-                _ => default
-            };
+        DeconstructionInfo info = this.DeconstructionInfoOf(deconstruction);
 
         return this.FollowElementConversions(call: value, parts: PartConversions(info: info, type: type, whole: tuple));
     }
+
+    private DeconstructionInfo DeconstructionInfoOf(SyntaxNode deconstruction) =>
+        deconstruction switch
+        {
+            AssignmentExpressionSyntax assignment => this.region.ModelFor(assignment).GetDeconstructionInfo(assignment),
+            ForEachVariableStatementSyntax loop => this.region.ModelFor(loop).GetDeconstructionInfo(loop),
+            _ => default
+        };
 
     // The conversion of each element of a tuple to the element of a second tuple type, with the
     // state of the element. An element that is a tuple gives the conversions of its own elements.

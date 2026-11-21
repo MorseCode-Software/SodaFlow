@@ -392,19 +392,20 @@ The analyzer follows a value made from the placeholder through the code of your 
   sends into the sink of results. The analyzer finds those calls only in the code of the
   operation itself, and not in a method that the operation calls.
 - Members that C# calls with no call syntax: an indexer, an operator, a conversion, also of each
-  element of a spread and of each element of a tuple that the code converts to a different tuple
-  type or deconstructs, `operator true` or `operator false` before a user-defined `||` or `&&`, a
-  setter, an event accessor, `Deconstruct`, `ToString` in an interpolated string that the code
-  formats at once, which is `TryFormat` of `ISpanFormattable` for a value that implements it, and
-  otherwise the `ToString` of `IFormattable` for a value that implements that, the `AppendFormatted`
-  of an interpolated string handler of your own, which gets each value in place of that `ToString`,
-  `Dispose` at the end of a `using` or a `foreach`, `DisposeAsync` at the end of an `await using`,
-  also of a resource in `ConfigureAwait`,
+  element of a spread, of each element of a tuple that the code converts to a different tuple type,
+  also with a cast or to a nullable tuple type, or deconstructs, and of each part that a
+  `Deconstruct` method gives to a variable of a different type, `operator true` or `operator false`
+  before a user-defined `||` or `&&`, a setter, an event accessor, `Deconstruct`, `ToString` in an
+  interpolated string that the code formats at once, which is `TryFormat` of `ISpanFormattable` for
+  a value that implements it, and otherwise the `ToString` of `IFormattable` for a value that
+  implements that, the `AppendFormatted` of an interpolated string handler of your own, which gets
+  each value in place of that `ToString`, `Dispose` at the end of a `using` or a `foreach`,
+  `DisposeAsync` at the end of an `await using`, also of a resource in `ConfigureAwait`,
   `GetAwaiter` at an `await`, with `IsCompleted` of its awaiter and `GetResult` where the analyzer
-  knows that the awaiter is complete, the enumerator of a `foreach`, the `Add` of a
-  collection initializer or a collection expression, the `Create` method of a `CollectionBuilder`,
-  `Count` and `Slice` for an index from the end, a range, or a list pattern, the `ToString` and the
-  copy constructor of a record, the `ToString` of each value that a record or a tuple prints, the
+  knows that the awaiter is complete, the enumerator of a `foreach`, the `Add` of a collection
+  initializer or a collection expression, the `Create` method of a `CollectionBuilder`, `Count` and
+  `Slice` for an index from the end, a range, or a list pattern, the `ToString` and the copy
+  constructor of a record, the `ToString` of each value that a record or a tuple prints, the
   `Equals` or `GetHashCode` of each member that the `Equals`, `GetHashCode`, `==`, and `!=` of a
   record or an anonymous type call, the `ToString` of each value that an anonymous type prints, and
   the `==` of each element of a tuple comparison. The explicit static constructor of a class runs,
@@ -416,8 +417,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   static constructor of the nested class, and a delegate of a static method runs it where something
   calls the delegate, not where the code makes the delegate. A first use that the code can skip,
   such as one in a branch or in an arm of `?:`, counts only for itself, so the analyzer reads the
-  constructor again at the next use. A use in a loop counts for the rest of the block, also when
-  the loop has no turn.
+  constructor again at the next use. A use in a loop counts for the rest of the block, also when the
+  loop has no turn.
 - A value of the type `dynamic` whose object the analyzer saw made. It reads the method, the getter
   or the setter, the indexer, the operator, the implicit conversion, or the `operator true` or
   `operator false` that the runtime binder finds on the type of that object.

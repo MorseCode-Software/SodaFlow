@@ -1731,6 +1731,12 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             states = OutStates(method: method, followed: followed);
         }
 
+        // An out parameter converts to the type of its variable with no node that names the operator.
+        if (this.region.Symbols.DeclaresConversions)
+        {
+            this.Report(this.evaluator.FollowOutConversions(deconstruction: call, value: value, states: states));
+        }
+
         for (int i = 0; i < parts.Count; i++)
         {
             LoopState part = i < states.Count ? states[i] : LoopState.None;

@@ -39397,6 +39397,62 @@ public static class Shapes
     public static Cell<int> Ab286IteratorToListOfAQueryRunsToTheEnd() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add((from n in R4CsOneThenRead(l.Map(v => v)) select n + 1).ToList()); return S.Hold(0); });
 
+    // S9370. A tuple local goes to a nullable tuple of a different type, and the element conversion samples.
+    public static Cell<int> R5CsNullableTupleConvertsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (Tally, int) p = (t, 1); (long, int)? q = p; return S.Hold((int)q.Value.Item1); });
+
+    // S9371. A Deconstruct method gives a Tally to a variable of the type long, and the conversion samples.
+    public static Cell<int> R5CsDeconstructMethodConvertsAnOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); R5CsTallySplit s = new(t); (long a, int b) = s; return S.Hold((int)a + b); });
+
+    // S9372. A foreach deconstructs each element with a Deconstruct method into a variable of the type long, and the conversion samples.
+    public static Cell<int> R5CsForeachDeconstructMethodConvertsAnOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsTallySplit[] all = [new(new Tally(l.Map(v => v)))]; long total = 0; foreach ((long a, int b) in all) { total += a + b; } return S.Hold((int)total); });
+
+    // S9373. A tuple of a pending object is cast to a tuple type whose element conversion reads the object.
+    public static Cell<int> R5FuTupleCastToAnotherTupleType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (Tally, int) p = (t, 1); (long, int) q = ((long, int))p; return S.Hold((int)q.Item1); });
+
+    // S9374. A Deconstruct method gives a Tally of a plain cell to a variable of the type long. The conversion samples the plain cell.
+    public static Cell<int> Ab287DeconstructMethodConvertsAPlainOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsTallySplit s = new(new Tally(Plain)); (long a, int b) = s; return S.Hold((int)a + b); });
+
+    // S9375. A Deconstruct method gives a tuple to a tuple of variables of a different type, and the conversion of its element samples.
+    public static Cell<int> Ab287DeconstructMethodGivesATupleThatConverts() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab287TupleSplit s = new(new Tally(l.Map(v => v))); ((long x, int y), int b) = s; return S.Hold((int)x + y + b); });
+
+    // S9376. The Deconstruct of a record gives a Tally to a variable of the type long, and the conversion samples.
+    public static Cell<int> Ab287RecordDeconstructionConvertsAPart() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab287TallyRecord r = new(new Tally(l.Map(v => v)), 1); (long a, int b) = r; return S.Hold((int)a + b); });
+
+    // S9377. A nullable tuple goes to a nullable tuple of a different type, and the element conversion samples.
+    public static Cell<int> Ab287NullableTupleToANullableTupleConverts() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (Tally, int)? p = (t, 1); (long, int)? q = p; return S.Hold((int)q.Value.Item1); });
+
+    // S9378. A nullable tuple of a plain Tally goes to a nullable tuple of a different type. The conversion samples the plain cell.
+    public static Cell<int> Ab287NullableTupleOfAPlainTallyConverts() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain); (Tally, int) p = (t, 1); (long, int)? q = p; return S.Hold((int)q.Value.Item1); });
+
+    // S9379. A tuple is cast to a nullable tuple type, and the element conversion samples.
+    public static Cell<int> Ab287TupleCastToANullableTupleType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (Tally, int) p = (t, 1); (long, int)? q = ((long, int)?)p; return S.Hold((int)q.Value.Item1); });
+
+    // S9380. A tuple is cast to a tuple type whose element conversion is explicit, and that conversion samples.
+    public static Cell<int> Ab287TupleCastWithAnExplicitElementConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (Tally, int) p = (t, 1); (short, int) q = ((short, int))p; return S.Hold(q.Item1); });
+
+    // S9381. A tuple of a plain Tally is cast to a different tuple type. The conversion samples the plain cell.
+    public static Cell<int> Ab287TupleCastOfAPlainTally() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain); (Tally, int) p = (t, 1); (long, int) q = ((long, int))p; return S.Hold((int)q.Item1); });
+
+    // S9382. A cast to a tuple type by an explicit operator of the code runs that operator, which samples.
+    public static Cell<int> Ab287CastByAnOperatorToATupleType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab287ToPair p = new(l.Map(v => v)); (long, int) q = ((long, int))p; return S.Hold((int)q.Item1); });
+
+    // S9383. A nullable tuple is cast to a nullable tuple type, and the element conversion samples.
+    public static Cell<int> Ab287NullableTupleCastToANullableTupleType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (Tally, int)? p = (t, 1); (long, int)? q = ((long, int)?)p; return S.Hold((int)q.Value.Item1); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -56425,6 +56481,24 @@ public static class Shapes
         yield return new Ab286Item(1);
 
         Kept.Add(c.Sample());
+    }
+
+    public sealed class Ab287TupleSplit(Tally t)
+    {
+        public void Deconstruct(out (Tally, int) a, out int b)
+        {
+            a = (t, 1);
+            b = 0;
+        }
+    }
+
+    public sealed record Ab287TallyRecord(Tally T, int N);
+
+    public sealed class Ab287ToPair(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        public static explicit operator (long, int)(Ab287ToPair p) => (p.share.Sample(), 0);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
