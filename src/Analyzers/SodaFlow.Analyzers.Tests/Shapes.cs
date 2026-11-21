@@ -40977,6 +40977,26 @@ public static class Shapes
     public static Cell<int> Ab307PendingThroughAWritableFieldReadLater() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab307Slot; Ab307SetParameterThenField(d, Plain, l.Map(v => v)); Cell<int> c = d.Share!; return S.Hold(c.Sample()); });
 
+    // S9765. A helper builds a map over its parameter and gives the map to a second call of itself, which samples it. The block gives the first call the pending cell.
+    public static Cell<int> R5FuHelperSecondCallReadsTheMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R5FuReadAgain(l.Map(v => v), null)));
+
+    // S9766. A helper builds a map whose function samples its parameter, and gives the map to a second helper, which samples it. The block gives the first helper the pending cell.
+    public static Cell<int> Ab308HelperGivesItsMapToASecondHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab308Builds(l.Map(v => v))));
+
+    // S9767. Control: a helper builds a map whose function samples its parameter, and gives the map to a second helper, which keeps it and does not sample it.
+    public static Cell<int> Ab308SecondHelperKeepsTheMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab308BuildsAndKeeps(l.Map(v => v))));
+
+    // S9768. Control: the helper that gives its map to a second call of itself gets a plain cell from the block.
+    public static Cell<int> Ab308HelperSecondCallReadsAPlainMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R5FuReadAgain(Plain.Map(v => v), null)));
+
+    // S9769. A helper builds a map whose function samples its parameter, and samples the map itself. The block gives the helper the pending cell.
+    public static Cell<int> Ab308HelperSamplesItsOwnMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab308BuildsAndSamples(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58602,6 +58622,36 @@ public static class Shapes
     {
         slot.Share = first;
         Ab307Slot.Share = second;
+    }
+
+    private static int Ab308Builds(Cell<int> given)
+    {
+        Cell<int> w = Plain.Map(v => v + given.Sample());
+
+        return Ab308Samples(w);
+    }
+
+    private static int Ab308Samples(Cell<int> built) => built.Sample();
+
+    private static int Ab308BuildsAndKeeps(Cell<int> given)
+    {
+        Cell<int> w = Plain.Map(v => v + given.Sample());
+
+        return Ab308Keeps(w);
+    }
+
+    private static int Ab308Keeps(Cell<int> built)
+    {
+        Kept.Add(built);
+
+        return 0;
+    }
+
+    private static int Ab308BuildsAndSamples(Cell<int> given)
+    {
+        Cell<int> w = Plain.Map(v => v + given.Sample());
+
+        return w.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

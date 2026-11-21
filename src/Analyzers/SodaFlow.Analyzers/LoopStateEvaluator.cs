@@ -2854,6 +2854,8 @@ internal sealed partial class LoopStateEvaluator
         // The function of a map, a lift, or a view computes the value of the result at the first
         // read of it. A function that reads a pending value makes that value pending. A view that
         // sorts by the order in a cell runs the function of that order.
+        IReadOnlyList<Finding> reads = [];
+
         if (!state.Pending
             && (sortsByPendingOrder
                 || (OperatorTable.ComputesValueWithFunction(
@@ -2861,14 +2863,15 @@ internal sealed partial class LoopStateEvaluator
                         method: method,
                         receiverType: receiverType)
                     && this.CanUseState(invocation: invocation, given: inputs.Content)
-                    && this.Quiet()
-                        .FunctionReadsPending(invocation: invocation, method: method, given: inputs.Content))
+                    && (reads = this.Quiet()
+                            .FunctionReadsPending(invocation: invocation, method: method, given: inputs.Content))
+                        .Count > 0)
                 || ((this.region.Symbols.DeclaredCallbacks & PlatformCallbacks.Compare) != PlatformCallbacks.None
                     && OperatorTable.SortsWithTheDefaultComparer(method)
                     && this.Quiet()
                         .SortValuesReadPending(invocation: invocation, method: method, given: inputs.Content))))
         {
-            state = state.WithPending(true);
+            state = state.WithPending(true).FromIfUnknown(this.OriginOfARead(reads));
         }
 
         state = this.WithTheComputedValue(
@@ -4881,50 +4884,6 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return this.JoinAll(ReturnExpressions(block));
-    }
-
-    /// <summary>
-    ///     True when a function given to an operator reads a pending value. The
-    ///     evaluator reads the function as a call of it, with each parameter bound
-    ///     to the given state. This evaluator must be a quiet one, because the
-    ///     function does not run now.
-    /// </summary>
-    private bool FunctionReadsPending(InvocationExpressionSyntax invocation, IMethodSymbol method, LoopState given)
-    {
-        return invocation.ArgumentList.Arguments
-            .Select((argument, position) =>
-                (Written: argument.Expression,
-                    Parameter: ParameterFor(method: method, argument: argument, position: position)))
-            // A lambda with no call and no property that reads cannot read a value. A function that
-            // the operator keeps for a later time does not compute the value.
-            .Where(argument =>
-                (argument.Written is not AnonymousFunctionExpressionSyntax lambda || this.CanRead(lambda.Body))
-                && OperatorTable.ComputesValue(method: method, parameter: argument.Parameter))
-            .Any(Reads);
-
-        bool Reads((ExpressionSyntax Written, IParameterSymbol? Parameter) argument)
-        {
-            LoopState functions = this.Eval(argument.Written);
-
-            // A cell of functions, as Apply and a filter by a cell of predicates get, gives the
-            // operator the function that it holds.
-            if (functions.Functions.IsEmpty && this.region.Symbols.IsCellOrBehaviorType(argument.Parameter?.Type))
-            {
-                functions = functions.Content;
-            }
-
-            return Callables(state: functions, parameter: argument.Parameter)
-                .Any(function =>
-                    this.FollowFunction(
-                            call: invocation,
-                            name: NameOf(argument.Written),
-                            function: function,
-                            target: functions,
-                            arguments: default,
-                            each: (argument.Written, given, ManyTimes: true))
-                        is { } followed
-                    && followed.Findings.Any(static finding => !finding.Escape));
-        }
     }
 
     /// <summary>

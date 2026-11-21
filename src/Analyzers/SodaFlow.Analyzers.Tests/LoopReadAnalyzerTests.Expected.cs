@@ -4333,7 +4333,7 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5SmpSampleOfAConstantOfALambda"] = ["SF1001"],
             ["R5SmpSampleOfAConstantOfAnObject"] = ["SF1001"],
             ["R5SmpSampleOfAConstantOfAMap"] = ["SF1001"],
-            ["R5SmpSecondCallOfTheSameHelperSamplesAMap"] = ["SF1004"],
+            ["R5SmpSecondCallOfTheSameHelperSamplesAMap"] = ["SF1003", "SF1004"],
             ["R5SmpSwitchOfAMapOfAPendingLocalBefore"] = ["SF1001"],
             ["R5SmpQualifiedStaticFieldWithALocalSetPendingAfter"] = ["SF1001"],
             ["R5SmpMapBuiltInAConstructorReadsAMemberSetBefore"] = ["SF1005"],
@@ -5833,6 +5833,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab306AddRangeThroughALocalReadThroughTheField"] = ["SF1001"],
             ["Ab306AddThroughALocalThenReadInALaterStatement"] = ["SF1001"],
             ["R5FuNamesPendingThroughAWritableFieldAfterTheParameter"] = ["SF1001"],
-            ["Ab307PendingThroughAWritableFieldReadLater"] = ["SF1001"]
+            ["Ab307PendingThroughAWritableFieldReadLater"] = ["SF1001"],
+            ["R5FuHelperSecondCallReadsTheMap"] = ["SF1004"],
+            ["Ab308HelperGivesItsMapToASecondHelper"] = ["SF1004"],
+            ["Ab308HelperSamplesItsOwnMap"] = ["SF1004"]
         };
 }
