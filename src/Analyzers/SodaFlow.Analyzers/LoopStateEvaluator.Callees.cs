@@ -1362,6 +1362,40 @@ internal sealed partial class LoopStateEvaluator
             ? this.FollowClock(system: constructor, arguments: arguments.Arguments, call: dispose, members: ["Stop"])
             : null;
 
+    /// <summary>
+    ///     The run of the members of its timer system that <c>Debounce</c> calls
+    ///     in the call: the getter of <c>Time</c>, and <c>At</c>.
+    /// </summary>
+    /// <param name="call">The call of <c>Debounce</c>.</param>
+    /// <param name="method">The method of the call.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    public Followed? FollowTheTimersOfADebounce(
+        SyntaxNode call,
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        if (method.Parameters.FirstOrDefault(static parameter => parameter.Name == "timers")
+                is not { Type: var contract }
+            || ArgumentFor(method: method, arguments: arguments, parameter: "timers") is not { } timers)
+        {
+            return null;
+        }
+
+        LoopState system = this.Eval(timers);
+        string[] members = ["Time", "At"];
+
+        return members
+            .SelectMany(name => contract.GetMembers(name))
+            .Select(static member => member is IPropertySymbol property ? property.GetMethod : member as IMethodSymbol)
+            .OfType<IMethodSymbol>()
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, member) =>
+                    Both(
+                        first: all,
+                        second: this.FollowImplied(call: call, member: member, owner: system, arguments: [])));
+    }
+
     // True when code can read the items of the map that the call makes. That is so when a local
     // keeps the map, and the code uses that local for more than a call of Dispose. A map that no
     // local keeps, or whose local only gets Dispose, gives its items to no code.

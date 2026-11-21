@@ -40649,6 +40649,30 @@ public static class Shapes
     public static Cell<int> Ab316ClocksOfTwoBranchesRunNothingOfEachOther() =>
         Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock first = Kept.Count < 0 ? new() : Ab316Clocks[0]; R5ApiStepClock second = Kept.Count < 0 ? new() : Ab316Clocks[1]; first.SetTimer(0, () => Kept.Add(l.Sample())); second.RunTimersTo(0); return S.Hold(0); });
 
+    // S9683. Debounce reads Time of its timer system in the call. The timer system is an object of this code whose Time getter samples a pending cell that the block gives it.
+    public static Cell<int> R5ApiDebounceReadsTheTimeOfATimerSystemOfTheCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(S.Debounce(timers: new R5ApiReadingTimers(l.Map(v => v), readsAtTime: true), deadline: n => n + 1)); return S.Hold(0); });
+
+    // S9684. Debounce calls At of its timer system in the call. The timer system is an object of this code whose At samples a pending cell that the block gives it.
+    public static Cell<int> R5ApiDebounceCallsTheAtOfATimerSystemOfTheCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(S.Debounce(timers: new R5ApiReadingTimers(l.Map(v => v), readsAtTime: false), deadline: n => n + 1)); return S.Hold(0); });
+
+    // S9685. A local of the interface type holds a timer system of this code whose Time getter samples a pending cell. Debounce reads Time of that local in the call.
+    public static Cell<int> Ab317DebounceReadsTheTimeOfATimerSystemInALocalOfTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ITimerSystem<int> timers = new R5ApiReadingTimers(l.Map(v => v), readsAtTime: true); Kept.Add(S.Debounce(timers: timers, deadline: n => n + 1)); return S.Hold(0); });
+
+    // S9686. Control: the deadline function of Debounce samples the placeholder. Debounce calls it only when the stream fires, and the stream does not fire in the block.
+    public static Cell<int> Ab317DebounceKeepsItsDeadlineFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(S.Debounce(timers: new R5ApiKeepingTimers(Cell.Constant(0)), deadline: n => n + l.Sample())); return S.Hold(0); });
+
+    // S9687. Debounce reads Time of its timer system in the call. Only the Time getter of that timer system samples the pending cell that the block gives it.
+    public static Cell<int> Ab317DebounceReadsOnlyTheTimeThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(S.Debounce(timers: new Ab317TimeReadingTimers(l.Map(v => v)), deadline: n => n + 1)); return S.Hold(0); });
+
+    // S9688. Debounce calls At of its timer system in the call. Only At of that timer system samples the pending cell that the block gives it.
+    public static Cell<int> Ab317DebounceCallsOnlyTheAtThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(S.Debounce(timers: new Ab317AtReadingTimers(l.Map(v => v)), deadline: n => n + 1)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58032,6 +58056,47 @@ public static class Shapes
         clock.SetTimer(0, () => Kept.Add(share.Sample()));
 
     private static readonly List<R5ApiStepClock> Ab316Clocks = [new(), new()];
+
+    // A timer system whose Time getter samples a cell, and whose At does not.
+    public sealed class Ab317TimeReadingTimers(Cell<int> share) : ITimerSystem<int>
+    {
+        private readonly Cell<int> share = share;
+
+        public Behavior<int> Time
+        {
+            get
+            {
+                Kept.Add(this.share.Sample());
+
+                return Behavior.Constant(0);
+            }
+        }
+
+        public Stream<int> At(Cell<Maybe<int>> t) => Stream.Never<int>();
+
+        public void Dispose()
+        {
+        }
+    }
+
+    // A timer system whose At samples a cell, and whose Time getter does not.
+    public sealed class Ab317AtReadingTimers(Cell<int> share) : ITimerSystem<int>
+    {
+        private readonly Cell<int> share = share;
+
+        public Behavior<int> Time => Behavior.Constant(0);
+
+        public Stream<int> At(Cell<Maybe<int>> t)
+        {
+            Kept.Add(this.share.Sample());
+
+            return Stream.Never<int>();
+        }
+
+        public void Dispose()
+        {
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

@@ -5786,6 +5786,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5FuClockInAFieldRunsItsTimer"] = ["SF1001"],
             ["R5FuClockInTwoLocalsRunsItsTimer"] = ["SF1001"],
             ["Ab316TimerSetInAHelperRunsInTheBlock"] = ["SF1005"],
-            ["Ab316ClockOfALoopRunsAfterTheLoop"] = ["SF1001"]
+            ["Ab316ClockOfALoopRunsAfterTheLoop"] = ["SF1001"],
+            ["R5ApiDebounceReadsTheTimeOfATimerSystemOfTheCode"] = ["SF1005"],
+            ["R5ApiDebounceCallsTheAtOfATimerSystemOfTheCode"] = ["SF1005"],
+            ["Ab317DebounceReadsTheTimeOfATimerSystemInALocalOfTheInterface"] = ["SF1005"],
+            ["Ab317DebounceReadsOnlyTheTimeThatSamples"] = ["SF1005"],
+            ["Ab317DebounceCallsOnlyTheAtThatSamples"] = ["SF1005"]
         };
 }

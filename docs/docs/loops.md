@@ -472,6 +472,7 @@ The analyzer follows a value made from the placeholder through the code of your 
   takes the timer away when it runs on every path, outside a loop.
   A `TimerSystem` calls `Start` and `Now` of its implementation when you construct it, and `Stop`
   when you dispose it. The construction of a `SystemClockTimerSystem` calls its `now` function.
+  `Debounce` reads the `Time` of its timer system, and calls its `At`, when you call it.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
   the function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`, and the
   function of a `Task` that you create with `new` where `RunSynchronously` runs it. The `Result` of

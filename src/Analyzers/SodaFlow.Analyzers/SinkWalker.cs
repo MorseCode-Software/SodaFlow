@@ -3197,6 +3197,13 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     this.evaluator.SendsTheResults(call: node, method: method, arguments: arguments);
                 }
 
+                // Debounce reads the time of its timer system, and calls its At, in the call.
+                if (method.Name == "Debounce")
+                {
+                    this.Report(
+                        this.evaluator.FollowTheTimersOfADebounce(call: node, method: method, arguments: arguments));
+                }
+
                 // Execute of the status of a map through a task gives the operation a value after
                 // the transaction.
                 if (receiver != null && method.Name == "Execute" && arguments.Count == 1)
