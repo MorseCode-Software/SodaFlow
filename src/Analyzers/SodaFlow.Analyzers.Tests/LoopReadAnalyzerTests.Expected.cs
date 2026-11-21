@@ -5901,6 +5901,7 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab302OverrideAutoPropertyOverriddenAgainWithCode"] = ["SF1001"],
             ["Ab302BasePropertyOverriddenTwiceReadThroughTheBase"] = ["SF1001"],
             ["Ag99ALambdaInAFieldOfAClassWithAStaticConstructorSamplesItsCell"] = ["SF1004"],
-            ["Ag99ALoopWithNoTurnGivesBackTheElementOfTheSecondArray"] = ["SF1001"]
+            ["Ag99ALoopWithNoTurnGivesBackTheElementOfTheSecondArray"] = ["SF1001"],
+            ["Ag99AMapFunctionReadsOnlyAnArrowGetter"] = ["SF1001"]
         };
 }

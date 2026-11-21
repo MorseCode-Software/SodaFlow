@@ -1176,6 +1176,47 @@ internal sealed partial class LoopReadAnalyzerTests
     }
 
     /// <summary>
+    ///     The walk reads a function with no call only when a node of it can run
+    ///     code of the compilation. A getter with an expression body is such
+    ///     code. The shapes file declares an implicit conversion, thus each name
+    ///     there can run code, and the shapes cannot show the getter alone. This
+    ///     source declares no conversion and no operator. The function of the map
+    ///     reads only the getter, and the getter samples the pending cell.
+    /// </summary>
+    [Test]
+    public async Task AGetterWithAnExpressionBodyIsReadInAFunctionWithNoCall()
+    {
+        const string source =
+            """
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> ByAGetter() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Box box = new(l.Map(v => v));
+
+                        return S.Hold(Plain.Map(_ => box.Now).Sample());
+                    });
+
+                public sealed class Box(Cell<int> share)
+                {
+                    private readonly Cell<int> share = share;
+
+                    public int Now => this.share.Sample();
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyAGetter", images: []))
+            .IsEquivalentTo(["SF1001"]);
+    }
+
+    /// <summary>
     ///     The analyzer reads a conversion that the compiler adds only when the
     ///     compilation declares an implicit or an explicit operator. The shapes
     ///     file declares the two. Each source here declares only one of them, and

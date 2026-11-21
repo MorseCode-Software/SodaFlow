@@ -41513,6 +41513,10 @@ public static class Shapes
     public static Cell<int> Ag99ACalleeWithOnlyAFunctionCountsTheQueryThatItGives() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m = l.Map(v => v); return S.Hold(Ag99NoBodyCounter.CountOf(() => new[] { 1 }.Select(v => v + m.Sample()))); });
 
+    // S9899. A map function reads only a getter with an expression body, and the getter samples a pending cell.
+    public static Cell<int> Ag99AMapFunctionReadsOnlyAnArrowGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag99ArrowGetter g = new(l.Map(v => v)); return S.Hold(Plain.Map(_ => g.Ag99ArrowNow).Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -59484,6 +59488,12 @@ public static class Shapes
         public Cell<int> Share { get; } = share;
 
         public int CompareTo(Ag99CalmKey? other) => this.Number.CompareTo(other?.Number ?? 0);
+    }
+
+    // A getter with an expression body and a name that no other getter has.
+    public sealed class Ag99ArrowGetter(Cell<int> share)
+    {
+        public int Ag99ArrowNow => share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
