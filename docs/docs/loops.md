@@ -463,8 +463,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   does not read `GetResult` after an `await` of a dynamic value.
 - Members that the platform calls for you: `CompareTo` in a sort, `Equals` and `GetHashCode` in a
   search, a set, or a dictionary, a comparer that you give a collection, `ToString` in `string.Join`
-  or `string.Format`, and the `ToString` of each part that a `KeyValuePair`, a `DictionaryEntry`, or
-  a `Tuple` object prints. A method with a format string, such as `string.Format`, calls `TryFormat`
+  or `string.Format`, the `ToString` of each part that a `KeyValuePair`, a `DictionaryEntry`, or a
+  `Tuple` object prints, and the `ToString` of the value of a `Lazy<T>`, which its own `ToString`
+  calls. A method with a format string, such as `string.Format`, calls `TryFormat`
   of a value that implements `ISpanFormattable`, and the `ToString` of `IFormattable` where
   `TryFormat` fails or a width pads the text.
 - Members that SodaFlow calls for you: `CompareTo` of each sort value of a collection view that

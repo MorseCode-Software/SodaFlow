@@ -804,6 +804,27 @@ internal sealed partial class LoopStateEvaluator
                 continue;
             }
 
+            // The ToString of a Lazy<T> calls the ToString of the value, where the value exists. The
+            // walk takes the value that the function of the Lazy gives.
+            if (operand.IsReceiver
+                && method.Name == "ToString"
+                && SodaFlowSymbols.IsLazy(method.ContainingType)
+                && method.ContainingType.TypeArguments.FirstOrDefault() is { } value)
+            {
+                if (this.FollowLazy(
+                        access: operand.Written,
+                        written: operand.Written,
+                        lazy: this.Eval(operand.Written),
+                        value: value) is { } made)
+                {
+                    owners.AddRange(
+                        CallbackOwners(state: made.State, written: null, asSequence: false, compared: compared)
+                            .Select(owner => (operand.Written, owner.State, owner.Members, gets)));
+                }
+
+                continue;
+            }
+
             owners.AddRange(
                 CallbackOwners(
                         state: this.Eval(operand.Written),

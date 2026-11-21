@@ -40873,6 +40873,10 @@ public static class Shapes
     public static Cell<int> Ab331MarkInALocalAssignedTwiceGivenAway() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m; m = l.AsCell(); m = l.Map(v => v); IBag<Cell<int>> bag = NoBody.Bag<Cell<int>>(); bag.Put(m.Map(v => v)); return S.Hold(0); });
 
+    // S9739. ToString of a Lazy whose value exists calls ToString of the value, which samples.
+    public static Cell<int> R5LimLazyToStringCallsToStringOfTheValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Lazy<Tally> z = new(() => t); Kept.Add(z.Value); Kept.Add(z.ToString()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
