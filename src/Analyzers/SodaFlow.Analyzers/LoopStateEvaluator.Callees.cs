@@ -1236,17 +1236,23 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     /// <param name="call">The call that runs the callback.</param>
     /// <param name="callback">The expression of the callback, where the code gave it.</param>
-    public Followed? FollowCallback(SyntaxNode call, ExpressionSyntax callback)
-    {
-        LoopState functions = this.Eval(callback);
+    public Followed? FollowCallback(SyntaxNode call, ExpressionSyntax callback) =>
+        this.FollowCallback(call: call, callback: callback, functions: this.Eval(callback));
 
-        return this.FollowFunctions(
+    /// <summary>
+    ///     The run of a callback whose state the walk took where the code gave
+    ///     it, as <c>SetTimer</c> gets the callback of a timer.
+    /// </summary>
+    /// <param name="call">The call that runs the callback.</param>
+    /// <param name="callback">The expression of the callback, where the code gave it.</param>
+    /// <param name="functions">The state of the callback there.</param>
+    public Followed? FollowCallback(SyntaxNode call, ExpressionSyntax callback, LoopState functions) =>
+        this.FollowFunctions(
             call: call,
             name: NameOf(callback),
             functions: functions.Functions,
             target: functions,
             arguments: default);
-    }
 
     /// <summary>
     ///     The call of <c>SetTimer</c> of a clock of the library that made a

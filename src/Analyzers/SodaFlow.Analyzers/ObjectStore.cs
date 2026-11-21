@@ -322,6 +322,51 @@ internal sealed class ObjectStore
     public SyntaxNode? CreationOfASink(MadeObject made) =>
         this.sinks.TryGetValue(key: made, value: out SyntaxNode? creation) ? creation : null;
 
+    // The timers of each clock of the library base, in the order of the calls of SetTimer.
+    private readonly Dictionary<MadeObject, List<KeptTimer>> timers = [];
+
+    /// <summary>True when a clock of the store has a timer, or had one.</summary>
+    public bool HasTimers => this.timers.Count > 0;
+
+    /// <summary>Records a timer of each clock that a value of a clock can be.</summary>
+    public void KeepsATimer(ImmutableArray<MadeObject> clocks, KeptTimer timer)
+    {
+        // An object that the store does not know is not one clock.
+        foreach (MadeObject clock in clocks.Where(static each => each != MadeObject.Unknown))
+        {
+            if (!this.timers.TryGetValue(key: clock, value: out List<KeptTimer>? kept))
+            {
+                kept = [];
+                this.timers[clock] = kept;
+            }
+
+            kept.Add(timer);
+        }
+    }
+
+    /// <summary>
+    ///     The timers of each clock that a value of a clock can be. At the end of
+    ///     a loop, a clock that a turn made is one of the objects of the turns
+    ///     before. Thus, that object has its timers also.
+    /// </summary>
+    public IEnumerable<KeptTimer> TimersOf(ImmutableArray<MadeObject> clocks) =>
+        this.timers
+            .Where(pair => clocks.Contains(pair.Key) || this.Now(ImmutableArray.Create(pair.Key)).Any(clocks.Contains))
+            .SelectMany(static pair => pair.Value)
+            .Distinct();
+
+    /// <summary>
+    ///     Takes each timer of a call of <c>SetTimer</c> from its clock, which
+    ///     then does not run it.
+    /// </summary>
+    public void TakesTheTimer(SyntaxNode set)
+    {
+        foreach (List<KeptTimer> kept in this.timers.Values)
+        {
+            kept.RemoveAll(each => each.Set == set);
+        }
+    }
+
     // The sink that each two-way bindable of the store sends a write into.
     private readonly Dictionary<MadeObject, LoopState> sinksOfBindables = [];
 

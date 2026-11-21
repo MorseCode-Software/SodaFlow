@@ -40609,6 +40609,46 @@ public static class Shapes
     public static Cell<int> Ab315UsingInABranchKeepsTheTimer() =>
         Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); if (Kept.Count < 0) { using (t) { } } clock.RunTimersTo(0); return S.Hold(0); });
 
+    // S9673. A clock of the library base is in a static field. The block sets a timer that samples the placeholder, and RunTimersTo of the field runs it in the call.
+    public static Cell<int> R5ApiRunTimersToOfAClockInAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiFieldClock.SetTimer(0, () => Kept.Add(l.Sample())); R5ApiFieldClock.RunTimersTo(0); return S.Hold(0); });
+
+    // S9674. A clock of the library base is in a property of an object that the block makes. The block sets a timer that samples the placeholder through the property, and RunTimersTo through the property runs it.
+    public static Cell<int> R5ApiRunTimersToOfAClockInAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiClockHolder holder = new(new R5ApiStepClock()); holder.Clock.SetTimer(0, () => Kept.Add(l.Sample())); holder.Clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S9675. A method of this code gets a clock of the library base and calls its RunTimersTo. The block set a timer that samples the placeholder, thus the call runs it.
+    public static Cell<int> R5ApiRunTimersToInAHelperOfTheClock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R5ApiAdvance(clock); return S.Hold(0); });
+
+    // S9676. A static field holds a clock of the code. A callback of SetTimer through the field samples, and RunTimersTo through the field runs it.
+    public static Cell<int> R5FuClockInAFieldRunsItsTimer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuClock = new R4ApiStepClock(); R5FuClock.SetTimer(0, () => Kept.Add(l.Sample())); R5FuClock.RunTimersTo(0); return S.Hold(0); });
+
+    // S9677. A clock in a local and a second local that gets the same clock. The timer goes on through one, and RunTimersTo goes through the other.
+    public static Cell<int> R5FuClockInTwoLocalsRunsItsTimer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); R4ApiStepClock same = clock; clock.SetTimer(0, () => Kept.Add(l.Sample())); same.RunTimersTo(0); return S.Hold(0); });
+
+    // S9678. Control: two clocks of the library base. The timer that samples the placeholder is on one, and RunTimersTo is of the other, thus the callback does not run.
+    public static Cell<int> Ab316RunTimersToOfADifferentClockRunsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock first = new(); R5ApiStepClock second = new(); first.SetTimer(0, () => Kept.Add(l.Sample())); second.RunTimersTo(0); return S.Hold(0); });
+
+    // S9679. A method of this code sets a timer on a clock of the library base, with a callback that samples the cell that the method gets. The block gives it the placeholder, and RunTimersTo in the block runs the callback.
+    public static Cell<int> Ab316TimerSetInAHelperRunsInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); Ab316SetTimer(clock, l); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S9680. A turn of a loop makes a clock of the library base and sets a timer that samples the placeholder. RunTimersTo after the loop, through a local that got the clock, runs the callback.
+    public static Cell<int> Ab316ClockOfALoopRunsAfterTheLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock? last = null; for (int i = 0; i < 1; i++) { R5ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); last = clock; } last?.RunTimersTo(0); return S.Hold(0); });
+
+    // S9681. Control: a list holds two clocks of the library base. The timer that samples the placeholder is on the first, and RunTimersTo is of the second, thus the callback does not run.
+    public static Cell<int> Ab316ClocksInAListRunNothingOfEachOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab316Clocks[0].SetTimer(0, () => Kept.Add(l.Sample())); Ab316Clocks[1].RunTimersTo(0); return S.Hold(0); });
+
+    // S9682. Control: each of two locals is a new clock or a clock of a list, and the branch takes the list at run time. The timer that samples the placeholder is on the first, and RunTimersTo is of the second, thus the callback does not run.
+    public static Cell<int> Ab316ClocksOfTwoBranchesRunNothingOfEachOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock first = Kept.Count < 0 ? new() : Ab316Clocks[0]; R5ApiStepClock second = Kept.Count < 0 ? new() : Ab316Clocks[1]; first.SetTimer(0, () => Kept.Add(l.Sample())); second.RunTimersTo(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -57987,6 +58027,11 @@ public static class Shapes
 
         public void Post(Action action) => this.Posted.Add(action);
     }
+
+    private static void Ab316SetTimer(R5ApiStepClock clock, Cell<int> share) =>
+        clock.SetTimer(0, () => Kept.Add(share.Sample()));
+
+    private static readonly List<R5ApiStepClock> Ab316Clocks = [new(), new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

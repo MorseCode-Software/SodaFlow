@@ -464,7 +464,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   sorts with no comparer, at the first read of the view, and `Equals` of the comparer of a two-way
   bindable, when you write its `Value`. `RunTimersTo` of a clock built on
   `TimerSystemImplementationBase` runs, in the call, each callback that `SetTimer` gave the same
-  local before it, unless both times are integer constants and the time of the callback is later.
+  clock before it, unless both times are integer constants and the time of the callback is later.
+  The clock can be in a local, a field, a property, or a parameter, where the analyzer saw it
+  made, and the two calls can be in different methods. A method of yours runs the timers that its
+  caller set only where its call of `RunTimersTo` runs on every path of that method.
   A `Cancel` or a `Dispose` of the timer before the run, or the end of a `using` statement of it,
   takes the timer away when it runs on every path, outside a loop.
   A `TimerSystem` calls `Start` and `Now` of its implementation when you construct it, and `Stop`

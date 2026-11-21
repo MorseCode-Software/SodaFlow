@@ -5779,6 +5779,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab315CancelInABranchKeepsTheTimer"] = ["SF1001"],
             ["Ab315UsingDeclarationOfTheTimerRunsItFirst"] = ["SF1001"],
             ["Ab315CancelAfterTheRunOfTheTimer"] = ["SF1001"],
-            ["Ab315UsingInABranchKeepsTheTimer"] = ["SF1001"]
+            ["Ab315UsingInABranchKeepsTheTimer"] = ["SF1001"],
+            ["R5ApiRunTimersToOfAClockInAField"] = ["SF1001"],
+            ["R5ApiRunTimersToOfAClockInAProperty"] = ["SF1001"],
+            ["R5ApiRunTimersToInAHelperOfTheClock"] = ["SF1001"],
+            ["R5FuClockInAFieldRunsItsTimer"] = ["SF1001"],
+            ["R5FuClockInTwoLocalsRunsItsTimer"] = ["SF1001"],
+            ["Ab316TimerSetInAHelperRunsInTheBlock"] = ["SF1005"],
+            ["Ab316ClockOfALoopRunsAfterTheLoop"] = ["SF1001"]
         };
 }
