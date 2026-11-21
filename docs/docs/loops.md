@@ -547,8 +547,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   with a `Condition` other than `Always` still reads the value to decide, so the analyzer reads that
   member.
   It reads `IncludeFields`, `IgnoreReadOnlyProperties`, and `IgnoreReadOnlyFields` where you create
-  the options in the call. It reads the object that you give the serializer and the objects up to
-  three levels inside it.
+  the options in the call. It reads the object that you give the serializer and the objects inside
+  it, to the depth of 64 at which `System.Text.Json` stops by default.
 
 ### Its limits
 
@@ -731,8 +731,8 @@ Some reads that throw it does not see:
   that you give to `Map` or `Lift` should have no side effects in any case.
 - A member that the platform calls from a method that is not in its table of common methods.
 - A converter of serializer options that you do not create in the call, a converter that a
-  `JsonConverterFactory` makes, the settings of Json.NET, and an object more than three levels
-  inside the one that you give a serializer.
+  `JsonConverterFactory` makes, the settings of Json.NET, and an object more than 64 levels inside
+  the one that you give a serializer.
 - An interpolated string that becomes a `FormattableString` or an `IFormattable` and that code
   formats later. It calls no `ToString` where you write it, and the analyzer reads none there. The
   analyzer does read the `ToString` calls where `FormattableString.Invariant` gets the string.

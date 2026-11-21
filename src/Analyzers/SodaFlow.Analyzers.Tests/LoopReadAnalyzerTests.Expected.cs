@@ -5836,6 +5836,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab307PendingThroughAWritableFieldReadLater"] = ["SF1001"],
             ["R5FuHelperSecondCallReadsTheMap"] = ["SF1004"],
             ["Ab308HelperGivesItsMapToASecondHelper"] = ["SF1004"],
-            ["Ab308HelperSamplesItsOwnMap"] = ["SF1004"]
+            ["Ab308HelperSamplesItsOwnMap"] = ["SF1004"],
+            ["R5FuCLimSerializerReadsFourLevelsInside"] = ["SF1005"],
+            ["Ag98SerializerReadsFiveLevelsInside"] = ["SF1005"],
+            ["Ag98JsonNetReadsFourLevelsInside"] = ["SF1005"],
+            ["Ag98SerializerReadsAnObjectThatGivesItselfAgain"] = ["SF1005"]
         };
 }

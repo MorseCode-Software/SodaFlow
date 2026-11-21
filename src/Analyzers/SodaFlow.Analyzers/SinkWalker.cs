@@ -36,6 +36,9 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     // chain.
     internal const int MaxReadsOfALoop = 1000;
 
+    // The most objects that a serializer goes into, in each other. See Serialize.
+    private const int MaxSerializedDepth = 64;
+
     private readonly Dictionary<StatementSyntax, int> firstEnds = [];
 
     // The key is a function that the walk asked about. The value is the position of the first
@@ -4102,7 +4105,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                                   is { } parameter
                         ? named ?? method.Parameters[parameter.Ordinal].Type
                         : null,
-                    depth: 0);
+                    depth: 0,
+                    seen: new HashSet<(Construction, INamedTypeSymbol?)>(SerializedObjects.Instance));
             }
 
             return;
@@ -4191,6 +4195,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     ///     serializer that writes it. Null for each other serializer.
     /// </param>
     /// <param name="depth">The number of objects that the value is in.</param>
+    /// <param name="seen">
+    ///     Each object of this compilation whose members the walk read for the
+    ///     argument, with the type that the serializer wrote it as.
+    /// </param>
     private void Serialize(
         ExpressionSyntax written,
         LoopState state,
@@ -4198,7 +4206,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         SerializerOptions options,
         ISymbol? member,
         ITypeSymbol? declared,
-        int depth)
+        int depth,
+        HashSet<(Construction, INamedTypeSymbol?)> seen)
     {
         // The elements of a tuple are fields, and not each serializer writes a field.
         if (state.Members is { IsTuple: true } && !options.WritesFields)
@@ -4208,8 +4217,9 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         this.Run(state: state, enumerated: null);
 
-        // An object in an object in an object: the depth has an end, as a followed call has.
-        if (state.Members is not { } members || depth > 3)
+        // System.Text.Json stops with an error at this depth by default. Json.NET has no such
+        // limit, and the walk stops there also.
+        if (state.Members is not { } members || depth > MaxSerializedDepth)
         {
             return;
         }
@@ -4226,7 +4236,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     options: options,
                     member: null,
                     declared: null,
-                    depth: depth + 1);
+                    depth: depth + 1,
+                    seen: seen);
             }
 
             return;
@@ -4241,6 +4252,13 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 options: options,
                 member: member,
                 own: own))
+        {
+            return;
+        }
+
+        // A second read of the same object as the same type finds the same reads, at the same
+        // node. A getter of the object can give the object again, thus the walk stops there.
+        if (!seen.Add((members, own)))
         {
             return;
         }
@@ -4266,7 +4284,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     options: options,
                     member: property,
                     declared: declared == null ? null : property.Type,
-                    depth: depth + 1);
+                    depth: depth + 1,
+                    seen: seen);
             }
         }
 
@@ -4288,7 +4307,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 options: options,
                 member: field,
                 declared: declared == null ? null : field.Type,
-                depth: depth + 1);
+                depth: depth + 1,
+                seen: seen);
         }
     }
 
@@ -5601,4 +5621,21 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         && this.region.ModelFor(element).GetConstantValue(arguments[0].Expression) is { Value: int index }
             ? index
             : null;
+
+    // Two reads of a serializer are of the same object when they have one record of its members and
+    // one type.
+    private sealed class SerializedObjects : IEqualityComparer<(Construction Members, INamedTypeSymbol? Own)>
+    {
+        public static readonly SerializedObjects Instance = new();
+
+        public bool Equals(
+            (Construction Members, INamedTypeSymbol? Own) x,
+            (Construction Members, INamedTypeSymbol? Own) y) =>
+            ReferenceEquals(objA: x.Members, objB: y.Members)
+            && SymbolEqualityComparer.Default.Equals(x: x.Own, y: y.Own);
+
+        public int GetHashCode((Construction Members, INamedTypeSymbol? Own) read) =>
+            (read.Members.GetHashCode() * 397)
+            ^ (read.Own == null ? 0 : SymbolEqualityComparer.Default.GetHashCode(read.Own));
+    }
 }

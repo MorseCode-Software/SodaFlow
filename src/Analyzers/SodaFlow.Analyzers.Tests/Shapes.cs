@@ -40997,6 +40997,30 @@ public static class Shapes
     public static Cell<int> Ab308HelperSamplesItsOwnMap() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab308BuildsAndSamples(l.Map(v => v))));
 
+    // S9770. Carried from Round 4 (AB243, R4LimSerializerReadsFourLevelsInside). System.Text.Json reads a getter of an object four levels inside the object that it gets.
+    public static Cell<int> R5FuCLimSerializerReadsFourLevelsInside() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R4LimFourth(new R4LimThird(new R4LimSecond(new SerialOuter(new SerialRow(l.Map(v => v))))))); Kept.Add(text); return S.Hold(0); });
+
+    // S9771. System.Text.Json reads a getter of an object five levels inside the object that it gets.
+    public static Cell<int> Ag98SerializerReadsFiveLevelsInside() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag98Fifth(new R4LimFourth(new R4LimThird(new R4LimSecond(new SerialOuter(new SerialRow(l.Map(v => v)))))))); Kept.Add(text); return S.Hold(0); });
+
+    // S9772. Control: System.Text.Json reads a getter of an object four levels inside, and the getter samples a plain cell.
+    public static Cell<int> Ag98SerializerReadsAPlainCellFourLevelsInside() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new R4LimFourth(new R4LimThird(new R4LimSecond(new SerialOuter(new SerialRow(Plain.Map(v => v))))))); Kept.Add(text); return S.Hold(0); });
+
+    // S9773. Json.NET reads a getter of an object four levels inside the object that it gets.
+    public static Cell<int> Ag98JsonNetReadsFourLevelsInside() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R4LimFourth(new R4LimThird(new R4LimSecond(new SerialOuter(new SerialRow(l.Map(v => v))))))); Kept.Add(text); return S.Hold(0); });
+
+    // S9774. System.Text.Json with IgnoreCycles writes an object whose two getters give the object again, and a third getter samples a pending cell.
+    public static Cell<int> Ag98SerializerReadsAnObjectThatGivesItselfAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag98Node(l.Map(v => v)), new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.IgnoreCycles }); Kept.Add(text); return S.Hold(0); });
+
+    // S9775. Control: System.Text.Json with IgnoreCycles writes an object whose two getters give the object again, and a third getter samples a plain cell.
+    public static Cell<int> Ag98SerializerReadsAPlainObjectThatGivesItselfAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag98Node(Plain.Map(v => v)), new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.IgnoreCycles }); Kept.Add(text); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58652,6 +58676,20 @@ public static class Shapes
         Cell<int> w = Plain.Map(v => v + given.Sample());
 
         return w.Sample();
+    }
+
+    public sealed class Ag98Node(Cell<int> share)
+    {
+        public Ag98Node Self => this;
+
+        public Ag98Node Again => this;
+
+        public int Now => share.Sample();
+    }
+
+    public sealed class Ag98Fifth(R4LimFourth fourth)
+    {
+        public R4LimFourth Fourth => fourth;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
