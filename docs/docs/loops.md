@@ -358,20 +358,21 @@ The analyzer follows a value made from the placeholder through the code of your 
   returns goes where that `ref` points: a parameter, a local of the code around a local function, a
   static field, or a member of the object of the call or an element of that member. So does a write
   through a `ref` local of such an indexer, and a write through a conditional `ref` goes to both of
-  its locations. A write through a `ref` to a static field, or to an element of an array parameter,
-  adds its value to what the location held and does not replace it, so a plain cell written that way
-  over a pending one still counts as pending. A second write to a static field, with or without a
-  `ref`, does not replace the first either. A write to a member through an element of a local array,
-  `List<T>`, or `Dictionary` created with no comparer, at a constant index or key or at an index in
-  a local, replaces what an earlier write gave that member. So does a write through a local that got
-  that element, and a write through any other name of the object in the element, such as `d` after
-  `a[0] = d`, when the analyzer knows which object that is. A later read through the element or the
-  local sees only the last value. An index in a local that gets only a constant is that constant
-  index. A local that gets the array or the list in a field sees each element that code puts in
-  through the field later, also in a method and through a `ref` local of a field of such an element
-  at a constant index or at an index in a local, until the local or the field gets a different
-  value. The other way also holds: a read through the field sees an element that code puts in
-  through such a local, at an index or with `Add`, `Insert`, or `AddRange` of a `List<T>`.
+  its locations. A write through a `ref` that a method returns, to a static field or to an element
+  of an array parameter, adds its value to what the location held and does not replace it, so a
+  plain cell written that way over a pending one still counts as pending. A write through a `ref`
+  local of a static field replaces what the field held, as a write to the field itself does. A write
+  to a member through an element of a local array, `List<T>`, or `Dictionary` created with no
+  comparer, at a constant index or key or at an index in a local, replaces what an earlier write
+  gave that member. So does a write through a local that got that element, and a write through any
+  other name of the object in the element, such as `d` after `a[0] = d`, when the analyzer knows
+  which object that is. A later read through the element or the local sees only the last value. An
+  index in a local that gets only a constant is that constant index. A local that gets the array or
+  the list in a field sees each element that code puts in through the field later, also in a method
+  and through a `ref` local of a field of such an element at a constant index or at an index in a
+  local, until the local or the field gets a different value. The other way also holds: a read
+  through the field sees an element that code puts in through such a local, at an index or with
+  `Add`, `Insert`, or `AddRange` of a `List<T>`.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
   from there. A name is a local, a parameter, a static field or a static property with no body, a
@@ -495,39 +496,38 @@ The analyzer follows a value made from the placeholder through the code of your 
   when you dispose it, also through a field or an element of a list. The construction of a
   `SystemClockTimerSystem` calls its `now` function.
   `Debounce` reads the `Time` of its timer system, and calls its `At`, when you call it.
-- Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
-  the function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`, and the
-  function of a `Task` that you create with `new` where `RunSynchronously` runs it. The `Result` of
-  such a task, and `GetResult` of its awaiter, have the value that the function returns, however
-  the task runs. A query expression over a type whose methods run their function in the call, such
-  as `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. Where the code takes
+- Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it, the
+  function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`, and the function
+  of a `Task` that you create with `new` where `RunSynchronously` runs it. The `Result` of such a
+  task, and `GetResult` of its awaiter, have the value that the function returns, however the task
+  runs. A query expression over a type whose methods run their function in the call, such as
+  `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. Where the code takes
   only one item from the call of an iterator, with `First`, `FirstOrDefault` with no predicate,
   `Any()` with no predicate, `Take(1)`, `ElementAt(0)`, or `ElementAtOrDefault(0)`, also after a
   `Select`, an `AsEnumerable`, or a query expression with only a `select` clause, or with a
   `foreach` that leaves the loop in its first pass on every path, by a `break`, a `return`, a
   `throw`, or a `goto`, the iterator runs only up to its first `yield return` and the `finally`
   blocks around it. Where the code takes no item, with `Take` of zero or of a negative count, the
-  iterator does not run at all. The analyzer still reads the whole iterator where the code moves its enumerator
-  by hand, where a method of yours gets the call and takes one item, and where `Zip` stops at the
-  end of a shorter sequence. An `async` method or
-  lambda runs in the block up to its first `await` of a task that may not be complete, and the rest
-  of it runs later, also where its body is a single expression, such as `async () => await t + x`.
-  That holds for an `await` in a `switch` section, in a `finally` block, in the
-  condition of a `do`, or in the header of a `for`, `foreach`, `switch`, `while`, `using`, or `lock`
-  too. It also holds for an `await` in the branch of an `if` or the arm of a `?:` that a constant
-  condition selects, and in the one `catch` clause of a `try` whose block starts with a `throw`.
-  The `Dispose` at the end of a `using` or a
-  `foreach` runs later as well when such an `await` comes before it in its scope. An `await using`
-  awaits the task of each `DisposeAsync` that it calls, so the code after its scope runs later
-  unless each of them is a method of yours that returns only complete tasks. That code is the rest
-  of the block around the `await using`. Where that block is the body of a loop or a `switch`
-  section, the code after the loop or the `switch` still counts as code that runs in the block, as
-  it does after an `await` there, because the loop can run no turn and a different section can run.
-  An `await foreach` runs its body in the block only for an item that the sequence gives at once,
-  and the code after it only when every item comes at once. An async iterator runs nothing until
+  iterator does not run at all. The analyzer still reads the whole iterator where the code moves its
+  enumerator by hand, where a method of yours gets the call and takes one item, and where `Zip`
+  stops at the end of a shorter sequence. An `async` method or lambda runs in the block up to its
+  first `await` of a task that may not be complete, and the rest of it runs later, also where its
+  body is a single expression, such as `async () => await t + x`. That holds for an `await` in a
+  `switch` section, in a `finally` block, in the condition of a `do`, or in the header of a `for`,
+  `foreach`, `switch`, `while`, `using`, or `lock` too. It also holds for an `await` in the branch
+  of an `if` or the arm of a `?:` that a constant condition selects, and in the one `catch` clause
+  of a `try` whose block starts with a `throw`. The `Dispose` at the end of a `using` or a `foreach`
+  runs later as well when such an `await` comes before it in its scope. An `await using` awaits the
+  task of each `DisposeAsync` that it calls, so the code after its scope runs later unless each of
+  them is a method of yours that returns only complete tasks. That code is the rest of the block
+  around the `await using`. Where that block is the body of a loop or a `switch` section, the code
+  after the loop or the `switch` still counts as code that runs in the block, as it does after an
+  `await` there, because the loop can run no turn and a different section can run. An
+  `await foreach` runs its body in the block only for an item that the sequence gives at once, and
+  the code after it only when every item comes at once. An async iterator runs nothing until
   something enumerates it. A method of `SodaFlow.Functional` that gets a task and returns one, such
-  as the `Map` of a `Task<Maybe<T>>`, awaits that task first, so its function runs in the block
-  only when the analyzer knows that the task is complete.
+  as the `Map` of a `Task<Maybe<T>>`, awaits that task first, so its function runs in the block only
+  when the analyzer knows that the task is complete.
 - The serializers of `System.Text.Json`, Json.NET (also `FromObject` of `JToken`, `JObject`, and
   `JArray`), `XmlSerializer`, and the data contract serializers, and LINQ to XML, which call your
   getters and enumerate your sequences. `System.Text.Json` writes the properties of the type that
@@ -597,9 +597,9 @@ careful side, so it can report a read that does not throw:
   local that got such an element, after a call that wrote that member, also gets what the call
   wrote. That is so even when the call wrote a
   different object.
-- A new object that a method you call puts through a `ref` parameter into a static field, into an
-  element of an array in one, or into an element at an index in a local does not replace the object
-  that was there before. A read through that location still gets what the earlier object had.
+- A new object that a method you call puts through a `ref` parameter into an element of an array in
+  a static field, or into an element at an index in a local, does not replace the object that was
+  there before. A read through that location still gets what the earlier object had.
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind. So is the
   function of a `Merge`, which runs only when both streams fire in one transaction: what it returns

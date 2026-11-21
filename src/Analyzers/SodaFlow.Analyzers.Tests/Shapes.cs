@@ -41469,6 +41469,14 @@ public static class Shapes
     public static Cell<int> Ab302VirtualMemberWithAnAutoOverridePlainLastReadElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab302AutoBase d = new Ab302AutoOverride(); Ab302AutoBase[] a = [new Ab302AutoBase()]; a[0] = d; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
 
+    // S9888. A ref local of a static field gets a plain cell over a pending cell, and the block samples the field.
+    public static Cell<int> R5LimRefLocalToAStaticFieldWritesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimSlotC = l.Map(v => v); ref Cell<int> r = ref R5LimSlotC; r = Plain; Kept.Add(R5LimSlotC.Sample()); return S.Hold(0); });
+
+    // S9889. Puts, Round 5: a new object with a pending cell goes in through a static field, then a new object with a plain cell through the same name. The second put is in a method that gets the location with ref. The read is through that name.
+    public static Cell<int> R5PairPutPendingThenPlainPutByStaticFieldSecondInAMethodThroughRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairXSf949 = new SettableSlot { Share = l.Map(v => v) }; R5PairPutRef(ref R5PairXSf949, Plain); return S.Hold(R5PairXSf949.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
