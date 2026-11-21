@@ -18,18 +18,19 @@ internal sealed partial class LoopStateEvaluator
     ///     C# runs an explicit static constructor before the first use of a
     ///     static member, and its static initializers first. A type with
     ///     initializers only has no such fixed time: the runtime can run them at
-    ///     any time before the first read of a field. Thus, the walk reads only a
-    ///     type with an explicit static constructor. A constant is no use. The
-    ///     code of the type can be the first use, when it runs on an object.
+    ///     any time before the first read of a field. The walk reads them at
+    ///     that read, which is the last time that they can run. A method of such
+    ///     a type does not run them. A constant is no use. The code of the type
+    ///     can be the first use, when it runs on an object.
     /// </remarks>
     /// <param name="access">The member access, as in <c>T.Value</c>.</param>
     public Followed? FollowTheStaticConstructor(MemberAccessExpressionSyntax access) =>
         // The walk asks for the symbol of each call, and of each other member access. Thus, the
         // symbol here is no new question. A question about each type of the compilation is one,
         // because the driver can make the symbols of the analyzer again for each file.
-        this.quiet || this.StaticMemberOf(access) is not { ContainingType: { } owner }
+        this.quiet || this.StaticMemberOf(access) is not { ContainingType: { } owner } member
             ? null
-            : this.FollowTheStaticConstructorOf(use: access, owner: owner);
+            : this.FollowTheStaticConstructorOf(use: access, owner: owner, atAFieldRead: IsAMemberLocation(member));
 
     /// <summary>
     ///     The same for a simple name of a static member of a different type,
@@ -48,7 +49,7 @@ internal sealed partial class LoopStateEvaluator
         || this.StaticMemberOf(name) is not { ContainingType: { } type }
         || IsInTheCodeOf(node: name, type: type)
             ? null
-            : this.FollowTheStaticConstructorOf(use: name, owner: type);
+            : this.FollowTheStaticConstructorOf(use: name, owner: type, atAFieldRead: false);
 
     /// <summary>
     ///     The results of the static constructors that a creation runs: the one
@@ -69,7 +70,9 @@ internal sealed partial class LoopStateEvaluator
              type is { TypeKind: TypeKind.Class, DeclaringSyntaxReferences.IsEmpty: false };
              type = type.BaseType)
         {
-            all = Both(first: all, second: this.FollowTheStaticConstructorOf(use: creation, owner: type));
+            all = Both(
+                first: all,
+                second: this.FollowTheStaticConstructorOf(use: creation, owner: type, atAFieldRead: false));
         }
 
         return all;
@@ -85,7 +88,7 @@ internal sealed partial class LoopStateEvaluator
         method is { IsStatic: true, ContainingType: { DeclaringSyntaxReferences.IsEmpty: false } owner }
         && !this.quiet
         && !IsInTheCodeOf(node: call, type: owner)
-            ? this.FollowTheStaticConstructorOf(use: call, owner: owner)
+            ? this.FollowTheStaticConstructorOf(use: call, owner: owner, atAFieldRead: false)
             : null;
 
     // The static member that a use names, when the use can run the static constructor of its type. A
@@ -105,14 +108,21 @@ internal sealed partial class LoopStateEvaluator
         && type.OriginalDefinition.DeclaringSyntaxReferences.Any(declared => declared.GetSyntax() == code);
 
     // The static constructor of a type at a use of the type. Each constructed generic type has its
-    // own run.
-    private Followed? FollowTheStaticConstructorOf(SyntaxNode use, INamedTypeSymbol owner)
+    // own run. A type with initializers only runs them at a read of a field through the name of the
+    // type. A property with no code reads its field.
+    private Followed? FollowTheStaticConstructorOf(SyntaxNode use, INamedTypeSymbol owner, bool atAFieldRead)
     {
+        ConstructorDeclarationSyntax? constructor =
+            owner.OriginalDefinition.StaticConstructors.FirstOrDefault()?.DeclaringSyntaxReferences.FirstOrDefault()
+                ?.GetSyntax() as ConstructorDeclarationSyntax;
+
         // A use that the code can skip, as in a branch, runs the constructor only when it runs. Thus,
         // the walk reads the constructor there, and the next use reads it again. A use in each turn of
         // a loop counts as sure.
-        if (owner.OriginalDefinition.StaticConstructors.FirstOrDefault()?.DeclaringSyntaxReferences.FirstOrDefault()
-                ?.GetSyntax() is not ConstructorDeclarationSyntax constructor
+        if ((constructor?.Parent
+                ?? (atAFieldRead
+                    ? owner.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    : null)) is not TypeDeclarationSyntax type
             || !this.region.StartsTheType(
                 type: owner,
                 sure: this.WhereItRuns(use) is (true, _) or (_, not null)))
@@ -124,14 +134,12 @@ internal sealed partial class LoopStateEvaluator
         {
             // The static initializers run in the order of the code, and then the body.
             IEnumerable<SyntaxNode> parts =
-                constructor.Parent is TypeDeclarationSyntax type
-                    ? type.Members
-                        .Where(static part => part.Modifiers.Any(SyntaxKind.StaticKeyword))
-                        .SelectMany(InitializersOf)
-                        .OfType<SyntaxNode>()
-                    : [];
+                type.Members
+                    .Where(static part => part.Modifiers.Any(SyntaxKind.StaticKeyword))
+                    .SelectMany(InitializersOf)
+                    .OfType<SyntaxNode>();
 
-            if ((constructor.Body ?? (SyntaxNode?)constructor.ExpressionBody?.Expression) is { } body)
+            if ((constructor?.Body ?? (SyntaxNode?)constructor?.ExpressionBody?.Expression) is { } body)
             {
                 parts = parts.Append(body);
             }

@@ -41021,6 +41021,26 @@ public static class Shapes
     public static Cell<int> Ag98SerializerReadsAPlainObjectThatGivesItselfAgain() =>
         Cell.Loop<int>().WithoutCaptures(l => { string text = JsonSerializer.Serialize(new Ag98Node(Plain.Map(v => v)), new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.IgnoreCycles }); Kept.Add(text); return S.Hold(0); });
 
+    // S9776. Carried from Round 4 (AB248, R4LimStaticInitializerSamplesWhatTheBlockSet). The block puts a pending cell into a static field, and then reads a static field whose initializer samples that cell. The class has no static constructor.
+    public static Cell<int> R5FuCLimStaticInitializerSamplesWhatTheBlockSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4LimSharedTwo.Cell = l.Map(v => v); Kept.Add(R4LimReadOnceByInitializer.Value); return S.Hold(0); });
+
+    // S9777. The block puts a pending cell into a static field, and then reads a static auto-property whose initializer samples that cell. The class has no static constructor.
+    public static Cell<int> Ag98StaticPropertyInitializerSamplesWhatTheBlockSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag98SharedA.Cell = l.Map(v => v); Kept.Add(Ag98ReadByAProperty.Value); return S.Hold(0); });
+
+    // S9778. Control: the block reads the static field first, while the cell is plain, then puts a pending cell in and reads the field again. The initializer ran at the first read.
+    public static Cell<int> Ag98StaticInitializerRunsAtTheFirstReadOnly() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag98SharedB.Cell = Plain; Kept.Add(Ag98ReadOnceB.Value); Ag98SharedB.Cell = l.Map(v => v); Kept.Add(Ag98ReadOnceB.Value); return S.Hold(0); });
+
+    // S9779. Control: the block calls a static method of the class that reads no static field, after it puts a pending cell in. The initializer does not run.
+    public static Cell<int> Ag98StaticMethodDoesNotRunTheInitializers() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag98SharedC.Cell = l.Map(v => v); Kept.Add(Ag98ReadOnceC.Zero()); return S.Hold(0); });
+
+    // S9780. Control: the block reads a constant of the class after it puts a pending cell in. A constant runs no initializer.
+    public static Cell<int> Ag98ConstantDoesNotRunTheInitializers() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag98SharedD.Cell = l.Map(v => v); Kept.Add(Ag98ReadOnceD.None); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58690,6 +58710,50 @@ public static class Shapes
     public sealed class Ag98Fifth(R4LimFourth fourth)
     {
         public R4LimFourth Fourth => fourth;
+    }
+
+    public static class Ag98SharedA
+    {
+        public static Cell<int>? Cell;
+    }
+
+    public static class Ag98ReadByAProperty
+    {
+        public static int Value { get; } = Ag98SharedA.Cell!.Sample();
+    }
+
+    public static class Ag98SharedB
+    {
+        public static Cell<int>? Cell;
+    }
+
+    public static class Ag98ReadOnceB
+    {
+        public static readonly int Value = Ag98SharedB.Cell!.Sample();
+    }
+
+    public static class Ag98SharedC
+    {
+        public static Cell<int>? Cell;
+    }
+
+    public static class Ag98ReadOnceC
+    {
+        public static readonly int Value = Ag98SharedC.Cell!.Sample();
+
+        public static int Zero() => 0;
+    }
+
+    public static class Ag98SharedD
+    {
+        public static Cell<int>? Cell;
+    }
+
+    public static class Ag98ReadOnceD
+    {
+        public const int None = 0;
+
+        public static readonly int Value = Ag98SharedD.Cell!.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

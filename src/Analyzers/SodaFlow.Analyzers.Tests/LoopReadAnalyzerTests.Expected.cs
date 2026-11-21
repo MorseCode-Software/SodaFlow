@@ -5840,6 +5840,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5FuCLimSerializerReadsFourLevelsInside"] = ["SF1005"],
             ["Ag98SerializerReadsFiveLevelsInside"] = ["SF1005"],
             ["Ag98JsonNetReadsFourLevelsInside"] = ["SF1005"],
-            ["Ag98SerializerReadsAnObjectThatGivesItselfAgain"] = ["SF1005"]
+            ["Ag98SerializerReadsAnObjectThatGivesItselfAgain"] = ["SF1005"],
+            ["R5FuCLimStaticInitializerSamplesWhatTheBlockSet"] = ["SF1005"],
+            ["Ag98StaticPropertyInitializerSamplesWhatTheBlockSet"] = ["SF1005"]
         };
 }
