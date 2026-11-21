@@ -5831,6 +5831,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5FuDeclaredFieldListAddThroughALocal"] = ["SF1001"],
             ["Ab306InsertThroughALocalReadThroughTheField"] = ["SF1001"],
             ["Ab306AddRangeThroughALocalReadThroughTheField"] = ["SF1001"],
-            ["Ab306AddThroughALocalThenReadInALaterStatement"] = ["SF1001"]
+            ["Ab306AddThroughALocalThenReadInALaterStatement"] = ["SF1001"],
+            ["R5FuNamesPendingThroughAWritableFieldAfterTheParameter"] = ["SF1001"],
+            ["Ab307PendingThroughAWritableFieldReadLater"] = ["SF1001"]
         };
 }

@@ -1978,16 +1978,20 @@ internal sealed partial class LoopStateEvaluator
             InvocationExpressionSyntax inv => this.WithTheResultOfATask(read: inv, state: this.EvalInvocation(inv)),
             ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => this.EvalCreation(expression),
             MemberAccessExpressionSyntax read when this.WrittenThroughANameOfItsObject(read) is { } written => written,
-            MemberAccessExpressionSyntax read when this.WrittenThroughItsName(read) is { } written => written,
-            MemberAccessExpressionSyntax read when this.WrittenAtItsElement(read) is { } written => written,
+            MemberAccessExpressionSyntax read when this.WrittenThroughItsName(read) is { } written =>
+                this.WithAnAccurateRecord(expression: read, state: written),
+            MemberAccessExpressionSyntax read when this.WrittenAtItsElement(read) is { } written =>
+                this.WithAnAccurateRecord(expression: read, state: written),
             IdentifierNameSyntax
                 or MemberAccessExpressionSyntax
                 or MemberBindingExpressionSyntax
-                or GenericNameSyntax => this.WithTheSendsBefore(
-                    name: expression,
-                    state: this.WithItsInitializer(
-                        expression: expression,
-                        state: this.WithTheResultOfATask(read: expression, state: this.EvalName(expression)))),
+                or GenericNameSyntax => this.WithAnAccurateRecord(
+                    expression: expression,
+                    state: this.WithTheSendsBefore(
+                        name: expression,
+                        state: this.WithItsInitializer(
+                            expression: expression,
+                            state: this.WithTheResultOfATask(read: expression, state: this.EvalName(expression))))),
             _ when expression.RawKind == SodaFlowSymbols.FieldKeywordKind => this.EvalFieldKeyword(expression),
             // An operator of this compilation gives what it returns.
             _ => this.FollowExpression(expression) is { } result

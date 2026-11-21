@@ -1842,7 +1842,13 @@ internal sealed partial class LoopStateEvaluator
         {
             if (SymbolEqualityComparer.Default.Equals(x: got, y: parameter))
             {
-                this.SetMemberOf(owner: argument, member: member, state: state, replaces: always, turn: turn);
+                this.SetMemberOf(
+                    owner: argument,
+                    member: member,
+                    state: state,
+                    replaces: always,
+                    turn: turn,
+                    fromTheCallee: true);
             }
         }
     }
@@ -1972,13 +1978,18 @@ internal sealed partial class LoopStateEvaluator
     ///     when no loop does.
     /// </param>
     /// <param name="from">The expression of the value, when the code has one.</param>
+    /// <param name="fromTheCallee">
+    ///     True for a write that a callee made through its parameter, which
+    ///     the call gives back to the argument.
+    /// </param>
     public void SetMemberOf(
         ExpressionSyntax? owner,
         ISymbol member,
         LoopState state,
         bool replaces,
         SyntaxNode? turn,
-        ExpressionSyntax? from = null)
+        ExpressionSyntax? from = null,
+        bool fromTheCallee = false)
     {
         // A write through a name that got this is a write to the object that the code is in.
         if (owner != null && this.IsANameOfThis(owner))
@@ -2068,7 +2079,8 @@ internal sealed partial class LoopStateEvaluator
             written: written,
             member: member,
             state: state,
-            replaces: replaces || (always && written != null && this.TheDeclaredLocationOf(written) != null));
+            replaces: replaces || (always && written != null && this.TheDeclaredLocationOf(written) != null),
+            seen: fromTheCallee);
 
         this.NotesAWriteAtAnElement(
             written: written,

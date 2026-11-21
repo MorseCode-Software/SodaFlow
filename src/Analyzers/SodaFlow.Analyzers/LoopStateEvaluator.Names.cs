@@ -153,7 +153,7 @@ internal sealed partial class LoopStateEvaluator
                 && IsAMemberLocation(member)
                 && members != null)
             {
-                one.Members.Add((member.OriginalDefinition, at.Span.End, members.StateOf(member)));
+                one.Members.Add((member.OriginalDefinition, at.Span.End, members.StateOf(member), true));
             }
         }
 
@@ -165,7 +165,7 @@ internal sealed partial class LoopStateEvaluator
     private void GivesTheCallersANewObject(
         (ISymbol Of, ISymbol? Owner, object? Index) name,
         SyntaxNode at,
-        IReadOnlyCollection<(ISymbol Member, int End, LoopState State)> members)
+        IReadOnlyCollection<(ISymbol Member, int End, LoopState State, bool Accurate)> members)
     {
         (ISymbol Of, ISymbol? Owner, object? Index)? named = name;
         SyntaxNode use = at;
@@ -271,14 +271,35 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="member">The member.</param>
     /// <param name="state">The state of the value.</param>
     /// <param name="replaces">True when the write always runs in its function.</param>
+    /// <param name="seen">
+    ///     True for the writes of a callee through a parameter, which a call
+    ///     gives back to its argument. Each frame got those writes one at a
+    ///     time, in the order of the callee.
+    /// </param>
     private void NotesAWriteThroughANameOfOneObject(
         ExpressionSyntax? written,
         ISymbol member,
         LoopState state,
-        bool replaces)
+        bool replaces,
+        bool seen)
     {
         if (this.quiet)
         {
+            return;
+        }
+
+        // The write changes no record. Each frame got the writes of the callee one at a time. Thus, this
+        // write adds nothing, and it can only make an accurate record less accurate.
+        if (seen)
+        {
+            for (LoopStateEvaluator? code = this; code != null; code = code.call?.Caller)
+            {
+                if (code.Frame.NamesWritesSeen == this.region.MemberWrites - 1)
+                {
+                    code.Frame.NamesWritesSeen = this.region.MemberWrites;
+                }
+            }
+
             return;
         }
 
@@ -380,7 +401,8 @@ internal sealed partial class LoopStateEvaluator
                 {
                     if (one.Members[i].Member.Name == member.Name)
                     {
-                        one.Members[i] = (one.Members[i].Member, one.Members[i].End, one.Members[i].State.Join(state));
+                        one.Members[i] =
+                            one.Members[i] with { State = one.Members[i].State.Join(state), Accurate = false };
                     }
                 }
             }
@@ -404,7 +426,7 @@ internal sealed partial class LoopStateEvaluator
 
         foreach (NamesOfOneObject one in held)
         {
-            one.Members.Add((member.OriginalDefinition, end, state));
+            one.Members.Add((member.OriginalDefinition, end, state, true));
         }
     }
 
@@ -511,7 +533,34 @@ internal sealed partial class LoopStateEvaluator
     ///     walk. The read then uses those. Each of the two is correct, thus a
     ///     record with no pending value can replace them.
     /// </remarks>
-    private LoopState? WrittenThroughANameOfItsObject(MemberAccessExpressionSyntax read)
+    private LoopState? WrittenThroughANameOfItsObject(MemberAccessExpressionSyntax read) =>
+        this.FromARecordOf(read: read, accurate: false);
+
+    /// <summary>
+    ///     The state of a read of a name, with a pending value from a record of
+    ///     <see cref="NotesAWriteThroughANameOfOneObject" /> that is accurate.
+    ///     The given state when it has a pending value itself, or when no such
+    ///     record is for the read. The given state comes from the other records
+    ///     of the walk, also from the last write through the name.
+    /// </summary>
+    /// <remarks>
+    ///     A record that got no write through a different owner is accurate.
+    ///     Thus, it is correct also with a pending value. The other records of the
+    ///     walk can say where a pending value came from, thus a read that finds one
+    ///     there keeps it.
+    /// </remarks>
+    /// <param name="expression">The read.</param>
+    /// <param name="state">The state that the other records give the read.</param>
+    private LoopState WithAnAccurateRecord(ExpressionSyntax expression, LoopState state) =>
+        state is { Pending: false, Linked: false }
+        && expression is MemberAccessExpressionSyntax read
+        && this.FromARecordOf(read: read, accurate: true) is { } recorded
+            ? recorded
+            : state;
+
+    // The state of a read of a member from a record. With accurate false, only a record with no
+    // pending value counts. With true, only an accurate record with a pending value counts.
+    private LoopState? FromARecordOf(MemberAccessExpressionSyntax read, bool accurate)
     {
         if (this.Frame.NamesOfOneObject.Count == 0
             || this.quiet
@@ -533,9 +582,12 @@ internal sealed partial class LoopStateEvaluator
 
         foreach (NamesOfOneObject one in this.Frame.NamesOfOneObject)
         {
-            foreach ((ISymbol written, int end, LoopState state) in one.Members)
+            foreach ((ISymbol written, int end, LoopState state, bool isAccurate) in one.Members)
             {
-                if (state is { Members: null, Objects.IsEmpty: true, Pending: false, Linked: false }
+                if (state is { Members: null, Objects.IsEmpty: true }
+                    && (accurate
+                        ? isAccurate && state is { Pending: true } or { Linked: true }
+                        : state is { Pending: false, Linked: false })
                     && SymbolEqualityComparer.Default.Equals(x: written, y: definition)
                     && one.Names.FirstOrDefault(each => this.IsTheName(name: each, read: name, use: read.Expression))
                         is { } held

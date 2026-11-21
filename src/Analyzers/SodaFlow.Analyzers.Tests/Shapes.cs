@@ -40961,6 +40961,22 @@ public static class Shapes
     public static Cell<int> Ab306AddThroughALocalInAMapFunctionThatDoesNotRun() =>
         Cell.Loop<int>().WithoutCaptures(l => { R5FuListA = [Plain]; Cell<int> m = l.Map(v => v); Cell<int> w = Plain.Map(v => { List<Cell<int>> local = R5FuListA; local.Add(m); return v; }); Kept.Add(w); Kept.Add(R5FuListA[^1].Sample()); return S.Hold(0); });
 
+    // S9761. A local gets a static field that is not readonly. A method gives its parameter a plain cell, and then the field a pending cell. The block gives the method the local and reads through the local.
+    public static Cell<int> R5FuNamesPendingThroughAWritableFieldAfterTheParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R5FuTwiceW; R5FuSetBothW(d, Plain, l.Map(v => v)); return S.Hold(d.Share!.Sample()); });
+
+    // S9762. Control: a local gets a static field that is not readonly. A method gives the field a pending cell, and then its parameter a plain cell. The block gives the method the local and reads through the local.
+    public static Cell<int> Ab307PlainThroughTheParameterAfterAWritableField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab307Slot; Ab307SetFieldThenParameter(d, Plain, l.Map(v => v)); return S.Hold(d.Share!.Sample()); });
+
+    // S9763. Control: a local gets a static field that is not readonly. A method gives its parameter a plain cell, and then a second static field, with a different object, a pending cell. The block reads through the local.
+    public static Cell<int> Ab307PendingThroughASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab307Slot; Ab307SetParameterThenOther(d, Plain, l.Map(v => v)); return S.Hold(d.Share!.Sample()); });
+
+    // S9764. A local gets a static field that is not readonly. A method gives its parameter a plain cell, and then the field a pending cell. The block reads through the local in a later statement.
+    public static Cell<int> Ab307PendingThroughAWritableFieldReadLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab307Slot; Ab307SetParameterThenField(d, Plain, l.Map(v => v)); Cell<int> c = d.Share!; return S.Hold(c.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58566,6 +58582,27 @@ public static class Shapes
     private static readonly Ab328MiddleBuilder[] Ab328MiddleBuilders = [new Ab328LastBuilder()];
 
     private static List<Cell<int>> Ab306Fresh => [Plain];
+
+    private static SettableSlot Ab307Slot = new();
+    private static SettableSlot Ab307Other = new();
+
+    private static void Ab307SetFieldThenParameter(SettableSlot slot, Cell<int> first, Cell<int> second)
+    {
+        Ab307Slot.Share = second;
+        slot.Share = first;
+    }
+
+    private static void Ab307SetParameterThenOther(SettableSlot slot, Cell<int> first, Cell<int> second)
+    {
+        slot.Share = first;
+        Ab307Other.Share = second;
+    }
+
+    private static void Ab307SetParameterThenField(SettableSlot slot, Cell<int> first, Cell<int> second)
+    {
+        slot.Share = first;
+        Ab307Slot.Share = second;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
