@@ -492,6 +492,10 @@ careful side, so it can report a read that does not throw:
   the values that it read where you built the cell. If it read a pending value there, the first
   read of the cell gets a report, even when the code gave that capture or member a plain value
   before the read.
+- A cell or a `Lazy` that a constructor or a method of an object builds into a member, when nothing
+  made from the placeholder goes into that call. The analyzer does not read such a call, so it does
+  not see the function of the value. A later read of the value gets no report, also after another
+  method gave a member that the function reads a pending value.
 - The `Result` of a task that you create with `new` has the value that its function returns even
   where no code runs the task. Such a `Result` waits forever, and the code after it does not run.
 - A method that writes a member through an object that the analyzer does not know, such as an
