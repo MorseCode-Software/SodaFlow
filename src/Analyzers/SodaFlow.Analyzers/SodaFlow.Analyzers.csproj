@@ -89,6 +89,7 @@
         <Compile Include="LoopStateEvaluator.Together.cs"/>
         <Compile Include="LoopStateEvaluator.Windows.cs"/>
         <Compile Include="LoopStateEvaluator.Tasks.cs"/>
+        <Compile Include="LoopStateEvaluator.ThisOfAConstructor.cs"/>
         <Compile Include="LoopStateEvaluator.TypeInitializers.cs"/>
         <Compile Include="LoopStateEvaluator.Views.cs"/>
         <Compile Include="LoopStateEvaluator.Writes.cs"/>

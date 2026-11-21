@@ -41077,6 +41077,166 @@ public static class Shapes
     public static Cell<int> Ag98PlainWriteThroughCollectionsMarshal() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> list = [Plain]; System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list)[0] = Plain.Map(v => v); Kept.Add(list[0].Sample()); return S.Hold(0); });
 
+    // S9790. Carried from Round 4 (AB224, R4PairConstructorElementPendingThenThisPlainReadElement). Pair matrix, this in a constructor: the constructor puts this into an element, writes a pending cell through the element, and then a plain cell through this; the block reads through the element.
+    public static Cell<int> R5FuCPairConstructorElementPendingThenThisPlainReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf[] a = [new R4PairSelf()]; R4PairSelf made = new(a, l.Map(v => v), Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9791. Carried from Round 4 (AB224, R4PairConstructorPendingThisThenPlainElementReadElement). Pair matrix, this in a constructor: the constructor puts this into an element of an array that it gets, writes a pending cell through this, and then the block writes a plain cell through the element.
+    public static Cell<int> R5FuCPairConstructorPendingThisThenPlainElementReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf[] a = [new R4PairSelf()]; R4PairSelf made = new(a, l.Map(v => v)); a[0].Share = Plain; return S.Hold(made.Share!.Sample()); });
+
+    // S9792. Carried from Round 4 (AG93, R4PairConstructorElementPlainThenThisPendingReadElement). Pair matrix, this in a constructor: the constructor puts this into an element, writes a plain cell through the element, and then a pending cell through this; the block reads through the element.
+    public static Cell<int> R5FuCPairConstructorElementPlainThenThisPendingReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf[] a = [new R4PairSelf()]; R4PairSelf made = new(a, Plain, l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9793. Carried from Round 4 (AG93, R4PairConstructorPendingThisReadElement). Pair matrix, this in a constructor: the constructor puts this into an element and writes a pending cell through this; the block reads through the element. No second write.
+    public static Cell<int> R5FuCPairConstructorPendingThisReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf[] a = [new R4PairSelf()]; R4PairSelf made = new(a, l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9794. Carried from Round 4 (AG93, R4PairConstructorPlainThisThenPendingElementReadMade). Pair matrix, this in a constructor: the constructor puts this into an element, writes a plain cell through this, and then the block writes a pending cell through the element; the read is through the local of the new object.
+    public static Cell<int> R5FuCPairConstructorPlainThisThenPendingElementReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf[] a = [new R4PairSelf()]; R4PairSelf made = new(a, Plain); a[0].Share = l.Map(v => v); return S.Hold(made.Share!.Sample()); });
+
+    // S9795. Carried from Round 4 (AG93, R4PairConstructorPlainThisThenPendingMadeReadElement). Pair matrix, this in a constructor: the constructor puts this into an element and writes a plain cell through this; the block writes a pending cell through the local of the new object, and reads through the element.
+    public static Cell<int> R5FuCPairConstructorPlainThisThenPendingMadeReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf[] a = [new R4PairSelf()]; R4PairSelf made = new(a, Plain); made.Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9796. The constructor of a new object puts this into a static field. An event of the object gets a handler that samples, and a call raises the event through the field.
+    public static Cell<int> R5FuEventRaisedThroughAFieldThatTheConstructorSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuBell bell = new(); bell.Rang += () => Kept.Add(l.Sample()); R5FuLastBell!.Ring(); return S.Hold(0); });
+
+    // S9797. The constructor puts this into an array that the block gives it, and the block raises the event through the element.
+    public static Cell<int> R5FuEventRaisedThroughAnElementThatTheConstructorSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuArrayBell[] into = [null!]; R5FuArrayBell bell = new(into); bell.Rang += () => Kept.Add(l.Sample()); into[0].Ring(); return S.Hold(0); });
+
+    // S9798. Pair matrix, this in a constructor: the constructor puts this into an element of an array that it gets, writes a pending cell through this, and then the block writes a plain cell through the element.
+    public static Cell<int> R5PairConstructorPendingThisThenPlainElementReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf[] a = [new R5PairSelf()]; R5PairSelf made = new(a, l.Map(v => v)); a[0].Share = Plain; return S.Hold(made.Share!.Sample()); });
+
+    // S9799. Pair matrix, this in a constructor: the constructor puts this into an element, writes a plain cell through this, and then the block writes a pending cell through the element; the read is through the local of the new object.
+    public static Cell<int> R5PairConstructorPlainThisThenPendingElementReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf[] a = [new R5PairSelf()]; R5PairSelf made = new(a, Plain); a[0].Share = l.Map(v => v); return S.Hold(made.Share!.Sample()); });
+
+    // S9800. Pair matrix, this in a constructor: the constructor puts this into an element and writes a plain cell through this; the block writes a pending cell through the local of the new object, and reads through the element.
+    public static Cell<int> R5PairConstructorPlainThisThenPendingMadeReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf[] a = [new R5PairSelf()]; R5PairSelf made = new(a, Plain); made.Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9801. Pair matrix, this in a constructor: the constructor puts this into an element and writes a pending cell through this; the block reads through the element. No second write.
+    public static Cell<int> R5PairConstructorPendingThisReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf[] a = [new R5PairSelf()]; R5PairSelf made = new(a, l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9802. Pair matrix, this in a constructor: the constructor puts this into an element, writes a pending cell through the element, and then a plain cell through this; the block reads through the element.
+    public static Cell<int> R5PairConstructorElementPendingThenThisPlainReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf[] a = [new R5PairSelf()]; R5PairSelf made = new(a, l.Map(v => v), Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9803. Pair matrix, this in a constructor: the constructor puts this into an element, writes a plain cell through the element, and then a pending cell through this; the block reads through the element.
+    public static Cell<int> R5PairConstructorElementPlainThenThisPendingReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf[] a = [new R5PairSelf()]; R5PairSelf made = new(a, Plain, l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9804. AG93, the constructor form: the constructor gives this to the name and then writes a pending cell through this; the block reads through the name, which is an element of a local array.
+    public static Cell<int> R5PairConstructorGivesThisToElementPendingThisReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeA[] a = [new R5PairMadeA()]; R5PairMadeA made = new(a, l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9805. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the local of the new object and reads through the name, which is an element of a local array.
+    public static Cell<int> R5PairConstructorGivesThisToElementPlainThisThenPendingMadeReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeA[] a = [new R5PairMadeA()]; R5PairMadeA made = new(a, Plain); made.Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9806. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the name and reads through the local of the new object, which is an element of a local array.
+    public static Cell<int> R5PairConstructorGivesThisToElementPlainThisThenPendingNameReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeA[] a = [new R5PairMadeA()]; R5PairMadeA made = new(a, Plain); a[0].Share = l.Map(v => v); return S.Hold(made.Share!.Sample()); });
+
+    // S9807. AG93, the constructor form: the constructor gives this to the name and then writes a pending cell through this; the block reads through the name, which is a static field.
+    public static Cell<int> R5PairConstructorGivesThisToStaticFieldPendingThisReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeS made = new(0, l.Map(v => v)); return S.Hold(R5PairMadeS.Last.Share!.Sample()); });
+
+    // S9808. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the local of the new object and reads through the name, which is a static field.
+    public static Cell<int> R5PairConstructorGivesThisToStaticFieldPlainThisThenPendingMadeReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeS made = new(0, Plain); made.Share = l.Map(v => v); return S.Hold(R5PairMadeS.Last.Share!.Sample()); });
+
+    // S9809. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the name and reads through the local of the new object, which is a static field.
+    public static Cell<int> R5PairConstructorGivesThisToStaticFieldPlainThisThenPendingNameReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeS made = new(0, Plain); R5PairMadeS.Last.Share = l.Map(v => v); return S.Hold(made.Share!.Sample()); });
+
+    // S9810. AG93, the constructor form: the constructor gives this to the name and then writes a pending cell through this; the block reads through the name, which is a static auto-property.
+    public static Cell<int> R5PairConstructorGivesThisToStaticPropertyPendingThisReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeP made = new(0L, l.Map(v => v)); return S.Hold(R5PairMadeP.Latest.Share!.Sample()); });
+
+    // S9811. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the local of the new object and reads through the name, which is a static auto-property.
+    public static Cell<int> R5PairConstructorGivesThisToStaticPropertyPlainThisThenPendingMadeReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeP made = new(0L, Plain); made.Share = l.Map(v => v); return S.Hold(R5PairMadeP.Latest.Share!.Sample()); });
+
+    // S9812. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the name and reads through the local of the new object, which is a static auto-property.
+    public static Cell<int> R5PairConstructorGivesThisToStaticPropertyPlainThisThenPendingNameReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeP made = new(0L, Plain); R5PairMadeP.Latest.Share = l.Map(v => v); return S.Hold(made.Share!.Sample()); });
+
+    // S9813. AG93, the constructor form: the constructor gives this to the name and then writes a pending cell through this; the block reads through the name, which is an element of a local list after Add.
+    public static Cell<int> R5PairConstructorGivesThisToAddedListElementPendingThisReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<R5PairMadeL> all = []; R5PairMadeL made = new(all, l.Map(v => v)); return S.Hold(all[0].Share!.Sample()); });
+
+    // S9814. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the local of the new object and reads through the name, which is an element of a local list after Add.
+    public static Cell<int> R5PairConstructorGivesThisToAddedListElementPlainThisThenPendingMadeReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<R5PairMadeL> all = []; R5PairMadeL made = new(all, Plain); made.Share = l.Map(v => v); return S.Hold(all[0].Share!.Sample()); });
+
+    // S9815. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the name and reads through the local of the new object, which is an element of a local list after Add.
+    public static Cell<int> R5PairConstructorGivesThisToAddedListElementPlainThisThenPendingNameReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<R5PairMadeL> all = []; R5PairMadeL made = new(all, Plain); all[0].Share = l.Map(v => v); return S.Hold(made.Share!.Sample()); });
+
+    // S9816. AG93, the constructor form: the constructor gives this to the name and then writes a pending cell through this; the block reads through the name, which is the value of a key of a local dictionary.
+    public static Cell<int> R5PairConstructorGivesThisToDictionaryValuePendingThisReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, R5PairMadeD> map = new(); R5PairMadeD made = new(map, l.Map(v => v)); return S.Hold(map["k"].Share!.Sample()); });
+
+    // S9817. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the local of the new object and reads through the name, which is the value of a key of a local dictionary.
+    public static Cell<int> R5PairConstructorGivesThisToDictionaryValuePlainThisThenPendingMadeReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, R5PairMadeD> map = new(); R5PairMadeD made = new(map, Plain); made.Share = l.Map(v => v); return S.Hold(map["k"].Share!.Sample()); });
+
+    // S9818. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the name and reads through the local of the new object, which is the value of a key of a local dictionary.
+    public static Cell<int> R5PairConstructorGivesThisToDictionaryValuePlainThisThenPendingNameReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, R5PairMadeD> map = new(); R5PairMadeD made = new(map, Plain); map["k"].Share = l.Map(v => v); return S.Hold(made.Share!.Sample()); });
+
+    // S9819. AG93, the constructor form: the constructor gives this to the name and then writes a pending cell through this; the block reads through the name, which is an instance field of a local holder.
+    public static Cell<int> R5PairConstructorGivesThisToInstanceFieldPendingThisReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeHolder box = new(); R5PairMadeH made = new(box, l.Map(v => v)); return S.Hold(box.Made.Share!.Sample()); });
+
+    // S9820. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the local of the new object and reads through the name, which is an instance field of a local holder.
+    public static Cell<int> R5PairConstructorGivesThisToInstanceFieldPlainThisThenPendingMadeReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeHolder box = new(); R5PairMadeH made = new(box, Plain); made.Share = l.Map(v => v); return S.Hold(box.Made.Share!.Sample()); });
+
+    // S9821. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the name and reads through the local of the new object, which is an instance field of a local holder.
+    public static Cell<int> R5PairConstructorGivesThisToInstanceFieldPlainThisThenPendingNameReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeHolder box = new(); R5PairMadeH made = new(box, Plain); box.Made.Share = l.Map(v => v); return S.Hold(made.Share!.Sample()); });
+
+    // S9822. A constructor that gives this away, Round 5: the constructor puts this into an element of an array that it gets, writes a plain cell through this, and then a pending cell through the element. The read is through the element.
+    public static Cell<int> Ab300ConstructorPlainThisThenPendingElementInItReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab300Given[] a = [new Ab300Given()]; Ab300Given made = new(a, Plain, l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9823. A constructor that gives this away, Round 5: the same, with the read through the local of the new object.
+    public static Cell<int> Ab300ConstructorPlainThisThenPendingElementInItReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab300Given[] a = [new Ab300Given()]; Ab300Given made = new(a, Plain, l.Map(v => v)); return S.Hold(made.Share!.Sample()); });
+
+    // S9824. A constructor that gives this away, Round 5: a control: the constructor writes a pending cell through this, and then a plain cell through the element. The read is through the local of the new object.
+    public static Cell<int> Ab300ConstructorPendingThisThenPlainElementInItReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab300Given[] a = [new Ab300Given()]; Ab300Given made = new(a, l.Map(v => v), Plain); return S.Hold(made.Share!.Sample()); });
+
+    // S9825. A constructor that gives this away, Round 5: a control: the same, with the read through the element.
+    public static Cell<int> Ab300ConstructorPendingThisThenPlainElementInItReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab300Given[] a = [new Ab300Given()]; Ab300Given made = new(a, l.Map(v => v), Plain); return S.Hold(a[0].Share!.Sample()); });
+
+    // S9826. A constructor that gives this away, Round 5: the constructor gives this to a method of the project, which puts it into a static field. A pending cell goes in through the local of the new object. The read is through the static field.
+    public static Cell<int> Ab300ConstructorGivesThisToAMethodReadField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab300Registered made = new(); made.Share = l.Map(v => v); return S.Hold(Ab300Registry.Share!.Sample()); });
+
+    // S9827. A constructor that gives this away, Round 5: a control: the constructor of a static field gives this to nothing. The plain cell through the local of the new object leaves the pending cell of the field.
+    public static Cell<int> Ab300ConstructorKeepsThisReadField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab300Kept.Last.Share = l.Map(v => v); Ab300Kept made = new(); made.Share = Plain; return S.Hold(Ab300Kept.Last.Share!.Sample()); });
+
+    // S9828. A constructor that gives this away, Round 5: the constructor of the base type puts this into a static field, and the constructor of the subclass then gives a member a pending cell. The read is through the static field.
+    public static Cell<int> Ab300BaseConstructorGivesThisReadField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab300Derived made = new(l.Map(v => v)); return S.Hold(Ab300Base.Last.Share!.Sample()); });
+
+    // S9829. A constructor that gives this away, Round 5: the constructor runs a lambda that puts this into a static field. A pending cell then goes in through the local of the new object. The read is through the static field.
+    public static Cell<int> Ab300ConstructorGivesThisInALambdaReadField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab300GivenInALambda made = new(); made.Share = l.Map(v => v); return S.Hold(Ab300GivenInALambda.Last.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58790,6 +58950,71 @@ public static class Shapes
         public const int None = 0;
 
         public static readonly int Value = Ag98SharedD.Cell!.Sample();
+    }
+
+    public sealed class Ab300Given
+    {
+        public Ab300Given()
+        {
+        }
+
+        public Ab300Given(Ab300Given[] into, Cell<int> first, Cell<int> second)
+        {
+            into[0] = this;
+            this.Share = first;
+            into[0].Share = second;
+        }
+
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab300Registered
+    {
+        public Ab300Registered() => Ab300Register(this);
+
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static Ab300Registered Ab300Registry = new();
+
+    private static void Ab300Register(Ab300Registered made) => Ab300Registry = made;
+
+    public sealed class Ab300Kept
+    {
+        public static Ab300Kept Last = new();
+
+        public Cell<int>? Share { get; set; }
+    }
+
+    public class Ab300Base
+    {
+        public static Ab300Base Last = new();
+
+        public Ab300Base() => Ab300Base.Last = this;
+
+        public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab300Derived : Ab300Base
+    {
+        public Ab300Derived(Cell<int> share) => this.Share = share;
+    }
+
+    public sealed class Ab300GivenInALambda
+    {
+        public static Ab300GivenInALambda Last = new(0);
+
+        public Ab300GivenInALambda()
+        {
+            Action give = () => Ab300GivenInALambda.Last = this;
+            give();
+        }
+
+        private Ab300GivenInALambda(int unused)
+        {
+        }
+
+        public Cell<int>? Share { get; set; }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

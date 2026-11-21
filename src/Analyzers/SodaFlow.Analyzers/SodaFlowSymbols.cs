@@ -100,6 +100,9 @@ internal sealed class SodaFlowSymbols
     private readonly ConcurrentDictionary<IMethodSymbol, bool> takesASequence = new(SymbolEqualityComparer.Default);
     private readonly ConcurrentDictionary<IMethodSymbol, bool> takesAFunction = new(SymbolEqualityComparer.Default);
 
+    // The constructors whose code uses this as a value, as in a put of this into a name.
+    private readonly ConcurrentDictionary<IMethodSymbol, bool> givesThisAway = new(SymbolEqualityComparer.Default);
+
     private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
         new(SymbolEqualityComparer.Default);
 
@@ -1084,6 +1087,22 @@ internal sealed class SodaFlowSymbols
         member.ContainingType is { } owner
         && (owner.ContainingNamespace?.ToDisplayString() == "System.Reflection"
             || (owner.Name == "Activator" && IsSystem(owner.ContainingNamespace)));
+
+    /// <summary>
+    ///     True for a constructor whose code uses <c>this</c> as a value, and not
+    ///     only as the owner of a member. Such a constructor can give the new
+    ///     object a second name. The answer for a constructor is the same at each
+    ///     creation.
+    /// </summary>
+    public bool GivesThisAway(IMethodSymbol definition) =>
+        this.givesThisAway.GetOrAdd(
+            key: definition,
+            valueFactory: static constructor =>
+                constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is ConstructorDeclarationSyntax code
+                && code.DescendantNodes()
+                    .OfType<ThisExpressionSyntax>()
+                    .Any(static used => used.Parent is not MemberAccessExpressionSyntax { Expression: var owner }
+                                        || owner != used));
 
     /// <summary>
     ///     True for a method that has a parameter whose type is a delegate. Most

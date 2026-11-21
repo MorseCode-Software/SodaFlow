@@ -652,6 +652,11 @@ internal sealed partial class LoopStateEvaluator
             : itsObject is { HasType: true } ? itsObject
             : null;
 
+        inner.thisInTheStore =
+            definer != null ? definer.thisInTheStore
+            : ReferenceEquals(objA: members, objB: this.thisMembers) ? this.thisInTheStore
+            : null;
+
         // The code of a function does not read this record: see TheOneCollectionOf.
         foreach (KeyValuePair<ISymbol, MadeObject> one in collections)
         {

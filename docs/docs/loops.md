@@ -394,7 +394,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   initializer sets, also where such a method puts it and keeps it there to its end. A method that
   always gives its `ref` or `out` parameter a value replaces what a local, or a field of the object
   in a local, held before, where the block always calls it and passes no second `ref` or `out`
-  argument.
+  argument. A constructor that puts `this` into a name makes that name a name of the new object, as
+  a registry does with a static field or a static property. The name can also be an element of an
+  array or a list that the constructor gets, a value of a dictionary that it gets, or a field of an
+  object that it gets.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a
@@ -717,15 +720,13 @@ Some reads that throw it does not see:
 - A write through a span, a memory, or a segment that a method gets as a parameter, that
   `MemoryMarshal` makes, that `CollectionsMarshal` makes of a list that is not in a local, or that a
   lambda or a local function uses. The write does not reach the array.
-- A handler that the code adds to an event of an object through one name, when code raises the event
-  through another name of that object. That happens when a constructor passes `this` on, as into a
-  static list, and code later raises the event through an element of the list.
-- A write to a member through `this` in a constructor, when the constructor also gave `this` to a
-  name that the caller reads, such as an element of an array that it gets. A read through that name
-  after the constructor returns still sees the value from before the write. Inside a method or a
-  constructor, each name of one object that the list above gives, when it gets `this`, also through
-  `Add` or as an element of a collection expression such as `[this]`, is the same object as `this`
-  until code gives it a different value.
+- A constructor that puts `this` into an array or a list in a static field, also one that it gets
+  as a parameter. An element of that array or list is then not a name of the new object. A write
+  through `this` or through the new object does not reach a read through the element, and an event
+  that code raises through the element does not run a handler that the code added through the new
+  object. Inside a method or a constructor, each name of one object that the list above gives, when
+  it gets `this`, also through `Add` or as an element of a collection expression such as `[this]`,
+  is the same object as `this` until code gives it a different value.
 - A write through a local that went into an element of an array in a static field, read through a
   third local that got that element, as in `F[0] = d; var q = F[0];` and then a write through `d`
   and a read through `q`. The same holds when the write goes through a `ref` local of the element or

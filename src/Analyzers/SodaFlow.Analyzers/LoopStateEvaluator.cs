@@ -1486,7 +1486,10 @@ internal sealed partial class LoopStateEvaluator
 
         if (this.RunsOneTime(place))
         {
-            MadeObject once = this.region.Objects.Make(frame: this.Frame, type: type, exact: exact, state: apart);
+            MadeObject once =
+                this.BuiltFor(place: place, state: apart)
+                ?? this.region.Objects.Make(frame: this.Frame, type: type, exact: exact, state: apart);
+
             this.MarkIfComplete(made: once, place: place, exact: exact);
 
             return apart.WithObjects(ImmutableArray.Create(once));
@@ -1972,6 +1975,7 @@ internal sealed partial class LoopStateEvaluator
             AnonymousFunctionExpressionSyntax function =>
                 LoopState.OfFunction(new FunctionValue(declaration: function, definer: this, receiver: null)),
             // The object that the code is in, with the members that the evaluator knows.
+            ThisExpressionSyntax when this.thisInTheStore is { } built => this.ThisInTheStore(built),
             ThisExpressionSyntax when this.thisMembers.Count > 0 =>
                 LoopState.None.WithMembers(
                     Construction.Of(this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default))),
@@ -4364,7 +4368,7 @@ internal sealed partial class LoopStateEvaluator
 
         switch (noState)
         {
-            case true when !this.ReadsForObjects(bindings):
+            case true when !this.ReadsForObjects(bindings) && !this.ReadsForThis(definition):
                 return new Followed(
                     state: LoopState.None.WithMembers(Construction.Of(definition.ContainingType)),
                     findings: Followed.Nothing.Findings,
@@ -4390,6 +4394,7 @@ internal sealed partial class LoopStateEvaluator
 
         // The constructor that a constructor calls first builds the same object.
         inner.builtType = chained ? this.builtType : definition.ContainingType;
+        inner.thisInTheStore = chained ? this.thisInTheStore : this.BuiltBeforeTheConstructor(call);
 
         List<Finding> found = [];
         SinkWalker walker = inner.ReadBy(new SinkWalker(region: this.region, evaluator: inner, sink: found.Add));

@@ -50,6 +50,8 @@ internal sealed partial class LoopStateEvaluator
                 ? existing.Join(state)
                 : state;
 
+        this.WritesThisInTheStore(key);
+
         // The member has only this state from now on: see OfThisObject.
         if (only && !this.quiet)
         {
