@@ -40281,6 +40281,22 @@ public static class Shapes
     public static Cell<int> Ab305SecondLocalOfAnArrayWhoseFirstLocalGetsAnArrayFromAMethod() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; SettableSlot[] b = a; a = Ab305NewArray(); a[0] = new SettableSlot { Share = l.Map(v => v) }; b[0] = new SettableSlot { Share = Plain }; return S.Hold(a[0].Share!.Sample()); });
 
+    // S9591. A stale name, Round 5: The same with a second local as the second name. The read is through the second local.
+    public static Cell<int> R5PairStaleRefLocalNewObjectPendingThroughSecondLocalPlainThroughLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); ref SettableSlot r = ref d; SettableSlot e = d; r = new SettableSlot(); e.Share = l.Map(v => v); d.Share = Plain; return S.Hold(e.Share!.Sample()); });
+
+    // S9592. A stale name, Round 5: The same with a second local, and the new object given in a method that gets the ref local with ref. The read is through the second local.
+    public static Cell<int> R5PairStaleRefLocalNewObjectTwoLocalsInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); ref SettableSlot r = ref d; SettableSlot e = d; R5PairPutRef(ref r, Plain); e.Share = l.Map(v => v); d.Share = Plain; return S.Hold(e.Share!.Sample()); });
+
+    // S9593. A stale name, Round 5: A span of a local is made first, then a second local gets the object, and a write through the span gives the first local a new object. The read is through the second local.
+    public static Cell<int> R5PairStaleSpanOfLocalNewObjectTwoLocals() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Span<SettableSlot> view = new(ref d); SettableSlot e = d; view[0] = new SettableSlot(); e.Share = l.Map(v => v); d.Share = Plain; return S.Hold(e.Share!.Sample()); });
+
+    // S9594. AB301, an edge: a method gets a local with in before a second local gets its object. A pending cell goes in through the second local, then a plain cell through the local. The read is through the second local.
+    public static Cell<int> Ab301InArgumentOfTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Ab301Read(in d); SettableSlot e = d; e.Share = l.Map(v => v); d.Share = Plain; return S.Hold(e.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -57632,6 +57648,8 @@ public static class Shapes
     private static SettableSlot[] Ab305Fa1 = [new()];
 
     private static SettableSlot[] Ab305NewArray() => [new SettableSlot()];
+
+    private static void Ab301Read(in SettableSlot slot) => GC.KeepAlive(slot);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

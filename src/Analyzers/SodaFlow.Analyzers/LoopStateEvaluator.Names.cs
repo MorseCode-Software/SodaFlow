@@ -672,7 +672,8 @@ internal sealed partial class LoopStateEvaluator
 
     // True when a name holds its object from the position where it got it to a use. The two are in
     // one function, and no loop or label is around the use. No code between them gives the name,
-    // its collection, its index, or its owner a value, and no function gives them a value. For an
+    // its collection, its index, or its owner a value, and no function gives them a value. A ref to
+    // such a local or parameter, also before the position, can give it a value at each time. For an
     // element, a static field, or a field of an owner, each node between must be one that
     // NothingBetweenChanges allows. Only a constructor gives a readonly field a value, and the
     // object of the field is older than the name.
@@ -696,10 +697,18 @@ internal sealed partial class LoopStateEvaluator
         return new[] { name.Of, name.Owner, name.Index as ISymbol }.All(part =>
                    part == null
                    || !this.UsesOf(name: part, code: name.Code)
-                       .Any(one => one.Gives && (one.InAFunction || (one.Position > name.From && one.Position < end))))
+                       .Any(one => one.Gives
+                                   && (one.InAFunction
+                                       || (one.Position > name.From && one.Position < end)
+                                       || (part is ILocalSymbol or IParameterSymbol
+                                           && IsARef(name.Code.FindToken(one.Position).Parent)))))
                && (name is { Index: null, Of: ILocalSymbol or IParameterSymbol or IFieldSymbol { IsReadOnly: true } }
                    || this.NothingBetweenChanges(name: name, after: name.From, before: end, ofTheName: true));
     }
+
+    // True for a use of a name as a ref: a ref argument or the location of a ref.
+    private static bool IsARef(SyntaxNode? use) =>
+        use?.Parent is RefExpressionSyntax or ArgumentSyntax { RefKindKeyword.RawKind: (int)SyntaxKind.RefKeyword };
 
     // True when no node between two positions can change the object of a name, or a member of an
     // object. Each such node is one that CannotChangeTheElement allows for the type of the

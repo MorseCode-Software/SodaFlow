@@ -5717,6 +5717,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab305SecondLocalOfADictionaryThatGetsANewDictionary"] = ["SF1001"],
             ["Ab305SecondLocalOfAnArrayWhoseFirstLocalGetsANewArray"] = ["SF1001"],
             ["Ab305SecondLocalOfARefLocalOfAField"] = ["SF1001"],
-            ["Ab305SecondLocalOfAnArrayWhoseFirstLocalGetsAnArrayFromAMethod"] = ["SF1001"]
+            ["Ab305SecondLocalOfAnArrayWhoseFirstLocalGetsAnArrayFromAMethod"] = ["SF1001"],
+            ["R5PairStaleRefLocalNewObjectPendingThroughSecondLocalPlainThroughLocal"] = ["SF1001"],
+            ["R5PairStaleRefLocalNewObjectTwoLocalsInAMethod"] = ["SF1001"],
+            ["R5PairStaleSpanOfLocalNewObjectTwoLocals"] = ["SF1001"]
         };
 }
