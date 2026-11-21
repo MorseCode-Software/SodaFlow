@@ -428,12 +428,16 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     // The largest block or switch section that always runs the statement of the await to its end.
     // Null when a statement, a branch, or a function between the two can skip the await. A goto to
     // a label after the await can skip it also. A constant condition skips no part that the walk
-    // reads.
+    // reads. In a function whose body is an expression, that expression is the part.
     private SyntaxNode? LaterPartOf(SyntaxNode node) =>
         (WhereItAlwaysRuns(expression: node, constants: this.region)
-         ?? HeaderOf(expression: node, constants: this.region)) is StatementSyntax statement
-            ? this.PartAround(statement)
-            : null;
+         ?? HeaderOf(expression: node, constants: this.region)) switch
+        {
+            StatementSyntax statement => this.PartAround(statement),
+            ArrowExpressionClauseSyntax arrow => arrow.Expression,
+            ExpressionSyntax body => body,
+            _ => null
+        };
 
     private SyntaxNode? PartAround(SyntaxNode statement)
     {

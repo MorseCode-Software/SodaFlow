@@ -39285,6 +39285,30 @@ public static class Shapes
     public static Cell<int> Ab282AwaitInAConstantTrueArmOfAForeachDefersTheRest() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int n in R4LimOn ? await R3CsNeverNumbers.Task : [1]) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
 
+    // S9342. An async local function awaits a task that never completes in the first argument of a call, and samples in the second.
+    public static Cell<int> R5LimAwaitInAnArgumentBeforeASample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { async Task<int> Run() => R5LimAdd(await R5LimNever, l.Sample()); Kept.Add(Run()); return S.Hold(0); });
+
+    // S9343. An async local function awaits a task that never completes in an interpolated string, and samples in a later hole.
+    public static Cell<int> R5LimAwaitInAnInterpolationBeforeASample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { async Task<string> Run() => $"{await R5LimNever}{l.Sample()}"; Kept.Add(Run()); return S.Hold(0); });
+
+    // S9344. An async local function awaits a task that never completes in a collection expression, and samples in a later element.
+    public static Cell<int> R5LimAwaitInACollectionExpressionBeforeASample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { async Task<int[]> Run() => [await R5LimNever, l.Sample()]; Kept.Add(Run()); return S.Hold(0); });
+
+    // S9345. An async local function awaits a task that never completes on the left of +, and samples on the right.
+    public static Cell<int> R5LimAwaitOnTheLeftOfAnOperatorBeforeASample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { async Task<int> Run() => await R5LimNever + l.Sample(); Kept.Add(Run()); return S.Hold(0); });
+
+    // S9346. An async lambda with an expression body awaits a task that never completes on the left of +, and samples on the right.
+    public static Cell<int> R5LimAwaitInAnAsyncLambdaWithAnExpressionBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task<int>> run = async () => await R5LimNever + l.Sample(); Kept.Add(run()); return S.Hold(0); });
+
+    // S9347. An async method of the shapes with an expression body awaits a task that never completes, and then samples its argument.
+    public static Cell<int> R5LimAwaitInAnAsyncMethodWithAnExpressionBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R5LimWaitThenSample(l.Map(v => v))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

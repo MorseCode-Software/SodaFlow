@@ -447,7 +447,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   by hand, where a method of yours gets the call and takes one item, and where `Zip` stops at the
   end of a shorter sequence. An `async` method or
   lambda runs in the block up to its first `await` of a task that may not be complete, and the rest
-  of it runs later. That holds for an `await` in a `switch` section, in a `finally` block, in the
+  of it runs later, also where its body is a single expression, such as `async () => await t + x`.
+  That holds for an `await` in a `switch` section, in a `finally` block, in the
   condition of a `do`, or in the header of a `for`, `foreach`, `switch`, `while`, `using`, or `lock`
   too. It also holds for an `await` in the branch of an `if` or the arm of a `?:` that a constant
   condition selects, and in the one `catch` clause of a `try` whose block starts with a `throw`.
