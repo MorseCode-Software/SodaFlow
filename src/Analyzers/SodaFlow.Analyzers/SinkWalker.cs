@@ -1182,6 +1182,13 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             return LoopState.None;
         }
 
+        // The enumerator of an iterator runs the code of the iterator at MoveNext. A GetEnumerator of
+        // IEnumerable that calls such a GetEnumerator gives it, as a foreach over a dynamic value does.
+        if (!enumerator.State.Queries.IsEmpty)
+        {
+            this.Run(state: enumerator.State, enumerated: null);
+        }
+
         // An iterator has no enumerator object of this compilation, and a method can give the
         // enumerator of a collection of the platform. The result then has the state of the
         // elements.
@@ -4987,16 +4994,21 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         if (node.Expression is MemberAccessExpressionSyntax access
             && this.evaluator.Eval(access.Expression) is { Members: { } members } owner
-            && members.MethodsOf(name: access.Name.Identifier.ValueText, parameters: arguments.Count)
-                .ToList() is { Count: 1 } found)
+            && this.evaluator.DynamicMethodOf(
+                    members: members,
+                    name: access.Name.Identifier.ValueText,
+                    arguments: arguments)
+                is ({ } found, var inOrder))
         {
             this.Report(
                 this.evaluator.FollowImplied(
                     call: node,
-                    member: found[0],
+                    member: found,
                     owner: owner,
-                    arguments: arguments.Select(argument =>
-                        (argument.Expression, this.evaluator.Eval(argument.Expression)))));
+                    arguments: inOrder.Select(argument =>
+                        argument == null
+                            ? (node, LoopState.None)
+                            : (argument.Expression, this.evaluator.Eval(argument.Expression)))));
 
             return;
         }

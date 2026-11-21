@@ -706,20 +706,26 @@ internal sealed partial class LoopStateEvaluator
                         operation: this.region.SymbolOf(prefix),
                         operands: [prefix.Operand]),
             PostfixUnaryExpressionSyntax postfix when this.region.Symbols.DeclaresOperators =>
-                this.FollowOperator(
-                    call: postfix,
-                    operation: this.region.SymbolOf(postfix),
-                    operands: [postfix.Operand]),
+                this.region.SymbolOf(postfix)
+                    is IMethodSymbol { MethodKind: MethodKind.BuiltinOperator, ReturnType.TypeKind: TypeKind.Dynamic }
+                    ? this.FollowDynamicOperator(operation: postfix, operands: [postfix.Operand])
+                    : this.FollowOperator(
+                        call: postfix,
+                        operation: this.region.SymbolOf(postfix),
+                        operands: [postfix.Operand]),
             CastExpressionSyntax cast when this.region.Symbols.DeclaresOperators => this.FollowCast(cast),
             // The compiler gives a plain assignment no operator, and only an operator of this
             // compilation has a body to read. Thus, these two tests are only for speed.
             AssignmentExpressionSyntax compound
                 when this.region.Symbols.DeclaresOperators
                      && !compound.IsKind(SyntaxKind.SimpleAssignmentExpression) =>
-                this.FollowOperator(
-                    call: compound,
-                    operation: this.region.SymbolOf(compound),
-                    operands: [compound.Left, compound.Right]),
+                this.region.SymbolOf(compound)
+                    is IMethodSymbol { MethodKind: MethodKind.BuiltinOperator, ReturnType.TypeKind: TypeKind.Dynamic }
+                    ? this.FollowDynamicOperator(operation: compound, operands: [compound.Left, compound.Right])
+                    : this.FollowOperator(
+                        call: compound,
+                        operation: this.region.SymbolOf(compound),
+                        operands: [compound.Left, compound.Right]),
             _ => null
         };
 
@@ -899,7 +905,7 @@ internal sealed partial class LoopStateEvaluator
         if (this.region.ConvertsADynamic(expression))
         {
             return this.region.ModelFor(expression).GetTypeInfo(expression).ConvertedType is { } to
-                ? this.FollowDynamicConversion(expression: expression, to: to)
+                ? this.FollowDynamicConversion(call: expression, expression: expression, to: to)
                 : null;
         }
 
@@ -918,6 +924,15 @@ internal sealed partial class LoopStateEvaluator
     private Followed? FollowCast(CastExpressionSyntax cast)
     {
         ISymbol? operation = this.region.SymbolOf(cast);
+
+        // The binder converts a dynamic value with the conversion of the type of its object.
+        if (operation == null
+            && this.region.Symbols.DeclaresConversions
+            && this.region.TypeOf(cast.Expression) is { TypeKind: TypeKind.Dynamic }
+            && this.region.TypeOf(cast) is { } type)
+        {
+            return this.FollowDynamicConversion(call: cast, expression: cast.Expression, to: type);
+        }
 
         return operation == null
                && this.region.Symbols.DeclaresConversions

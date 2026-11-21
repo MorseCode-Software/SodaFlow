@@ -39453,6 +39453,114 @@ public static class Shapes
     public static Cell<int> Ab287NullableTupleCastToANullableTupleType() =>
         Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); (Tally, int)? p = (t, 1); (long, int)? q = ((long, int)?)p; return S.Hold((int)q.Value.Item1); });
 
+    // S9384. An explicit cast of a dynamic value runs the explicit conversion of its type, which samples.
+    public static Cell<int> R5CsDynamicExplicitConversionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); short x = (short)d; return S.Hold(x); });
+
+    // S9385. An increment of a dynamic value runs operator ++ of its type, which samples.
+    public static Cell<int> R5CsDynamicIncrementReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); d++; Kept.Add(d); return S.Hold(0); });
+
+    // S9386. A += of a handler to an event of a dynamic value runs the add accessor, which samples.
+    public static Cell<int> R5CsDynamicEventAddCallsTheAccessor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); d.Changed += (Action)(() => { }); return S.Hold(0); });
+
+    // S9387. A foreach over a dynamic value enumerates it, and the enumerator samples.
+    public static Cell<int> R5CsDynamicForeachEnumerates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new TallyBag(l.Map(v => v)); foreach (int n in d) { Kept.Add(n); } return S.Hold(0); });
+
+    // S9388. An await of a dynamic value calls IsCompleted of its awaiter, which samples.
+    public static Cell<int> R5CsDynamicAwaitCallsIsCompleted() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { dynamic d = new R4CsReady(l.Map(v => v)); await d; }; run().Wait(0); return S.Hold(0); });
+
+    // S9389. A dynamic value converts to double with no cast: the implicit conversion to long runs, then a standard conversion.
+    public static Cell<int> R5CsDynamicConversionThroughAStandardConversionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); double x = d; return S.Hold((int)x); });
+
+    // S9390. A dynamic call of a method with two overloads of one parameter runs the overload for the argument, which samples.
+    public static Cell<int> R5CsDynamicCallOfAnOverloadedMethodReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new R5CsOverloaded(l.Map(v => v)); int x = d.Now(1); return S.Hold(x); });
+
+    // S9391. A dynamic call with no argument runs a method with an optional parameter, which samples.
+    public static Cell<int> R5CsDynamicCallOfAMethodWithAnOptionalParameterReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new R5CsOverloaded(l.Map(v => v)); int x = d.Later(); return S.Hold(x); });
+
+    // S9392. An explicit cast of a dynamic value runs a conversion of the code that samples.
+    public static Cell<int> R5FuDynamicExplicitCast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); short x = (short)d; return S.Hold(x); });
+
+    // S9393. A postfix increment of a dynamic value runs an operator of the code that samples.
+    public static Cell<int> R5FuDynamicPostfixIncrement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); d++; return S.Hold(0); });
+
+    // S9394. A compound assignment of a dynamic value runs an operator of the code that samples.
+    public static Cell<int> R5FuDynamicCompoundAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); d += 1; return S.Hold(0); });
+
+    // S9395. A dynamic call with a string argument runs the overload for a string, which does not sample.
+    public static Cell<int> Ab288DynamicCallPicksTheOverloadOfTheArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab288Picky(l.Map(v => v)); int x = d.Pick("x"); return S.Hold(x); });
+
+    // S9396. A dynamic call with an int argument runs the overload for an int, which samples.
+    public static Cell<int> Ab288DynamicCallPicksTheOverloadThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab288Picky(l.Map(v => v)); int x = d.Pick(1); return S.Hold(x); });
+
+    // S9397. A -= of a handler to an event of a dynamic value runs the remove accessor, which does not sample.
+    public static Cell<int> Ab288DynamicEventRemoveReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); d.Changed -= (Action)(() => { }); return S.Hold(0); });
+
+    // S9398. A cast of a dynamic value to long runs the implicit conversion of its type, which samples.
+    public static Cell<int> Ab288DynamicCastRunsAnImplicitConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); long x = (long)d; return S.Hold((int)x); });
+
+    // S9399. A foreach over a dynamic value of a plain cell enumerates it, and the enumerator samples the plain cell.
+    public static Cell<int> Ab288DynamicForeachOfAPlainBagReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new TallyBag(Plain); foreach (int n in d) { Kept.Add(n); } return S.Hold(0); });
+
+    // S9400. A foreach over an IEnumerable that holds a TallyBag calls IEnumerable.GetEnumerator, which gives the enumerator of an iterator that samples.
+    public static Cell<int> Ab288ForeachOverAnIEnumerableRunsTheIterator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Collections.IEnumerable e = new TallyBag(l.Map(v => v)); foreach (object n in e) { Kept.Add(n); } return S.Hold(0); });
+
+    // S9401. A prefix increment of a dynamic value runs operator ++ of its type, which samples.
+    public static Cell<int> Ab288DynamicPrefixIncrementReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Tally(l.Map(v => v)); ++d; return S.Hold(0); });
+
+    // S9402. A prefix decrement of a dynamic value runs operator -- of its type, which samples.
+    public static Cell<int> Ab288DynamicPrefixDecrementReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab288Gauge(l.Map(v => v)); --d; return S.Hold(0); });
+
+    // S9403. A -= of a dynamic value runs operator - of its type, which samples.
+    public static Cell<int> Ab288DynamicSubtractAssignmentReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab288Gauge(l.Map(v => v)); d -= 1; return S.Hold(0); });
+
+    // S9404. A dynamic call with no argument runs the overload with no parameter, which samples, and not the one with a parameter.
+    public static Cell<int> Ab288DynamicCallPicksTheOverloadWithNoParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab288Peeker(l.Map(v => v)); int x = d.Peek(); return S.Hold(x); });
+
+    // S9405. A dynamic call with a named argument at its position runs the method, which samples.
+    public static Cell<int> Ab288DynamicCallWithANamedArgumentReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new R5CsOverloaded(l.Map(v => v)); int x = d.Later(n: 1); return S.Hold(x); });
+
+    // S9406. A dynamic call with named arguments out of their order runs the method, which samples.
+    public static Cell<int> Ab288DynamicCallWithNamedArgumentsOutOfOrderReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab288Pair(l.Map(v => v)); int x = d.Two(b: "x", a: 1); return S.Hold(x); });
+
+    // S9407. A dynamic call with a named argument that skips an optional parameter runs the method, which samples.
+    public static Cell<int> Ab288DynamicCallThatSkipsAnOptionalParameterReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab288Pair(l.Map(v => v)); int x = d.Gap(b: 1); return S.Hold(x); });
+
+    // S9408. A dynamic call with a named argument for the second of two optional parameters gives the value to that parameter, which the method samples.
+    public static Cell<int> Ab288DynamicCallGivesANamedArgumentToItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab288Pair(Plain); int x = d.Late(b: l.Map(v => v)); return S.Hold(x); });
+
+    // S9409. A dynamic call with two arguments runs the overload with two parameters, which samples, and not the one with one.
+    public static Cell<int> Ab288DynamicCallPicksTheOverloadWithTwoParameters() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab288Pair(l.Map(v => v)); int x = d.One(1, 2); return S.Hold(x); });
+
+    // S9410. A dynamic call with a name that one overload lacks runs the overload that has it, which samples.
+    public static Cell<int> Ab288DynamicCallWithANameThatOneOverloadLacks() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab288Pair(l.Map(v => v)); int x = d.One(a: 1, b: 2); return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -56499,6 +56607,47 @@ public static class Shapes
         private readonly Cell<int> share = share;
 
         public static explicit operator (long, int)(Ab287ToPair p) => (p.share.Sample(), 0);
+    }
+
+    public sealed class Ab288Picky(Cell<int> share)
+    {
+        public int Pick(int n) => share.Sample() + n;
+
+        public int Pick(string s) => s.Length;
+    }
+
+    public sealed class Ab288Gauge(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        public static Ab288Gauge operator --(Ab288Gauge g)
+        {
+            Kept.Add(g.share.Sample());
+
+            return g;
+        }
+
+        public static int operator -(Ab288Gauge g, int n) => g.share.Sample() - n;
+    }
+
+    public sealed class Ab288Peeker(Cell<int> share)
+    {
+        public int Peek() => share.Sample();
+
+        public int Peek(int n) => n;
+    }
+
+    public sealed class Ab288Pair(Cell<int> share)
+    {
+        public int Two(int a, string b) => share.Sample() + a + b.Length;
+
+        public int Gap(int a = 0, int b = 0) => share.Sample() + a + b;
+
+        public int Late(Cell<int>? a = null, Cell<int>? b = null) => b!.Sample();
+
+        public int One(int a) => a;
+
+        public int One(int a, int b) => share.Sample() + a + b;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

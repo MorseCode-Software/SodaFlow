@@ -420,8 +420,14 @@ The analyzer follows a value made from the placeholder through the code of your 
   constructor again at the next use. A use in a loop counts for the rest of the block, also when the
   loop has no turn.
 - A value of the type `dynamic` whose object the analyzer saw made. It reads the method, the getter
-  or the setter, the indexer, the operator, the implicit conversion, or the `operator true` or
-  `operator false` that the runtime binder finds on the type of that object.
+  or the setter, the indexer, the event accessor of a `+=` or a `-=`, the operator, also of `++`,
+  `--`, and a compound assignment, the conversion, with or without a cast, the `operator true` or
+  `operator false`, the enumerator of a `foreach`, and the `GetAwaiter` and `IsCompleted` of an
+  `await`, that the runtime binder finds on the type of that object. It picks a method as the binder
+  does: by the names and the number of the arguments, with the optional parameters, and by the type
+  of each argument whose type the code knows, and it reads none where two methods remain. A
+  conversion can have a standard conversion before or after it, as in the compiler. The analyzer
+  does not read `GetResult` after an `await` of a dynamic value.
 - Members that the platform calls for you: `CompareTo` in a sort, `Equals` and `GetHashCode` in a
   search, a set, or a dictionary, a comparer that you give a collection, `ToString` in `string.Join`
   or `string.Format`, and the `ToString` of each part that a `KeyValuePair`, a `DictionaryEntry`, or

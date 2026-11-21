@@ -115,11 +115,17 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="awaited">The await.</param>
     public Followed? FollowAwaiter(AwaitExpressionSyntax awaited)
     {
-        if (!this.region.Symbols.DeclaresAwaiters
-            || this.region.ModelFor(awaited).GetAwaitExpressionInfo(awaited)
-                is not { GetAwaiterMethod: { } start } info)
+        if (!this.region.Symbols.DeclaresAwaiters)
         {
             return null;
+        }
+
+        AwaitExpressionInfo info = this.region.ModelFor(awaited).GetAwaitExpressionInfo(awaited);
+
+        // The binder finds the members of an await of a dynamic value at run time.
+        if (info.GetAwaiterMethod is not { } start)
+        {
+            return info.IsDynamic ? this.FollowDynamicAwaiter(awaited) : null;
         }
 
         LoopState value = this.Self(awaited.Expression);
