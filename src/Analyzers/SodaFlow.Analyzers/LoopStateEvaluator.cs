@@ -2895,7 +2895,7 @@ internal sealed partial class LoopStateEvaluator
 
         return rule == OperatorRule.Content && OperatorName(method) is "CreateSink" or "CreateStreamSink"
             ? this.ASink(creation: invocation, method: method, state: state)
-            : method.Name is "CreateTwoWay" or "Construct"
+            : method.Name is "CreateTwoWay" or "Construct" or "Map"
                 ? this.WithTheLibraryParts(call: invocation, method: method, state: state)
                 : state;
     }

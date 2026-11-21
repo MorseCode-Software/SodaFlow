@@ -419,9 +419,12 @@ internal sealed partial class LoopStateEvaluator
     // The parts of a value that a call of the library makes, which the operator table does not
     // give it.
     private LoopState WithTheLibraryParts(InvocationExpressionSyntax call, IMethodSymbol method, LoopState state) =>
-        method.Name == "CreateTwoWay"
-            ? this.ATwoWayBindable(creation: call, method: method, state: state)
-            : this.AConstructedResult(construct: call, method: method, state: state);
+        method.Name switch
+        {
+            "CreateTwoWay" => this.ATwoWayBindable(creation: call, method: method, state: state),
+            "Construct" => this.AConstructedResult(construct: call, method: method, state: state),
+            _ => this.AMapWithAHandler(map: call, method: method, state: state)
+        };
 
     // The result of Construct of a map through a task holds what its function returns. The function
     // runs in the transaction of the send of the result, after the close. Thus, an evaluator that

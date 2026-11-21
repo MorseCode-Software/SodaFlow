@@ -267,8 +267,9 @@ is quiet.
   same way. Their predicates, selectors, sort orders, and comparers run when something reads the
   view. The eviction handler of a `Map` on a collection runs when a key leaves the view, and in a
   call of `Dispose` for each object the map built. The analyzer reads the handler at a `Dispose` in
-  the block, also one through `IDisposable`, unless the code uses the map for nothing but that
-  `Dispose`.
+  the block, also one through `IDisposable` or through a list that holds the map, unless the code
+  uses the map for nothing but that `Dispose`. It does not read the handler where the code disposes
+  the map through a field.
 - **A call that the compiler removes.** A call of a method with `[Conditional]`, such as
   `Debug.WriteLine` in a release build, does not run, and neither do its arguments, when the build
   defines none of its symbols.
@@ -471,7 +472,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   A `Cancel` or a `Dispose` of the timer before the run, or the end of a `using` statement of it,
   takes the timer away when it runs on every path, outside a loop.
   A `TimerSystem` calls `Start` and `Now` of its implementation when you construct it, and `Stop`
-  when you dispose it. The construction of a `SystemClockTimerSystem` calls its `now` function.
+  when you dispose it, also through a field or an element of a list. The construction of a
+  `SystemClockTimerSystem` calls its `now` function.
   `Debounce` reads the `Time` of its timer system, and calls its `At`, when you call it.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it,
   the function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`, and the

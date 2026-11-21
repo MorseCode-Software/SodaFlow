@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -1163,33 +1164,63 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     /// <param name="map">The expression of the map.</param>
     /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
-    public Followed? FollowEvictionsOfADispose(ExpressionSyntax map, SyntaxNode dispose)
+    /// <param name="runsOnEachPath">
+    ///     True when the <c>Dispose</c> runs on all paths of its function. The
+    ///     walk asks only for a map that a different code made.
+    /// </param>
+    public Followed? FollowEvictionsOfADispose(ExpressionSyntax map, SyntaxNode dispose, Func<bool> runsOnEachPath)
     {
         if (this.MadeValueOf(map) is not InvocationExpressionSyntax
             {
                 Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Map" }
             } creation
             || this.region.SymbolOf(creation) is not IMethodSymbol method
-            || !this.region.Symbols.IsSodaFlow(method)
-            || !this.CanHaveBuiltAnObject(creation))
+            || !this.region.Symbols.IsSodaFlow(method))
         {
-            return null;
+            // A field or a list of IDisposable can have the map. The store has the handlers of its
+            // object.
+            return this.FollowEvictions(
+                map: map,
+                dispose: dispose,
+                handlers: this.ObjectsOfADispose(value: map, runsOnEachPath: runsOnEachPath)
+                    .SelectMany(made => this.region.Objects.HandlersOfAMap(made)));
         }
 
-        // The handler gets each object that the projection gave.
-        LoopState objects = this.Eval(map).Content;
+        return this.CanHaveBuiltAnObject(creation)
+            ? this.FollowEvictions(
+                map: map,
+                dispose: dispose,
+                handlers: this.HandlersAtDispose(map: creation, method: method))
+            : null;
+    }
 
-        return creation.ArgumentList.Arguments
+    // The handlers that a map of a collection runs in its Dispose, each with its parameter and its
+    // state.
+    private IEnumerable<MapHandler> HandlersAtDispose(InvocationExpressionSyntax map, IMethodSymbol method) =>
+        map.ArgumentList.Arguments
             .Select((argument, position) =>
                 (argument.Expression,
                     Parameter: ParameterFor(method: method, argument: argument, position: position)))
             .Where(argument =>
                 argument.Parameter is { } parameter && OperatorTable.IsRunAtDispose(method: method, parameter: parameter))
+            .Select(argument =>
+                new MapHandler(
+                    written: argument.Expression,
+                    parameter: argument.Parameter,
+                    handler: this.Eval(argument.Expression)));
+
+    // The run of each handler of a map at its Dispose.
+    private Followed? FollowEvictions(ExpressionSyntax map, SyntaxNode dispose, IEnumerable<MapHandler> handlers)
+    {
+        // The handler gets each object that the projection gave.
+        LoopState objects = this.Eval(map).Content;
+
+        return handlers
             .Aggregate(
                 seed: (Followed?)null,
                 func: (all, argument) =>
                 {
-                    LoopState handler = this.Eval(argument.Expression);
+                    LoopState handler = argument.Handler;
 
                     return Callables(state: handler, parameter: argument.Parameter)
                         .Aggregate(
@@ -1199,12 +1230,33 @@ internal sealed partial class LoopStateEvaluator
                                     first: found,
                                     second: this.FollowFunction(
                                         call: dispose,
-                                        name: NameOf(argument.Expression),
+                                        name: NameOf(argument.Written),
                                         function: function,
                                         target: handler,
                                         arguments: default,
                                         each: (map, objects, ManyTimes: true))));
                 });
+    }
+
+    // A map of a collection with a handler that its Dispose runs is an object of the store, which
+    // keeps each handler. A map that can have built no object runs no handler.
+    private LoopState AMapWithAHandler(InvocationExpressionSyntax map, IMethodSymbol method, LoopState state)
+    {
+        if (map.ArgumentList.Arguments.Count < 2
+            || this.HandlersAtDispose(map: map, method: method).ToList() is not { Count: > 0 } handlers
+            || !this.CanHaveBuiltAnObject(map))
+        {
+            return state;
+        }
+
+        LoopState made = this.MadeHere(place: map, state: state, exact: false);
+
+        foreach (MadeObject each in made.Objects)
+        {
+            this.region.Objects.IsAMapWith(made: each, handlers: handlers);
+        }
+
+        return made;
     }
 
     /// <summary>
@@ -1356,11 +1408,85 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     /// <param name="system">The expression of the timer system.</param>
     /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
-    public Followed? FollowClockOfADispose(ExpressionSyntax system, SyntaxNode dispose) =>
-        this.MadeValueOf(system) is BaseObjectCreationExpressionSyntax { ArgumentList: { } arguments } creation
-        && this.region.SymbolOf(creation) is IMethodSymbol constructor
-            ? this.FollowClock(system: constructor, arguments: arguments.Arguments, call: dispose, members: ["Stop"])
-            : null;
+    /// <param name="runsOnEachPath">
+    ///     True when the <c>Dispose</c> runs on all paths of its function. The
+    ///     walk asks only for a timer system that a different code made.
+    /// </param>
+    public Followed? FollowClockOfADispose(ExpressionSyntax system, SyntaxNode dispose, Func<bool> runsOnEachPath)
+    {
+        if (this.MadeValueOf(system) is BaseObjectCreationExpressionSyntax { ArgumentList: { } arguments } creation
+            && this.region.SymbolOf(creation) is IMethodSymbol constructor)
+        {
+            return this.FollowClock(
+                system: constructor,
+                arguments: arguments.Arguments,
+                call: dispose,
+                members: ["Stop"]);
+        }
+
+        // A field or a list of IDisposable can have the timer system. The store has the clock of
+        // its object.
+        (IMethodSymbol Stop, LoopState Clock)[] clocks =
+        [
+            .. this.ObjectsOfADispose(value: system, runsOnEachPath: runsOnEachPath)
+                .Select(made => this.region.Objects.ClockOfATimerSystem(made))
+                .OfType<(IMethodSymbol Stop, LoopState Clock)>()
+        ];
+
+        return clocks.Length == 0
+            ? null
+            : this.FollowImplied(
+                call: dispose,
+                member: clocks[0].Stop,
+                owner: clocks.Aggregate(seed: LoopState.None, func: static (all, each) => all.Join(each.Clock)),
+                arguments: []);
+    }
+
+    // The objects that a Dispose of a value disposes. A callee can get an object from its caller,
+    // and the walk does not know the path that the arguments of the callee select. Thus, the callee
+    // disposes such an object only where its Dispose runs on all paths.
+    private IEnumerable<MadeObject> ObjectsOfADispose(ExpressionSyntax value, Func<bool> runsOnEachPath)
+    {
+        bool? onEachPath = null;
+
+        foreach (MadeObject made in this.region.Objects.Now(this.Eval(value).Objects))
+        {
+            if (made.IsFrom(this.Frame) || (onEachPath ??= runsOnEachPath()))
+            {
+                yield return made;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Records the clock of a timer system that a constructor made, for its
+    ///     <c>Dispose</c>. The Dispose calls <c>Stop</c> of that clock.
+    /// </summary>
+    /// <param name="creation">The creation of the timer system.</param>
+    /// <param name="system">The constructor.</param>
+    /// <param name="arguments">The arguments of the constructor.</param>
+    public void NotesATimerSystem(
+        SyntaxNode creation,
+        IMethodSymbol system,
+        SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        // Only the constructor of TimerSystem has a parameter of that name.
+        if (creation is not BaseObjectCreationExpressionSyntax made
+            || system.Parameters.FirstOrDefault(static parameter => parameter.Name == "implementation")
+                is not { Type: var contract }
+            || contract.GetMembers("Stop").OfType<IMethodSymbol>().FirstOrDefault() is not { } stop
+            || ArgumentFor(method: system, arguments: arguments, parameter: "implementation") is not { } implementation)
+        {
+            return;
+        }
+
+        LoopState clock = this.Eval(implementation);
+
+        foreach (MadeObject each in this.Eval(made).Objects)
+        {
+            this.region.Objects.IsATimerSystemOf(made: each, stop: stop, clock: clock);
+        }
+    }
 
     /// <summary>
     ///     The run of the members of its timer system that <c>Debounce</c> calls

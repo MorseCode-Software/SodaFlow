@@ -367,6 +367,30 @@ internal sealed class ObjectStore
         }
     }
 
+    // The clock of each timer system of the store, with the Stop that its Dispose calls.
+    private readonly Dictionary<MadeObject, (IMethodSymbol Stop, LoopState Clock)> clocksOfTimerSystems = [];
+
+    /// <summary>Records that an object is a timer system of the given clock.</summary>
+    public void IsATimerSystemOf(MadeObject made, IMethodSymbol stop, LoopState clock) =>
+        this.clocksOfTimerSystems[made] = (stop, clock);
+
+    /// <summary>The clock of a timer system of the store. Null for each other object.</summary>
+    public (IMethodSymbol Stop, LoopState Clock)? ClockOfATimerSystem(MadeObject made) =>
+        this.clocksOfTimerSystems.TryGetValue(key: made, value: out (IMethodSymbol Stop, LoopState Clock) clock)
+            ? clock
+            : null;
+
+    // The handlers that the Dispose of each map of a collection of the store runs.
+    private readonly Dictionary<MadeObject, IReadOnlyList<MapHandler>> handlersOfMaps = [];
+
+    /// <summary>Records the handlers that the Dispose of a map of a collection runs.</summary>
+    public void IsAMapWith(MadeObject made, IReadOnlyList<MapHandler> handlers) =>
+        this.handlersOfMaps[made] = handlers;
+
+    /// <summary>The handlers of a map of the store. None for each other object.</summary>
+    public IReadOnlyList<MapHandler> HandlersOfAMap(MadeObject made) =>
+        this.handlersOfMaps.TryGetValue(key: made, value: out IReadOnlyList<MapHandler>? handlers) ? handlers : [];
+
     // The sink that each two-way bindable of the store sends a write into.
     private readonly Dictionary<MadeObject, LoopState> sinksOfBindables = [];
 

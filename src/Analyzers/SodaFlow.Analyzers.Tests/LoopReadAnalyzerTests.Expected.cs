@@ -5791,6 +5791,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5ApiDebounceCallsTheAtOfATimerSystemOfTheCode"] = ["SF1005"],
             ["Ab317DebounceReadsTheTimeOfATimerSystemInALocalOfTheInterface"] = ["SF1005"],
             ["Ab317DebounceReadsOnlyTheTimeThatSamples"] = ["SF1005"],
-            ["Ab317DebounceCallsOnlyTheAtThatSamples"] = ["SF1005"]
+            ["Ab317DebounceCallsOnlyTheAtThatSamples"] = ["SF1005"],
+            ["R5FuTimerSystemInAFieldDisposed"] = ["SF1005"],
+            ["R5FuTimerSystemInAListDisposed"] = ["SF1005"],
+            ["R5FuMappedItemsInAListDisposed"] = ["SF1001"],
+            ["Ab321MappedItemsInAListDisposedInABranch"] = ["SF1001"]
         };
 }

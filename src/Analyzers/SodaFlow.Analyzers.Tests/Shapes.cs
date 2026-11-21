@@ -40673,6 +40673,30 @@ public static class Shapes
     public static Cell<int> Ab317DebounceCallsOnlyTheAtThatSamples() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(S.Debounce(timers: new Ab317AtReadingTimers(l.Map(v => v)), deadline: n => n + 1)); return S.Hold(0); });
 
+    // S9689. A static field holds a timer system whose clock samples at Stop. The block disposes it through the field.
+    public static Cell<int> R5FuTimerSystemInAFieldDisposed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuTimers = new TimerSystem<int>(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { }); R5FuTimers.Dispose(); return S.Hold(0); });
+
+    // S9690. A list holds a timer system whose clock samples at Stop. A foreach disposes each item of the list.
+    public static Cell<int> R5FuTimerSystemInAListDisposed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IDisposable> all = [new TimerSystem<int>(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { })]; foreach (IDisposable d in all) { d.Dispose(); } return S.Hold(0); });
+
+    // S9691. A list holds a map of a collection whose eviction handler samples. A foreach disposes each item of the list.
+    public static Cell<int> R5FuMappedItemsInAListDisposed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; List<IDisposable> all = [m]; foreach (IDisposable d in all) { d.Dispose(); } return S.Hold(n); });
+
+    // S9692. Control: a list holds a timer system whose clock keeps a cell and reads it in no member. A foreach disposes each item of the list, and Stop reads nothing.
+    public static Cell<int> Ab321TimerSystemOfAQuietClockInAListDisposed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IDisposable> all = [new TimerSystem<int>(implementation: new R4ApiKeptCellClock(l.Map(v => v)), handleException: static _ => { })]; foreach (IDisposable d in all) { d.Dispose(); } return S.Hold(0); });
+
+    // S9693. Control: a list holds a map of a collection whose eviction handler samples, and no code reads the items of the map. Thus, the map built no object, and its Dispose runs no handler.
+    public static Cell<int> Ab321MapThatBuiltNoObjectInAListDisposed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IDisposable> all = [Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample()))]; foreach (IDisposable d in all) { d.Dispose(); } return S.Hold(0); });
+
+    // S9694. A list holds a map of a collection whose eviction handler samples, and the block reads its items. A foreach disposes each item of the list in a branch that runs, thus the handler runs, and the sample throws.
+    public static Cell<int> Ab321MappedItemsInAListDisposedInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; List<IDisposable> all = [m]; foreach (IDisposable d in all) { if (Kept.Count >= 0) { d.Dispose(); } } return S.Hold(n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

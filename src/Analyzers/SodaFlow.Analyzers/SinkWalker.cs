@@ -280,8 +280,15 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             return;
         }
 
-        this.Report(this.evaluator.FollowEvictionsOfADispose(map: resource, dispose: resource));
-        this.Report(this.evaluator.FollowClockOfADispose(system: resource, dispose: resource));
+        // A using disposes its resource where the code reaches the statement.
+        Func<bool> runsOnEachPath = () =>
+            resource.FirstAncestorOrSelf<StatementSyntax>() is { } statement
+            && this.AlwaysRunsAt(place: statement, turn: out _);
+
+        this.Report(
+            this.evaluator.FollowEvictionsOfADispose(map: resource, dispose: resource, runsOnEachPath: runsOnEachPath));
+        this.Report(
+            this.evaluator.FollowClockOfADispose(system: resource, dispose: resource, runsOnEachPath: runsOnEachPath));
 
         LoopState state = this.evaluator.Eval(resource);
 
@@ -3526,8 +3533,19 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 // one through IDisposable.
                 case "Dispose" when method.ReducedFrom == null:
                     this.CancelsATimerAt(call: node, timer: receiver);
-                    this.Report(this.evaluator.FollowEvictionsOfADispose(map: receiver, dispose: node));
-                    this.Report(this.evaluator.FollowClockOfADispose(system: receiver, dispose: node));
+                    Func<bool> runsOnEachPath = () => this.WhereACallRuns(node).InItsFunction;
+
+                    this.Report(
+                        this.evaluator.FollowEvictionsOfADispose(
+                            map: receiver,
+                            dispose: node,
+                            runsOnEachPath: runsOnEachPath));
+
+                    this.Report(
+                        this.evaluator.FollowClockOfADispose(
+                            system: receiver,
+                            dispose: node,
+                            runsOnEachPath: runsOnEachPath));
 
                     break;
                 // A clock of the library base keeps the callback of SetTimer. Its RunTimersTo runs
@@ -3600,8 +3618,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             return;
         }
 
-        // A callee runs a timer of a different code only where the call runs on every path. The walk
-        // does not know which path the arguments of the callee choose.
+        // A callee runs a timer of a different code only where the call runs on all paths. The walk
+        // does not know the path that the arguments of the callee select.
         bool always = this.WhereACallRuns(call) is (true, null);
 
         foreach (KeptTimer timer in this.region.Objects.TimersOf(this.region.Objects.Now(clocks))
@@ -3809,6 +3827,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                         arguments: arguments.Arguments,
                         call: node,
                         members: ["Start", "Now"]));
+
+                this.evaluator.NotesATimerSystem(
+                    creation: node,
+                    system: constructor,
+                    arguments: arguments.Arguments);
 
                 break;
             default:
