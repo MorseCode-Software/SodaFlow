@@ -2317,7 +2317,7 @@ internal sealed partial class LoopStateEvaluator
                         field: field,
                         read: expression,
                         throughThisOrAField: this.RootOf(ownerExpression) is { } root
-                                             && this.region.SymbolOf(root) is IFieldSymbol);
+                                             && this.region.SymbolOf(root) is IFieldSymbol or IPropertySymbol);
                 }
 
                 if (ownerExpression != null)

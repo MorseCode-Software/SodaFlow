@@ -560,6 +560,11 @@ internal sealed partial class LoopStateEvaluator
             this.region.Objects.HasPositions(collection: made, values: known);
         }
 
+        if (method.Name == "Add" && For("item") is { } added)
+        {
+            this.NotesAnAdd(collection: collection, item: added.Expression, index: all.Length);
+        }
+
         return;
 
         // The argument for the parameter with a name. An argument can have its name in the code.

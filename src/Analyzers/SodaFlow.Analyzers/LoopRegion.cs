@@ -106,6 +106,13 @@ internal sealed class LoopRegion(
     /// <summary>The content that the sends of this read give to the sinks.</summary>
     public SentContent Sent { get; } = new();
 
+    /// <summary>
+    ///     The field behind each property that the walk asked about, or null
+    ///     for a property with no such field. The evaluator reads the
+    ///     declaration of a property one time.
+    /// </summary>
+    public Dictionary<ISymbol, IFieldSymbol?> FieldsBehind { get; } = new(SymbolEqualityComparer.Default);
+
     // The functions that run after the transaction of the block, while the walk reads them.
     private readonly HashSet<SyntaxNode> readAfterTheTransaction = [];
 
@@ -511,13 +518,16 @@ internal sealed class LoopRegion(
     ///     field its state now. See <see cref="WritesThroughNamesOf" />.
     /// </summary>
     /// <param name="member">The member.</param>
-    /// <param name="name">The name of the owner, or null when the walk cannot read it again.</param>
+    /// <param name="name">
+    ///     The name of the owner, or null when the walk cannot read it again.
+    ///     Such a write can be through each name.
+    /// </param>
     /// <param name="objects">The objects of the store that the owner can be.</param>
     public void NotesAWriteThroughAName(ISymbol member, NameKey? name, ImmutableArray<MadeObject> objects)
     {
         ISymbol key = member.OriginalDefinition;
 
-        if (name == null || this.LastWriteOf(key) != this.MemberWrites)
+        if (this.LastWriteOf(key) != this.MemberWrites)
         {
             return;
         }
@@ -528,7 +538,7 @@ internal sealed class LoopRegion(
             this.writesThroughNames[key] = writes;
         }
 
-        writes.Add(new NamedWrite(name: name.Value, objects: objects, at: this.MemberWrites));
+        writes.Add(new NamedWrite(name: name, objects: objects, at: this.MemberWrites));
     }
 
     /// <summary>

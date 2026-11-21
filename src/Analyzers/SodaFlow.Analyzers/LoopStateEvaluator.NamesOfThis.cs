@@ -29,11 +29,11 @@ internal sealed partial class LoopStateEvaluator
         // A local or a location that gets a different value is no name of this from that time.
         if (this.Frame.NamesOfThis.Count > 0)
         {
-            (ISymbol Of, ISymbol? Owner, int Index)? given = location == null ? null : this.LocationKeyOf(location);
+            NameKey? given = location == null ? null : this.ThisKeyOf(location);
 
             this.Frame.NamesOfThis.RemoveAll(one =>
                 (local != null && SymbolEqualityComparer.Default.Equals(x: one.Local, y: local))
-                || (given != null && IsTheSameLocation(one: one.Key, other: given.Value)));
+                || (given is { } name && one.Key is { } key && key.IsTheSameAs(name)));
         }
 
         if (!replaces || this.function != null)
@@ -49,7 +49,7 @@ internal sealed partial class LoopStateEvaluator
             {
                 this.Frame.NamesOfThis.Add((local, null, code, value.Span.End));
             }
-            else if (location != null && this.LocationKeyOf(location) is { } key)
+            else if (location != null && this.ThisKeyOf(location) is { } key)
             {
                 this.Frame.NamesOfThis.Add((null, key, code, value.Span.End));
             }
@@ -66,7 +66,8 @@ internal sealed partial class LoopStateEvaluator
                 if (elements[i] is ExpressionElementSyntax { Expression: var one }
                     && Unwrapped(one) is ThisExpressionSyntax)
                 {
-                    this.Frame.NamesOfThis.Add((null, (local, null, i), code, value.Span.End));
+                    NameKey element = new(of: local, owner: null, index: i);
+                    this.Frame.NamesOfThis.Add((null, element, code, value.Span.End));
                 }
             }
         }
@@ -82,7 +83,7 @@ internal sealed partial class LoopStateEvaluator
 
         ExpressionSyntax name = Unwrapped(owner);
         ISymbol? local = name is IdentifierNameSyntax ? this.region.SymbolOf(name) : null;
-        (ISymbol Of, ISymbol? Owner, int Index)? key = local is ILocalSymbol ? null : this.LocationKeyOf(name);
+        NameKey? key = local is ILocalSymbol ? null : this.ThisKeyOf(name);
 
         return this.Frame.NamesOfThis.Any(one =>
             one.Code == code
@@ -94,25 +95,28 @@ internal sealed partial class LoopStateEvaluator
                       code: code,
                       after: one.From,
                       before: owner.SpanStart,
-                      orAFunctionUsesIt: true)
-                : key != null
-                  && IsTheSameLocation(one: one.Key, other: key.Value)
-                  && this.KeepsTheLocation(key: key.Value, code: code, after: one.From, before: owner.SpanStart)));
+                      orAFunctionUsesIt: false)
+                : key is { } read
+                  && one.Key is { } kept
+                  && kept.IsTheSameAs(read)
+                  && this.KeepsTheLocation(key: read, code: code, after: one.From, before: owner.SpanStart)));
     }
 
-    // True when no code between two positions can give a location a different value.
-    private bool KeepsTheLocation(
-        (ISymbol Of, ISymbol? Owner, int Index) key,
-        SyntaxNode code,
-        int after,
-        int before) =>
+    // True when no code between two positions can give a location a different value. A call that gets
+    // a collection can change its element at a key that is no number. Thus, such an element has the
+    // parts of an element at a number.
+    private bool KeepsTheLocation(NameKey key, SyntaxNode code, int after, int before) =>
         new[] { key.Of, key.Owner }.All(part =>
             part is not (ILocalSymbol or IParameterSymbol)
             || !this.GetsAValue(name: part, code: code, after: after, before: before, orAFunctionUsesIt: true))
         && !code.DescendantNodes(TextSpan.FromBounds(start: after, end: before))
             .Any(node => node.SpanStart >= after
                          && node.SpanStart < before
-                         && this.CanChangeTheLocation(node: node, key: key, name: key.Of, aCallCounts: true));
+                         && this.CanChangeTheLocation(
+                             node: node,
+                             key: (key.Of, key.Owner, key.Index == -3 ? 0 : key.Index),
+                             name: key.Of,
+                             aCallCounts: true));
 
     // The state of a member of the object that the code is in, as a read through this gives it. A
     // read through this or through a field gets the member as the origin of a write through a name.

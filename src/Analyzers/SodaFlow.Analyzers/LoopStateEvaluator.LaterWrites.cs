@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -75,7 +76,7 @@ internal sealed partial class LoopStateEvaluator
 
     // A name that the walk can read again: a local or a parameter, a field, or an element at a
     // constant index. An element of a local that got the array of a field is an element of the
-    // field.
+    // field. A local with ref is the name of its location.
     private NameKey? NameKeyOf(ExpressionSyntax? name)
     {
         if (name == null)
@@ -86,7 +87,11 @@ internal sealed partial class LoopStateEvaluator
         return Unwrapped(name) switch
         {
             IdentifierNameSyntax at when this.region.SymbolOf(at) is (ILocalSymbol or IParameterSymbol) and { } local =>
-                KeepsItsObject(local) ? new NameKey(of: local, owner: null, index: -1) : null,
+                KeepsItsObject(local)
+                    ? new NameKey(of: local, owner: null, index: -1)
+                    : (this.TheLocationOf(at) ?? this.TheDeclaredLocationOf(at)) is { } location
+                        ? this.NameKeyOf(location)
+                        : null,
             // An element at an index that a local keeps has that local as its owner.
             ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } element
                 when Unwrapped(arguments[0].Expression) is IdentifierNameSyntax index
@@ -127,19 +132,45 @@ internal sealed partial class LoopStateEvaluator
 
         int own = this.LastOwnWriteOf(owner: owner, level: 0);
 
-        if (writes[writes.Count - 1].At <= own || this.NameKeyOf(owner) is not { } name)
+        if (writes[writes.Count - 1].At <= own)
         {
             return LoopState.None;
         }
 
-        bool isKnown = !has.Objects.IsEmpty && !has.Objects.Contains(MadeObject.Unknown);
+        NameKey? name = this.NameKeyOf(owner);
+        bool isKnown = AreKnown(has.Objects);
 
         return writes.Any(write => write.At > own
-                                   && (!isKnown || !has.Objects.Any(write.Objects.Contains))
-                                   && this.AreLinked(one: name, other: write.Name, use: owner))
+                                   && (write.Name is { } through
+                                       ? name is { } read
+                                         && (!isKnown || !has.Objects.Any(write.Objects.Contains))
+                                         && this.AreLinked(one: read, other: through, use: owner)
+                                       : !isKnown || !AreKnown(write.Objects)))
             ? field
             : LoopState.None;
     }
+
+    // Records a write for WrittenAfterItsOwner. A write through an owner with no name can be through
+    // each name. A name with ref is no such owner when its location can get a different object
+    // before the write.
+    private void NotesAWriteForTheLaterReads(
+        ExpressionSyntax? written,
+        ISymbol member,
+        LoopState has,
+        bool canBeADifferentObject)
+    {
+        NameKey? name = this.NameKeyOf(written);
+
+        if (name != null || !canBeADifferentObject)
+        {
+            this.region.NotesAWriteThroughAName(member: member, name: name, objects: has.Objects);
+        }
+    }
+
+    // True when the store knows each object that a value can be. A write through such a value with
+    // no name is in the store. Thus, it went to a different object, or the store has it.
+    private static bool AreKnown(ImmutableArray<MadeObject> objects) =>
+        !objects.IsEmpty && !objects.Contains(MadeObject.Unknown);
 
     // True when a chain of links goes from one name to the other at a use. A link of the code of the
     // use holds when no name of the link got a different value after it. Each name has a link to
@@ -190,7 +221,7 @@ internal sealed partial class LoopStateEvaluator
     private bool KeepsItsValue(NameKey name, SyntaxNode code, int after, int before) =>
         new[] { name.Of, name.Owner }.All(part =>
             part is not (ILocalSymbol or IParameterSymbol)
-            || !this.GetsAValue(name: part, code: code, after: after, before: before, orAFunctionUsesIt: true))
+            || !this.GetsAValue(name: part, code: code, after: after, before: before, orAFunctionUsesIt: false))
         && (name is { Index: -1, Owner: null, Of: ILocalSymbol or IParameterSymbol }
             || !code.DescendantNodes(TextSpan.FromBounds(start: after, end: before))
                 .Any(node => node.SpanStart > after

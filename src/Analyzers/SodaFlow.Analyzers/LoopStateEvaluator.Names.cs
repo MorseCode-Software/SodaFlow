@@ -570,9 +570,11 @@ internal sealed partial class LoopStateEvaluator
                                       && (KeepsItsObject(named) || IsAStaticLocation(named))
                                       && this.HoldsAnObject(named) =>
                 (named, null, null),
+            IdentifierNameSyntax when this.TheDeclaredLocationOf(written) is { } location =>
+                this.NameOfAnObjectIn(location),
             MemberAccessExpressionSyntax access
-                when this.region.SymbolOf(access) is { } member
-                     && IsAMemberLocation(member)
+                when this.region.SymbolOf(access) is { } read
+                     && (IsAMemberLocation(read) ? read : this.TheFieldBehind(read)) is { } member
                      && this.HoldsAnObject(member) =>
                 IsAStaticLocation(member)
                     ? (member, null, null)
@@ -666,8 +668,8 @@ internal sealed partial class LoopStateEvaluator
 
     // True when a name holds its object from the position where it got it to a use. The two are in
     // one function, and no loop or label is around the use. No code between them gives the name,
-    // its collection, its index, or its owner a value, and no function uses them. For an element,
-    // a static field, or a field of an owner, each node between must be one that
+    // its collection, its index, or its owner a value, and no function gives them a value. For an
+    // element, a static field, or a field of an owner, each node between must be one that
     // NothingBetweenChanges allows. Only a constructor gives a readonly field a value, and the
     // object of the field is older than the name.
     private bool HoldsItsObject(NameOfAnObject name, SyntaxNode use, int? before = null)
@@ -690,7 +692,7 @@ internal sealed partial class LoopStateEvaluator
         return new[] { name.Of, name.Owner, name.Index as ISymbol }.All(part =>
                    part == null
                    || !this.UsesOf(name: part, code: name.Code)
-                       .Any(one => one.InAFunction || (one.Gives && one.Position > name.From && one.Position < end)))
+                       .Any(one => one.Gives && (one.InAFunction || (one.Position > name.From && one.Position < end))))
                && (name is { Index: null, Of: ILocalSymbol or IParameterSymbol or IFieldSymbol { IsReadOnly: true } }
                    || this.NothingBetweenChanges(name: name, after: name.From, before: end, ofTheName: true));
     }

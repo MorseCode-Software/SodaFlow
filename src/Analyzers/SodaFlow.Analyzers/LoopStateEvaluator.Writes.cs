@@ -2017,6 +2017,8 @@ internal sealed partial class LoopStateEvaluator
         // parameter whose location the walk reads in the code of the caller has the object that
         // the location has at this write.
         bool isReadInTheCaller = owner != null && this.IsReadInTheCaller(owner);
+        bool canBeADifferentObject = false;
+        bool always = replaces;
 
         if (owner != null
             && !isReadInTheCaller
@@ -2026,6 +2028,7 @@ internal sealed partial class LoopStateEvaluator
         {
             replaces = false;
             turn = null;
+            canBeADifferentObject = true;
         }
 
         // The owner can be an object that the store does not know. The write is then a change to
@@ -2041,7 +2044,13 @@ internal sealed partial class LoopStateEvaluator
             from: from,
             sure: replaces && isKnown);
 
-        this.NotesAWriteThroughANameOfOneObject(written: written, member: member, state: state, replaces: replaces);
+        // A local with ref that keeps its location names that location at each use. The record of the names of one
+        // object has the name of the location at this write.
+        this.NotesAWriteThroughANameOfOneObject(
+            written: written,
+            member: member,
+            state: state,
+            replaces: replaces || (always && written != null && this.TheDeclaredLocationOf(written) != null));
 
         this.NotesAWriteAtAnElement(
             written: written,
@@ -2073,7 +2082,12 @@ internal sealed partial class LoopStateEvaluator
                 isReadInTheCaller: isReadInTheCaller);
 
             this.Frame.LastWrite = null;
-            this.region.NotesAWriteThroughAName(member: member, name: this.NameKeyOf(written), objects: has.Objects);
+
+            this.NotesAWriteForTheLaterReads(
+                written: written,
+                member: member,
+                has: has,
+                canBeADifferentObject: canBeADifferentObject);
 
             this.GivesTheOtherNames(
                 owner: owner,
@@ -2108,7 +2122,12 @@ internal sealed partial class LoopStateEvaluator
             isKnown: isKnown,
             isReadInTheCaller: false);
 
-        this.region.NotesAWriteThroughAName(member: member, name: this.NameKeyOf(written), objects: has.Objects);
+        this.NotesAWriteForTheLaterReads(
+            written: written,
+            member: member,
+            has: has,
+            canBeADifferentObject: canBeADifferentObject);
+
         this.GivesTheOtherNames(owner: owner, at: owner, member: member, state: state, replaces: replaces, turn: turn);
 
         this.Frame.LastWrite =

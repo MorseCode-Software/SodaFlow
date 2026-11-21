@@ -364,14 +364,20 @@ The analyzer follows a value made from the placeholder through the code of your 
   or the field gets a different value. The other way also holds: a read through the field sees an
   element that code puts in at an index through such a local.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
-  `box.Slot = Shared`, or `var slots = SharedSlots`, the two are names of one object from there. A
-  name is a local, a parameter, a static field, a field of the object in a local, or an element of a
-  local collection or of an array in a static field, at a constant index or at an index in a local.
-  A write to a field or a property with no body through any of the names replaces what earlier
-  writes through all of them gave that member, and a read through any of them sees the last value,
-  while each name keeps the object. A write in a method that the block calls counts as well, where
-  the block always calls the method one time and the method writes through a static field, an
-  element of an array in one, or a parameter whose argument is such a name. A new object that goes
+  `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
+  from there. A name is a local, a parameter, a static field or a static property with no body, a
+  field or such a property of the object in a local, a property whose accessors only read and write
+  one field, or an element of a local collection or of an array in a static field, at a constant
+  index or key or at an index in a local. A local that a lambda uses is a name as long as no lambda
+  assigns it, and a `ref` local that code gives no other location and no value is a name of the
+  location that it refers to. A write to a field or a property with no body through any of the names
+  replaces what earlier writes through all of them gave that member, and a read through any of them
+  sees the last value, while each name keeps the object. A write through an expression that is no
+  such name, such as a conditional expression, reaches a later read through each name whose object
+  the analyzer cannot tell apart from the object of the write. A write in a method that the block
+  calls counts as well, where the block always calls the method one time and the method writes
+  through a static field, an element of an array in one, or a parameter whose argument is such a
+  name. A new object that goes
   into a name with an object initializer, as in `slots[0] = new Slot { Cell = value }`, gives the
   name only the values that the initializer sets, also where such a method puts it and keeps it
   there to its end.
@@ -665,9 +671,14 @@ Some reads that throw it does not see:
 - A write to a member through `this` in a constructor, when the constructor also gave `this` to a
   name that the caller reads, such as an element of an array that it gets. A read through that name
   after the constructor returns still sees the value from before the write. Inside a method or a
-  constructor, a local, a field, or an element at a constant index that gets `this`, also as an
-  element of a collection expression such as `[this]`, is the same object as `this` until code gives
-  it a different value.
+  constructor, each name of one object that the list above gives, when it gets `this`, also through
+  `Add` or as an element of a collection expression such as `[this]`, is the same object as `this`
+  until code gives it a different value.
+- A write through a local that went into an element of an array in a static field, read through a
+  third local that got that element, as in `F[0] = d; var q = F[0];` and then a write through `d`
+  and a read through `q`. The same holds when the write goes through a `ref` local of the element or
+  through a local that a lambda uses, and for a write that a constructor makes through its
+  parameter, read through a second name of the object of the argument.
 - A write in the function of a `Map`, a `Lift`, or a collection view that the analyzer did not see
   you build, such as a cell in a field that a read in the block runs for the first time. A function
   that you give to `Map` or `Lift` should have no side effects in any case.

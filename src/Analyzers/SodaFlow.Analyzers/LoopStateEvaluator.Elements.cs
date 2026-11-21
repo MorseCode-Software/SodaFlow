@@ -395,6 +395,7 @@ internal sealed partial class LoopStateEvaluator
                 {
                     ILocalSymbol { RefKind: RefKind.None } or IParameterSymbol { RefKind: RefKind.None } =>
                         assignment.Left is IdentifierNameSyntax,
+                    IDiscardSymbol => true,
                     { } member => assignment.Left is IdentifierNameSyntax or MemberAccessExpressionSyntax
                                   && IsAMemberLocation(member),
                     _ => false
@@ -406,6 +407,7 @@ internal sealed partial class LoopStateEvaluator
             IdentifierNameSyntax or GenericNameSyntax or MemberAccessExpressionSyntax =>
                 this.region.SymbolOf(node) is not IPropertySymbol property
                 || IsAMemberLocation(property)
+                || this.TheFieldBehind(property) != null
                 || (property.DeclaringSyntaxReferences.IsEmpty
                     && (SodaFlowSymbols.IsLazyValue(property) || this.region.Symbols.ReadsItsOwner(property)
                         ? this.RunsNoFunctionThatTheWalkKnows(owner: OwnerOfAProperty(node), callee: callee)
