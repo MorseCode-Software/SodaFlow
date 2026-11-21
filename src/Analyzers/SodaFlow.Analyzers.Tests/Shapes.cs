@@ -40397,6 +40397,22 @@ public static class Shapes
     public static Cell<int> Ab311ChangeForOfAnAddedLinkedStateSwitched() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<CollectionEdit<int, ItemId, Cell<int>>> edits = Stream.CreateSink<CollectionEdit<int, ItemId, Cell<int>>>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: Array.Empty<Item<ItemId, Cell<int>>>(), edits); Cell<int> sw = all.ItemChangesStream.Map(ch => ch.ChangeFor(1).Match(onSome: m => m.Match(onSome: c => c, onNone: () => Plain), onNone: () => Plain)).Hold(Plain).SwitchC(); edits.Send(CollectionEdit<int, ItemId, Cell<int>>.Add(new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: l.Map(v => v)))); return sw; });
 
+    // S9620. The block reads the transform of an update back through Updates and calls it. The transform samples the placeholder.
+    public static Cell<int> R5ApiTransformCalledThroughUpdates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CollectionEdit<int, ItemId, int> e = CollectionEdit<int, ItemId, int>.Update(key: 1, transform: s => s + l.Sample()); int v = e.Updates[1](0); return S.Hold(v); });
+
+    // S9621. The block reads the transform of an edit that the constructor of CollectionEdit makes back through Updates, and calls it. The transform samples the placeholder.
+    public static Cell<int> Ab318ConstructorTransformCalledThroughUpdates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CollectionEdit<int, ItemId, int> e = new(updates: new Dictionary<int, Func<int, int>> { [1] = s => s + l.Sample() }, adds: Array.Empty<Item<ItemId, int>>(), removes: Array.Empty<int>()); int v = e.Updates[1](0); return S.Hold(v); });
+
+    // S9622. The transform of an update is in a local. The block reads it back through Updates and calls it, and the transform samples the placeholder.
+    public static Cell<int> Ab318TransformInALocalCalledThroughUpdates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int, int> t = s => s + l.Sample(); CollectionEdit<int, ItemId, int> e = CollectionEdit<int, ItemId, int>.Update(key: 1, transform: t); int v = e.Updates[1](0); return S.Hold(v); });
+
+    // S9623. Control: the block reads the transform of an update back through Updates and calls it. The transform does not sample.
+    public static Cell<int> Ab318PlainTransformCalledThroughUpdates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CollectionEdit<int, ItemId, int> e = CollectionEdit<int, ItemId, int>.Update(key: 1, transform: s => s + 1); int v = e.Updates[1](0); return S.Hold(v); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

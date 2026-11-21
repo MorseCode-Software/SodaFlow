@@ -2832,7 +2832,8 @@ internal sealed partial class LoopStateEvaluator
                             this.TransformedContent(
                                 invocation: invocation,
                                 method: method,
-                                argumentStates: argumentStates)),
+                                argumentStates: argumentStates))
+                        .Join(this.TransformsOf(invocation: invocation, method: method)),
                 OperatorRule.CollectionCreate => this.MadeCollection(
                     inputs: inputs,
                     argumentStates: argumentStates,

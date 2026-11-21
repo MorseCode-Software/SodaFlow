@@ -5741,6 +5741,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5ApiItemChangesOfAnAddedLinkedStateSwitched"] = ["SF1002"],
             ["R5ApiKeyChangesOfAnAddedLinkedStateSwitched"] = ["SF1002"],
             ["Ab311StatesOfTheSnapshotCellLookedUpAndSwitched"] = ["SF1002"],
-            ["Ab311ChangeForOfAnAddedLinkedStateSwitched"] = ["SF1002"]
+            ["Ab311ChangeForOfAnAddedLinkedStateSwitched"] = ["SF1002"],
+            ["R5ApiTransformCalledThroughUpdates"] = ["SF1001"],
+            ["Ab318ConstructorTransformCalledThroughUpdates"] = ["SF1001"],
+            ["Ab318TransformInALocalCalledThroughUpdates"] = ["SF1001"]
         };
 }
