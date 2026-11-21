@@ -10,8 +10,9 @@ namespace SodaFlow.Analyzers;
 internal sealed partial class LoopStateEvaluator
 {
     // The location that a local with ref names at a use. It is the location of the declaration of the local. The
-    // local gets no value and no other location in its function. No code between the declaration and the use gives
-    // a part of the location a value. Null for each other expression.
+    // local gets no other location in its function, and only an assignment gives it a value, which goes into the
+    // location. No code between the declaration and the use gives a part of the location a value. Null for each
+    // other expression.
     private ExpressionSyntax? TheDeclaredLocationOf(ExpressionSyntax written)
     {
         if (Unwrapped(written) is not IdentifierNameSyntax use
@@ -22,7 +23,8 @@ internal sealed partial class LoopStateEvaluator
                     Initializer.Value: RefExpressionSyntax { Expression: var location }
                 } declarator
             || FunctionOf(declarator) is not { } code
-            || this.UsesOf(name: local, code: code).Any(static one => one.Gives))
+            || this.UsesOf(name: local, code: code)
+                .Any(one => one.Gives && !IsAnAssignmentTo(code.FindToken(one.Position).Parent)))
         {
             return null;
         }
@@ -43,6 +45,29 @@ internal sealed partial class LoopStateEvaluator
             ? null
             : location;
     }
+
+    // True for the name that an assignment of a value with no ref gives a value.
+    private static bool IsAnAssignmentTo(SyntaxNode? name) =>
+        name?.Parent is AssignmentExpressionSyntax
+        {
+            RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+            Right: not RefExpressionSyntax
+        } assignment
+        && assignment.Left == name;
+
+    // The local of a collection that a second local got in its declaration. No code gives either of them a value
+    // after that, thus the two are one collection. Each other name is its own collection.
+    private ISymbol TheCollectionIn(ISymbol named) =>
+        named is ILocalSymbol second
+        && second.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is VariableDeclaratorSyntax { Initializer.Value: IdentifierNameSyntax value } declarator
+        && this.region.SymbolOf(value) is ILocalSymbol first
+        && FunctionOf(declarator) is { } code
+        && !this.UsesOf(name: second, code: code).Any(static one => one.Gives)
+        && !this.UsesOf(name: first, code: code)
+            .Any(one => one.Gives && (one.InAFunction || one.Position > declarator.Span.End))
+            ? first
+            : named;
 
     // The key of a location for the names of this: see NotesANameOfThis. It is the key of LocationKeyOf, or the
     // name of a second location of one object, from NameOfAnObjectIn. An element at an index in a local is no such

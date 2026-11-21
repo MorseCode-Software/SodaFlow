@@ -14,7 +14,10 @@ internal sealed partial class LoopStateEvaluator
     ///     Records that the target of an assignment holds the object of the
     ///     value, when the two are names of an object.
     /// </summary>
-    /// <param name="target">The target of the assignment.</param>
+    /// <param name="target">
+    ///     The target of the assignment, or the location of the local with ref
+    ///     that the assignment gives the value.
+    /// </param>
     /// <param name="value">The expression of the value.</param>
     /// <param name="replaces">True when the assignment always runs in its function.</param>
     public void NotesNamesOfOneObject(SyntaxNode target, ExpressionSyntax value, bool replaces)
@@ -23,7 +26,7 @@ internal sealed partial class LoopStateEvaluator
             || this.function != null
             || target is not ExpressionSyntax written
             || this.NameOfAnObjectIn(written) is not { } name
-            || target.Parent is not AssignmentExpressionSyntax
+            || value.Parent is not AssignmentExpressionSyntax
             {
                 RawKind: (int)SyntaxKind.SimpleAssignmentExpression
             } at)
@@ -587,7 +590,8 @@ internal sealed partial class LoopStateEvaluator
                 when this.region.TypeOf(element) is { } type
                      && this.CanBeAnObject(type)
                      && element.Expression is IdentifierNameSyntax array
-                     && this.region.SymbolOf(array) is { } collection
+                     && this.region.SymbolOf(array) is { } named
+                     && this.TheCollectionIn(named) is var collection
                      && (KeepsItsObject(collection)
                          ? this.KeepsItsElements(collection)
                          : collection is IFieldSymbol { IsStatic: true, Type: IArrayTypeSymbol { Rank: 1 } })

@@ -5710,6 +5710,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab299DictionaryValueOfThisThatACallReplaces"] = ["SF1004"],
             ["Ab298PropertyOfAFieldOfASecondObject"] = ["SF1001"],
             ["Ab299DictionaryValueOfASecondKey"] = ["SF1004"],
-            ["Ab297WriteThroughAConditionalOfTheSameObject"] = ["SF1001"]
+            ["Ab297WriteThroughAConditionalOfTheSameObject"] = ["SF1001"],
+            ["Ab305TwoRefsToOneLocation"] = ["SF1001"],
+            ["Ab305PutThroughRefInACallThatDoesNotRun"] = ["SF1001"],
+            ["Ab305PutThroughRefThatTheMethodDoesNotAlwaysGive"] = ["SF1001"],
+            ["Ab305SecondLocalOfADictionaryThatGetsANewDictionary"] = ["SF1001"],
+            ["Ab305SecondLocalOfAnArrayWhoseFirstLocalGetsANewArray"] = ["SF1001"],
+            ["Ab305SecondLocalOfARefLocalOfAField"] = ["SF1001"],
+            ["Ab305SecondLocalOfAnArrayWhoseFirstLocalGetsAnArrayFromAMethod"] = ["SF1001"]
         };
 }

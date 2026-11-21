@@ -40193,6 +40193,94 @@ public static class Shapes
     public static Cell<int> Ab297RefLocalOfAnElementAtAChangedIndexThatGetsADifferentObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] cs = [Ab297Slots[0]]; SettableSlot d = Ab297Slots[1]; int i = 0; ref SettableSlot r = ref cs[i]; r = d; i = 0; Ab297Reset(out cs[0]); d.Share = Plain; r.Share = l.Map(v => v); return S.Hold(d.Share!.Sample() + i); });
 
+    // S9569. Puts, Round 5: a new object with a pending cell goes in through a local, then a new object with a plain cell through the same name. The second put is in a method that gets the location with ref. The read is through that name.
+    public static Cell<int> R5PairPutPendingThenPlainPutByLocalSecondInAMethodThroughRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); d = new SettableSlot { Share = l.Map(v => v) }; R5PairPutRef(ref d, Plain); return S.Hold(d.Share!.Sample()); });
+
+    // S9570. Puts, Round 5: a new object with a pending cell goes in through an instance field of a local holder, then a new object with a plain cell through the same name. The second put is in a method that gets the location with ref. The read is through that name.
+    public static Cell<int> R5PairPutPendingThenPlainPutByInstanceFieldSecondInAMethodThroughRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairBox h = new(); h.Slot = new SettableSlot { Share = l.Map(v => v) }; R5PairPutRef(ref h.Slot, Plain); return S.Hold(h.Slot.Share!.Sample()); });
+
+    // S9571. Puts, Round 5, two names of one location: the key of a local dictionary, and the key of a second local of the dictionary. First a new object with a pending cell goes in through the first name, then a new object with a plain cell goes in through the second name. The read is through the first name.
+    public static Cell<int> R5PairPutAliasDictionaryLocalPendingPutThenPlainPutReadFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> map = new(); map["k"] = new SettableSlot(); Dictionary<string, SettableSlot> map2 = map; map["k"] = new SettableSlot { Share = l.Map(v => v) }; map2["k"] = new SettableSlot { Share = Plain }; return S.Hold(map["k"].Share!.Sample()); });
+
+    // S9572. Puts, Round 5, two names of one location: the key of a local dictionary, and the key of a second local of the dictionary. First a new object with a pending cell goes in through the first name, then a new object with a plain cell goes in through the second name. The read is through the second name.
+    public static Cell<int> R5PairPutAliasDictionaryLocalPendingPutThenPlainPutReadSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> map = new(); map["k"] = new SettableSlot(); Dictionary<string, SettableSlot> map2 = map; map["k"] = new SettableSlot { Share = l.Map(v => v) }; map2["k"] = new SettableSlot { Share = Plain }; return S.Hold(map2["k"].Share!.Sample()); });
+
+    // S9573. Puts, Round 5, two names of one location: the key of a local dictionary, and the key of a second local of the dictionary. First a pending cell goes into the member through the first name, then a new object with a plain cell goes in through the second name. The read is through the first name.
+    public static Cell<int> R5PairPutAliasDictionaryLocalPendingMemberThenPlainPutReadFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> map = new(); map["k"] = new SettableSlot(); Dictionary<string, SettableSlot> map2 = map; map["k"].Share = l.Map(v => v); map2["k"] = new SettableSlot { Share = Plain }; return S.Hold(map["k"].Share!.Sample()); });
+
+    // S9574. Puts, Round 5, two names of one location: the key of a local dictionary, and the key of a second local of the dictionary. First a new object with a pending cell goes in through the first name, then a plain cell goes into the member through the second name. The read is through the first name.
+    public static Cell<int> R5PairPutAliasDictionaryLocalPendingPutThenPlainMemberReadFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> map = new(); map["k"] = new SettableSlot(); Dictionary<string, SettableSlot> map2 = map; map["k"] = new SettableSlot { Share = l.Map(v => v) }; map2["k"].Share = Plain; return S.Hold(map["k"].Share!.Sample()); });
+
+    // S9575. Puts, Round 5, two names of one location: the key of a local dictionary, and the key of a second local of the dictionary. First a new object with a pending cell goes in through the first name, then a new object with a plain cell goes in through the second name. A call that writes nothing comes before the read. The read is through the first name.
+    public static Cell<int> R5PairPutAliasDictionaryLocalPendingPutThenPlainPutReadFirstAndACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> map = new(); map["k"] = new SettableSlot(); Dictionary<string, SettableSlot> map2 = map; map["k"] = new SettableSlot { Share = l.Map(v => v) }; map2["k"] = new SettableSlot { Share = Plain }; R5PairKeep(Plain); return S.Hold(map["k"].Share!.Sample()); });
+
+    // S9576. Puts, Round 5, two names of one location: a static field, and a ref local of the static field. First a new object with a pending cell goes in through the first name, then a new object with a plain cell goes in through the second name. The read is through the first name.
+    public static Cell<int> R5PairPutAliasRefOfStaticFieldPendingPutThenPlainPutReadFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ref SettableSlot r = ref R5PairXSf1039; R5PairXSf1039 = new SettableSlot { Share = l.Map(v => v) }; r = new SettableSlot { Share = Plain }; return S.Hold(R5PairXSf1039.Share!.Sample()); });
+
+    // S9577. Puts, Round 5, two names of one location: a static field, and a ref local of the static field. First a new object with a pending cell goes in through the first name, then a new object with a plain cell goes in through the second name. The read is through the second name.
+    public static Cell<int> R5PairPutAliasRefOfStaticFieldPendingPutThenPlainPutReadSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ref SettableSlot r = ref R5PairXSf1040; R5PairXSf1040 = new SettableSlot { Share = l.Map(v => v) }; r = new SettableSlot { Share = Plain }; return S.Hold(r.Share!.Sample()); });
+
+    // S9578. Puts, Round 5, two names of one location: a static field, and a ref local of the static field. First a new object with a pending cell goes in through the first name, then a new object with a plain cell goes in through the second name. A call that writes nothing comes before the read. The read is through the first name.
+    public static Cell<int> R5PairPutAliasRefOfStaticFieldPendingPutThenPlainPutReadFirstAndACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ref SettableSlot r = ref R5PairXSf1047; R5PairXSf1047 = new SettableSlot { Share = l.Map(v => v) }; r = new SettableSlot { Share = Plain }; R5PairKeep(Plain); return S.Hold(R5PairXSf1047.Share!.Sample()); });
+
+    // S9579. Puts, Round 5, two names of one location: an element of a static field array, and a ref local of the element of the field array. First a new object with a pending cell goes in through the first name, then a new object with a plain cell goes in through the second name. The read is through the first name.
+    public static Cell<int> R5PairPutAliasRefOfFieldArrayPendingPutThenPlainPutReadFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ref SettableSlot r = ref R5PairXFa1049[0]; R5PairXFa1049[0] = new SettableSlot { Share = l.Map(v => v) }; r = new SettableSlot { Share = Plain }; return S.Hold(R5PairXFa1049[0].Share!.Sample()); });
+
+    // S9580. Puts, Round 5, two names of one location: an element of a static field array, and a ref local of the element of the field array. First a pending cell goes into the member through the first name, then a new object with a plain cell goes in through the second name. The read is through the first name.
+    public static Cell<int> R5PairPutAliasRefOfFieldArrayPendingMemberThenPlainPutReadFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ref SettableSlot r = ref R5PairXFa1054[0]; R5PairXFa1054[0].Share = l.Map(v => v); r = new SettableSlot { Share = Plain }; return S.Hold(R5PairXFa1054[0].Share!.Sample()); });
+
+    // S9581. Puts, Round 5, two names of one location: an element of a static field array, and a ref local of the element of the field array. First a new object with a pending cell goes in through the first name, then a plain cell goes into the member through the second name. The read is through the first name.
+    public static Cell<int> R5PairPutAliasRefOfFieldArrayPendingPutThenPlainMemberReadFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ref SettableSlot r = ref R5PairXFa1055[0]; R5PairXFa1055[0] = new SettableSlot { Share = l.Map(v => v) }; r.Share = Plain; return S.Hold(R5PairXFa1055[0].Share!.Sample()); });
+
+    // S9582. Puts, Round 5, two names of one location: an element of a static field array, and a ref local of the element of the field array. First a new object with a pending cell goes in through the first name, then a new object with a plain cell goes in through the second name. A call that writes nothing comes before the read. The read is through the first name.
+    public static Cell<int> R5PairPutAliasRefOfFieldArrayPendingPutThenPlainPutReadFirstAndACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ref SettableSlot r = ref R5PairXFa1057[0]; R5PairXFa1057[0] = new SettableSlot { Share = l.Map(v => v) }; r = new SettableSlot { Share = Plain }; R5PairKeep(Plain); return S.Hold(R5PairXFa1057[0].Share!.Sample()); });
+
+    // S9583. AB305, an edge: a method gets one local through two arguments with ref and gives each of them a new object. The second assignment of the method gives the first parameter the new object with a pending cell. The read is through the local.
+    public static Cell<int> Ab305TwoRefsToOneLocation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Ab305PutTwo(ref d, ref d, l.Map(v => v), Plain); return S.Hold(d.Share!.Sample()); });
+
+    // S9584. AB305, an edge: a new object with a pending cell goes into a local, then a method that gets the local with ref gives it a new object with a plain cell, but a condition that is false at run time is around the call. The read is through the local.
+    public static Cell<int> Ab305PutThroughRefInACallThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new SettableSlot { Share = l.Map(v => v) }; if (Environment.ProcessorCount < 0) { R5PairPutRef(ref d, Plain); } return S.Hold(d.Share!.Sample()); });
+
+    // S9585. AB305, an edge: a new object with a pending cell goes into a local, then a method that gets the local with ref gives it a new object only when its last argument is true, and it is false. The read is through the local.
+    public static Cell<int> Ab305PutThroughRefThatTheMethodDoesNotAlwaysGive() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new SettableSlot { Share = l.Map(v => v) }; Ab305MaybePut(ref d, Plain, put: false); return S.Hold(d.Share!.Sample()); });
+
+    // S9586. AB305, an edge: a second local gets a dictionary from a first local, and then a new dictionary. A new object with a pending cell goes in through the key of the first local, then a new object with a plain cell through the key of the second local. The read is through the first local.
+    public static Cell<int> Ab305SecondLocalOfADictionaryThatGetsANewDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<string, SettableSlot> map = new(); Dictionary<string, SettableSlot> map2 = map; map2 = new(); map["k"] = new SettableSlot { Share = l.Map(v => v) }; map2["k"] = new SettableSlot { Share = Plain }; return S.Hold(map["k"].Share!.Sample()); });
+
+    // S9587. AB305, an edge: a second local gets an array from a first local, and then the first local gets a new array. A new object with a pending cell goes in through an element of the first local, then a new object with a plain cell through the element of the second local. The read is through the first local.
+    public static Cell<int> Ab305SecondLocalOfAnArrayWhoseFirstLocalGetsANewArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; SettableSlot[] b = a; a = [new SettableSlot()]; a[0] = new SettableSlot { Share = l.Map(v => v) }; b[0] = new SettableSlot { Share = Plain }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S9588. AB305, an edge: a second local gets an array from a first local. A new object with a pending cell goes in through an element of the first local, then a new object with a plain cell through the element of the second local. The read is through the first local.
+    public static Cell<int> Ab305SecondLocalOfAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; SettableSlot[] b = a; a[0] = new SettableSlot { Share = l.Map(v => v) }; b[0] = new SettableSlot { Share = Plain }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S9589. AB305, an edge: a second local gets an array from a local with ref of a static field, and then the field gets a new array. A new object with a pending cell goes in through an element of the local with ref, then a new object with a plain cell through the element of the second local. The read is through the local with ref.
+    public static Cell<int> Ab305SecondLocalOfARefLocalOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ref SettableSlot[] a = ref Ab305Fa1; SettableSlot[] b = a; Ab305Fa1 = [new SettableSlot()]; a[0] = new SettableSlot { Share = l.Map(v => v) }; b[0] = new SettableSlot { Share = Plain }; return S.Hold(a[0].Share!.Sample()); });
+
+    // S9590. AB305, an edge: a second local gets an array from a first local, and then the first local gets a new array from a method. A new object with a pending cell goes in through an element of the first local, then a new object with a plain cell through the element of the second local. The read is through the first local.
+    public static Cell<int> Ab305SecondLocalOfAnArrayWhoseFirstLocalGetsAnArrayFromAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot()]; SettableSlot[] b = a; a = Ab305NewArray(); a[0] = new SettableSlot { Share = l.Map(v => v) }; b[0] = new SettableSlot { Share = Plain }; return S.Hold(a[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -57526,6 +57614,24 @@ public static class Shapes
     }
 
     private static void Ab297Reset(out SettableSlot slot) => slot = new SettableSlot();
+
+    private static void Ab305PutTwo(ref SettableSlot first, ref SettableSlot second, Cell<int> last, Cell<int> before)
+    {
+        second = new SettableSlot { Share = before };
+        first = new SettableSlot { Share = last };
+    }
+
+    private static void Ab305MaybePut(ref SettableSlot slot, Cell<int> share, bool put)
+    {
+        if (put)
+        {
+            slot = new SettableSlot { Share = share };
+        }
+    }
+
+    private static SettableSlot[] Ab305Fa1 = [new()];
+
+    private static SettableSlot[] Ab305NewArray() => [new SettableSlot()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

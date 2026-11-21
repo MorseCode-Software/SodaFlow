@@ -4656,21 +4656,28 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             SyntaxNode target =
                 this.TargetThroughARef(written: arguments[i].Expression, state: state, gets: gives);
 
-            // A callee that always gives the parameter its value replaces the element. A second
-            // argument with ref or out can be the same element, and the walk does not know which
-            // value goes there last.
-            (MadeObject Made, ImmutableArray<LoopState> All)? positions =
-                target is ElementAccessExpressionSyntax indexed
-                && followed != null
+            // A callee that always gives the parameter its value replaces the element, and each other
+            // location, when the call always runs. A second argument with ref or out can be the same
+            // location, and the walk does not know which value goes there last.
+            SyntaxNode? call =
+                followed != null
                 && followed.AlwaysGives.Contains(parameter)
-                && arguments[i].Parent?.Parent is { } call
                 && arguments.Count(static argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None)) == 1
+                    ? arguments[i].Parent?.Parent
+                    : null;
+
+            (MadeObject Made, ImmutableArray<LoopState> All)? positions =
+                target is ElementAccessExpressionSyntax indexed && call != null
                     ? this.PositionsBeforeAGive(collection: indexed.Expression, call: call)
                     : null;
 
             if (target is not ElementAccessExpressionSyntax || gives)
             {
-                this.AssignState(target: target, state: state, replaces: false, turn: null);
+                this.AssignState(
+                    target: target,
+                    state: state,
+                    replaces: call != null && this.WhereACallRuns(call).InItsFunction,
+                    turn: null);
             }
 
             if (target is ElementAccessExpressionSyntax given)

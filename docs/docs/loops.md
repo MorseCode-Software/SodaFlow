@@ -368,19 +368,22 @@ The analyzer follows a value made from the placeholder through the code of your 
   from there. A name is a local, a parameter, a static field or a static property with no body, a
   field or such a property of the object in a local, a property whose accessors only read and write
   one field, or an element of a local collection or of an array in a static field, at a constant
-  index or key or at an index in a local. A local that a lambda uses is a name as long as no lambda
-  assigns it, and a `ref` local that code gives no other location and no value is a name of the
-  location that it refers to. A write to a field or a property with no body through any of the names
-  replaces what earlier writes through all of them gave that member, and a read through any of them
-  sees the last value, while each name keeps the object. A write through an expression that is no
-  such name, such as a conditional expression, reaches a later read through each name whose object
-  the analyzer cannot tell apart from the object of the write. A write in a method that the block
-  calls counts as well, where the block always calls the method one time and the method writes
-  through a static field, an element of an array in one, or a parameter whose argument is such a
-  name. A new object that goes
-  into a name with an object initializer, as in `slots[0] = new Slot { Cell = value }`, gives the
-  name only the values that the initializer sets, also where such a method puts it and keeps it
-  there to its end.
+  index or key or at an index in a local. An element of a second local that got the collection from
+  the first is the same element, as long as neither local gets another value. A local that a lambda
+  uses is a name as long as no lambda assigns it, and a `ref` local that code gives no other
+  location, and assigns only with `=`, is a name of the location that it refers to. A write to a
+  field or a property with no body through any of the names replaces what earlier writes through all
+  of them gave that member, and a read through any of them sees the last value, while each name
+  keeps the object. A write through an expression that is no such name, such as a conditional
+  expression, reaches a later read through each name whose object the analyzer cannot tell apart
+  from the object of the write. A write in a method that the block calls counts as well, where the
+  block always calls the method one time and the method writes through a static field, an element of
+  an array in one, or a parameter whose argument is such a name. A new object that goes into a name
+  with an object initializer, as in `slots[0] = new Slot { Cell = value }`, gives the name only the
+  values that the initializer sets, also where such a method puts it and keeps it there to its end.
+  A method that always gives its `ref` or `out` parameter a value replaces what a local, or a field
+  of the object in a local, held before, where the block always calls it and passes no second `ref`
+  or `out` argument.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a
@@ -551,6 +554,9 @@ careful side, so it can report a read that does not throw:
   local that got such an element, after a call that wrote that member, also gets what the call
   wrote. That is so even when the call wrote a
   different object.
+- A new object that a method you call puts through a `ref` parameter into a static field, into an
+  element of an array in one, or into an element at an index in a local does not replace the object
+  that was there before. A read through that location still gets what the earlier object had.
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind. So is the
   function of a `Merge`, which runs only when both streams fire in one transaction: what it returns

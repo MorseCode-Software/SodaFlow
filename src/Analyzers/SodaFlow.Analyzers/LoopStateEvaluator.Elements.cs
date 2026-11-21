@@ -242,14 +242,20 @@ internal sealed partial class LoopStateEvaluator
 
     // The collection and the index of an element at a location that the walk can read again. The
     // collection is a local or a parameter, and a read of the same index of it gives the same
-    // element. The index is a constant, as a key of KeyOf, or a local.
+    // element. The index is a constant, as a key of KeyOf, or a local. A second local of a
+    // collection is the first: see TheCollectionIn.
     private (ISymbol Collection, object Index)? ElementKeyOf(ElementAccessExpressionSyntax element)
     {
         if (element.ArgumentList.Arguments.Count != 1
             || Unwrapped(element.Expression) is not IdentifierNameSyntax name
-            || this.region.SymbolOf(name) is not { } collection
-            || !KeepsItsObject(collection)
-            || !this.KeepsItsElements(collection))
+            || this.region.SymbolOf(name) is not { } named)
+        {
+            return null;
+        }
+
+        ISymbol collection = this.TheCollectionIn(named);
+
+        if (!KeepsItsObject(collection) || !this.KeepsItsElements(collection))
         {
             return null;
         }
