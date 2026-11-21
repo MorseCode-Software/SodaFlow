@@ -1974,7 +1974,7 @@ internal sealed partial class LoopStateEvaluator
             // A lambda is a value. Its code runs when something calls it.
             AnonymousFunctionExpressionSyntax function =>
                 LoopState.OfFunction(
-                    new FunctionValue(declaration: function, definer: this, receiver: null, ofThis: null)),
+                    new FunctionValue(declaration: function, definer: this, receiver: null, ofThis: null, owner: null)),
             // The object that the code is in, with the members that the evaluator knows.
             ThisExpressionSyntax when this.thisInTheStore is { } built => this.ThisInTheStore(built),
             ThisExpressionSyntax when this.thisMembers.Count > 0 =>
@@ -2477,9 +2477,10 @@ internal sealed partial class LoopStateEvaluator
                 declaration: declaration,
                 definer: declaration is LocalFunctionStatementSyntax ? this : null,
                 receiver: expression is MemberAccessExpressionSyntax { Expression: not ThisExpressionSyntax } owned
-                    ? this.Eval(owned.Expression).Members
+                    ? this.Eval(owned.Expression)
                     : null,
-                ofThis: NamesAMethodOfThis(expression: expression, group: group) ? this : null));
+                ofThis: NamesAMethodOfThis(expression: expression, group: group) ? this : null,
+                owner: this.OwnerOfAGroup(expression)));
     }
 
     private LoopState EvalInvocation(InvocationExpressionSyntax invocation)
@@ -3965,8 +3966,9 @@ internal sealed partial class LoopStateEvaluator
                         new FunctionValue(
                             declaration: declaration,
                             definer: null,
-                            receiver: state.Members,
-                            ofThis: null)));
+                            receiver: LoopState.None.WithMembers(state.Members),
+                            ofThis: null,
+                            owner: null)));
 
     private static Followed? Both(Followed? first, Followed? second) =>
         first == null
@@ -4119,7 +4121,7 @@ internal sealed partial class LoopStateEvaluator
                         manyTimes: each is { ManyTimes: true });
                 }
 
-                LoopState owner = LoopState.None.WithMembers(function.Receiver);
+                LoopState owner = LoopState.None.WithMembers(MembersOfTheReceiver(function));
 
                 // A method group of this gets the members of this, as a call on this does.
                 return Both(

@@ -729,9 +729,6 @@ Some reads that throw it does not see:
   different method of the object reads the value. This holds for a lambda as well as for a method
   group. Where one method keeps the delegate in a local, builds the value, sets the member, and
   reads the value, the read gets its report.
-- A method group of an object that a constructor gets as a parameter, such as `Map(slot.Add)`,
-  where a different method of the object reads the value. A lambda that calls the same method, such
-  as `Map(v => slot.Add(v))`, gets `SF1005`.
 - An object that a lambda of a LINQ query throws, for a `catch` around the code that enumerates
   the query. The analyzer does not give the object to that clause.
 - The `AggregateException` that `Wait` or `Result` of a task throws when a function of the task

@@ -32,7 +32,12 @@ internal sealed partial class LoopStateEvaluator
             case AnonymousFunctionExpressionSyntax lambda when state.Functions.IsEmpty:
                 return state.Join(
                     LoopState.OfFunction(
-                        new FunctionValue(declaration: lambda, definer: null, receiver: null, ofThis: null)));
+                        new FunctionValue(
+                            declaration: lambda,
+                            definer: null,
+                            receiver: null,
+                            ofThis: null,
+                            owner: null)));
             case BaseObjectCreationExpressionSyntax creation
                 when state.Members == null
                      && this.region.SymbolOf(creation)
@@ -90,7 +95,12 @@ internal sealed partial class LoopStateEvaluator
                          is { } declaration:
                 return state.Join(
                     LoopState.OfFunction(
-                        new FunctionValue(declaration: declaration, definer: null, receiver: null, ofThis: null)));
+                        new FunctionValue(
+                            declaration: declaration,
+                            definer: null,
+                            receiver: null,
+                            ofThis: null,
+                            owner: null)));
             default:
                 return state;
         }

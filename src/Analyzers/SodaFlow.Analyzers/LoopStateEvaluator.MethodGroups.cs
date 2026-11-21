@@ -24,4 +24,27 @@ internal sealed partial class LoopStateEvaluator
         && Unwrapped(expression)
             is SimpleNameSyntax
             or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax or BaseExpressionSyntax };
+
+    // The object of a method group with an owner that is not this, with this code, which names the
+    // group. It is the expression whose state the group keeps as its receiver.
+    private (LoopStateEvaluator Namer, ExpressionSyntax Written)? OwnerOfAGroup(ExpressionSyntax expression) =>
+        expression is MemberAccessExpressionSyntax { Expression: not ThisExpressionSyntax and var owned }
+            ? (this, owned)
+            : null;
+
+    /// <summary>
+    ///     The members of the object of a method of a different object, at a
+    ///     call of the method.
+    /// </summary>
+    /// <remarks>
+    ///     The group keeps the state of its object at the name. The code can
+    ///     change a member of that object before the call. A lambda that calls
+    ///     the method reads the name again at the call. Thus, an object of the
+    ///     store gets the members that the store has at the call.
+    /// </remarks>
+    /// <param name="function">The function.</param>
+    private static Construction? MembersOfTheReceiver(FunctionValue function) =>
+        function is { Receiver: { } named, Owner: ({ } namer, { } written) }
+            ? namer.Refreshed(expression: written, state: named).Members
+            : function.Receiver?.Members;
 }

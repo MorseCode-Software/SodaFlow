@@ -5992,6 +5992,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab346RunOfAMethodGroupAfterTheSet"] = ["SF1004"],
             ["Ab346SelectOfAMethodGroupAfterTheSet"] = ["SF1004"],
             ["Ab346BuilderThatGetsStateMapOfAMethodGroup"] = ["SF1004"],
-            ["Ab346BuilderThatGetsStateLazyOfAMethodGroup"] = ["SF1004"]
+            ["Ab346BuilderThatGetsStateLazyOfAMethodGroup"] = ["SF1004"],
+            ["Ab346CtorMapOfAMethodGroupOfAGivenObject"] = ["SF1005"],
+            ["Ab346CtorMapOfALambdaOfAGivenObject"] = ["SF1005"],
+            ["Ab346CtorLazyOfAMethodGroupOfAGivenObject"] = ["SF1005"],
+            ["Ab346MapOfAMethodGroupOfALocalObjectSetAfter"] = ["SF1001"],
+            ["Ab346MapOfALambdaOfALocalObjectSetAfter"] = ["SF1001"]
         };
 }

@@ -42053,6 +42053,38 @@ public static class Shapes
     public static Cell<int> Ab346BuilderThatGetsStateWithTheMemberPlain() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab346StateBuild m = new(); m.Build(l.Map(v => v)); Kept.Add(m.SetAndRead(Plain)); return S.Hold(0); });
 
+    // S10034. A constructor builds a map with a method group of an object that it gets. The block sets the member of that object to a pending cell, and a method samples the map.
+    public static Cell<int> Ab346CtorMapOfAMethodGroupOfAGivenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346Slot s = new(); Ab346CtorMapOfAGiven m = new(s); s.Share = l.Map(v => v); Kept.Add(m.Read()); return S.Hold(0); });
+
+    // S10035. The same with a lambda that calls the method of the object that the constructor gets.
+    public static Cell<int> Ab346CtorMapOfALambdaOfAGivenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346Slot s = new(); Ab346CtorLambdaOfAGiven m = new(s); s.Share = l.Map(v => v); Kept.Add(m.Read()); return S.Hold(0); });
+
+    // S10036. A constructor builds a lazy value with a method group of an object that it gets. The block sets the member of that object to a pending cell, and a method reads the value.
+    public static Cell<int> Ab346CtorLazyOfAMethodGroupOfAGivenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346Slot s = new(); Ab346CtorLazyOfAGiven m = new(s); s.Share = l.Map(v => v); Kept.Add(m.Read()); return S.Hold(0); });
+
+    // S10037. The block builds a map with a method group of a local object. It sets the member of that object to a pending cell and samples the map.
+    public static Cell<int> Ab346MapOfAMethodGroupOfALocalObjectSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346Slot s = new(); Cell<int> c = Cell.Constant(1).Map(s.Add); s.Share = l.Map(v => v); Kept.Add(c.Sample()); return S.Hold(0); });
+
+    // S10038. The same with a lambda that calls the method of the local object.
+    public static Cell<int> Ab346MapOfALambdaOfALocalObjectSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346Slot s = new(); Cell<int> c = Cell.Constant(1).Map(v => s.Add(v)); s.Share = l.Map(v => v); Kept.Add(c.Sample()); return S.Hold(0); });
+
+    // S10039. Control: a constructor builds a map with a method group of an object that it gets. The block sets the member of that object to a plain cell, and a method samples the map.
+    public static Cell<int> Ab346MethodGroupOfAGivenObjectSetPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346Slot s = new(); Ab346CtorMapOfAGiven m = new(s); s.Share = Plain; Kept.Add(m.Read()); return S.Hold(0); });
+
+    // S10040. Control: a constructor builds a map with a method group of an object that it gets. The block sets the member of a second object to a pending cell, and a method samples the map.
+    public static Cell<int> Ab346MethodGroupOfAGivenObjectThatStaysPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346Slot s = new(); Ab346Slot other = new(); Ab346CtorMapOfAGiven m = new(s); other.Share = l.Map(v => v); Kept.Add(m.Read()); Kept.Add(other); return S.Hold(0); });
+
+    // S10041. Control: the block builds a map with a method group of a local object. It sets the member of that object to a pending cell, then to a plain cell, and samples the map.
+    public static Cell<int> Ab346MethodGroupOfALocalObjectSetPendingThenPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab346Slot s = new(); Cell<int> c = Cell.Constant(1).Map(s.Add); s.Share = l.Map(v => v); s.Share = Plain; Kept.Add(c.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -60620,6 +60652,8 @@ public static class Shapes
         public Cell<int> Share = Cell.Constant(0);
 
         public int Add(int v) => v + this.Share.Sample();
+
+        public int Read() => this.Share.Sample();
     }
 
     public sealed class Ab346CtorMapOfAKept
@@ -60871,6 +60905,33 @@ public static class Shapes
         private int Add(int v) => v + this.share.Sample();
 
         private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab346CtorMapOfAGiven
+    {
+        private readonly Cell<int> map;
+
+        public Ab346CtorMapOfAGiven(Ab346Slot slot) => this.map = Cell.Constant(1).Map(slot.Add);
+
+        public int Read() => this.map.Sample();
+    }
+
+    public sealed class Ab346CtorLambdaOfAGiven
+    {
+        private readonly Cell<int> map;
+
+        public Ab346CtorLambdaOfAGiven(Ab346Slot slot) => this.map = Cell.Constant(1).Map(v => slot.Add(v));
+
+        public int Read() => this.map.Sample();
+    }
+
+    public sealed class Ab346CtorLazyOfAGiven
+    {
+        private readonly Lazy<int> value;
+
+        public Ab346CtorLazyOfAGiven(Ab346Slot slot) => this.value = new Lazy<int>(slot.Read);
+
+        public int Read() => this.value.Value;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
