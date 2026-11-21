@@ -468,8 +468,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   search, a set, or a dictionary, a comparer that you give a collection, `ToString` in `string.Join`
   or `string.Format`, the `ToString` of each part that a `KeyValuePair`, a `DictionaryEntry`, or a
   `Tuple` object prints, and the `ToString` of the value of a `Lazy<T>`, which its own `ToString`
-  calls. A method with a format string, such as `string.Format`, calls `TryFormat`
-  of a value that implements `ISpanFormattable`. It calls the `ToString` of `IFormattable` where
+  calls. A method with a format string, such as `string.Format`, calls `TryFormat` of a value that
+  implements `ISpanFormattable`. It calls the `ToString` of `IFormattable` where
   `TryFormat` returns false, and to pad the text for a positive width, such as `{0,5}`. The analyzer
   reads that `ToString` unless the format is a constant with no positive width and the `TryFormat`
   of the object returns only `true`.
@@ -535,7 +535,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   writes every field, private ones included, and no property.
   Json.NET and `XmlSerializer` call a public `ShouldSerialize` method of a member, and the getter
   of a public `bool` property whose name is that of the member with `Specified` after it, before
-  they write the member. Json.NET reads that getter even where the property has `[JsonIgnore]`. The data contract serializers write the members with `[DataMember]` of a type with
+  they write the member. Json.NET reads that getter even where the property has `[JsonIgnore]`.
+  The data contract serializers write the members with `[DataMember]` of a type with
   `[DataContract]`, the fields without `[NonSerialized]` of a type with `[Serializable]`, and the
   public members that they can set, without `[IgnoreDataMember]`, of each other type.
   Each serializer skips a member that has the ignore attribute of its own library, `[JsonIgnore]`
