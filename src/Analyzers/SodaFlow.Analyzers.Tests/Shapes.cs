@@ -39677,6 +39677,18 @@ public static class Shapes
     public static Cell<int> Ab292RefPropertyWritesAPlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { R5CsRefSlot h = new(); h.Slot = Plain; Kept.Add(h.Cell.Sample()); Kept.Add(l.Map(v => v)); return S.Hold(0); });
 
+    // S9440. A get-only property gives a copy of its struct, so a mutating call on it changes nothing that a later read sees.
+    public static Cell<int> R5CsStructOfAGetOnlyPropertyIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsHeldByProperty.Set(l.Map(v => v)); Kept.Add(R5CsHeldByProperty.Share.Sample()); return S.Hold(0); });
+
+    // S9441. A property of a class gives a copy of its struct, so a mutating call on it changes nothing that a later read sees.
+    public static Cell<int> R5CsStructOfAPropertyOfAClassIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsStructHolder h = new(); h.Value.Set(l.Map(v => v)); Kept.Add(h.Value.Share.Sample()); return S.Hold(0); });
+
+    // S9442. A method of a struct that a property returns by value writes a pending cell into a copy. The read of the property returns.
+    public static Cell<int> R5FuStructFromAPropertyKeepsItsValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuStructHolder h = new(); h.Value.Set(l.Map(v => v)); Kept.Add(h.Value.Share.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

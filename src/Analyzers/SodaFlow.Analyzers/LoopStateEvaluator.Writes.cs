@@ -1891,6 +1891,8 @@ internal sealed partial class LoopStateEvaluator
                 !this.CanWriteTheField(field: field, at: written),
             IParameterSymbol { RefKind: RefKind.In or RefKind.RefReadOnlyParameter, Type.IsValueType: true } => true,
             ILocalSymbol { RefKind: RefKind.RefReadOnly, Type.IsValueType: true } => true,
+            // A property that returns no ref gives a copy of its struct.
+            IPropertySymbol { ReturnsByRef: false, Type.IsValueType: true } => true,
             _ => false
         };
 
