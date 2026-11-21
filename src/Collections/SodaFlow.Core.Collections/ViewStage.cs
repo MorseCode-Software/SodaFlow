@@ -40,6 +40,9 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     /// <summary>The stage above this one, or the collection if this is the first.</summary>
     private readonly ReactiveCollection<TKey, TIdentity, TState> source;
 
+    // The router of the per-key cells. The transaction of the first per-key cell makes it. See KeyedRouter.
+    private ViewChangeRouter<TKey, TIdentity, TState>? router;
+
     internal ViewStage(
         ReactiveCollection<TKey, TIdentity, TState> source,
         Cell<OrderedKeys<TKey, TIdentity, TState>> keysCell,
@@ -102,6 +105,14 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     /// <inheritdoc />
     public override Cell<CollectionSnapshot<TKey, TIdentity, TState>> SnapshotCell => this.snapshotCell.Value;
 
+    internal override int RoutedKeyCount => this.router?.KeyCount ?? 0;
+
+    private ViewChangeRouter<TKey, TIdentity, TState> Router(TransactionInternal trans) =>
+        this.router ??= new ViewChangeRouter<TKey, TIdentity, TState>(
+            trans: trans,
+            source: this.KeyChangesStream,
+            comparer: this.source.Root.KeyEqualityComparer);
+
     /// <inheritdoc />
     public override Stream<ItemChange<TKey, TIdentity, TState>> ItemChangesStream => this.itemChangesStream.Value;
 
@@ -133,8 +144,8 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
         // fifth of an edit.
         ReactiveCollection<TKey, TIdentity, TState> root = this.source.Root;
 
-        return this.KeyChangesStream
-            .ChooseInternal(change =>
+        return this.Router(trans)
+            .StreamFor(trans: trans, key: key, project: change =>
                 change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
             .HoldLazyImpl(
                 this.KeysCell.SampleLazyMapped(
@@ -160,8 +171,8 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     {
         ReactiveCollection<TKey, TIdentity, TState> root = this.source.Root;
 
-        return this.KeyChangesStream
-            .ChooseInternal(change =>
+        return this.Router(trans)
+            .StreamFor(trans: trans, key: key, project: change =>
                 change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
             .HoldLazyImpl(
                 this.KeysCell.SampleLazyMapped(
@@ -189,8 +200,8 @@ internal sealed class ViewStage<TKey, TIdentity, TState> : ReactiveCollection<TK
     {
         ReactiveCollection<TKey, TIdentity, TState> root = this.source.Root;
 
-        return this.KeyChangesStream
-            .ChooseInternal(change =>
+        return this.Router(trans)
+            .StreamFor(trans: trans, key: key, project: change =>
                 change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
             .HoldLazyImpl(
                 this.KeysCell.SampleLazyMapped(
