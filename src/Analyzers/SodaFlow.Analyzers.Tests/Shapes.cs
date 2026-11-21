@@ -41489,6 +41489,14 @@ public static class Shapes
     public static Cell<int> Ag99ASpreadOfASequenceDoesNotCallReset() =>
         Cell.Loop<int>().WithoutCaptures(l => { int[] all = [.. new Ag99Rewound(l.Map(v => v))]; return S.Hold(all.Length); });
 
+    // S9893. A hold of a sink of cells gets the placeholder as its initial value. That is no send, thus the switch of the sink gives the plain cell.
+    public static Cell<int> Ag99AHoldOfASinkIsNoSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> sink = Stream.CreateSink<Cell<int>>(); Kept.Add(sink.Hold(l)); return sink.Hold(Plain).SwitchC(); });
+
+    // S9894. A map of a stream that never fires has a function that sends the placeholder. The function does not run, thus the switch of the sink gives the plain cell.
+    public static Cell<int> Ag99AMapOfNeverThatSendsThePlaceholder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> sink = Stream.CreateSink<Cell<int>>(); Kept.Add(Stream.Never<int>().Map(v => { sink.Send(l); return v; })); return sink.Hold(Plain).SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
