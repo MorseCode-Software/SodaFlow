@@ -5775,6 +5775,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5FuFromValueInACalledMethod"] = ["SF1002"],
             ["R5FuConstructOfALocalFunction"] = ["SF1002"],
             ["R5FuConstructOfADelegateInALocal"] = ["SF1002"],
-            ["Ab314MapAsyncResultOfAMapOfItsLinkedInput"] = ["SF1002"]
+            ["Ab314MapAsyncResultOfAMapOfItsLinkedInput"] = ["SF1002"],
+            ["Ab315CancelInABranchKeepsTheTimer"] = ["SF1001"],
+            ["Ab315UsingDeclarationOfTheTimerRunsItFirst"] = ["SF1001"],
+            ["Ab315CancelAfterTheRunOfTheTimer"] = ["SF1001"],
+            ["Ab315UsingInABranchKeepsTheTimer"] = ["SF1001"]
         };
 }

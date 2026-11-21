@@ -40581,6 +40581,34 @@ public static class Shapes
     public static Cell<int> Ab314MapAsyncResultOfAMapOfItsLinkedInput() =>
         ((Func<Cell<int>>)(() => { List<Exception> caught = []; Cell<int> c = Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> src = Stream.CreateSink<Cell<int>>(); StreamSink<Cell<int>> results = Stream.CreateSink<Cell<int>>(); StreamSink<Exception> errors = Stream.CreateSink<Exception>(); Kept.Add(errors.Listen(caught.Add)); Cell<Cell<int>> h = results.Hold(Plain); AsyncMapStatus<Cell<int>, Cell<int>> status = src.MapAsync(results: results, errors: errors, handleException: caught.Add, operation: (v, f, _) => Task.FromResult(f.FromValue(v.Map(n => n + 1))), strategy: AsyncConcurrencyStrategy.Parallel()); Kept.Add(status); src.Send(l.Map(v => v)); return h.SwitchC(); }); R5ApiRethrow(caught); return c; }))();
 
+    // S9666. A clock of the library base keeps a callback that samples the placeholder, and the block cancels the timer before RunTimersTo. Thus, the callback does not run.
+    public static Cell<int> R5ApiRunTimersToAfterACancel() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); t.Cancel(); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S9667. A clock of the library base keeps a callback that samples the placeholder, and the block disposes the timer before RunTimersTo. Thus, the callback does not run.
+    public static Cell<int> R5ApiRunTimersToAfterADisposeOfTheTimer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); using (clock.SetTimer(0, () => Kept.Add(l.Sample()))) { } clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S9668. The block cancels the timer only in a branch that does not run. Thus, RunTimersTo runs the callback that samples the placeholder, and the sample throws.
+    public static Cell<int> Ab315CancelInABranchKeepsTheTimer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); if (Kept.Count < 0) { t.Cancel(); } clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S9669. A clock of the library base keeps a callback that samples the placeholder. The block disposes the timer through its local before RunTimersTo, thus the callback does not run.
+    public static Cell<int> Ab315DisposeOfTheTimerThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); t.Dispose(); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S9670. A using declaration disposes the timer at the end of the block, after RunTimersTo. Thus, the callback that samples the placeholder runs, and the sample throws.
+    public static Cell<int> Ab315UsingDeclarationOfTheTimerRunsItFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); using SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S9671. The block cancels the timer after RunTimersTo. Thus, the callback that samples the placeholder runs before the cancel, and the sample throws.
+    public static Cell<int> Ab315CancelAfterTheRunOfTheTimer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); clock.RunTimersTo(0); t.Cancel(); return S.Hold(0); });
+
+    // S9672. A using statement of the timer is only in a branch that does not run. Thus, RunTimersTo runs the callback that samples the placeholder, and the sample throws.
+    public static Cell<int> Ab315UsingInABranchKeepsTheTimer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); if (Kept.Count < 0) { using (t) { } } clock.RunTimersTo(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

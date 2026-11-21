@@ -1248,6 +1248,22 @@ internal sealed partial class LoopStateEvaluator
             arguments: default);
     }
 
+    /// <summary>
+    ///     The call of <c>SetTimer</c> of a clock of the library that made a
+    ///     timer. The timer is that call, or a local that no code writes and that
+    ///     has its value. Null for each other expression.
+    /// </summary>
+    /// <param name="timer">The expression of the timer.</param>
+    public InvocationExpressionSyntax? CallOfSetTimer(ExpressionSyntax timer) =>
+        this.MadeValueOf(timer) is InvocationExpressionSyntax
+        {
+            Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "SetTimer" }
+        } set
+        && this.region.SymbolOf(set) is IMethodSymbol method
+        && this.region.Symbols.IsSodaFlow(method)
+            ? set
+            : null;
+
     // The value of a local that no code writes. A local of IDisposable can have the value of a
     // different local, thus the search continues through it. The declaration of each local is
     // before its value, thus the search ends.

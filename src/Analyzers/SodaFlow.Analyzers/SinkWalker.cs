@@ -8,7 +8,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
 using KeptTimers =
-    System.Collections.Generic.List<(Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax Time,
+    System.Collections.Generic.List<(Microsoft.CodeAnalysis.SyntaxNode Set,
+        Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax Time,
         Microsoft.CodeAnalysis.CSharp.Syntax.ExpressionSyntax Callback)>;
 
 namespace SodaFlow.Analyzers;
@@ -84,9 +85,9 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     /// </summary>
     public IReadOnlyList<(ITypeSymbol? Type, LoopState State)> Thrown => this.thrown;
 
-    // The timers of each local that has a clock of the library base. Each timer has the time and
-    // the callback that SetTimer gave it, until RunTimersTo runs it. Null until the walk sees such a
-    // clock.
+    // The timers of each local that has a clock of the library base. Each timer has the call of
+    // SetTimer, with the time and the callback of that call. RunTimersTo or a cancel takes it away.
+    // Null until the walk sees such a clock.
     private Dictionary<ISymbol, KeptTimers>? timers;
 
     public override void Visit(SyntaxNode? node)
@@ -341,8 +342,18 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             return;
         }
 
+        // The statement always disposes its resource when the code leaves it. Only a clock of the
+        // library base keeps a timer.
+        bool disposesEachTime =
+            this.timers != null && this.AlwaysRunsAt(place: node, turn: out SyntaxNode? turn) && turn == null;
+
         foreach (ExpressionSyntax resource in resources)
         {
+            if (disposesEachTime)
+            {
+                this.CancelsATimer(resource);
+            }
+
             this.CheckDisposed(resource);
         }
     }
@@ -3516,6 +3527,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 // Dispose of a timer system calls Stop of its implementation. The code can call each
                 // one through IDisposable.
                 case "Dispose" when method.ReducedFrom == null:
+                    this.CancelsATimerAt(call: node, timer: receiver);
                     this.Report(this.evaluator.FollowEvictionsOfADispose(map: receiver, dispose: node));
                     this.Report(this.evaluator.FollowClockOfADispose(system: receiver, dispose: node));
 
@@ -3527,6 +3539,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                          && this.region.SymbolOf(LoopStateEvaluator.Unwrapped(receiver)) is ILocalSymbol clock
                          && this.evaluator.IsAClockOfTheLibraryBase(receiver):
                     this.RunsTimers(clock: clock, method: method, arguments: arguments, call: node);
+
+                    break;
+                // Cancel of a timer of a clock of the library base takes that timer from its clock.
+                case "Cancel" when method.ReducedFrom == null && arguments.Count == 0:
+                    this.CancelsATimerAt(call: node, timer: receiver);
 
                     break;
                 // Execute of a bindable action posts a send of its parameter into the sink of its
@@ -3571,7 +3588,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         {
             if (Argument("time") is { } time && Argument("callback") is { } callback)
             {
-                kept.Add((time, callback));
+                kept.Add((call, time, callback));
             }
 
             return;
@@ -3582,7 +3599,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             return;
         }
 
-        foreach ((ExpressionSyntax Time, ExpressionSyntax Callback) timer in kept
+        foreach ((SyntaxNode Set, ExpressionSyntax Time, ExpressionSyntax Callback) timer in kept
                      .Where(timer => !this.IsAfter(time: timer.Time, now: now))
                      .ToList())
         {
@@ -3599,6 +3616,31 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     == name)
                 .Select(static argument => argument.Expression)
                 .FirstOrDefault();
+    }
+
+    // A call that the code can skip, or that a loop runs, keeps the timer.
+    private void CancelsATimerAt(SyntaxNode call, ExpressionSyntax timer)
+    {
+        if (this.timers != null && this.WhereACallRuns(call) is (true, null))
+        {
+            this.CancelsATimer(timer);
+        }
+    }
+
+    // A Cancel or a Dispose of a timer takes it from its clock, which then does not run its
+    // callback. The timer is the result of a call of SetTimer, or a local that no code writes and
+    // that has that result.
+    private void CancelsATimer(ExpressionSyntax timer)
+    {
+        if (this.timers == null || this.evaluator.CallOfSetTimer(timer) is not { } set)
+        {
+            return;
+        }
+
+        foreach (KeptTimers kept in this.timers.Values)
+        {
+            kept.RemoveAll(each => each.Set == set);
+        }
     }
 
     // True when two times are integer constants, and the first is after the second.
