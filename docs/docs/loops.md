@@ -740,8 +740,7 @@ Some reads that throw it does not see:
 - An interpolated string that becomes a `FormattableString` or an `IFormattable` and that code
   formats later. It calls no `ToString` where you write it, and the analyzer reads none there. The
   analyzer does read the `ToString` calls where `FormattableString.Invariant` gets the string.
-- A function given to a `Map`, a `Lift`, or a collection view that reads a value only through an
-  implicit conversion of your own, with no cast and no call in the function, or only through a
+- A function given to a `Map`, a `Lift`, or a collection view that reads a value only through a
   compound assignment operator, such as `operator +=`, that a type of yours declares.
 - A function that a constructor from outside your project keeps, other than a `Lazy<T>`, a
   `ThreadLocal<T>`, the comparer of a platform collection, or a `Task` that `RunSynchronously` runs.

@@ -21,9 +21,16 @@ namespace SodaFlow.Analyzers;
 /// </remarks>
 internal sealed class DeclaredCode
 {
+    // The key of operators for an implicit conversion, which has no operator token.
+    private const string ImplicitConversion = "implicit";
+
     private readonly ImmutableHashSet<string> getters;
     private readonly ImmutableHashSet<string> madeWithCode;
     private readonly ImmutableHashSet<string> operators;
+
+    // True when the compilation declares an implicit conversion. No syntax shows where such a
+    // conversion runs, thus each name of a value can run one.
+    private readonly bool convertsImplicitly;
 
     private DeclaredCode(
         ImmutableHashSet<string> getters,
@@ -33,6 +40,7 @@ internal sealed class DeclaredCode
         this.getters = getters;
         this.madeWithCode = madeWithCode;
         this.operators = operators;
+        this.convertsImplicitly = operators.Contains(ImplicitConversion);
     }
 
     /// <summary>
@@ -100,8 +108,13 @@ internal sealed class DeclaredCode
                         operators.Add(declared.OperatorToken.ValueText);
 
                         break;
-                    case ConversionOperatorDeclarationSyntax:
+                    case ConversionOperatorDeclarationSyntax conversion:
                         operators.Add("()");
+
+                        if (conversion.ImplicitOrExplicitKeyword.IsKind(SyntaxKind.ImplicitKeyword))
+                        {
+                            operators.Add(ImplicitConversion);
+                        }
 
                         break;
                 }
@@ -135,13 +148,14 @@ internal sealed class DeclaredCode
     /// <summary>
     ///     True when a node can run code of the compilation with no call
     ///     syntax. Such a node names a getter, makes a type that runs code, or
-    ///     uses an operator.
+    ///     uses an operator. A name can also have a value that an implicit
+    ///     conversion gets.
     /// </summary>
     /// <param name="node">A node of the body of a lambda.</param>
     public bool CanRunCode(SyntaxNode node) =>
         node switch
         {
-            IdentifierNameSyntax name => this.getters.Contains(name.Identifier.ValueText),
+            IdentifierNameSyntax name => this.convertsImplicitly || this.getters.Contains(name.Identifier.ValueText),
             ObjectCreationExpressionSyntax creation => this.madeWithCode.Contains(NameOf(creation.Type)),
             ImplicitObjectCreationExpressionSyntax => this.madeWithCode.Count > 0,
             BinaryExpressionSyntax binary => this.operators.Contains(binary.OperatorToken.ValueText),

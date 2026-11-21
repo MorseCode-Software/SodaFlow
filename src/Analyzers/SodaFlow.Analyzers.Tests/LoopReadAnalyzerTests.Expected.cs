@@ -5842,6 +5842,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag98JsonNetReadsFourLevelsInside"] = ["SF1005"],
             ["Ag98SerializerReadsAnObjectThatGivesItselfAgain"] = ["SF1005"],
             ["R5FuCLimStaticInitializerSamplesWhatTheBlockSet"] = ["SF1005"],
-            ["Ag98StaticPropertyInitializerSamplesWhatTheBlockSet"] = ["SF1005"]
+            ["Ag98StaticPropertyInitializerSamplesWhatTheBlockSet"] = ["SF1005"],
+            ["R5FuCLimMapThatReadsThroughAnImplicitConversion"] = ["SF1001"],
+            ["Ag98MapWithABlockThatReadsThroughAnImplicitConversion"] = ["SF1001"],
+            ["Ag98MapThatConvertsIntoALocal"] = ["SF1001"],
+            ["Ag98MapThroughAnImplicitConversionSampledLater"] = ["SF1001"]
         };
 }

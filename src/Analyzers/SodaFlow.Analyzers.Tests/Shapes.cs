@@ -41041,6 +41041,26 @@ public static class Shapes
     public static Cell<int> Ag98ConstantDoesNotRunTheInitializers() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ag98SharedD.Cell = l.Map(v => v); Kept.Add(Ag98ReadOnceD.None); return S.Hold(0); });
 
+    // S9781. Carried from Round 4 (AG95, R4LimMapThatReadsThroughAnImplicitConversion). A Map function reads a pending object only through an implicit conversion of the project, and the block samples the map.
+    public static Cell<int> R5FuCLimMapThatReadsThroughAnImplicitConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Kept.Add(Plain.Map<int, long>(_ => t).Sample()); return S.Hold(0); });
+
+    // S9782. A Map function with a block body returns a pending object, which an implicit conversion of the project reads, and the block samples the map.
+    public static Cell<int> Ag98MapWithABlockThatReadsThroughAnImplicitConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Kept.Add(Plain.Map<int, long>(_ => { return t; }).Sample()); return S.Hold(0); });
+
+    // S9783. A Map function puts a pending object into a local of type long, through an implicit conversion of the project, and the block samples the map.
+    public static Cell<int> Ag98MapThatConvertsIntoALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Kept.Add(Plain.Map(v => { long n = t; return v + n.CompareTo(0); }).Sample()); return S.Hold(0); });
+
+    // S9784. Control: a Map function reads a plain object through an implicit conversion of the project, and the block samples the map.
+    public static Cell<int> Ag98MapThatReadsAPlainObjectThroughAnImplicitConversion() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(Plain.Map(v => v)); Kept.Add(Plain.Map<int, long>(_ => t).Sample()); return S.Hold(0); });
+
+    // S9785. A map whose function reads a pending object through an implicit conversion of the project goes into a local, and the block samples the local.
+    public static Cell<int> Ag98MapThroughAnImplicitConversionSampledLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); Cell<long> m = Plain.Map<int, long>(_ => t); Kept.Add(m.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
