@@ -39309,6 +39309,26 @@ public static class Shapes
     public static Cell<int> R5LimAwaitInAnAsyncMethodWithAnExpressionBody() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R5LimWaitThenSample(l.Map(v => v))); return S.Hold(0); });
 
+    // S9348. An await using of ConfigureAwait calls DisposeAsync of the resource, which samples a pending member.
+    public static Cell<int> R5CsAwaitUsingOfConfigureAwaitCallsDisposeAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { R4CsAsyncTally t = new(l.Map(v => v)); await using (t.ConfigureAwait(false)) { Kept.Add(1); } }; run().Wait(0); return S.Hold(0); });
+
+    // S9349. An await using of ConfigureAwait calls the DisposeAsync of IAsyncDisposable, which samples. The public DisposeAsync of the type does not run.
+    public static Cell<int> Ab284AwaitUsingOfConfigureAwaitCallsTheMemberOfTheInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Ab255TwoDisposals t = new(l.Map(v => v)); await using (t.ConfigureAwait(false)) { Kept.Add(1); } }; run().Wait(0); return S.Hold(0); });
+
+    // S9350. An await using of ConfigureAwait of a resource whose DisposeAsync never completes. The code after it does not run.
+    public static Cell<int> Ab284AwaitUsingOfConfigureAwaitWaitsForTheResource() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await using (new Ab255NeverDisposed().ConfigureAwait(false)) { Kept.Add(1); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9351. An await using of ConfigureAwait of a resource whose DisposeAsync gives a complete task. The code after it runs in the call and samples.
+    public static Cell<int> Ab284AwaitUsingOfConfigureAwaitOfACompleteDisposalRunsTheRest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { R4CsAsyncTally t = new(Plain); await using (t.ConfigureAwait(false)) { Kept.Add(1); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S9352. An await using of a ConfigureAwait of this code, which gives a different resource. Its DisposeAsync does not sample, and the resource of the call is not disposed.
+    public static Cell<int> Ab284AwaitUsingOfAConfigureAwaitOfTheCodeDisposesWhatItGives() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Ab284Tally t = new(l.Map(v => v)); await using (t.ConfigureAwait(false)) { Kept.Add(1); } }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -56301,6 +56321,21 @@ public static class Shapes
 
     private static bool Ab281Throw(Cell<int> c) => throw new R4CsFault(c);
 
+    public sealed class Ab284Tally(Cell<int> share) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync()
+        {
+            Kept.Add(share.Sample());
+
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    public sealed class Ab284Plain : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -56309,6 +56344,9 @@ public static class Shapes
 
 file static class Helpers
 {
+    public static Shapes.Ab284Plain ConfigureAwait(this Shapes.Ab284Tally tally, bool continueOnCapturedContext) =>
+        new();
+
     public static Shapes.R5FuDoneStructAwaiter GetAwaiter(this Shapes.R5FuDoneByExtension awaitable) => new();
 
     // An extension method of this code with the name RunTimersTo. It runs the timers of the clock

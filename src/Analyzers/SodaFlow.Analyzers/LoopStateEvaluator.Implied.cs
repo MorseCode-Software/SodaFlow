@@ -1201,16 +1201,29 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     public (Followed? Followed, bool Complete) FollowDisposeAsync(ExpressionSyntax resource)
     {
-        // The compiler looks for the method on the type of the local, which can be an interface of
-        // the type of its initializer.
-        if (!this.region.Symbols.DeclaresDisposeAsync
-            || this.region.ModelFor(resource).GetTypeInfo(resource).ConvertedType is not { } type
-            || this.DisposeAsyncOf(type) is not { } dispose)
+        if (!this.region.Symbols.DeclaresDisposeAsync)
         {
             return (null, false);
         }
 
-        LoopState owner = this.Self(resource);
+        // ConfigureAwait of a resource gives a struct of the platform, whose DisposeAsync calls the
+        // member of IAsyncDisposable on the resource. Otherwise, the compiler looks for the method on
+        // the type of the local, which can be an interface of the type of its initializer.
+        ExpressionSyntax? configured = this.ResourceOfConfigureAwait(resource);
+
+        IMethodSymbol? dispose =
+            configured != null
+                ? this.region.Symbols.AsyncDisposableDisposeAsync
+                : this.region.ModelFor(resource).GetTypeInfo(resource).ConvertedType is { } type
+                    ? this.DisposeAsyncOf(type)
+                    : null;
+
+        if (dispose == null)
+        {
+            return (null, false);
+        }
+
+        LoopState owner = this.Self(configured ?? resource);
 
         return (
             owner.Members == null
@@ -1218,6 +1231,20 @@ internal sealed partial class LoopStateEvaluator
                 : this.FollowImplied(call: resource, member: dispose, owner: owner, arguments: []),
             this.GivesOnlyCompleteTasks(owner: owner, member: dispose));
     }
+
+    // The resource of ConfigureAwait of the platform, as in r.ConfigureAwait(false). Null for each
+    // other expression, also for a ConfigureAwait of this compilation.
+    private ExpressionSyntax? ResourceOfConfigureAwait(ExpressionSyntax resource) =>
+        resource is InvocationExpressionSyntax
+        {
+            Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ConfigureAwait" } access
+        }
+        && this.region.SymbolOf(resource) is IMethodSymbol
+        {
+            ContainingType.Name: "TaskAsyncEnumerableExtensions"
+        }
+            ? access.Expression
+            : null;
 
     // The compiler calls a DisposeAsync of the type that needs no argument and that the code can
     // call. Otherwise, it calls the member of IAsyncDisposable. Thus, a type with both calls its own

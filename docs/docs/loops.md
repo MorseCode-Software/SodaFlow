@@ -399,6 +399,7 @@ The analyzer follows a value made from the placeholder through the code of your 
   otherwise the `ToString` of `IFormattable` for a value that implements that, the `AppendFormatted`
   of an interpolated string handler of your own, which gets each value in place of that `ToString`,
   `Dispose` at the end of a `using` or a `foreach`, `DisposeAsync` at the end of an `await using`,
+  also of a resource in `ConfigureAwait`,
   `GetAwaiter` at an `await`, with `IsCompleted` of its awaiter and `GetResult` where the analyzer
   knows that the awaiter is complete, the enumerator of a `foreach`, the `Add` of a
   collection initializer or a collection expression, the `Create` method of a `CollectionBuilder`,
