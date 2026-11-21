@@ -2065,9 +2065,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         {
             ExpressionStatementSyntax statement => this.AlwaysRunsAt(place: statement, turn: out turn),
             // A null-conditional assignment runs when its owner is not null. Each object that the
-            // owner can name then gets the write.
-            ConditionalAccessExpressionSyntax { Parent: ExpressionStatementSyntax statement } conditional
-                when conditional.WhenNotNull == assignment =>
+            // owner can name then gets the write. A chain of such accesses is the same.
+            ConditionalAccessExpressionSyntax conditional
+                when conditional.WhenNotNull == assignment
+                     && AroundTheChain(conditional) is ExpressionStatementSyntax statement =>
                 this.AlwaysRunsAt(place: statement, turn: out turn),
             // The expression that is the body of a function is the one statement of that function.
             ArrowExpressionClauseSyntax clause => this.AlwaysRunsAt(place: clause, turn: out turn),
@@ -2075,6 +2076,20 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 this.AlwaysRunsAt(place: assignment, turn: out turn),
             _ => false
         };
+    }
+
+    // The node around a chain of null-conditional accesses, where each access is the part after the
+    // mark of the access around it.
+    private static SyntaxNode? AroundTheChain(ConditionalAccessExpressionSyntax conditional)
+    {
+        SyntaxNode node = conditional;
+
+        while (node.Parent is ConditionalAccessExpressionSyntax outer && outer.WhenNotNull == node)
+        {
+            node = outer;
+        }
+
+        return node.Parent;
     }
 
     /// <summary>

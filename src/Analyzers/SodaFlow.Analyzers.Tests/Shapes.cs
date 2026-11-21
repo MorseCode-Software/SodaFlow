@@ -39689,6 +39689,10 @@ public static class Shapes
     public static Cell<int> R5FuStructFromAPropertyKeepsItsValue() =>
         Cell.Loop<int>().WithoutCaptures(l => { R5FuStructHolder h = new(); h.Value.Set(l.Map(v => v)); Kept.Add(h.Value.Share.Sample()); return S.Hold(0); });
 
+    // S9443. A chained null-conditional assignment writes a plain cell over a pending one. The read returns.
+    public static Cell<int> R5FuChainedNullConditionalAssignmentReplaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuChain? h = new(); h.Holder.Slot.Share = l.Map(v => v); h?.Holder?.Slot.Share = Plain; Kept.Add(h.Holder.Slot.Share!.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
