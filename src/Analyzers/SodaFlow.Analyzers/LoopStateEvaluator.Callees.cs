@@ -291,7 +291,7 @@ internal sealed partial class LoopStateEvaluator
                 result: result,
                 found: found,
                 leaving: leaving,
-                thrown: walker.Thrown);
+                thrown: walker.ThrownTo(call));
 
         if (receiver != null)
         {

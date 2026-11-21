@@ -309,12 +309,17 @@ dotnet_diagnostic.SF1003.severity = warning
 The analyzer follows a value made from the placeholder through the code of your project:
 
 - Locals, tuples, deconstructions, patterns, `out` and `ref` arguments, and the fields that the
-  block sets. A write to a static field of a class that is not generic replaces what the field
-  held, where the write always runs: in the block, in a method that the block always calls, or in
-  the function of a `Map` at a first read that always runs. The variable of a `catch` clause gets
-  each object that a `throw` in its `try` block, or in a method or a lambda that the block calls,
-  can send to that clause. That includes a lambda that a method of the platform, such as
-  `List<T>.ForEach`, runs in the call. Its filter gets none,
+  block sets. A write to a static field of a class that is not generic replaces what the field held,
+  where the write always runs: in the block, in a method that the block always calls, or in the
+  function of a `Map` at a first read that always runs. The variable of a `catch` clause gets each
+  object that a `throw` in its `try` block, or in a method or a lambda that the block calls, can
+  send to that clause. That includes a lambda that a method of the platform, such as
+  `List<T>.ForEach`, runs in the call. An `async` method, local function, or lambda puts the object
+  into its task instead, so the clause gets it only around an `await` of the call, or around an
+  `await using` whose `DisposeAsync` throws it. A task that `RunSynchronously` runs keeps the object
+  as well. The runtime throws a `TypeInitializationException` in place of an object that a static
+  constructor throws, and a `TargetInvocationException` in place of one that a method throws through
+  `MethodInfo.Invoke` or a constructor through `Activator.CreateInstance`. Its filter gets none,
   because an exception in a filter is lost and makes the filter false.
 - Collections, arrays, and dictionaries. A list, an array, or a span that you write as a literal
   keeps each element apart, also where the literal spreads a second such local, so `cells[0]`,

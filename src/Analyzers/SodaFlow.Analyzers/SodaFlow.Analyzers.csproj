@@ -67,6 +67,7 @@
         <Compile Include="LoopStateEvaluator.Delegates.cs"/>
         <Compile Include="LoopStateEvaluator.Elements.cs"/>
         <Compile Include="LoopStateEvaluator.Escapes.cs"/>
+        <Compile Include="LoopStateEvaluator.Exceptions.cs"/>
         <Compile Include="LoopStateEvaluator.Implied.cs"/>
         <Compile Include="LoopStateEvaluator.Names.cs"/>
         <Compile Include="LoopStateEvaluator.LaterWrites.cs"/>
@@ -104,6 +105,7 @@
         <Compile Include="ShapeNumber.cs"/>
         <Compile Include="SinkWalker.cs"/>
         <Compile Include="SinkWalker.FirstReads.cs"/>
+        <Compile Include="SinkWalker.Exceptions.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
         <Compile Include="WriteThroughAName.cs"/>
         <Compile Include="WritesThroughEach.cs"/>

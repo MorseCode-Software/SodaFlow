@@ -5580,6 +5580,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab278CatchOfAThrowInANestedLambdaThatForEachRuns"] = ["SF1001"],
             ["Ab278CatchInALambdaThatForEachRuns"] = ["SF1001"],
             ["Ab278CatchOfAThrowInAStoredLambda"] = ["SF1001"],
-            ["Ab278CatchOfAThrowInALambdaMadeInATry"] = ["SF1001"]
+            ["Ab278CatchOfAThrowInALambdaMadeInATry"] = ["SF1001"],
+            ["Ab279CatchAroundAnAwaitOfAnAsyncMethodGetsTheObject"] = ["SF1001"],
+            ["Ab279CatchAroundAnAwaitOfConfigureAwaitGetsTheObject"] = ["SF1001"],
+            ["Ab279CatchAroundAnAwaitOfAnAsyncLambdaGetsTheObject"] = ["SF1001"],
+            ["Ab279CatchAroundAnAwaitUsingGetsTheObjectOfDisposeAsync"] = ["SF1001"],
+            ["Ab279CatchOfAThrowThatValueOfALazyGives"] = ["SF1001"],
+            ["Ab279CatchOfAThrowOfAStaticMethodOfATypeWithAStaticConstructor"] = ["SF1001"],
+            ["Ab279CatchAroundAnAwaitUsingOfALocalGetsTheObjectOfDisposeAsync"] = ["SF1001"],
+            ["Ab279CatchAroundAnAwaitUsingDeclarationGetsTheObjectOfDisposeAsync"] = ["SF1001"]
         };
 }

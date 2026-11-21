@@ -136,20 +136,23 @@ internal sealed partial class LoopStateEvaluator
                 parts = parts.Append(body);
             }
 
-            return parts.Aggregate(
-                seed: (Followed?)null,
-                func: (all, part) =>
-                    Both(
-                        first: all,
-                        second: this.Enter(
-                            call: use,
-                            name: owner.Name,
-                            body: part,
-                            bindings: [],
-                            definer: null,
-                            members: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
-                            receiver: null,
-                            target: null)));
+            // The runtime replaces each object that the constructor throws with a TypeInitializationException.
+            return this.Wrapped(
+                followed: parts.Aggregate(
+                    seed: (Followed?)null,
+                    func: (all, part) =>
+                        Both(
+                            first: all,
+                            second: this.Enter(
+                                call: use,
+                                name: owner.Name,
+                                body: part,
+                                bindings: [],
+                                definer: null,
+                                members: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
+                                receiver: null,
+                                target: null))),
+                wrapper: "System.TypeInitializationException");
         }
         finally
         {

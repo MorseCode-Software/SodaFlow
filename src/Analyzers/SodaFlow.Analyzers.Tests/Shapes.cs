@@ -39125,6 +39125,78 @@ public static class Shapes
     public static Cell<int> Ab278CatchAroundTheDefinitionOfAQueryInALoopGetsNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = []; try { for (int i = 0; i < 2; i++) { try { q = new List<int> { 1 }.Select(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : n); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } Kept.Add(q.ToList()); } } catch (R4CsFault) { Kept.Add(2); } return S.Hold(0); });
 
+    // S9302. A static constructor throws an object with a pending member. The runtime wraps it in a TypeInitializationException, so the catch of the object never runs.
+    public static Cell<int> R5CsCatchOfAThrowInAStaticConstructorGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsInit.T = l.Map(v => v); try { Kept.Add(R5CsThrowingInit.Value); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } catch (TypeInitializationException) { Kept.Add(2); } R5CsInit.T = Plain; return S.Hold(0); });
+
+    // S9303. MethodInfo.Invoke wraps the object that the method throws in a TargetInvocationException, so the catch of the object never runs.
+    public static Cell<int> R5CsCatchOfAThrowThroughInvokeGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { typeof(R5CsReflected).GetMethod("Throw")!.Invoke(null, [l.Map(v => v)]); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } catch (System.Reflection.TargetInvocationException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S9304. An async method throws after a complete await. The object goes into its task, so the catch around the call never runs.
+    public static Cell<int> R5CsCatchAroundAnAsyncMethodGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { _ = R5CsThrowInItsTask(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9305. An async lambda throws after a complete await. The object goes into its task, so the catch around the call never runs.
+    public static Cell<int> R5CsCatchAroundAnAsyncLambdaGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> f = async () => { await Task.CompletedTask; throw new R4CsFault(l.Map(v => v)); }; try { _ = f(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9306. RunSynchronously keeps the object that the function of the task throws in the task, so the catch around it never runs.
+    public static Cell<int> R5CsCatchAroundRunSynchronouslyGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task t = new(() => throw new R4CsFault(l.Map(v => v))); try { t.RunSynchronously(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9307. An async method throws after a complete await, and an await of its task in an async lambda throws the object again. The catch around the await samples it.
+    public static Cell<int> Ab279CatchAroundAnAwaitOfAnAsyncMethodGetsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await R5CsThrowInItsTask(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S9308. The same with ConfigureAwait between the call and the await.
+    public static Cell<int> Ab279CatchAroundAnAwaitOfConfigureAwaitGetsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await R5CsThrowInItsTask(l.Map(v => v)).ConfigureAwait(false); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S9309. An async lambda throws after a complete await, and an await of its task throws the object again. The catch around the await samples it.
+    public static Cell<int> Ab279CatchAroundAnAwaitOfAnAsyncLambdaGetsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, Task> f = async c => { await Task.CompletedTask; throw new R4CsFault(c); }; Func<Task> run = async () => { try { await f(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S9310. An async DisposeAsync throws after a complete await. The await using awaits its task, so the catch around the await using samples the object.
+    public static Cell<int> Ab279CatchAroundAnAwaitUsingGetsTheObjectOfDisposeAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await using (Ab279ThrowingDisposal t = new(l.Map(v => v))) { Kept.Add(1); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S9311. An async method throws before its first await. The object goes into its task, so the catch around the call never runs.
+    public static Cell<int> Ab279CatchAroundAnAsyncMethodThatThrowsAtOnceGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { _ = Ab279ThrowAtOnce(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9312. An async local function throws after a complete await. The object goes into its task, so the catch around the call never runs.
+    public static Cell<int> Ab279CatchAroundAnAsyncLocalFunctionGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { _ = Fail(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); async Task Fail() { await Task.CompletedTask; throw new R4CsFault(l.Map(v => v)); } });
+
+    // S9313. ConvertAll runs an async lambda that throws. The object goes into the task of the lambda, so the catch around the call never runs.
+    public static Cell<int> Ab279CatchAroundAnAsyncLambdaThatConvertAllRunsGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(new List<int> { 1 }.ConvertAll(async n => { await Task.CompletedTask; if (n > 0) { throw new R4CsFault(l.Map(v => v)); } return n; })); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9314. A Lazy throws the object that its function throws at the read of Value, and the catch samples it.
+    public static Cell<int> Ab279CatchOfAThrowThatValueOfALazyGives() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int> z = new(() => throw new R4CsFault(l.Map(v => v))); try { Kept.Add(z.Value); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9315. A static method throws an object with a pending member, and the catch around the call samples it. The throw is not in a static constructor.
+    public static Cell<int> Ab279CatchOfAThrowOfAStaticMethodOfATypeWithAStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Ab279Statics.Throw(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9316. A static constructor throws, and a catch of Exception samples a member of the object. The runtime gives the catch a TypeInitializationException, so the cast throws an InvalidCastException, and the outer catch gets it.
+    public static Cell<int> Ab279CatchOfExceptionAroundAStaticConstructorGetsTheWrapper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab279Held.Share = l.Map(v => v); try { try { Kept.Add(Ab279ThrowingInit.Value); } catch (Exception e) { Kept.Add(((R4CsFault)e).Share.Sample()); } } catch (InvalidCastException) { Kept.Add(2); } Ab279Held.Share = Plain; return S.Hold(0); });
+
+    // S9317. An await using of a local whose async DisposeAsync throws after a complete await. The catch around the await using samples the object.
+    public static Cell<int> Ab279CatchAroundAnAwaitUsingOfALocalGetsTheObjectOfDisposeAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Ab279ThrowingDisposal d = new(l.Map(v => v)); try { await using (d) { Kept.Add(1); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S9318. An await using declaration whose async DisposeAsync throws after a complete await, at the end of the block of a try. The catch samples the object.
+    public static Cell<int> Ab279CatchAroundAnAwaitUsingDeclarationGetsTheObjectOfDisposeAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await using Ab279ThrowingDisposal t = new(l.Map(v => v)); Kept.Add(1); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S9319. An async method gives an async lambda to ConvertAll, which throws. The caller awaits the task of the method, which completes, and the catch around the await never runs.
+    public static Cell<int> Ab279CatchAroundAnAwaitOfAMethodWhoseLambdaThrowsGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await Ab279ConvertsAll(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -56038,6 +56110,66 @@ public static class Shapes
         public static readonly int Value;
 
         static Ab273InALoop() => Value = Ab273Share.C!.Sample();
+    }
+
+    public sealed class Ab279ThrowingDisposal(Cell<int> share) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            await Task.CompletedTask;
+
+            throw new R4CsFault(share);
+        }
+    }
+
+    private static async Task Ab279ThrowAtOnce(Cell<int> c)
+    {
+        if (Kept.Count >= 0)
+        {
+            throw new R4CsFault(c);
+        }
+
+        await Task.CompletedTask;
+    }
+
+    public static class Ab279Statics
+    {
+        static Ab279Statics() => Kept.Add(1);
+
+        public static void Throw(Cell<int> c) => throw new R4CsFault(c);
+    }
+
+    public static class Ab279Held
+    {
+        public static Cell<int>? Share;
+    }
+
+    public static class Ab279ThrowingInit
+    {
+        static Ab279ThrowingInit()
+        {
+            throw new R4CsFault(Ab279Held.Share!);
+        }
+
+        public static int Value => 1;
+    }
+
+    private static async Task Ab279ConvertsAll(Cell<int> c)
+    {
+        await Task.CompletedTask;
+
+        Kept.Add(
+            new List<int> { 1 }.ConvertAll(async n =>
+            {
+                await Task.CompletedTask;
+
+                if (n > 0)
+                {
+                    throw new R4CsFault(c);
+                }
+
+                return n;
+            }));
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

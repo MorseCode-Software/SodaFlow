@@ -168,6 +168,13 @@ internal sealed class LoopRegion(
     /// <summary>The assembly that the block is in.</summary>
     public IAssemblySymbol Assembly => this.compilation.Assembly;
 
+    /// <summary>
+    ///     The type of the platform with the metadata name. Null when the
+    ///     compilation has no such type.
+    /// </summary>
+    /// <param name="name">The metadata name, such as <c>System.Exception</c>.</param>
+    public INamedTypeSymbol? TypeOfThePlatform(string name) => this.compilation.GetTypeByMetadataName(name);
+
     /// <summary>True when the code set a field to a value with a state.</summary>
     public bool HasFields => this.fields.Count > 0;
 

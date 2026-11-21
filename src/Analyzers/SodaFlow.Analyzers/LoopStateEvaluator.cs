@@ -3554,7 +3554,9 @@ internal sealed partial class LoopStateEvaluator
         if (SodaFlowSymbols.IsReflectionCall(method)
             && this.ReflectedCall(invocation: invocation, method: method) is { } reflected)
         {
-            return this.FollowReflection(invocation: invocation, reflected: reflected);
+            return this.Wrapped(
+                followed: this.FollowReflection(invocation: invocation, reflected: reflected),
+                wrapper: "System.Reflection.TargetInvocationException");
         }
 
         // A call of a delegate runs the functions that the delegate can be.
@@ -3624,11 +3626,12 @@ internal sealed partial class LoopStateEvaluator
         if (IsRunSynchronously(method)
             && invocation.Expression is MemberAccessExpressionSyntax { Expression: var task })
         {
-            return this.FollowLazy(
-                access: invocation,
-                written: task,
-                lazy: this.Eval(task).AsOneOfItsElements,
-                value: method.ReturnType);
+            return KeptByTheTask(
+                this.FollowLazy(
+                    access: invocation,
+                    written: task,
+                    lazy: this.Eval(task).AsOneOfItsElements,
+                    value: method.ReturnType));
         }
 
         // A call on a value that is one of two objects can run the method of each.

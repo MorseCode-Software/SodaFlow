@@ -4852,15 +4852,17 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     // can have. It stops at the first clause with no filter that gets each object of its type.
     // Otherwise, it leaves the function. A type that the walk does not know can be each type. A
     // lambda that the walk entered runs in the call that gets it, so the object goes on to that call.
-    // A query runs its lambdas where something enumerates it, and not where its code is.
+    // A query runs its lambdas where something enumerates it, and not where its code is. An async
+    // function puts the object into its task.
     private void Sends(SyntaxNode from, ITypeSymbol? type, LoopState state)
     {
         SyntaxNode child = from;
+        SyntaxNode? parent = from.Parent;
 
-        for (SyntaxNode? parent = from.Parent;
+        for (;
              parent is not (null or LocalFunctionStatementSyntax or MemberDeclarationSyntax)
              && (parent is not AnonymousFunctionExpressionSyntax lambda
-                 || (this.running == null && this.entered.Contains(lambda)));
+                 || (this.running == null && this.entered.Contains(lambda) && !IsAsync(lambda)));
              child = parent, parent = parent.Parent)
         {
             if (parent is not TryStatementSyntax attempt || attempt.Block != child)
@@ -4887,6 +4889,13 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     return;
                 }
             }
+        }
+
+        if (parent != null && IsAsync(parent))
+        {
+            this.IntoTheTask(function: parent, type: type, state: state);
+
+            return;
         }
 
         this.thrown.Add((type, state));
