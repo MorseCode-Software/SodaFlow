@@ -5819,6 +5819,7 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab327BlockInALocalGivenByADeconstructionWithADiscardSamples"] = ["SF1001"],
             ["Ab327BlockInALocalReadInATupleSamples"] = ["SF1001"],
             ["R5LimBlockOfAVirtualMethodOfAnUnseenObject"] = ["SF1003"],
-            ["Ab328BlockOfAnOverrideOfAnUnseenObject"] = ["SF1003"]
+            ["Ab328BlockOfAnOverrideOfAnUnseenObject"] = ["SF1003"],
+            ["Ab331MarkInALocalAssignedTwiceGivenAway"] = ["SF1003"]
         };
 }

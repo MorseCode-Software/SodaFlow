@@ -111,7 +111,8 @@ convert it without a cast. The plain types have the same three methods, which re
 receiver. The [loop analyzer](#the-loop-analyzer) reads them as a mark: put the mark at the
 argument it is about, as in `new Row(amount.Lift(total, …).AsCell())`. A mark on the placeholder
 itself covers every value made from it. So does a mark in a local that gets no other value, such as
-`var marked = placeholder.AsCell();`.
+`var marked = placeholder.AsCell();`, and a mark that a local with no initializer gets in its one
+assignment.
 
 ## Reading a looped value
 

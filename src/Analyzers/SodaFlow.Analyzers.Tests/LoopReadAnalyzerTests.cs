@@ -60,7 +60,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["DvLinksEscapeOfAnArrayOfThePlaceholder"] = [],
             ["DvLinksEscapeOfThePlaceholderCastToObject"] = [],
             ["Ab252MarkInALocalThatGetsASecondValue"] = [],
-            ["Ab252LocalWithNoMarkGivenAway"] = []
+            ["Ab252LocalWithNoMarkGivenAway"] = [],
+            ["Ab331MarkInALocalAssignedTwiceGivenAway"] = []
         };
 
     // Core lets an assembly with this name use its internals. The Core block shapes must use them,

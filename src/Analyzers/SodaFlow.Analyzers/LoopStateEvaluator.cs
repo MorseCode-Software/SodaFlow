@@ -5220,8 +5220,8 @@ internal sealed partial class LoopStateEvaluator
     ///     An <c>AsCell()</c> or <c>AsBehavior()</c> on the argument, or on a
     ///     value it is derived from, is the assertion that nothing reads it before the
     ///     close. Parentheses, a cast, and the operator that says not null do not
-    ///     hide it. A local that gets no value after its declaration has the
-    ///     value of its initializer, also in a lambda.
+    ///     hide it. A local has its only value, also in a lambda: see
+    ///     <see cref="OnlyValueOf" />.
     /// </summary>
     public bool IsAsserted(ExpressionSyntax argument)
     {
@@ -5241,12 +5241,8 @@ internal sealed partial class LoopStateEvaluator
 
                     break;
                 case IdentifierNameSyntax name
-                    when this.region.SymbolOf(name) is ILocalSymbol local
-                         && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                             is VariableDeclaratorSyntax { Initializer.Value: { } initial } declarator
-                         && FunctionOf(declarator) is { } code
-                         && this.HasOneValueIn(name: local, code: code):
-                    current = Unwrapped(initial);
+                    when this.region.SymbolOf(name) is ILocalSymbol local && this.OnlyValueOf(local) is { } only:
+                    current = Unwrapped(only);
 
                     break;
                 default:

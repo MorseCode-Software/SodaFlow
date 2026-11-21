@@ -40865,6 +40865,14 @@ public static class Shapes
     public static Cell<int> R5LimReadUnderADefaultBoolCondition() =>
         Cell.Loop<int>().WithoutCaptures(l => { if (default(bool)) { Kept.Add(l.Sample()); } return S.Hold(0); });
 
+    // S9737. A mark on the placeholder goes into a local that has no initializer and one assignment, and a map of it is given away.
+    public static Cell<int> R5LimMarkInALocalAssignedOnceGivenAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m; m = l.AsCell(); IBag<Cell<int>> bag = NoBody.Bag<Cell<int>>(); bag.Put(m.Map(v => v)); return S.Hold(0); });
+
+    // S9738. A local with no initializer gets a mark on the placeholder and then a map of it, and a map of the local is given away.
+    public static Cell<int> Ab331MarkInALocalAssignedTwiceGivenAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> m; m = l.AsCell(); m = l.Map(v => v); IBag<Cell<int>> bag = NoBody.Bag<Cell<int>>(); bag.Put(m.Map(v => v)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

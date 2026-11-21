@@ -72,6 +72,7 @@
         <Compile Include="LoopStateEvaluator.Implied.cs"/>
         <Compile Include="LoopStateEvaluator.Names.cs"/>
         <Compile Include="LoopStateEvaluator.LaterWrites.cs"/>
+        <Compile Include="LoopStateEvaluator.Marks.cs"/>
         <Compile Include="LoopStateEvaluator.NamesOfThis.cs"/>
         <Compile Include="LoopStateEvaluator.OlderObjects.cs"/>
         <Compile Include="LoopStateEvaluator.Overrides.cs"/>
