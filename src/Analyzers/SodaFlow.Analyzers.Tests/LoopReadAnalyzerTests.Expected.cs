@@ -5749,6 +5749,15 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5ApiCollectLazyFiresItsLinkedState"] = ["SF1002"],
             ["R5ApiCollectLazyOfAFunctionInALocal"] = ["SF1002"],
             ["Ab319CollectOfAFunctionInALocal"] = ["SF1002"],
-            ["Ab319CollectLazyOfALocalFunction"] = ["SF1002"]
+            ["Ab319CollectLazyOfALocalFunction"] = ["SF1002"],
+            ["R5FuOrElseOfARowWithALinkedMemberSecond"] = ["SF1002"],
+            ["R5FuOrElseOfARowWithALinkedMemberFirst"] = ["SF1002"],
+            ["R5FuMergeWithAFunctionOfARowWithALinkedMember"] = ["SF1002"],
+            ["R5FuFilterOfARowWithALinkedMember"] = ["SF1002"],
+            ["R5FuGateOfARowWithALinkedMember"] = ["SF1002"],
+            ["R5FuOnceOfARowWithALinkedMember"] = ["SF1002"],
+            ["R5FuOrElseOfAListOfStreamsOfARowWithALinkedMember"] = ["SF1002"],
+            ["Ab320FilterSomeOfARowWithALinkedMember"] = ["SF1002"],
+            ["Ab320CalmOfARowWithALinkedMember"] = ["SF1002"]
         };
 }

@@ -562,7 +562,7 @@ careful side, so it can report a read that does not throw:
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind. So is the
   function of a `Merge`, which runs only when both streams fire in one transaction: what it returns
-  counts as a value of the merge even where only one stream fires. Only a
+  counts as a value of the merge even where one stream fires, or none does. Only a
   condition that is a constant is read for what it says: the analyzer skips the branch of an `if`
   and the arm of a `?:` that the constant rules out, the body of a `while` or a `for` whose
   condition is the constant `false`, and the second turn of a `do` whose condition is the constant

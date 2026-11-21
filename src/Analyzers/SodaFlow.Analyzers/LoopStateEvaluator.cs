@@ -2745,8 +2745,8 @@ internal sealed partial class LoopStateEvaluator
                 OperatorRule.StreamFromReceiver => new LoopState(
                     pending: false,
                     linked: receiverState.Linked,
-                    contentPending: receiverState.ContentPending,
-                    contentLinked: receiverState.ContentLinked),
+                    contentPending: false,
+                    contentLinked: false).WithContent(receiverState.Content),
                 OperatorRule.Snapshot => new LoopState(
                     pending: false,
                     linked: receiverState.Linked,
@@ -2779,18 +2779,13 @@ internal sealed partial class LoopStateEvaluator
                         argumentTypes: argumentTypes),
                     contentPending: false,
                     contentLinked: false).WithContent(
-                    new LoopState(
-                            pending: inputs.ContentPending,
-                            linked: inputs.ContentLinked,
-                            contentPending: false,
-                            contentLinked: false)
-                        .Join(
-                            this.MergedContent(
-                                invocation: invocation,
-                                method: method,
-                                receiverType: receiverType,
-                                receiverState: receiverState,
-                                argumentStates: argumentStates))),
+                    inputs.Content.Join(
+                        this.MergedContent(
+                            invocation: invocation,
+                            method: method,
+                            receiverType: receiverType,
+                            receiverState: receiverState,
+                            argumentStates: argumentStates))),
                 OperatorRule.DeferLazy => new LoopState(
                     pending: firstArgument.Pending,
                     linked: false,

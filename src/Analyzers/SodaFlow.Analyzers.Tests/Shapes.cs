@@ -40437,6 +40437,50 @@ public static class Shapes
     public static Cell<int> Ab319CollectLazyOfAPlainFunctionInALocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<int, int, (Cell<int>, int)> f = (_, st) => (Plain, st); StreamSink<int> s = Stream.CreateSink<int>(); Cell<int> sw = s.CollectLazy(LazySample.Defer(() => 0), f).Hold(Plain).SwitchC(); s.Send(1); return sw; });
 
+    // S9630. The block sends a row with a linked member into the second stream of an OrElse. The switch of the member of the hold as the close is a cycle.
+    public static Cell<int> R5FuOrElseOfARowWithALinkedMemberSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> a = Stream.CreateSink<RecordRow>(); StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = a.OrElse(b).Hold(new RecordRow(Plain)); b.Send(new RecordRow(l.Map(v => v))); return h.Map(r => r.Share).SwitchC(); });
+
+    // S9631. The same, with the row sent into the first stream.
+    public static Cell<int> R5FuOrElseOfARowWithALinkedMemberFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> a = Stream.CreateSink<RecordRow>(); StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = a.OrElse(b).Hold(new RecordRow(Plain)); a.Send(new RecordRow(l.Map(v => v))); return h.Map(r => r.Share).SwitchC(); });
+
+    // S9632. Control: a merge with a function that gives the first row.
+    public static Cell<int> R5FuMergeWithAFunctionOfARowWithALinkedMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> a = Stream.CreateSink<RecordRow>(); StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = a.Merge(b, (x, _) => x).Hold(new RecordRow(Plain)); b.Send(new RecordRow(l.Map(v => v))); return h.Map(r => r.Share).SwitchC(); });
+
+    // S9633. The block sends a row with a linked member into a stream that a Filter passes on. The switch of the member of the hold as the close is a cycle.
+    public static Cell<int> R5FuFilterOfARowWithALinkedMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = b.Filter(_ => true).Hold(new RecordRow(Plain)); b.Send(new RecordRow(l.Map(v => v))); return h.Map(r => r.Share).SwitchC(); });
+
+    // S9634. The same through a Gate whose cell is true.
+    public static Cell<int> R5FuGateOfARowWithALinkedMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = b.Gate(Cell.Constant(true)).Hold(new RecordRow(Plain)); b.Send(new RecordRow(l.Map(v => v))); return h.Map(r => r.Share).SwitchC(); });
+
+    // S9635. The same through Once.
+    public static Cell<int> R5FuOnceOfARowWithALinkedMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = b.Once().Hold(new RecordRow(Plain)); b.Send(new RecordRow(l.Map(v => v))); return h.Map(r => r.Share).SwitchC(); });
+
+    // S9636. The same through an OrElse of a list of streams.
+    public static Cell<int> R5FuOrElseOfAListOfStreamsOfARowWithALinkedMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> a = Stream.CreateSink<RecordRow>(); StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = new Stream<RecordRow>[] { a, b }.OrElse().Hold(new RecordRow(Plain)); b.Send(new RecordRow(l.Map(v => v))); return h.Map(r => r.Share).SwitchC(); });
+
+    // S9637. The block sends a Some of a row with a linked member into a stream that FilterSome passes on. The switch of the member of the hold as the close is a cycle.
+    public static Cell<int> Ab320FilterSomeOfARowWithALinkedMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Maybe<RecordRow>> b = Stream.CreateSink<Maybe<RecordRow>>(); Cell<RecordRow> h = b.FilterSome().Hold(new RecordRow(Plain)); b.Send(Maybe.Some(new RecordRow(l.Map(v => v)))); return h.Map(r => r.Share).SwitchC(); });
+
+    // S9638. The block sends a row with a linked member into a stream that Calm passes on. The switch of the member of the hold as the close is a cycle.
+    public static Cell<int> Ab320CalmOfARowWithALinkedMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = b.Calm().Hold(new RecordRow(Plain)); b.Send(new RecordRow(l.Map(v => v))); return h.Map(r => r.Share).SwitchC(); });
+
+    // S9639. Control: the block sends a row with a plain member into the second stream of an OrElse. The switch of the member of the hold as the close is not a cycle.
+    public static Cell<int> Ab320OrElseOfARowWithAPlainMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> a = Stream.CreateSink<RecordRow>(); StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = a.OrElse(b).Hold(new RecordRow(Plain)); b.Send(new RecordRow(Plain)); return h.Map(r => r.Share).SwitchC(); });
+
+    // S9640. Control: the block sends a row with a plain member into a stream that a Filter passes on. The switch of the member of the hold as the close is not a cycle.
+    public static Cell<int> Ab320FilterOfARowWithAPlainMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<RecordRow> b = Stream.CreateSink<RecordRow>(); Cell<RecordRow> h = b.Filter(_ => true).Hold(new RecordRow(Plain)); b.Send(new RecordRow(Plain)); return h.Map(r => r.Share).SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
