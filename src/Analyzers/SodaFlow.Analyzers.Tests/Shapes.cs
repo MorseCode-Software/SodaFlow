@@ -41497,6 +41497,14 @@ public static class Shapes
     public static Cell<int> Ag99AMapOfNeverThatSendsThePlaceholder() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> sink = Stream.CreateSink<Cell<int>>(); Kept.Add(Stream.Never<int>().Map(v => { sink.Send(l); return v; })); return sink.Hold(Plain).SwitchC(); });
 
+    // S9895. A sort by a selector calls CompareTo of each sort value. That CompareTo samples a plain cell, thus the block returns.
+    public static Cell<int> Ag99ASortValueWhoseCompareToReadsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int count = TwoItems().SortBy(selector: (_, state) => new R3ApiReadingKey(state, Plain)).KeysCell.Sample().Count; return S.Hold(count); });
+
+    // S9896. A sort value keeps the placeholder, but its CompareTo does not read it. Thus, the block returns.
+    public static Cell<int> Ag99ASortValueWhoseCompareToReadsNoCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int count = TwoItems().SortBy(selector: (_, state) => new Ag99CalmKey(state, l)).KeysCell.Sample().Count; return S.Hold(count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -59458,6 +59466,16 @@ public static class Shapes
         public void Dispose()
         {
         }
+    }
+
+    // A sort value that keeps a cell, and whose CompareTo does not read it.
+    public sealed class Ag99CalmKey(int number, Cell<int> share) : IComparable<Ag99CalmKey>
+    {
+        public int Number { get; } = number;
+
+        public Cell<int> Share { get; } = share;
+
+        public int CompareTo(Ag99CalmKey? other) => this.Number.CompareTo(other?.Number ?? 0);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
