@@ -158,7 +158,7 @@ internal sealed partial class LoopStateEvaluator
             || this.Frame.MemberWritesSeen != this.region.MemberWrites
             || this.ElementAt(read.Expression) is not { } at
             || this.region.SymbolOf(read) is not { } member
-            || !IsAMemberLocation(member)
+            || !this.IsAMemberLocation(member)
             || FunctionOf(read) is not { } code)
         {
             return null;
@@ -200,9 +200,9 @@ internal sealed partial class LoopStateEvaluator
 
     // True for a member that is a location and no code: a field, or a property of this compilation
     // with no body. A property of a library has code that the walk does not read.
-    private static bool IsAMemberLocation(ISymbol member) =>
+    private bool IsAMemberLocation(ISymbol member) =>
         member is IFieldSymbol
-        || (member is IPropertySymbol { DeclaringSyntaxReferences.IsEmpty: false } && IsALocation(member));
+        || (member is IPropertySymbol { DeclaringSyntaxReferences.IsEmpty: false } && this.IsALocation(member));
 
     // The location that an owner names: an element, or a local that got one. From is the end of
     // that element in the code. Null for each other owner.
@@ -404,7 +404,7 @@ internal sealed partial class LoopStateEvaluator
                     // A discard keeps no value. The creation or the call at its right is a node of its own.
                     IDiscardSymbol => true,
                     { } member => assignment.Left is IdentifierNameSyntax or MemberAccessExpressionSyntax
-                                  && IsAMemberLocation(member),
+                                  && this.IsAMemberLocation(member),
                     _ => false
                 },
             ElementAccessExpressionSyntax element =>
@@ -413,7 +413,7 @@ internal sealed partial class LoopStateEvaluator
                 || this.IsAViewElementOfAnUnknownObject(element),
             IdentifierNameSyntax or GenericNameSyntax or MemberAccessExpressionSyntax =>
                 this.region.SymbolOf(node) is not IPropertySymbol property
-                || IsAMemberLocation(property)
+                || this.IsAMemberLocation(property)
                 || this.TheFieldBehind(property) != null
                 || (property.DeclaringSyntaxReferences.IsEmpty
                     && (SodaFlowSymbols.IsLazyValue(property) || this.region.Symbols.ReadsItsOwner(property)
@@ -613,7 +613,7 @@ internal sealed partial class LoopStateEvaluator
         return this.region.SymbolOf(Unwrapped(owner)) switch
         {
             IFieldSymbol => true,
-            IPropertySymbol property => property.DeclaringSyntaxReferences.IsEmpty || IsAMemberLocation(property),
+            IPropertySymbol property => property.DeclaringSyntaxReferences.IsEmpty || this.IsAMemberLocation(property),
             IParameterSymbol parameter when of.First =>
                 TheArgumentFor(call: of.Call, method: of.Method, parameter: parameter) is { } argument
                 && this.RunsNoFunctionThatTheWalkKnows(owner: argument, callee: null),

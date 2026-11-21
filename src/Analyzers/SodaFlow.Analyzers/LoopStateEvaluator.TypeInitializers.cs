@@ -30,7 +30,10 @@ internal sealed partial class LoopStateEvaluator
         // because the driver can make the symbols of the analyzer again for each file.
         this.quiet || this.StaticMemberOf(access) is not { ContainingType: { } owner } member
             ? null
-            : this.FollowTheStaticConstructorOf(use: access, owner: owner, atAFieldRead: IsAMemberLocation(member));
+            : this.FollowTheStaticConstructorOf(
+                use: access,
+                owner: owner,
+                atAFieldRead: this.IsAMemberLocation(member));
 
     /// <summary>
     ///     The same for a simple name of a static member of a different type,

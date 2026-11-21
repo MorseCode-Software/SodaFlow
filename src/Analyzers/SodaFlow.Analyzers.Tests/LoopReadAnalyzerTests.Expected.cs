@@ -5892,6 +5892,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab304AChainedConstructorPutsIntoTheElementBetween"] = ["SF1001"],
             ["Ab304AFieldInitializerPutsIntoTheElementBetween"] = ["SF1001"],
             ["Ab304AConstructorThatSetsTheFieldBetween"] = ["SF1001"],
-            ["Ab304APropertyInitializerPutsIntoTheElementBetween"] = ["SF1001"]
+            ["Ab304APropertyInitializerPutsIntoTheElementBetween"] = ["SF1001"],
+            ["R5PairVirtualNamePendingThroughNamePlainThroughLocal"] = ["SF1001"],
+            ["R5PairVirtualMemberPendingThroughElementPlainThroughLocal"] = ["SF1001"],
+            ["R5PairVirtualMemberOneName"] = ["SF1001"],
+            ["Ab302AbstractMemberKeptByAnOverride"] = ["SF1001"],
+            ["Ab302VirtualMemberWithAnAutoOverrideThroughAnElement"] = ["SF1001"],
+            ["Ab302OverrideAutoPropertyOverriddenAgainWithCode"] = ["SF1001"],
+            ["Ab302BasePropertyOverriddenTwiceReadThroughTheBase"] = ["SF1001"]
         };
 }

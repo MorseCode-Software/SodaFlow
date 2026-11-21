@@ -803,7 +803,7 @@ internal sealed partial class LoopStateEvaluator
         {
             MemberAccessExpressionSyntax access
                 when this.region.SymbolOf(access) is { } member
-                     && IsALocation(member)
+                     && this.IsALocation(member)
                      && this.KeptKeyOf(access.Expression) is (var location, var name, null) =>
                 (location, name, member.OriginalDefinition),
             IdentifierNameSyntax local
@@ -2112,7 +2112,7 @@ internal sealed partial class LoopStateEvaluator
             || owner is not IdentifierNameSyntax
             || this.region.SymbolOf(owner) is not { } name
             || !KeepsItsObject(name)
-            || !IsALocation(member)
+            || !this.IsALocation(member)
             || FunctionOf(owner) is not { } code)
         {
             this.Write(
@@ -2384,7 +2384,7 @@ internal sealed partial class LoopStateEvaluator
                 noted.With(
                     written: member.OriginalDefinition,
                     value: state,
-                    isALocation: IsALocation(member),
+                    isALocation: this.IsALocation(member),
                     writes: this.region.MemberWrites);
         }
     }
@@ -2491,8 +2491,20 @@ internal sealed partial class LoopStateEvaluator
             or IParameterSymbol { RefKind: not RefKind.None, Type.IsValueType: true };
 
     // True for a member that is a location and no code: a field, or a property whose accessors
-    // have no body. A read of it gives the value of the last write to it.
-    private static bool IsALocation(ISymbol member) =>
+    // have no body. A read of it gives the value of the last write to it. A read or a write of a
+    // virtual property runs the override of the class of the object, which can have code.
+    private bool IsALocation(ISymbol member) => HasNoCode(member) && !this.CanRunTheCodeOfAnOverride(member);
+
+    // True for a property that an override with code can replace. The test of the modifiers comes
+    // first only for speed. Most properties are not virtual, and the index makes its set at the
+    // first question.
+    private bool CanRunTheCodeOfAnOverride(ISymbol member) =>
+        member is IPropertySymbol property
+        && (property.IsVirtual || property.IsAbstract || property.IsOverride)
+        && this.region.Symbols.Overrides.ReplacesWithCode(property);
+
+    // True for a field, or for a property of which each declaration has no accessor with a body.
+    private static bool HasNoCode(ISymbol member) =>
         member is IFieldSymbol
         || (member is IPropertySymbol property
             && property.DeclaringSyntaxReferences.All(static declared =>

@@ -383,21 +383,22 @@ The analyzer follows a value made from the placeholder through the code of your 
   location, and assigns only with `=`, is a name of the location that it refers to. A write to a
   field or a property with no body through any of the names replaces what earlier writes through all
   of them gave that member, and a read through any of them sees the last value, while each name
-  keeps the object. A local that code takes a `ref` to anywhere in its function, as in `ref d` or
-  `new Span<T>(ref d)`, is no such name, because the `ref` can give it a new object at any time. A
-  write through an expression that is no such name, such as a conditional expression, reaches a
-  later read through each name whose object the analyzer cannot tell apart from the object of the
-  write. A write in a method that the block calls counts as well, where the block always calls the
-  method one time and the method writes through a static field, an element of an array in one, or a
-  parameter whose argument is such a name. A new object that goes into a name with an object
-  initializer, as in `slots[0] = new Slot { Cell = value }`, gives the name only the values that the
-  initializer sets, also where such a method puts it and keeps it there to its end. A method that
-  always gives its `ref` or `out` parameter a value replaces what a local, or a field of the object
-  in a local, held before, where the block always calls it and passes no second `ref` or `out`
-  argument. A constructor that puts `this` into a name makes that name a name of the new object, as
-  a registry does with a static field or a static property. The name can also be an element of an
-  array or a list that the constructor gets, a value of a dictionary that it gets, or a field of an
-  object that it gets.
+  keeps the object. A virtual or abstract property counts as having no body only where no override
+  in your project gives it one. A local that code takes a `ref` to anywhere in its function, as in
+  `ref d` or `new Span<T>(ref d)`, is no such name, because the `ref` can give it a new object at
+  any time. A write through an expression that is no such name, such as a conditional expression,
+  reaches a later read through each name whose object the analyzer cannot tell apart from the object
+  of the write. A write in a method that the block calls counts as well, where the block always
+  calls the method one time and the method writes through a static field, an element of an array in
+  one, or a parameter whose argument is such a name. A new object that goes into a name with an
+  object initializer, as in `slots[0] = new Slot { Cell = value }`, gives the name only the values
+  that the initializer sets, also where such a method puts it and keeps it there to its end. A
+  method that always gives its `ref` or `out` parameter a value replaces what a local, or a field of
+  the object in a local, held before, where the block always calls it and passes no second `ref` or
+  `out` argument. A constructor that puts `this` into a name makes that name a name of the new
+  object, as a registry does with a static field or a static property. The name can also be an
+  element of an array or a list that the constructor gets, a value of a dictionary that it gets, or
+  a field of an object that it gets.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes a property that uses `field`, a

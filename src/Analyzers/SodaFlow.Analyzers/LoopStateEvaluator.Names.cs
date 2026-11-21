@@ -150,7 +150,7 @@ internal sealed partial class LoopStateEvaluator
                     Left: IdentifierNameSyntax name
                 }
                 && this.region.SymbolOf(name) is { } member
-                && IsAMemberLocation(member)
+                && this.IsAMemberLocation(member)
                 && members != null)
             {
                 one.Members.Add((member.OriginalDefinition, at.Span.End, members.StateOf(member), true));
@@ -579,7 +579,7 @@ internal sealed partial class LoopStateEvaluator
             || this.quiet
             || this.Frame.NamesWritesSeen != this.region.MemberWrites
             || this.region.SymbolOf(read) is not { } member
-            || !IsAMemberLocation(member))
+            || !this.IsAMemberLocation(member))
         {
             return null;
         }
@@ -674,7 +674,7 @@ internal sealed partial class LoopStateEvaluator
                 this.NameOfAnObjectIn(location),
             MemberAccessExpressionSyntax access
                 when this.region.SymbolOf(access) is { } read
-                     && (IsAMemberLocation(read) ? read : this.TheFieldBehind(read)) is { } member
+                     && (this.IsAMemberLocation(read) ? read : this.TheFieldBehind(read)) is { } member
                      && this.HoldsAnObject(member) =>
                 IsAStaticLocation(member)
                     ? (member, null, null)
@@ -742,7 +742,8 @@ internal sealed partial class LoopStateEvaluator
     // value.
     private static bool IsAStaticLocation(ISymbol symbol) =>
         symbol is IFieldSymbol { IsStatic: true }
-        || (symbol is IPropertySymbol { IsStatic: true } && IsAMemberLocation(symbol));
+        || (symbol is IPropertySymbol { IsStatic: true, DeclaringSyntaxReferences.IsEmpty: false }
+            && HasNoCode(symbol));
 
     // True when a name of an object is the name that an expression reads, at a use, and it holds
     // the object there. An element of a second collection is the same name when the two

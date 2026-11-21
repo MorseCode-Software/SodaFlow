@@ -41433,6 +41433,42 @@ public static class Shapes
     public static Cell<int> Ab304APropertyInitializerPutsIntoTheElementBetween() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab304SlotsD[0]; d.Share = l.Map(v => v); _ = new Ab304PropertyInitialized(); Ab304SlotsD[0].Share = Plain; return S.Hold(d.Share!.Sample()); });
 
+    // S9879. A virtual name, Round 5: A holder whose type has a virtual auto-property gets an object of a subclass whose override gives a different object and ignores a set. The local goes in through the property. A pending cell goes in through the property, then a plain cell through the local. The read is through the property.
+    public static Cell<int> R5PairVirtualNamePendingThroughNamePlainThroughLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairVirtualBox h = new R5PairRedirectBox(); SettableSlot d = new(); h.Slot = d; h.Slot.Share = l.Map(v => v); d.Share = Plain; return S.Hold(h.Slot.Share!.Sample()); });
+
+    // S9880. A virtual name, Round 5: A slot whose type has a virtual auto-property for the cell gets an object of a subclass whose override keeps the first cell. A pending cell goes in through an element, then a plain cell through the local. The read is through the element.
+    public static Cell<int> R5PairVirtualMemberPendingThroughElementPlainThroughLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairVirtualSlot d = new R5PairKeepFirstSlot(); R5PairVirtualSlot[] a = [new R5PairVirtualSlot()]; a[0] = d; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
+    // S9881. A virtual name, Round 5: The same with one name: a pending cell and then a plain cell through the local. The read is through the local.
+    public static Cell<int> R5PairVirtualMemberOneName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairVirtualSlot d = new R5PairKeepFirstSlot(); d.Share = l.Map(v => v); d.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S9882. A virtual name, Round 5: an abstract auto-property, whose override in a subclass keeps the first cell. A pending cell and then a plain cell go in through the local. The read is through the local.
+    public static Cell<int> Ab302AbstractMemberKeptByAnOverride() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab302AbstractSlot d = new Ab302KeepFirstSlot(); d.Share = l.Map(v => v); d.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S9883. A virtual name, Round 5: a control: a virtual auto-property whose only override is an auto-property too. The plain cell replaces the pending cell. The read is through the local.
+    public static Cell<int> Ab302VirtualMemberWithAnAutoOverride() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab302AutoBase d = new Ab302AutoOverride(); d.Share = l.Map(v => v); d.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S9884. A virtual name, Round 5: a control: the same, with a pending cell through an element after the plain cell through the local. The read is through the local.
+    public static Cell<int> Ab302VirtualMemberWithAnAutoOverrideThroughAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab302AutoBase d = new Ab302AutoOverride(); Ab302AutoBase[] a = [new Ab302AutoBase()]; a[0] = d; d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S9885. A virtual name, Round 5: an override auto-property that a subclass overrides again with code that keeps the first cell. The local has the type of the middle class. A pending cell and then a plain cell go in through the local. The read is through the local.
+    public static Cell<int> Ab302OverrideAutoPropertyOverriddenAgainWithCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab302MiddleSlot d = new Ab302LeafSlot(); d.Share = l.Map(v => v); d.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S9886. A virtual name, Round 5: the same, with the local of the type of the base class, whose property the override of the middle class replaces first.
+    public static Cell<int> Ab302BasePropertyOverriddenTwiceReadThroughTheBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab302ChainBase d = new Ab302LeafSlot(); d.Share = l.Map(v => v); d.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S9887. A virtual name, Round 5: a control: a virtual auto-property whose only override is an auto-property too. A pending cell through an element, and then a plain cell through the local of the same object. The read is through the element.
+    public static Cell<int> Ab302VirtualMemberWithAnAutoOverridePlainLastReadElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab302AutoBase d = new Ab302AutoOverride(); Ab302AutoBase[] a = [new Ab302AutoBase()]; a[0] = d; a[0].Share = l.Map(v => v); d.Share = Plain; return S.Hold(a[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -59313,6 +59349,53 @@ public static class Shapes
         Ab304SlotsD[0] = new SettableSlot();
 
         return 0;
+    }
+
+    public abstract class Ab302AbstractSlot
+    {
+        public abstract Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab302KeepFirstSlot : Ab302AbstractSlot
+    {
+        private Cell<int>? first;
+
+        public override Cell<int>? Share
+        {
+            get => this.first;
+            set => this.first ??= value;
+        }
+    }
+
+    public class Ab302AutoBase
+    {
+        public virtual Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab302AutoOverride : Ab302AutoBase
+    {
+        public override Cell<int>? Share { get; set; }
+    }
+
+    public class Ab302ChainBase
+    {
+        public virtual Cell<int>? Share { get; set; }
+    }
+
+    public class Ab302MiddleSlot : Ab302ChainBase
+    {
+        public override Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab302LeafSlot : Ab302MiddleSlot
+    {
+        private Cell<int>? first;
+
+        public override Cell<int>? Share
+        {
+            get => this.first;
+            set => this.first ??= value;
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
