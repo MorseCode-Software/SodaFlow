@@ -41733,6 +41733,146 @@ public static class Shapes
     public static Cell<int> Ab285LaterSectionThatDoesNotAwait() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { switch (Kept.Count >= 0) { case false: await R2NeverDone.Task; break; default: break; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
 
+    // S9954. A constructor builds a map whose function samples a member through this. A method sets the member to the pending cell and samples the map.
+    public static Cell<int> R5SmpMapBuiltInAConstructorReadsAMemberSetLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R5SmpCtorMap().SetAndRead(l.Map(v => v))); });
+
+    // S9955. The same with a Lazy that the constructor builds.
+    public static Cell<int> R5SmpLazyBuiltInAConstructorReadsAMemberSetLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R5SmpCtorLazy().SetAndRead(l.Map(v => v))); });
+
+    // S9956. A constructor builds a map whose function samples a member through this. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> R5FuCtorMapReadsAMemberSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R5FuCtorMap().SetAndRead(l.Map(v => v))));
+
+    // S9957. The same object in a local first, then the call.
+    public static Cell<int> R5FuCtorMapInALocalReadsAMemberSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuCtorMap m = new(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S9958. A constructor builds a lazy value whose function samples a member through this. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R5FuCtorLazyReadsAMemberSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R5FuCtorLazy().SetAndRead(l.Map(v => v))));
+
+    // S9959. A constructor builds a map that samples a member. The block sets the member through a property and samples the map through a property.
+    public static Cell<int> R5FuCtorMapSetAndReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuCtorMapOpen m = new(); m.Share = l.Map(v => v); Kept.Add(m.Map.Sample()); return S.Hold(0); });
+
+    // S9960. Control: a method builds the map, and a second method sets the member to a pending cell and samples the map.
+    public static Cell<int> R5FuMethodMapReadsAMemberSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuMethodMap m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S9961. A method builds the map, and the block sets the member through a property and samples the map through a property.
+    public static Cell<int> R5FuMethodMapSetAndReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuMethodMapOpen m = new(); m.Build(); m.Share = l.Map(v => v); Kept.Add(m.Map.Sample()); return S.Hold(0); });
+
+    // S9962. A method of the object builds the map and a second method sets a public field that the function reads through this, then samples. The block calls both.
+    public static Cell<int> R5FuMethodMapReadsAFieldSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuFieldMap m = new(); m.Build(); m.Field = l.Map(v => v); return S.Hold(m.Read()); });
+
+    // S9963. A method of the object calls the method that builds the map, and then the method that sets the member and samples the map.
+    public static Cell<int> R5FuOneMethodCallsBuildThenSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuMethodMap m = new(); return S.Hold(m.CallBuildThenSetAndRead(l.Map(v => v))); });
+
+    // S9964. A method that gets a pending cell keeps it and builds a map whose function samples a member through this. A second method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab275BuilderThatGetsStateReadsAMemberSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275StateBuild m = new(); m.Build(l.Map(v => v)); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S9965. Control: a constructor builds a map whose function samples a member that no code sets again. A method sets a different member to a pending cell and samples the map.
+    public static Cell<int> Ab275CtorMapReadsAMemberThatStaysPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab275CtorMapOfAFixedMember().SetAndRead(l.Map(v => v))));
+
+    // S9966. A static helper builds a map into a member of an object that it gets. The function samples a second member. The block sets the second member to a pending cell and samples the map.
+    public static Cell<int> Ab275StaticHelperBuildsIntoAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275Held h = new(); Ab275BuildInto(h); h.Share = l.Map(v => v); Kept.Add(h.Map.Sample()); return S.Hold(0); });
+
+    // S9967. A static helper makes the object whose constructor builds the map. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab275StaticFactoryOfACtorMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab275MakeCtorMap().SetAndRead(l.Map(v => v))));
+
+    // S9968. A constructor calls a method of the object that builds the map. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab275CtorCallsTheBuilder() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab275CtorCallsABuilder().SetAndRead(l.Map(v => v))));
+
+    // S9969. A constructor sets the member to the map that a method of the object returns. A method sets the member that the function samples to a pending cell and samples the map.
+    public static Cell<int> Ab275CtorMapThatAMethodReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab275CtorMapFromAMethod().SetAndRead(l.Map(v => v))));
+
+    // S9970. A type with no constructor of its own gets the map from the constructor of its base type. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab275BaseCtorBuildsTheMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab275DerivedMap().SetAndRead(l.Map(v => v))));
+
+    // S9971. A method calls a method of an object that it keeps in a member, and that method builds the map. A method sets the member of that object to a pending cell and samples the map.
+    public static Cell<int> Ab275MethodBuildsThroughAKeptObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275Outer o = new(); o.Build(); return S.Hold(o.SetAndRead(l.Map(v => v))); });
+
+    // S9972. A constructor builds a map whose function samples a static member. The block sets the static member to a pending cell, and a method samples the map.
+    public static Cell<int> Ab275CtorMapReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275CtorMapOfAStatic m = new(); Ab275Statics.Share = l.Map(v => v); int read = m.Read(); Ab275Statics.Share = Plain; return S.Hold(read); });
+
+    // S9973. Control: a constructor builds a map whose function samples a member. A method samples the map with the member plain, sets the member to a pending cell, and samples the map again. The second read does not run the function again.
+    public static Cell<int> Ab275SecondReadAfterTheFirstRan() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab275ReadTwice().ReadSetAndReadAgain(l.Map(v => v))));
+
+    // S9974. Control: a method builds the map. A second method sets the member to a pending cell, gives the map a plain cell, and samples the map.
+    public static Cell<int> Ab275PlainWriteOverABuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275Rebuilt m = new(); m.Build(); return S.Hold(m.SetAndReadPlain(l.Map(v => v))); });
+
+    // S9975. Control: a constructor builds a map into a property. The block sets the member to a pending cell, gives the property a plain cell, and samples the property.
+    public static Cell<int> Ab275PlainWriteThroughTheObjectOverABuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275OpenMap m = new(); m.Share = l.Map(v => v); m.Map = Cell.Constant(5); Kept.Add(m.Map.Sample()); return S.Hold(0); });
+
+    // S9976. A method builds the map with a coalesce assignment. A second method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab275BuildWithACoalesceAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275CoalesceMap m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S9977. A constructor builds the map into a field of the base type through base. A method sets the member to a pending cell and samples the map through base.
+    public static Cell<int> Ab275BuildThroughBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab275DerivedThroughBase().SetAndRead(l.Map(v => v))));
+
+    // S9978. A constructor builds the map into a local, and then gives the member the local. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab275BuildThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab275LocalMap().SetAndRead(l.Map(v => v))));
+
+    // S9979. A constructor builds the map with names that have no this. A method sets the member to a pending cell and samples the map, also with no this.
+    public static Cell<int> Ab275BuildWithNamesThatHaveNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab275UnqualifiedMap().SetAndRead(l.Map(v => v))));
+
+    // S9980. A method that gets a pending cell builds a map into a property. The block sets the member that the function samples to a pending cell and samples the property.
+    public static Cell<int> Ab275BuilderThatGetsStateSetAndReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275StateOpenMap m = new(); m.Build(l.Map(v => v)); m.Share = l.Map(v => v); Kept.Add(m.Map.Sample()); return S.Hold(0); });
+
+    // S9981. Control: a constructor builds a map whose function samples a member. A method sets the member to a pending cell, then to a plain cell, and samples the map.
+    public static Cell<int> Ab275MemberPendingThenPlainBeforeTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab275PendingThenPlain().SetTwiceAndRead(l.Map(v => v))));
+
+    // S9982. Control: a nested type builds a map into a member of its own, whose name is that of a member of the outer type. The function samples a static member. The block sets the static member to a pending cell, and a method of the outer type samples its own member.
+    public static Cell<int> Ab275NestedTypeBuildsAMemberOfTheSameName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275OuterOfANested m = new(); Ab275Statics.Share = l.Map(v => v); int read = m.Read(); Ab275Statics.Share = Plain; return S.Hold(read); });
+
+    // S9983. A method that gets a pending cell builds a map with names that have no this. A second method sets the member to a pending cell and samples the map, also with no this.
+    public static Cell<int> Ab275BuilderThatGetsStateWithNamesThatHaveNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275StateUnqualified m = new(); m.Build(l.Map(v => v)); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S9984. A constructor builds a map into a property of an interface. The block sets the member through the interface and samples the property through the interface.
+    public static Cell<int> Ab275ReadThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IAb275Mapped m = new Ab275Mapped(); m.Share = l.Map(v => v); Kept.Add(m.Map.Sample()); return S.Hold(0); });
+
+    // S9985. A constructor builds the map into a local, gives a second local the first, and gives the member the second. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab275BuildThroughTwoLocals() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab275TwoLocals().SetAndRead(l.Map(v => v))));
+
+    // S9986. A constructor of a derived type builds the map into a field of the base type. The block sets a second field of the base type to a pending cell and samples the map.
+    public static Cell<int> Ab275DerivedBuildsAFieldOfTheBaseReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275OpenDerived m = new(); m.Share = l.Map(v => v); Kept.Add(m.Map.Sample()); return S.Hold(0); });
+
+    // S9987. A constructor builds a lazy value whose function reads a getter of the object with no call in the lambda. The getter samples a member. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab275LazyWhoseFunctionReadsAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab275LazyOfAGetter().SetAndRead(l.Map(v => v))));
+
+    // S9988. A method that gets a pending cell builds a lazy value whose function samples a member through this. A second method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab275LazyOfABuilderThatGetsStateReadsAMemberSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab275StateLazy m = new(); m.Build(l.Map(v => v)); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -59715,6 +59855,427 @@ public static class Shapes
     private static int Ag99ReadA(DvLinksBox box) => box.A.Sample() + 1;
 
     private static readonly SettableSlot[] Ag99Unseen = [new(), new()];
+
+    // Helpers of the AB275 edges.
+    public sealed class Ab275StateBuild
+    {
+        private Cell<int> map = Cell.Constant(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Cell<int> Given { get; private set; } = Cell.Constant(0);
+
+        public void Build(Cell<int> given)
+        {
+            this.Given = given;
+            this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+    }
+
+    public sealed class Ab275CtorMapOfAFixedMember
+    {
+        private readonly Cell<int> fixedShare = Cell.Constant(2);
+
+        private readonly Cell<int> map;
+
+        public Ab275CtorMapOfAFixedMember() => this.map = Cell.Constant(1).Map(v => v + this.fixedShare.Sample());
+
+        public Cell<int> Share { get; private set; } = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+
+            return this.map.Sample();
+        }
+    }
+
+    public sealed class Ab275Held
+    {
+        public Cell<int> Map = Cell.Constant(0);
+
+        public Cell<int> Share = Cell.Constant(0);
+    }
+
+    private static void Ab275BuildInto(Ab275Held held) =>
+        held.Map = Cell.Constant(1).Map(v => v + held.Share.Sample());
+
+    private static R5FuCtorMap Ab275MakeCtorMap() => new();
+
+    public sealed class Ab275CtorCallsABuilder
+    {
+        private Cell<int> map = Cell.Constant(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab275CtorCallsABuilder() => this.Build();
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Build() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab275CtorMapFromAMethod
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab275CtorMapFromAMethod() => this.map = this.MakeMap();
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private Cell<int> MakeMap() => Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public class Ab275BaseMap
+    {
+        private readonly Cell<int> map;
+
+        protected Ab275BaseMap() => this.map = Cell.Constant(1).Map(v => v + this.Share.Sample());
+
+        protected Cell<int> Share { get; set; } = Cell.Constant(0);
+
+        protected int ReadMap() => this.map.Sample();
+    }
+
+    public sealed class Ab275DerivedMap : Ab275BaseMap
+    {
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+
+            return this.ReadMap();
+        }
+    }
+
+    public sealed class Ab275Outer
+    {
+        private readonly R5FuMethodMap inner = new();
+
+        public void Build() => this.inner.Build();
+
+        public int SetAndRead(Cell<int> pending) => this.inner.SetAndRead(pending);
+    }
+
+    public static class Ab275Statics
+    {
+        public static Cell<int> Share = Cell.Constant(0);
+    }
+
+    public sealed class Ab275CtorMapOfAStatic
+    {
+        private readonly Cell<int> map;
+
+        public Ab275CtorMapOfAStatic() => this.map = Cell.Constant(1).Map(v => v + Ab275Statics.Share.Sample());
+
+        public int Read() => this.map.Sample();
+    }
+
+    public sealed class Ab275ReadTwice
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab275ReadTwice() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+
+        public int ReadSetAndReadAgain(Cell<int> pending)
+        {
+            int first = this.map.Sample();
+            this.share = pending;
+
+            return first + this.map.Sample();
+        }
+    }
+
+    public sealed class Ab275Rebuilt
+    {
+        private Cell<int> map = Cell.Constant(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public void Build() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+
+        public int SetAndReadPlain(Cell<int> pending)
+        {
+            this.share = pending;
+            this.map = Cell.Constant(5);
+
+            return this.map.Sample();
+        }
+    }
+
+    public sealed class Ab275OpenMap
+    {
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab275OpenMap() => this.Map = Cell.Constant(1).Map(v => v + this.share.Sample());
+
+        public Cell<int> Map { get; set; }
+
+        public Cell<int> Share
+        {
+            set => this.share = value;
+        }
+    }
+
+    public sealed class Ab275CoalesceMap
+    {
+        private Cell<int>? map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public void Build() => this.map ??= Cell.Constant(1).Map(v => v + this.share.Sample());
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map!.Sample();
+        }
+    }
+
+    public class Ab275BaseFields
+    {
+        protected Cell<int> Map = Cell.Constant(0);
+
+        protected Cell<int> Share = Cell.Constant(0);
+    }
+
+    public sealed class Ab275DerivedThroughBase : Ab275BaseFields
+    {
+        public Ab275DerivedThroughBase() => base.Map = Cell.Constant(1).Map(v => v + this.Share.Sample());
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+
+            return base.Map.Sample();
+        }
+    }
+
+    public sealed class Ab275LocalMap
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab275LocalMap()
+        {
+            Cell<int> built = Cell.Constant(1).Map(v => v + this.share.Sample());
+            this.map = built;
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+    }
+
+    public sealed class Ab275UnqualifiedMap
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab275UnqualifiedMap() => map = Cell.Constant(1).Map(v => v + share.Sample());
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            share = pending;
+
+            return map.Sample();
+        }
+    }
+
+    public sealed class Ab275StateOpenMap
+    {
+        private Cell<int> share = Cell.Constant(0);
+
+        public Cell<int> Given { get; private set; } = Cell.Constant(0);
+
+        public Cell<int> Map { get; private set; } = Cell.Constant(0);
+
+        public Cell<int> Share
+        {
+            set => this.share = value;
+        }
+
+        public void Build(Cell<int> given)
+        {
+            this.Given = given;
+            this.Map = Cell.Constant(1).Map(v => v + this.share.Sample());
+        }
+    }
+
+    public sealed class Ab275PendingThenPlain
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab275PendingThenPlain() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+
+        public int SetTwiceAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+            this.share = Cell.Constant(2);
+
+            return this.map.Sample();
+        }
+    }
+
+    public sealed class Ab275OuterOfANested
+    {
+        private readonly Cell<int> map = Cell.Constant(0);
+
+        public int Read() => this.map.Sample();
+
+        public sealed class Nested
+        {
+            private Cell<int> map = Cell.Constant(0);
+
+            public void Build() => this.map = Cell.Constant(1).Map(v => v + Ab275Statics.Share.Sample());
+
+            public int Read() => this.map.Sample();
+        }
+    }
+
+    public sealed class Ab275StateUnqualified
+    {
+        private Cell<int> map = Cell.Constant(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Cell<int> Given { get; private set; } = Cell.Constant(0);
+
+        public void Build(Cell<int> given)
+        {
+            Given = given;
+            map = Cell.Constant(1).Map(v => v + share.Sample());
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            share = pending;
+
+            return map.Sample();
+        }
+    }
+
+    public interface IAb275Mapped
+    {
+        Cell<int> Map { get; }
+
+        Cell<int> Share { set; }
+    }
+
+    public sealed class Ab275Mapped : IAb275Mapped
+    {
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab275Mapped() => this.Map = Cell.Constant(1).Map(v => v + this.share.Sample());
+
+        public Cell<int> Map { get; }
+
+        public Cell<int> Share
+        {
+            set => this.share = value;
+        }
+    }
+
+    public sealed class Ab275TwoLocals
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab275TwoLocals()
+        {
+            Cell<int> built = Cell.Constant(1).Map(v => v + this.share.Sample());
+            Cell<int> kept = built;
+            this.map = kept;
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+    }
+
+    public class Ab275OpenBase
+    {
+        public Cell<int> Map = Cell.Constant(0);
+
+        public Cell<int> Share = Cell.Constant(0);
+    }
+
+    public sealed class Ab275OpenDerived : Ab275OpenBase
+    {
+        public Ab275OpenDerived() => this.Map = Cell.Constant(1).Map(v => v + this.Share.Sample());
+    }
+
+    public sealed class Ab275LazyOfAGetter
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab275LazyOfAGetter() => this.value = new Lazy<int>(() => this.Current);
+
+        private int Current => this.share.Sample();
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+    }
+
+    public sealed class Ab275StateLazy
+    {
+        private Lazy<int> value = new(static () => 0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Cell<int> Given { get; private set; } = Cell.Constant(0);
+
+        public void Build(Cell<int> given)
+        {
+            this.Given = given;
+            this.value = new Lazy<int>(() => this.share.Sample());
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

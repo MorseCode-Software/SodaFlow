@@ -60,6 +60,7 @@
         <Compile Include="LoopReadAnalyzer.cs"/>
         <Compile Include="LoopRegion.cs"/>
         <Compile Include="LoopState.cs"/>
+        <Compile Include="LoopStateEvaluator.Builders.cs"/>
         <Compile Include="LoopStateEvaluator.Callees.cs"/>
         <Compile Include="LoopStateEvaluator.Collections.cs"/>
         <Compile Include="LoopStateEvaluator.Computed.cs"/>
@@ -95,6 +96,7 @@
         <Compile Include="LoopStateEvaluator.Writes.cs"/>
         <Compile Include="MadeObject.cs"/>
         <Compile Include="MapHandler.cs"/>
+        <Compile Include="MemberBuilds.cs"/>
         <Compile Include="NameOfAnObject.cs"/>
         <Compile Include="NamesOfOneObject.cs"/>
         <Compile Include="NamedWrite.cs"/>

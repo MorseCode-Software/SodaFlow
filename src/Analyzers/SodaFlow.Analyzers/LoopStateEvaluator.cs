@@ -4010,6 +4010,10 @@ internal sealed partial class LoopStateEvaluator
     ///     For a callee with no body, the state that each parameter gets at its
     ///     position, in place of the state of <paramref name="each" />.
     /// </param>
+    /// <param name="heldIn">
+    ///     The expression of the value at a first read, for a value in a member.
+    ///     The function then reads the members of the object of the read.
+    /// </param>
     private Followed? FollowFunction(
         SyntaxNode call,
         string name,
@@ -4017,8 +4021,24 @@ internal sealed partial class LoopStateEvaluator
         LoopState target,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         (ExpressionSyntax Written, LoopState Given, bool ManyTimes)? each,
-        ImmutableArray<LoopState> byPosition = default)
+        ImmutableArray<LoopState> byPosition = default,
+        ExpressionSyntax? heldIn = null)
     {
+        if (heldIn != null)
+        {
+            return this.WithTheMembersAtTheRead(
+                heldIn: heldIn,
+                function: function,
+                walk: () => this.FollowFunction(
+                    call: call,
+                    name: name,
+                    function: function,
+                    target: target,
+                    arguments: arguments,
+                    each: each,
+                    byPosition: byPosition));
+        }
+
         SemanticModel model = this.region.ModelFor(function.Declaration);
 
         IReadOnlyList<Binding> Bindings(ImmutableArray<IParameterSymbol> parameters) =>
@@ -4567,7 +4587,11 @@ internal sealed partial class LoopStateEvaluator
         {
             return owner == null
                 ? null
-                : this.FollowLazy(access: access, written: owner, lazy: this.Eval(owner), value: written.Type);
+                : this.FollowLazy(
+                    access: access,
+                    written: owner,
+                    lazy: this.WithTheBuildOfAMember(heldIn: owner, state: this.Eval(owner)),
+                    value: written.Type);
         }
 
         // A property that the code reads through an interface is the property of the object. A
@@ -4723,7 +4747,8 @@ internal sealed partial class LoopStateEvaluator
                             function: function,
                             target: lazy,
                             arguments: default,
-                            each: (written, given, ManyTimes: true))));
+                            each: (written, given, ManyTimes: true),
+                            heldIn: written)));
     }
 
     private bool ReturnsDelegate(FunctionValue function) =>

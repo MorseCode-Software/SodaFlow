@@ -5007,10 +5007,14 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     /// <summary>A member that reads the current value of its owner.</summary>
     private void CheckRead(SyntaxNode node, ExpressionSyntax owner, string name) =>
-        this.CheckRead(node: node, state: this.evaluator.Eval(owner), name: name);
+        this.CheckRead(
+            node: node,
+            state: this.evaluator.WithTheBuildOfAMember(heldIn: owner, state: this.evaluator.Eval(owner)),
+            name: name,
+            heldIn: owner);
 
     /// <summary>A member that reads the current value of an owner with the given state.</summary>
-    private void CheckRead(SyntaxNode node, LoopState state, string name)
+    private void CheckRead(SyntaxNode node, LoopState state, string name, ExpressionSyntax? heldIn = null)
     {
         // The first read of a cell runs the functions that calculate its value.
         if (!state.Computed.IsEmpty)
@@ -5019,7 +5023,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 this.evaluator.AtTheFirstRead(
                     read: node,
                     state: state,
-                    marks: this.MarksOfAFirstRead(node));
+                    marks: this.MarksOfAFirstRead(node),
+                    heldIn: heldIn);
         }
 
         if (!state.Pending)

@@ -598,9 +598,11 @@ careful side, so it can report a read that does not throw:
   read of the cell gets a report, even when the code gave that capture or member a plain value
   before the read.
 - A cell or a `Lazy` that a constructor or a method of an object builds into a member, when nothing
-  made from the placeholder goes into that call. The analyzer does not read such a call, so it does
-  not see the function of the value. A later read of the value gets no report, also after another
-  method gave a member that the function reads a pending value.
+  made from the placeholder goes into that call. The analyzer does not read such a call. Where it
+  reads that member and knows nothing of its value, it takes the value of each assignment to the
+  member in the code of the class that the read names and of its base classes, with the members
+  that the object has at the read. It does not know whether that code ran, so a read can get a
+  report from an assignment in a method that you never called.
 - The `Result` of a task that you create with `new` has the value that its function returns even
   where no code runs the task. Such a `Result` waits forever, and the code after it does not run.
 - A method that writes a member through an object that the analyzer does not know, such as an
@@ -718,6 +720,11 @@ Some reads that throw it does not see:
   the method makes itself or that a call inside it puts there, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
+- A method of your object that you give a `Map` or a `Lazy<T>` as a method group, such as
+  `Map(this.Add)` or `new Lazy<int>(this.Read)`, where that method samples a member of the object.
+  The analyzer reads the method without the members of the object, so a member that is pending at
+  the first read of the value gets no report, even where one method builds the value, sets the
+  member, and reads the value.
 - An object that a lambda of a LINQ query throws, for a `catch` around the code that enumerates
   the query. The analyzer does not give the object to that clause.
 - The `AggregateException` that `Wait` or `Result` of a task throws when a function of the task

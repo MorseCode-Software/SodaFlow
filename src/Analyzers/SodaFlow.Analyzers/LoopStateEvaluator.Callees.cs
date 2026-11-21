@@ -862,6 +862,23 @@ internal sealed partial class LoopStateEvaluator
                     continue;
                 }
 
+                // A function of a frame that returned can read a value from a parameter of this code.
+                // The walk gave the function that value at the read, through a member: see
+                // WithTheMembersAtTheRead. Thus, the read is a read of this code.
+                if (returned && finding.Origin is IParameterSymbol own && !inner.bound.ContainsKey(own))
+                {
+                    changed.Add(
+                        new Finding(
+                            home: this.Frame,
+                            origin: own,
+                            escape: finding.Escape,
+                            diagnostic: finding.Diagnostic,
+                            subject: finding.Subject,
+                            readBack: finding.ReadBack));
+
+                    continue;
+                }
+
                 // The caller did not give a value that has no origin. A callee can only have it from a
                 // placeholder type, and the analyzer does not know which loop that placeholder is of.
                 if (finding.Origin == null)

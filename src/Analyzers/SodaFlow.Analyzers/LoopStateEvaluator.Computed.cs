@@ -269,7 +269,15 @@ internal sealed partial class LoopStateEvaluator
     ///     What records the run of a cell. The position of the read tells the
     ///     walk how. Null when the walk cannot know that the read runs.
     /// </param>
-    public LoopState AtTheFirstRead(SyntaxNode read, LoopState state, Action<ComputedValue>? marks)
+    /// <param name="heldIn">
+    ///     The expression of the cell at the read, for a cell in a member. Null
+    ///     for a read with no such expression.
+    /// </param>
+    public LoopState AtTheFirstRead(
+        SyntaxNode read,
+        LoopState state,
+        Action<ComputedValue>? marks,
+        ExpressionSyntax? heldIn = null)
     {
         List<Finding> found = [];
 
@@ -302,7 +310,8 @@ internal sealed partial class LoopStateEvaluator
                                 function: function,
                                 target: functions,
                                 arguments: default,
-                                each: (written, cell.Given, cell.ManyTimes))
+                                each: (written, cell.Given, cell.ManyTimes),
+                                heldIn: heldIn)
                             ?.Findings
                             .Where(static finding => !finding.Escape)
                         ?? []);
@@ -310,10 +319,17 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
-        return found.Count == 0
-            ? state
-            : state.WithPending(true)
-                .FromIfUnknown(
-                    found.FirstOrDefault(finding => finding.Home == this.Frame && finding.Origin != null)?.Origin);
+        if (found.Count == 0)
+        {
+            return state;
+        }
+
+        ISymbol? origin = found.FirstOrDefault(finding => finding.Home == this.Frame && finding.Origin != null)?.Origin;
+
+        // A function that reads a parameter of this code makes the read a read of that parameter, also
+        // for a cell in a member. Thus, the caller reports the read at the argument.
+        return origin is IParameterSymbol parameter
+            ? state.WithPending(true).From(parameter)
+            : state.WithPending(true).FromIfUnknown(origin);
     }
 }
