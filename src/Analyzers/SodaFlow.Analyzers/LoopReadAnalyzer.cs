@@ -422,7 +422,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 
     // True for an element of a tuple on the left of a deconstruction, also of a tuple in a tuple. A
     // foreach can deconstruct only into new locals.
-    private static bool IsDeconstructedInto(ArgumentSyntax argument)
+    private static bool IsDeconstructedInto(SyntaxNode argument)
     {
         for (SyntaxNode? element = argument; element is ArgumentSyntax { Parent: TupleExpressionSyntax tuple };)
         {
@@ -439,8 +439,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 
     // The value that a simple assignment gives a name. A deconstruction of a tuple literal into a
     // tuple of names gives each name the element at the same position.
-    private static (AssignmentExpressionSyntax Assignment, ExpressionSyntax Value)? ValueGiven(
-        IdentifierNameSyntax name) =>
+    private static (AssignmentExpressionSyntax Assignment, ExpressionSyntax Value)? ValueGiven(SyntaxNode name) =>
         name.Parent switch
         {
             AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assigned =>
