@@ -1330,7 +1330,7 @@ internal sealed partial class LoopStateEvaluator
 
     // True when the TryFormat of each type of the object returns only the literal true. Then, it
     // never fails.
-    private static bool AlwaysFormats(Construction members, IMethodSymbol tryFormat) =>
+    private static bool AlwaysFormats(Construction members, ISymbol tryFormat) =>
         members.Types.Any()
         && members.Types.All(type =>
             type.FindImplementationForInterfaceMember(tryFormat)
@@ -1369,8 +1369,10 @@ internal sealed partial class LoopStateEvaluator
 
             // The index and the width come before the format of the item.
             int end = format.IndexOfAny(anyOf: [':', '}'], startIndex: at);
+
             string head =
                 end < 0 ? format.Substring(at + 1) : format.Substring(startIndex: at + 1, length: end - at - 1);
+
             int comma = head.IndexOf(',');
 
             if (comma >= 0
