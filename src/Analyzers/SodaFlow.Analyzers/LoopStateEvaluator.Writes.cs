@@ -2756,6 +2756,8 @@ internal sealed partial class LoopStateEvaluator
                       && member is IFieldSymbol { IsStatic: true, ContainingType: var type }
                       && !IsGeneric(type));
 
+        return;
+
         static bool IsGeneric(INamedTypeSymbol? type) =>
             type != null && (type.IsGenericType || IsGeneric(type.ContainingType));
     }

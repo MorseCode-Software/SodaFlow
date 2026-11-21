@@ -91,7 +91,7 @@ internal sealed partial class LoopStateEvaluator
     // The static member that a use names, when the use can run the static constructor of its type. A
     // nested type runs only its own. A method runs it at a call: a delegate of the method runs it at the
     // call of the delegate.
-    private ISymbol? StaticMemberOf(ExpressionSyntax used) =>
+    private ISymbol? StaticMemberOf(SyntaxNode used) =>
         this.MemberOf(used) is { IsStatic: true, ContainingType.DeclaringSyntaxReferences.IsEmpty: false } member
         and not (INamedTypeSymbol or IFieldSymbol { IsConst: true })
         && (member is not IMethodSymbol

@@ -168,7 +168,7 @@ internal sealed partial class LoopStateEvaluator
     ///     constructor of its type. A call such as <c>Math.Max</c> does none of
     ///     these.
     /// </summary>
-    private bool CanHoldALaterValue(MemberAccessExpressionSyntax access)
+    private bool CanHoldALaterValue(ExpressionSyntax access)
     {
         // A namespace or a nested type in the access names the type of the member after it.
         ExpressionSyntax used = access;
@@ -190,13 +190,14 @@ internal sealed partial class LoopStateEvaluator
                     GetterOf(property) != null || this.CanHoldState(property.Type),
                 _ => false
             }
-            || member is { IsStatic: true, ContainingType: { DeclaringSyntaxReferences.IsEmpty: false } owner }
-            && owner.OriginalDefinition.StaticConstructors.Any(static constructor => !constructor.IsImplicitlyDeclared);
+            || (member is { IsStatic: true, ContainingType: { DeclaringSyntaxReferences.IsEmpty: false } owner }
+                && owner.OriginalDefinition.StaticConstructors.Any(static constructor =>
+                    !constructor.IsImplicitlyDeclared));
     }
 
     // The member that a part of a member access names. The compiler keeps the symbol of a call, and not the symbol
     // of the name of its method. A call of a delegate gets the member that holds the delegate.
-    private ISymbol? MemberOf(ExpressionSyntax used) =>
+    private ISymbol? MemberOf(SyntaxNode used) =>
         used.Parent is InvocationExpressionSyntax call
         && call.Expression == used
         && this.region.SymbolOf(call) is IMethodSymbol { MethodKind: not MethodKind.DelegateInvoke } called
