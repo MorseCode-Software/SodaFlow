@@ -4067,17 +4067,19 @@ internal sealed partial class LoopStateEvaluator
 
                 LoopState owner = LoopState.None.WithMembers(function.Receiver);
 
-                return this.Enter(
-                    call: call,
-                    name: name,
-                    body: body,
-                    bindings: bindings,
-                    definer: null,
-                    members: TaggedMembers(owner),
-                    receiver: owner,
-                    target: null,
-                    returnsAnObject: this.DoesNotSayItsClass(method.ReturnType),
-                    manyTimes: each is { ManyTimes: true });
+                return Both(
+                    first: this.FollowTheStaticConstructorAtACallOf(call: call, method: method),
+                    second: this.Enter(
+                        call: call,
+                        name: name,
+                        body: body,
+                        bindings: bindings,
+                        definer: null,
+                        members: TaggedMembers(owner),
+                        receiver: owner,
+                        target: null,
+                        returnsAnObject: this.DoesNotSayItsClass(method.ReturnType),
+                        manyTimes: each is { ManyTimes: true }));
             }
             default:
                 return null;

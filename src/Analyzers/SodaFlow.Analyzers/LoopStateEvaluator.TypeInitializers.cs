@@ -75,10 +75,27 @@ internal sealed partial class LoopStateEvaluator
         return all;
     }
 
-    // The static member that a use names, when the use can run the static constructor of its type.
+    /// <summary>
+    ///     The same at the call of a delegate of a static method of a different
+    ///     type. A delegate made from the method runs nothing until such a call.
+    /// </summary>
+    /// <param name="call">The call of the delegate.</param>
+    /// <param name="method">The method that the delegate calls.</param>
+    private Followed? FollowTheStaticConstructorAtACallOf(SyntaxNode call, IMethodSymbol method) =>
+        method is { IsStatic: true, ContainingType: { DeclaringSyntaxReferences.IsEmpty: false } owner }
+        && !this.quiet
+        && !IsInTheCodeOf(node: call, type: owner)
+            ? this.FollowTheStaticConstructorOf(use: call, owner: owner)
+            : null;
+
+    // The static member that a use names, when the use can run the static constructor of its type. A
+    // nested type runs only its own. A method runs it at a call: a delegate of the method runs it at the
+    // call of the delegate.
     private ISymbol? StaticMemberOf(ExpressionSyntax used) =>
         this.MemberOf(used) is { IsStatic: true, ContainingType.DeclaringSyntaxReferences.IsEmpty: false } member
-        and not IFieldSymbol { IsConst: true }
+        and not (INamedTypeSymbol or IFieldSymbol { IsConst: true })
+        && (member is not IMethodSymbol
+            || (used.Parent is InvocationExpressionSyntax { Expression: var called } && called == used))
             ? member
             : null;
 

@@ -38929,6 +38929,38 @@ public static class Shapes
     public static Cell<int> Ab269GenericMethodThroughUsingStatic() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab269Share.F = l.Map(v => v); Kept.Add(Ab269GenericGet<int>()); Ab269Share.F = Plain; return S.Hold(0); });
 
+    // S9253. A static member of a nested class runs the static constructor of the nested class only, not the one of the outer class.
+    public static Cell<int> R5CsStaticConstructorOfTheOuterClassDoesNotRunForANestedClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsInit.D = l.Map(v => v); Kept.Add(R5CsOuterInit.Inner.Value); R5CsInit.D = Plain; return S.Hold(0); });
+
+    // S9254. A delegate of a static method runs no static constructor until a call of the delegate.
+    public static Cell<int> R5CsMethodGroupOfAStaticMethodRunsNoStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5CsInit.E = l.Map(v => v); Func<int> f = R5CsGroupInit.Get; Kept.Add(f); R5CsInit.E = Plain; return S.Hold(0); });
+
+    // S9255. A delegate of a static method is made while the field is plain, and called after the field is pending. The static constructor runs at the call.
+    public static Cell<int> R5LimStaticConstructorDoesNotRunAtADelegateCreation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5LimCctorShared.Fifth = Plain; Func<int> get = R5LimCctorAtADelegateCall.Get; R5LimCctorShared.Fifth = l.Map(v => v); Kept.Add(get()); return S.Hold(0); });
+
+    // S9256. A map function is a static method, named as a method group. The first read of the map calls it, which runs the static constructor of its class.
+    public static Cell<int> Ab270MethodGroupInAMapRunsTheStaticConstructorAtTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab270Share.A = Plain; Cell<int> w = Plain.Map(Ab270ByAGroup.Twice); Ab270Share.A = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S9257. A delegate of a static method is made after the field is pending, and nothing calls it. A control.
+    public static Cell<int> Ab270DelegateWithNoCallRunsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab270Share.B = l.Map(v => v); Func<int, int> f = Ab270NoCall.Twice; Kept.Add(f); Ab270Share.B = Plain; return S.Hold(0); });
+
+    // S9258. A struct with a static constructor and no constructor of its own is made with new. No static constructor runs there. A control.
+    public static Cell<int> Ab269NewOfAStructRunsNoStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab269StructShare.A = l.Map(v => v); Ab269Struct made = new(); Kept.Add(made); Ab269StructShare.A = Plain; return S.Hold(0); });
+
+    // S9259. A method of an object made before the block calls a delegate of a static method of its own class. The static constructor ran before the block. A control.
+    public static Cell<int> Ab270DelegateCallInTheCodeOfItsClassRunsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab270OwnShare.A = l.Map(v => v); Kept.Add(Ab270OwnMade.CallOwn()); Ab270OwnShare.A = Plain; return S.Hold(0); });
+
+    // S9260. The block calls a delegate of an instance method of an object made before the block. The static constructor ran before the block. A control.
+    public static Cell<int> Ab270DelegateOfAnInstanceMethodRunsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab270OwnShare.A = l.Map(v => v); Func<int> f = Ab270OwnMade.CallOwn; Kept.Add(f()); Ab270OwnShare.A = Plain; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -55758,6 +55790,61 @@ public static class Shapes
 
         public static int Ab269GenericGet<T>() => 1;
     }
+
+    public static class Ab270Share
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+    }
+
+    public static class Ab270ByAGroup
+    {
+        static Ab270ByAGroup() => Kept.Add(Ab270Share.A!.Sample());
+
+        public static int Twice(int v) => v * 2;
+    }
+
+    public static class Ab270NoCall
+    {
+        static Ab270NoCall() => Kept.Add(Ab270Share.B!.Sample());
+
+        public static int Twice(int v) => v * 2;
+    }
+
+    public static class Ab269StructShare
+    {
+        public static Cell<int>? A;
+    }
+
+    public struct Ab269Struct
+    {
+        public int Number;
+
+        static Ab269Struct() => Kept.Add(Ab269StructShare.A!.Sample());
+    }
+
+    public static class Ab270OwnShare
+    {
+        public static Cell<int>? A;
+    }
+
+    public sealed class Ab270Own
+    {
+        private static readonly int Read;
+
+        static Ab270Own() => Read = Ab270OwnShare.A?.Sample() ?? 0;
+
+        public int CallOwn()
+        {
+            Func<int> get = Get;
+
+            return get();
+        }
+
+        private static int Get() => Read;
+    }
+
+    private static readonly Ab270Own Ab270OwnMade = new();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

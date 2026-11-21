@@ -398,7 +398,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   first object of the class or of a class derived from it, or the first read, write, or call of a
   static member, through the name of the class or through a simple name in the code of another
   class, such as a name that `using static` gives. Each type argument of a generic class, as in
-  `Cache<int>` and `Cache<string>`, has a run of its own.
+  `Cache<int>` and `Cache<string>`, has a run of its own. A member of a nested class runs only the
+  static constructor of the nested class, and a delegate of a static method runs it where something
+  calls the delegate, not where the code makes the delegate.
 - A value of the type `dynamic` whose object the analyzer saw made. It reads the method, the getter
   or the setter, the indexer, the operator, the implicit conversion, or the `operator true` or
   `operator false` that the runtime binder finds on the type of that object.
