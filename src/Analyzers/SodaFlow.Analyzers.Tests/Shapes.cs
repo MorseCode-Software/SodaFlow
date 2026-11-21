@@ -40797,6 +40797,26 @@ public static class Shapes
     public static Cell<int> R5LimActivatorCreateInstanceOfATypeofWithNoArguments() =>
         Cell.Loop<int>().WithoutCaptures(l => { R5LimSource = l.Map(v => v); Kept.Add(Activator.CreateInstance(typeof(R5LimReadsTheSource))!); R5LimSource = Plain; return S.Hold(0); });
 
+    // S9720. A local delegate gets a local function by its name, and the block is that local. The local function samples the placeholder.
+    public static Cell<int> R5LimBlockInALocalOfALocalFunctionNameSamples() =>
+        ((Func<Cell<int>>)(() => { static Cell<int> Build(LoopedCell<int> l) { Kept.Add(l.Sample()); return S.Hold(0); } Func<LoopedCell<int>, Cell<int>> block = Build; return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S9721. A local delegate in a switch section gets a quiet lambda and then a lambda that samples, in a straight line. The block is that local.
+    public static Cell<int> R5LimBlockInALocalOfASwitchSectionGivenTwoValues() =>
+        ((Func<Cell<int>>)(() => { switch (Kept.Count) { default: Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; return Cell.Loop<int>().WithoutCaptures(block); } }))();
+
+    // S9722. A local delegate gets a local function by its name in a cast, and the block is that local. The local function samples the placeholder.
+    public static Cell<int> Ab326BlockInALocalOfALocalFunctionNameInACastSamples() =>
+        ((Func<Cell<int>>)(() => { static Cell<int> Build(LoopedCell<int> l) { Kept.Add(l.Sample()); return S.Hold(0); } Func<LoopedCell<int>, Cell<int>> block = (Func<LoopedCell<int>, Cell<int>>)Build; return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S9723. A local delegate gets a static method by its name, and the block is that local. The method does not sample.
+    public static Cell<int> Ab326BlockInALocalOfAMethodNameDoesNotSample() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = Ab326Quiet; return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S9724. A local delegate gets the result of a call, and the block is that local. The analyzer does not read the call as the function.
+    public static Cell<int> Ab326BlockInALocalOfTheResultOfACallGetsSF1003() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = Ab326Make(null); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58347,6 +58367,26 @@ public static class Shapes
 
         [JsonIgnore]
         public bool NumberSpecified => share.Sample() > 0;
+    }
+
+    private static Cell<int> Ab326Samples(LoopedCell<int> l)
+    {
+        Kept.Add(l.Sample());
+
+        return S.Hold(0);
+    }
+
+    private static Cell<int> Ab326Quiet(LoopedCell<int> l) => S.Hold(l == null ? 1 : 0);
+
+    // The body samples its parameter where it gets one, and the delegate that it returns samples too.
+    private static Func<LoopedCell<int>, Cell<int>> Ab326Make(LoopedCell<int>? l)
+    {
+        if (l != null)
+        {
+            Kept.Add(l.Sample());
+        }
+
+        return Ab326Samples;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

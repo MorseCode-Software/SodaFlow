@@ -324,11 +324,11 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    ///     The lambda or the anonymous method that a local has at a use. It is
-    ///     the value of the declaration, or of the last assignment before the
-    ///     statement of the use. Null when the code can give the local a
-    ///     different value there, by a different assignment or through a
-    ///     reference.
+    ///     The lambda, the anonymous method, or the name of a method that a local
+    ///     has at a use. It is the value of the declaration, or of the last
+    ///     assignment before the statement of the use. Null when the code can
+    ///     give the local a different value there, by a different assignment or
+    ///     through a reference.
     /// </summary>
     /// <remarks>
     ///     A value that the walk knows comes from an assignment that is a
@@ -339,14 +339,21 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     ///     the use outside a function cannot give a lambda. Thus, it gives no
     ///     function, as each other value with no lambda does.
     /// </remarks>
-    private static AnonymousFunctionExpressionSyntax? FunctionAt(ISymbol local, SyntaxNode use, SemanticModel model)
+    private static ExpressionSyntax? FunctionAt(ISymbol local, SyntaxNode use, SemanticModel model)
     {
         if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax { Initializer.Value: var value } declarator
-            || declarator.FirstAncestorOrSelf<BlockSyntax>() is not { } scope)
+            || declarator.Ancestors().FirstOrDefault(static node => node is BlockSyntax or SwitchSectionSyntax)
+                is not { } scope)
         {
             return null;
         }
+
+        // Each section of a switch can use a local that one section declares.
+        (SyntaxList<StatementSyntax> statements, SyntaxNode uses) =
+            scope is SwitchSectionSyntax { Parent: { } whole } section
+                ? (section.Statements, whole)
+                : (((BlockSyntax)scope).Statements, scope);
 
         SyntaxNode[] around = [.. use.Ancestors().TakeWhile(node => node != scope)];
 
@@ -354,11 +361,11 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         TextSpan? at =
             around.OfType<StatementSyntax>().LastOrDefault() is { } statement
             && !around.Any(static node => node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
-            && !scope.Statements.Any(static each => each is LabeledStatementSyntax)
+            && !statements.Any(static each => each is LabeledStatementSyntax)
                 ? statement.Span
                 : null;
 
-        foreach (IdentifierNameSyntax name in scope.DescendantNodes()
+        foreach (IdentifierNameSyntax name in uses.DescendantNodes()
                      .OfType<IdentifierNameSyntax>()
                      .Where(name => name.Identifier.ValueText == local.Name))
         {
@@ -393,7 +400,12 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             value = assigned.Right;
         }
 
-        return FunctionIn(written: value, model: model) as AnonymousFunctionExpressionSyntax;
+        // A name of a method or of a local function gives that function. BlockOf reads it.
+        return FunctionIn(written: value, model: model)
+            is (AnonymousFunctionExpressionSyntax or SimpleNameSyntax or MemberAccessExpressionSyntax)
+            and var function
+                ? function
+                : null;
     }
 
     /// <summary>

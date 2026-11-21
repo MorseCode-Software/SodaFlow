@@ -230,10 +230,11 @@ The analyzer reads the code that runs while a loop is open: the function that yo
 block or a forward reference. That function can be a lambda, an anonymous method, or a method of
 your project given by name, also in parentheses, in a cast, or in `new Func<...>(...)`. It can also
 be a local that holds such a function, from its declaration or from the last assignment before the
-block, where both are statements of one block. A block whose function the analyzer cannot find
-this way, such as a delegate from a field or a parameter, or a local that gets its function under a
-condition, gets `SF1003`, because none of its code is checked. When that code calls your own
-methods, constructors, local functions, or property getters, the analyzer reads them too.
+block, where both are statements of one block or of one `switch` section. A block whose function
+the analyzer cannot find this way, such as a delegate from a field or a parameter, or a local that
+gets its function under a condition, gets `SF1003`, because none of its code is checked. When that
+code calls your own methods, constructors, local functions, or property getters, the analyzer
+reads them too.
 
 ### The rules
 

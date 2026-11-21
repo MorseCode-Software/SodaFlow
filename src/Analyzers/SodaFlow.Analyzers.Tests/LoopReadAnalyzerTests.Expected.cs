@@ -5808,6 +5808,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5ApiJsonNetReadsAnIgnoredSpecifiedProperty"] = ["SF1005"],
             ["R5LimXmlSerializerReadsASpecifiedProperty"] = ["SF1005"],
             ["R5LimActivatorCreateInstanceOfATypeArgumentRunsTheConstructor"] = ["SF1005"],
-            ["R5LimActivatorCreateInstanceOfATypeofWithNoArguments"] = ["SF1005"]
+            ["R5LimActivatorCreateInstanceOfATypeofWithNoArguments"] = ["SF1005"],
+            ["R5LimBlockInALocalOfALocalFunctionNameSamples"] = ["SF1001"],
+            ["R5LimBlockInALocalOfASwitchSectionGivenTwoValues"] = ["SF1001"],
+            ["Ab326BlockInALocalOfALocalFunctionNameInACastSamples"] = ["SF1001"],
+            ["Ab326BlockInALocalOfTheResultOfACallGetsSF1003"] = ["SF1003"]
         };
 }
