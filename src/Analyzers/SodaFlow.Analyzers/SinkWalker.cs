@@ -3195,6 +3195,13 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     this.evaluator.SendsTheResults(call: node, method: method, arguments: arguments);
                 }
 
+                // Execute of the status of a map through a task gives the operation a value after
+                // the transaction.
+                if (receiver != null && method.Name == "Execute" && arguments.Count == 1)
+                {
+                    this.evaluator.SendsTheResultsOf(execute: method, status: receiver, value: arguments[0].Expression);
+                }
+
                 // A scheduler of a bindable runs a posted action after the transaction, as
                 // Transaction.Post does. The contract of IBindingScheduler.Post forbids a run while a
                 // transaction is open. Each Post of the library with a receiver is that Post. A

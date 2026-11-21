@@ -5767,6 +5767,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab312TwoWayWithEditsInAPropertyWriteSendsALinkedCell"] = ["SF1002"],
             ["Ab312ActionInAFieldExecuteSendsALinkedCell"] = ["SF1002"],
             ["R5ApiInlineSchedulerThroughTheInterfaceRunsASample"] = ["SF1001"],
-            ["Ab313InlineSchedulerInAFieldThroughTheInterfaceRunsASample"] = ["SF1001"]
+            ["Ab313InlineSchedulerInAFieldThroughTheInterfaceRunsASample"] = ["SF1001"],
+            ["R5ApiMapAsyncResultOfItsLinkedInputSwitched"] = ["SF1002"],
+            ["R5ApiExecuteOfALinkedInputReachesTheResults"] = ["SF1002"],
+            ["R5ApiMapAsyncConstructOfItsLinkedInputSwitched"] = ["SF1002"],
+            ["R5ApiExecuteOfACellOfALinkedInputReachesTheResults"] = ["SF1002"],
+            ["R5FuFromValueInACalledMethod"] = ["SF1002"],
+            ["R5FuConstructOfALocalFunction"] = ["SF1002"],
+            ["R5FuConstructOfADelegateInALocal"] = ["SF1002"],
+            ["Ab314MapAsyncResultOfAMapOfItsLinkedInput"] = ["SF1002"]
         };
 }

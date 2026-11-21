@@ -416,6 +416,41 @@ internal sealed partial class LoopStateEvaluator
             .Select(static argument => argument.Expression)
             .FirstOrDefault();
 
+    // The parts of a value that a call of the library makes, which the operator table does not
+    // give it.
+    private LoopState WithTheLibraryParts(InvocationExpressionSyntax call, IMethodSymbol method, LoopState state) =>
+        method.Name == "CreateTwoWay"
+            ? this.ATwoWayBindable(creation: call, method: method, state: state)
+            : this.AConstructedResult(construct: call, method: method, state: state);
+
+    // The result of Construct of a map through a task holds what its function returns. The function
+    // runs in the transaction of the send of the result, after the close. Thus, an evaluator that
+    // changes nothing reads it. The library has no other method of that name.
+    private LoopState AConstructedResult(InvocationExpressionSyntax construct, IMethodSymbol method, LoopState state)
+    {
+        if (construct.ArgumentList.Arguments.FirstOrDefault()?.Expression is not { } function)
+        {
+            return state;
+        }
+
+        LoopState functions = this.Eval(function);
+        LoopStateEvaluator reader = this.Quiet();
+
+        return functions.Functions.Aggregate(
+            seed: state,
+            func: (all, each) =>
+                all.Join(
+                    reader.FollowFunction(
+                            call: construct,
+                            name: NameOf(function),
+                            function: each,
+                            target: functions,
+                            arguments: default,
+                            each: null)
+                        ?.State
+                    ?? LoopState.None));
+    }
+
     // A two-way bindable that a call makes is an object of the store. The store has the sink that
     // the bindable sends a write into.
     private LoopState ATwoWayBindable(InvocationExpressionSyntax creation, IMethodSymbol method, LoopState state)
@@ -443,8 +478,9 @@ internal sealed partial class LoopStateEvaluator
     ///     the function of <c>Construct</c> returns.
     /// </summary>
     /// <remarks>
-    ///     The walk finds each such call in the code of the operation. It does
-    ///     not find a call in a different function that the operation calls.
+    ///     The operation gets each value that the source fires. The walk reads
+    ///     what the operation returns, with that value for its first parameter.
+    ///     It also finds each such call in the code of the operation.
     /// </remarks>
     /// <param name="call">The call of <c>MapAsync</c>.</param>
     /// <param name="method">The method of the call.</param>
@@ -452,7 +488,54 @@ internal sealed partial class LoopStateEvaluator
     public void SendsTheResults(
         InvocationExpressionSyntax call,
         IMethodSymbol method,
-        SeparatedSyntaxList<ArgumentSyntax> arguments)
+        SeparatedSyntaxList<ArgumentSyntax> arguments) =>
+        this.SendsTheResults(
+            call: call,
+            method: method,
+            arguments: arguments,
+            input: ReceiverOf(symbols: this.region.Symbols, invocation: call, method: method) is { } source
+                ? this.Eval(source).Content
+                : LoopState.None);
+
+    /// <summary>
+    ///     Reads <c>Execute</c> of the status of a map through a task as a value
+    ///     that the operation gets. The pipeline then sends the result into its
+    ///     sink of results, after the transaction. The status is a local that no
+    ///     code writes, and that <c>MapAsync</c> made.
+    /// </summary>
+    /// <param name="execute">The method of the call of <c>Execute</c>.</param>
+    /// <param name="status">The receiver of the call.</param>
+    /// <param name="value">The value, or the cell whose value the pipeline gets.</param>
+    public void SendsTheResultsOf(IMethodSymbol execute, ExpressionSyntax status, ExpressionSyntax value)
+    {
+        if (this.MadeValueOf(status) is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "MapAsync" }
+            } map
+            || this.region.SymbolOf(map) is not IMethodSymbol mapAsync
+            || !this.region.Symbols.IsSodaFlow(mapAsync))
+        {
+            return;
+        }
+
+        IMethodSymbol definition = (execute.ReducedFrom ?? execute).OriginalDefinition;
+        LoopState given = this.Eval(value);
+
+        // Execute of a cell gives the operation the value of the cell.
+        this.SendsTheResults(
+            call: map,
+            method: mapAsync,
+            arguments: map.ArgumentList.Arguments,
+            input: definition.Parameters[definition.Parameters.Length - 1].Type is ITypeParameterSymbol
+                ? given
+                : given.Content);
+    }
+
+    private void SendsTheResults(
+        InvocationExpressionSyntax call,
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        LoopState input)
     {
         if ((this.quiet && !this.region.ReadsCodeAfterTheTransaction)
             || ArgumentFor(method: method, arguments: arguments, parameter: "results") is not { } results
@@ -461,8 +544,28 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
+        LoopState functions = this.Eval(operation);
+        LoopStateEvaluator reader = this.Quiet();
+
+        // The operation returns a task of its result.
+        LoopState returned =
+            functions.Functions.Aggregate(
+                seed: LoopState.None,
+                func: (all, function) =>
+                    all.Join(
+                        reader.FollowFunction(
+                                call: call,
+                                name: NameOf(operation),
+                                function: function,
+                                target: functions,
+                                arguments: default,
+                                each: (operation, input, ManyTimes: true),
+                                byPosition: ImmutableArray.Create(input))
+                            ?.State
+                        ?? LoopState.None));
+
         LoopState content =
-            this.Eval(operation).Functions
+            functions.Functions
                 .SelectMany(static function => function.Declaration.DescendantNodes())
                 .OfType<InvocationExpressionSyntax>()
                 .Where(static result =>
@@ -473,7 +576,8 @@ internal sealed partial class LoopStateEvaluator
                 .Where(result =>
                     this.region.SymbolOf(result) is IMethodSymbol { ContainingType.Name: "ResultFactory" } factory
                     && this.region.Symbols.IsSodaFlow(factory))
-                .Aggregate(seed: LoopState.None, func: (all, result) => all.Join(this.ResultOf(result)));
+                .Aggregate(seed: LoopState.None, func: (all, result) => all.Join(this.ResultOf(result)))
+                .Join(returned.AsContent);
 
         if (content.IsNone)
         {
