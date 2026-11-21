@@ -923,13 +923,14 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     /// <summary>
     ///     The value of a condition that is a constant. Null for each other
-    ///     condition. Only names, literals, and operators can make a constant.
-    ///     Thus, the walk asks the compiler only about such a condition.
+    ///     condition. Only names, literals, operators, <c>default</c>,
+    ///     <c>sizeof</c>, and <c>nameof</c> can make a constant. Thus, the walk
+    ///     asks the compiler only about such a condition.
     /// </summary>
     /// <param name="region">The region, for the semantic model.</param>
     /// <param name="condition">The condition.</param>
     public static bool? ConstantOf(LoopRegion region, SyntaxNode condition) =>
-        condition.DescendantNodesAndSelf()
+        condition.DescendantNodesAndSelf(descendIntoChildren: static part => !IsAConstantForm(part))
             .All(static part =>
                 part
                     is IdentifierNameSyntax
@@ -937,10 +938,18 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     or LiteralExpressionSyntax
                     or ParenthesizedExpressionSyntax
                     or PrefixUnaryExpressionSyntax
-                    or BinaryExpressionSyntax)
+                    or BinaryExpressionSyntax
+                || IsAConstantForm(part))
         && region.ModelFor(condition).GetConstantValue(condition) is { Value: bool value }
             ? value
             : null;
+
+    // An expression that can be a constant with any type or name in it. The walk does not read the
+    // nodes in it.
+    private static bool IsAConstantForm(SyntaxNode part) =>
+        part is DefaultExpressionSyntax
+            or SizeOfExpressionSyntax
+            or InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } };
 
     public override void VisitWhileStatement(WhileStatementSyntax node)
     {

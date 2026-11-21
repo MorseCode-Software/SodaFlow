@@ -587,12 +587,12 @@ careful side, so it can report a read that does not throw:
 - It reports a read under a condition, whether or not that path runs. A comparer that only a tie
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind. So is the
   function of a `Merge`, which runs only when both streams fire in one transaction: what it returns
-  counts as a value of the merge even where one stream fires, or none does. Only a
-  condition that is a constant is read for what it says: the analyzer skips the branch of an `if`
-  and the arm of a `?:` that the constant rules out, the body of a `while` or a `for` whose
-  condition is the constant `false`, and the second turn of a `do` whose condition is the constant
-  `false`. It still reads a `switch` section that a constant rules out, and the code after an `if`
-  on a constant whose branch always returns.
+  counts as a value of the merge even where one stream fires, or none does. Only a condition that is
+  a constant, also one made with `nameof`, `sizeof`, or `default`, is read for what it says: the
+  analyzer skips the branch of an `if` and the arm of a `?:` that the constant rules out, the body
+  of a `while` or a `for` whose condition is the constant `false`, and the second turn of a `do`
+  whose condition is the constant `false`. It still reads a `switch` section that a constant rules
+  out, and the code after an `if` on a constant whose branch always returns.
 - A first read of a cell that the analyzer cannot be sure runs leaves the cell for the next read,
   which then runs the function again. That is a read in a branch of an `if` or an arm of a `?:`
   whose condition is not a constant, and a read in a `catch` or `finally` block. A read in a `try`

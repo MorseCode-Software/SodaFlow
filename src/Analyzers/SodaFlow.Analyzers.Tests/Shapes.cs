@@ -40853,6 +40853,18 @@ public static class Shapes
     public static Cell<int> Ab328BlockOfAnOverrideOfAnUnseenObject() =>
         Cell.Loop<int>().WithoutCaptures(Ab328MiddleBuilders[0].Build);
 
+    // S9734. A read under an if whose condition is a constant comparison of a nameof.
+    public static Cell<int> R5LimReadUnderAFalseNameofComparison() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (nameof(Kept) == "Other") { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S9735. A read under an if whose condition is a constant comparison of a sizeof.
+    public static Cell<int> R5LimReadUnderAFalseSizeofComparison() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (sizeof(int) == 8) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S9736. A read under an if whose condition is default(bool).
+    public static Cell<int> R5LimReadUnderADefaultBoolCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (default(bool)) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
