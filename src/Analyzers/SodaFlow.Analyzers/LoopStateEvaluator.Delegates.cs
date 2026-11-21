@@ -57,13 +57,23 @@ internal sealed partial class LoopStateEvaluator
     {
         ExpressionSyntax delegated = Unwrapped(written);
 
+        while (delegated is IdentifierNameSyntax name && this.region.SymbolOf(name) is ILocalSymbol local)
+        {
+            if (this.OnlyValueOf(local) is not { } value)
+            {
+                return null;
+            }
+
+            delegated = Unwrapped(value);
+        }
+
         switch (delegated)
         {
             case AnonymousFunctionExpressionSyntax:
-                return [delegated];
             case ObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } only }
                 when Unwrapped(only[0].Expression) is AnonymousFunctionExpressionSyntax
                      || this.region.SymbolOf(only[0].Expression) is IMethodSymbol:
+            case SimpleNameSyntax or MemberAccessExpressionSyntax when this.region.SymbolOf(delegated) is IMethodSymbol:
                 return [delegated];
             case BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AddExpression } plus
                 when this.region.TypeOf(plus) is { TypeKind: TypeKind.Delegate }:
@@ -94,10 +104,6 @@ internal sealed partial class LoopStateEvaluator
 
                 return all;
             }
-            case IdentifierNameSyntax name when this.region.SymbolOf(name) is ILocalSymbol local:
-                return this.OnlyValueOf(local) is { } value ? this.FunctionsInOrder(value) : null;
-            case SimpleNameSyntax or MemberAccessExpressionSyntax when this.region.SymbolOf(delegated) is IMethodSymbol:
-                return [delegated];
             default:
                 return null;
         }
