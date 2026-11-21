@@ -207,6 +207,11 @@ internal sealed partial class LoopStateEvaluator
                 self: self,
                 itsObject: receiver?.Members);
 
+        if (owner != null && definer == null)
+        {
+            this.GivesTheCalleeTheWritesThroughAName(owner: owner, members: members, callee: inner.Frame);
+        }
+
         // A local of the function is new in each call. A call of the function in its own code
         // keeps the locals as they are, because the first call reads them after it.
         SyntaxNode? started = function != null && this.region.StartsACallOf(function) ? function : null;

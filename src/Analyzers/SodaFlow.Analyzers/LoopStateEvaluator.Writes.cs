@@ -1890,7 +1890,13 @@ internal sealed partial class LoopStateEvaluator
             // The write is a write to the member through the expression, as an assignment is.
             if (written != null)
             {
-                this.SetMemberOf(owner: written, member: member, state: state, replaces: always, turn: turn);
+                this.SetMemberOf(
+                    owner: written,
+                    member: member,
+                    state: state,
+                    replaces: always,
+                    turn: turn,
+                    givenBackBy: call);
 
                 // The callee knows the collection that it gave the member.
                 if (always && this.function == null && this.TheOneCollectionOf(written) is { } self)
@@ -1984,6 +1990,10 @@ internal sealed partial class LoopStateEvaluator
     ///     True for a write that a callee made through its parameter, which
     ///     the call gives back to the argument.
     /// </param>
+    /// <param name="givenBackBy">
+    ///     The call whose callee wrote the member through this, when the write
+    ///     comes back to the receiver. Null for each other write.
+    /// </param>
     public void SetMemberOf(
         ExpressionSyntax? owner,
         ISymbol member,
@@ -1991,7 +2001,8 @@ internal sealed partial class LoopStateEvaluator
         bool replaces,
         SyntaxNode? turn,
         ExpressionSyntax? from = null,
-        bool fromTheCallee = false)
+        bool fromTheCallee = false,
+        SyntaxNode? givenBackBy = null)
     {
         // A write through a name that got this is a write to the object that the code is in.
         if (owner != null && this.IsANameOfThis(owner))
@@ -2082,7 +2093,8 @@ internal sealed partial class LoopStateEvaluator
             member: member,
             state: state,
             replaces: replaces || (always && written != null && this.TheDeclaredLocationOf(written) != null),
-            seen: fromTheCallee);
+            seen: fromTheCallee,
+            givenBackBy: givenBackBy);
 
         this.NotesAWriteAtAnElement(
             written: written,

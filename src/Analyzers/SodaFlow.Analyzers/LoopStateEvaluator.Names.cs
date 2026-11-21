@@ -276,12 +276,18 @@ internal sealed partial class LoopStateEvaluator
     ///     gives back to its argument. Each frame got those writes one at a
     ///     time, in the order of the callee.
     /// </param>
+    /// <param name="givenBackBy">
+    ///     The call on the owner whose callee wrote the member through this.
+    ///     The state is the state of the member after the call. Thus, the write
+    ///     is sure when the call always runs, as an assignment is.
+    /// </param>
     private void NotesAWriteThroughANameOfOneObject(
         ExpressionSyntax? written,
         ISymbol member,
         LoopState state,
         bool replaces,
-        bool seen)
+        bool seen,
+        SyntaxNode? givenBackBy = null)
     {
         if (this.quiet)
         {
@@ -306,23 +312,31 @@ internal sealed partial class LoopStateEvaluator
         (ISymbol Of, ISymbol? Owner, object? Index)? name =
             replaces
             && this.function == null
-            && written?.Parent is MemberAccessExpressionSyntax
-            {
-                Parent: AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment
-            } access
-            && assignment.Left == access
+            && written != null
+            && (givenBackBy != null
+                || (written.Parent is MemberAccessExpressionSyntax
+                    {
+                        Parent: AssignmentExpressionSyntax
+                        {
+                            RawKind: (int)SyntaxKind.SimpleAssignmentExpression
+                        } assignment
+                    } access
+                    && assignment.Left == access))
                 ? this.NameOfAnObjectIn(written)
                 : null;
 
+        // C# reads the receiver before the arguments. Thus, the callee writes to the object that the
+        // name had at the start of the call. An argument that gives the name a new object stops the
+        // record at the next read.
         this.NotesAWriteInThisFrame(
             name: name,
-            use: written,
-            from: written?.Span.End ?? 0,
-            end: written?.Parent?.Parent?.Span.End ?? 0,
+            use: givenBackBy ?? written,
+            from: (givenBackBy ?? written)?.Span.End ?? 0,
+            end: givenBackBy?.Span.End ?? written?.Parent?.Parent?.Span.End ?? 0,
             member: member,
             state: state);
 
-        SyntaxNode? use = written;
+        SyntaxNode? use = givenBackBy ?? written;
 
         for (LoopStateEvaluator code = this; code.call is { } call; code = call.Caller)
         {
@@ -602,6 +616,38 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return null;
+    }
+
+    // Gives a callee on a second object each member whose state a record of this frame knows for
+    // the receiver. WrittenThroughANameOfItsObject reads the same records for a read. The callee
+    // then reads the member as after a sure write of its own: see OfThisObject. Thus, a read
+    // through this there does not add the state that the region keeps for the field. The records
+    // are good only when this frame saw each member write after them.
+    private void GivesTheCalleeTheWritesThroughAName(
+        ExpressionSyntax owner,
+        Dictionary<ISymbol, LoopState> members,
+        LoopFrame callee)
+    {
+        if (this.Frame.NamesOfOneObject.Count == 0
+            || this.quiet
+            || this.Frame.NamesWritesSeen != this.region.MemberWrites
+            || this.NameOfAnObjectIn(owner) is not { } name)
+        {
+            return;
+        }
+
+        foreach (NamesOfOneObject one in this.Frame.NamesOfOneObject)
+        {
+            foreach ((ISymbol written, int _, LoopState state, bool _) in one.Members)
+            {
+                if (state is { Members: null, Objects.IsEmpty: true }
+                    && one.Names.Any(each => this.IsTheName(name: each, read: name, use: owner)))
+                {
+                    members[written] = state.From(written);
+                    callee.OwnWriteOf[written] = this.region.MemberWrites;
+                }
+            }
+        }
     }
 
     // The parts of a name of an object. Null for an expression that is no such name: see

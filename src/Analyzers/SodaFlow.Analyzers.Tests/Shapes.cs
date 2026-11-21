@@ -41237,6 +41237,102 @@ public static class Shapes
     public static Cell<int> Ab300ConstructorGivesThisInALambdaReadField() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab300GivenInALambda made = new(); made.Share = l.Map(v => v); return S.Hold(Ab300GivenInALambda.Last.Share!.Sample()); });
 
+    // S9830. Carried from Round 4 (AB224, R4PairElementPendingThenThisLocalReadThisLocalThroughACall). Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through an element of a local array at a constant index. A pending cell goes in first, through an element of a local array at a constant index, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5FuCPairElementPendingThenThisLocalReadThisLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf d = new(); R4PairSelf[] a = [new R4PairSelf()]; a[0] = d; a[0].Share = l.Map(v => v); d.SetThis(Plain); return S.Hold(d.GetThis()!.Sample()); });
+
+    // S9831. Carried from Round 4 (AB224, R4PairFieldArrayPendingThenThisLocalReadFieldArrayThroughACall). Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through an element of a static field array, through the field. A pending cell goes in first, through an element of a static field array, through the field, and then the other cell. The read is through an element of a static field array, through the field.
+    public static Cell<int> R5FuCPairFieldArrayPendingThenThisLocalReadFieldArrayThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf d = new(); R4PairSelfArray1171[0] = d; R4PairSelfArray1171[0].Share = l.Map(v => v); d.SetThis(Plain); return S.Hold(R4PairSelfArray1171[0].Share!.Sample()); });
+
+    // S9832. Carried from Round 4 (AB224, R4PairFieldArrayPendingThenThisLocalReadThisLocalThroughACall). Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through an element of a static field array, through the field. A pending cell goes in first, through an element of a static field array, through the field, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5FuCPairFieldArrayPendingThenThisLocalReadThisLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf d = new(); R4PairSelfArray1173[0] = d; R4PairSelfArray1173[0].Share = l.Map(v => v); d.SetThis(Plain); return S.Hold(d.GetThis()!.Sample()); });
+
+    // S9833. Carried from Round 4 (AB224, R4PairLocalPendingThenThisElementReadLocalThroughACall). Pair matrix, this: the block calls a method of the object on an element of a local array at a constant index, which writes through this, and writes through a local. A pending cell goes in first, through a local, and then the other cell. The read is through a local.
+    public static Cell<int> R5FuCPairLocalPendingThenThisElementReadLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf[] a = [new R4PairSelf()]; R4PairSelf d = a[0]; d.Share = l.Map(v => v); a[0].SetThis(Plain); return S.Hold(d.Share!.Sample()); });
+
+    // S9834. Carried from Round 4 (AB224, R4PairLocalPendingThenThisFieldArrayReadFieldArrayThroughACall). Pair matrix, this: the block calls a method of the object on an element of a static field array, through the field, which writes through this, and writes through a local. A pending cell goes in first, through a local, and then the other cell. The read is through an element of a static field array, through the field.
+    public static Cell<int> R5FuCPairLocalPendingThenThisFieldArrayReadFieldArrayThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf d = R4PairSelfArray1184[0]; d.Share = l.Map(v => v); R4PairSelfArray1184[0].SetThis(Plain); return S.Hold(R4PairSelfArray1184[0].Share!.Sample()); });
+
+    // S9835. Carried from Round 4 (AB224, R4PairLocalPendingThenThisFieldArrayReadThisFieldArrayThroughACall). Pair matrix, this: the block calls a method of the object on an element of a static field array, through the field, which writes through this, and writes through a local. A pending cell goes in first, through a local, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5FuCPairLocalPendingThenThisFieldArrayReadThisFieldArrayThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf d = R4PairSelfArray1185[0]; d.Share = l.Map(v => v); R4PairSelfArray1185[0].SetThis(Plain); return S.Hold(R4PairSelfArray1185[0].GetThis()!.Sample()); });
+
+    // S9836. Carried from Round 4 (AB224, R4PairStaticFieldPendingThenThisLocalReadThisLocalThroughACall). Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through a static field. A pending cell goes in first, through a static field, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5FuCPairStaticFieldPendingThenThisLocalReadThisLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf d = new(); R4PairSelfField1197 = d; R4PairSelfField1197.Share = l.Map(v => v); d.SetThis(Plain); return S.Hold(d.GetThis()!.Sample()); });
+
+    // S9837. Carried from Round 4 (AB224, R4PairThisElementPendingThenLocalReadThisElementThroughACall). Pair matrix, this: the block calls a method of the object on an element of a local array at a constant index, which writes through this, and writes through a local. A pending cell goes in first, through this, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5FuCPairThisElementPendingThenLocalReadThisElementThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf[] a = [new R4PairSelf()]; R4PairSelf d = a[0]; a[0].SetThis(l.Map(v => v)); d.Share = Plain; return S.Hold(a[0].GetThis()!.Sample()); });
+
+    // S9838. Carried from Round 4 (AB224, R4PairThisFieldArrayPendingThenLocalReadThisFieldArrayThroughACall). Pair matrix, this: the block calls a method of the object on an element of a static field array, through the field, which writes through this, and writes through a local. A pending cell goes in first, through this, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5FuCPairThisFieldArrayPendingThenLocalReadThisFieldArrayThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf d = R4PairSelfArray1179[0]; R4PairSelfArray1179[0].SetThis(l.Map(v => v)); d.Share = Plain; return S.Hold(R4PairSelfArray1179[0].GetThis()!.Sample()); });
+
+    // S9839. Carried from Round 4 (AB224, R4PairThisLocalPendingThenElementReadThisLocalThroughACall). Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through an element of a local array at a constant index. A pending cell goes in first, through this, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5FuCPairThisLocalPendingThenElementReadThisLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf d = new(); R4PairSelf[] a = [new R4PairSelf()]; a[0] = d; d.SetThis(l.Map(v => v)); a[0].Share = Plain; return S.Hold(d.GetThis()!.Sample()); });
+
+    // S9840. Carried from Round 4 (AB224, R4PairThisLocalPendingThenFieldArrayReadThisLocalThroughACall). Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through an element of a static field array, through the field. A pending cell goes in first, through this, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5FuCPairThisLocalPendingThenFieldArrayReadThisLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4PairSelf d = new(); R4PairSelfArray1167[0] = d; d.SetThis(l.Map(v => v)); R4PairSelfArray1167[0].Share = Plain; return S.Hold(d.GetThis()!.Sample()); });
+
+    // S9841. Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through an element of a local array at a constant index. A pending cell goes in first, through this, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5PairThisLocalPendingThenElementReadThisLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf d = new(); R5PairSelf[] a = [new R5PairSelf()]; a[0] = d; d.SetThis(l.Map(v => v)); a[0].Share = Plain; return S.Hold(d.GetThis()!.Sample()); });
+
+    // S9842. Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through an element of a local array at a constant index. A pending cell goes in first, through an element of a local array at a constant index, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5PairElementPendingThenThisLocalReadThisLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf d = new(); R5PairSelf[] a = [new R5PairSelf()]; a[0] = d; a[0].Share = l.Map(v => v); d.SetThis(Plain); return S.Hold(d.GetThis()!.Sample()); });
+
+    // S9843. Pair matrix, this: the block calls a method of the object on an element of a local array at a constant index, which writes through this, and writes through a local. A pending cell goes in first, through this, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5PairThisElementPendingThenLocalReadThisElementThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf[] a = [new R5PairSelf()]; R5PairSelf d = a[0]; a[0].SetThis(l.Map(v => v)); d.Share = Plain; return S.Hold(a[0].GetThis()!.Sample()); });
+
+    // S9844. Pair matrix, this: the block calls a method of the object on an element of a local array at a constant index, which writes through this, and writes through a local. A pending cell goes in first, through a local, and then the other cell. The read is through a local.
+    public static Cell<int> R5PairLocalPendingThenThisElementReadLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf[] a = [new R5PairSelf()]; R5PairSelf d = a[0]; d.Share = l.Map(v => v); a[0].SetThis(Plain); return S.Hold(d.Share!.Sample()); });
+
+    // S9845. Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through an element of a static field array, through the field. A pending cell goes in first, through this, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5PairThisLocalPendingThenFieldArrayReadThisLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf d = new(); R5PairSelfArray1167[0] = d; d.SetThis(l.Map(v => v)); R5PairSelfArray1167[0].Share = Plain; return S.Hold(d.GetThis()!.Sample()); });
+
+    // S9846. Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through an element of a static field array, through the field. A pending cell goes in first, through an element of a static field array, through the field, and then the other cell. The read is through an element of a static field array, through the field.
+    public static Cell<int> R5PairFieldArrayPendingThenThisLocalReadFieldArrayThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf d = new(); R5PairSelfArray1171[0] = d; R5PairSelfArray1171[0].Share = l.Map(v => v); d.SetThis(Plain); return S.Hold(R5PairSelfArray1171[0].Share!.Sample()); });
+
+    // S9847. Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through an element of a static field array, through the field. A pending cell goes in first, through an element of a static field array, through the field, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5PairFieldArrayPendingThenThisLocalReadThisLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf d = new(); R5PairSelfArray1173[0] = d; R5PairSelfArray1173[0].Share = l.Map(v => v); d.SetThis(Plain); return S.Hold(d.GetThis()!.Sample()); });
+
+    // S9848. Pair matrix, this: the block calls a method of the object on an element of a static field array, through the field, which writes through this, and writes through a local. A pending cell goes in first, through this, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5PairThisFieldArrayPendingThenLocalReadThisFieldArrayThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf d = R5PairSelfArray1179[0]; R5PairSelfArray1179[0].SetThis(l.Map(v => v)); d.Share = Plain; return S.Hold(R5PairSelfArray1179[0].GetThis()!.Sample()); });
+
+    // S9849. Pair matrix, this: the block calls a method of the object on an element of a static field array, through the field, which writes through this, and writes through a local. A pending cell goes in first, through a local, and then the other cell. The read is through an element of a static field array, through the field.
+    public static Cell<int> R5PairLocalPendingThenThisFieldArrayReadFieldArrayThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf d = R5PairSelfArray1184[0]; d.Share = l.Map(v => v); R5PairSelfArray1184[0].SetThis(Plain); return S.Hold(R5PairSelfArray1184[0].Share!.Sample()); });
+
+    // S9850. Pair matrix, this: the block calls a method of the object on an element of a static field array, through the field, which writes through this, and writes through a local. A pending cell goes in first, through a local, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5PairLocalPendingThenThisFieldArrayReadThisFieldArrayThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf d = R5PairSelfArray1185[0]; d.Share = l.Map(v => v); R5PairSelfArray1185[0].SetThis(Plain); return S.Hold(R5PairSelfArray1185[0].GetThis()!.Sample()); });
+
+    // S9851. Pair matrix, this: the block calls a method of the object on a local, which writes through this, and writes through a static field. A pending cell goes in first, through a static field, and then the other cell. The read is through a method that gives this.Share back.
+    public static Cell<int> R5PairStaticFieldPendingThenThisLocalReadThisLocalThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairSelf d = new(); R5PairSelfField1197 = d; R5PairSelfField1197.Share = l.Map(v => v); d.SetThis(Plain); return S.Hold(d.GetThis()!.Sample()); });
+
+    // S9852. Pair matrix, Round 5: a control: a method of the object writes a plain cell through this, and an argument of the call gives the local a different object with a pending cell. The read is through the local, which then names that object.
+    public static Cell<int> Ab303AnArgumentGivesTheNameADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab303Self[] a = [new Ab303Self()]; Ab303Self d = a[0]; d.SetThis(Ab303Moved(ref d, l.Map(v => v), Plain)); return S.Hold(d.Share!.Sample()); });
+
+    // S9853. Pair matrix, Round 5: a control: a plain cell through an element, and then a call of the platform that gets the array and changes the object at that index. The read is through this in a method called on the element, which is then the object with the pending cell.
+    public static Cell<int> Ab303AChangeOfTheElementBeforeAReadThroughACall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab303Self[] a = [new Ab303Self(), new Ab303Self()]; a[1].Share = l.Map(v => v); a[0].Share = Plain; Array.Reverse(a); return S.Hold(a[0].GetThis()!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -59015,6 +59111,22 @@ public static class Shapes
         }
 
         public Cell<int>? Share { get; set; }
+    }
+
+    public sealed class Ab303Self
+    {
+        public Cell<int>? Share { get; set; }
+
+        public void SetThis(Cell<int> share) => this.Share = share;
+
+        public Cell<int>? GetThis() => this.Share;
+    }
+
+    private static Cell<int> Ab303Moved(ref Ab303Self name, Cell<int> kept, Cell<int> share)
+    {
+        name = new Ab303Self { Share = kept };
+
+        return share;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
