@@ -5575,6 +5575,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab274WriteInATryAfterAThrowReadInTheFinally"] = ["SF1001"],
             ["R5SmpSwitchOfAMapReadsALocalSetPendingAfter"] = ["SF1001"],
             ["R5SmpSwitchOfAMapThatGivesAMapSetPendingAfter"] = ["SF1001"],
-            ["Ab276SwitchOfAMapWhoseFunctionReadsALocalSetPendingAfter"] = ["SF1001"]
+            ["Ab276SwitchOfAMapWhoseFunctionReadsALocalSetPendingAfter"] = ["SF1001"],
+            ["R5CsCatchOfAThrowInALambdaThatForEachRuns"] = ["SF1001"],
+            ["Ab278CatchOfAThrowInANestedLambdaThatForEachRuns"] = ["SF1001"],
+            ["Ab278CatchInALambdaThatForEachRuns"] = ["SF1001"],
+            ["Ab278CatchOfAThrowInAStoredLambda"] = ["SF1001"],
+            ["Ab278CatchOfAThrowInALambdaMadeInATry"] = ["SF1001"]
         };
 }

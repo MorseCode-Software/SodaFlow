@@ -311,8 +311,10 @@ The analyzer follows a value made from the placeholder through the code of your 
 - Locals, tuples, deconstructions, patterns, `out` and `ref` arguments, and the fields that the
   block sets. A write to a static field of a class that is not generic replaces what the field
   held, where the write always runs: in the block, in a method that the block always calls, or in
-  the function of a `Map` at a first read that always runs. The variable of a `catch` clause gets each object that a `throw` in its `try` block,
-  or in a method or a lambda that the block calls, can send to that clause. Its filter gets none,
+  the function of a `Map` at a first read that always runs. The variable of a `catch` clause gets
+  each object that a `throw` in its `try` block, or in a method or a lambda that the block calls,
+  can send to that clause. That includes a lambda that a method of the platform, such as
+  `List<T>.ForEach`, runs in the call. Its filter gets none,
   because an exception in a filter is lost and makes the filter false.
 - Collections, arrays, and dictionaries. A list, an array, or a span that you write as a literal
   keeps each element apart, also where the literal spreads a second such local, so `cells[0]`,
@@ -601,6 +603,8 @@ Some reads that throw it does not see:
   the method makes itself or that a call inside it puts there, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
+- An object that a lambda of a LINQ query throws, for a `catch` around the code that enumerates
+  the query. The analyzer does not give the object to that clause.
 - A static initializer of a class with no static constructor. The runtime can run such initializers
   at any time before the first read of a field, so the analyzer does not read them.
 - A function that the block sends into a sink, where an `Apply` of that sink, or a

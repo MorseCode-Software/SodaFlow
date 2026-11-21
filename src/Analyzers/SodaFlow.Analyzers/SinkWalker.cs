@@ -4850,14 +4850,17 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     // A thrown object goes to each catch clause around the throw or the call whose type the object
     // can have. It stops at the first clause with no filter that gets each object of its type.
-    // Otherwise, it leaves the function. A type that the walk does not know can be each type.
+    // Otherwise, it leaves the function. A type that the walk does not know can be each type. A
+    // lambda that the walk entered runs in the call that gets it, so the object goes on to that call.
+    // A query runs its lambdas where something enumerates it, and not where its code is.
     private void Sends(SyntaxNode from, ITypeSymbol? type, LoopState state)
     {
         SyntaxNode child = from;
 
         for (SyntaxNode? parent = from.Parent;
-             parent is not (null or AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax
-                 or MemberDeclarationSyntax);
+             parent is not (null or LocalFunctionStatementSyntax or MemberDeclarationSyntax)
+             && (parent is not AnonymousFunctionExpressionSyntax lambda
+                 || (this.running == null && this.entered.Contains(lambda)));
              child = parent, parent = parent.Parent)
         {
             if (parent is not TryStatementSyntax attempt || attempt.Block != child)

@@ -39089,6 +39089,42 @@ public static class Shapes
     public static Cell<int> Ab276SwitchOfAMapWhoseFunctionReadsALocalSetPendingAfter() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(_ => { Kept.Add(c.Sample()); return Plain; }).SwitchC(); c = l.Map(v => v); return S.Hold(w.Sample()); });
 
+    // S9293. A lambda that List.ForEach runs throws an object with a pending member, and the catch samples it.
+    public static Cell<int> R5CsCatchOfAThrowInALambdaThatForEachRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { new List<int> { 1 }.ForEach(n => throw new R4CsFault(l.Map(v => v))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9294. A lambda that ForEach runs is in a lambda that ForEach runs. The inner one throws an object with a pending member, and the catch around the outer call samples it.
+    public static Cell<int> Ab278CatchOfAThrowInANestedLambdaThatForEachRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { new List<int> { 1 }.ForEach(n => new List<int> { 1 }.ForEach(m => throw new R4CsFault(l.Map(v => v)))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9295. A lambda that ForEach runs throws an object with a pending member, and a catch in the lambda samples it.
+    public static Cell<int> Ab278CatchInALambdaThatForEachRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new List<int> { 1 }.ForEach(n => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }); return S.Hold(0); });
+
+    // S9296. A lambda that ForEach runs throws an object with a pending member, and the catch around the call only keeps it. A catch of a different type samples.
+    public static Cell<int> Ab278CatchOfAnotherTypeAroundALambdaThatForEachRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { new List<int> { 1 }.ForEach(n => throw new R4CsFault(l.Map(v => v))); } catch (Ab254OtherFault e) { Kept.Add(e.Share.Sample()); } catch (R4CsFault) { Kept.Add(1); } return S.Hold(0); });
+
+    // S9297. A Lazy keeps a lambda that throws an object with a pending member, and nothing reads its Value. The catch around the construction never runs.
+    public static Cell<int> Ab278CatchAroundALazyThatNothingReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(new Lazy<int>(() => throw new R4CsFault(l.Map(v => v)))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9298. The code makes a query in a try, and enumerates it after the try. The throw of its lambda does not come to the catch around the place where the code made it.
+    public static Cell<int> Ab278CatchAroundTheDefinitionOfAQueryGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = []; try { try { q = new List<int> { 1 }.Select(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : n); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } Kept.Add(q.ToList()); } catch (R4CsFault) { Kept.Add(2); } return S.Hold(0); });
+
+    // S9299. A stored lambda throws an object with a pending member, and the catch around its call samples it.
+    public static Cell<int> Ab278CatchOfAThrowInAStoredLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action a = () => throw new R4CsFault(l.Map(v => v)); try { a(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9300. A lambda that the code makes in a try throws an object with a pending member. The code calls it after that try, and the catch around the call samples it.
+    public static Cell<int> Ab278CatchOfAThrowInALambdaMadeInATry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action a = () => { }; try { a = () => throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault) { Kept.Add(2); } try { a(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S9301. A loop makes a query in a try, and enumerates it after that try. Its lambda throws, and an outer catch gets the object. The catch around the place where the code made the query never runs.
+    public static Cell<int> Ab278CatchAroundTheDefinitionOfAQueryInALoopGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = []; try { for (int i = 0; i < 2; i++) { try { q = new List<int> { 1 }.Select(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : n); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } Kept.Add(q.ToList()); } } catch (R4CsFault) { Kept.Add(2); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
