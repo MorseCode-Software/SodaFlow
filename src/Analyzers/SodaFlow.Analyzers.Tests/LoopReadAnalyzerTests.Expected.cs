@@ -5812,6 +5812,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5LimBlockInALocalOfALocalFunctionNameSamples"] = ["SF1001"],
             ["R5LimBlockInALocalOfASwitchSectionGivenTwoValues"] = ["SF1001"],
             ["Ab326BlockInALocalOfALocalFunctionNameInACastSamples"] = ["SF1001"],
-            ["Ab326BlockInALocalOfTheResultOfACallGetsSF1003"] = ["SF1003"]
+            ["Ab326BlockInALocalOfTheResultOfACallGetsSF1003"] = ["SF1003"],
+            ["R5LimBlockInALocalGivenByADeconstructionSamples"] = ["SF1001"],
+            ["Ab327BlockInALocalGivenByADeconstructionOfACallGetsSF1003"] = ["SF1003"],
+            ["Ab327BlockInALocalGivenByANestedDeconstructionGetsSF1003"] = ["SF1003"],
+            ["Ab327BlockInALocalGivenByADeconstructionWithADiscardSamples"] = ["SF1001"],
+            ["Ab327BlockInALocalReadInATupleSamples"] = ["SF1001"]
         };
 }

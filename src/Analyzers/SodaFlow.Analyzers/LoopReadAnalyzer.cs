@@ -373,7 +373,8 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 name.Parent switch
                 {
                     AssignmentExpressionSyntax assignment => assignment.Left == name,
-                    ArgumentSyntax argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None),
+                    ArgumentSyntax argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None)
+                                               || IsDeconstructedInto(argument),
                     RefExpressionSyntax => true,
                     _ => false
                 };
@@ -386,18 +387,17 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             }
 
             if (at == null
-                || name.Parent is not AssignmentExpressionSyntax
+                || ValueGiven(name) is not
                 {
-                    RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
-                    Parent: ExpressionStatementSyntax { Parent: var block }
-                } assigned
+                    Assignment.Parent: ExpressionStatementSyntax { Parent: var block }, Value: var given
+                }
                 || block != scope)
             {
                 return null;
             }
 
             // The names come in the order of the code, thus the last one gives the value.
-            value = assigned.Right;
+            value = given;
         }
 
         // A name of a method or of a local function gives that function. BlockOf reads it.
@@ -407,6 +407,47 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 ? function
                 : null;
     }
+
+    // True for an element of a tuple on the left of a deconstruction, also of a tuple in a tuple. A
+    // foreach can deconstruct only into new locals.
+    private static bool IsDeconstructedInto(ArgumentSyntax argument)
+    {
+        for (SyntaxNode? element = argument; element is ArgumentSyntax { Parent: TupleExpressionSyntax tuple };)
+        {
+            if (tuple.Parent is AssignmentExpressionSyntax { Left: var left } && left == tuple)
+            {
+                return true;
+            }
+
+            element = tuple.Parent;
+        }
+
+        return false;
+    }
+
+    // The value that a simple assignment gives a name. A deconstruction of a tuple literal into a
+    // tuple of names gives each name the element at the same position.
+    private static (AssignmentExpressionSyntax Assignment, ExpressionSyntax Value)? ValueGiven(
+        IdentifierNameSyntax name) =>
+        name.Parent switch
+        {
+            AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assigned =>
+                (assigned, assigned.Right),
+            ArgumentSyntax
+                {
+                    Parent: TupleExpressionSyntax
+                    {
+                        Parent: AssignmentExpressionSyntax
+                        {
+                            RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+                            Right: TupleExpressionSyntax right
+                        } assigned
+                    } left
+                } element
+                when assigned.Left == left && right.Arguments.Count == left.Arguments.Count =>
+                (assigned, right.Arguments[left.Arguments.IndexOf(element)].Expression),
+            _ => null
+        };
 
     /// <summary>
     ///     The element of a returned tuple literal that closes the loop. C# converts

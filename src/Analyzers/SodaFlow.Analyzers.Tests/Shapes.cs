@@ -40817,6 +40817,30 @@ public static class Shapes
     public static Cell<int> Ab326BlockInALocalOfTheResultOfACallGetsSF1003() =>
         ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = Ab326Make(null); return Cell.Loop<int>().WithoutCaptures(block); }))();
 
+    // S9725. A local delegate gets a quiet lambda, and then a deconstruction gives it a lambda that samples. The block is that local.
+    public static Cell<int> R5LimBlockInALocalGivenByADeconstructionSamples() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); int n; (block, n) = ((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }), 1); Kept.Add(n); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S9726. A local delegate gets a lambda that samples, and then a deconstruction gives it a quiet lambda. The block is that local.
+    public static Cell<int> R5LimBlockInALocalGivenByADeconstructionDoesNotSample() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; int n; (block, n) = ((Func<LoopedCell<int>, Cell<int>>)(l => S.Hold(0)), 1); Kept.Add(n); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S9727. A deconstruction of the result of a call gives the block local its function. The analyzer does not read that function.
+    public static Cell<int> Ab327BlockInALocalGivenByADeconstructionOfACallGetsSF1003() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); int n; (block, n) = Ab327Pair(); Kept.Add(n); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S9728. A nested deconstruction gives the block local its function. The analyzer does not read that function.
+    public static Cell<int> Ab327BlockInALocalGivenByANestedDeconstructionGetsSF1003() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); int n; int m; ((block, n), m) = (((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }), 1), 2); Kept.Add(n + m); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S9729. A deconstruction with a discard gives the block local a lambda that samples.
+    public static Cell<int> Ab327BlockInALocalGivenByADeconstructionWithADiscardSamples() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); (block, _) = ((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }), 1); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S9730. A tuple on the right of an assignment reads the block local, and does not give it a value. The function of the local samples.
+    public static Cell<int> Ab327BlockInALocalReadInATupleSamples() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; (Func<LoopedCell<int>, Cell<int>>, int) pair; pair = (block, 1); Kept.Add(pair); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58388,6 +58412,14 @@ public static class Shapes
 
         return Ab326Samples;
     }
+
+    private static (Func<LoopedCell<int>, Cell<int>> Block, int Number) Ab327Pair() =>
+        (static l =>
+        {
+            Kept.Add(l.Sample());
+
+            return S.Hold(0);
+        }, 1);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
