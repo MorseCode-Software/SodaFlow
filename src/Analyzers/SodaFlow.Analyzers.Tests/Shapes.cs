@@ -40913,6 +40913,54 @@ public static class Shapes
     public static Cell<int> Ab334DelegateAtAnIndexAfterASumInALocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); Action read = () => Kept.Add(c.Sample()); Action sum = read + (() => Kept.Add(c.Sample())); Action plain = () => Kept.Add(1); Delegate[] all = ((Action)Delegate.Combine(sum, plain)!).GetInvocationList(); ((Action)all[2])(); return S.Hold(0); });
 
+    // S9749. Carried from Round 4 (AG95, R4LimFieldListReadAfterAnAddThroughALocal). A local gets a list from a static field, a pending cell goes into the list through the local, and the block reads it through the field.
+    public static Cell<int> R5FuCLimFieldListReadAfterAnAddThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4LimListC = [Plain]; List<Cell<int>> local = R4LimListC; local.Add(l.Map(v => v)); Kept.Add(R4LimListC[^1].Sample()); return S.Hold(0); });
+
+    // S9750. A local gets a list from a static field, a pending cell goes in through the local, and the block reads the item through the field at its index.
+    public static Cell<int> R5FuFieldListAddThroughALocalReadAtAnIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuListA = [Plain]; List<Cell<int>> local = R5FuListA; local.Add(l.Map(v => v)); Kept.Add(R5FuListA[1].Sample()); return S.Hold(0); });
+
+    // S9751. A local gets a list from a static field, a pending cell goes in through the local, and a foreach over the field samples each item.
+    public static Cell<int> R5FuFieldListAddThroughALocalReadInAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuListB = [Plain]; List<Cell<int>> local = R5FuListB; local.Add(l.Map(v => v)); foreach (Cell<int> c in R5FuListB) { Kept.Add(c.Sample()); } return S.Hold(0); });
+
+    // S9752. A static list that its declaration fills. A local gets it, a pending cell goes in through the local, and the block reads the last item through the field.
+    public static Cell<int> R5FuDeclaredFieldListAddThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> local = R5FuListE; local.Add(l.Map(v => v)); Kept.Add(R5FuListE[^1].Sample()); return S.Hold(0); });
+
+    // S9753. A local gets a list from a static field, a pending cell goes in at the start through Insert on the local, and the block reads the first item through the field.
+    public static Cell<int> Ab306InsertThroughALocalReadThroughTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuListA = [Plain]; List<Cell<int>> local = R5FuListA; local.Insert(0, l.Map(v => v)); Kept.Add(R5FuListA[0].Sample()); return S.Hold(0); });
+
+    // S9754. A local gets a list from a static field, a pending cell goes in through AddRange on the local, and the block reads the last item through the field.
+    public static Cell<int> Ab306AddRangeThroughALocalReadThroughTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuListA = [Plain]; List<Cell<int>> local = R5FuListA; local.AddRange([l.Map(v => v)]); Kept.Add(R5FuListA[^1].Sample()); return S.Hold(0); });
+
+    // S9755. Control: a local gets a list from a static field, a plain cell goes in through the local, and the block reads the last item through the field.
+    public static Cell<int> Ab306PlainAddThroughALocalReadThroughTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuListA = [Plain]; List<Cell<int>> local = R5FuListA; local.Add(Plain.Map(v => v)); Kept.Add(R5FuListA[^1].Sample()); return S.Hold(0); });
+
+    // S9756. Control: a local gets a list from a static field, the field then gets a new list, and a pending cell goes into the old list through the local. The block reads the last item through the field.
+    public static Cell<int> Ab306AddThroughALocalAfterTheFieldGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuListA = [Plain]; List<Cell<int>> local = R5FuListA; R5FuListA = [Plain]; local.Add(l.Map(v => v)); Kept.Add(R5FuListA[^1].Sample()); return S.Hold(0); });
+
+    // S9757. A local gets a list from a static field, and a pending cell goes in through the local. The block puts the last item of the field into a second local and samples it.
+    public static Cell<int> Ab306AddThroughALocalThenReadInALaterStatement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuListB = [Plain]; List<Cell<int>> local = R5FuListB; local.Add(l.Map(v => v)); Cell<int> last = R5FuListB[^1]; return S.Hold(last.Sample()); });
+
+    // S9758. Control: a local gets a list from a static field, and Contains on the local gets a pending cell. The block reads the last item through the field.
+    public static Cell<int> Ab306ContainsThroughALocalPutsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuListA = [Plain]; List<Cell<int>> local = R5FuListA; Kept.Add(local.Contains(l.Map(v => v))); Kept.Add(R5FuListA[^1].Sample()); return S.Hold(0); });
+
+    // S9759. Control: a local gets a list from a static property that makes a new list at each read. A pending cell goes in through the local, and the block reads the last item through the property.
+    public static Cell<int> Ab306AddThroughALocalOfANewListOfAProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> local = Ab306Fresh; local.Add(l.Map(v => v)); Kept.Add(Ab306Fresh[^1].Sample()); return S.Hold(0); });
+
+    // S9760. Control: the function of a map that the block never reads adds a pending cell through a local of a static field. The block reads the last item through the field.
+    public static Cell<int> Ab306AddThroughALocalInAMapFunctionThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuListA = [Plain]; Cell<int> m = l.Map(v => v); Cell<int> w = Plain.Map(v => { List<Cell<int>> local = R5FuListA; local.Add(m); return v; }); Kept.Add(w); Kept.Add(R5FuListA[^1].Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58516,6 +58564,8 @@ public static class Shapes
     }
 
     private static readonly Ab328MiddleBuilder[] Ab328MiddleBuilders = [new Ab328LastBuilder()];
+
+    private static List<Cell<int>> Ab306Fresh => [Plain];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

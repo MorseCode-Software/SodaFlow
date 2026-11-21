@@ -3362,9 +3362,15 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     }
                     else
                     {
-                        this.evaluator.Absorb(
-                            target: receiver,
-                            state: this.evaluator.Moved(invocation: node, method: method, withReceiver: false));
+                        LoopState added = this.evaluator.Moved(invocation: node, method: method, withReceiver: false);
+
+                        this.evaluator.Absorb(target: receiver, state: added);
+
+                        this.evaluator.AddsThroughALocalOfAField(
+                            list: receiver,
+                            call: node,
+                            method: method,
+                            state: added);
                     }
 
                     // A search reads its argument, and the collection does not get it. An object
@@ -5586,7 +5592,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             is "System.Collections.Generic.List<T>" or "System.Linq.Enumerable";
 
     // Add, Insert, and AddRange of List<T>.
-    private static bool PutsIntoAList(IMethodSymbol method) =>
+    internal static bool PutsIntoAList(IMethodSymbol method) =>
         method is { Name: "Add" or "Insert" or "AddRange" }
         && method.ContainingType.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.List<T>";
 

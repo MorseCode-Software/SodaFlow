@@ -369,7 +369,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   sees each element that code puts in through the field later, also in a method and through a `ref`
   local of a field of such an element at a constant index or at an index in a local, until the local
   or the field gets a different value. The other way also holds: a read through the field sees an
-  element that code puts in at an index through such a local.
+  element that code puts in through such a local, at an index or with `Add`, `Insert`, or `AddRange`
+  of a `List<T>`.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
   from there. A name is a local, a parameter, a static field or a static property with no body, a
@@ -705,8 +706,6 @@ Some reads that throw it does not see:
 - A function that the block sends into a sink, where an `Apply` of that sink, or a
   `CollectionEdit.FromUpdates` of it, runs it. The analyzer does not read what such a function
   returns, so a cycle through its result gets no `SF1002`.
-- A new element that code adds to a list with `Add` through a local that got the list from a
-  field, read through the field.
 - A write into an element of an array in a field that a method you call makes through a `ref`
   local, through `Array.Copy`, through an array that a call returns, or through a second field that
   holds the same array, read through a local that got the array before the call.

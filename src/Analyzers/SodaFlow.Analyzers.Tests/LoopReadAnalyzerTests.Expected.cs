@@ -5824,6 +5824,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R5LimLazyToStringCallsToStringOfTheValue"] = ["SF1005"],
             ["Ab333StringFormatWithAFormatThatIsNotAConstantReadsToString"] = ["SF1005"],
             ["Ab333StringFormatWithAWidthAndAFormatReadsToString"] = ["SF1005"],
-            ["Ab334DelegateAtTheFirstIndexOfItsInvocationListSamples"] = ["SF1001"]
+            ["Ab334DelegateAtTheFirstIndexOfItsInvocationListSamples"] = ["SF1001"],
+            ["R5FuCLimFieldListReadAfterAnAddThroughALocal"] = ["SF1001"],
+            ["R5FuFieldListAddThroughALocalReadAtAnIndex"] = ["SF1001"],
+            ["R5FuFieldListAddThroughALocalReadInAForeach"] = ["SF1001"],
+            ["R5FuDeclaredFieldListAddThroughALocal"] = ["SF1001"],
+            ["Ab306InsertThroughALocalReadThroughTheField"] = ["SF1001"],
+            ["Ab306AddRangeThroughALocalReadThroughTheField"] = ["SF1001"],
+            ["Ab306AddThroughALocalThenReadInALaterStatement"] = ["SF1001"]
         };
 }
