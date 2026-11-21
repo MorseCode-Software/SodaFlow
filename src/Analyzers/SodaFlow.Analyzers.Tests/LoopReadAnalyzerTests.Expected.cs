@@ -5803,6 +5803,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab322JsonNetOptInReadsADataMemberOfAContract"] = ["SF1005"],
             ["Ab322JsonNetFieldsModeReadsAPublicField"] = ["SF1005"],
             ["Ab325DataContractSerializerReadsAPrivateFieldOfASerializableType"] = ["SF1005"],
-            ["Ab323JsonNetOptInReadsAnIgnoreDataMemberWithADataMember"] = ["SF1005"]
+            ["Ab323JsonNetOptInReadsAnIgnoreDataMemberWithADataMember"] = ["SF1005"],
+            ["R5ApiXmlSerializerReadsASpecifiedProperty"] = ["SF1005"],
+            ["R5ApiJsonNetReadsAnIgnoredSpecifiedProperty"] = ["SF1005"],
+            ["R5LimXmlSerializerReadsASpecifiedProperty"] = ["SF1005"]
         };
 }

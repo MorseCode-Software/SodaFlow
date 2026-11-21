@@ -4238,8 +4238,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 continue;
             }
 
-            this.Report(
-                this.FollowShouldSerialize(written: written, state: state, serializer: serializer, member: property));
+            this.ReadTheTestsOf(written: written, state: state, serializer: serializer, member: property);
 
             if (this.evaluator.FollowImplied(call: written, member: read, owner: state, arguments: []) is { } getter)
             {
@@ -4262,8 +4261,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         foreach (IFieldSymbol field in fields)
         {
-            this.Report(
-                this.FollowShouldSerialize(written: written, state: state, serializer: serializer, member: field));
+            this.ReadTheTestsOf(written: written, state: state, serializer: serializer, member: field);
 
             this.Serialize(
                 written: written,
@@ -4279,14 +4277,20 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         }
     }
 
-    private Followed? FollowShouldSerialize(
-        SyntaxNode written,
-        LoopState state,
-        IMethodSymbol serializer,
-        ISymbol member) =>
-        SodaFlowSymbols.ShouldSerializeOf(member: member, serializer: serializer) is { } test
-            ? this.evaluator.FollowImplied(call: written, member: test, owner: state, arguments: [])
-            : null;
+    // The serializer reads the ShouldSerialize method and the Specified getter of a member before it
+    // writes the member.
+    private void ReadTheTestsOf(SyntaxNode written, LoopState state, IMethodSymbol serializer, ISymbol member)
+    {
+        if (SodaFlowSymbols.ShouldSerializeOf(member: member, serializer: serializer) is { } test)
+        {
+            this.Report(this.evaluator.FollowImplied(call: written, member: test, owner: state, arguments: []));
+        }
+
+        if (SodaFlowSymbols.SpecifiedOf(member: member, serializer: serializer) is { } specified)
+        {
+            this.Report(this.evaluator.FollowImplied(call: written, member: specified, owner: state, arguments: []));
+        }
+    }
 
     /// <summary>
     ///     A converter that writes a value for the serializer. The first

@@ -521,8 +521,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   type, it writes only the members with `[JsonProperty]`, and also those with `[DataMember]` where
   the type has `[DataContract]`, private ones included. With `MemberSerialization.Fields`, it
   writes every field, private ones included, and no property.
-  Json.NET and `XmlSerializer` call a public `ShouldSerialize` method of a member before they write
-  it. The data contract serializers write the members with `[DataMember]` of a type with
+  Json.NET and `XmlSerializer` call a public `ShouldSerialize` method of a member, and the getter
+  of a public `bool` property whose name is that of the member with `Specified` after it, before
+  they write the member. Json.NET reads that getter even where the property has `[JsonIgnore]`. The data contract serializers write the members with `[DataMember]` of a type with
   `[DataContract]`, the fields without `[NonSerialized]` of a type with `[Serializable]`, and the
   public members that they can set, without `[IgnoreDataMember]`, of each other type.
   Each serializer skips a member that has the ignore attribute of its own library, `[JsonIgnore]`

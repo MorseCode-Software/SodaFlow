@@ -875,6 +875,43 @@ internal sealed class SodaFlowSymbols
         return null;
     }
 
+    /// <summary>
+    ///     The getter that Json.NET and <c>XmlSerializer</c> read before they
+    ///     write a member. It is the public getter of a public property of type
+    ///     <c>bool</c> with the name of the member and <c>Specified</c>. Json.NET
+    ///     reads it also where an ignore attribute is on that property. Null when
+    ///     the type has no such property.
+    /// </summary>
+    public static IMethodSymbol? SpecifiedOf(ISymbol member, IMethodSymbol serializer)
+    {
+        if (LibraryOf(serializer) is not ("Newtonsoft.Json" or "System.Xml.Serialization"))
+        {
+            return null;
+        }
+
+        string name = member.Name + "Specified";
+
+        for (INamedTypeSymbol? current = member.ContainingType; current != null; current = current.BaseType)
+        {
+            if (current.GetMembers(name)
+                    .OfType<IPropertySymbol>()
+                    .FirstOrDefault(static flag =>
+                        flag is
+                        {
+                            IsStatic: false,
+                            DeclaredAccessibility: Accessibility.Public,
+                            Type.SpecialType: SpecialType.System_Boolean,
+                            GetMethod.DeclaredAccessibility: Accessibility.Public
+                        })
+                is { GetMethod: { } read })
+            {
+                return read;
+            }
+        }
+
+        return null;
+    }
+
     // Each serializer obeys only the ignore attribute of its own library. Json.NET also skips a field
     // with NonSerialized, and a member with IgnoreDataMember of a type that is not OptIn. Condition is
     // the one named argument of JsonIgnore. Each value but Always (1) reads the value before it

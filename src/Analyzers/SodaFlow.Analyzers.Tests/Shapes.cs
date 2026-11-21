@@ -40765,6 +40765,30 @@ public static class Shapes
     public static Cell<int> Ab323JsonNetOptInReadsAnIgnoreDataMemberWithADataMember() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new Ab323ContractWithAnIgnoredDataMember(l.Map(v => v)))); return S.Hold(0); });
 
+    // S9712. XmlSerializer reads the Specified property of a member before it writes the member. That get-only property samples.
+    public static Cell<int> R5ApiXmlSerializerReadsASpecifiedProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new XmlSerializer(typeof(R5ApiXmlSpecified)).Serialize(TextWriter.Null, new R5ApiXmlSpecified(l.Map(v => v))); return S.Hold(0); });
+
+    // S9713. Json.NET reads the Specified property of a member before it writes the member, also where JsonIgnore is on that property. Its getter samples.
+    public static Cell<int> R5ApiJsonNetReadsAnIgnoredSpecifiedProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { string text = Newtonsoft.Json.JsonConvert.SerializeObject(new R5ApiJsonNetSpecified(l.Map(v => v))); Kept.Add(text); return S.Hold(0); });
+
+    // S9714. XmlSerializer reads a get-only Specified property of a member before it writes the member, and that getter samples.
+    public static Cell<int> R5LimXmlSerializerReadsASpecifiedProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new XmlSerializer(typeof(R5LimXmlSpecifiedRow)).Serialize(TextWriter.Null, new R5LimXmlSpecifiedRow(l.Map(v => v))); return S.Hold(0); });
+
+    // S9715. XmlSerializer does not read a Specified property of a member that it skips with XmlIgnore. That getter samples.
+    public static Cell<int> Ab324XmlSerializerSkipsTheSpecifiedPropertyOfAnIgnoredMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new XmlSerializer(typeof(Ab324XmlIgnoredSpecified)).Serialize(TextWriter.Null, new Ab324XmlIgnoredSpecified(l.Map(v => v))); return S.Hold(0); });
+
+    // S9716. Json.NET does not read a Specified property whose type is not bool. That getter samples, and JsonIgnore is on it.
+    public static Cell<int> Ab324JsonNetSkipsASpecifiedPropertyThatIsNotABool() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new Ab324JsonNetIntSpecified(l.Map(v => v)))); return S.Hold(0); });
+
+    // S9717. System.Text.Json does not read the Specified property of a member. Its getter samples, and JsonIgnore is on it.
+    public static Cell<int> Ab324SystemTextJsonSkipsAnIgnoredSpecifiedProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(System.Text.Json.JsonSerializer.Serialize(new Ab324StjSpecified(l.Map(v => v)))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -58283,6 +58307,38 @@ public static class Shapes
         [System.Runtime.Serialization.DataMember]
         [System.Runtime.Serialization.IgnoreDataMember]
         public int Now => this.share.Sample();
+    }
+
+    public sealed class Ab324XmlIgnoredSpecified
+    {
+        private readonly Cell<int>? share;
+
+        public Ab324XmlIgnoredSpecified()
+        {
+        }
+
+        public Ab324XmlIgnoredSpecified(Cell<int> share) => this.share = share;
+
+        [XmlIgnore]
+        public int Number { get; set; }
+
+        public bool NumberSpecified => (this.share?.Sample() ?? 0) > 0;
+    }
+
+    public sealed class Ab324JsonNetIntSpecified(Cell<int> share)
+    {
+        public int Number => 1;
+
+        [Newtonsoft.Json.JsonIgnore]
+        public int NumberSpecified => share.Sample();
+    }
+
+    public sealed class Ab324StjSpecified(Cell<int> share)
+    {
+        public int Number => 1;
+
+        [JsonIgnore]
+        public bool NumberSpecified => share.Sample() > 0;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
