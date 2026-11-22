@@ -141,6 +141,15 @@ result. This is the behavior that a throw from a listener during propagation alr
 promises; code that relied on the partial commit has to send before the code that can throw, in a transaction of its
 own.
 
+Fixed: a listener disposed during a transaction no longer gets the firing that the transaction had already queued for
+it. A stream that fires queues one firing for each of its listeners, and Dispose only removed the listener from the
+stream, so the firings already in the queue still ran the handler: a listener that disposed another listener on the
+same stream, or a listener on a stream further along, still saw that listener run once more, and a Dispose from another
+thread could return before the handler ran. lifetimes.md says that Dispose stops the handler immediately, and now it
+does: Dispose marks the link stopped before it removes it, and a queued firing, or the replay of earlier firings that a
+new listener gets, checks the mark first. ListenOnce and Once, which kept flags of their own to stop a second value, now
+rely on the same mark.
+
 Added: DependencyCycleException, an InvalidOperationException, is what a loop that closes on itself without a delay
 throws, where before it threw a bare System.Exception with the same message, which a caller could not catch apart from
 anything else and a test could only match by its text. The message is unchanged. The internal priority queue's
