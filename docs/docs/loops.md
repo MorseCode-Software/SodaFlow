@@ -483,8 +483,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   first use that runs it: the first object of the class or of a class derived from it, also one that
   `new T()` or `Activator.CreateInstance` makes, or the first read, write, or call of a static
   member, through the name of the class or through a simple name in the code of another class, such
-  as a name that `using static` gives. Each type argument of a
-  generic class, as in `Cache<int>` and `Cache<string>`, has a run of its own. A member of a nested
+  as a name that `using static` gives. A struct runs its static constructor the same way, except
+  that of its objects only a call of a constructor that the struct declares runs it: `default`, and
+  `new S()` or `Activator.CreateInstance<S>()` where `S` declares no constructor without
+  parameters, do not. Each type argument of a generic class, as in
+  `Cache<int>` and `Cache<string>`, has a run of its own. A member of a nested
   class runs only the static constructor of the nested class, and a delegate of a static method runs
   it where something calls the delegate, not where the code makes the delegate. A first use that the
   code can skip, such as one in a branch or in an arm of `?:`, counts only for itself, so the

@@ -8189,6 +8189,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6LimStaticConstructorRunsAtActivatorCreateInstanceOfT"] = ["SF1005"],
             ["R6LimStaticConstructorRunsAtActivatorCreateInstanceOfAType"] = ["SF1005"],
             ["Ab376StaticConstructorOfABaseClassRunsAtActivatorCreateInstance"] = ["SF1005"],
-            ["Ab376CatchOfTheWrapperAroundAStaticConstructorAtActivatorCreateInstance"] = ["SF1001"]
+            ["Ab376CatchOfTheWrapperAroundAStaticConstructorAtActivatorCreateInstance"] = ["SF1001"],
+            ["R6LimStaticConstructorOfAStructRunsAtANew"] = ["SF1005"],
+            ["Ab375StaticConstructorOfAStructRunsAtATargetTypedNew"] = ["SF1005"],
+            ["Ab375StaticConstructorOfARecordStructRunsAtANew"] = ["SF1005"],
+            ["Ab375StaticConstructorOfAStructRunsAtActivatorCreateInstanceWithAnArgument"] = ["SF1005"]
         };
 }

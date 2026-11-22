@@ -69,8 +69,11 @@ internal sealed partial class LoopStateEvaluator
             return all;
         }
 
+        // A struct runs its static constructor only at a call of a constructor that its code declares.
+        // The default value of a struct calls no constructor.
         for (INamedTypeSymbol? type = constructor.ContainingType;
-             type is { TypeKind: TypeKind.Class, DeclaringSyntaxReferences.IsEmpty: false };
+             type is { TypeKind: TypeKind.Class or TypeKind.Struct, DeclaringSyntaxReferences.IsEmpty: false }
+             && (type.TypeKind == TypeKind.Class || !constructor.IsImplicitlyDeclared);
              type = type.BaseType)
         {
             all = Both(

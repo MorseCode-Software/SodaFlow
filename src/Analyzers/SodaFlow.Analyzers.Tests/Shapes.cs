@@ -58664,6 +58664,30 @@ public static class Shapes
     public static Cell<int> Ab376CatchOfTheTypeInitializationExceptionAroundActivatorCreateInstance() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab376Shared.D = l.Map(v => v); try { try { Kept.Add(Activator.CreateInstance<Ab376ThrowsAtD>()); } catch (TypeInitializationException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } } catch (System.Reflection.TargetInvocationException) { Kept.Add(2); } return S.Hold(0); });
 
+    // S14186. The block puts a pending cell into a static field and then calls a constructor of a struct whose static constructor samples that cell.
+    public static Cell<int> R6LimStaticConstructorOfAStructRunsAtANew() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6LimCctorShared.A = l.Map(v => v); Kept.Add(new R6LimCctorStruct(1)); return S.Hold(0); });
+
+    // S14187. The block puts a pending cell into a static field and then makes a struct with new and no arguments. The struct declares only a constructor with a parameter.
+    public static Cell<int> Ab375StaticConstructorOfAStructDoesNotRunAtANewWithNoArguments() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab375Shared.A = l.Map(v => v); Kept.Add(new Ab375StructA()); Ab375Shared.A = Plain; return S.Hold(0); });
+
+    // S14188. The block puts a pending cell into a static field and then calls a constructor of a struct with a target-typed new. The static constructor of the struct samples that cell.
+    public static Cell<int> Ab375StaticConstructorOfAStructRunsAtATargetTypedNew() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab375Shared.B = l.Map(v => v); Ab375StructB made = new(1); Kept.Add(made); return S.Hold(0); });
+
+    // S14189. The block puts a pending cell into a static field and then calls the primary constructor of a record struct. The static constructor of the record struct samples that cell.
+    public static Cell<int> Ab375StaticConstructorOfARecordStructRunsAtANew() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab375Shared.C = l.Map(v => v); Kept.Add(new Ab375RecordStruct(1)); return S.Hold(0); });
+
+    // S14190. The block puts a pending cell into a static field and then calls Activator.CreateInstance with the type of a struct and an argument. The static constructor of the struct samples that cell.
+    public static Cell<int> Ab375StaticConstructorOfAStructRunsAtActivatorCreateInstanceWithAnArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab375Shared.D = l.Map(v => v); Kept.Add(Activator.CreateInstance(typeof(Ab375StructD), 1)!); return S.Hold(0); });
+
+    // S14191. The block puts a pending cell into a static field and then calls Activator.CreateInstance of a struct that declares only a constructor with a parameter.
+    public static Cell<int> Ab375StaticConstructorOfAStructDoesNotRunAtActivatorCreateInstanceOfT() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab375Shared.E = l.Map(v => v); Kept.Add(Activator.CreateInstance<Ab375StructE>()); Ab375Shared.E = Plain; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109282,6 +109306,57 @@ public static class Shapes
     public sealed class Ab376ThrowsAtD
     {
         static Ab376ThrowsAtD() => throw new R4CsFault(Ab376Shared.D!);
+    }
+
+    // Helpers of the shapes of AB375. Each struct has its own static constructor, which runs one time.
+    public static class Ab375Shared
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+        public static Cell<int>? C;
+        public static Cell<int>? D;
+        public static Cell<int>? E;
+    }
+
+    public struct Ab375StructA
+    {
+        public int N;
+
+        static Ab375StructA() => Kept.Add(Ab375Shared.A!.Sample());
+
+        public Ab375StructA(int n) => this.N = n;
+    }
+
+    public struct Ab375StructB
+    {
+        public int N;
+
+        static Ab375StructB() => Kept.Add(Ab375Shared.B!.Sample());
+
+        public Ab375StructB(int n) => this.N = n;
+    }
+
+    public record struct Ab375RecordStruct(int N)
+    {
+        static Ab375RecordStruct() => Kept.Add(Ab375Shared.C!.Sample());
+    }
+
+    public struct Ab375StructD
+    {
+        public int N;
+
+        static Ab375StructD() => Kept.Add(Ab375Shared.D!.Sample());
+
+        public Ab375StructD(int n) => this.N = n;
+    }
+
+    public struct Ab375StructE
+    {
+        public int N;
+
+        static Ab375StructE() => Kept.Add(Ab375Shared.E!.Sample());
+
+        public Ab375StructE(int n) => this.N = n;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
