@@ -164,10 +164,15 @@ out reads as one leaving — even though the store still holds it. So a total ov
 folds the view's own stream, and there is no way to reach past it to a broader one.
 
 `StateCell` is the one that matters for a bound row. It returns `Cell<Maybe<TState>>` in C#
-and `Cell<'TState option>` in F#, filters the change stream on a single hash lookup, and takes
-the new value straight off the change event rather than sampling `SnapshotCell` — a cell
-sampled *during* a transaction still holds its pre-transaction value, which is exactly wrong
-here.
+and `Cell<'TState option>` in F#, and takes the new value straight off the change event rather
+than sampling `SnapshotCell` — a cell sampled *during* a transaction still holds its
+pre-transaction value, which is exactly wrong here.
+
+A change reaches only the cells of the keys it names. Each collection and each view keeps one
+index from key to cell, and a change looks its keys up there, so an edit of one row costs the
+same whether a hundred rows are bound or ten thousand. A cell that nothing holds any more is
+skipped, even before the garbage collector reclaims it. The index is paid for when a cell is
+made: a few hundred bytes for each cell.
 
 The key need not exist yet. A removal fires no value and a later add under the same key fires
 one again, so a view bound to a key can outlive its item and can be built before it. Feed it

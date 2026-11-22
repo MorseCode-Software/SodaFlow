@@ -44,6 +44,7 @@
         <Compile Include="AssemblyInfo.cs"/>
         <Compile Include="CellProjection.cs"/>
         <Compile Include="ItemChange.cs"/>
+        <Compile Include="KeyedRouter.cs"/>
         <Compile Include="CollectionEdit.cs"/>
         <Compile Include="CollectionInternals.cs"/>
         <Compile Include="CollectionSnapshot.cs"/>

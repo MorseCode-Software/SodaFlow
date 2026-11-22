@@ -38,6 +38,9 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 {
     private readonly Lazy<ReactiveCollection<TKey, TIdentity, TState>> orderedByArrival;
 
+    // The router of the per-key cells. The transaction of the first per-key cell makes it. See KeyedRouter.
+    private ItemChangeRouter<TKey, TIdentity, TState>? router;
+
     private RootCollection(
         IEqualityComparer<TKey> keyEqualityComparer,
         Stream<ItemChange<TKey, TIdentity, TState>> itemChangesStream,
@@ -60,6 +63,14 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
     }
 
     internal IEqualityComparer<TKey> KeyEqualityComparer { get; }
+
+    internal override int RoutedKeyCount => this.router?.KeyCount ?? 0;
+
+    private ItemChangeRouter<TKey, TIdentity, TState> Router(TransactionInternal trans) =>
+        this.router ??= new ItemChangeRouter<TKey, TIdentity, TState>(
+            trans: trans,
+            source: this.ItemChangesStream,
+            comparer: this.KeyEqualityComparer);
 
     /// <inheritdoc />
     public override Stream<ItemChange<TKey, TIdentity, TState>> ItemChangesStream { get; }
@@ -242,8 +253,8 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         TKey key,
         Func<TIdentity, TProjected> onPresent,
         Func<TProjected> onAbsent) =>
-        this.ItemChangesStream
-            .ChooseInternal(change =>
+        this.Router(trans)
+            .StreamFor(trans: trans, key: key, project: change =>
                 change.ProjectIdentityChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
             .HoldLazyImpl(
                 this.SnapshotCell.SampleLazyMapped(
@@ -371,8 +382,8 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         TKey key,
         Func<Item<TIdentity, TState>, TProjected> onPresent,
         Func<TProjected> onAbsent) =>
-        this.ItemChangesStream
-            .ChooseInternal(change =>
+        this.Router(trans)
+            .StreamFor(trans: trans, key: key, project: change =>
                 change.ProjectItemChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
             .HoldLazyImpl(
                 this.SnapshotCell.SampleLazyMapped(
@@ -397,11 +408,11 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         // which does not have the key, and the cell then has no value until the next edit to that
         // key. A lazy sample runs after the transaction is stable and gives the correct value.
         //
-        // The projection is in this one node and not in a map after it, thus the optional type of
-        // a wrapper costs no more nodes. The node maps and filters together. A cell for each key
+        // The projection is in the action of the per-key stream and not in a map after it. Thus, the
+        // optional type of a wrapper costs no more nodes. The action maps and filters together. A cell for each key
         // of a large collection showed that a second node was a quarter of the cost of a cell.
-        this.ItemChangesStream
-            .ChooseInternal(change =>
+        this.Router(trans)
+            .StreamFor(trans: trans, key: key, project: change =>
                 change.ProjectChangeFor(key: key, onPresent: onPresent, onAbsent: onAbsent))
             .HoldLazyImpl(
                 this.SnapshotCell.SampleLazyMapped(
