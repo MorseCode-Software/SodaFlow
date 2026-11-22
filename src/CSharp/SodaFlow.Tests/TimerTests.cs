@@ -662,6 +662,29 @@ public sealed class TimerTests
         await Assert.That(alarms).IsEmpty();
     }
 
+    // A far deadline is a wait of the longest interval on the timer thread. Before, the interval
+    // went to WaitOne as it was, and WaitOne threw above about 24.8 days. The thread gave each throw
+    // to the handler and tried again at once.
+    [Test]
+    [Arguments(double.PositiveInfinity)]
+    [Arguments(double.MaxValue)]
+    [Arguments(30.0 * 24 * 60 * 60)]
+    public async Task AFarDeadlineGivesTheHandlerNothing(double ahead)
+    {
+        int[] handled = [0];
+        SecondsTimerSystem timers = this.Keep(new SecondsTimerSystem(_ => Interlocked.Increment(ref handled[0])));
+        CellSink<Maybe<double>> deadline = Cell.CreateSink<Maybe<double>>(Maybe.None);
+
+        using IListener l = timers.At(deadline).Listen(static _ =>
+        {
+        });
+
+        deadline.Send(Maybe.Some(timers.Time.Sample() + ahead));
+        Thread.Sleep(300);
+
+        await Assert.That(Volatile.Read(ref handled[0])).IsEqualTo(0);
+    }
+
     // NaN is not in order with other times: the comparer puts it first, thus it is always due.
     // The transaction that gives it fails, and only that one.
     [Test]

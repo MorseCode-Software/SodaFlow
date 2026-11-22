@@ -16,6 +16,11 @@ namespace SodaFlow;
 /// <typeparam name="T">The type used to express a point in time.</typeparam>
 internal sealed class TimerScheduler<T>
 {
+    // The longest wait of the timer thread, 1,000 seconds. A wait ends at a change of the timers,
+    // thus a longer wait gains nothing. A constant, because a static field of a generic type is one
+    // field for each type argument.
+    private const int LongestWaitMilliseconds = 1_000_000;
+
     private readonly IComparer<T> comparer;
     private readonly object lockObject = new();
     private readonly Func<T> now;
@@ -196,7 +201,7 @@ internal sealed class TimerScheduler<T>
 
                         if (waitTime > TimeSpan.Zero)
                         {
-                            this.timersChanged.WaitOne(waitTime);
+                            this.timersChanged.WaitOne(WaitMilliseconds(waitTime));
                         }
                     }
                     catch (Exception e)
@@ -242,6 +247,24 @@ internal sealed class TimerScheduler<T>
         }
     }
 
+    /// <summary>
+    ///     Gives the milliseconds that the timer thread waits for
+    ///     <paramref name="interval" />: at least one, at most the longest wait,
+    ///     and rounded up.
+    /// </summary>
+    /// <remarks>
+    ///     WaitOne throws above <see cref="int.MaxValue" /> milliseconds, about
+    ///     24.8 days. Before, the thread then gave each throw to the handler and
+    ///     tried again at once, which used one core. WaitOne also cuts an interval
+    ///     to whole milliseconds. Thus, an interval of less than one millisecond
+    ///     waited for no time. Under a clock resolution, the thread then did the
+    ///     same until the clock got to its next step.
+    /// </remarks>
+    internal static int WaitMilliseconds(TimeSpan interval) =>
+        interval.TotalMilliseconds >= LongestWaitMilliseconds
+            ? LongestWaitMilliseconds
+            : (int)Math.Max(val1: 1.0, val2: Math.Ceiling(interval.TotalMilliseconds));
+
     private TimeSpan TimeUntilNext(T time)
     {
         while (true)
@@ -254,7 +277,7 @@ internal sealed class TimerScheduler<T>
                 // A stopped implementation fires nothing.
                 if (this.stopped || this.timers.Count < 1)
                 {
-                    waitTime = TimeSpan.FromSeconds(1000);
+                    waitTime = TimeSpan.FromMilliseconds(LongestWaitMilliseconds);
                 }
                 else
                 {

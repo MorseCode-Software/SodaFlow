@@ -30,4 +30,19 @@ public sealed class SecondsClockTests
         await Assert.That(SecondsClock.Subtract(first: far, second: 0.0)).IsEqualTo(TimeSpan.MaxValue);
         await Assert.That(SecondsClock.Subtract(first: -far, second: 0.0)).IsEqualTo(TimeSpan.MinValue);
     }
+
+    // The timer thread gives this to WaitOne. An interval past about 24.8 days made WaitOne throw,
+    // and the thread then tried again at once. An interval below one millisecond made a wait of no
+    // time. The intervals are in ticks, because FromMilliseconds rounds to whole milliseconds on
+    // .NET Framework.
+    [Test]
+    public async Task TheWaitOfTheTimerThreadIsInTheRangeOfWaitOne()
+    {
+        await Assert.That(TimerScheduler<double>.WaitMilliseconds(TimeSpan.FromTicks(1))).IsEqualTo(1);
+        await Assert.That(TimerScheduler<double>.WaitMilliseconds(TimeSpan.FromTicks(3_000))).IsEqualTo(1);
+        await Assert.That(TimerScheduler<double>.WaitMilliseconds(TimeSpan.FromTicks(12_000))).IsEqualTo(2);
+        await Assert.That(TimerScheduler<double>.WaitMilliseconds(TimeSpan.FromSeconds(2))).IsEqualTo(2000);
+        await Assert.That(TimerScheduler<double>.WaitMilliseconds(TimeSpan.FromDays(30))).IsEqualTo(1_000_000);
+        await Assert.That(TimerScheduler<double>.WaitMilliseconds(TimeSpan.MaxValue)).IsEqualTo(1_000_000);
+    }
 }
