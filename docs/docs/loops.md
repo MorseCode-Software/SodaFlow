@@ -670,7 +670,8 @@ careful side, so it can report a read that does not throw:
   made from the placeholder goes into that call. The analyzer does not read such a call. Where it
   reads that member and knows nothing of its value, it takes the value of each assignment to the
   member in the code of the class that the read names and of its base classes, with the members
-  that the object has at the read. It does not know whether that code ran, so a read can get a
+  that the object has at the read. A read through a local that only ever holds the member, or
+  through a getter of the object that only returns it, counts as a read of the member. It does not know whether that code ran, so a read can get a
   report from an assignment in a method that you never called.
 - The `Result` of a task that you create with `new` has the value that its function returns even
   where no code runs the task. Such a `Result` waits forever, and the code after it does not run.

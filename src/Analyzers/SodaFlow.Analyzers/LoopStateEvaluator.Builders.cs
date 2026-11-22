@@ -11,6 +11,10 @@ namespace SodaFlow.Analyzers;
 // of the object can read the value after a third method changes a member that the function reads.
 internal sealed partial class LoopStateEvaluator
 {
+    // The most names that can give the expression of a member that holds a build. See
+    // MemberThatANameReads.
+    private const int MaxNamesOfABuild = 4;
+
     /// <summary>
     ///     The state of a member that holds a cell or a <c>Lazy</c>, at a read of
     ///     its value. The walk can know nothing of the member. Then, the state
@@ -27,7 +31,13 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     /// <param name="heldIn">The expression of the member.</param>
     /// <param name="state">The state of the member that the walk knows.</param>
-    public LoopState WithTheBuildOfAMember(ExpressionSyntax heldIn, LoopState state)
+    public LoopState WithTheBuildOfAMember(ExpressionSyntax heldIn, LoopState state) =>
+        this.WithTheBuildOfAMember(heldIn: heldIn, state: state, names: 0);
+
+    // The same, after the given number of names that gave the expression of the member. A local
+    // with one value and a getter that is only an expression each give the member that they read.
+    // Two getters can read each other, thus the number of such names has a limit.
+    private LoopState WithTheBuildOfAMember(ExpressionSyntax heldIn, LoopState state, int names)
     {
         if (!state.IsNone)
         {
@@ -52,8 +62,14 @@ internal sealed partial class LoopStateEvaluator
                 return state;
         }
 
-        if (this.region.SymbolOf(Unwrapped(heldIn))
-            is not ({ } member and (IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false })))
+        ISymbol? symbol = this.region.SymbolOf(Unwrapped(heldIn));
+
+        if (names < MaxNamesOfABuild && this.MemberThatANameReads(symbol: symbol, owner: owner) is { } named)
+        {
+            return this.WithTheBuildOfAMember(heldIn: named, state: state, names: names + 1);
+        }
+
+        if (symbol is not ({ } member and (IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false })))
         {
             return state;
         }
@@ -108,6 +124,24 @@ internal sealed partial class LoopStateEvaluator
         // gets the same cell, and does not run its functions again.
         return values.Aggregate(seed: state, func: (all, value) => all.Join(reader.EvalABuild(value)));
     }
+
+    // The expression that a local or a getter of this gives, when it can name a member. The local
+    // has one value. The getter is only an expression, and no override can change it. Null for each
+    // other name.
+    private ExpressionSyntax? MemberThatANameReads(ISymbol? symbol, ExpressionSyntax? owner) =>
+        symbol switch
+        {
+            // The search for the writes of a local binds each use. Thus, the value comes first.
+            ILocalSymbol local
+                when local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    is VariableDeclaratorSyntax { Initializer.Value: var initial }
+                && Unwrapped(initial) is IdentifierNameSyntax or MemberAccessExpressionSyntax =>
+                this.OnlyValueOf(local),
+            // The getter of a different object reads the members of that object, not those of this.
+            IPropertySymbol { IsStatic: false, IsVirtual: false, IsAbstract: false, IsOverride: false } property
+                when owner == null => GetterOf(property.OriginalDefinition) as ExpressionSyntax,
+            _ => null
+        };
 
     /// <summary>
     ///     The walk of a function at the first read of its value. The function
