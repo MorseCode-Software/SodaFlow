@@ -141,6 +141,15 @@ result. This is the behavior that a throw from a listener during propagation alr
 promises; code that relied on the partial commit has to send before the code that can throw, in a transaction of its
 own.
 
+Fixed: a stream or a cell that a failed transaction built works in the transactions after it. The change above sends a
+throw from the body down the failure path, and that path left inactive every link the body had made, because only the
+close of a transaction activated them. A map, a hold, or a listener built in such a body then never fired. Neither did
+an object that is built at its first use and then kept: the updates stream of a cell, or the router of a collection's
+per-key cells and the change streams that its views read. A first use inside a body that threw broke that object for
+the life of the process. A posted action that throws had the same defect. A throw from a listener, which fails the
+transaction after its links are active, was not affected. The failure path now activates the links as the close
+does, so a failed transaction discards its sends and keeps the graph it built. No released version had this defect.
+
 Added: DependencyCycleException, an InvalidOperationException, is what a loop that closes on itself without a delay
 throws, where before it threw a bare System.Exception with the same message, which a caller could not catch apart from
 anything else and a test could only match by its text. The message is unchanged. The internal priority queue's
