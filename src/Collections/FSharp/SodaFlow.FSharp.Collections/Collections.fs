@@ -1,7 +1,7 @@
 /// <summary>
-///     The F# surface over SodaFlow's reactive collections: a large keyed collection whose
-///     per-item observation costs one hash lookup per observer per transaction, and the chain of
-///     <c>filter</c>, <c>sortBy</c> and <c>take</c> views derived from it.
+///     The F# surface over SodaFlow's reactive collections, and the chain of <c>filter</c>,
+///     <c>sortBy</c>, and <c>take</c> views derived from them. In a large keyed collection, an
+///     observer of one item gets only the changes that name its key.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -271,9 +271,9 @@ let fromRemoves (removesStream: Stream<'TKey>) : Stream<CollectionEdit<'TKey, 'T
 /// <param name="collection">The collection or view to read.</param>
 /// <returns>A cell tracking that key's state.</returns>
 /// <remarks>
-///     The cost is low, thus code can make one for each bound row. It filters on one hash lookup
-///     and does not read the other items. A weak cache holds one for each key, thus N observers of
-///     one key share a node, and two views of the same root give the same cell.
+///     The cost is low, thus code can make one for each bound row. It gets only the changes that
+///     name its key, and it does not read the other items. A weak cache holds one for each key,
+///     thus N observers of one key share a node, and two views of the same root give the same cell.
 ///     The key can be missing now. A removal sends <c>None</c>, and a subsequent add with the same
 ///     key sends <c>Some</c> again. Thus, a view that binds to a key can continue after the item.
 /// </remarks>

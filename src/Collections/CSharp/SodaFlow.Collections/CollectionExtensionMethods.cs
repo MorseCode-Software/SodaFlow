@@ -46,10 +46,10 @@ public static class CollectionExtensionMethods
     /// <returns>A cell tracking that key's state.</returns>
     /// <remarks>
     ///     <para>
-    ///         The cost is low, thus code can make one for each bound view. It filters
-    ///         on one hash lookup and does not read the other items. A weak cache
-    ///         holds one for each key, thus N observers of one key share a node, and
-    ///         two views of the same root give the same cell.
+    ///         The cost is low, thus code can make one for each bound view. It gets
+    ///         only the changes that name its key, and it does not read the other
+    ///         items. A weak cache holds one for each key, thus N observers of one key
+    ///         share a node, and two views of the same root give the same cell.
     ///     </para>
     ///     <para>
     ///         The key can be missing now. A removal sends no value, and a subsequent

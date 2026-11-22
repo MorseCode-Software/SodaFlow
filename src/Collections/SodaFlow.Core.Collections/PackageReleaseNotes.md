@@ -354,7 +354,7 @@ assembly access to the core's internals, which it reaches throughout; against 4.
 MethodAccessException at run time, so the dependency floor is 4.0.1 rather than 4.0.0.
 
 StateMap exposes Pairs as well as Keys, for anything that reads the whole collection - a total, an average, a count.
-Iterating Keys and looking up each one answers the same question and costs an O (log32 n) search per item; on a hundred
+Iterating Keys and looking up each one answers the same question and costs an O(log n) search per item; on a hundred
 thousand items that measured three times slower.
 
 OrderedKeys and StateMap are abstract classes with internal constructors rather than interfaces, so what a snapshot

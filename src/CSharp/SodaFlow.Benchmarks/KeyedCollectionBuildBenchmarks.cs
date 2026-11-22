@@ -15,8 +15,8 @@ namespace SodaFlow.Benchmarks;
 ///         This is the half of the compare where the collection must win outright,
 ///         and the cause of it. A cell per mutable value per object is
 ///         <c>ItemCount × 3</c> graph nodes that the code builds, and no code has
-///         to read them. A reactive collection is one graph plus a hash array
-///         mapped trie, and a cell only for the <see cref="ObserverCount" /> keys
+///         to read them. A reactive collection is one graph plus an AVL tree
+///         of hash buckets, and a cell only for the <see cref="ObserverCount" /> keys
 ///         somebody asked about.
 ///     </para>
 ///     <para>
@@ -56,7 +56,7 @@ public class KeyedCollectionBuildBenchmarks
     public void BuildStreamFedCells() =>
         Observe(shape: StreamFedCellShape.Build(this.ItemCount), itemCount: this.ItemCount);
 
-    /// <summary>One graph and a trie, with cells only for the keys observed.</summary>
+    /// <summary>One graph and a tree, with cells only for the keys observed.</summary>
     [Benchmark(Description = "build, reactive collection")]
     public void BuildReactiveCollection() =>
         Observe(shape: ReactiveCollectionShape.Build(this.ItemCount), itemCount: this.ItemCount);

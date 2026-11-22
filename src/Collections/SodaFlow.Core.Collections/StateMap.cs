@@ -66,9 +66,9 @@ public abstract class StateMap<TKey, TState>
     ///     average, or a count of the items that agree with a predicate. An
     ///     enumeration of <see cref="Keys" /> with a call of
     ///     <see cref="TryGetState" /> for each key gives the same answer and costs one
-    ///     lookup for each item. On the default trie each lookup is <c>O(log32 n)</c>
-    ///     of pointer reads, and it reads the full structure in the sequence of the
-    ///     keys and not in the sequence of the storage. A measurement shows this: on
+    ///     lookup for each item. On the default tree each lookup is <c>O(log n)</c>
+    ///     of pointer reads from the root, and not one walk in the sequence of the
+    ///     storage. A measurement shows this: on
     ///     one hundred thousand items, a total of one field with one lookup for each
     ///     key cost more than a sort of the full collection.
     /// </remarks>
@@ -94,10 +94,10 @@ internal static class ImmutableStateMap<TState>
 }
 
 /// <summary>
-///     The default strategy, which is a hash array mapped trie. An update costs
-///     approximately <c>O(log32 n)</c> and allocates only the path from the root.
-///     Thus, a collection with 100k items writes approximately four nodes again
-///     for each edit. Start with this strategy. Use a strategy that changes its
+///     The default strategy, which is an AVL tree of hash buckets. An update costs
+///     <c>O(log n)</c> and allocates only the path from the root. Thus, a
+///     collection with 100k items writes approximately 17 nodes again for each
+///     edit. Start with this strategy. Use a strategy that changes its
 ///     storage in position only after a measurement shows that this strategy is
 ///     the limit.
 /// </summary>
@@ -123,7 +123,7 @@ internal sealed class ImmutableStateMap<TKey, TState> : StateMap<TKey, TState>
     public override IEnumerable<TKey> Keys => this.states.Keys;
 
     /// <inheritdoc />
-    /// <remarks>The trie walks itself, which is where its enumeration is cheapest.</remarks>
+    /// <remarks>The tree walks itself, which is where its enumeration is cheapest.</remarks>
     public override IEnumerable<KeyValuePair<TKey, TState>> Pairs => this.states;
 
     /// <inheritdoc />
