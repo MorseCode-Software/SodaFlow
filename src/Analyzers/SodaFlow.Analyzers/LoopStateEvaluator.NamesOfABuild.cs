@@ -13,36 +13,112 @@ internal sealed partial class LoopStateEvaluator
     /// <summary>
     ///     The state of the value of an assignment that can build a member. Each
     ///     local of the code of the assignment has the value that it has at the
-    ///     assignment.
+    ///     assignment. Each delegate member of this that the value gives has
+    ///     that value also.
     /// </summary>
     /// <remarks>
     ///     The walk reads the value in the code of a different method. There,
-    ///     the locals of the build have no state. A map or a <c>Lazy</c> keeps
-    ///     the delegate that it gets. Thus, a local has the value of its last
-    ///     write before the assignment. When a different path can give it a
-    ///     different value, it has the value of each write.
+    ///     the locals of the build have no state. A member of this has no
+    ///     state, or the state of this time. A map or a <c>Lazy</c> keeps the
+    ///     delegate that it gets. Thus, a local or a delegate member has the
+    ///     value of its last write before the assignment. When a different
+    ///     path can give it a different value, it has the value of each write.
     /// </remarks>
     /// <param name="value">The value of the assignment.</param>
     private LoopState EvalABuild(ExpressionSyntax value)
     {
-        this.GiveTheNamesOf(value: value, given: new HashSet<ISymbol>(SymbolEqualityComparer.Default));
+        List<(ISymbol Key, LoopState? Old)> members = [];
 
-        return this.Eval(value);
+        this.GiveTheNamesOf(
+            value: value,
+            given: new HashSet<ISymbol>(SymbolEqualityComparer.Default),
+            members: members);
+
+        LoopState state = this.Eval(value);
+
+        // A function that the value keeps reads a member of this when it runs. Thus, each member
+        // gets the state of this time again.
+        foreach ((ISymbol key, LoopState? old) in Enumerable.Reverse(members))
+        {
+            if (old == null)
+            {
+                this.thisMembers.Remove(key);
+            }
+            else
+            {
+                this.thisMembers[key] = old;
+            }
+        }
+
+        return state;
     }
 
-    // Gives a state to each local that a value names.
-    private void GiveTheNamesOf(SyntaxNode value, HashSet<ISymbol> given)
+    // Gives a state to each local that a value names. Each delegate member of this that the value
+    // names gets its state at the value also.
+    private void GiveTheNamesOf(
+        SyntaxNode value,
+        HashSet<ISymbol> given,
+        List<(ISymbol Key, LoopState? Old)> members)
     {
-        foreach (IdentifierNameSyntax name in value.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+        SyntaxNode? code = FunctionOf(value);
+
+        foreach (ExpressionSyntax name in value.DescendantNodesAndSelf().OfType<ExpressionSyntax>())
         {
-            this.GiveTheLocal(name: name, value: value, given: given);
+            if (name is IdentifierNameSyntax local)
+            {
+                this.GiveTheLocal(name: local, value: value, given: given, members: members);
+            }
+
+            // The name of a member access is a part of the access, which the loop reads.
+            if (name is not (IdentifierNameSyntax
+                    or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax or BaseExpressionSyntax })
+                || (name.Parent is MemberAccessExpressionSyntax { Name: var right } && right == name)
+                || code == null
+                || this.region.SymbolOf(name)
+                    is not ({ IsStatic: false } member
+                    and (IFieldSymbol { Type.TypeKind: TypeKind.Delegate }
+                    or IPropertySymbol { Type.TypeKind: TypeKind.Delegate })))
+            {
+                continue;
+            }
+
+            ISymbol key = member.OriginalDefinition;
+
+            if (members.Any(each => SymbolEqualityComparer.Default.Equals(x: each.Key, y: key)))
+            {
+                continue;
+            }
+
+            LoopState? old = this.thisMembers.TryGetValue(key: key, value: out LoopState? known) ? known : null;
+            members.Add((key, old));
+
+            // A value can name the member again. That read gets no state.
+            this.thisMembers[key] = LoopState.None;
+
+            IReadOnlyList<ExpressionSyntax> values = this.ValuesOfAMemberAt(member: member, code: code, at: value);
+
+            foreach (ExpressionSyntax each in values)
+            {
+                this.GiveTheNamesOf(value: each, given: given, members: members);
+            }
+
+            // A method can run after a different method changed the member. Thus, the member of a
+            // build in a method also has the state of this time. A constructor runs before each
+            // method.
+            this.thisMembers[key] = values.Aggregate(
+                seed: code is ConstructorDeclarationSyntax || old == null ? LoopState.None : old,
+                func: (all, each) => all.Join(this.Eval(each)));
         }
     }
 
     // Gives a state to a local that a name in a value names, at the value. The state stays after the
     // build, because a function of the build can read the local after the build. A Lazy runs its
     // function at the first read of its value. Each build after it gives the local its state again.
-    private void GiveTheLocal(SyntaxNode name, SyntaxNode value, HashSet<ISymbol> given)
+    private void GiveTheLocal(
+        SyntaxNode name,
+        SyntaxNode value,
+        HashSet<ISymbol> given,
+        List<(ISymbol Key, LoopState? Old)> members)
     {
         if (this.region.SymbolOf(name) is not ILocalSymbol { RefKind: RefKind.None } local
             || given.Contains(local)
@@ -62,7 +138,7 @@ internal sealed partial class LoopStateEvaluator
 
         foreach (ExpressionSyntax each in values)
         {
-            this.GiveTheNamesOf(value: each, given: given);
+            this.GiveTheNamesOf(value: each, given: given, members: members);
         }
 
         this.locals[local] = values.Aggregate(seed: LoopState.None, func: (all, each) => all.Join(this.Eval(each)));
@@ -110,9 +186,60 @@ internal sealed partial class LoopStateEvaluator
                     : (position, null, null));
         }
 
-        return !inAFunction && LastWriteBefore(writes: writes, at: at) is { } last
+        return !inAFunction && LastWriteBefore(writes: writes, at: at, noCallBetween: false) is { } last
             ? new[] { last }
             : writes.Select(static write => write.Value).OfType<ExpressionSyntax>().ToArray();
+    }
+
+    /// <summary>
+    ///     The values that a delegate member of this can have at a node.
+    /// </summary>
+    /// <remarks>
+    ///     The last write in the function of the node gives the only value, as
+    ///     for a local. A call between the write and the node can change the
+    ///     member, thus no call can come between. Otherwise, each assignment in
+    ///     the code of the type gives a value: see <see cref="MemberBuilds" />.
+    /// </remarks>
+    private IReadOnlyList<ExpressionSyntax> ValuesOfAMemberAt(ISymbol member, SyntaxNode code, SyntaxNode at)
+    {
+        List<(int Position, ExpressionSyntax? Value, StatementSyntax? Statement)> writes = [];
+        bool inAFunction = false;
+
+        foreach (AssignmentExpressionSyntax assignment in code.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+        {
+            // The name comes first, because it needs no binding.
+            if (Unwrapped(assignment.Left) switch
+                {
+                    IdentifierNameSyntax name => name,
+                    MemberAccessExpressionSyntax
+                    {
+                        Expression: ThisExpressionSyntax or BaseExpressionSyntax, Name: IdentifierNameSyntax name
+                    } => name,
+                    _ => null
+                } is not { } written
+                || written.Identifier.ValueText != member.Name
+                || !SymbolEqualityComparer.Default.Equals(
+                    x: this.region.SymbolOf(assignment.Left)?.OriginalDefinition,
+                    y: member.OriginalDefinition))
+            {
+                continue;
+            }
+
+            inAFunction |= FunctionOf(assignment) != code;
+
+            writes.Add(WriteOf(assignment));
+        }
+
+        if (!inAFunction && LastWriteBefore(writes: writes, at: at, noCallBetween: true) is { } last)
+        {
+            return [last];
+        }
+
+        return MemberBuilds.Of(
+            member: member,
+            type: at.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type
+                ? this.region.ModelFor(type).GetDeclaredSymbol(type) as ITypeSymbol
+                : null);
     }
 
     // A write of an assignment, with the value that it gives and its statement. A `+=` adds a
@@ -132,27 +259,38 @@ internal sealed partial class LoopStateEvaluator
 
     // The value of the last write before a node, when it is the only value that the node can see.
     // The write is at the first level of a block around the node, and no loop around the node
-    // writes again after the node.
+    // writes again after the node. With noCallBetween, the statements from the write to the node
+    // contain no call and no creation.
     private static ExpressionSyntax? LastWriteBefore(
         IReadOnlyCollection<(int Position, ExpressionSyntax? Value, StatementSyntax? Statement)> writes,
-        SyntaxNode at)
+        SyntaxNode at,
+        bool noCallBetween)
     {
         (int Position, ExpressionSyntax? Value, StatementSyntax? Statement) last =
             writes.Where(write => write.Position < at.SpanStart)
                 .OrderBy(static write => write.Position)
                 .LastOrDefault();
 
-        return last is { Value: { } only, Statement.Parent: BlockSyntax block }
-               && at.Ancestors().Contains(block)
-               && !at.Ancestors()
-                   .TakeWhile(around => around != block)
-                   .Any(around => around is ForStatementSyntax
-                                      or CommonForEachStatementSyntax
-                                      or WhileStatementSyntax
-                                      or DoStatementSyntax
-                                  && writes.Any(write =>
-                                      write.Position > at.SpanStart && around.Span.Contains(write.Position)))
-            ? only
-            : null;
+        if (last is not { Value: { } only, Statement: { Parent: BlockSyntax block } statement }
+            || !at.Ancestors().Contains(block)
+            || at.Ancestors()
+                .TakeWhile(around => around != block)
+                .Any(around => around is ForStatementSyntax
+                                   or CommonForEachStatementSyntax
+                                   or WhileStatementSyntax
+                                   or DoStatementSyntax
+                               && writes.Any(write =>
+                                   write.Position > at.SpanStart && around.Span.Contains(write.Position))))
+        {
+            return null;
+        }
+
+        return noCallBetween
+               && block.Statements
+                   .Where(each => each.SpanStart > statement.SpanStart && each.Span.End <= at.SpanStart)
+                   .Any(static each => each.DescendantNodesAndSelf()
+                       .Any(static node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax))
+            ? null
+            : only;
     }
 }

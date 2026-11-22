@@ -6016,6 +6016,26 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab348CtorLazyOfALocalGivenByACoalesce"] = ["SF1004"],
             ["Ab348CtorMapOfACellLocal"] = ["SF1004"],
             ["Ab348CtorLazyOfALazyLocal"] = ["SF1004"],
-            ["Ab348CtorLazyOfALambdaThatCallsADelegateLocal"] = ["SF1004"]
+            ["Ab348CtorLazyOfALambdaThatCallsADelegateLocal"] = ["SF1004"],
+            ["Ab349CtorLazyOfAMethodGroupMember"] = ["SF1004"],
+            ["Ab349CtorLazyOfALambdaMember"] = ["SF1004"],
+            ["Ab349CtorMapOfAMethodGroupMember"] = ["SF1004"],
+            ["Ab349CtorMapOfALambdaMember"] = ["SF1004"],
+            ["Ab349CtorLiftOfAMethodGroupMember"] = ["SF1004"],
+            ["Ab349CtorLazyOfAMemberFromALocal"] = ["SF1004"],
+            ["Ab349CtorLazyOfAMemberSetAgainAfterTheBuild"] = ["SF1004"],
+            ["Ab349MethodLazyOfAMemberThatTheConstructorSets"] = ["SF1004"],
+            ["Ab349OneMethodBuildsALazyOfAMemberSetsAndReads"] = ["SF1004"],
+            ["Ab349CtorLazyOfAMethodGroupProperty"] = ["SF1004"],
+            ["Ab349CtorLazyOfAMemberThatACallSets"] = ["SF1004"],
+            ["Ab349CtorLazyOfAMemberWithAnAddedMethodGroup"] = ["SF1004"],
+            ["Ab349CtorLazyOfAMemberGivenByACoalesce"] = ["SF1004"],
+            ["Ab349DerivedCtorLazyOfAMemberOfTheBase"] = ["SF1004"],
+            ["Ab349CtorMapOfALambdaThatCallsAMemberSetLater"] = ["SF1004"],
+            ["Ab349MethodLazyOfAMemberThatTheBlockSets"] = ["SF1001"],
+            ["Ab349CtorLazyAfterASetterThatRunsALambda"] = ["SF1004"],
+            ["Ab349CallOfTheMemberAfterTheReadOfTheValue"] = ["SF1004"],
+            ["Ab349CtorLazyOfAMemberThatACreationSets"] = ["SF1004"],
+            ["Ab349MethodLazyOfAMethodGroupThatTheBlockGives"] = ["SF1005"]
         };
 }

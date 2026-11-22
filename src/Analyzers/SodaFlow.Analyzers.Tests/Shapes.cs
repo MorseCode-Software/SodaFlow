@@ -42193,6 +42193,114 @@ public static class Shapes
     public static Cell<int> Ab348LocalSetAgainBetweenTwoBuilds() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab348CtorTwoLazyValuesOfALocal().ReadSetAndReadTheSecond(l.Map(v => v))));
 
+    // S10069. A constructor puts a method group of the object in a delegate member and builds a lazy value with the member. A method sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> Ab349CtorLazyOfAMethodGroupMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyOfAGroupMember().SetAndRead(l.Map(v => v))));
+
+    // S10070. The same with a lambda in the delegate member that samples the member.
+    public static Cell<int> Ab349CtorLazyOfALambdaMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyOfALambdaMemberOf().SetAndRead(l.Map(v => v))));
+
+    // S10071. A constructor puts a method group of the object in a delegate member and builds a map with the member. A method sets the member that the method samples to a pending cell and samples the map.
+    public static Cell<int> Ab349CtorMapOfAMethodGroupMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorMapOfAGroupMember().SetAndRead(l.Map(v => v))));
+
+    // S10072. The same with a lambda in the delegate member that calls the method of the object.
+    public static Cell<int> Ab349CtorMapOfALambdaMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorMapOfALambdaMemberOf().SetAndRead(l.Map(v => v))));
+
+    // S10073. A constructor puts a method group of the object in a delegate member and builds a lift with the member. A method sets the member that the method samples to a pending cell and samples the lift.
+    public static Cell<int> Ab349CtorLiftOfAMethodGroupMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLiftOfAGroupMember().SetAndRead(l.Map(v => v))));
+
+    // S10074. A constructor puts a method group in a delegate local and then in a delegate member, and builds a lazy value with the member. A method sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> Ab349CtorLazyOfAMemberFromALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyOfAMemberOfALocal().SetAndRead(l.Map(v => v))));
+
+    // S10075. A constructor builds a lazy value with a delegate member of a method group. Then, it gives the delegate member a function that does not sample. The lazy value keeps the method group. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab349CtorLazyOfAMemberSetAgainAfterTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyOfAMemberSetAfter().SetAndRead(l.Map(v => v))));
+
+    // S10076. A constructor puts a method group in a delegate member. A method builds a lazy value with the member. A third method sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> Ab349MethodLazyOfAMemberThatTheConstructorSets() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab349MethodLazyOfAMember m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S10077. One method puts a method group in a delegate member and builds a lazy value with the member. It sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> Ab349OneMethodBuildsALazyOfAMemberSetsAndReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab349MethodLazyOfAMember m = new(); return S.Hold(m.BuildSetAndRead(l.Map(v => v))); });
+
+    // S10078. A constructor puts a method group in a delegate property and builds a lazy value with the property. A method sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> Ab349CtorLazyOfAMethodGroupProperty() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyOfAGroupProperty().SetAndRead(l.Map(v => v))));
+
+    // S10079. A constructor gives a delegate member a function that does not sample. It calls a method that gives the member a method group that samples, and builds a lazy value with the member. A method sets the member that the method group samples to a pending cell and reads the value.
+    public static Cell<int> Ab349CtorLazyOfAMemberThatACallSets() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyAfterACallThatSetsTheMember().SetAndRead(l.Map(v => v))));
+
+    // S10080. A constructor adds a method group that samples to a delegate member and builds a lazy value with the member. A method sets the member that the method group samples to a pending cell and reads the value.
+    public static Cell<int> Ab349CtorLazyOfAMemberWithAnAddedMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyOfAnAddedMember().SetAndRead(l.Map(v => v))));
+
+    // S10081. A constructor gives a delegate member that is null a method group with a coalesce and builds a lazy value with the member. A method sets the member that the method group samples to a pending cell and reads the value.
+    public static Cell<int> Ab349CtorLazyOfAMemberGivenByACoalesce() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyOfACoalescedMember().SetAndRead(l.Map(v => v))));
+
+    // S10082. A constructor of a derived type gives a delegate member of its base type a method group and builds a lazy value with the member. A method sets the member of the base type that the method group samples to a pending cell and reads the value.
+    public static Cell<int> Ab349DerivedCtorLazyOfAMemberOfTheBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349DerivedLazyOfABaseMember().SetAndRead(l.Map(v => v))));
+
+    // S10083. A constructor gives a delegate member a function that does not sample and builds a map with a lambda that calls the member. A method gives the member a method group that samples. It sets the member that the method group samples to a pending cell and samples the map. The lambda calls the method group.
+    public static Cell<int> Ab349CtorMapOfALambdaThatCallsAMemberSetLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorMapOfALambdaThatCallsAMember().SetAndRead(l.Map(v => v))));
+
+    // S10084. The block gives a delegate property of an object a lambda that samples the pending cell. A method of the object builds a lazy value with the property, and a second method reads the value.
+    public static Cell<int> Ab349MethodLazyOfAMemberThatTheBlockSets() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab349MethodLazyOfAnOpenMember m = new(); m.Factory = () => l.Sample(); m.Build(); Kept.Add(m.Read()); return S.Hold(0); });
+
+    // S10085. A constructor keeps a lambda that gives a delegate member a method group. It gives the member a function that does not sample and sets a property whose setter runs the lambda. Then, it builds a lazy value with the member. A method sets the member that the method group samples to a pending cell and reads the value.
+    public static Cell<int> Ab349CtorLazyAfterASetterThatRunsALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyAfterASetter().SetAndRead(l.Map(v => v))));
+
+    // S10086. A constructor builds a lazy value with a delegate member of a function that does not sample. A method gives the member a method group that samples and sets the member that the method group samples to a pending cell. Then, it reads the value and calls the member.
+    public static Cell<int> Ab349CallOfTheMemberAfterTheReadOfTheValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyThenACallOfTheMember().SetReadAndCall(l.Map(v => v))));
+
+    // S10087. A constructor gives a delegate member a function that does not sample. It makes an object whose constructor runs a method group, which gives the member a method group that samples. Then, it builds a lazy value with the member. A method sets the member that the method group samples to a pending cell and reads the value.
+    public static Cell<int> Ab349CtorLazyOfAMemberThatACreationSets() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyAfterACreation().SetAndRead(l.Map(v => v))));
+
+    // S10088. The block gives a delegate property of an object a method group of the object. A method of the object builds a lazy value with the property. The block sets the member that the method group samples to a pending cell and reads the value.
+    public static Cell<int> Ab349MethodLazyOfAMethodGroupThatTheBlockGives() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab349MethodLazyOfAnOpenFactory m = new(); m.Factory = m.ReadShare; m.Build(); m.Share = l.Map(v => v); Kept.Add(m.Value.Value); return S.Hold(0); });
+
+    // S10089. Control: a constructor builds a lazy value with a delegate member whose method samples a member that no code sets again. A method sets a different member to a pending cell and reads the value.
+    public static Cell<int> Ab349MemberMethodGroupReadsAMemberThatStaysPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyOfAMemberOfAFixedMember().SetAndRead(l.Map(v => v))));
+
+    // S10090. Control: a constructor builds a lazy value with a delegate member of a method group. A method sets the member to a plain cell and reads the value.
+    public static Cell<int> Ab349MemberLazyWithTheMemberSetPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab349CtorLazyOfAGroupMember().SetAndRead(Plain)); return S.Hold(0); });
+
+    // S10091. Control: a constructor builds a map with a delegate member of a method group. A method sets the member to a plain cell and samples the map.
+    public static Cell<int> Ab349MemberMapWithTheMemberSetPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab349CtorMapOfAGroupMember().SetAndRead(Plain)); return S.Hold(0); });
+
+    // S10092. Control: a constructor builds a lazy value with a delegate member whose method does not sample. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab349MemberMethodGroupThatDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyOfAMemberThatDoesNotSample().SetAndRead(l.Map(v => v))));
+
+    // S10093. Control: a constructor gives a delegate member a method group that samples, and then a function that does not sample. It builds a lazy value with the member. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab349MemberSetAgainBeforeTheBuildToAFunctionThatDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyOfAMemberSetToPlain().SetAndRead(l.Map(v => v))));
+
+    // S10094. Control: a constructor builds a lazy value with a delegate member of a function that does not sample. A method gives the delegate member a method group that samples, sets the member to a pending cell, and reads the value. The lazy value keeps the first function.
+    public static Cell<int> Ab349MemberSetToAMethodGroupAfterTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyOfAMemberChangedLater().SetAndRead(l.Map(v => v))));
+
+    // S10095. Control: a constructor builds a lazy value with a delegate member of a method group. Then, it gives the member a function that does not sample. A method reads the value with the member plain, sets the member to a pending cell, and calls the delegate member.
+    public static Cell<int> Ab349CallOfAMemberThatTheConstructorSetAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab349CtorLazyThenAMemberSetAgain().ReadSetAndCall(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -61617,6 +61725,599 @@ public static class Shapes
         }
 
         private int Read() => this.share.Sample();
+    }
+
+    // Helpers of the AB349 shapes: a delegate member as the function of a map, a lift, or a Lazy.
+    public sealed class Ab349CtorLazyOfAGroupMember
+    {
+        private readonly Func<int> factory;
+
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyOfAGroupMember()
+        {
+            this.factory = this.Read;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLazyOfALambdaMemberOf
+    {
+        private readonly Func<int> factory;
+
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyOfALambdaMemberOf()
+        {
+            this.factory = () => this.share.Sample();
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+    }
+
+    public sealed class Ab349CtorMapOfAGroupMember
+    {
+        private readonly Func<int, int> add;
+
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorMapOfAGroupMember()
+        {
+            this.add = this.Add;
+            this.map = Cell.Constant(1).Map(this.add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab349CtorMapOfALambdaMemberOf
+    {
+        private readonly Func<int, int> add;
+
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorMapOfALambdaMemberOf()
+        {
+            this.add = v => this.Add(v);
+            this.map = Cell.Constant(1).Map(this.add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLiftOfAGroupMember
+    {
+        private readonly Func<int, int, int> add;
+
+        private readonly Cell<int> lift;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLiftOfAGroupMember()
+        {
+            this.add = this.Add;
+            this.lift = Cell.Constant(1).Lift(Cell.Constant(2), this.add);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.lift.Sample();
+        }
+
+        private int Add(int a, int b) => a + b + this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLazyOfAMemberOfALocal
+    {
+        private readonly Func<int> factory;
+
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyOfAMemberOfALocal()
+        {
+            Func<int> read = this.Read;
+            this.factory = read;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLazyOfAMemberSetAfter
+    {
+        private readonly Lazy<int> value;
+
+        private Func<int> factory;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyOfAMemberSetAfter()
+        {
+            this.factory = this.Read;
+            this.value = new Lazy<int>(this.factory);
+            this.factory = Ab348Zero;
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value + this.factory();
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349MethodLazyOfAMember
+    {
+        private Func<int> factory;
+
+        private Lazy<int> value = new(static () => 0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349MethodLazyOfAMember() => this.factory = this.Read;
+
+        public void Build() => this.value = new Lazy<int>(this.factory);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        public int BuildSetAndRead(Cell<int> pending)
+        {
+            this.factory = this.Read;
+            this.value = new Lazy<int>(this.factory);
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLazyOfAGroupProperty
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyOfAGroupProperty()
+        {
+            this.Factory = this.Read;
+            this.value = new Lazy<int>(this.Factory);
+        }
+
+        public Func<int> Factory { get; }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLazyOfAMemberOfAFixedMember
+    {
+        private readonly Func<int> factory;
+
+        private readonly Lazy<int> value;
+
+        private readonly Cell<int> fixedShare = Cell.Constant(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyOfAMemberOfAFixedMember()
+        {
+            this.factory = this.Read;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value + this.share.GetHashCode();
+        }
+
+        private int Read() => this.fixedShare.Sample();
+    }
+
+    public sealed class Ab349CtorLazyOfAMemberThatDoesNotSample
+    {
+        private readonly Func<int> factory;
+
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyOfAMemberThatDoesNotSample()
+        {
+            this.factory = this.Read;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.GetHashCode();
+    }
+
+    public sealed class Ab349CtorLazyOfAMemberSetToPlain
+    {
+        private readonly Func<int> factory;
+
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyOfAMemberSetToPlain()
+        {
+            this.factory = this.Read;
+            this.factory = Ab348Zero;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLazyOfAMemberChangedLater
+    {
+        private readonly Lazy<int> value;
+
+        private Func<int> factory;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyOfAMemberChangedLater()
+        {
+            this.factory = Ab348Zero;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.factory = this.Read;
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLazyAfterACallThatSetsTheMember
+    {
+        private readonly Lazy<int> value;
+
+        private Func<int> factory;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyAfterACallThatSetsTheMember()
+        {
+            this.factory = Ab348Zero;
+            this.Setup();
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private void Setup() => this.factory = this.Read;
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLazyOfAnAddedMember
+    {
+        private readonly Lazy<int> value;
+
+        private Func<int> factory = Ab348Zero;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyOfAnAddedMember()
+        {
+            this.factory += this.Read;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLazyOfACoalescedMember
+    {
+        private readonly Lazy<int> value;
+
+        private Func<int>? factory;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyOfACoalescedMember()
+        {
+            this.factory ??= this.Read;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public class Ab349BaseOfALazy
+    {
+        protected Func<int> Factory = Ab348Zero;
+
+        protected Cell<int> Share = Cell.Constant(0);
+
+        protected int Read() => this.Share.Sample();
+    }
+
+    public sealed class Ab349DerivedLazyOfABaseMember : Ab349BaseOfALazy
+    {
+        private readonly Lazy<int> value;
+
+        public Ab349DerivedLazyOfABaseMember()
+        {
+            this.Factory = this.Read;
+            this.value = new Lazy<int>(this.Factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+
+            return this.value.Value;
+        }
+    }
+
+    public sealed class Ab349CtorMapOfALambdaThatCallsAMember
+    {
+        private readonly Cell<int> map;
+
+        private Func<int, int> add;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorMapOfALambdaThatCallsAMember()
+        {
+            this.add = Ab348Plus;
+            this.map = Cell.Constant(1).Map(v => this.add(v));
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.add = this.Add;
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab349MethodLazyOfAnOpenMember
+    {
+        private Lazy<int> value = new(static () => 0);
+
+        public Func<int> Factory { get; set; } = Ab348Zero;
+
+        public void Build() => this.value = new Lazy<int>(this.Factory);
+
+        public int Read() => this.value.Value;
+    }
+
+    public sealed class Ab349CtorLazyAfterASetter
+    {
+        private readonly Action setFactory;
+
+        private readonly Lazy<int> value;
+
+        private Func<int> factory = Ab348Zero;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyAfterASetter()
+        {
+            this.setFactory = () => this.factory = this.Read;
+            this.factory = Ab348Zero;
+            this.Mode = 1;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int Mode
+        {
+            get => 0;
+            set => this.setFactory();
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLazyThenACallOfTheMember
+    {
+        private readonly Lazy<int> value;
+
+        private Func<int> factory;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyThenACallOfTheMember()
+        {
+            this.factory = Ab348Zero;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetReadAndCall(Cell<int> pending)
+        {
+            this.factory = this.Read;
+            this.share = pending;
+            int first = this.value.Value;
+
+            return first + this.factory();
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349CtorLazyThenAMemberSetAgain
+    {
+        private readonly Func<int> factory;
+
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyThenAMemberSetAgain()
+        {
+            this.factory = this.Read;
+            this.value = new Lazy<int>(this.factory);
+            this.factory = Ab348Zero;
+        }
+
+        public int ReadSetAndCall(Cell<int> pending)
+        {
+            int first = this.value.Value;
+            this.share = pending;
+
+            return first + this.factory();
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349SetterOfAnAction
+    {
+        public Ab349SetterOfAnAction(Action set) => set();
+    }
+
+    public sealed class Ab349CtorLazyAfterACreation
+    {
+        private readonly Lazy<int> value;
+
+        private Func<int> factory;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab349CtorLazyAfterACreation()
+        {
+            this.factory = Ab348Zero;
+            _ = new Ab349SetterOfAnAction(this.Setup);
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        private void Setup() => this.factory = this.Read;
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab349MethodLazyOfAnOpenFactory
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public Func<int> Factory { get; set; } = Ab348Zero;
+
+        public Lazy<int> Value { get; private set; } = new(static () => 0);
+
+        public void Build() => this.Value = new Lazy<int>(this.Factory);
+
+        public int ReadShare() => this.Share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

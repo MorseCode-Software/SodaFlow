@@ -701,7 +701,10 @@ careful side, so it can report a read that does not throw:
 - A local of a constructor or a method of your object, such as a delegate or a cell that the code
   gives to a `Map`, a `Lift`, or a `Lazy<T>` that a different method reads, counts with each of
   its values when a branch, a loop, or a lambda can give it a value before the build. Where the last
-  value before the build is sure, only that value counts.
+  value before the build is sure, only that value counts. The same holds for a delegate in a member
+  of the object. There, a call between that value and the build makes each value that the code of
+  the class gives the member count. A build in a method, not in a constructor, also counts the value
+  that the member has where the different method reads.
 
 Some reads that throw it does not see:
 
@@ -727,13 +730,11 @@ Some reads that throw it does not see:
   the method makes itself or that a call inside it puts there, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
-- A delegate that a constructor or a method of your object keeps in a member before it gives it to
-  a `Map` or a `Lazy<T>`, such as `this.factory = this.Read;` and then
-  `new Lazy<int>(this.factory)`, where a different method of the object reads the value. This holds
-  for a lambda as well as for a method group. Where one method keeps the delegate in the member,
-  builds the value, sets the member that the delegate reads, and reads the value, the read gets its
-  report. A delegate kept in a local, such as `Func<int, int> add = this.Add;` and then
-  `Map(add)`, is seen in both cases.
+- A delegate that a constructor of your object reads from a member of a different object and gives
+  to a `Map` or a `Lazy<T>`, such as `new Lazy<int>(holder.Factory)` for a `holder` that the
+  constructor gets, where a different method of your object reads the value. A delegate that your
+  object keeps in a local or in a member of its own, such as `this.factory = this.Read;` and then
+  `new Lazy<int>(this.factory)`, is seen.
 - An object that a lambda of a LINQ query throws, for a `catch` around the code that enumerates
   the query. The analyzer does not give the object to that clause.
 - The `AggregateException` that `Wait` or `Result` of a task throws when a function of the task

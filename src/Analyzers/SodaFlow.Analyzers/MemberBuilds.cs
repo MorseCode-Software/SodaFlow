@@ -45,17 +45,33 @@ internal static class MemberBuilds
         INamedTypeSymbol declares = member.ContainingType.OriginalDefinition;
         ImmutableArray<ExpressionSyntax> all = ImmutableArray<ExpressionSyntax>.Empty;
 
+        // A name can give a delegate member a method group or the delegate of a different name.
+        bool takesNames =
+            member is IFieldSymbol { Type.TypeKind: TypeKind.Delegate }
+                or IPropertySymbol { Type.TypeKind: TypeKind.Delegate };
+
         for (INamedTypeSymbol? each = (type as INamedTypeSymbol)?.OriginalDefinition ?? declares;
              each != null;
              each = each.BaseType?.OriginalDefinition)
         {
             foreach (SyntaxReference reference in each.DeclaringSyntaxReferences)
             {
-                if (reference.GetSyntax() is TypeDeclarationSyntax code
-                    && Parts.GetValue(key: code, createValueCallback: static part => PartOf(part)).Values
-                        .TryGetValue(key: member.Name, value: out ImmutableArray<ExpressionSyntax> values))
+                if (reference.GetSyntax() is not TypeDeclarationSyntax code)
+                {
+                    continue;
+                }
+
+                Part part = Parts.GetValue(key: code, createValueCallback: static part => PartOf(part));
+
+                if (part.Values.TryGetValue(key: member.Name, value: out ImmutableArray<ExpressionSyntax> values))
                 {
                     all = all.AddRange(values);
+                }
+
+                if (takesNames
+                    && part.Names.TryGetValue(key: member.Name, value: out ImmutableArray<ExpressionSyntax> names))
+                {
+                    all = all.AddRange(names);
                 }
             }
 
@@ -72,6 +88,7 @@ internal static class MemberBuilds
     private static Part PartOf(TypeDeclarationSyntax type)
     {
         Dictionary<string, ImmutableArray<ExpressionSyntax>.Builder> values = [];
+        Dictionary<string, ImmutableArray<ExpressionSyntax>.Builder> names = [];
 
         // A nested type has members of its own, with names that can be the same.
         foreach (MemberDeclarationSyntax code in type.Members.Where(static member =>
@@ -80,29 +97,36 @@ internal static class MemberBuilds
             foreach (AssignmentExpressionSyntax assignment in
                      code.DescendantNodes().OfType<AssignmentExpressionSyntax>())
             {
+                // A `+=` gives a delegate one more function.
                 if (assignment.Kind() is not (SyntaxKind.SimpleAssignmentExpression
-                        or SyntaxKind.CoalesceAssignmentExpression)
+                        or SyntaxKind.CoalesceAssignmentExpression
+                        or SyntaxKind.AddAssignmentExpression)
                     || NameOnThis(assignment.Left) is not { } name
-                    || ValueOf(code: code, value: assignment.Right) is not { } value)
+                    || ValueOf(code: code, value: assignment.Right) is not ({ } value, var onlyAName))
                 {
                     continue;
                 }
 
-                if (!values.TryGetValue(key: name, value: out ImmutableArray<ExpressionSyntax>.Builder? of))
+                Dictionary<string, ImmutableArray<ExpressionSyntax>.Builder> to = onlyAName ? names : values;
+
+                if (!to.TryGetValue(key: name, value: out ImmutableArray<ExpressionSyntax>.Builder? of))
                 {
                     of = ImmutableArray.CreateBuilder<ExpressionSyntax>();
-                    values[name] = of;
+                    to[name] = of;
                 }
 
                 of.Add(value);
             }
         }
 
-        return new Part(
-            values.ToImmutableDictionary(
-                keySelector: static pair => pair.Key,
-                elementSelector: static pair => pair.Value.ToImmutable()));
+        return new Part(values: Built(values), names: Built(names));
     }
+
+    private static ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> Built(
+        Dictionary<string, ImmutableArray<ExpressionSyntax>.Builder> values) =>
+        values.ToImmutableDictionary(
+            keySelector: static pair => pair.Key,
+            elementSelector: static pair => pair.Value.ToImmutable());
 
     // The name of the member of this that an assignment writes. Null for each other target.
     private static string? NameOnThis(ExpressionSyntax target) =>
@@ -119,8 +143,9 @@ internal static class MemberBuilds
 
     // The value of an assignment when it can be a function. A local gives the value of its
     // declaration in the same member, also through more locals. A creation with a name as an
-    // argument can get a method group, as new Lazy<int>(this.Read) does. Null for each other value.
-    private static ExpressionSyntax? ValueOf(SyntaxNode code, ExpressionSyntax value)
+    // argument can get a method group, as new Lazy<int>(this.Read) does. A value that is only a
+    // name can be a method group also. Null for each other value.
+    private static (ExpressionSyntax Value, bool OnlyAName)? ValueOf(SyntaxNode code, ExpressionSyntax value)
     {
         HashSet<string> seen = [];
 
@@ -136,19 +161,27 @@ internal static class MemberBuilds
         }
 
         // A call can return a function that it built.
-        return value.DescendantNodesAndSelf()
+        if (value.DescendantNodesAndSelf()
             .Any(static node =>
                 node is AnonymousFunctionExpressionSyntax or InvocationExpressionSyntax
                 || (node is BaseObjectCreationExpressionSyntax { ArgumentList.Arguments: var arguments }
                     && arguments.Any(static argument =>
-                        argument.Expression is SimpleNameSyntax or MemberAccessExpressionSyntax)))
-            ? value
-            : null;
+                        argument.Expression is SimpleNameSyntax or MemberAccessExpressionSyntax))))
+        {
+            return (value, false);
+        }
+
+        return value is SimpleNameSyntax or MemberAccessExpressionSyntax ? (value, true) : null;
     }
 
-    // The assignments of one type declaration, by the name of the member.
-    private sealed class Part(in ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> values)
+    // The assignments of one type declaration, by the name of the member. A value that is only a
+    // name is in Names, because only a delegate member takes it.
+    private sealed class Part(
+        in ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> values,
+        in ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> names)
     {
         public ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> Values { get; } = values;
+
+        public ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> Names { get; } = names;
     }
 }
