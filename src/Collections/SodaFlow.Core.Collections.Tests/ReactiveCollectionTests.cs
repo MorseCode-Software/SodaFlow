@@ -241,6 +241,99 @@ public sealed class ReactiveCollectionTests
     }
 
     [Test]
+    public async Task TwoAddsOfOneNewKeyInOneEditThrow()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                edits);
+
+        await Assert.That(() =>
+                edits.Send(
+                    TestUtil.Add(
+                        TestUtil.Item(number: 2, name: "first", score: 20),
+                        TestUtil.Item(number: 2, name: "second", score: 30))))
+            .Throws<InvalidOperationException>();
+
+        await Assert.That(collection.SnapshotCell.Sample().Count).IsEqualTo(1);
+    }
+
+    // Each add is on a different stream. Thus, the merge of the streams gives the sequence of the
+    // two, and SodaFlow does not give that sequence.
+    [Test]
+    public async Task TwoAddsOfOneNewKeyFromTwoStreamsInOneTransactionThrow()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> first =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> second =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                first,
+                second);
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    first.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "first", score: 20)));
+                    second.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "second", score: 30)));
+                }))
+            .Throws<InvalidOperationException>();
+
+        await Assert.That(collection.SnapshotCell.Sample().Count).IsEqualTo(1);
+    }
+
+    // A comparer that ignores case makes "c1" and "C1" one key. CombineWith compares the keys of
+    // two updates with the default comparer, thus the collection must find the two itself.
+    [Test]
+    public async Task TwoUpdatesOfOneKeyInTwoSpellingsThrowUnderTheComparerOfTheCollection()
+    {
+        StreamSink<CollectionEdit<string, ItemIdentity, ItemState>> first =
+            Stream.CreateSink<CollectionEdit<string, ItemIdentity, ItemState>>();
+
+        StreamSink<CollectionEdit<string, ItemIdentity, ItemState>> second =
+            Stream.CreateSink<CollectionEdit<string, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<string, ItemIdentity, ItemState> collection =
+            ReactiveCollection<string, ItemIdentity, ItemState>.Create(
+                keySelector: static identity => identity.Code,
+                keyEqualityComparer: StringComparer.OrdinalIgnoreCase,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 1)],
+                first,
+                second);
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    first.Send(
+                        CollectionEdit<string, ItemIdentity, ItemState>.Update(
+                            key: "c1",
+                            transform: static state => state with { Score = state.Score + 10 }));
+
+                    second.Send(
+                        CollectionEdit<string, ItemIdentity, ItemState>.Update(
+                            key: "C1",
+                            transform: static state => state with { Score = state.Score * 100 }));
+                }))
+            .Throws<InvalidOperationException>();
+
+        int score =
+            collection.SnapshotCell.Sample().TryGetItem(key: "C1", item: out Item<ItemIdentity, ItemState>? item)
+                ? item.State.Score
+                : -1;
+
+        await Assert.That(score).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task UpdatingAndRemovingOneKeyInOneTransactionThrows()
     {
         StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =

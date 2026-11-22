@@ -289,6 +289,7 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         Dictionary<TKey, TState> newStates = new(keyEqualityComparer);
         HashSet<TKey> added = new(keyEqualityComparer);
         HashSet<TKey> removed = new(keyEqualityComparer);
+        HashSet<TKey> updated = new(keyEqualityComparer);
 
         foreach (TKey key in edit.Removes.Where(before.ContainsKey))
         {
@@ -305,13 +306,35 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
                     $"Key '{key}' already exists. Re-keying is a remove followed by an add.");
             }
 
-            added.Add(key);
+            // Two adds of one key in one transaction, in one edit or in the edits of two streams.
+            // The removes of an edit come before its adds, thus no remove can come between the two.
+            // The result then is the add that the merge puts last, and SodaFlow gives no sequence
+            // to that merge. Thus, this refuses it, as CombineWith refuses two updates.
+            if (!added.Add(key))
+            {
+                throw new InvalidOperationException(
+                    $"Key '{key}' is added twice in one transaction. Merge order is arbitrary, so the "
+                    + "result has no defined value. Add each key once.");
+            }
+
             removed.Remove(key);
             newStates[key] = item.State;
         }
 
         foreach (KeyValuePair<TKey, Func<TState, TState>> update in edit.Updates)
         {
+            // CombineWith finds two updates of one key with the default comparer of the key. It
+            // does not have the comparer of the collection. A comparer that ignores case makes two
+            // spellings one key, and the two updates then compose in the sequence of the merge.
+            // This set uses the comparer of the collection.
+            if (!updated.Add(update.Key))
+            {
+                throw new InvalidOperationException(
+                    $"Two updates for key '{update.Key}' in one transaction. Merge order is "
+                    + "arbitrary, so composing them has no defined result. Combine them into a "
+                    + "single transform before firing.");
+            }
+
             if (removed.Contains(update.Key))
             {
                 throw new InvalidOperationException(
