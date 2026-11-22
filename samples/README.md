@@ -12,7 +12,7 @@ model that knows about neither. Counter has a third head, on .NET Framework.
 
 Accounts used to be the odd one out, referencing the projects under `src/` while the collections
 packages were unpublished and the sample was part of deciding what their API should be. That is
-over: `SodaFlow.Collections` 1.0.0 is released, so Accounts pins packages like the rest, and the
+over: the collections packages are released, so Accounts pins packages like the rest, and the
 samples workflow builds it, inspects it, and gates a merge on it exactly as it does the others.
 
 Each sample is a folder with its own solution. Open the one beside the sample —

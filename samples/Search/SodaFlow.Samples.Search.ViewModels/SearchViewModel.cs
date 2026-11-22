@@ -82,7 +82,7 @@ public sealed class SearchViewModel : ISearchViewModel
     public IOneWayBindableValue<bool> HasError { get; }
 
     /// <inheritdoc />
-    [UsedImplicitly] // This property is actually unused, but provided simply as a sample
+    [UsedImplicitly] // Both views bind this property in XAML, which the inspection of this project does not read.
     public IOneWayBindableValue<bool> IsBusy { get; }
 
     /// <inheritdoc />

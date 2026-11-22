@@ -171,10 +171,10 @@ public sealed class BounceViewModel : IBounceViewModel
 
                     IScene[] scenes = [simple, walls, grab, ricochets];
 
-                    // This is simplest two-way condition. The view is the only writer and
-                    // the sink holds the correct value. This code gives no scheduler, thus the
-                    // graph finds the ambient scheduler. The sample sets that scheduler at its
-                    // start, thus the thread of this construction has no effect.
+                    // This is the simplest two-way condition. The view is the only writer, and
+                    // the sink holds the correct value. The two-way value gets its scheduler
+                    // from bindableFactory, which the head makes at its start. Thus, the thread
+                    // of this construction has no effect.
                     CellSink<IScene> selected = Cell.CreateSink(scenes[0]);
 
                     // This uses the updates and not the cell, thus the scene at the start does

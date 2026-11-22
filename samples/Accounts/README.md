@@ -75,11 +75,12 @@ Everything is in `SodaFlow.Samples.Accounts.ViewModels`; the two heads only draw
   the collection rather than as a set of keys. It also holds the row and sort types both view models
   use. The [drain benchmarks](SodaFlow.Samples.Accounts.DrainBenchmarks/README.md) compare the two.
 
-Four things in there are worth a second look.
+A few things in there are worth a second look.
 
 Each row's button pays into that row's account, so the edits come from the rows and the rows come
 from the collection the edits are for. That is a real cycle, and `Create` closes it with
-`ForwardReference<AccountsViewModel>`: the whole graph is built inside a block that is handed the
+`ForwardReference<AccountsViewModelOptimizedDrain>` (`ForwardReference<AccountsViewModel>` in the
+other file): the whole graph is built inside a block that is handed the
 view model before it exists, and the view model it returns closes the loop. The deposits and the
 drains are kept in private fields, and the collection is fed from the looped view model by reading
 those fields and flattening with `SwitchS` — which is the shape to reach for whenever the thing
