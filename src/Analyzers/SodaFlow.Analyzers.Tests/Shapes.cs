@@ -58640,6 +58640,30 @@ public static class Shapes
     public static Cell<int> R6FuAb338BlockInALocalSetByALambda() =>
         ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); Action set = () => block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; set(); return Cell.Loop<int>().WithoutCaptures(block); }))();
 
+    // S14180. The block puts a pending cell into a static field and then calls Activator.CreateInstance of a class whose static constructor samples that cell.
+    public static Cell<int> R6LimStaticConstructorRunsAtActivatorCreateInstanceOfT() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6LimCctorShared.C = l.Map(v => v); Kept.Add(Activator.CreateInstance<R6LimCctorAtActivator>()); return S.Hold(0); });
+
+    // S14181. The block puts a pending cell into a static field and then calls Activator.CreateInstance with the type of a class whose static constructor samples that cell.
+    public static Cell<int> R6LimStaticConstructorRunsAtActivatorCreateInstanceOfAType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6LimCctorShared2.A = l.Map(v => v); Kept.Add(Activator.CreateInstance(typeof(R6LimCctorAtActivatorOfAType))!); return S.Hold(0); });
+
+    // S14182. The block puts a pending cell into a static field. Then, it calls Activator.CreateInstance of a class. The static constructor of the base class samples that cell.
+    public static Cell<int> Ab376StaticConstructorOfABaseClassRunsAtActivatorCreateInstance() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab376Shared.A = l.Map(v => v); Kept.Add(Activator.CreateInstance<Ab376Derived>()); return S.Hold(0); });
+
+    // S14183. The block makes an object of a class whose static constructor samples a plain cell. Then, it puts a pending cell into the field and calls Activator.CreateInstance of that class.
+    public static Cell<int> Ab376ActivatorCreateInstanceAfterTheStaticConstructorRan() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab376Shared.B = Plain; Kept.Add(new Ab376AtB()); Ab376Shared.B = l.Map(v => v); Kept.Add(Activator.CreateInstance<Ab376AtB>()); return S.Hold(0); });
+
+    // S14184. Activator.CreateInstance of T runs a static constructor that throws. The catch of the TargetInvocationException samples a pending member of the object in the TypeInitializationException.
+    public static Cell<int> Ab376CatchOfTheWrapperAroundAStaticConstructorAtActivatorCreateInstance() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab376Shared.C = l.Map(v => v); try { Kept.Add(Activator.CreateInstance<Ab376ThrowsAtC>()); } catch (System.Reflection.TargetInvocationException t) { Kept.Add(((R4CsFault)t.InnerException!.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14185. Activator.CreateInstance of T runs a static constructor that throws. An inner catch of the TypeInitializationException samples a pending member of the object. An outer catch takes the TargetInvocationException.
+    public static Cell<int> Ab376CatchOfTheTypeInitializationExceptionAroundActivatorCreateInstance() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab376Shared.D = l.Map(v => v); try { try { Kept.Add(Activator.CreateInstance<Ab376ThrowsAtD>()); } catch (TypeInitializationException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } } catch (System.Reflection.TargetInvocationException) { Kept.Add(2); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109227,6 +109251,37 @@ public static class Shapes
             this.Share = first;
             other.Share = second;
         }
+    }
+
+    // Helpers of the shapes of AB376.
+    public static class Ab376Shared
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+        public static Cell<int>? C;
+        public static Cell<int>? D;
+    }
+
+    public class Ab376Base
+    {
+        static Ab376Base() => Kept.Add(Ab376Shared.A!.Sample());
+    }
+
+    public sealed class Ab376Derived : Ab376Base;
+
+    public sealed class Ab376AtB
+    {
+        static Ab376AtB() => Kept.Add(Ab376Shared.B!.Sample());
+    }
+
+    public sealed class Ab376ThrowsAtC
+    {
+        static Ab376ThrowsAtC() => throw new R4CsFault(Ab376Shared.C!);
+    }
+
+    public sealed class Ab376ThrowsAtD
+    {
+        static Ab376ThrowsAtD() => throw new R4CsFault(Ab376Shared.D!);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

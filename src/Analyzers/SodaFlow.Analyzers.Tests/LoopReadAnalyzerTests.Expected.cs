@@ -8185,6 +8185,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6NmInstanceMethodThatGivesAFieldByOut"] = ["SF1001"],
             ["R6FuAb338BlockInALocalSetByALaterLocalFunction"] = ["SF1003"],
             ["R6FuAb338BlockInALocalSetByAnEarlierLocalFunction"] = ["SF1003"],
-            ["R6FuAb338BlockInALocalSetByALambda"] = ["SF1003"]
+            ["R6FuAb338BlockInALocalSetByALambda"] = ["SF1003"],
+            ["R6LimStaticConstructorRunsAtActivatorCreateInstanceOfT"] = ["SF1005"],
+            ["R6LimStaticConstructorRunsAtActivatorCreateInstanceOfAType"] = ["SF1005"],
+            ["Ab376StaticConstructorOfABaseClassRunsAtActivatorCreateInstance"] = ["SF1005"],
+            ["Ab376CatchOfTheWrapperAroundAStaticConstructorAtActivatorCreateInstance"] = ["SF1001"]
         };
 }

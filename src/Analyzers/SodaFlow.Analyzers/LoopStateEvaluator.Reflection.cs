@@ -30,9 +30,16 @@ internal sealed partial class LoopStateEvaluator
                 new Binding(parameter: callee.Parameters[position], argument: argument, state: this.Eval(argument)))
         ];
 
+        // The static constructors run before the constructor, as at new T().
         if (callee.MethodKind == MethodKind.Constructor)
         {
-            return this.FollowConstructor(call: invocation, constructor: callee, arguments: default, bound: bindings);
+            return Both(
+                first: this.FollowTheStaticConstructors(creation: invocation, constructor: callee),
+                second: this.FollowConstructor(
+                    call: invocation,
+                    constructor: callee,
+                    arguments: default,
+                    bound: bindings));
         }
 
         if (BodyOf(callee) is not { } body)
