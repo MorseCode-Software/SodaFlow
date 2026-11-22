@@ -488,6 +488,57 @@ public sealed class BindableActionTests
         a.Dispose();
     }
 
+    // The same nested drain, in a transaction that then fails. The refresh that waits must post
+    // again also then. Before, it waited in the post queue of the transaction, which the failure
+    // discarded. Nothing posted again, and the command kept the answer false until the next
+    // change, although the cell held true.
+    [Test]
+    public async Task ARefreshThatWaitsForAChangingTransactionThatFailsPostsAgain()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        IBindableAction<int> a =
+            Stream.CreateSink<int>().ToBindableActionImpl(scheduler: scheduler, isEnabledCell: enabled);
+
+        bool initial = a.CanExecute(null);
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
+
+        enabled.Send(true);
+
+        int ranInside = 0;
+
+        // This listener is newer than the listener of the command, thus it runs after it.
+        IListener pump = enabled.Updates().Listen(v =>
+        {
+            if (!v)
+            {
+                ranInside = scheduler.RunAll();
+
+                throw new InvalidOperationException("from the graph");
+            }
+        });
+
+        try
+        {
+            await Assert.That(() => enabled.Send(false)).ThrowsExactly<InvalidOperationException>();
+        }
+        finally
+        {
+            pump.Dispose();
+        }
+
+        int ranAfter = scheduler.RunAll();
+
+        await Assert.That(initial).IsFalse();
+        await Assert.That(ranInside).IsEqualTo(1).Because("the refresh of true ran in the transaction of false");
+        await Assert.That(ranAfter).IsEqualTo(1).Because("and posted itself again, although that transaction failed");
+        await Assert.That(a.CanExecute(null)).IsTrue().Because("the refresh after the failure read the cell");
+        await Assert.That(notifications).IsEqualTo(1);
+        a.Dispose();
+    }
+
     // After a change whose transaction failed, that transaction is over. Thus, a refresh that runs
     // in a different transaction reads the cell there. Before, the refresh waited also after the
     // failure, and a drain in a transaction made no progress.

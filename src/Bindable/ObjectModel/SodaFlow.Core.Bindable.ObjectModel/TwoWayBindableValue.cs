@@ -335,10 +335,10 @@ public static partial class BindableCoreExtensionMethods
         ///         sample, and the two are full fences. Thus, a cause that finds the flag
         ///         set comes before the sample of the refresh in the queue. A cause after
         ///         the clear posts again. A refresh that starts while the transaction
-        ///         of the newest update is open on its own thread gives the post to the
-        ///         queue of that transaction, which runs it after the close. A sample in
-        ///         that transaction gives the value before the update. That occurs when a
-        ///         nested message loop runs the queue from a callback.
+        ///         of the newest update is open on its own thread posts again after that
+        ///         transaction releases the lock, also when that transaction fails. A
+        ///         sample in that transaction gives the value before the update. That
+        ///         occurs when a nested message loop runs the queue from a callback.
         ///     </para>
         /// </remarks>
         private void ScheduleRefreshFromCell()
@@ -376,11 +376,12 @@ public static partial class BindableCoreExtensionMethods
                 return;
             }
 
-            // See OneWayBindableValue.Refresh for the cause, and for why the wait is in the transaction.
+            // See OneWayBindableValue.Refresh for the cause, for the wait in the transaction, and for
+            // the post after the release of the lock.
             if (Volatile.Read(ref this.latestUpdate) is { Known: false }
                 && TransactionInternal.GetCurrentTransaction() != null)
             {
-                TransactionInternal.PostImpl(action: static self => self.ScheduleRefreshFromCell(), state: this);
+                TransactionInternal.AfterReleaseImpl(this.ScheduleRefreshFromCell);
 
                 return;
             }

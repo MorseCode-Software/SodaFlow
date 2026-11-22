@@ -1126,6 +1126,117 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(b.Value).IsEqualTo(2);
     }
 
+    // The same nested drain, in a transaction that then fails. The refresh that waits must post
+    // again also then. Before, it waited in the post queue of the transaction, which the failure
+    // discarded. The refresh cleared its flag before that. The update found the flag set and
+    // registered no discard. Thus, nothing posted again, and the value stayed at 0 until the next
+    // update, although the cell held 1.
+    [Test]
+    public async Task AOneWayRefreshThatWaitsForAnUpdatingTransactionThatFailsPostsAgain()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using IOneWayBindableValue<int> b = c.ToOneWayImpl(scheduler: scheduler);
+
+        List<int> observed = [];
+
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
+
+        c.Send(1);
+
+        int ranInside = 0;
+
+        // This listener is newer than the listener of the bindable, thus it runs after it.
+        IListener pump = c.Updates().Listen(v =>
+        {
+            if (v == 2)
+            {
+                ranInside = scheduler.RunAll();
+
+                throw new InvalidOperationException("from the graph");
+            }
+        });
+
+        try
+        {
+            await Assert.That(() => c.Send(2)).ThrowsExactly<InvalidOperationException>();
+        }
+        finally
+        {
+            pump.Dispose();
+        }
+
+        int ranAfter = scheduler.RunAll();
+
+        await Assert.That(ranInside).IsEqualTo(1).Because("the refresh of 1 ran in the transaction of 2");
+        await Assert.That(ranAfter).IsEqualTo(1).Because("and posted itself again, although that transaction failed");
+
+        await Assert.That(observed)
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching)
+            .Because("the refresh after the failure read the cell, which holds 1");
+
+        await Assert.That(b.Value).IsEqualTo(1);
+    }
+
+    // The same for a two-way value. A lost refresh also left the count of posts above the count
+    // at the last sample. Thus, the setter sent each write, also a write equal to the shown value.
+    [Test]
+    public async Task ATwoWayRefreshThatWaitsForAnUpdatingTransactionThatFailsPostsAgain()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: scheduler);
+
+        List<int> observed = [];
+
+        using IDisposable _ = b.ListenForValueChanges(observed.Add);
+
+        c.Send(1);
+
+        int ranInside = 0;
+
+        IListener pump = c.Updates().Listen(v =>
+        {
+            if (v == 2)
+            {
+                ranInside = scheduler.RunAll();
+
+                throw new InvalidOperationException("from the graph");
+            }
+        });
+
+        try
+        {
+            await Assert.That(() => c.Send(2)).ThrowsExactly<InvalidOperationException>();
+        }
+        finally
+        {
+            pump.Dispose();
+        }
+
+        int ranAfter = scheduler.RunAll();
+
+        List<int> writes = [];
+        IListener records = c.Updates().Listen(writes.Add);
+
+        b.Value = b.Value;
+        scheduler.RunAll();
+
+        records.Dispose();
+
+        await Assert.That(ranInside).IsEqualTo(1).Because("the refresh of 1 ran in the transaction of 2");
+        await Assert.That(ranAfter).IsEqualTo(1).Because("and posted itself again, although that transaction failed");
+
+        await Assert.That(observed)
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching)
+            .Because("the refresh after the failure sampled the cell, which holds 1");
+
+        await Assert.That(b.Value).IsEqualTo(1);
+        await Assert.That(writes).IsEmpty().Because("a write equal to the shown value is not sent");
+    }
+
     // A scheduler that drops the posts of a transaction that fails breaks the contract on
     // IBindingScheduler.Post. The value must lose nothing that its next refresh does not bring
     // back. Before, the two-way value counted each refresh in the queue, and only the refresh took
