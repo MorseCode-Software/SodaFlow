@@ -8541,6 +8541,15 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab377StaticConstructorFirstUseInAForEachLambdaOverAnEmptyList"] = ["SF1005"],
             ["Ab377StaticConstructorFirstUseInADoLoopInABranch"] = ["SF1005"],
             ["Ab377StaticConstructorFirstUseInADoLoopInATryThatThrowsBeforeIt"] = ["SF1005"],
-            ["Ab377StaticConstructorFirstUseInADoLoopOfAFunctionThatABranchCalls"] = ["SF1005"]
+            ["Ab377StaticConstructorFirstUseInADoLoopOfAFunctionThatABranchCalls"] = ["SF1005"],
+            ["R6ApiRecordPrintsTwoRecordsPlainFirst"] = ["SF1005"],
+            ["R6ApiRecordPrintsTwoRecordsPendingFirst"] = ["SF1005"],
+            ["R6ApiRecordToStringOfOneRecord"] = ["SF1005"],
+            ["R6ApiRecordToStringOfTwoTitledPlainFirst"] = ["SF1005"],
+            ["R6ApiRecordToStringCallPendingFirst"] = ["SF1005"],
+            ["Ab405RecordEqualsCallCallsTheEqualsOfAMember"] = ["SF1005"],
+            ["Ab405RecordEqualsOfAnObjectCallCallsTheEqualsOfAMember"] = ["SF1005"],
+            ["Ab405RecordGetHashCodeCallCallsTheGetHashCodeOfAMember"] = ["SF1005"],
+            ["Ab405RecordDeconstructCallGivesThePendingMember"] = ["SF1001"]
         };
 }

@@ -86,6 +86,46 @@ internal sealed partial class LoopStateEvaluator
                             arguments: arguments)));
     }
 
+    /// <summary>
+    ///     A call of a member that the compiler writes for a record. The member is
+    ///     an <c>Equals</c>, a <c>GetHashCode</c>, a <c>ToString</c>, or a
+    ///     <c>Deconstruct</c>, and it has no body. Thus, the walk reads it as the
+    ///     forms with no call syntax read it.
+    /// </summary>
+    private Followed? FollowRecordMemberCall(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (!IsWrittenForARecord(method)
+            || ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method) is not { } receiver)
+        {
+            return null;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+
+        // The Equals of a record calls no Equals of a member for null or for the same object, as
+        // the == of a record does.
+        if (method.Name == "Equals"
+            && arguments.Count == 1
+            && this.ReturnsAtOnce(call: invocation, left: receiver, right: arguments[0].Expression))
+        {
+            return Followed.Nothing;
+        }
+
+        return this.FollowImplied(
+            call: invocation,
+            member: method,
+            owner: this.Self(receiver),
+            arguments: [.. arguments.Select(argument => (argument.Expression, this.Eval(argument.Expression)))]);
+    }
+
+    private static bool IsWrittenForARecord(IMethodSymbol method) =>
+        method is
+        {
+            IsImplicitlyDeclared: true,
+            ContainingType.IsRecord: true,
+            Name: "Equals" or "GetHashCode" or "ToString" or "Deconstruct"
+        };
+
     private Followed? FollowImpliedDefinition(
         SyntaxNode call,
         IMethodSymbol definition,

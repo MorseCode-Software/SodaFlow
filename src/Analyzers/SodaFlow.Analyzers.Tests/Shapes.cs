@@ -60436,6 +60436,58 @@ public static class Shapes
     public static Cell<int> Ab377StaticConstructorFirstUseInADoLoopOfAFunctionThatABranchCalls() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab377Share.F = Plain; if (Never) { Use(); } Ab377Share.F = l.Map(v => v); Kept.Add(Ab377CctorInAFunction.Value); return S.Hold(0); void Use() { do { Kept.Add(Ab377CctorInAFunction.Value); } while (Never); } });
 
+    // S14629. A record prints two records of one type, and each prints a getter that samples. The first is plain.
+    public static Cell<int> R6ApiRecordPrintsTwoRecordsPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new R6ApiNowPair(new R6ApiNowRecord(Plain), new R6ApiNowRecord(l.Map(v => v))).ToString()); return S.Hold(0); });
+
+    // S14630. A record prints two records of one type. The first samples.
+    public static Cell<int> R6ApiRecordPrintsTwoRecordsPendingFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new R6ApiNowPair(new R6ApiNowRecord(l.Map(v => v)), new R6ApiNowRecord(Plain)).ToString()); return S.Hold(0); });
+
+    // S14631. ToString of one record prints a getter that samples.
+    public static Cell<int> R6ApiRecordToStringOfOneRecord() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new R6ApiNowRecord(l.Map(v => v)).ToString()); return S.Hold(0); });
+
+    // S14632. ToString of a record of two Titled members of one type. The first is plain.
+    public static Cell<int> R6ApiRecordToStringOfTwoTitledPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new R6ApiTitledPair(new Titled(Plain), new Titled(l.Map(v => v))).ToString()); return S.Hold(0); });
+
+    // S14633. ToString of a record of two records, written as a call, where the first samples.
+    public static Cell<int> R6ApiRecordToStringCallPendingFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiNowPair p = new(new R6ApiNowRecord(l.Map(v => v)), new R6ApiNowRecord(Plain)); Kept.Add(p.ToString()); return S.Hold(0); });
+
+    // S14634. An explicit call of the Equals of a record calls the Equals of each member, and the Equals of a member samples.
+    public static Cell<int> Ab405RecordEqualsCallCallsTheEqualsOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); R4CsAlikeRecord b = new(new Alike(Plain)); Kept.Add(a.Equals(b)); return S.Hold(0); });
+
+    // S14635. An explicit call of the Equals of a record with an object calls the Equals of each member, and the Equals of a member samples.
+    public static Cell<int> Ab405RecordEqualsOfAnObjectCallCallsTheEqualsOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(l.Map(v => v))); object b = new R4CsAlikeRecord(new Alike(Plain)); Kept.Add(a.Equals(b)); return S.Hold(0); });
+
+    // S14636. An explicit call of the GetHashCode of a record calls the GetHashCode of each member, and the GetHashCode of a member samples.
+    public static Cell<int> Ab405RecordGetHashCodeCallCallsTheGetHashCodeOfAMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsHashedRecord r = new(new Hashed(l.Map(v => v))); Kept.Add(r.GetHashCode()); return S.Hold(0); });
+
+    // S14637. An explicit call of the Deconstruct of a record gives the pending member to the out variable, and the block samples it.
+    public static Cell<int> Ab405RecordDeconstructCallGivesThePendingMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiNowRecord r = new(l.Map(v => v)); r.Deconstruct(out Cell<int> c); return S.Hold(c.Sample()); });
+
+    // S14638. Control: an explicit call of the Deconstruct of a record gives a plain member to the out variable, and the block samples it.
+    public static Cell<int> Ab405RecordDeconstructCallGivesAPlainMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiNowRecord r = new(Plain); r.Deconstruct(out Cell<int> c); Kept.Add(l.Map(v => v)); return S.Hold(c.Sample()); });
+
+    // S14639. Control: an explicit call of the ToString of a record prints a getter that samples a plain cell.
+    public static Cell<int> Ab405RecordToStringCallOfAPlainMemberReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new R6ApiNowRecord(Plain).ToString()); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S14640. Control: an explicit call of the Equals of a record compares members whose Equals samples plain cells.
+    public static Cell<int> Ab405RecordEqualsCallWithPlainMembersReadsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsAlikeRecord a = new(new Alike(Plain)); R4CsAlikeRecord b = new(new Alike(Plain)); Kept.Add(a.Equals(b)); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S14641. Control: an explicit call of the ToString of a record in a lambda that the block does not call.
+    public static Cell<int> Ab405RecordToStringCallInALambdaThatNothingCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiNowRecord r = new(l.Map(v => v)); Func<string> print = () => r.ToString(); Kept.Add(print); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

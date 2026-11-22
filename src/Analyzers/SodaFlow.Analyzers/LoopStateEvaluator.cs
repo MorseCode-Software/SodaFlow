@@ -3133,6 +3133,11 @@ internal sealed partial class LoopStateEvaluator
                 : CalleeKind.Unknown;
         }
 
+        if (IsWrittenForARecord(method) && call is InvocationExpressionSyntax)
+        {
+            return this.Follow(call) != null ? CalleeKind.Body : CalleeKind.Unknown;
+        }
+
         IReadOnlyList<IMethodSymbol> definitions =
             call is InvocationExpressionSyntax invocation
                 ? this.DefinitionsOf(invocation: invocation, method: method)
@@ -3642,6 +3647,11 @@ internal sealed partial class LoopStateEvaluator
                 member: method,
                 owner: anonymous,
                 arguments: [.. arguments.Select(argument => (argument.Expression, this.Eval(argument.Expression)))]);
+        }
+
+        if (this.FollowRecordMemberCall(invocation: invocation, method: method) is { } recordMember)
+        {
+            return recordMember;
         }
 
         if (this.region.Symbols.IsSodaFlow(method))
