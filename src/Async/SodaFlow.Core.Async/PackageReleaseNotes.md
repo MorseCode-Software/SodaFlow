@@ -191,6 +191,17 @@ throw. A disposal now records the cancellation of every item first, which keeps 
 then cancels each token on its own, with the exceptions going together to handleException. Dispose no longer throws for
 them.
 
+Changed: a strategy that names one item twice in a list of items to start, or names an item that is already running,
+now gets an InvalidOperationException, as a strategy that names an item the pipeline does not track already did. Before,
+the pipeline started such an item again. An asynchronous operation ran twice for one value, and a synchronous one ran
+once, after which the second start found the item's cancellation source disposed and handleException got an
+ObjectDisposedException. The pipeline now checks the whole list before it promotes or starts any item in it, so a list
+that it refuses starts nothing. A list from Admit fails the transaction of the send that admitted the value, which
+discards the queue edit and the state that Admit returned, and the exception comes out of that send. A list from
+OnCompleted or OnCanceled has no caller to throw to: it fails the delivery, the second attempt asks the strategy again,
+and when that fails too, both exceptions go to handleException in an AggregateException and the item stays in Items.
+Naming a queued item that a cancellation holds is still allowed, and its start still ends it as canceled.
+
 Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
 build.

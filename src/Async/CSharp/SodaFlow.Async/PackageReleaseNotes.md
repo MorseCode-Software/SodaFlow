@@ -57,6 +57,9 @@ package, and its notes have the details of each:
   task completed with it.
 - A callback on an operation's token that throws during a disposal no longer makes Dispose throw or leaves the other
   items running, and a queued item no longer starts after such a disposal. The exception goes to handleException.
+- A custom strategy that names one item twice in a list of items to start, or names an item that is already running,
+  now gets an InvalidOperationException, as one that names an item the pipeline does not track already did, and nothing
+  in that list starts. Before, the item started again.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving
 SodaFlow.Core.Async 5.0.1. A consumer who references SodaFlow.Core.Async directly gets the changes either way.
