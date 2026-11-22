@@ -866,7 +866,9 @@ undefined order: two transforms for the same key in one transaction, and two add
 key in one transaction. Combine the transforms into a single transform before firing, and add
 each key once. Both checks use the collection's key comparer, so under
 `StringComparer.OrdinalIgnoreCase` an update of `"a"` and an update of `"A"` are two transforms
-for one key.
+for one key. Whichever spelling an edit uses, a key keeps the spelling its item arrived with: an
+update or a removal of `"A"` for an item added as `"a"` reports `"a"` in the item change, in the
+snapshot, and in every view.
 
 An update against a key that is not there throws `KeyNotFoundException`; an add of a key that
 is already there throws `InvalidOperationException`; and an edit that resolves to no change at

@@ -23,6 +23,15 @@ their keys one, as "a" and "A" are under StringComparer.OrdinalIgnoreCase: Combi
 updates with the default comparer, the only one it has, so it let them through, and they composed in the order of the
 merge.
 
+Fixed: under a key comparer that makes several spellings one key, such as StringComparer.OrdinalIgnoreCase, an update
+or a removal that named a key in a spelling other than the one its item arrived with carried the spelling of the edit.
+The identity map kept the spelling of the arrival, but the state map, the item change, the operations of each view,
+and the keys of a sort view after a move took the spelling of the edit. The two maps of one snapshot then disagreed,
+and a sort built afresh gave a different string from the sort already built. A lookup through the comparer of the
+collection could not tell the difference, and no value was ever wrong. Now each key that an update or a removal names
+takes the spelling that the store already has. An update of a key that the same edit adds keeps the spelling of that
+add, because the add is the arrival.
+
 Fixed: disposing a MappedItems did not stop the projection. Dispose released every object the projection held and
 emptied its cache, but Items was still a map of the keys, so the next change of the keys ran the projection again for
 every key in the view and kept the new objects where nothing would release them. A list still bound to Items, such as
