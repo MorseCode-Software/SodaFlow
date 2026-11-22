@@ -14,7 +14,10 @@ internal sealed partial class LoopStateEvaluator
     ///     Records that the target of an assignment holds the object of the
     ///     value, when the two are names of an object.
     /// </summary>
-    /// <param name="target">The target of the assignment.</param>
+    /// <param name="target">
+    ///     The target of the assignment, or the location of the local with ref
+    ///     that the assignment gives the value.
+    /// </param>
     /// <param name="value">The expression of the value.</param>
     /// <param name="replaces">True when the assignment always runs in its function.</param>
     public void NotesNamesOfOneObject(SyntaxNode target, ExpressionSyntax value, bool replaces)
@@ -23,7 +26,7 @@ internal sealed partial class LoopStateEvaluator
             || this.function != null
             || target is not ExpressionSyntax written
             || this.NameOfAnObjectIn(written) is not { } name
-            || target.Parent is not AssignmentExpressionSyntax
+            || value.Parent is not AssignmentExpressionSyntax
             {
                 RawKind: (int)SyntaxKind.SimpleAssignmentExpression
             } at)
@@ -147,10 +150,10 @@ internal sealed partial class LoopStateEvaluator
                     Left: IdentifierNameSyntax name
                 }
                 && this.region.SymbolOf(name) is { } member
-                && IsAMemberLocation(member)
+                && this.IsAMemberLocation(member)
                 && members != null)
             {
-                one.Members.Add((member.OriginalDefinition, at.Span.End, members.StateOf(member)));
+                one.Members.Add((member.OriginalDefinition, at.Span.End, members.StateOf(member), true));
             }
         }
 
@@ -162,7 +165,7 @@ internal sealed partial class LoopStateEvaluator
     private void GivesTheCallersANewObject(
         (ISymbol Of, ISymbol? Owner, object? Index) name,
         SyntaxNode at,
-        IReadOnlyCollection<(ISymbol Member, int End, LoopState State)> members)
+        IReadOnlyCollection<(ISymbol Member, int End, LoopState State, bool Accurate)> members)
     {
         (ISymbol Of, ISymbol? Owner, object? Index)? named = name;
         SyntaxNode use = at;
@@ -268,37 +271,72 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="member">The member.</param>
     /// <param name="state">The state of the value.</param>
     /// <param name="replaces">True when the write always runs in its function.</param>
+    /// <param name="seen">
+    ///     True for the writes of a callee through a parameter, which a call
+    ///     gives back to its argument. Each frame got those writes one at a
+    ///     time, in the order of the callee.
+    /// </param>
+    /// <param name="givenBackBy">
+    ///     The call on the owner whose callee wrote the member through this.
+    ///     The state is the state of the member after the call. Thus, the write
+    ///     is sure when the call always runs, as an assignment is.
+    /// </param>
     private void NotesAWriteThroughANameOfOneObject(
         ExpressionSyntax? written,
         ISymbol member,
         LoopState state,
-        bool replaces)
+        bool replaces,
+        bool seen,
+        SyntaxNode? givenBackBy = null)
     {
         if (this.quiet)
         {
             return;
         }
 
+        // The write changes no record. Each frame got the writes of the callee one at a time. Thus, this
+        // write adds nothing, and it can only make an accurate record less accurate.
+        if (seen)
+        {
+            for (LoopStateEvaluator? code = this; code != null; code = code.call?.Caller)
+            {
+                if (code.Frame.NamesWritesSeen == this.region.MemberWrites - 1)
+                {
+                    code.Frame.NamesWritesSeen = this.region.MemberWrites;
+                }
+            }
+
+            return;
+        }
+
         (ISymbol Of, ISymbol? Owner, object? Index)? name =
             replaces
             && this.function == null
-            && written?.Parent is MemberAccessExpressionSyntax
-            {
-                Parent: AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment
-            } access
-            && assignment.Left == access
+            && written != null
+            && (givenBackBy != null
+                || (written.Parent is MemberAccessExpressionSyntax
+                    {
+                        Parent: AssignmentExpressionSyntax
+                        {
+                            RawKind: (int)SyntaxKind.SimpleAssignmentExpression
+                        } assignment
+                    } access
+                    && assignment.Left == access))
                 ? this.NameOfAnObjectIn(written)
                 : null;
 
+        // C# reads the receiver before the arguments. Thus, the callee writes to the object that the
+        // name had at the start of the call. An argument that gives the name a new object stops the
+        // record at the next read.
         this.NotesAWriteInThisFrame(
             name: name,
-            use: written,
-            from: written?.Span.End ?? 0,
-            end: written?.Parent?.Parent?.Span.End ?? 0,
+            use: givenBackBy ?? written,
+            from: (givenBackBy ?? written)?.Span.End ?? 0,
+            end: givenBackBy?.Span.End ?? written?.Parent?.Parent?.Span.End ?? 0,
             member: member,
             state: state);
 
-        SyntaxNode? use = written;
+        SyntaxNode? use = givenBackBy ?? written;
 
         for (LoopStateEvaluator code = this; code.call is { } call; code = call.Caller)
         {
@@ -377,7 +415,8 @@ internal sealed partial class LoopStateEvaluator
                 {
                     if (one.Members[i].Member.Name == member.Name)
                     {
-                        one.Members[i] = (one.Members[i].Member, one.Members[i].End, one.Members[i].State.Join(state));
+                        one.Members[i] =
+                            one.Members[i] with { State = one.Members[i].State.Join(state), Accurate = false };
                     }
                 }
             }
@@ -401,7 +440,7 @@ internal sealed partial class LoopStateEvaluator
 
         foreach (NamesOfOneObject one in held)
         {
-            one.Members.Add((member.OriginalDefinition, end, state));
+            one.Members.Add((member.OriginalDefinition, end, state, true));
         }
     }
 
@@ -508,13 +547,39 @@ internal sealed partial class LoopStateEvaluator
     ///     walk. The read then uses those. Each of the two is correct, thus a
     ///     record with no pending value can replace them.
     /// </remarks>
-    private LoopState? WrittenThroughANameOfItsObject(MemberAccessExpressionSyntax read)
+    private LoopState? WrittenThroughANameOfItsObject(MemberAccessExpressionSyntax read) =>
+        this.FromARecordOf(read: read, accurate: false);
+
+    /// <summary>
+    ///     The state of a read of a member through a name, with a pending value
+    ///     from a record of <see cref="NotesAWriteThroughANameOfOneObject" />
+    ///     that is accurate.
+    ///     The given state when it has a pending value itself, or when no such
+    ///     record is for the read. The given state comes from the last write
+    ///     through the name, or from a write at its element.
+    /// </summary>
+    /// <remarks>
+    ///     A record that got no write through a different owner is accurate.
+    ///     Thus, it is correct also with a pending value. The other records of the
+    ///     walk can say where a pending value came from, thus a read that finds one
+    ///     there keeps it.
+    /// </remarks>
+    /// <param name="read">The read.</param>
+    /// <param name="state">The state that the other records give the read.</param>
+    private LoopState WithAnAccurateRecord(MemberAccessExpressionSyntax read, LoopState state) =>
+        state is { Pending: false, Linked: false } && this.FromARecordOf(read: read, accurate: true) is { } recorded
+            ? recorded
+            : state;
+
+    // The state of a read of a member from a record. With accurate false, only a record with no
+    // pending value counts. With true, only an accurate record with a pending value counts.
+    private LoopState? FromARecordOf(MemberAccessExpressionSyntax read, bool accurate)
     {
         if (this.Frame.NamesOfOneObject.Count == 0
             || this.quiet
             || this.Frame.NamesWritesSeen != this.region.MemberWrites
             || this.region.SymbolOf(read) is not { } member
-            || !IsAMemberLocation(member))
+            || !this.IsAMemberLocation(member))
         {
             return null;
         }
@@ -530,9 +595,12 @@ internal sealed partial class LoopStateEvaluator
 
         foreach (NamesOfOneObject one in this.Frame.NamesOfOneObject)
         {
-            foreach ((ISymbol written, int end, LoopState state) in one.Members)
+            foreach ((ISymbol written, int end, LoopState state, bool isAccurate) in one.Members)
             {
-                if (state is { Members: null, Objects.IsEmpty: true, Pending: false, Linked: false }
+                if (state is { Members: null, Objects.IsEmpty: true }
+                    && (accurate
+                        ? isAccurate && state is { Pending: true } or { Linked: true }
+                        : state is { Pending: false, Linked: false })
                     && SymbolEqualityComparer.Default.Equals(x: written, y: definition)
                     && one.Names.FirstOrDefault(each => this.IsTheName(name: each, read: name, use: read.Expression))
                         is { } held
@@ -548,6 +616,38 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return null;
+    }
+
+    // Gives a callee on a second object each member whose state a record of this frame knows for
+    // the receiver. WrittenThroughANameOfItsObject reads the same records for a read. The callee
+    // then reads the member as after a sure write of its own: see OfThisObject. Thus, a read
+    // through this there does not add the state that the region keeps for the field. The records
+    // are good only when this frame saw each member write after them.
+    private void GivesTheCalleeTheWritesThroughAName(
+        ExpressionSyntax owner,
+        IDictionary<ISymbol, LoopState> members,
+        LoopFrame callee)
+    {
+        if (this.Frame.NamesOfOneObject.Count == 0
+            || this.quiet
+            || this.Frame.NamesWritesSeen != this.region.MemberWrites
+            || this.NameOfAnObjectIn(owner) is not { } name)
+        {
+            return;
+        }
+
+        foreach (NamesOfOneObject one in this.Frame.NamesOfOneObject)
+        {
+            foreach ((ISymbol written, int _, LoopState state, bool _) in one.Members)
+            {
+                if (state is { Members: null, Objects.IsEmpty: true }
+                    && one.Names.Any(each => this.IsTheName(name: each, read: name, use: owner)))
+                {
+                    members[written] = state.From(written);
+                    callee.OwnWriteOf[written] = this.region.MemberWrites;
+                }
+            }
+        }
     }
 
     // The parts of a name of an object. Null for an expression that is no such name: see
@@ -570,9 +670,11 @@ internal sealed partial class LoopStateEvaluator
                                       && (KeepsItsObject(named) || IsAStaticLocation(named))
                                       && this.HoldsAnObject(named) =>
                 (named, null, null),
+            IdentifierNameSyntax when this.TheDeclaredLocationOf(written) is { } location =>
+                this.NameOfAnObjectIn(location),
             MemberAccessExpressionSyntax access
-                when this.region.SymbolOf(access) is { } member
-                     && IsAMemberLocation(member)
+                when this.region.SymbolOf(access) is { } read
+                     && (this.IsAMemberLocation(read) ? read : this.TheFieldBehind(read)) is { } member
                      && this.HoldsAnObject(member) =>
                 IsAStaticLocation(member)
                     ? (member, null, null)
@@ -585,7 +687,8 @@ internal sealed partial class LoopStateEvaluator
                 when this.region.TypeOf(element) is { } type
                      && this.CanBeAnObject(type)
                      && element.Expression is IdentifierNameSyntax array
-                     && this.region.SymbolOf(array) is { } collection
+                     && this.region.SymbolOf(array) is { } named
+                     && this.TheCollectionIn(named) is var collection
                      && (KeepsItsObject(collection)
                          ? this.KeepsItsElements(collection)
                          : collection is IFieldSymbol { IsStatic: true, Type: IArrayTypeSymbol { Rank: 1 } })
@@ -639,7 +742,8 @@ internal sealed partial class LoopStateEvaluator
     // value.
     private static bool IsAStaticLocation(ISymbol symbol) =>
         symbol is IFieldSymbol { IsStatic: true }
-        || (symbol is IPropertySymbol { IsStatic: true } && IsAMemberLocation(symbol));
+        || (symbol is IPropertySymbol { IsStatic: true, DeclaringSyntaxReferences.IsEmpty: false }
+            && HasNoCode(symbol));
 
     // True when a name of an object is the name that an expression reads, at a use, and it holds
     // the object there. An element of a second collection is the same name when the two
@@ -666,8 +770,9 @@ internal sealed partial class LoopStateEvaluator
 
     // True when a name holds its object from the position where it got it to a use. The two are in
     // one function, and no loop or label is around the use. No code between them gives the name,
-    // its collection, its index, or its owner a value, and no function uses them. For an element,
-    // a static field, or a field of an owner, each node between must be one that
+    // its collection, its index, or its owner a value, and no function gives them a value. A ref to
+    // such a local or parameter, also before the position, can give it a value at each time. For an
+    // element, a static field, or a field of an owner, each node between must be one that
     // NothingBetweenChanges allows. Only a constructor gives a readonly field a value, and the
     // object of the field is older than the name.
     private bool HoldsItsObject(NameOfAnObject name, SyntaxNode use, int? before = null)
@@ -690,18 +795,27 @@ internal sealed partial class LoopStateEvaluator
         return new[] { name.Of, name.Owner, name.Index as ISymbol }.All(part =>
                    part == null
                    || !this.UsesOf(name: part, code: name.Code)
-                       .Any(one => one.InAFunction || (one.Gives && one.Position > name.From && one.Position < end)))
+                       .Any(one => one.Gives
+                                   && (one.InAFunction
+                                       || (one.Position > name.From && one.Position < end)
+                                       || (part is ILocalSymbol or IParameterSymbol
+                                           && IsARef(name.Code.FindToken(one.Position).Parent)))))
                && (name is { Index: null, Of: ILocalSymbol or IParameterSymbol or IFieldSymbol { IsReadOnly: true } }
                    || this.NothingBetweenChanges(name: name, after: name.From, before: end, ofTheName: true));
     }
 
+    // True for a use of a name as a ref: a ref argument or the location of a ref.
+    private static bool IsARef(SyntaxNode? use) =>
+        use?.Parent is RefExpressionSyntax or ArgumentSyntax { RefKindKeyword.RawKind: (int)SyntaxKind.RefKeyword };
+
     // True when no node between two positions can change the object of a name, or a member of an
     // object. Each such node is one that CannotChangeTheElement allows for the type of the
     // collection, of the owner, or of the name. A method of this compilation can come between where
-    // CanStandBetween permits its code. This is so also when the method gets the collection or the
-    // owner. That code puts nothing into an element, and the walk reads its writes to a member. When
-    // the last argument is true, an assignment to the field of the name is no such node also. That
-    // is so in the code between and in the code of such a method.
+    // CanStandBetween permits its code, and a constructor where ConstructorCanStandBetween does.
+    // This is so also when the method gets the collection or the owner. That code puts nothing
+    // into an element, and the walk reads its writes to a member. When the last argument is true,
+    // an assignment to the field of the name is no such node also. That is so in the code between
+    // and in the code of such a method.
     private bool NothingBetweenChanges(NameOfAnObject name, int after, int before, bool ofTheName)
     {
         if (after > before)
@@ -763,6 +877,17 @@ internal sealed partial class LoopStateEvaluator
                                             || SetsNoName(
                                                 method: method.ReducedFrom ?? method,
                                                 callees: MaxCalleesBetween)),
+                                    BaseObjectCreationExpressionSyntax creation
+                                        when this.region.SymbolOf(creation) is IMethodSymbol
+                                             {
+                                                 MethodKind: MethodKind.Constructor,
+                                                 DeclaringSyntaxReferences.IsEmpty: false
+                                             } constructor =>
+                                        this.ConstructorCanStandBetween(
+                                            constructor: constructor,
+                                            collection: type,
+                                            callees: MaxCalleesBetween)
+                                        && (!ofTheName || SetsNoName(method: constructor, callees: MaxCalleesBetween)),
                                     _ => this.CannotChangeTheElement(node: node, collection: type, callees: 0)
                                 });
 
@@ -771,7 +896,7 @@ internal sealed partial class LoopStateEvaluator
         bool SetsNoName(IMethodSymbol method, int callees) =>
             callees > 0
             && method.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                is MethodDeclarationSyntax declaration
+                is BaseMethodDeclarationSyntax declaration
             && declaration.DescendantNodes()
                 .All(node => node switch
                 {

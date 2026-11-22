@@ -184,6 +184,89 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The transforms that an update of a collection gets. The edit keeps
+    ///     them in its <c>Updates</c>, beside what they return. Thus, a call of a
+    ///     transform that the code reads back through that member runs it.
+    /// </summary>
+    /// <remarks>
+    ///     The functions are a member, and not a part of the state of the edit.
+    ///     An operator does not use the state of an argument with functions as
+    ///     an input, and <c>CombineWith</c> gets an edit as an argument.
+    /// </remarks>
+    private LoopState TransformsOf(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
+        KeptInTheUpdates(
+            edit: method.ContainingType,
+            transforms: invocation.ArgumentList.Arguments
+                .Where((argument, position) =>
+                    ParameterFor(method: method, argument: argument, position: position)
+                        is { Type.TypeKind: TypeKind.Delegate })
+                .Aggregate(
+                    seed: LoopState.None,
+                    func: (all, argument) => OnlyTheFunctions(state: this.Eval(argument.Expression), seed: all)));
+
+    // The state of an edit whose Updates member holds the functions.
+    private static LoopState KeptInTheUpdates(INamespaceOrTypeSymbol edit, LoopState transforms) =>
+        transforms.Functions.IsEmpty
+        || edit.GetMembers("Updates").OfType<IPropertySymbol>().FirstOrDefault() is not { } updates
+            ? LoopState.None
+            : LoopState.None.WithMembers(Construction.Empty.With(member: updates, state: transforms));
+
+    // The functions of a state, joined to the seed. A name that holds a function can have other
+    // state also, which is not a transform.
+    private static LoopState OnlyTheFunctions(LoopState state, LoopState seed) =>
+        state.Functions.Aggregate(seed: seed, func: static (all, function) => all.Join(LoopState.OfFunction(function)));
+
+    /// <summary>
+    ///     What the transforms of an edit that the constructor of
+    ///     <c>CollectionEdit</c> makes return. The transforms are the values of
+    ///     the dictionary that the constructor gets, and each one runs as the
+    ///     transform of <c>Update</c> does.
+    /// </summary>
+    private LoopState TransformedByTheConstructor(
+        SyntaxNode creation,
+        BaseArgumentListSyntax arguments,
+        IMethodSymbol constructor)
+    {
+        ImmutableArray<ITypeSymbol> types = constructor.ContainingType.TypeArguments;
+
+        if (constructor.ContainingType.Name != "CollectionEdit" || types.Length != 3)
+        {
+            return LoopState.None;
+        }
+
+        // Only a transform of a state that can hold a state can return one. The edit keeps each
+        // transform in its Updates, as the edit of Update does.
+        bool holdsState = this.region.Symbols.CanHoldState(type: types[2], compilation: this.region.Assembly);
+        ImmutableArray<LoopState> given = ImmutableArray.Create(LoopState.None);
+        LoopState transformed = LoopState.None;
+        LoopState kept = LoopState.None;
+
+        for (int i = 0; i < arguments.Arguments.Count; i++)
+        {
+            if (ParameterFor(method: constructor, argument: arguments.Arguments[i], position: i) is { Name: "updates" })
+            {
+                ExpressionSyntax written = arguments.Arguments[i].Expression;
+                LoopState functions = this.Eval(written);
+
+                if (holdsState)
+                {
+                    transformed =
+                        transformed.Join(
+                            this.ResultOfTheFunctions(
+                                call: creation,
+                                written: written,
+                                functions: functions,
+                                given: given));
+                }
+
+                kept = OnlyTheFunctions(state: functions, seed: kept);
+            }
+        }
+
+        return transformed.AfterTheClose.Join(KeptInTheUpdates(edit: constructor.ContainingType, transforms: kept));
+    }
+
+    /// <summary>
     ///     What the function of a merge returns. The first parameter gets the
     ///     content of the receiver. The second gets the content of the second
     ///     stream, or of the list for a merge of a list of streams.
@@ -310,6 +393,11 @@ internal sealed partial class LoopStateEvaluator
             : OperatorName(method) switch
             {
                 "HoldLazy" => initial.Join(receiverState.Content.AfterTheClose),
+                "CollectLazy" => this.CollectedContent(
+                    invocation: invocation,
+                    method: method,
+                    receiverState: receiverState,
+                    initial: initial),
                 "Accum" or "AccumLazy" => initial.Join(
                     this.AccumulatesValuesOfTheGraph(method)
                     || this.FunctionCanGiveAState(
@@ -373,21 +461,23 @@ internal sealed partial class LoopStateEvaluator
         LoopState receiverState,
         LoopState initial)
     {
-        if (!this.HoldsContent(method)
-            || invocation.ArgumentList.Arguments
-                .Select(static a => a.Expression)
-                .OfType<AnonymousFunctionExpressionSyntax>()
-                .FirstOrDefault() is not { } lambda)
+        if (!this.HoldsContent(method))
         {
             return LoopState.None;
         }
 
+        ImmutableArray<LoopState> given =
+            ImmutableArray.Create(item1: receiverState.Content.AfterTheClose, item2: initial.AfterTheClose);
+
+        // A function that is not a lambda at the call is a lambda in a local, a local function, or a
+        // method.
         LoopState returned =
-            this.EvalLambdaResult(
-                lambda: lambda,
-                boundParameters: ImmutableArray.Create(
-                    item1: receiverState.Content.AfterTheClose,
-                    item2: initial.AfterTheClose));
+            invocation.ArgumentList.Arguments
+                    .Select(static a => a.Expression)
+                    .OfType<AnonymousFunctionExpressionSyntax>()
+                    .FirstOrDefault() is { } lambda
+                ? this.EvalLambdaResult(lambda: lambda, boundParameters: given)
+                : this.ContentOfANamedFunction(invocation: invocation, given: given);
 
         return returned.Members?.PartsAt(ofATuple: true).ToList() is { Count: > 0 } parts
             ? parts.Where(static part => part.Position == 0).Select(static part => part.State).FirstOrDefault()

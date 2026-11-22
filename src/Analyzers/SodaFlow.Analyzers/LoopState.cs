@@ -246,9 +246,11 @@ internal sealed class LoopState
                     seed: shape,
                     func: static (sum, function) => sum + function.Declaration.SpanStart * 41);
 
-                shape = this.computed.Aggregate(
-                    seed: shape,
-                    func: static (sum, cell) => sum + cell.Build.SpanStart * 53);
+                // Each read of a loop makes a new cell at each build in the loop. The sum has each
+                // build one time, as for the objects.
+                shape = this.computed.Select(static cell => cell.Build.SpanStart)
+                    .Distinct()
+                    .Aggregate(seed: shape, func: static (sum, build) => sum + build * 53);
 
                 return shape + this.Queries.Length * 43 + this.readBack.Length * 47;
             }

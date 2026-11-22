@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -30,7 +31,13 @@ internal sealed partial class LoopStateEvaluator
         {
             case AnonymousFunctionExpressionSyntax lambda when state.Functions.IsEmpty:
                 return state.Join(
-                    LoopState.OfFunction(new FunctionValue(declaration: lambda, definer: null, receiver: null)));
+                    LoopState.OfFunction(
+                        new FunctionValue(
+                            declaration: lambda,
+                            definer: null,
+                            receiver: null,
+                            ofThis: null,
+                            owner: null)));
             case BaseObjectCreationExpressionSyntax creation
                 when state.Members == null
                      && this.region.SymbolOf(creation)
@@ -88,7 +95,12 @@ internal sealed partial class LoopStateEvaluator
                          is { } declaration:
                 return state.Join(
                     LoopState.OfFunction(
-                        new FunctionValue(declaration: declaration, definer: null, receiver: null)));
+                        new FunctionValue(
+                            declaration: declaration,
+                            definer: null,
+                            receiver: null,
+                            ofThis: null,
+                            owner: null)));
             default:
                 return state;
         }
@@ -137,6 +149,12 @@ internal sealed partial class LoopStateEvaluator
         bool manyTimes = false,
         ExpressionSyntax? owner = null)
     {
+        // Take of no item gives an empty sequence and does not start the iterator.
+        if (this.TakesNoItem(call) && IsAnIteratorBody(body))
+        {
+            return Followed.Nothing;
+        }
+
         // Nothing from the loop goes in, thus nothing from the loop comes out. A lambda or a local
         // function can read the locals of the code that it is in, thus the walk always reads it.
         // A callee that gets an object of the store can give the object a second name. A callee
@@ -199,6 +217,11 @@ internal sealed partial class LoopStateEvaluator
                 eachRun: manyTimes ? body : null,
                 self: self,
                 itsObject: receiver?.Members);
+
+        if (owner != null && definer == null)
+        {
+            this.GivesTheCalleeTheWritesThroughAName(owner: owner, members: members, callee: inner.Frame);
+        }
 
         // A local of the function is new in each call. A call of the function in its own code
         // keeps the locals as they are, because the first call reads them after it.
@@ -291,7 +314,7 @@ internal sealed partial class LoopStateEvaluator
                 result: result,
                 found: found,
                 leaving: leaving,
-                thrown: walker.Thrown);
+                thrown: walker.ThrownTo(call));
 
         if (receiver != null)
         {
@@ -305,6 +328,8 @@ internal sealed partial class LoopStateEvaluator
     // FirstOrDefault, and Any of Enumerable with no other argument do that. Take of one item and
     // the element at the first position do that also. A Select gives one item for each item that
     // the code takes from it. A foreach whose body ends the loop on each path takes one item also.
+    // FirstOrDefault with a default value does as First does. AsEnumerable, and a query with one
+    // select clause, do as Select does. The type of a from clause adds a Cast, which does the same.
     private bool TakesOneItem(SyntaxNode call) =>
         call.Parent switch
         {
@@ -313,6 +338,26 @@ internal sealed partial class LoopStateEvaluator
                 Name.Identifier.ValueText: "First" or "FirstOrDefault" or "Any",
                 Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } next
             } => this.IsOfEnumerable(next),
+            MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "FirstOrDefault",
+                Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 1 } next
+            } =>
+                this.IsOfEnumerable(next)
+                && this.region.SymbolOf(next) is IMethodSymbol { Parameters: { Length: > 0 } parameters }
+                && parameters[parameters.Length - 1].Type.TypeKind != TypeKind.Delegate,
+            MemberAccessExpressionSyntax
+            {
+                Name.Identifier.ValueText: "AsEnumerable",
+                Parent: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } next
+            } => this.IsOfEnumerable(next) && this.TakesOneItem(next),
+            FromClauseSyntax
+            {
+                Parent: QueryExpressionSyntax
+                {
+                    Body: { Clauses.Count: 0, Continuation: null, SelectOrGroup: SelectClauseSyntax select }
+                } query
+            } => this.IsOfEnumerable(select) && this.TakesOneItem(OutsideItsParentheses(query)),
             MemberAccessExpressionSyntax
             {
                 Name: { Identifier.ValueText: "Take" or "ElementAt" or "ElementAtOrDefault" } name,
@@ -331,6 +376,34 @@ internal sealed partial class LoopStateEvaluator
                 SinkWalker.EndsTheLoopOnEachPath(loop: loop, body: loop.Statement),
             _ => false
         };
+
+    // True when the code takes no item from the result of a call: Take of zero or fewer items.
+    private bool TakesNoItem(SyntaxNode call) =>
+        call.Parent is MemberAccessExpressionSyntax
+        {
+            Name.Identifier.ValueText: "Take",
+            Parent: InvocationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } next
+        }
+        && this.region.ModelFor(next).GetConstantValue(arguments[0].Expression)
+            is { HasValue: true, Value: <= 0 }
+        && this.IsOfEnumerable(next);
+
+    private static bool IsAnIteratorBody(SyntaxNode body) =>
+        body is BlockSyntax block
+        && block.DescendantNodes(
+                descendIntoChildren: static node =>
+                    node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+            .Any(static node => node is YieldStatementSyntax);
+
+    private static SyntaxNode OutsideItsParentheses(SyntaxNode node)
+    {
+        while (node.Parent is ParenthesizedExpressionSyntax parentheses)
+        {
+            node = parentheses;
+        }
+
+        return node;
+    }
 
     private bool IsOfEnumerable(SyntaxNode call) =>
         this.region.SymbolOf(call) is IMethodSymbol method
@@ -595,6 +668,11 @@ internal sealed partial class LoopStateEvaluator
             : itsObject is { HasType: true } ? itsObject
             : null;
 
+        inner.thisInTheStore =
+            definer != null ? definer.thisInTheStore
+            : ReferenceEquals(objA: members, objB: this.thisMembers) ? this.thisInTheStore
+            : null;
+
         // The code of a function does not read this record: see TheOneCollectionOf.
         foreach (KeyValuePair<ISymbol, MadeObject> one in collections)
         {
@@ -791,6 +869,23 @@ internal sealed partial class LoopStateEvaluator
                 if (lexical && !returned)
                 {
                     changed.Add(finding);
+
+                    continue;
+                }
+
+                // A function of a frame that returned can read a value from a parameter of this code.
+                // The walk gave the function that value at the read, through a member: see
+                // WithTheMembersAtTheRead. Thus, the read is a read of this code.
+                if (returned && finding.Origin is IParameterSymbol own && !inner.bound.ContainsKey(own))
+                {
+                    changed.Add(
+                        new Finding(
+                            home: this.Frame,
+                            origin: own,
+                            escape: finding.Escape,
+                            diagnostic: finding.Diagnostic,
+                            subject: finding.Subject,
+                            readBack: finding.ReadBack));
 
                     continue;
                 }
@@ -1107,33 +1202,63 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     /// <param name="map">The expression of the map.</param>
     /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
-    public Followed? FollowEvictionsOfADispose(ExpressionSyntax map, SyntaxNode dispose)
+    /// <param name="runsOnEachPath">
+    ///     True when the <c>Dispose</c> runs on all paths of its function. The
+    ///     walk asks only for a map that a different code made.
+    /// </param>
+    public Followed? FollowEvictionsOfADispose(ExpressionSyntax map, SyntaxNode dispose, Func<bool> runsOnEachPath)
     {
         if (this.MadeValueOf(map) is not InvocationExpressionSyntax
             {
                 Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Map" }
             } creation
             || this.region.SymbolOf(creation) is not IMethodSymbol method
-            || !this.region.Symbols.IsSodaFlow(method)
-            || !this.CanHaveBuiltAnObject(creation))
+            || !this.region.Symbols.IsSodaFlow(method))
         {
-            return null;
+            // A field or a list of IDisposable can have the map. The store has the handlers of its
+            // object.
+            return this.FollowEvictions(
+                map: map,
+                dispose: dispose,
+                handlers: this.ObjectsOfADispose(value: map, runsOnEachPath: runsOnEachPath)
+                    .SelectMany(made => this.region.Objects.HandlersOfAMap(made)));
         }
 
-        // The handler gets each object that the projection gave.
-        LoopState objects = this.Eval(map).Content;
+        return this.CanHaveBuiltAnObject(creation)
+            ? this.FollowEvictions(
+                map: map,
+                dispose: dispose,
+                handlers: this.HandlersAtDispose(map: creation, method: method))
+            : null;
+    }
 
-        return creation.ArgumentList.Arguments
+    // The handlers that a map of a collection runs in its Dispose, each with its parameter and its
+    // state.
+    private IEnumerable<MapHandler> HandlersAtDispose(InvocationExpressionSyntax map, IMethodSymbol method) =>
+        map.ArgumentList.Arguments
             .Select((argument, position) =>
                 (argument.Expression,
                     Parameter: ParameterFor(method: method, argument: argument, position: position)))
             .Where(argument =>
                 argument.Parameter is { } parameter && OperatorTable.IsRunAtDispose(method: method, parameter: parameter))
+            .Select(argument =>
+                new MapHandler(
+                    written: argument.Expression,
+                    parameter: argument.Parameter,
+                    handler: this.Eval(argument.Expression)));
+
+    // The run of each handler of a map at its Dispose.
+    private Followed? FollowEvictions(ExpressionSyntax map, SyntaxNode dispose, IEnumerable<MapHandler> handlers)
+    {
+        // The handler gets each object that the projection gave.
+        LoopState objects = this.Eval(map).Content;
+
+        return handlers
             .Aggregate(
                 seed: (Followed?)null,
                 func: (all, argument) =>
                 {
-                    LoopState handler = this.Eval(argument.Expression);
+                    LoopState handler = argument.Handler;
 
                     return Callables(state: handler, parameter: argument.Parameter)
                         .Aggregate(
@@ -1143,12 +1268,33 @@ internal sealed partial class LoopStateEvaluator
                                     first: found,
                                     second: this.FollowFunction(
                                         call: dispose,
-                                        name: NameOf(argument.Expression),
+                                        name: NameOf(argument.Written),
                                         function: function,
                                         target: handler,
                                         arguments: default,
                                         each: (map, objects, ManyTimes: true))));
                 });
+    }
+
+    // A map of a collection with a handler that its Dispose runs is an object of the store, which
+    // keeps each handler. A map that can have built no object runs no handler.
+    private LoopState AMapWithAHandler(InvocationExpressionSyntax map, IMethodSymbol method, LoopState state)
+    {
+        if (map.ArgumentList.Arguments.Count < 2
+            || this.HandlersAtDispose(map: map, method: method).ToList() is not { Count: > 0 } handlers
+            || !this.CanHaveBuiltAnObject(map))
+        {
+            return state;
+        }
+
+        LoopState made = this.MadeHere(place: map, state: state, exact: false);
+
+        foreach (MadeObject each in made.Objects)
+        {
+            this.region.Objects.IsAMapWith(made: each, handlers: handlers);
+        }
+
+        return made;
     }
 
     /// <summary>
@@ -1176,21 +1322,35 @@ internal sealed partial class LoopStateEvaluator
 
     /// <summary>
     ///     The run of a callback that a call of the library runs, as
-    ///     <c>RunTimersTo</c> runs the callback of a timer.
+    ///     <c>RunTimersTo</c> runs the callback of a timer. The walk can take the
+    ///     state of the callback where the code gave it.
     /// </summary>
     /// <param name="call">The call that runs the callback.</param>
     /// <param name="callback">The expression of the callback, where the code gave it.</param>
-    public Followed? FollowCallback(SyntaxNode call, ExpressionSyntax callback)
-    {
-        LoopState functions = this.Eval(callback);
-
-        return this.FollowFunctions(
+    /// <param name="functions">The state of the callback there.</param>
+    public Followed? FollowCallback(SyntaxNode call, ExpressionSyntax callback, LoopState functions) =>
+        this.FollowFunctions(
             call: call,
             name: NameOf(callback),
             functions: functions.Functions,
             target: functions,
             arguments: default);
-    }
+
+    /// <summary>
+    ///     The call of <c>SetTimer</c> of a clock of the library that made a
+    ///     timer. The timer is that call, or a local that no code writes and that
+    ///     has its value. Null for each other expression.
+    /// </summary>
+    /// <param name="timer">The expression of the timer.</param>
+    public InvocationExpressionSyntax? CallOfSetTimer(ExpressionSyntax timer) =>
+        this.MadeValueOf(timer) is InvocationExpressionSyntax
+        {
+            Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "SetTimer" }
+        } set
+        && this.region.SymbolOf(set) is IMethodSymbol method
+        && this.region.Symbols.IsSodaFlow(method)
+            ? set
+            : null;
 
     // The value of a local that no code writes. A local of IDisposable can have the value of a
     // different local, thus the search continues through it. The declaration of each local is
@@ -1236,7 +1396,7 @@ internal sealed partial class LoopStateEvaluator
         {
             return members.Contains("Now")
                    && ArgumentFor(method: system, arguments: arguments, parameter: "now") is { } now
-                ? this.FollowCallback(call: call, callback: now)
+                ? this.FollowCallback(call: call, callback: now, functions: this.Eval(now))
                 : null;
         }
 
@@ -1278,11 +1438,114 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     /// <param name="system">The expression of the timer system.</param>
     /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
-    public Followed? FollowClockOfADispose(ExpressionSyntax system, SyntaxNode dispose) =>
-        this.MadeValueOf(system) is BaseObjectCreationExpressionSyntax { ArgumentList: { } arguments } creation
-        && this.region.SymbolOf(creation) is IMethodSymbol constructor
-            ? this.FollowClock(system: constructor, arguments: arguments.Arguments, call: dispose, members: ["Stop"])
-            : null;
+    /// <param name="runsOnEachPath">
+    ///     True when the <c>Dispose</c> runs on all paths of its function. The
+    ///     walk asks only for a timer system that a different code made.
+    /// </param>
+    public Followed? FollowClockOfADispose(ExpressionSyntax system, SyntaxNode dispose, Func<bool> runsOnEachPath)
+    {
+        if (this.MadeValueOf(system) is BaseObjectCreationExpressionSyntax { ArgumentList: { } arguments } creation
+            && this.region.SymbolOf(creation) is IMethodSymbol constructor)
+        {
+            return this.FollowClock(
+                system: constructor,
+                arguments: arguments.Arguments,
+                call: dispose,
+                members: ["Stop"]);
+        }
+
+        // A field or a list of IDisposable can have the timer system. The store has the clock of
+        // its object.
+        (IMethodSymbol Stop, LoopState Clock)[] clocks =
+        [
+            .. this.ObjectsOfADispose(value: system, runsOnEachPath: runsOnEachPath)
+                .Select(made => this.region.Objects.ClockOfATimerSystem(made))
+                .OfType<(IMethodSymbol Stop, LoopState Clock)>()
+        ];
+
+        return clocks.Length == 0
+            ? null
+            : this.FollowImplied(
+                call: dispose,
+                member: clocks[0].Stop,
+                owner: clocks.Aggregate(seed: LoopState.None, func: static (all, each) => all.Join(each.Clock)),
+                arguments: []);
+    }
+
+    // The objects that a Dispose of a value disposes. A callee can get an object from its caller,
+    // and the walk does not know the path that the arguments of the callee select. Thus, the callee
+    // disposes such an object only where its Dispose runs on all paths.
+    private IEnumerable<MadeObject> ObjectsOfADispose(ExpressionSyntax value, Func<bool> runsOnEachPath)
+    {
+        bool? onEachPath = null;
+
+        return this.region.Objects.Now(this.Eval(value).Objects)
+            .Where(made => made.IsFrom(this.Frame) || (onEachPath ??= runsOnEachPath()));
+    }
+
+    /// <summary>
+    ///     Records the clock of a timer system that a constructor made, for its
+    ///     <c>Dispose</c>. The Dispose calls <c>Stop</c> of that clock.
+    /// </summary>
+    /// <param name="creation">The creation of the timer system.</param>
+    /// <param name="system">The constructor.</param>
+    /// <param name="arguments">The arguments of the constructor.</param>
+    public void NotesATimerSystem(
+        SyntaxNode creation,
+        IMethodSymbol system,
+        SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        // Only the constructor of TimerSystem has a parameter of that name.
+        if (creation is not BaseObjectCreationExpressionSyntax made
+            || system.Parameters.FirstOrDefault(static parameter => parameter.Name == "implementation")
+                is not { Type: var contract }
+            || contract.GetMembers("Stop").OfType<IMethodSymbol>().FirstOrDefault() is not { } stop
+            || ArgumentFor(method: system, arguments: arguments, parameter: "implementation") is not { } implementation)
+        {
+            return;
+        }
+
+        LoopState clock = this.Eval(implementation);
+
+        foreach (MadeObject each in this.Eval(made).Objects)
+        {
+            this.region.Objects.IsATimerSystemOf(made: each, stop: stop, clock: clock);
+        }
+    }
+
+    /// <summary>
+    ///     The run of the members of its timer system that <c>Debounce</c> calls
+    ///     in the call: the getter of <c>Time</c>, and <c>At</c>.
+    /// </summary>
+    /// <param name="call">The call of <c>Debounce</c>.</param>
+    /// <param name="method">The method of the call.</param>
+    /// <param name="arguments">The arguments of the call.</param>
+    public Followed? FollowTheTimersOfADebounce(
+        SyntaxNode call,
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        if (method.Parameters.FirstOrDefault(static parameter => parameter.Name == "timers")
+                is not { Type: var contract }
+            || ArgumentFor(method: method, arguments: arguments, parameter: "timers") is not { } timers)
+        {
+            return null;
+        }
+
+        LoopState system = this.Eval(timers);
+        string[] members = ["Time", "At"];
+
+        return members
+            .SelectMany(name => contract.GetMembers(name))
+            .Select(static member => member is IPropertySymbol property ? property.GetMethod : member as IMethodSymbol)
+            .OfType<IMethodSymbol>()
+            .Aggregate(
+                seed: (Followed?)null,
+                func: (all, member) =>
+                    Both(
+                        first: all,
+                        second: this.FollowImplied(call: call, member: member, owner: system, arguments: [])));
+    }
 
     // True when code can read the items of the map that the call makes. That is so when a local
     // keeps the map, and the code uses that local for more than a call of Dispose. A map that no

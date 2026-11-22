@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -21,9 +22,26 @@ namespace SodaFlow.Analyzers;
 /// </remarks>
 internal sealed class DeclaredCode
 {
+    // The key of operators for an implicit conversion, which has no operator token.
+    private const string ImplicitConversion = "implicit";
+
+    // The part of each syntax tree, while the tree is alive. The IDE makes a new compilation after
+    // each edit, and the timing tool makes the symbols again for each file. Without this table, each
+    // new compilation reads all its trees again, also the trees that did not change.
+    //
+    // The table is static state. The rules of this code accept static state only for a good cause.
+    // The cause is that Roslyn gives an analyzer no other location to keep the part of a tree from
+    // one compilation to the next. A tree does not change, thus its part does not change. The table
+    // holds a part only while something else holds the tree.
+    private static readonly ConditionalWeakTable<SyntaxTree, TreePart> Parts = new();
+
     private readonly ImmutableHashSet<string> getters;
     private readonly ImmutableHashSet<string> madeWithCode;
     private readonly ImmutableHashSet<string> operators;
+
+    // True when the compilation declares an implicit conversion. No syntax shows where such a
+    // conversion runs, thus each name of a value can run one.
+    private readonly bool convertsImplicitly;
 
     private DeclaredCode(
         ImmutableHashSet<string> getters,
@@ -33,6 +51,7 @@ internal sealed class DeclaredCode
         this.getters = getters;
         this.madeWithCode = madeWithCode;
         this.operators = operators;
+        this.convertsImplicitly = operators.Contains(ImplicitConversion);
     }
 
     /// <summary>
@@ -45,12 +64,70 @@ internal sealed class DeclaredCode
         ImmutableHashSet<string>.Builder getters = ImmutableHashSet.CreateBuilder<string>();
         ImmutableHashSet<string>.Builder madeWithCode = ImmutableHashSet.CreateBuilder<string>();
         ImmutableHashSet<string>.Builder operators = ImmutableHashSet.CreateBuilder<string>();
-        List<(string Name, string[] Bases)> others = [];
+        List<(string Name, ImmutableArray<string> Bases)> others = [];
 
-        foreach (TypeDeclarationSyntax type in compilation.SyntaxTrees
-                     .SelectMany(static tree => tree.GetRoot()
-                         .DescendantNodes(static node =>
-                             node is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax or TypeDeclarationSyntax))
+        // A base type can be in a different tree. Thus, the parts do not find a base type that runs code,
+        // and this method finds it.
+        foreach (TreePart part in compilation.SyntaxTrees.Select(static tree =>
+                     Parts.GetValue(key: tree, createValueCallback: static each => PartOf(each))))
+        {
+            getters.UnionWith(part.Getters);
+            madeWithCode.UnionWith(part.MadeWithCode);
+            operators.UnionWith(part.Operators);
+            others.AddRange(part.Others);
+        }
+
+        // A type with no code of its own runs the constructor of its base type.
+        int found;
+
+        do
+        {
+            found = others.RemoveAll(type => type.Bases.Any(madeWithCode.Contains) && madeWithCode.Add(type.Name));
+        }
+        while (found > 0);
+
+        return new DeclaredCode(
+            getters: getters.ToImmutable(),
+            madeWithCode: madeWithCode.ToImmutable(),
+            operators: operators.ToImmutable());
+    }
+
+    /// <summary>
+    ///     True when a node can run code of the compilation with no call
+    ///     syntax. Such a node names a getter, makes a type that runs code, or
+    ///     uses an operator. A name can also have a value that an implicit
+    ///     conversion gets.
+    /// </summary>
+    /// <param name="node">A node of the body of a lambda.</param>
+    public bool CanRunCode(SyntaxNode node) =>
+        node switch
+        {
+            IdentifierNameSyntax name => this.convertsImplicitly || this.getters.Contains(name.Identifier.ValueText),
+            ObjectCreationExpressionSyntax creation => this.madeWithCode.Contains(NameOf(creation.Type)),
+            ImplicitObjectCreationExpressionSyntax => this.madeWithCode.Count > 0,
+            BinaryExpressionSyntax binary => this.operators.Contains(binary.OperatorToken.ValueText),
+            PrefixUnaryExpressionSyntax prefix => this.operators.Contains(prefix.OperatorToken.ValueText),
+            PostfixUnaryExpressionSyntax postfix => this.operators.Contains(postfix.OperatorToken.ValueText),
+            // A compound assignment calls the operator before the equals sign.
+            AssignmentExpressionSyntax { OperatorToken.ValueText: { Length: > 1 } compound } =>
+                this.operators.Contains(compound.Substring(startIndex: 0, length: compound.Length - 1)),
+            CastExpressionSyntax => this.operators.Contains("()"),
+            _ => false
+        };
+
+    // Reads the declarations of the types of one syntax tree.
+    private static TreePart PartOf(SyntaxTree tree)
+    {
+        ImmutableArray<string>.Builder getters = ImmutableArray.CreateBuilder<string>();
+        ImmutableArray<string>.Builder madeWithCode = ImmutableArray.CreateBuilder<string>();
+        ImmutableArray<string>.Builder operators = ImmutableArray.CreateBuilder<string>();
+
+        ImmutableArray<(string Name, ImmutableArray<string> Bases)>.Builder others =
+            ImmutableArray.CreateBuilder<(string Name, ImmutableArray<string> Bases)>();
+
+        foreach (TypeDeclarationSyntax type in tree.GetRoot()
+                     .DescendantNodes(static node =>
+                         node is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax or TypeDeclarationSyntax)
                      .OfType<TypeDeclarationSyntax>())
         {
             // A base type with arguments runs a constructor of the base. A primary constructor of a
@@ -100,8 +177,13 @@ internal sealed class DeclaredCode
                         operators.Add(declared.OperatorToken.ValueText);
 
                         break;
-                    case ConversionOperatorDeclarationSyntax:
+                    case ConversionOperatorDeclarationSyntax conversion:
                         operators.Add("()");
+
+                        if (conversion.ImplicitOrExplicitKeyword.IsKind(SyntaxKind.ImplicitKeyword))
+                        {
+                            operators.Add(ImplicitConversion);
+                        }
 
                         break;
                 }
@@ -113,46 +195,17 @@ internal sealed class DeclaredCode
             }
             else if (type.BaseList is { } bases)
             {
-                others.Add((type.Identifier.ValueText, [.. bases.Types.Select(static each => NameOf(each.Type))]));
+                ImmutableArray<string> names = bases.Types.Select(static each => NameOf(each.Type)).ToImmutableArray();
+                others.Add((type.Identifier.ValueText, names));
             }
         }
 
-        // A type with no code of its own runs the constructor of its base type.
-        int found;
-
-        do
-        {
-            found = others.RemoveAll(type => type.Bases.Any(madeWithCode.Contains) && madeWithCode.Add(type.Name));
-        }
-        while (found > 0);
-
-        return new DeclaredCode(
+        return new TreePart(
             getters: getters.ToImmutable(),
             madeWithCode: madeWithCode.ToImmutable(),
-            operators: operators.ToImmutable());
+            operators: operators.ToImmutable(),
+            others: others.ToImmutable());
     }
-
-    /// <summary>
-    ///     True when a node can run code of the compilation with no call
-    ///     syntax. Such a node names a getter, makes a type that runs code, or
-    ///     uses an operator.
-    /// </summary>
-    /// <param name="node">A node of the body of a lambda.</param>
-    public bool CanRunCode(SyntaxNode node) =>
-        node switch
-        {
-            IdentifierNameSyntax name => this.getters.Contains(name.Identifier.ValueText),
-            ObjectCreationExpressionSyntax creation => this.madeWithCode.Contains(NameOf(creation.Type)),
-            ImplicitObjectCreationExpressionSyntax => this.madeWithCode.Count > 0,
-            BinaryExpressionSyntax binary => this.operators.Contains(binary.OperatorToken.ValueText),
-            PrefixUnaryExpressionSyntax prefix => this.operators.Contains(prefix.OperatorToken.ValueText),
-            PostfixUnaryExpressionSyntax postfix => this.operators.Contains(postfix.OperatorToken.ValueText),
-            // A compound assignment calls the operator before the equals sign.
-            AssignmentExpressionSyntax { OperatorToken.ValueText: { Length: > 1 } compound } =>
-                this.operators.Contains(compound.Substring(startIndex: 0, length: compound.Length - 1)),
-            CastExpressionSyntax => this.operators.Contains("()"),
-            _ => false
-        };
 
     // True when an accessor of the given type has a body. An expression body of the property is
     // its getter.
@@ -174,4 +227,21 @@ internal sealed class DeclaredCode
             IdentifierNameSyntax name => name.Identifier.ValueText,
             _ => string.Empty
         };
+
+    // The declarations of the types of one syntax tree. Each type in Others has no code of its own,
+    // and the search of the compilation finds if one of its base types runs code.
+    private sealed class TreePart(
+        in ImmutableArray<string> getters,
+        in ImmutableArray<string> madeWithCode,
+        in ImmutableArray<string> operators,
+        in ImmutableArray<(string Name, ImmutableArray<string> Bases)> others)
+    {
+        public ImmutableArray<string> Getters { get; } = getters;
+
+        public ImmutableArray<string> MadeWithCode { get; } = madeWithCode;
+
+        public ImmutableArray<string> Operators { get; } = operators;
+
+        public ImmutableArray<(string Name, ImmutableArray<string> Bases)> Others { get; } = others;
+    }
 }

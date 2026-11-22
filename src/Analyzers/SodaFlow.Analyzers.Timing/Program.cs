@@ -9,7 +9,8 @@ namespace SodaFlow.Analyzers.Timing;
 /// <summary>
 ///     Times the loop analyzer of two commits. The target Time-Analyzer of
 ///     build.cake runs the command "measure" for each round in a new process, and
-///     then the command "compare".
+///     then the command "compare". The command "compare" can read the rounds of
+///     more than one job, with one "--results" for each job.
 /// </summary>
 file static class Program
 {
@@ -58,20 +59,33 @@ file static class Program
 
     private static int Compare(Arguments options)
     {
-        ImmutableArray<Sample> samples =
+        // Each folder has the round files of one job.
+        ImmutableArray<Job> jobs =
         [
-            .. Directory.GetFiles(path: options.One("results"), searchPattern: "*.tsv")
-                .Order(StringComparer.Ordinal)
-                .SelectMany(static file => File.ReadLines(file).Skip(1))
-                .Select(Sample.Parse)
+            .. options.All("results")
+                .Select(static folder =>
+                    new Job(
+                        Name: folder,
+                        Samples:
+                        [
+                            .. Directory.GetFiles(path: folder, searchPattern: "*.tsv")
+                                .Order(StringComparer.Ordinal)
+                                .SelectMany(static file => File.ReadLines(file).Skip(1))
+                                .Select(Sample.Parse)
+                        ]))
         ];
+
+        if (jobs.IsEmpty)
+        {
+            throw new ArgumentException("The option --results is necessary.");
+        }
 
         double thresholdPercent = options.Number("threshold-percent");
         double floorMilliseconds = options.Number("floor-ms");
 
         ImmutableArray<WorkloadResult> results =
             Comparison.Compare(
-                samples: samples,
+                jobs: jobs,
                 thresholdPercent: thresholdPercent,
                 floorMilliseconds: floorMilliseconds);
 

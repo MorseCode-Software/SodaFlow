@@ -60,7 +60,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["DvLinksEscapeOfAnArrayOfThePlaceholder"] = [],
             ["DvLinksEscapeOfThePlaceholderCastToObject"] = [],
             ["Ab252MarkInALocalThatGetsASecondValue"] = [],
-            ["Ab252LocalWithNoMarkGivenAway"] = []
+            ["Ab252LocalWithNoMarkGivenAway"] = [],
+            ["Ab331MarkInALocalAssignedTwiceGivenAway"] = [],
+            ["Ag99ACalleeWithOnlyAFunctionCountsTheQueryThatItGives"] = ["SF1001"]
         };
 
     // Core lets an assembly with this name use its internals. The Core block shapes must use them,
@@ -86,7 +88,12 @@ internal sealed partial class LoopReadAnalyzerTests
         "R4ApiMergeFunctionThatReturnsALinkedCellWithOneSend",
         // The updates of a cell that is not a sink have the content of the cell, with its initial
         // value.
-        "R4ApiUpdatesOfAHoldWithALinkedInitialValue"
+        "R4ApiUpdatesOfAHoldWithALinkedInitialValue",
+        // The switch has no default and no pattern that matches each value. Thus, the analyzer
+        // cannot know that a section runs before the code after the switch.
+        "R5FuAwaitUsingInASwitchSectionStopsTheCodeAfter",
+        "Ab285AwaitInTheOnlySectionOfASwitchWithNoDefault",
+        "Ab285AwaitInTheSectionsOfASwitchOnTrueAndFalse"
     ];
 
     private static readonly Assembly[] ShapeLibraries =
@@ -1171,6 +1178,89 @@ internal sealed partial class LoopReadAnalyzerTests
 
         await Assert.That(await RulesIn(source: slice, assemblyName: "OnlyASlice", images: []))
             .IsEquivalentTo(["SF1005"]);
+    }
+
+    /// <summary>
+    ///     The walk reads a function with no call only when a node of it can run
+    ///     code of the compilation. A getter with an expression body is such
+    ///     code. The shapes file declares an implicit conversion, thus each name
+    ///     there can run code, and the shapes cannot show the getter alone. This
+    ///     source declares no conversion and no operator. The function of the map
+    ///     reads only the getter, and the getter samples the pending cell.
+    /// </summary>
+    [Test]
+    public async Task AGetterWithAnExpressionBodyIsReadInAFunctionWithNoCall()
+    {
+        const string source =
+            """
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> ByAGetter() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Box box = new(l.Map(v => v));
+
+                        return S.Hold(Plain.Map(_ => box.Now).Sample());
+                    });
+
+                public sealed class Box(Cell<int> share)
+                {
+                    private readonly Cell<int> share = share;
+
+                    public int Now => this.share.Sample();
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyAGetter", images: []))
+            .IsEquivalentTo(["SF1001"]);
+    }
+
+    /// <summary>
+    ///     An indexer of the platform calls <c>GetHashCode</c> of a key of this
+    ///     compilation. The walk reads a function whose only code is such an
+    ///     indexer also in a compilation that declares no indexer. The shapes
+    ///     file declares one, thus it cannot show this case. The function of the
+    ///     map reads a dictionary, and the key samples the pending cell.
+    /// </summary>
+    [Test]
+    public async Task APlatformIndexerIsReadInACompilationThatDeclaresNoIndexer()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> ByADictionary() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Dictionary<Key, int> all = new() { [new Key(Plain)] = 1 };
+                        Key key = new(l.Map(v => v));
+
+                        return S.Hold(Plain.Map(_ => all[key]).Sample());
+                    });
+
+                public sealed class Key(Cell<int> share)
+                {
+                    private readonly Cell<int> share = share;
+
+                    public override int GetHashCode() => this.share.Sample();
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyAKey", images: []))
+            .IsEquivalentTo(["SF1001"]);
     }
 
     /// <summary>

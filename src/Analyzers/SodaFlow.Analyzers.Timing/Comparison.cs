@@ -9,14 +9,23 @@ namespace SodaFlow.Analyzers.Timing;
 
 /// <summary>
 ///     Compares the candidate analyzer with the base analyzer, and the
-///     control analyzer with the base analyzer, over the samples of all rounds.
+///     control analyzer with the base analyzer, over the samples of all jobs.
 /// </summary>
 /// <remarks>
-///     The control is a second copy of the base analyzer. Thus, its
-///     difference from the base is noise only. The comparison uses a ratio for
-///     each round, and then the median of the ratios. A round is one process, and
-///     the sides of one round share its state, thus a ratio cancels most of that
-///     state.
+///     <para>
+///         The control is a second copy of the base analyzer. Thus, its
+///         difference from the base is noise only. The comparison uses a ratio
+///         for each round, and then the median of the ratios. A round is one
+///         process, and the sides of one round share its state, thus a ratio
+///         cancels most of that state.
+///     </para>
+///     <para>
+///         A job is one runner, and it measures all three sides. The ratio of
+///         the candidate changes from one runner to the next by more than the
+///         control of one runner shows. Thus, each figure of the comparison is
+///         the median of the figures of the jobs. With one job, the figures are
+///         those of that job.
+///     </para>
 /// </remarks>
 internal static class Comparison
 {
@@ -30,7 +39,7 @@ internal static class Comparison
     private const string Control = "control";
 
     /// <summary>Gives the result of each workload.</summary>
-    /// <param name="samples">The samples of all rounds.</param>
+    /// <param name="jobs">The samples of each job.</param>
     /// <param name="thresholdPercent">
     ///     The largest slowdown in percent that is not a
     ///     failure.
@@ -42,15 +51,17 @@ internal static class Comparison
     /// </param>
     /// <returns>The result of each workload, in the order of the samples.</returns>
     public static ImmutableArray<WorkloadResult> Compare(
-        ImmutableArray<Sample> samples,
+        ImmutableArray<Job> jobs,
         double thresholdPercent,
         double floorMilliseconds) =>
     [
-        .. samples
+        .. jobs
+            .SelectMany(static job => job.Samples)
             .GroupBy(keySelector: static sample => sample.Workload, comparer: StringComparer.Ordinal)
             .Select(workload =>
                 Result(
                     workload: workload.Key,
+                    figures: [.. jobs.Select(job => Figures(job: job, workload: workload.Key))],
                     samples: [.. workload],
                     thresholdPercent: thresholdPercent,
                     floorMilliseconds: floorMilliseconds))
@@ -78,7 +89,9 @@ internal static class Comparison
              A workload fails when the candidate is more than {thresholdPercent:0.#}% slower than the base
              and also more than {floorMilliseconds:0.##} ms slower. The control is a second copy of the base.
              When the control differs from the base by the same limits, the run is too noisy to decide, and
-             it fails also. Each figure is the median over the rounds of the median of each round.
+             it fails also. Each job measures all three sides on a runner of its own. Each figure is the median
+             over the jobs of the figure of each job, and the figure of a job is the median over its rounds of
+             the median of each round. With more than one job, the ratio of each job follows in parentheses.
              """));
 
         text.AppendLine();
@@ -86,6 +99,7 @@ internal static class Comparison
         text.AppendLine(
             Row(
                 "Workload",
+                "Jobs",
                 "Rounds",
                 "Base ms",
                 "Candidate ms",
@@ -96,18 +110,19 @@ internal static class Comparison
                 "Passes with a collection",
                 "Result"));
 
-        text.AppendLine("|---|---:|---:|---:|---:|---:|---:|---:|---:|---|");
+        text.AppendLine("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|");
 
         foreach (WorkloadResult result in results)
         {
             text.AppendLine(
                 Row(
                     result.Workload,
+                    result.JobCandidateRatios.Length.ToString(CultureInfo.InvariantCulture),
                     result.Rounds.ToString(CultureInfo.InvariantCulture),
                     result.BaseMilliseconds.ToString(format: "0.0", provider: CultureInfo.InvariantCulture),
                     result.CandidateMilliseconds.ToString(format: "0.0", provider: CultureInfo.InvariantCulture),
-                    Percent(result.CandidateRatio),
-                    Percent(result.ControlRatio),
+                    Percents(median: result.CandidateRatio, jobs: result.JobCandidateRatios),
+                    Percents(median: result.ControlRatio, jobs: result.JobControlRatios),
                     Percent(result.CandidateBytesRatio),
                     result.BaseDiagnostics + ", " + result.CandidateDiagnostics,
                     result.CollectedPasses.ToString(CultureInfo.InvariantCulture),
@@ -119,31 +134,21 @@ internal static class Comparison
 
     private static WorkloadResult Result(
         string workload,
+        ImmutableArray<JobFigures> figures,
         ImmutableArray<Sample> samples,
         double thresholdPercent,
         double floorMilliseconds)
     {
-        ImmutableArray<ImmutableArray<Sample>> rounds =
-        [
-            .. samples.GroupBy(static sample => sample.Round)
-                .OrderBy(static round => round.Key)
-                .Select(static round => round.ToImmutableArray())
-        ];
-
-        double baseMilliseconds = Median(rounds.Select(static round => RoundMedian(round: round, side: Base, value: Time)));
-
-        double candidateMilliseconds =
-            Median(rounds.Select(static round => RoundMedian(round: round, side: Candidate, value: Time)));
-
-        double controlMilliseconds =
-            Median(rounds.Select(static round => RoundMedian(round: round, side: Control, value: Time)));
-
-        double candidateRatio = Median(rounds.Select(static round => Ratio(round: round, side: Candidate, value: Time)));
-        double controlRatio = Median(rounds.Select(static round => Ratio(round: round, side: Control, value: Time)));
+        double baseMilliseconds = Median(figures.Select(static job => job.BaseMilliseconds));
+        double candidateMilliseconds = Median(figures.Select(static job => job.CandidateMilliseconds));
+        double controlMilliseconds = Median(figures.Select(static job => job.ControlMilliseconds));
+        double candidateRatio = Median(figures.Select(static job => job.CandidateRatio));
+        double controlRatio = Median(figures.Select(static job => job.ControlRatio));
         double limit = 1 + thresholdPercent / 100;
 
         // The control is noise only. When the control is outside the limits in either direction, the
-        // run cannot find a slowdown of the size of the limits.
+        // run cannot find a slowdown of the size of the limits. The median of the jobs decides, as for
+        // the candidate, thus the noise of one runner does not fail the check.
         bool noisy =
             (controlRatio > limit || controlRatio < 1 / limit)
             && Math.Abs(controlMilliseconds - baseMilliseconds) > floorMilliseconds;
@@ -152,12 +157,14 @@ internal static class Comparison
 
         return new WorkloadResult(
             Workload: workload,
-            Rounds: rounds.Length,
+            Rounds: figures.Sum(static job => job.Rounds),
             BaseMilliseconds: baseMilliseconds,
             CandidateMilliseconds: candidateMilliseconds,
             CandidateRatio: candidateRatio,
             ControlRatio: controlRatio,
-            CandidateBytesRatio: Median(rounds.Select(static round => Ratio(round: round, side: Candidate, value: Bytes))),
+            JobCandidateRatios: [.. figures.Select(static job => job.CandidateRatio)],
+            JobControlRatios: [.. figures.Select(static job => job.ControlRatio)],
+            CandidateBytesRatio: Median(figures.Select(static job => job.CandidateBytesRatio)),
             BaseDiagnostics: Diagnostics(samples: samples, side: Base),
             CandidateDiagnostics: Diagnostics(samples: samples, side: Candidate),
             CollectedPasses: samples.Count(static sample => sample.Collections > 0),
@@ -166,6 +173,35 @@ internal static class Comparison
                 : noisy
                     ? Verdict.Noisy
                     : Verdict.Pass);
+    }
+
+    // The figures of one job for one workload. Each figure is the median over the rounds of the job.
+    private static JobFigures Figures(Job job, string workload)
+    {
+        ImmutableArray<ImmutableArray<Sample>> rounds =
+        [
+            .. job.Samples
+                .Where(sample =>
+                    string.Equals(a: sample.Workload, b: workload, comparisonType: StringComparison.Ordinal))
+                .GroupBy(static sample => sample.Round)
+                .OrderBy(static round => round.Key)
+                .Select(static round => round.ToImmutableArray())
+        ];
+
+        return rounds.IsEmpty
+            ? throw new InvalidOperationException($"The job {job.Name} has no samples of the workload {workload}.")
+            : new JobFigures(
+                Rounds: rounds.Length,
+                BaseMilliseconds: OfRounds(static round => RoundMedian(round: round, side: Base, value: Time)),
+                CandidateMilliseconds:
+                OfRounds(static round => RoundMedian(round: round, side: Candidate, value: Time)),
+                ControlMilliseconds: OfRounds(static round => RoundMedian(round: round, side: Control, value: Time)),
+                CandidateRatio: OfRounds(static round => Ratio(round: round, side: Candidate, value: Time)),
+                ControlRatio: OfRounds(static round => Ratio(round: round, side: Control, value: Time)),
+                CandidateBytesRatio: OfRounds(static round => Ratio(round: round, side: Candidate, value: Bytes)));
+
+        // The median over the rounds of a figure of each round.
+        double OfRounds(Func<ImmutableArray<Sample>, double> figure) => Median(rounds.Select(figure));
     }
 
     private static double Time(Sample sample) => sample.Milliseconds;
@@ -202,13 +238,33 @@ internal static class Comparison
     private static string Percent(double ratio) =>
         ((ratio - 1) * 100).ToString(format: "+0.0;-0.0;0.0", provider: CultureInfo.InvariantCulture) + "%";
 
+    // The median, and then the ratio of each job when there is more than one job.
+    private static string Percents(double median, ImmutableArray<double> jobs) =>
+        jobs.Length > 1
+            ? Percent(median) + " (" + string.Join(separator: ", ", values: jobs.Select(Percent)) + ")"
+            : Percent(median);
+
     private static string Row(params ReadOnlySpan<string> cells) =>
         "| " + string.Join(separator: " | ", value: cells) + " |";
+
+    private sealed record JobFigures(
+        int Rounds,
+        double BaseMilliseconds,
+        double CandidateMilliseconds,
+        double ControlMilliseconds,
+        double CandidateRatio,
+        double ControlRatio,
+        double CandidateBytesRatio);
 }
+
+/// <summary>The samples of one job, which is one runner.</summary>
+/// <param name="Name">The name of the job, for a message.</param>
+/// <param name="Samples">The samples of all rounds of the job.</param>
+internal sealed record Job(string Name, ImmutableArray<Sample> Samples);
 
 /// <summary>The comparison of the analyzers over one workload.</summary>
 /// <param name="Workload">The name of the workload.</param>
-/// <param name="Rounds">The number of rounds.</param>
+/// <param name="Rounds">The number of rounds of all jobs.</param>
 /// <param name="BaseMilliseconds">The median time of the base analyzer.</param>
 /// <param name="CandidateMilliseconds">The median time of the candidate analyzer.</param>
 /// <param name="CandidateRatio">
@@ -218,6 +274,14 @@ internal static class Comparison
 /// <param name="ControlRatio">
 ///     The median ratio of the control time to the base
 ///     time.
+/// </param>
+/// <param name="JobCandidateRatios">
+///     The ratio of the candidate time to the
+///     base time in each job, in the order of the jobs.
+/// </param>
+/// <param name="JobControlRatios">
+///     The ratio of the control time to the base
+///     time in each job, in the order of the jobs.
 /// </param>
 /// <param name="CandidateBytesRatio">
 ///     The median ratio of the allocated bytes of
@@ -240,6 +304,8 @@ internal sealed record WorkloadResult(
     double CandidateMilliseconds,
     double CandidateRatio,
     double ControlRatio,
+    ImmutableArray<double> JobCandidateRatios,
+    ImmutableArray<double> JobControlRatios,
     double CandidateBytesRatio,
     string BaseDiagnostics,
     string CandidateDiagnostics,

@@ -42,6 +42,7 @@ internal sealed class PlatformCallersTests
         typeof(ValueTuple<,>),
         typeof(KeyValuePair<,>),
         typeof(DictionaryEntry),
+        typeof(Lazy<>),
         typeof(string),
         typeof(StringBuilder),
         typeof(TextWriter),

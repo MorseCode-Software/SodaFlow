@@ -1,6 +1,6 @@
-# Fails a pull request that makes the loop analyzer slower than the analyzer of its base. The target
-# Time-Analyzer of build.cake does the work and has the reasons for how it measures; this file
-# selects the runner, the baseline, and when to run.
+# Fails a pull request that makes the loop analyzer slower than the analyzer of its base. The targets
+# Measure-Analyzer and Compare-Analyzer of build.cake do the work and have the reasons for how they
+# measure. This file selects the runners, the baseline, and when to run.
 #
 # A workflow of its own, and not a job of build.yml, because it is not related to the build, the
 # tests, or the release. It runs at the same time as Build and takes less time, thus a pull request
@@ -8,8 +8,8 @@
 name: Analyzer timing
 
 # No paths filter. A required check that a paths filter skips never reports, and the pull request
-# waits for it. The job looks at the changed paths itself, and when none of them can change the
-# analyzer or the measurement, it passes in about a minute.
+# waits for it. The first job looks at the changed paths itself. When none of them can change the
+# analyzer or the measurement, the check passes in about a minute.
 #
 # workflow_dispatch times the analyzer of a branch against any baseline, for a measurement by hand.
 on:
@@ -40,21 +40,29 @@ defaults:
   run:
     shell: pwsh
 
+# Each job waits for the job before it. "change" finds if the pull request can change the time of the
+# analyzer. "measure" measures all three sides on more than one runner, one job for each runner, and
+# does not give a result. "time" gives the result from the median of the measure jobs, and it is the
+# required check.
+#
+# The ratio of the candidate to the base changes from one runner to the next by more than the
+# control of one runner shows. In Round 5 of the loop analyzer (AO13), the view models were 3.5%
+# slower on one runner and 8.0% slower on a different one, with the same two analyzers. Thus, one
+# runner cannot give a result for a limit of 5%. build.cake has the full reason.
 jobs:
-  # The job name is the name of the status check. If the check becomes a required check, a change
-  # of this name needs a change of the ruleset.
-  time:
-    name: Analyzer timing
-    # The calibration found the same noise on ubuntu-latest and windows-latest. Ubuntu sets up .NET
-    # in about 12 seconds, and Windows in 60 to 110. The timing builds net10.0 only, thus it does
-    # not need the net472 targets that keep build.yml on Windows.
+  change:
+    name: Find an analyzer change
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 10
+
+    outputs:
+      baseline: ${{ steps.change.outputs.baseline }}
+      changed: ${{ steps.change.outputs.changed }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # MinVer reads the tags, and the baseline must be in the clone.
+          # The base of the pull request must be in the clone for the difference.
           fetch-depth: 0
 
       # On a pull request, the checkout is the merge of the pull request into its base, thus the
@@ -103,8 +111,34 @@ jobs:
           # git diff gave 1 for a difference, which is not a failure of this step.
           exit 0
 
+  # Each job of the matrix is a different runner, and each one measures all three sides, as
+  # Time-Analyzer does on one machine. The jobs run at the same time, thus the check takes no longer
+  # than one job, but it uses more runner time. With three jobs, the median ignores one runner that
+  # is far from the other two.
+  measure:
+    name: Measure the analyzer (job ${{ matrix.job }})
+    needs: change
+    if: needs.change.outputs.changed == 'true'
+    # The calibration found the same noise on ubuntu-latest and windows-latest. Ubuntu sets up .NET
+    # in about 12 seconds, and Windows in 60 to 110. The timing builds net10.0 only, thus it does
+    # not need the net472 targets that keep build.yml on Windows.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    strategy:
+      # A failed job fails the check in any case. The other jobs go on, thus "Re-run failed jobs"
+      # runs again only the job that failed, and not all of them.
+      fail-fast: false
+      matrix:
+        job: [ 1, 2, 3 ]
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # MinVer reads the tags, and the baseline must be in the clone.
+          fetch-depth: 0
+
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
-        if: steps.change.outputs.changed == 'true'
         with:
           # 6.0 for the same reason as in build.yml: the library projects restore a net6.0 target,
           # and their lock files have no reference pack for it.
@@ -116,26 +150,105 @@ jobs:
             .config/dotnet-tools.json
 
       - name: Restore tools
-        if: steps.change.outputs.changed == 'true'
         run: dotnet tool restore
 
-      - name: Time the analyzer
-        if: steps.change.outputs.changed == 'true'
+      - name: Measure the analyzer
         env:
-          BASELINE: ${{ steps.change.outputs.baseline }}
-        run: dotnet cake --target=Time-Analyzer --configuration=${{ env.CONFIGURATION }} "--baseline=$env:BASELINE"
+          BASELINE: ${{ needs.change.outputs.baseline }}
+        run: dotnet cake --target=Measure-Analyzer --configuration=${{ env.CONFIGURATION }} "--baseline=$env:BASELINE"
+
+      # The round files of this job, for the job "time". Each artifact has a name of its own, and
+      # the job "time" downloads each one into a folder with that name.
+      - name: Keep the rounds
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: analyzer-timing-job-${{ matrix.job }}
+          path: analyzer-timing/results
+
+  # The job name is the name of the status check, which is a required check on main. A change of
+  # this name needs a change of the ruleset.
+  #
+  # !cancelled() and not success(), because this job must give the result in all cases. When "change"
+  # finds no analyzer change, GitHub skips "measure", and this job passes. When "change" or a job of
+  # "measure" fails, GitHub skips the dependents by default. A skipped job reports success, also as a
+  # required check, thus the pull request can merge with no timing. Thus, this job runs and fails.
+  time:
+    name: Analyzer timing
+    needs: [ change, measure ]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Read the result of the jobs before
+        id: jobs
+        env:
+          CHANGE: ${{ needs.change.result }}
+          CHANGED: ${{ needs.change.outputs.changed }}
+          MEASURE: ${{ needs.measure.result }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if ($env:CHANGE -ne 'success') {
+              throw "The job that finds an analyzer change did not succeed ($env:CHANGE)."
+          }
+
+          if ($env:CHANGED -ne 'true') {
+              Write-Host "The pull request changes nothing that can change the time of the analyzer."
+              "compare=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              exit 0
+          }
+
+          # The result of a matrix is success only when each of its jobs succeeded.
+          if ($env:MEASURE -ne 'success') {
+              throw "A job that measures the analyzer did not succeed ($env:MEASURE). Run the failed jobs again."
+          }
+
+          "compare=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.jobs.outputs.compare == 'true'
+        with:
+          # MinVer reads the tags when this job builds the timing app.
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        if: steps.jobs.outputs.compare == 'true'
+        with:
+          dotnet-version: 6.0.x
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            .config/dotnet-tools.json
+
+      - name: Restore tools
+        if: steps.jobs.outputs.compare == 'true'
+        run: dotnet tool restore
+
+      - name: Download the rounds
+        if: steps.jobs.outputs.compare == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: analyzer-timing-job-*
+          path: analyzer-timing/jobs
+
+      - name: Compare the analyzers
+        if: steps.jobs.outputs.compare == 'true'
+        run: dotnet cake --target=Compare-Analyzer --configuration=${{ env.CONFIGURATION }} --jobs=analyzer-timing/jobs
 
       # The table on the page of the run, which is the place where a person looks first.
       - name: Write the summary
-        if: ${{ !cancelled() && steps.change.outputs.changed == 'true' && hashFiles('analyzer-timing/summary.md') != '' }}
+        if: ${{ !cancelled() && steps.jobs.outputs.compare == 'true' && hashFiles('analyzer-timing/summary.md') != '' }}
         run: Get-Content analyzer-timing/summary.md | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
 
-      # Each pass of each round, to compute other statistics from a run.
+      # Each pass of each round of each job, to compute other statistics from a run.
       - name: Collect the samples
-        if: ${{ !cancelled() && steps.change.outputs.changed == 'true' }}
+        if: ${{ !cancelled() && steps.jobs.outputs.compare == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: analyzer-timing
           path: |
-            analyzer-timing/results
+            analyzer-timing/jobs
             analyzer-timing/summary.md

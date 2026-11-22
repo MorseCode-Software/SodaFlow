@@ -322,6 +322,100 @@ internal sealed class ObjectStore
     public SyntaxNode? CreationOfASink(MadeObject made) =>
         this.sinks.TryGetValue(key: made, value: out SyntaxNode? creation) ? creation : null;
 
+    // The timers of each clock of the library base, in the order of the calls of SetTimer.
+    private readonly Dictionary<MadeObject, List<KeptTimer>> timers = [];
+
+    /// <summary>True when a clock of the store has a timer, or had one.</summary>
+    public bool HasTimers => this.timers.Count > 0;
+
+    /// <summary>Records a timer of each clock that a value of a clock can be.</summary>
+    public void KeepsATimer(ImmutableArray<MadeObject> clocks, KeptTimer timer)
+    {
+        // An object that the store does not know is not one clock.
+        foreach (MadeObject clock in clocks.Where(static each => each != MadeObject.Unknown))
+        {
+            if (!this.timers.TryGetValue(key: clock, value: out List<KeptTimer>? kept))
+            {
+                kept = [];
+                this.timers[clock] = kept;
+            }
+
+            kept.Add(timer);
+        }
+    }
+
+    /// <summary>
+    ///     The timers of each clock that a value of a clock can be. At the end of
+    ///     a loop, a clock that a turn made is one of the objects of the turns
+    ///     before. Thus, that object has its timers also.
+    /// </summary>
+    public IEnumerable<KeptTimer> TimersOf(ImmutableArray<MadeObject> clocks) =>
+        this.timers
+            .Where(pair => clocks.Contains(pair.Key) || this.Now(ImmutableArray.Create(pair.Key)).Any(clocks.Contains))
+            .SelectMany(static pair => pair.Value)
+            .Distinct();
+
+    /// <summary>
+    ///     Takes each timer of a call of <c>SetTimer</c> from its clock, which
+    ///     then does not run it.
+    /// </summary>
+    public void TakesTheTimer(SyntaxNode set)
+    {
+        foreach (List<KeptTimer> kept in this.timers.Values)
+        {
+            kept.RemoveAll(each => each.Set == set);
+        }
+    }
+
+    // The clock of each timer system of the store, with the Stop that its Dispose calls.
+    private readonly Dictionary<MadeObject, (IMethodSymbol Stop, LoopState Clock)> clocksOfTimerSystems = [];
+
+    /// <summary>Records that an object is a timer system of the given clock.</summary>
+    public void IsATimerSystemOf(MadeObject made, IMethodSymbol stop, LoopState clock) =>
+        this.clocksOfTimerSystems[made] = (stop, clock);
+
+    /// <summary>The clock of a timer system of the store. Null for each other object.</summary>
+    public (IMethodSymbol Stop, LoopState Clock)? ClockOfATimerSystem(MadeObject made) =>
+        this.clocksOfTimerSystems.TryGetValue(key: made, value: out (IMethodSymbol Stop, LoopState Clock) clock)
+            ? clock
+            : null;
+
+    // The handlers that the Dispose of each map of a collection of the store runs.
+    private readonly Dictionary<MadeObject, IReadOnlyList<MapHandler>> handlersOfMaps = [];
+
+    /// <summary>Records the handlers that the Dispose of a map of a collection runs.</summary>
+    public void IsAMapWith(MadeObject made, IReadOnlyList<MapHandler> handlers) =>
+        this.handlersOfMaps[made] = handlers;
+
+    /// <summary>The handlers of a map of the store. None for each other object.</summary>
+    public IReadOnlyList<MapHandler> HandlersOfAMap(MadeObject made) =>
+        this.handlersOfMaps.TryGetValue(key: made, value: out IReadOnlyList<MapHandler>? handlers) ? handlers : [];
+
+    // The sink that each two-way bindable of the store sends a write into.
+    private readonly Dictionary<MadeObject, LoopState> sinksOfBindables = [];
+
+    /// <summary>
+    ///     Records that an object is a two-way bindable that sends each write
+    ///     into the sink of the given state. Each object of the turns before it
+    ///     is such a bindable also.
+    /// </summary>
+    public void IsABindableOf(MadeObject made, LoopState sink)
+    {
+        for (MadeObject? each = made;
+             each != null && !this.sinksOfBindables.ContainsKey(each);
+             each = this.before.TryGetValue(key: each, value: out MadeObject? older) ? older : null)
+        {
+            this.sinksOfBindables[each] = sink;
+        }
+    }
+
+    /// <summary>
+    ///     The state of the sink of a two-way bindable of the store. Null for
+    ///     each other object.
+    /// </summary>
+    public LoopState? SinkOfABindable(MadeObject made) =>
+        this.sinksOfBindables.TryGetValue(key: made, value: out LoopState? sink) ? sink : null;
+
     /// <summary>
     ///     The object in a member of an object of the store. Null when no read of
     ///     that member made it.

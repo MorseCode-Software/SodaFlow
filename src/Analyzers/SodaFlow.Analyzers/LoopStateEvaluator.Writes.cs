@@ -50,6 +50,8 @@ internal sealed partial class LoopStateEvaluator
                 ? existing.Join(state)
                 : state;
 
+        this.WritesThisInTheStore(key);
+
         // The member has only this state from now on: see OfThisObject.
         if (only && !this.quiet)
         {
@@ -469,9 +471,16 @@ internal sealed partial class LoopStateEvaluator
         bool replaces,
         SyntaxNode? turn)
     {
+        // A write in a function counts at the call of the function. The function has the frame of this
+        // code, thus its own code changes the records of the names before the write. A call in a
+        // different function is not in the code of the names, and the check then finds no name.
+        if (this.function != null)
+        {
+            at = this.call?.Site;
+        }
+
         if ((this.Frame.ReadFrom.Count == 0 && this.Frame.GaveTo.Count == 0)
             || this.quiet
-            || this.function != null
             || owner == null
             || at == null)
         {
@@ -801,7 +810,7 @@ internal sealed partial class LoopStateEvaluator
         {
             MemberAccessExpressionSyntax access
                 when this.region.SymbolOf(access) is { } member
-                     && IsALocation(member)
+                     && this.IsALocation(member)
                      && this.KeptKeyOf(access.Expression) is (var location, var name, null) =>
                 (location, name, member.OriginalDefinition),
             IdentifierNameSyntax local
@@ -1190,6 +1199,41 @@ internal sealed partial class LoopStateEvaluator
     // True for the expression of a location that TheLocationOf can give. That is a local, an
     // element of an array in a local, or a field of an object in a local or of this object. An
     // element of a view of such an array is one also.
+    // An element of a ref indexer of the code, on a local, at a constant index or at an index in a
+    // local. The walk reads that ref again at each use of a ref local of it.
+    private bool IsARefIndexerOfALocal(ExpressionSyntax location) =>
+        Unwrapped(location) is ElementAccessExpressionSyntax
+        {
+            ArgumentList.Arguments: { Count: 1 } indexes,
+            Expression: IdentifierNameSyntax holder
+        } element
+        && this.region.SymbolOf(element) is IPropertySymbol { ReturnsByRef: true }
+        && this.region.SymbolOf(holder) is { } local
+        && KeepsItsObject(local)
+        && (indexes[0].Expression is LiteralExpressionSyntax
+            || (indexes[0].Expression is IdentifierNameSyntax index
+                && this.region.SymbolOf(index) is { } number
+                && KeepsItsObject(number)));
+
+    // A field of an element of an array in a static field, at a constant index or at an index in a
+    // local. A ref local of it in a method is a name of that field, which the caller then sees through
+    // the static field.
+    private bool IsAFieldOfAnElementOfAStaticArray(ExpressionSyntax location) =>
+        Unwrapped(location) is MemberAccessExpressionSyntax
+        {
+            Expression: ElementAccessExpressionSyntax
+            {
+                ArgumentList.Arguments: { Count: 1 } indexes,
+                Expression: IdentifierNameSyntax array
+            }
+        } access
+        && this.region.SymbolOf(access) is IFieldSymbol { IsStatic: false }
+        && (indexes[0].Expression is LiteralExpressionSyntax
+            || (indexes[0].Expression is IdentifierNameSyntax index
+                && this.region.SymbolOf(index) is { } number
+                && KeepsItsObject(number)))
+        && this.region.SymbolOf(array) is IFieldSymbol { IsStatic: true, Type: IArrayTypeSymbol };
+
     private bool IsALocationThatTheWalkCanReadAgain(ExpressionSyntax location) =>
         Unwrapped(location) switch
         {
@@ -1230,7 +1274,8 @@ internal sealed partial class LoopStateEvaluator
         // function comes after the close, thus no part of its content is pending.
         bool later = this.region.ReadsCodeAfterTheTransaction;
 
-        if ((this.quiet && !later) || content.IsNone)
+        // A send of no content also counts for the coalesce function of a sink.
+        if ((this.quiet && !later) || (content.IsNone && !this.region.Sent.HasCoalescing))
         {
             return;
         }
@@ -1241,14 +1286,31 @@ internal sealed partial class LoopStateEvaluator
         }
 
         bool toAnObject = false;
+        ImmutableArray<MadeObject> sinks = this.region.Objects.Now(this.Eval(sink).Objects);
 
-        foreach (MadeObject made in this.region.Objects.Now(this.Eval(sink).Objects))
+        foreach (MadeObject made in sinks)
         {
             if (this.region.Objects.CreationOfASink(made) is { } creation)
             {
-                this.region.Sent.Add(creation: creation, content: content);
+                if (this.region.Sent.Coalesces(creation))
+                {
+                    this.region.Sent.Count(
+                        creation: creation,
+                        inTheBlock: sinks.Length == 1 ? this.SendOfTheBlock(sink) : null);
+                }
+
+                if (!content.IsNone)
+                {
+                    this.region.Sent.Add(creation: creation, content: content);
+                }
+
                 toAnObject = true;
             }
+        }
+
+        if (content.IsNone)
+        {
+            return;
         }
 
         if (!toAnObject
@@ -1262,12 +1324,12 @@ internal sealed partial class LoopStateEvaluator
 
     // A sink that a call makes is an object of the store. It has the content that the sends of
     // the read before gave it.
-    private LoopState ASink(ExpressionSyntax creation, LoopState state)
+    private LoopState ASink(InvocationExpressionSyntax creation, IMethodSymbol method, LoopState state)
     {
         LoopState made =
             this.MadeHere(
                 place: creation,
-                state: state.Join(this.region.SentBefore.To(creation)),
+                state: state.Join(this.SentBefore(creation: creation, method: method)),
                 exact: false);
 
         foreach (MadeObject sink in made.Objects)
@@ -1789,7 +1851,13 @@ internal sealed partial class LoopStateEvaluator
         {
             if (SymbolEqualityComparer.Default.Equals(x: got, y: parameter))
             {
-                this.SetMemberOf(owner: argument, member: member, state: state, replaces: always, turn: turn);
+                this.SetMemberOf(
+                    owner: argument,
+                    member: member,
+                    state: state,
+                    replaces: always,
+                    turn: turn,
+                    fromTheCallee: true);
             }
         }
     }
@@ -1829,7 +1897,13 @@ internal sealed partial class LoopStateEvaluator
             // The write is a write to the member through the expression, as an assignment is.
             if (written != null)
             {
-                this.SetMemberOf(owner: written, member: member, state: state, replaces: always, turn: turn);
+                this.SetMemberOf(
+                    owner: written,
+                    member: member,
+                    state: state,
+                    replaces: always,
+                    turn: turn,
+                    givenBackBy: call);
 
                 // The callee knows the collection that it gave the member.
                 if (always && this.function == null && this.TheOneCollectionOf(written) is { } self)
@@ -1875,6 +1949,8 @@ internal sealed partial class LoopStateEvaluator
                 !this.CanWriteTheField(field: field, at: written),
             IParameterSymbol { RefKind: RefKind.In or RefKind.RefReadOnlyParameter, Type.IsValueType: true } => true,
             ILocalSymbol { RefKind: RefKind.RefReadOnly, Type.IsValueType: true } => true,
+            // A property that returns no ref gives a copy of its struct.
+            IPropertySymbol { ReturnsByRef: false, Type.IsValueType: true } => true,
             _ => false
         };
 
@@ -1917,13 +1993,23 @@ internal sealed partial class LoopStateEvaluator
     ///     when no loop does.
     /// </param>
     /// <param name="from">The expression of the value, when the code has one.</param>
+    /// <param name="fromTheCallee">
+    ///     True for a write that a callee made through its parameter, which
+    ///     the call gives back to the argument.
+    /// </param>
+    /// <param name="givenBackBy">
+    ///     The call whose callee wrote the member through this, when the write
+    ///     comes back to the receiver. Null for each other write.
+    /// </param>
     public void SetMemberOf(
         ExpressionSyntax? owner,
         ISymbol member,
         LoopState state,
         bool replaces,
         SyntaxNode? turn,
-        ExpressionSyntax? from = null)
+        ExpressionSyntax? from = null,
+        bool fromTheCallee = false,
+        SyntaxNode? givenBackBy = null)
     {
         // A write through a name that got this is a write to the object that the code is in.
         if (owner != null && this.IsANameOfThis(owner))
@@ -1980,6 +2066,8 @@ internal sealed partial class LoopStateEvaluator
         // parameter whose location the walk reads in the code of the caller has the object that
         // the location has at this write.
         bool isReadInTheCaller = owner != null && this.IsReadInTheCaller(owner);
+        bool canBeADifferentObject = false;
+        bool always = replaces;
 
         if (owner != null
             && !isReadInTheCaller
@@ -1989,6 +2077,7 @@ internal sealed partial class LoopStateEvaluator
         {
             replaces = false;
             turn = null;
+            canBeADifferentObject = true;
         }
 
         // The owner can be an object that the store does not know. The write is then a change to
@@ -2004,7 +2093,15 @@ internal sealed partial class LoopStateEvaluator
             from: from,
             sure: replaces && isKnown);
 
-        this.NotesAWriteThroughANameOfOneObject(written: written, member: member, state: state, replaces: replaces);
+        // A local with ref that keeps its location names that location at each use. The record of the names of one
+        // object has the name of the location at this write.
+        this.NotesAWriteThroughANameOfOneObject(
+            written: written,
+            member: member,
+            state: state,
+            replaces: replaces || (always && written != null && this.TheDeclaredLocationOf(written) != null),
+            seen: fromTheCallee,
+            givenBackBy: givenBackBy);
 
         this.NotesAWriteAtAnElement(
             written: written,
@@ -2022,7 +2119,7 @@ internal sealed partial class LoopStateEvaluator
             || owner is not IdentifierNameSyntax
             || this.region.SymbolOf(owner) is not { } name
             || !KeepsItsObject(name)
-            || !IsALocation(member)
+            || !this.IsALocation(member)
             || FunctionOf(owner) is not { } code)
         {
             this.Write(
@@ -2036,7 +2133,12 @@ internal sealed partial class LoopStateEvaluator
                 isReadInTheCaller: isReadInTheCaller);
 
             this.Frame.LastWrite = null;
-            this.region.NotesAWriteThroughAName(member: member, name: this.NameKeyOf(written), objects: has.Objects);
+
+            this.NotesAWriteForTheLaterReads(
+                written: written,
+                member: member,
+                has: has,
+                canBeADifferentObject: canBeADifferentObject);
 
             this.GivesTheOtherNames(
                 owner: owner,
@@ -2071,7 +2173,12 @@ internal sealed partial class LoopStateEvaluator
             isKnown: isKnown,
             isReadInTheCaller: false);
 
-        this.region.NotesAWriteThroughAName(member: member, name: this.NameKeyOf(written), objects: has.Objects);
+        this.NotesAWriteForTheLaterReads(
+            written: written,
+            member: member,
+            has: has,
+            canBeADifferentObject: canBeADifferentObject);
+
         this.GivesTheOtherNames(owner: owner, at: owner, member: member, state: state, replaces: replaces, turn: turn);
 
         this.Frame.LastWrite =
@@ -2284,7 +2391,7 @@ internal sealed partial class LoopStateEvaluator
                 noted.With(
                     written: member.OriginalDefinition,
                     value: state,
-                    isALocation: IsALocation(member),
+                    isALocation: this.IsALocation(member),
                     writes: this.region.MemberWrites);
         }
     }
@@ -2391,8 +2498,20 @@ internal sealed partial class LoopStateEvaluator
             or IParameterSymbol { RefKind: not RefKind.None, Type.IsValueType: true };
 
     // True for a member that is a location and no code: a field, or a property whose accessors
-    // have no body. A read of it gives the value of the last write to it.
-    private static bool IsALocation(ISymbol member) =>
+    // have no body. A read of it gives the value of the last write to it. A read or a write of a
+    // virtual property runs the override of the class of the object, which can have code.
+    private bool IsALocation(ISymbol member) => HasNoCode(member) && !this.CanRunTheCodeOfAnOverride(member);
+
+    // True for a property that an override with code can replace. The test of the modifiers comes
+    // first only for speed. Most properties are not virtual, and the index makes its set at the
+    // first question.
+    private bool CanRunTheCodeOfAnOverride(ISymbol member) =>
+        member is IPropertySymbol property
+        && (property.IsVirtual || property.IsAbstract || property.IsOverride)
+        && this.region.Symbols.Overrides.ReplacesWithCode(property);
+
+    // True for a field, or for a property of which each declaration has no accessor with a body.
+    private static bool HasNoCode(ISymbol member) =>
         member is IFieldSymbol
         || (member is IPropertySymbol property
             && property.DeclaringSyntaxReferences.All(static declared =>
@@ -2746,7 +2865,20 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
-        this.SetField(field: member, state: state);
+        // A static field of a type that is not generic has one location. Thus, a write that always
+        // runs in the block replaces the value before it.
+        this.SetField(
+            field: member,
+            state: state,
+            replaces: replaces
+                      && (this.call?.AlwaysRuns ?? true)
+                      && member is IFieldSymbol { IsStatic: true, ContainingType: var type }
+                      && !IsGeneric(type));
+
+        return;
+
+        static bool IsGeneric(INamedTypeSymbol? type) =>
+            type != null && (type.IsGenericType || IsGeneric(type.ContainingType));
     }
 
     // True for a name of a value with no object that has a second name, or had one.

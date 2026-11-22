@@ -64,6 +64,7 @@ var inspectionDirectory = Directory("./inspection");
 var inspectionCacheDirectory = Directory("./.inspectcode-cache");
 // Where Time-Analyzer puts the worktree of its baseline, the analyzer files, and the results.
 var timingDirectory = Directory("./analyzer-timing");
+var timingResults = timingDirectory + Directory("results");
 var timingProject = File("./src/Analyzers/SodaFlow.Analyzers.Timing/SodaFlow.Analyzers.Timing.csproj");
 // The canonical inspection settings, and the only ones CI reads. Rider pairs a .DotSettings file
 // with the solution beside it, so every solution needs a copy of its own; CI is under no such
@@ -292,9 +293,13 @@ Task("Verify-Native-Aot")
 });
 
 // The time of the loop analyzer of this tree against the time of the analyzer of another commit,
-// over the same code. The app src/Analyzers/SodaFlow.Analyzers.Timing does the measurement; this
-// target builds the two analyzers and runs the app. .github/workflows/analyzer-timing.yml runs it on
-// a pull request, with the base of the pull request as the baseline.
+// over the same code. The app src/Analyzers/SodaFlow.Analyzers.Timing does the measurement. These
+// targets build the two analyzers and run the app. Time-Analyzer measures on this machine and then
+// gives the result. Measure-Analyzer only measures, into analyzer-timing/results. Compare-Analyzer
+// gives the result from the measurements of each job in a folder.
+// .github/workflows/analyzer-timing.yml runs Measure-Analyzer on a pull request, in a job for each
+// runner, with the base of the pull request as the baseline. Then it runs Compare-Analyzer on the
+// measurements of all the jobs.
 //
 // There are three sides. "base" is the analyzer of the baseline. "candidate" is the analyzer of this
 // tree. "control" is a second copy of the base analyzer, thus its difference from the base is noise
@@ -312,20 +317,31 @@ Task("Verify-Native-Aot")
 // workload of 1 to 3 ms from failing on noise. An analyzer that did each walk two times was 34% to
 // 40% slower on SodaFlow.Tests and on the view models. The pull request that added this target has
 // the full numbers.
+//
+// That calibration measured the noise of one run, and the control of each run shows that noise. It
+// did not measure the effect of the runner on the ratio of two different analyzers. In Round 5 of
+// the loop analyzer (AO13), the same two analyzers ran on different runners. The control of each
+// run changed by less than 2%. But the slowdown of the view models was 3.5% on one runner and 8.0%
+// on a different one. Thus, one runner cannot give a result for a limit of 5%. The workflow uses
+// the median of its jobs, and each job is a different runner. Comparison.cs in the app has the
+// rule. Time-Analyzer has one job, and the median of one job is the figure of that job.
 Task("Time-Analyzer")
     .Description("Compares the time of the loop analyzer of this tree with that of --baseline=<ref>.")
+    .IsDependentOn("Measure-Analyzer")
+    .Does(() => CompareAnalyzerTiming(jobs: new[] { MakeAbsolute(timingResults) }));
+
+Task("Measure-Analyzer")
+    .Description("Measures the loop analyzers of this tree and of --baseline=<ref>, and does not decide.")
     .Does(() =>
 {
     var baseline = Argument("baseline", "origin/main");
     var rounds = Argument("rounds", 4);
     var runs = Argument("runs", 6);
     var warmUp = Argument("warm-up", 2);
-    var thresholdPercent = Argument("threshold-percent", 5.0);
-    var floorMilliseconds = Argument("floor-ms", 0.25);
 
     var root = MakeAbsolute(timingDirectory);
     var baselineTree = root.Combine("baseline");
-    var results = root.Combine("results");
+    var results = MakeAbsolute(timingResults);
     var sides = root.Combine("sides");
 
     RemoveBaselineTree(baselineTree);
@@ -401,32 +417,65 @@ Task("Time-Analyzer")
                 throw new Exception($"Round {round} of the analyzer timing failed (exit {measured}).");
             }
         }
-
-        var compared = StartProcess(
-            "dotnet",
-            new ProcessSettings
-            {
-                Arguments = new ProcessArgumentBuilder()
-                    .AppendQuoted(tool.FullPath)
-                    .Append("compare")
-                    .Append("--results").AppendQuoted(results.FullPath)
-                    .Append("--threshold-percent").Append(thresholdPercent.ToString(CultureInfo.InvariantCulture))
-                    .Append("--floor-ms").Append(floorMilliseconds.ToString(CultureInfo.InvariantCulture))
-                    .Append("--summary").AppendQuoted(root.CombineWithFilePath("summary.md").FullPath),
-            });
-
-        if (compared != 0)
-        {
-            throw new Exception(
-                "The loop analyzer of this tree is slower than that of the baseline, or the run was too "
-                + "noisy to decide. The table above says which. A noisy run can be run again.");
-        }
     }
     finally
     {
         RemoveBaselineTree(baselineTree);
     }
 });
+
+// The folder of --jobs has one folder for each job, with the round files that Measure-Analyzer
+// wrote in that job.
+Task("Compare-Analyzer")
+    .Description("Decides on the results of each job in --jobs=<folder>, as Time-Analyzer does for one.")
+    .Does(() =>
+{
+    var jobs = GetSubDirectories(MakeAbsolute(Directory(Argument<string>("jobs"))))
+        .OrderBy(job => job.FullPath, StringComparer.Ordinal)
+        .ToArray();
+
+    if (jobs.Length == 0)
+    {
+        throw new Exception("The folder of --jobs has no folder of a job.");
+    }
+
+    CompareAnalyzerTiming(jobs: jobs);
+});
+
+// Runs the command "compare" of the timing app over the results of each job, and writes
+// analyzer-timing/summary.md.
+void CompareAnalyzerTiming(IReadOnlyCollection<DirectoryPath> jobs)
+{
+    var thresholdPercent = Argument("threshold-percent", 5.0);
+    var floorMilliseconds = Argument("floor-ms", 0.25);
+
+    DotNetBuild(timingProject.Path.FullPath, new DotNetBuildSettings { Configuration = configuration });
+
+    var root = MakeAbsolute(timingDirectory);
+    EnsureDirectoryExists(root);
+
+    var tool = MakeAbsolute(File($"./src/Analyzers/SodaFlow.Analyzers.Timing/bin/{configuration}/net10.0/SodaFlow.Analyzers.Timing.dll"));
+    var arguments = new ProcessArgumentBuilder()
+        .AppendQuoted(tool.FullPath)
+        .Append("compare")
+        .Append("--threshold-percent").Append(thresholdPercent.ToString(CultureInfo.InvariantCulture))
+        .Append("--floor-ms").Append(floorMilliseconds.ToString(CultureInfo.InvariantCulture))
+        .Append("--summary").AppendQuoted(root.CombineWithFilePath("summary.md").FullPath);
+
+    foreach (var job in jobs)
+    {
+        arguments.Append("--results").AppendQuoted(job.FullPath);
+    }
+
+    var compared = StartProcess("dotnet", new ProcessSettings { Arguments = arguments });
+
+    if (compared != 0)
+    {
+        throw new Exception(
+            "The loop analyzer of this tree is slower than that of the baseline, or the run was too "
+            + "noisy to decide. The table above says which. A noisy run can be run again.");
+    }
+}
 
 // A worktree of an earlier run that stopped before its end is still registered with git. Thus, the
 // target removes it with git and not only from the disk.

@@ -38,6 +38,7 @@
     <ItemGroup>
         <Compile Include="AnalyzerHarness.cs"/>
         <Compile Include="CodeFixHarness.cs"/>
+        <Compile Include="DeclaredCodeTests.cs"/>
         <Compile Include="EnumerableQueriesTests.cs"/>
         <Compile Include="LibraryAssembliesTests.cs"/>
         <Compile Include="ListenerAnalyzerTests.cs"/>

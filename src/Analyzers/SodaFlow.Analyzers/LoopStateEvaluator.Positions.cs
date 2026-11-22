@@ -560,6 +560,11 @@ internal sealed partial class LoopStateEvaluator
             this.region.Objects.HasPositions(collection: made, values: known);
         }
 
+        if (method.Name == "Add" && For("item") is { } added)
+        {
+            this.NotesAnAdd(collection: collection, item: added.Expression, index: all.Length);
+        }
+
         return;
 
         // The argument for the parameter with a name. An argument can have its name in the code.
@@ -1114,6 +1119,19 @@ internal sealed partial class LoopStateEvaluator
             // The same with no initializer: the list has no element.
             BaseObjectCreationExpressionSyntax { ArgumentList: null or { Arguments.Count: 0 }, Initializer: null }
                 when SodaFlowSymbols.KeepsTheOrder(this.region.TypeOf(made)) => [],
+            // The invocation list of a delegate whose functions the walk knows in order.
+            InvocationExpressionSyntax
+                {
+                    Expression: MemberAccessExpressionSyntax
+                    {
+                        Name.Identifier.ValueText: "GetInvocationList", Expression: var owner
+                    },
+                    ArgumentList.Arguments.Count: 0
+                } list
+                when this.region.SymbolOf(list) is IMethodSymbol
+                {
+                    ContainingType.SpecialType: SpecialType.System_Delegate or SpecialType.System_MulticastDelegate
+                } => this.FunctionsInOrder(owner),
             _ => null
         };
 
@@ -1169,6 +1187,10 @@ internal sealed partial class LoopStateEvaluator
             CommonForEachStatementSyntax => true,
             // A spread puts a copy of each element into a second collection.
             SpreadElementSyntax => true,
+            // A pattern only reads the value that it tests.
+            IsPatternExpressionSyntax test => test.Expression == name,
+            SwitchExpressionSyntax choice => choice.GoverningExpression == name,
+            SwitchStatementSyntax choice => choice.Expression == name,
             _ => false
         };
 

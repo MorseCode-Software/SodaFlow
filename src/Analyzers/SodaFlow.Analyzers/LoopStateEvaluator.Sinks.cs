@@ -312,16 +312,22 @@ internal sealed partial class LoopStateEvaluator
     ///     into that sink after the transaction. The setter posts that send, as
     ///     <c>Transaction.Post</c> does. <c>Execute</c> of a bindable action posts
     ///     a send of its parameter into the sink of its firings also. The bindable
-    ///     is a local that no code writes, and that <c>CreateTwoWay</c> or
-    ///     <c>CreateBindableAction</c> made.
+    ///     is the object that the receiver has. A local, a member, a parameter,
+    ///     or a callee can give the receiver that object.
     /// </summary>
     /// <param name="bindable">The expression of the bindable.</param>
     /// <param name="value">The value that the code writes, or the parameter of <c>Execute</c>.</param>
     /// <param name="write">The assignment, or the call of <c>Execute</c>.</param>
     public void PostsAWrite(ExpressionSyntax bindable, ExpressionSyntax value, SyntaxNode write)
     {
-        if ((this.quiet && !this.region.ReadsCodeAfterTheTransaction)
-            || this.ValueOfALocalThatNoCodeWrites(Unwrapped(bindable)) is not InvocationExpressionSyntax
+        if (this.quiet && !this.region.ReadsCodeAfterTheTransaction)
+        {
+            return;
+        }
+
+        // A local that the creation made names the sink. A sink in a field or in a parameter has no
+        // object of the store. Thus, the send then goes to the name of the sink.
+        if (this.ValueOfALocalThatNoCodeWrites(Unwrapped(bindable)) is not InvocationExpressionSyntax
             {
                 Expression: MemberAccessExpressionSyntax
                 {
@@ -331,21 +337,12 @@ internal sealed partial class LoopStateEvaluator
             || this.region.SymbolOf(creation) is not IMethodSymbol method
             || !this.region.Symbols.IsSodaFlow(method))
         {
+            this.PostsAWriteToItsObject(bindable: bindable, value: value, write: write);
+
             return;
         }
 
-        // The write of a bindable of a cell sink sends into that sink. The write of a bindable of
-        // a cell sends into its sink of edits. An action sends into its sink of firings.
-        ExpressionSyntax? sink =
-            creation.ArgumentList.Arguments
-                .Where((argument, position) =>
-                    ParameterFor(method: method, argument: argument, position: position)?.Type is INamedTypeSymbol
-                    {
-                        OriginalDefinition.Name: "CellSink" or "StreamSink"
-                    } type
-                    && this.region.Symbols.IsSodaFlow(type))
-                .Select(static argument => argument.Expression)
-                .FirstOrDefault();
+        ExpressionSyntax? sink = this.SinkArgumentOf(creation: creation, method: method);
 
         if (sink == null)
         {
@@ -358,6 +355,125 @@ internal sealed partial class LoopStateEvaluator
         this.region.ReadAfterTheTransaction(function: write, read: () => later.Sends(sink: sink, content: content));
     }
 
+    // A write to the bindable that the receiver has. A member, a callee, or a second name can give
+    // the receiver that bindable. An action carries the sink of its firings as a member. The store
+    // has the sink of each two-way bindable that the code made.
+    private void PostsAWriteToItsObject(ExpressionSyntax bindable, ExpressionSyntax value, SyntaxNode write)
+    {
+        LoopState carried = this.Eval(bindable);
+
+        LoopState sinks =
+            this.region.Objects.Now(carried.Objects)
+                .Select(made => this.region.Objects.SinkOfABindable(made))
+                .OfType<LoopState>()
+                .Concat(
+                    carried.Members?.Members
+                        .Where(member =>
+                            member.Key.Name == "FiringsStream"
+                            && this.region.Symbols.IsBindableAction(member.Key.ContainingType))
+                        .Select(static member => member.Value)
+                    ?? [])
+                .Aggregate(seed: LoopState.None, func: static (all, each) => all.Join(each));
+
+        if (sinks.Objects.IsEmpty)
+        {
+            return;
+        }
+
+        LoopState content = this.Eval(value).AsContent;
+        LoopStateEvaluator later = this.Quiet();
+
+        this.region.ReadAfterTheTransaction(
+            function: write,
+            read: () => later.SendsInto(sinks: sinks, content: content));
+    }
+
+    // Gives content to each sink of the store that a state has, as a send into a name of it does.
+    private void SendsInto(LoopState sinks, LoopState content)
+    {
+        content = content.AfterTheClose;
+
+        foreach (MadeObject made in this.region.Objects.Now(sinks.Objects))
+        {
+            if (this.region.Objects.CreationOfASink(made) is { } creation)
+            {
+                this.region.Sent.Add(creation: creation, content: content);
+            }
+        }
+    }
+
+    // The argument of the creation of a bindable that is its sink. The write of a bindable of a
+    // cell sink sends into that sink. The write of a bindable of a cell sends into its sink of
+    // edits. An action sends into its sink of firings.
+    private ExpressionSyntax? SinkArgumentOf(InvocationExpressionSyntax creation, IMethodSymbol method) =>
+        creation.ArgumentList.Arguments
+            .Where((argument, position) =>
+                ParameterFor(method: method, argument: argument, position: position)?.Type is INamedTypeSymbol
+                {
+                    OriginalDefinition.Name: "CellSink" or "StreamSink"
+                } type
+                && this.region.Symbols.IsSodaFlow(type))
+            .Select(static argument => argument.Expression)
+            .FirstOrDefault();
+
+    // The parts of a value that a call of the library makes, which the operator table does not
+    // give it.
+    private LoopState WithTheLibraryParts(InvocationExpressionSyntax call, IMethodSymbol method, LoopState state) =>
+        method.Name switch
+        {
+            "CreateTwoWay" => this.ATwoWayBindable(creation: call, method: method, state: state),
+            "Construct" => this.AConstructedResult(construct: call, state: state),
+            _ => this.AMapWithAHandler(map: call, method: method, state: state)
+        };
+
+    // The result of Construct of a map through a task holds what its function returns. The function
+    // runs in the transaction of the send of the result, after the close. Thus, an evaluator that
+    // changes nothing reads it. The library has no other method of that name.
+    private LoopState AConstructedResult(InvocationExpressionSyntax construct, LoopState state)
+    {
+        if (construct.ArgumentList.Arguments.FirstOrDefault()?.Expression is not { } function)
+        {
+            return state;
+        }
+
+        LoopState functions = this.Eval(function);
+        LoopStateEvaluator reader = this.Quiet();
+
+        return functions.Functions.Aggregate(
+            seed: state,
+            func: (all, each) =>
+                all.Join(
+                    reader.FollowFunction(
+                            call: construct,
+                            name: NameOf(function),
+                            function: each,
+                            target: functions,
+                            arguments: default,
+                            each: null)
+                        ?.State
+                    ?? LoopState.None));
+    }
+
+    // A two-way bindable that a call makes is an object of the store. The store has the sink that
+    // the bindable sends a write into.
+    private LoopState ATwoWayBindable(InvocationExpressionSyntax creation, IMethodSymbol method, LoopState state)
+    {
+        if (this.SinkArgumentOf(creation: creation, method: method) is not { } sink)
+        {
+            return state;
+        }
+
+        LoopState made = this.MadeHere(place: creation, state: state, exact: false);
+        LoopState ofTheSink = this.Eval(sink);
+
+        foreach (MadeObject bindable in made.Objects)
+        {
+            this.region.Objects.IsABindableOf(made: bindable, sink: ofTheSink);
+        }
+
+        return made;
+    }
+
     /// <summary>
     ///     Reads a map through a task as a send of the result of its operation
     ///     into its sink of results, after the transaction. The result is the
@@ -365,8 +481,9 @@ internal sealed partial class LoopStateEvaluator
     ///     the function of <c>Construct</c> returns.
     /// </summary>
     /// <remarks>
-    ///     The walk finds each such call in the code of the operation. It does
-    ///     not find a call in a different function that the operation calls.
+    ///     The operation gets each value that the source fires. The walk reads
+    ///     what the operation returns, with that value for its first parameter.
+    ///     It also finds each such call in the code of the operation.
     /// </remarks>
     /// <param name="call">The call of <c>MapAsync</c>.</param>
     /// <param name="method">The method of the call.</param>
@@ -374,7 +491,54 @@ internal sealed partial class LoopStateEvaluator
     public void SendsTheResults(
         InvocationExpressionSyntax call,
         IMethodSymbol method,
-        SeparatedSyntaxList<ArgumentSyntax> arguments)
+        SeparatedSyntaxList<ArgumentSyntax> arguments) =>
+        this.SendsTheResults(
+            call: call,
+            method: method,
+            arguments: arguments,
+            input: ReceiverOf(symbols: this.region.Symbols, invocation: call, method: method) is { } source
+                ? this.Eval(source).Content
+                : LoopState.None);
+
+    /// <summary>
+    ///     Reads <c>Execute</c> of the status of a map through a task as a value
+    ///     that the operation gets. The pipeline then sends the result into its
+    ///     sink of results, after the transaction. The status is a local that no
+    ///     code writes, and that <c>MapAsync</c> made.
+    /// </summary>
+    /// <param name="execute">The method of the call of <c>Execute</c>.</param>
+    /// <param name="status">The receiver of the call.</param>
+    /// <param name="value">The value, or the cell whose value the pipeline gets.</param>
+    public void SendsTheResultsOf(IMethodSymbol execute, ExpressionSyntax status, ExpressionSyntax value)
+    {
+        if (this.MadeValueOf(status) is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "MapAsync" }
+            } map
+            || this.region.SymbolOf(map) is not IMethodSymbol mapAsync
+            || !this.region.Symbols.IsSodaFlow(mapAsync))
+        {
+            return;
+        }
+
+        IMethodSymbol definition = (execute.ReducedFrom ?? execute).OriginalDefinition;
+        LoopState given = this.Eval(value);
+
+        // Execute of a cell gives the operation the value of the cell.
+        this.SendsTheResults(
+            call: map,
+            method: mapAsync,
+            arguments: map.ArgumentList.Arguments,
+            input: definition.Parameters[definition.Parameters.Length - 1].Type is ITypeParameterSymbol
+                ? given
+                : given.Content);
+    }
+
+    private void SendsTheResults(
+        SyntaxNode call,
+        IMethodSymbol method,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        LoopState input)
     {
         if ((this.quiet && !this.region.ReadsCodeAfterTheTransaction)
             || ArgumentFor(method: method, arguments: arguments, parameter: "results") is not { } results
@@ -383,8 +547,28 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
+        LoopState functions = this.Eval(operation);
+        LoopStateEvaluator reader = this.Quiet();
+
+        // The operation returns a task of its result.
+        LoopState returned =
+            functions.Functions.Aggregate(
+                seed: LoopState.None,
+                func: (all, function) =>
+                    all.Join(
+                        reader.FollowFunction(
+                                call: call,
+                                name: NameOf(operation),
+                                function: function,
+                                target: functions,
+                                arguments: default,
+                                each: (operation, input, ManyTimes: true),
+                                byPosition: ImmutableArray.Create(input))
+                            ?.State
+                        ?? LoopState.None));
+
         LoopState content =
-            this.Eval(operation).Functions
+            functions.Functions
                 .SelectMany(static function => function.Declaration.DescendantNodes())
                 .OfType<InvocationExpressionSyntax>()
                 .Where(static result =>
@@ -395,7 +579,8 @@ internal sealed partial class LoopStateEvaluator
                 .Where(result =>
                     this.region.SymbolOf(result) is IMethodSymbol { ContainingType.Name: "ResultFactory" } factory
                     && this.region.Symbols.IsSodaFlow(factory))
-                .Aggregate(seed: LoopState.None, func: (all, result) => all.Join(this.ResultOf(result)));
+                .Aggregate(seed: LoopState.None, func: (all, result) => all.Join(this.ResultOf(result)))
+                .Join(returned.AsContent);
 
         if (content.IsNone)
         {
@@ -732,4 +917,73 @@ internal sealed partial class LoopStateEvaluator
 
         return made is BaseObjectCreationExpressionSyntax { Initializer: null } creation ? creation : null;
     }
+
+    /// <summary>
+    ///     What the sends of the read before give to the sink that the call
+    ///     made. A sink with a coalesce function fires what that function returns
+    ///     when two sends go into it in one transaction.
+    /// </summary>
+    /// <remarks>
+    ///     The function replaces the values of the sends only where each send is
+    ///     in the block and two of them always run. Otherwise, the sink can also
+    ///     fire the value of a send.
+    /// </remarks>
+    private LoopState SentBefore(InvocationExpressionSyntax creation, IMethodSymbol method)
+    {
+        LoopState sent = this.region.SentBefore.To(creation);
+
+        // A sink of a stream takes only the function, and a sink of a cell takes its initial value
+        // also. The count of the arguments is a test that reads no parameter. Only a sink of values
+        // that can hold a state can get a state from the function.
+        int withAFunction = method.ContainingType.Name == "Stream" || method.Name == "CreateStreamSink" ? 1 : 2;
+
+        if (creation.ArgumentList.Arguments.Count != withAFunction
+            || !this.HoldsContent(method)
+            || creation.ArgumentList.Arguments
+                    .Where((argument, position) =>
+                        ParameterFor(method: method, argument: argument, position: position) is { Name: "coalesce" })
+                    .Select(static argument => argument.Expression)
+                    .FirstOrDefault()
+                is not { } coalesce)
+        {
+            return sent;
+        }
+
+        this.region.Sent.AddCoalescing(creation);
+
+        if (!this.region.SentBefore.CanCoalesce(creation))
+        {
+            return sent;
+        }
+
+        // The function runs after the close. Each parameter gets the value of a send.
+        LoopState coalesced =
+            this.ResultOfTheFunctions(
+                    call: creation,
+                    written: coalesce,
+                    functions: this.Eval(coalesce),
+                    given: ImmutableArray.Create(item1: sent.Content, item2: sent.Content))
+                .AfterTheClose
+                .AsContent;
+
+        return this.region.SentBefore.AlwaysCoalesces(creation) ? coalesced : sent.Join(coalesced);
+    }
+
+    // The send of a statement of the block with no return or goto statement before it. The send
+    // then always runs before the close. Null for each other send.
+    private SyntaxNode? SendOfTheBlock(SyntaxNode sink) =>
+        sink.Parent is MemberAccessExpressionSyntax
+        {
+            Parent: InvocationExpressionSyntax
+            {
+                Parent: ExpressionStatementSyntax { Parent: BlockSyntax block } statement
+            } send
+        }
+        && block == this.region.Root
+        && !block.Statements.TakeWhile(each => each != statement).Any(static each => each
+            .DescendantNodesAndSelf(descendIntoChildren: static node =>
+                node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+            .Any(static node => node is ReturnStatementSyntax or GotoStatementSyntax))
+            ? send
+            : null;
 }
