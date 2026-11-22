@@ -363,6 +363,28 @@ nothing committed, but the old timer is now canceled only when the transaction c
 the timer it set instead. A revoked timer sends no alarm, even when the timer thread fired it while the transaction was
 open, or its callback runs after the failure.
 
+Fixed: a deadline that the clock cannot subtract no longer fails every transaction. The start hook of each
+transaction runs the timers that are due, and it found them by subtracting the current time from the earliest
+deadline, an interval that only the timer thread needs. For SecondsTimerSystem a deadline at infinity, at
+double.MaxValue, or more than about 29,000 years ahead has no interval in a TimeSpan, so that subtraction threw, and
+the throw failed each transaction in the process before its body ran, the one that would clear the deadline
+included; only disposing the timer system recovered. The hook now finds due timers by comparing the times, which
+cannot throw, and the seconds clock gives a far interval as TimeSpan.MaxValue instead of throwing. A custom clock
+whose subtraction throws now leaves the transactions working too; its timer thread still reports each throw to the
+handler.
+
+Changed: a NaN deadline is refused. NaN is not in order with other times; Comparer<double>.Default puts it before
+all of them, so it was always the earliest timer and was always due. At now throws ArgumentOutOfRangeException in the
+transaction that gives a NaN, for any timer system whose time is a double or a float, so that transaction fails and
+the cell keeps its deadline.
+
+Fixed: a listener of an alarm, or of the updates of Time, that throws no longer fails an unrelated transaction. The
+start hook delivers a due alarm in a transaction of its own, at the start of whichever transaction comes first after the
+deadline, on any thread, and nothing caught a throw there: it left the hook and failed that transaction before its body
+ran, and it never reached the handler. A listener of Time that always threw failed every transaction. The hook now
+gives each such exception to the handler of the timer system. The failed alarm is dropped, as the sends of any failed
+transaction are; a failed send of Time leaves Time as it was, and the next transaction sends the time again.
+
 Fixed: a posted action that throws delivers none of its sends. A posted action runs in a transaction of its own after
 the transaction that posted it closes, and a throw from it now fails that transaction, as a throw from the body of a
 transaction does: the sends it made before the throw do not reach the graph, and a cell it sent into keeps its value.
