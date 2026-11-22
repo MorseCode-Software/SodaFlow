@@ -635,6 +635,40 @@ public sealed class TimerTests
         await Assert.That(raw.Time.Sample()).IsGreaterThan(0.0);
     }
 
+    // A disposal waits for the timer thread to end, and an alarm on that thread opens a
+    // transaction. A disposal in a transaction thus waited for a thread that waited for its lock.
+    // The stop now waits for the release of the lock, and no alarm gets to the graph after the
+    // call.
+    [Test]
+    public async Task ADisposalInATransactionWhileAnAlarmFiresEnds()
+    {
+        SecondsTimerSystem timers = new(Ignore);
+        CellSink<Maybe<double>> deadline = Cell.CreateSink<Maybe<double>>(Maybe.None);
+        List<double> alarms = [];
+        IListener l = timers.At(deadline).Listen(alarms.Add);
+
+        // Due in 100 ms. The timer thread fires it while the worker holds its transaction open, and
+        // then waits for that transaction.
+        deadline.Send(Maybe.Some(timers.Time.Sample() + 0.1));
+
+        Thread worker =
+            new(() =>
+                Transaction.RunVoid(() =>
+                {
+                    Thread.Sleep(500);
+                    timers.Dispose();
+                })) { IsBackground = true };
+
+        worker.Start();
+
+        // Before the disposal of the listener, which needs the lock that a stopped worker holds.
+        await Assert.That(worker.Join(TimeSpan.FromSeconds(10))).IsTrue();
+
+        l.Dispose();
+
+        await Assert.That(alarms).IsEmpty();
+    }
+
     private static void Ignore(Exception e)
     {
     }
