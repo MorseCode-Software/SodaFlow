@@ -7,8 +7,8 @@ order.
 
 This is the package to install from F#. It holds modules of curried functions that fit a
 pipeline, over the same types of SodaFlow.Core that the C# API uses, so a stream made in C# can be
-used from F# and the other way around. It pulls in SodaFlow.Core. It uses the `option`, `Result`,
-and `unit` of F#, so it does not need SodaFlow.Functional.
+used from F# and the other way around. It pulls in SodaFlow.Core. It uses the `option` and `unit` of
+F#, so it does not need SodaFlow.Functional.
 
 ```bash
 dotnet add package SodaFlow.FSharp

@@ -29,8 +29,9 @@ public interface IMaybe
     /// <remarks>
     ///     This calls one function of the two, and it calls that function before this
     ///     method returns.
-    ///     This is the primitive that expresses all the other members of the
-    ///     interface.
+    ///     Each other member of the interface agrees with this method. An
+    ///     implementation can read its value in those members, and not call this
+    ///     method.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onSome,

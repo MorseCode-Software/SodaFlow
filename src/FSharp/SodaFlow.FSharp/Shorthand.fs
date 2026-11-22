@@ -1,14 +1,16 @@
 /// <summary>
-///     Short names for the full library, opened automatically.
+///     Short names for most of the library, opened automatically.
 /// </summary>
 /// <remarks>
-///     Each binding here is an alias for one in <c>Stream</c>, <c>Cell</c>, <c>Behavior</c>, one
-///     of their sinks, or <c>LazySample</c>. A suffix gives the module: <c>S</c> for stream,
-///     <c>C</c> for cell, <c>B</c> for behavior, <c>T</c> for transaction, and <c>L</c> for
-///     listener. The suffix differentiates the operations that are on more than one of them:
-///     <c>mapS</c>, <c>mapC</c>, and <c>mapB</c>. Thus, code can use all of them with no
-///     qualification in the same scope. <c>lazySample</c> has no suffix, because its argument is
-///     a function and not a value of the graph.
+///     Each binding here is an alias for one in a module of the library. These modules are
+///     <c>Stream</c>, <c>Cell</c>, <c>Behavior</c>, their sinks, <c>LazySample</c>,
+///     <c>Transaction</c>, <c>Listener</c>, <c>ForwardReference</c>, and <c>Time</c>. The
+///     <c>Operational</c> module and some functions of the other modules have no alias here. A
+///     suffix gives the module: <c>S</c> for stream, <c>C</c> for cell, <c>B</c> for behavior,
+///     <c>T</c> for transaction, and <c>L</c> for listener. The suffix differentiates the
+///     operations that are on more than one of them: <c>mapS</c>, <c>mapC</c>, and <c>mapB</c>.
+///     Thus, code can use all of them with no qualification in the same scope. <c>lazySample</c>
+///     has no suffix, because its argument is a function and not a value of the graph.
 ///
 ///     Where an operation takes one type of value and gives a second type, the suffix names the
 ///     argument, and not the result. <c>snapshotC</c> samples a cell, <c>holdS</c> holds a stream

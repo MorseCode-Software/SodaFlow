@@ -51,9 +51,9 @@ public interface IEitherOfTwo : IEither
     /// <param name="onSecond">Run with the value when the second case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -122,9 +122,9 @@ public interface IEitherOfThree : IEither
     /// <param name="onThird">Run with the value when the third case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -201,9 +201,9 @@ public interface IEitherOfFour : IEither
     /// <param name="onFourth">Run with the value when the fourth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -288,9 +288,9 @@ public interface IEitherOfFive : IEither
     /// <param name="onFifth">Run with the value when the fifth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -383,9 +383,9 @@ public interface IEitherOfSix : IEither
     /// <param name="onSixth">Run with the value when the sixth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -486,9 +486,9 @@ public interface IEitherOfSeven : IEither
     /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -597,9 +597,9 @@ public interface IEitherOfEight : IEither
     /// <param name="onEighth">Run with the value when the eighth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
