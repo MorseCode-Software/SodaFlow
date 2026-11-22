@@ -414,21 +414,21 @@ public static class CellExtensionMethods
     public static Cell<TResult> Apply<T, TResult>(this Cell<T> c, Cell<Func<T, TResult>> cf) => c.ApplyImpl(cf);
 
     /// <summary>
-    ///     Return a cell whose stream only receives events which have a different
-    ///     value than the previous event.
+    ///     Return a cell that updates only to a value that is different from the
+    ///     last value that it sent.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
     /// <returns>
-    ///     A cell whose stream only receives events which have a different value than
-    ///     the previous event.
+    ///     A cell that updates only to a value that is different from the last value
+    ///     that it sent.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<T> Calm<T>(this Cell<T> c) => c.CalmImpl(EqualityComparer<T>.Default.Equals);
 
     /// <summary>
-    ///     Return a cell whose stream only receives events which have a different
-    ///     value than the previous event.
+    ///     Return a cell that updates only to a value that is different from the
+    ///     last value that it sent.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
@@ -437,22 +437,22 @@ public static class CellExtensionMethods
     ///     equal.
     /// </param>
     /// <returns>
-    ///     A cell whose stream only receives events which have a different value than
-    ///     the previous event.
+    ///     A cell that updates only to a value that is different from the last value
+    ///     that it sent.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<T> Calm<T>(this Cell<T> c, IEqualityComparer<T> comparer) => c.CalmImpl(comparer.Equals);
 
     /// <summary>
-    ///     Return a cell whose stream only receives events which have a different
-    ///     value than the previous event.
+    ///     Return a cell that updates only to a value that is different from the
+    ///     last value that it sent.
     /// </summary>
     /// <typeparam name="T">The type of the cell.</typeparam>
     /// <param name="c">The cell.</param>
     /// <param name="areEqual">The function that gives true when two items are equal.</param>
     /// <returns>
-    ///     A cell whose stream only receives events which have a different value than
-    ///     the previous event.
+    ///     A cell that updates only to a value that is different from the last value
+    ///     that it sent.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Cell<T> Calm<T>(this Cell<T> c, Func<T, T, bool> areEqual) => c.CalmImpl(areEqual);

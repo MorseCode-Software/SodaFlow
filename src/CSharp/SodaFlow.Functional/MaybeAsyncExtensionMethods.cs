@@ -75,7 +75,9 @@ public static class MaybeAsyncExtensionMethods
     ///     The asynchronous <see cref="MaybeMonad.Bind{T,TResult}" />, for the lookup
     ///     which is itself asynchronous and can find nothing. When there is a value
     ///     the task returned is the one <paramref name="f" /> returned, not a wrapper
-    ///     around it, so a failure surfaces as that task faulting.
+    ///     around it. Thus, an exception that <paramref name="f" /> throws before it
+    ///     gives a task comes from this call. A failure after that shows as a fault on
+    ///     that task.
     /// </remarks>
     public static Task<Maybe<TResult>> BindAsync<T, TResult>(
         this Maybe<T> a,

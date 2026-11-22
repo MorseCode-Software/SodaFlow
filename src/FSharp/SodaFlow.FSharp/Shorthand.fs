@@ -1430,8 +1430,8 @@ let inline collectS initialState f stream = Stream.collect initialState f stream
 /// <remarks>
 /// Shorthand for <c>Stream.calmWithCompare</c>. See it for the full contract.
 ///
-/// A suppressed firing is not a missing firing. The next comparer call reads the value that this
-/// code suppressed, and not the last value that the stream published.
+/// This code compares each value with the last value that the stream sent, and not with a value
+/// that it suppressed.
 /// </remarks>
 let inline calmWithCompareS compare stream = Stream.calmWithCompare compare stream
 
@@ -1445,8 +1445,8 @@ let inline calmWithCompareS compare stream = Stream.calmWithCompare compare stre
 /// <remarks>
 /// Shorthand for <c>Stream.calmWithEqualityComparer</c>. See it for the full contract.
 ///
-/// A suppressed firing is not a missing firing. The next comparer call reads the value that this
-/// code suppressed, and not the last value that the stream published.
+/// This code compares each value with the last value that the stream sent, and not with a value
+/// that it suppressed.
 /// </remarks>
 let inline calmWithEqualityComparerS equalityComparer stream =
     Stream.calmWithEqualityComparer equalityComparer stream
@@ -1459,8 +1459,8 @@ let inline calmWithEqualityComparerS equalityComparer stream =
 /// <remarks>
 /// Shorthand for <c>Stream.calm</c>. See it for the full contract.
 ///
-/// A suppressed firing is not a missing firing. The next comparer call reads the value that this
-/// code suppressed, and not the last value that the stream published.
+/// This code compares each value with the last value that the stream sent, and not with a value
+/// that it suppressed.
 ///
 /// Uses <c>=</c>, so for a type without meaningful structural equality use
 /// the alternative <c>calmWithCompare</c>.
@@ -2322,8 +2322,8 @@ let inline lift8C f (cell, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
 /// <remarks>
 /// Shorthand for <c>Cell.calmWithCompare</c>. See it for the full contract.
 ///
-/// A suppressed update is not a missing update. The cell takes the new value, and the next
-/// comparer call reads the last value that the cell published.
+/// This code compares each value with the last value that the cell sent. A suppressed update
+/// does not change the cell, thus the cell keeps that last value.
 /// </remarks>
 let inline calmWithCompareC compare cell = Cell.calmWithCompare compare cell
 
@@ -2337,8 +2337,8 @@ let inline calmWithCompareC compare cell = Cell.calmWithCompare compare cell
 /// <remarks>
 /// Shorthand for <c>Cell.calmWithEqualityComparer</c>. See it for the full contract.
 ///
-/// A suppressed update is not a missing update. The cell takes the new value, and the next
-/// comparer call reads the last value that the cell published.
+/// This code compares each value with the last value that the cell sent. A suppressed update
+/// does not change the cell, thus the cell keeps that last value.
 /// </remarks>
 let inline calmWithEqualityComparerC equalityComparer cell =
     Cell.calmWithEqualityComparer equalityComparer cell
@@ -2351,8 +2351,8 @@ let inline calmWithEqualityComparerC equalityComparer cell =
 /// <remarks>
 /// Shorthand for <c>Cell.calm</c>. See it for the full contract.
 ///
-/// A suppressed update is not a missing update. The cell takes the new value, and the next
-/// comparer call reads the last value that the cell published.
+/// This code compares each value with the last value that the cell sent. A suppressed update
+/// does not change the cell, thus the cell keeps that last value.
 ///
 /// Uses <c>=</c>, so for a type without meaningful structural equality use
 /// the alternative <c>calmWithCompare</c>.

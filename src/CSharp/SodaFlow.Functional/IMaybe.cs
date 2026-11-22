@@ -70,8 +70,9 @@ public interface IMaybe
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     Task<T> MatchAsync<T>(
         [InstantHandle] Func<object?, Task<T>> onSome,
