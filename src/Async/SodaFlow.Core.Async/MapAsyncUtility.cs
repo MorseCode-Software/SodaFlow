@@ -763,6 +763,12 @@ public abstract class AsyncMapBase
     }
 
     /// <summary>A tracked item to start now, or to promote now from Queued to Running.</summary>
+    /// <remarks>
+    ///     A list of these names each item one time at the most, and only an item
+    ///     that the pipeline tracks with the Queued status. The engine throws
+    ///     InvalidOperationException for a list that does not obey this rule. The
+    ///     transaction of that call then fails, and no item of that list starts.
+    /// </remarks>
     [PublicAPI]
     protected internal sealed class AsyncToStart<TInput>
     {
@@ -2709,30 +2715,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                     incoming: incoming,
                                     tracked: new TrackedItems(tracked));
 
-                            Guid[] promote = new Guid[toStart.Count];
-                            TInput[] values = new TInput[toStart.Count];
-                            EntryIndex trackedIndex = new(entries: tracked, lookups: toStart.Count);
+                            // The start list applies to the queue with `incoming` in it, thus the tests
+                            // of the list read that queue.
+                            Entry[] admitted = Concat(a: tracked, b: [newEntry]);
 
-                            for (int i = 0; i < toStart.Count; i++)
-                            {
-                                promote[i] = toStart[i].Item.Id;
-
-                                if (newEntryId == promote[i])
-                                {
-                                    values[i] = o;
-                                }
-                                else
-                                {
-                                    int position = trackedIndex.IndexOf(promote[i]);
-
-                                    if (position < 0)
-                                    {
-                                        throw new InvalidOperationException("Could not find item to start.");
-                                    }
-
-                                    values[i] = tracked[position].Value;
-                                }
-                            }
+                            (Guid[] promote, TInput[] values) =
+                                ReadTheStartList(toStart: toStart, queue: admitted);
 
                             // A strategy refuses a value where it cancels `incoming` and does not
                             // promote it. The entry then keeps the Queued status permanently, thus no
@@ -2756,14 +2744,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                             }
 
                             // One edit: the add of `incoming`, and the promotion of each item that
-                            // starts. Apply removes, then adds, then promotes, thus the promotion of
-                            // `incoming` in this same edit finds the entry that the add put there.
+                            // starts. The promotion applies to `admitted`, thus the promotion of
+                            // `incoming` finds the entry that the add put there.
                             return Apply(
-                                list: tracked,
+                                list: admitted,
                                 mutation: new Mutation(
                                     remove: [],
                                     promote: promote,
-                                    add: [newEntry]));
+                                    add: []));
                         });
 
                 // Hold and not Accum. This class makes the queue itself, with Apply, and
@@ -2866,6 +2854,51 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
 
         return trackedCell.SampleImpl();
+    }
+
+    // Gives the id and the value of each item that a strategy names to start, from the queue that
+    // the start applies to. Each test of the list is here, before the first promotion and the first
+    // start. Thus, a list that this refuses starts no item. Its throw fails the transaction of the
+    // call, and that transaction discards the state that the strategy returned. Before, an item
+    // that a list named two times, or a Running item, started again. An item that a cancellation
+    // holds with the Queued status is correct to name, because its start ends it. An item that ended
+    // is not in the queue.
+    private static (Guid[] Promote, TInput[] Values) ReadTheStartList(
+        IReadOnlyList<AsyncToStart<TStrategyInput>> toStart,
+        Entry[] queue)
+    {
+        Guid[] promote = new Guid[toStart.Count];
+        TInput[] values = new TInput[toStart.Count];
+        EntryIndex queueIndex = new(entries: queue, lookups: toStart.Count);
+        HashSet<Guid>? named = toStart.Count > LinearSearchLimit ? [] : null;
+
+        for (int i = 0; i < toStart.Count; i++)
+        {
+            Guid id = toStart[i].Item.Id;
+            int position = queueIndex.IndexOf(id);
+
+            if (position < 0)
+            {
+                throw new InvalidOperationException("Could not find item to start.");
+            }
+
+            // A HashSet.Add gives false for an id that is in the set.
+            if (!named?.Add(id) ?? Array.IndexOf(array: promote, value: id, startIndex: 0, count: i) >= 0)
+            {
+                throw new InvalidOperationException(
+                    "Could not start item, because the start list names it more than one time.");
+            }
+
+            if (queue[position].Status == AsyncItemStatus.Running)
+            {
+                throw new InvalidOperationException("Could not start item, because it is already running.");
+            }
+
+            promote[i] = id;
+            values[i] = queue[position].Value;
+        }
+
+        return (Promote: promote, Values: values);
     }
 
     private static Entry[] Apply(Entry[] list, Mutation mutation)
@@ -3792,23 +3825,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             }
         }
 
-        Guid[] promote = new Guid[next.Count];
-        TInput[] values = new TInput[next.Count];
-        EntryIndex trackedIndex = new(entries: tracked, lookups: next.Count);
-
-        for (int i = 0; i < next.Count; i++)
-        {
-            Guid id = next[i].Item.Id;
-            int position = trackedIndex.IndexOf(id);
-
-            if (position < 0)
-            {
-                throw new InvalidOperationException("Could not find item to start.");
-            }
-
-            values[i] = tracked[position].Value;
-            promote[i] = id;
-        }
+        (Guid[] promote, TInput[] values) = ReadTheStartList(toStart: next, queue: tracked);
 
         tracked =
             Apply(

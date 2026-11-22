@@ -593,6 +593,208 @@ public sealed class MapAsyncImplTests
         l.Dispose();
     }
 
+    // Admit names 2 two times. Before, a synchronous operation ran one time, and then
+    // handleException got ObjectDisposedException from the second start. An asynchronous operation
+    // ran two times. The send now throws. The transaction that fails discards the state of the
+    // strategy, thus the next Admit gets the state from before 2.
+    [Test]
+    public async Task AnAdmitThatNamesAnItemTwoTimesThrowsAndStartsNothing()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        MisnamingStrategy strategy = new();
+        ControlledOperation<int, int> operation = new();
+        List<int> started = [];
+        List<Exception> unhandled = [];
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: unhandled.Add,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: (v, factory, token) =>
+                {
+                    lock (started)
+                    {
+                        started.Add(v);
+                    }
+
+                    return operation.Operation(input: v, resultFactory: factory, token: token);
+                },
+                strategy: strategy,
+                inputConverter: static v => v);
+
+        source.Send(1);
+
+        await Assert.That(() => source.Send(MisnamingStrategy.NamedTwoTimes))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("Could not start item, because the start list names it more than one time.");
+
+        await Assert.That(Snapshot(status)).IsEquivalentTo(
+            expected: [(1, AsyncItemStatus.Running)],
+            ordering: CollectionOrdering.Matching);
+
+        source.Send(5);
+
+        await Assert.That(Started(started)).IsEquivalentTo(expected: [1, 5], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(strategy.AdmitStates).IsEquivalentTo(
+            expected: [(1, 0), (MisnamingStrategy.NamedTwoTimes, 1), (5, 1)],
+            ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        await Assert.That(unhandled).IsEmpty();
+    }
+
+    // Admit names 3 and then 1, which is Running. The test of the list comes before the start of
+    // 3, thus the refusal starts no item.
+    [Test]
+    public async Task AnAdmitThatNamesARunningItemThrowsAndStartsNothing()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        MisnamingStrategy strategy = new();
+        ControlledOperation<int, int> operation = new();
+        List<int> started = [];
+        List<Exception> unhandled = [];
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: unhandled.Add,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: (v, factory, token) =>
+                {
+                    lock (started)
+                    {
+                        started.Add(v);
+                    }
+
+                    return operation.Operation(input: v, resultFactory: factory, token: token);
+                },
+                strategy: strategy,
+                inputConverter: static v => v);
+
+        source.Send(1);
+
+        await Assert.That(() => source.Send(MisnamingStrategy.NamesTheRunningItems))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("Could not start item, because it is already running.");
+
+        await Assert.That(Snapshot(status)).IsEquivalentTo(
+            expected: [(1, AsyncItemStatus.Running)],
+            ordering: CollectionOrdering.Matching);
+
+        source.Send(5);
+
+        await Assert.That(Started(started)).IsEquivalentTo(expected: [1, 5], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(strategy.AdmitStates).IsEquivalentTo(
+            expected: [(1, 0), (MisnamingStrategy.NamesTheRunningItems, 1), (5, 1)],
+            ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        await Assert.That(unhandled).IsEmpty();
+    }
+
+    // The end of 1 names 4, which has the Queued status, and then 6, which is Running. An end has no
+    // caller, thus the throw fails the flush and its second try. The two failures go to
+    // handleException, as for an item that is not in the queue. No item of the two starts, nothing
+    // publishes, and the queue stays as it was before the end.
+    [Test]
+    public async Task AnEndThatNamesARunningItemReportsTheFailureAndStartsNothing()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        MisnamingStrategy strategy = new();
+        ControlledOperation<int, int> operation = new();
+        List<int> started = [];
+        List<int> received = [];
+        List<Exception> unhandled = [];
+        using IListener l = results.Listen(received.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: e =>
+                {
+                    lock (unhandled)
+                    {
+                        unhandled.Add(e);
+                    }
+                },
+                createDeliveryException: TestDeliveryException.Create,
+                operation: (v, factory, token) =>
+                {
+                    lock (started)
+                    {
+                        started.Add(v);
+                    }
+
+                    return operation.Operation(input: v, resultFactory: factory, token: token);
+                },
+                strategy: strategy,
+                inputConverter: static v => v);
+
+        source.Send(MisnamingStrategy.EndNamesTheQueuedAndRunningItems);
+        source.Send(MisnamingStrategy.Held);
+        source.Send(6);
+
+        operation.Release(input: MisnamingStrategy.EndNamesTheQueuedAndRunningItems, result: 10);
+
+        TestUtil.WaitUntil(() =>
+        {
+            lock (unhandled)
+            {
+                return unhandled.Count > 0;
+            }
+        });
+
+        Thread.Sleep(100);
+
+        List<Exception> failures;
+
+        lock (unhandled)
+        {
+            failures = [.. unhandled];
+        }
+
+        await Assert.That(failures.Count).IsEqualTo(1);
+        await Assert.That(failures[0]).IsTypeOf<AggregateException>();
+
+        await Assert.That(((AggregateException)failures[0]).InnerExceptions.Select(static e => e.Message))
+            .IsEquivalentTo(
+                expected:
+                [
+                    "Could not start item, because it is already running.",
+                    "Could not start item, because it is already running."
+                ],
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(Started(started)).IsEquivalentTo(
+            expected: [MisnamingStrategy.EndNamesTheQueuedAndRunningItems, 6],
+            ordering: CollectionOrdering.Matching);
+
+        await Assert.That(received).IsEmpty();
+
+        await Assert.That(Snapshot(status)).IsEquivalentTo(
+            expected:
+            [
+                (MisnamingStrategy.EndNamesTheQueuedAndRunningItems, AsyncItemStatus.Running),
+                (MisnamingStrategy.Held, AsyncItemStatus.Queued),
+                (6, AsyncItemStatus.Running)
+            ],
+            ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
     // A Queue pipeline runs 1 and holds 2. A listener disposes the pipeline, and a different thread
     // then ends 1 while it waits for the lock. The cancel must come before that thread, or the end of
     // 1 promotes 2 and starts its operation after the disposal. Before, the cancel waited for the
@@ -1493,6 +1695,17 @@ public sealed class MapAsyncImplTests
             .ThrowsExactly<ArgumentNullException>();
     }
 
+    private static List<(int Value, AsyncItemStatus Status)> Snapshot(AsyncMapStatus<int> status) =>
+        [.. status.Items.Sample().Select(static i => (i.Value, i.Status))];
+
+    private static List<int> Started(List<int> started)
+    {
+        lock (started)
+        {
+            return [.. started];
+        }
+    }
+
     /// <summary>
     ///     Starts each item immediately and records the converted value of each item
     ///     at its admission.
@@ -1742,5 +1955,83 @@ public sealed class MapAsyncImplTests
 
             return new AsyncStrategyStep<int, object?>(state: state, start: AsyncToStart<int>.None);
         }
+    }
+
+    /// <summary>
+    ///     Names incorrect items to start for some values, and starts each other
+    ///     value immediately. The state counts the admissions, and the strategy
+    ///     records the state that each Admit gets. Thus, a test can see that a
+    ///     transaction that fails discards the state.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class MisnamingStrategy : AsyncConcurrencyStrategy<int, int>
+    {
+        /// <summary>The end of this value names each Queued item and then each Running item.</summary>
+        public const int EndNamesTheQueuedAndRunningItems = 1;
+
+        /// <summary>Admit names this value two times.</summary>
+        public const int NamedTwoTimes = 2;
+
+        /// <summary>Admit names this value and then each Running item.</summary>
+        public const int NamesTheRunningItems = 3;
+
+        /// <summary>Admit names no item for this value, thus it stays Queued.</summary>
+        public const int Held = 4;
+
+        // This record is global and is not the state of one MapAsync call, as in RecordingStrategy.
+        private readonly List<(int Value, int State)> admitStates = [];
+
+        public IReadOnlyList<(int Value, int State)> AdmitStates => this.admitStates;
+
+        protected override int CreateState() => 0;
+
+        protected internal override AsyncStrategyStep<int, int> Admit(
+            int state,
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
+        {
+            this.admitStates.Add((incoming.Value, state));
+
+            IReadOnlyList<AsyncToStart<int>> start =
+                incoming.Value switch
+                {
+                    NamedTwoTimes => [new AsyncToStart<int>(incoming), new AsyncToStart<int>(incoming)],
+                    NamesTheRunningItems =>
+                    [
+                        new AsyncToStart<int>(incoming),
+                        .. tracked
+                            .Where(static t => t.Status == AsyncItemStatus.Running)
+                            .Select(static t => new AsyncToStart<int>(t.Item))
+                    ],
+                    Held => AsyncToStart<int>.None,
+                    _ => [new AsyncToStart<int>(incoming)]
+                };
+
+            return new AsyncStrategyStep<int, int>(state: state + 1, start: start);
+        }
+
+        protected internal override AsyncStrategyResult<int, int> OnCompleted(
+            int state,
+            AsyncQueuedItem<int> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(
+                state: state,
+                publish: true,
+                next: item.Value == EndNamesTheQueuedAndRunningItems
+                    ?
+                    [
+                        .. tracked
+                            .Where(static t => t.Status == AsyncItemStatus.Queued)
+                            .Concat(tracked.Where(static t => t.Status == AsyncItemStatus.Running))
+                            .Select(static t => new AsyncToStart<int>(t.Item))
+                    ]
+                    : AsyncToStart<int>.None);
+
+        protected internal override AsyncStrategyStep<int, int> OnCanceled(
+            int state,
+            IReadOnlyList<AsyncQueuedItem<int>> canceled,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, start: AsyncToStart<int>.None);
     }
 }
