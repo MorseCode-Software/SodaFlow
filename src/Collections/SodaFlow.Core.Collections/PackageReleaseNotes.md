@@ -102,6 +102,32 @@ on .NET Framework 4.7.2 it takes 1,402 µs where it took 1,903 µs, against 1,36
 100 cells it takes 80 µs where it took 97 µs on .NET 10, equal to the collection; and at 10 keys the two arms measure
 the same as before. The index costs about 22 KB for a change of 1,000 operations.
 
+Changed: a change of a collection or a view now reaches only the per-key cells of the keys it names. Each per-key
+cell, from StateCell, IdentityCell, and ItemCell, was a filter on the whole change stream of its collection or view,
+so every change ran the filter of every per-key cell, and an edit of one row cost in proportion to the number of
+cells, observed or only held, and live or waiting for the garbage collector. Each collection and each view stage now
+has one router, made with its first per-key cell, which listens once on the change stream and keeps the per-key
+streams of each key weakly. A change visits only the keys it names, a view reset visits all of them, and a cell that
+nothing holds any more is skipped before the garbage collector reclaims it. A per-key cell made later in a
+transaction that already changed still gets that change. What a cell fires is unchanged. Within one transaction,
+cells of different keys now fire in the order of the keys in the change rather than in the order the cells were made,
+which nothing defined.
+
+In a new benchmark, PerKeyEditBenchmarks, one edit of one key of a collection of 10,000 items takes 1.6 to 1.8 µs on
+.NET 10 with 100, 1,000, or 10,000 state cells on it, where it took 7.2 µs, 61 µs, and 0.75 to 0.79 ms; on .NET
+Framework 4.7.2 it takes 4.6 to 4.9 µs where it took 20 µs, 166 to 169 µs, and 1.9 ms. Cells held with no listener
+take a little less. On .NET 10, at each of the three counts, the edit takes 3.8 to 4.0 µs with the cells on a filter,
+5.3 to 5.9 µs on a sort that the edit moves the key in, and 8.9 to 9.4 µs for one edit of ten keys. In the Blotter
+sample's benchmarks on .NET 10, at 1,000 and 10,000 orders, a fill on the page and an amendment take about half the
+time they took and the whole lifecycle of an order about two thirds; a tick, a fill off the page, and a page turn
+measure the same as before.
+
+The router costs something when a cell is made. In PerKeyCellBenchmarks, a state cell allocates 230 to 270 bytes
+more, about a quarter of the 930 bytes the change above saved. A collection with a state cell for each key takes 4 to
+16 percent more time to build at 100 keys and 7 to 19 percent more at 1,000, on both runtimes. At 10,000 keys it
+takes 9 to 18 percent more on .NET Framework 4.7.2 and 19 to 49 percent more on .NET 10, where the runs also vary
+the most; that cost is not profiled yet.
+
 The edit streams of a collection now merge through the one node that a list merge gets in SodaFlow.Core 6.0.0. Before,
 they were folded into a chain of pairwise merges that started from a never-firing stream, so an edit crossed one node
 for each stream before it, and a collection with one edit stream, the usual shape, paid a merge with that never-firing
