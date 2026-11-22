@@ -162,8 +162,9 @@ that reach this package, and its notes have the details of each:
   posted action that posts again made a new transaction for every lap, forever. The chain is cut when it is 100,000
   laps deep, and the laps before that have committed. The core notes have the rest.
 
-NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
-5.0.0. A consumer who references SodaFlow.Core directly gets the fixes either way.
+NuGet resolves the lowest version a range allows, so a fresh install of SodaFlow 5.0.1, the release before this one,
+goes on resolving SodaFlow.Core 5.0.0. Its range also stops below SodaFlow.Core 6.0.0, so the fixes reach a consumer
+of this package only through this release.
 
 Changed: ListenOnceAsync is now built on the one-shot listener of the core, so it gets the same fix. It used to carry its own copy of
 that logic, with the same gap. The task still completed only once, but the listener could stay attached until the

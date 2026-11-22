@@ -1,34 +1,34 @@
 3.0.0
 
 BREAKING: take and slice throw ArgumentOutOfRangeException for a negative count or offset, through
-SodaFlow.Core.Collections 3.0.0, where before they clamped it to zero and gave an empty or shifted view with nothing
+SodaFlow.Collections.Core 3.0.0, where before they clamped it to zero and gave an empty or shifted view with nothing
 to show for the error. The takeC and sliceC still clamp, because a throw there would fail whichever transaction moved
 the cell.
 
 Added: createWith and createByIdentityWith, each with an IEqualityComparer<'TKey> as its first argument, in the
 pipeline order the module uses, so a collection can key on case-insensitive strings or on any other equality. The C#
 surface had these overloads and this module did not, so an F# caller had to reach the C# generic class directly, with
-a Func around the selector. createByIdentityWith wraps an overload that is new in SodaFlow.Core.Collections 3.0.0. The
+a Func around the selector. createByIdentityWith wraps an overload that is new in SodaFlow.Collections.Core 3.0.0. The
 1.0.0 notes below name createByIdentityWith as if it shipped then; it did not exist until now.
 
 Added: createC, createWithC, createByIdentityC, and createByIdentityWithC, each the function without the suffix with
 the initial contents from a Cell<seq<Item<'TIdentity, 'TState>>> instead of a seq, following the module's convention
 that a C suffix names the variant that takes a cell. The transaction that builds the collection samples the cell at
-its close. The two identity variants wrap overloads that are new in SodaFlow.Core.Collections 3.0.0.
+its close. The two identity variants wrap overloads that are new in SodaFlow.Collections.Core 3.0.0.
 
 This release also raises the dependency floor, so that a new install gets
-SodaFlow.Core.Collections 3.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape; that is
-why this is a major version. In SodaFlow.Core.Collections 3.0.0, a per-key cell made during a transaction that then
+SodaFlow.Collections.Core 3.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape; that is
+why this is a major version. In SodaFlow.Collections.Core 3.0.0, a per-key cell made during a transaction that then
 fails no longer keeps an item from a discarded snapshot, a request for a per-key cell from outside a transaction can no
 longer deadlock with one from inside, and making a cell for each key of a large collection no longer takes time that
 grows with the square of the number of keys. That package's notes have the details.
 
-Changed, through SodaFlow.Core.Collections 3.0.0: an order with three levels or more, from thenBy and the functions with
+Changed, through SodaFlow.Collections.Core 3.0.0: an order with three levels or more, from thenBy and the functions with
 it, holds each sort value as an object, where each level made a deeper generic type before. A level whose sort value is
 a value type boxes it one time for each key that the order sorts. An order with one level or two levels did not change.
 That package's notes have the figures.
 
-Fixed, through SodaFlow.Core.Collections 3.0.0: disposing the result of map and mapWith now stops the projection. Before, the
+Fixed, through SodaFlow.Collections.Core 3.0.0: disposing the result of map and mapWith now stops the projection. Before, the
 next change of the keys built each row in the view again and nothing released those rows. Items now becomes empty in
 the transaction of the Dispose, or in the one just after it for a Dispose inside a callback, and the Dispose runs in a
 transaction, so it can no longer clear the caches while a transaction on another thread changes them. That package's

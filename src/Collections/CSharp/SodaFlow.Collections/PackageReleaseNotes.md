@@ -1,24 +1,24 @@
 3.0.0
 
 BREAKING: Take(int) and Slice(int, int) throw ArgumentOutOfRangeException for a negative count or offset, through
-SodaFlow.Core.Collections 3.0.0, where before they clamped it to zero and gave an empty or shifted view with nothing
+SodaFlow.Collections.Core 3.0.0, where before they clamped it to zero and gave an empty or shifted view with nothing
 to show for the error. The Cell<int> overloads still clamp, because a throw there would fail whichever transaction moved
 the cell.
 
 No change in this package's API. This release raises the dependency floor, so that a new install gets
-SodaFlow.Core.Collections 3.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape; that is
-why this is a major version. In SodaFlow.Core.Collections 3.0.0, a per-key cell made during a transaction that then
+SodaFlow.Collections.Core 3.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape; that is
+why this is a major version. In SodaFlow.Collections.Core 3.0.0, a per-key cell made during a transaction that then
 fails no longer keeps an item from a discarded snapshot, a request for a per-key cell from outside a transaction can no
 longer deadlock with one from inside, and making a cell for each key of a large collection no longer takes time that
 grows with the square of the number of keys. That package's notes have the details.
 
-Changed, through SodaFlow.Core.Collections 3.0.0: an order with three levels or more, from ThenBy and the methods with
+Changed, through SodaFlow.Collections.Core 3.0.0: an order with three levels or more, from ThenBy and the methods with
 it, holds each sort value as an object, where each level made a deeper generic type before. A level whose sort value is
 a value type boxes it one time for each key that the order sorts. An order with one level or two levels did not change.
 The native AOT compiler stopped at the deeper types, and an app that called ThenBy got IL3054 at its native AOT publish.
 That package's notes have the figures.
 
-Fixed, through SodaFlow.Core.Collections 3.0.0: disposing the result of Map now stops the projection. Before, the
+Fixed, through SodaFlow.Collections.Core 3.0.0: disposing the result of Map now stops the projection. Before, the
 next change of the keys built each row in the view again and nothing released those rows. Items now becomes empty in
 the transaction of the Dispose, or in the one just after it for a Dispose inside a callback, and the Dispose runs in a
 transaction, so it can no longer clear the caches while a transaction on another thread changes them. That package's

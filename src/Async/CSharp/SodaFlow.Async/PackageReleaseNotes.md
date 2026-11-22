@@ -1,6 +1,6 @@
 6.0.0
 
-BREAKING, and the break is in SodaFlow.Core.Async 6.0.0, which this release takes: a custom strategy returns its next
+BREAKING, and the break is in SodaFlow.Async.Core 6.0.0, which this release takes: a custom strategy returns its next
 state, where it changed its state in place. Admit and OnCanceled return an AsyncStrategyStep<TInput, TState>, with the
 state for the next call and the items to start, and OnCompleted returns an AsyncStrategyResult<TInput, TState>, with the
 state, the publish decision, and the items to start. AsyncStrategyResult<TInput> is gone, and its empty list is now
@@ -9,7 +9,7 @@ so a strategy no longer has to allow for a state that a failed call changed. The
 strategy replaces: one that changes an object in its state and returns the same object keeps that change after a
 failure. AsyncConcurrencyStrategy<TState> and AsyncConcurrencyStrategy, the short base classes here, take the new
 signatures with them. AsyncCompletion.MatchVoid now requires its two handlers, where it accepted null for an end to
-skip. The notes of SodaFlow.Core.Async have the reasoning.
+skip. The notes of SodaFlow.Async.Core have the reasoning.
 
 Changed: MapAsync takes a required handleException, an Action<Exception> after errors. The pipeline gives it each
 exception that has no caller and that errors cannot take: a report of a failed delivery that throws as well, an item
@@ -18,12 +18,12 @@ the handler of a timer system does. Before, those exceptions became unobserved t
 unrelated transaction. Every MapAsync call needs the new argument.
 
 Added: MapAsyncDeliveryException, the exception that errors gets when a listener stops the delivery of an outcome. It
-derives from MapAsyncDeliveryExceptionBase in SodaFlow.Core.Async, and its UndeliveredError is a Maybe<Exception>: Some
+derives from MapAsyncDeliveryExceptionBase in SodaFlow.Async.Core, and its UndeliveredError is a Maybe<Exception>: Some
 with the error that was not delivered, when the outcome was the operation's exception or a Construct function's, and
 None when it was a result. It has the usual exception constructors, so code that handles errors can make one in a test.
 
-This release also raises the dependency floor, so that a new install gets SodaFlow.Core.Async 6.0.0 and with it
-SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape. SodaFlow.Core.Async 6.0.0 has changes that reach this
+This release also raises the dependency floor, so that a new install gets SodaFlow.Async.Core 6.0.0 and with it
+SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape. SodaFlow.Async.Core 6.0.0 has changes that reach this
 package, and its notes have the details of each:
 
 - An operation starts after the transaction that started it has released the transaction lock, so slow synchronous
@@ -49,8 +49,9 @@ package, and its notes have the details of each:
   does. An exception from a callback registered on the token of the replaced run goes to handleException, where a send
   to the pipeline used to throw it.
 
-NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving
-SodaFlow.Core.Async 5.0.1. A consumer who references SodaFlow.Core.Async directly gets the changes either way.
+NuGet resolves the lowest version a range allows, so a fresh install of SodaFlow.Async 5.1.0, the release before
+this one, goes on resolving SodaFlow.Async.Core 5.0.1. Its range also stops below SodaFlow.Async.Core 6.0.0, so the
+changes reach a consumer of this package only through this release.
 
 Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0

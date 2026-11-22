@@ -113,9 +113,9 @@ that reach this package, and its notes have the details of each:
   posted action that posts again made a new transaction for every lap, forever. The chain is cut when it is 100,000
   laps deep, and the laps before that have committed. The core notes have the rest.
 
-NuGet resolves the lowest version a range allows, so a fresh install of 5.0.1 would go on resolving SodaFlow.Core
-5.0.0. This release also calls a member that SodaFlow.Core 5.0.1 adds, so it cannot run against 5.0.0, and the
-floor is what keeps a consumer from pairing them.
+NuGet resolves the lowest version a range allows, so a fresh install of SodaFlow.FSharp 5.0.1, the release before
+this one, goes on resolving SodaFlow.Core 5.0.0. This release also calls a member that SodaFlow.Core 6.0.0 adds, so
+it cannot run against 5.0.0, and the floor is what keeps a consumer from pairing them.
 
 Changed: listenOnceAsync is now built on the one-shot listener of the core, so it gets the same fix. It used to carry its own copy of
 that logic, with the same gap. The result still arrived only once, but the listener could stay attached until the
