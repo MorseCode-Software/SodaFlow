@@ -264,6 +264,52 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The state at a position, with the state that the store has now for
+    ///     each object of it.
+    /// </summary>
+    /// <remarks>
+    ///     A position keeps the state of its element at the time of the record.
+    ///     A write through a name of that element after the record changes the
+    ///     store, and not the position. A read of a name gets the state of the
+    ///     store, and a pattern for the position must get it also.
+    /// </remarks>
+    public LoopState NowInTheStore(LoopState position)
+    {
+        LoopState? stored = null;
+
+        foreach (MadeObject made in position.Objects)
+        {
+            if (this.region.Objects.StateOf(made) is { } one)
+            {
+                stored = stored == null ? one : stored.Join(one);
+            }
+        }
+
+        return stored == null
+            ? position
+            : position.RefreshedFrom(stored: stored.FromIfUnknown(position.AnyOrigin), all: false);
+    }
+
+    /// <summary>
+    ///     The state of each element of the one collection that a state is, when
+    ///     the store knows its positions. Null for each other state.
+    /// </summary>
+    public IReadOnlyList<LoopState>? StatesAtThePositionsIn(LoopState collection)
+    {
+        if (collection.Objects.Length != 1
+            || collection.Objects[0] is not { IsNew: true, IsOfTurnsBefore: false } made
+            || !this.region.Objects.HoldsOnlyWhatWentIn(made)
+            || this.region.Objects.PositionsOf(made) is not { } all)
+        {
+            return null;
+        }
+
+        IReadOnlyList<LoopState> kept = all;
+
+        return collection.Origin is { } origin ? [.. kept.Select(state => state.From(origin))] : kept;
+    }
+
+    /// <summary>
     ///     The state of the first element of a collection, and the number of
     ///     elements, when the walk knows the positions. Null for each other
     ///     collection.

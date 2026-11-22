@@ -58304,6 +58304,42 @@ public static class Shapes
     public static Cell<int> Ab418LocalSetUnderATrueConstantBeforeTheBuild() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab418LocalSetUnderATrueConstant().SetAndRead(l.Map(v => v))));
 
+    // S14096. A nested list pattern takes the plain element of an inner array. The read returns. (Left out in Round 5 as R5FuNestedListPatternTakesThePlainElement, AB291.)
+    public static Cell<int> R6FuCFuNestedListPatternTakesThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] cells = [[l.Map(v => v), Plain]]; if (cells is [[_, var x]]) { Kept.Add(x.Sample()); } return S.Hold(0); });
+
+    // S14097. AB337. The block writes the pending cell into an element of the inner array of a jagged array. A nested list pattern takes that element, and the body samples it.
+    public static Cell<int> R6FuAb337NestedListPatternAfterAWriteOfTheInnerElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] cells = [[Plain, Plain]]; cells[0][1] = l.Map(v => v); if (cells is [[_, var x]]) { Kept.Add(x.Sample()); } return S.Hold(0); });
+
+    // S14098. AB337. The same, but the write goes through a local of the inner array.
+    public static Cell<int> R6FuAb337NestedListPatternAfterAWriteThroughTheInnerLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] inner = [Plain, Plain]; Cell<int>[][] cells = [inner]; inner[1] = l.Map(v => v); if (cells is [[_, var x]]) { Kept.Add(x.Sample()); } return S.Hold(0); });
+
+    // S14099. AB337. The same as the first, with the nested list pattern in a switch expression.
+    public static Cell<int> R6FuAb337NestedListPatternInASwitchExpressionAfterAWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] cells = [[Plain, Plain]]; cells[0][1] = l.Map(v => v); int n = cells switch { [[_, var x]] => x.Sample(), _ => 0 }; return S.Hold(n); });
+
+    // S14100. AB337. The block writes the pending cell into an element of the inner array. A nested list pattern with a slice takes the last element, and the body samples it.
+    public static Cell<int> Ab337NestedListPatternWithASliceAfterAWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] cells = [[Plain, Plain]]; cells[0][1] = l.Map(v => v); if (cells is [[.., var x]]) { Kept.Add(x.Sample()); } return S.Hold(0); });
+
+    // S14101. AB337. The outer list pattern has a slice before the nested list pattern. The block wrote the pending cell into the last inner array.
+    public static Cell<int> Ab337NestedListPatternAfterTheSliceOfTheOuterPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] cells = [[Plain], [Plain, Plain]]; cells[1][1] = l.Map(v => v); if (cells is [.., [_, var x]]) { Kept.Add(x.Sample()); } return S.Hold(0); });
+
+    // S14102. AB337 control. The block writes the pending cell into the first element of the inner array. The nested list pattern takes the second element, which is plain. The read returns.
+    public static Cell<int> Ab337NestedListPatternTakesTheElementThatTheWriteMissed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] cells = [[Plain, Plain]]; cells[0][0] = l.Map(v => v); if (cells is [[_, var x]]) { Kept.Add(x.Sample()); } return S.Hold(0); });
+
+    // S14103. AB337 control. The same, with the nested list pattern on the left of an and pattern. The read returns.
+    public static Cell<int> Ab337NestedListPatternInAnAndPatternTakesThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] cells = [[Plain, Plain]]; cells[0][0] = l.Map(v => v); if (cells is [[_, var x] and { Length: 2 }]) { Kept.Add(x.Sample()); } return S.Hold(0); });
+
+    // S14104. AB337. The element of the outer array is one of two inner arrays. The condition is false, thus the element is the second array. The nested list pattern takes its pending element.
+    public static Cell<int> Ab337NestedListPatternOfOneOfTwoArrays() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; Cell<int>[] b = [Plain, l.Map(v => v)]; Cell<int>[][] cells = [Kept.Count < 0 ? a : b]; if (cells is [[_, var x]]) { Kept.Add(x.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

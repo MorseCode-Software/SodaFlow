@@ -1383,7 +1383,13 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     ///     pattern is for. A variable for a member of an object gets the state of
     ///     that member, when the walk knows the members.
     /// </summary>
-    private void DeclarePattern(PatternSyntax pattern, LoopState state)
+    /// <param name="pattern">The pattern.</param>
+    /// <param name="state">The state of the value that the pattern is for.</param>
+    /// <param name="isAPosition">
+    ///     True when the value is the element at a position of a list pattern,
+    ///     and the state is the state of that one position.
+    /// </param>
+    private void DeclarePattern(PatternSyntax pattern, LoopState state, bool isAPosition = false)
     {
         // A getter that a pattern reads can read a field that the block set, on an object with no
         // state of its own.
@@ -1424,7 +1430,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     return;
                 }
                 case BinaryPatternSyntax binary:
-                    this.DeclarePattern(pattern: binary.Left, state: state);
+                    this.DeclarePattern(pattern: binary.Left, state: state, isAPosition: isAPosition);
                     pattern = binary.Right;
 
                     continue;
@@ -1439,7 +1445,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 case ListPatternSyntax list:
                     this.Report(this.evaluator.FollowListPattern(pattern: list, owner: state));
                     this.DeclareDesignation(designation: list.Designation, state: state);
-                    this.DeclareElements(list: list, state: state);
+                    this.DeclareElements(list: list, state: state, isAPosition: isAPosition);
 
                     return;
                 case SlicePatternSyntax { Pattern: { } rest }:
@@ -1463,12 +1469,14 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     ///     elements. Then, a pattern before the slice is for the element at its
     ///     position from the start. A pattern after the slice is for the element
     ///     at its position from the end. The slice is for the elements between.
+    ///     A list pattern for the element at such a position can have the
+    ///     positions that the store has for that element.
     /// </remarks>
-    private void DeclareElements(ListPatternSyntax list, LoopState state)
+    private void DeclareElements(ListPatternSyntax list, LoopState state, bool isAPosition)
     {
         SeparatedSyntaxList<PatternSyntax> patterns = list.Patterns;
         int slice = patterns.IndexOf(static pattern => pattern is SlicePatternSyntax);
-        IReadOnlyList<LoopState>? positions = this.PositionsFor(list);
+        IReadOnlyList<LoopState>? positions = this.PositionsFor(list: list, position: isAPosition ? state : null);
 
         for (int i = 0; i < patterns.Count; i++)
         {
@@ -1485,14 +1493,16 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                         .Take(last - i + 1)
                         .Aggregate(seed: LoopState.None, func: static (joined, one) => joined.Join(one))
                         .AsContainer,
-                    ({ } known, false) => known[slice < 0 || i < slice ? i : last]
-                });
+                    ({ } known, false) => this.evaluator.NowInTheStore(known[slice < 0 || i < slice ? i : last])
+                },
+                isAPosition: positions != null && i != slice);
         }
     }
 
     // The state at each position of the collection that a list pattern is for, when the walk knows
-    // them. An and pattern and parentheses keep the value that they test.
-    private IReadOnlyList<LoopState>? PositionsFor(ListPatternSyntax list)
+    // them. An and pattern and parentheses keep the value that they test. The position is the state
+    // of one position of a list pattern around this one.
+    private IReadOnlyList<LoopState>? PositionsFor(ListPatternSyntax list, LoopState? position)
     {
         SyntaxNode? above = list.Parent;
 
@@ -1502,10 +1512,12 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         }
 
         IReadOnlyList<LoopState>? positions =
-            above is IsPatternExpressionSyntax or CasePatternSwitchLabelSyntax or SwitchExpressionArmSyntax
-            && MatchedValueOf(list) is { } matched
-                ? this.evaluator.StatesAtThePositionsOf(matched)
-                : null;
+            position != null
+                ? this.evaluator.StatesAtThePositionsIn(position)
+                : above is IsPatternExpressionSyntax or CasePatternSwitchLabelSyntax or SwitchExpressionArmSyntax
+                  && MatchedValueOf(list) is { } matched
+                    ? this.evaluator.StatesAtThePositionsOf(matched)
+                    : null;
 
         SeparatedSyntaxList<PatternSyntax> patterns = list.Patterns;
         int slice = patterns.IndexOf(static pattern => pattern is SlicePatternSyntax);

@@ -8131,6 +8131,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab407ActionOfAConstantTrueCell"] = ["SF1002"],
             ["Ab407ActionOfALocalThatCodeWrites"] = ["SF1002"],
             ["Ab407ActionOfAConstantThatIsNotOfTheLibrary"] = ["SF1002"],
-            ["Ab418LocalSetUnderATrueConstantBeforeTheBuild"] = ["SF1004"]
+            ["Ab418LocalSetUnderATrueConstantBeforeTheBuild"] = ["SF1004"],
+            ["R6FuAb337NestedListPatternAfterAWriteOfTheInnerElement"] = ["SF1001"],
+            ["R6FuAb337NestedListPatternAfterAWriteThroughTheInnerLocal"] = ["SF1001"],
+            ["R6FuAb337NestedListPatternInASwitchExpressionAfterAWrite"] = ["SF1001"],
+            ["Ab337NestedListPatternWithASliceAfterAWrite"] = ["SF1001"],
+            ["Ab337NestedListPatternAfterTheSliceOfTheOuterPattern"] = ["SF1001"],
+            ["Ab337NestedListPatternOfOneOfTwoArrays"] = ["SF1001"]
         };
 }

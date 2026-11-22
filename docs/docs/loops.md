@@ -337,8 +337,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   keeps each element apart, also where the literal spreads a second such local, so `cells[0]`,
   `cells[^1]`, `cells.ElementAt(1)`, and each element of a list pattern in an `is` or a `switch` on
   `cells`, also after `and` or in parentheses, are each one element. A list pattern inside a list
-  pattern does not know the positions of the inner collection, and gives each of its variables every
-  element. A positional pattern on a tuple gives each part its own item. A `Dictionary` that you
+  pattern knows the positions of the inner collection wherever a read such as `cells[0][1]` knows
+  them, also after a write through two indexes or through a second name of the inner collection.
+  Otherwise, it gives each of its variables every element of the inner collection. A positional
+  pattern on a tuple gives each part its own item. A `Dictionary` that you
   write with constant keys and no comparer, and that the code then only reads, keeps the value of
   each key apart, so `cells["total"]` is that one value. A key of the type `object` has the type of
   its constant too, so the `int` 1 and the `long` 1 are two keys. `Array.Fill` puts its value into
