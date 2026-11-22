@@ -121,9 +121,13 @@ public static partial class BindableCoreExtensionMethods
         // CanExecute reads a copy of the availability that the scheduler moves to the binding
         // thread, and that copy can be older than the cell. Thus, the send reads the cell again in
         // its own transaction, as Gate does, and a disabled command sends nothing.
+        //
+        // The send also tests the disposal again, as the WriteToGraph of a two-way value does.
+        // PostWrite defers while a transaction is open. Thus, a Dispose between the Execute and the
+        // send comes first, and the send must not fire. Before, such a command fired.
         private void SendIfEnabled(object? parameter)
         {
-            if (!this.IsEnabledCell.SampleImpl())
+            if (Volatile.Read(ref this.disposed) != 0 || !this.IsEnabledCell.SampleImpl())
             {
                 return;
             }

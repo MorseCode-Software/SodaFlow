@@ -346,6 +346,29 @@ public sealed class BindableActionTests
         }
     }
 
+    // In an open transaction the send waits until that transaction releases the lock. A Dispose
+    // in that interval comes before the send, thus the command must not fire. The two-way value
+    // holds the same rule for a write. Before, the command fired.
+    [Test]
+    public async Task DisposedInTheTransactionOfTheCallDoesNotFire()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> fired = [];
+
+        IBindableAction<int> a = Action(sink);
+
+        using (a.FiringsStream.Listen(fired.Add))
+        {
+            Transaction.RunVoid(() =>
+            {
+                a.Execute(7);
+                a.Dispose();
+            });
+
+            await Assert.That(fired).IsEmpty().Because("the command was disposed before the send ran");
+        }
+    }
+
     // A binding engine caches the last answer from CanExecute and asks again only when the
     // command tells it to. Thus, a call to Dispose with no notification leaves a button available,
     // and a click on that button does nothing.
