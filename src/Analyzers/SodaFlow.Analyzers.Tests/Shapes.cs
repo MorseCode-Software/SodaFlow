@@ -48524,12 +48524,17 @@ public static class Shapes
     public sealed class Ab179PlainDerived : Ab179ReadingBase;
 
     // A clock that a shape moves by hand, with the timer system over it. A step of the clock opens a
-    // transaction, and the timer system runs each timer that is due at the start of it.
+    // transaction, and the timer system runs each timer that is due at the start of it. The timer
+    // system gives the exception of an alarm's transaction to its handler, and not to the transaction
+    // of the step. Thus, the step throws the first exception that the handler got, so that a shape
+    // whose alarm makes a cycle still throws.
     public sealed class Ag89Clock : IDisposable, ITimerSystemImplementation<int>
     {
+        private readonly List<Exception> handled = [];
+
         private readonly List<(int Time, Action Callback, Ag89Timer Timer)> timers = [];
 
-        public Ag89Clock() => this.Timers = new TimerSystem<int>(implementation: this, handleException: static _ => { });
+        public Ag89Clock() => this.Timers = new TimerSystem<int>(implementation: this, handleException: this.handled.Add);
 
         public TimerSystem<int> Timers { get; }
 
@@ -48539,6 +48544,7 @@ public static class Shapes
         {
             this.Now = now;
             Transaction.RunVoid(static () => { });
+            R4ApiRethrow(this.handled);
         }
 
         public void Dispose() => this.Timers.Dispose();

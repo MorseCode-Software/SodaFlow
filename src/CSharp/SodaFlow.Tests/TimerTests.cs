@@ -712,6 +712,77 @@ public sealed class TimerTests
         await Assert.That(held.Sample()).IsEqualTo(1);
     }
 
+    // The start hook sends a due alarm in a transaction of its own, at the start of whichever
+    // transaction comes first after the deadline. A listener of the alarm that throws fails the
+    // transaction of the alarm, and the exception goes to the handler. The transaction that
+    // started has no relation to the alarm, and it commits.
+    [Test]
+    public async Task AnAlarmListenerThatThrowsGoesToTheHandlerAndNotToTheNextTransaction()
+    {
+        ScriptedClock clock = new();
+        List<Exception> handled = [];
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem(handled.Add));
+        InvalidOperationException thrown = new("The alarm listener throws.");
+
+        using IListener l = timers.At(Cell.Constant(Maybe.Some(5))).Listen(_ => throw thrown);
+
+        StreamSink<int> other = Stream.CreateSink<int>();
+        Cell<int> held = other.Hold(0);
+        List<int> seen = [];
+        using IListener o = other.Listen(seen.Add);
+
+        clock.MoveTo(6);
+        other.Send(42);
+
+        await Assert.That(held.Sample()).IsEqualTo(42);
+        await Assert.That(seen).IsEquivalentTo(expected: [42], ordering: CollectionOrdering.Matching);
+        await Assert.That(handled).HasSingleItem();
+        await Assert.That(handled[0]).IsSameReferenceAs(thrown);
+    }
+
+    // The same for a listener of the updates of Time. Time keeps its value when that send fails,
+    // and the next transaction sends the time again.
+    [Test]
+    public async Task ATimeListenerThatThrowsGoesToTheHandlerAndNotToTheNextTransaction()
+    {
+        ScriptedClock clock = new();
+        List<Exception> handled = [];
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem(handled.Add));
+        bool throwNext = true;
+        List<int> times = [];
+
+        using IListener l = Operational.Updates(timers.Time).Listen(t =>
+        {
+            if (throwNext)
+            {
+                throwNext = false;
+                throw new InvalidOperationException("The listener of Time throws.");
+            }
+
+            times.Add(t);
+        });
+
+        StreamSink<int> other = Stream.CreateSink<int>();
+        Cell<int> held = other.Hold(0);
+
+        clock.MoveTo(3);
+        other.Send(1);
+
+        // Before any other transaction: a sample opens one, and its hook sends the time again.
+        int[] timesAfterTheFailure = [.. times];
+        int handledAfterTheFailure = handled.Count;
+        int heldAfterTheFailure = held.Sample();
+
+        other.Send(2);
+
+        await Assert.That(heldAfterTheFailure).IsEqualTo(1);
+        await Assert.That(timesAfterTheFailure).IsEmpty();
+        await Assert.That(handledAfterTheFailure).IsEqualTo(1);
+        await Assert.That(held.Sample()).IsEqualTo(2);
+        await Assert.That(times).IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching);
+        await Assert.That(timers.Time.Sample()).IsEqualTo(3);
+    }
+
     private static void Ignore(Exception e)
     {
     }
@@ -826,6 +897,12 @@ public sealed class TimerTests
                 handleException: static _ =>
                 {
                 });
+
+        internal TimerSystem<int> CreateTimerSystem(Action<Exception> handleException) =>
+            new(implementation: this, handleException: handleException);
+
+        /// <summary>Moves the clock and opens no transaction.</summary>
+        internal void MoveTo(int now) => this.Now = now;
 
         /// <summary>
         ///     Moves the clock, and opens a transaction. The timer system reads the clock
