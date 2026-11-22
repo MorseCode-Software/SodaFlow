@@ -136,13 +136,15 @@ A package with no tag on the commit being built keeps the version its last tag g
 release only publishes what actually moved.
 
 Independent numbering does not mean the packages are independently *installable*, though.
-Every wrapper — `SodaFlow` and `SodaFlow.FSharp`, all three async assemblies, all three
-bindable ones and all three collections ones — reaches `SodaFlow.Core` through
-`InternalsVisibleTo`, so a change to those
+Every wrapper — `SodaFlow` and `SodaFlow.FSharp`, and the async, bindable, and collections
+assemblies — reaches `SodaFlow.Core` through `InternalsVisibleTo`, so a change to those
 internals binds them to one particular core even when no public API moved. When that happens
-the whole group takes a major version together — the emitted NuGet dependency is a minimum
-version rather than a range, so nothing but the version number stops an old wrapper being
-resolved against a newer core.
+the whole group takes a major version together, and the version range on each dependency is
+what keeps an old wrapper off a newer core. A package depends on each package of this repository
+from the version it was built against up to, but not including, that package's next major, so a
+wrapper built against 6.1.0 of a dependency declares `[6.1.0, 7.0.0)`. NuGet never resolves past
+that bound on its own. A project that references a newer major directly still gets it, with
+warning NU1608, which a build that treats warnings as errors fails on.
 
 ## Supported frameworks
 
