@@ -18,6 +18,17 @@ namespace SodaFlow.Tests;
 
 public sealed class EitherTests
 {
+    // A description is for diagnostics, and a default instance is where one is necessary. Thus,
+    // ToString names the empty case where Match throws, and names a held case as before.
+    [Test]
+    public async Task ToStringNamesTheCaseThatIsHeld()
+    {
+        await Assert.That(Either<int, string>.First(1).ToString()).IsEqualTo("First: 1");
+        await Assert.That(Either<int, string>.Second("a").ToString()).IsEqualTo("Second: a");
+        await Assert.That(Either8.Eighth(8).ToString()).IsEqualTo("Eighth: 8");
+        await Assert.That($"{default(Either<int, string>)}").IsEqualTo("{No case}");
+    }
+
     [Test]
     public async Task DefaultValue2Test()
     {
@@ -27,6 +38,7 @@ public sealed class EitherTests
         await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
         await Assert.That(e == default).IsTrue();
         await Assert.That(e == Either<Test1, Test2>.First(new Test1())).IsFalse();
+        await Assert.That(e.ToString()).IsEqualTo("{No case}");
     }
 
     [Test]
@@ -38,6 +50,7 @@ public sealed class EitherTests
         await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
         await Assert.That(e == default).IsTrue();
         await Assert.That(e == Either<Test1, Test2, Test3>.First(new Test1())).IsFalse();
+        await Assert.That(e.ToString()).IsEqualTo("{No case}");
     }
 
     [Test]
@@ -49,6 +62,7 @@ public sealed class EitherTests
         await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
         await Assert.That(e == default).IsTrue();
         await Assert.That(e == Either<Test1, Test2, Test3, Test4>.First(new Test1())).IsFalse();
+        await Assert.That(e.ToString()).IsEqualTo("{No case}");
     }
 
     [Test]
@@ -60,6 +74,7 @@ public sealed class EitherTests
         await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
         await Assert.That(e == default).IsTrue();
         await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5>.First(new Test1())).IsFalse();
+        await Assert.That(e.ToString()).IsEqualTo("{No case}");
     }
 
     [Test]
@@ -71,6 +86,7 @@ public sealed class EitherTests
         await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
         await Assert.That(e == default).IsTrue();
         await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5, Test6>.First(new Test1())).IsFalse();
+        await Assert.That(e.ToString()).IsEqualTo("{No case}");
     }
 
     [Test]
@@ -82,6 +98,7 @@ public sealed class EitherTests
         await Assert.That(() => e.Upcast<IEither>().GetValueAsObject()).ThrowsExactly<InvalidOperationException>();
         await Assert.That(e == default).IsTrue();
         await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7>.First(new Test1())).IsFalse();
+        await Assert.That(e.ToString()).IsEqualTo("{No case}");
     }
 
     [Test]
@@ -95,6 +112,8 @@ public sealed class EitherTests
 
         await Assert.That(e == Either<Test1, Test2, Test3, Test4, Test5, Test6, Test7, Test8>.First(new Test1()))
             .IsFalse();
+
+        await Assert.That(e.ToString()).IsEqualTo("{No case}");
     }
 
     [Test]

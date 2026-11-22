@@ -1128,9 +1128,19 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <summary>
     ///     Returns a readable description of this instance, for diagnostics.
     /// </summary>
-    /// <returns>The name of the case held, followed by the value it holds.</returns>
+    /// <returns>
+    ///     The name of the case held, followed by the value it holds. A default
+    ///     instance holds no case, and gives <c>{No case}</c>.
+    /// </returns>
+    /// <remarks>
+    ///     This does not throw for a default instance, where <c>Match</c> throws. A
+    ///     description is for diagnostics, such as the message of a failed
+    ///     assertion, and a default instance is the case where one is necessary.
+    /// </remarks>
     public override string ToString() =>
-        this.Match(onFirst: static v1 => $"First: {v1}", onSecond: static v2 => $"Second: {v2}");
+        this.valueType == 0
+            ? "{No case}"
+            : this.Match(onFirst: static v1 => $"First: {v1}", onSecond: static v2 => $"Second: {v2}");
 }
 
 /// <summary>
@@ -1757,12 +1767,22 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     /// <summary>
     ///     Returns a readable description of this instance, for diagnostics.
     /// </summary>
-    /// <returns>The name of the case held, followed by the value it holds.</returns>
+    /// <returns>
+    ///     The name of the case held, followed by the value it holds. A default
+    ///     instance holds no case, and gives <c>{No case}</c>.
+    /// </returns>
+    /// <remarks>
+    ///     This does not throw for a default instance, where <c>Match</c> throws. A
+    ///     description is for diagnostics, such as the message of a failed
+    ///     assertion, and a default instance is the case where one is necessary.
+    /// </remarks>
     public override string ToString() =>
-        this.Match(
-            onFirst: static v1 => $"First: {v1}",
-            onSecond: static v2 => $"Second: {v2}",
-            onThird: static v3 => $"Third: {v3}");
+        this.valueType == 0
+            ? "{No case}"
+            : this.Match(
+                onFirst: static v1 => $"First: {v1}",
+                onSecond: static v2 => $"Second: {v2}",
+                onThird: static v3 => $"Third: {v3}");
 }
 
 /// <summary>
@@ -2557,13 +2577,23 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
     /// <summary>
     ///     Returns a readable description of this instance, for diagnostics.
     /// </summary>
-    /// <returns>The name of the case held, followed by the value it holds.</returns>
+    /// <returns>
+    ///     The name of the case held, followed by the value it holds. A default
+    ///     instance holds no case, and gives <c>{No case}</c>.
+    /// </returns>
+    /// <remarks>
+    ///     This does not throw for a default instance, where <c>Match</c> throws. A
+    ///     description is for diagnostics, such as the message of a failed
+    ///     assertion, and a default instance is the case where one is necessary.
+    /// </remarks>
     public override string ToString() =>
-        this.Match(
-            onFirst: static v1 => $"First: {v1}",
-            onSecond: static v2 => $"Second: {v2}",
-            onThird: static v3 => $"Third: {v3}",
-            onFourth: static v4 => $"Fourth: {v4}");
+        this.valueType == 0
+            ? "{No case}"
+            : this.Match(
+                onFirst: static v1 => $"First: {v1}",
+                onSecond: static v2 => $"Second: {v2}",
+                onThird: static v3 => $"Third: {v3}",
+                onFourth: static v4 => $"Fourth: {v4}");
 }
 
 /// <summary>
@@ -3539,14 +3569,24 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
     /// <summary>
     ///     Returns a readable description of this instance, for diagnostics.
     /// </summary>
-    /// <returns>The name of the case held, followed by the value it holds.</returns>
+    /// <returns>
+    ///     The name of the case held, followed by the value it holds. A default
+    ///     instance holds no case, and gives <c>{No case}</c>.
+    /// </returns>
+    /// <remarks>
+    ///     This does not throw for a default instance, where <c>Match</c> throws. A
+    ///     description is for diagnostics, such as the message of a failed
+    ///     assertion, and a default instance is the case where one is necessary.
+    /// </remarks>
     public override string ToString() =>
-        this.Match(
-            onFirst: static v1 => $"First: {v1}",
-            onSecond: static v2 => $"Second: {v2}",
-            onThird: static v3 => $"Third: {v3}",
-            onFourth: static v4 => $"Fourth: {v4}",
-            onFifth: static v5 => $"Fifth: {v5}");
+        this.valueType == 0
+            ? "{No case}"
+            : this.Match(
+                onFirst: static v1 => $"First: {v1}",
+                onSecond: static v2 => $"Second: {v2}",
+                onThird: static v3 => $"Third: {v3}",
+                onFourth: static v4 => $"Fourth: {v4}",
+                onFifth: static v5 => $"Fifth: {v5}");
 }
 
 /// <summary>
@@ -4704,15 +4744,25 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
     /// <summary>
     ///     Returns a readable description of this instance, for diagnostics.
     /// </summary>
-    /// <returns>The name of the case held, followed by the value it holds.</returns>
+    /// <returns>
+    ///     The name of the case held, followed by the value it holds. A default
+    ///     instance holds no case, and gives <c>{No case}</c>.
+    /// </returns>
+    /// <remarks>
+    ///     This does not throw for a default instance, where <c>Match</c> throws. A
+    ///     description is for diagnostics, such as the message of a failed
+    ///     assertion, and a default instance is the case where one is necessary.
+    /// </remarks>
     public override string ToString() =>
-        this.Match(
-            onFirst: static v1 => $"First: {v1}",
-            onSecond: static v2 => $"Second: {v2}",
-            onThird: static v3 => $"Third: {v3}",
-            onFourth: static v4 => $"Fourth: {v4}",
-            onFifth: static v5 => $"Fifth: {v5}",
-            onSixth: static v6 => $"Sixth: {v6}");
+        this.valueType == 0
+            ? "{No case}"
+            : this.Match(
+                onFirst: static v1 => $"First: {v1}",
+                onSecond: static v2 => $"Second: {v2}",
+                onThird: static v3 => $"Third: {v3}",
+                onFourth: static v4 => $"Fourth: {v4}",
+                onFifth: static v5 => $"Fifth: {v5}",
+                onSixth: static v6 => $"Sixth: {v6}");
 }
 
 /// <summary>
@@ -6056,16 +6106,26 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     /// <summary>
     ///     Returns a readable description of this instance, for diagnostics.
     /// </summary>
-    /// <returns>The name of the case held, followed by the value it holds.</returns>
+    /// <returns>
+    ///     The name of the case held, followed by the value it holds. A default
+    ///     instance holds no case, and gives <c>{No case}</c>.
+    /// </returns>
+    /// <remarks>
+    ///     This does not throw for a default instance, where <c>Match</c> throws. A
+    ///     description is for diagnostics, such as the message of a failed
+    ///     assertion, and a default instance is the case where one is necessary.
+    /// </remarks>
     public override string ToString() =>
-        this.Match(
-            onFirst: static v1 => $"First: {v1}",
-            onSecond: static v2 => $"Second: {v2}",
-            onThird: static v3 => $"Third: {v3}",
-            onFourth: static v4 => $"Fourth: {v4}",
-            onFifth: static v5 => $"Fifth: {v5}",
-            onSixth: static v6 => $"Sixth: {v6}",
-            onSeventh: static v7 => $"Seventh: {v7}");
+        this.valueType == 0
+            ? "{No case}"
+            : this.Match(
+                onFirst: static v1 => $"First: {v1}",
+                onSecond: static v2 => $"Second: {v2}",
+                onThird: static v3 => $"Third: {v3}",
+                onFourth: static v4 => $"Fourth: {v4}",
+                onFifth: static v5 => $"Fifth: {v5}",
+                onSixth: static v6 => $"Sixth: {v6}",
+                onSeventh: static v7 => $"Seventh: {v7}");
 }
 
 /// <summary>
@@ -7609,15 +7669,25 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <summary>
     ///     Returns a readable description of this instance, for diagnostics.
     /// </summary>
-    /// <returns>The name of the case held, followed by the value it holds.</returns>
+    /// <returns>
+    ///     The name of the case held, followed by the value it holds. A default
+    ///     instance holds no case, and gives <c>{No case}</c>.
+    /// </returns>
+    /// <remarks>
+    ///     This does not throw for a default instance, where <c>Match</c> throws. A
+    ///     description is for diagnostics, such as the message of a failed
+    ///     assertion, and a default instance is the case where one is necessary.
+    /// </remarks>
     public override string ToString() =>
-        this.Match(
-            onFirst: static v1 => $"First: {v1}",
-            onSecond: static v2 => $"Second: {v2}",
-            onThird: static v3 => $"Third: {v3}",
-            onFourth: static v4 => $"Fourth: {v4}",
-            onFifth: static v5 => $"Fifth: {v5}",
-            onSixth: static v6 => $"Sixth: {v6}",
-            onSeventh: static v7 => $"Seventh: {v7}",
-            onEighth: static v8 => $"Eighth: {v8}");
+        this.valueType == 0
+            ? "{No case}"
+            : this.Match(
+                onFirst: static v1 => $"First: {v1}",
+                onSecond: static v2 => $"Second: {v2}",
+                onThird: static v3 => $"Third: {v3}",
+                onFourth: static v4 => $"Fourth: {v4}",
+                onFifth: static v5 => $"Fifth: {v5}",
+                onSixth: static v6 => $"Sixth: {v6}",
+                onSeventh: static v7 => $"Seventh: {v7}",
+                onEighth: static v8 => $"Eighth: {v8}");
 }
