@@ -58836,6 +58836,18 @@ public static class Shapes
     public static Cell<int> Ab374WriteThroughARefOfAStaticFieldThatALocalFunctionReturns() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab374Statics.E = Plain; Get() = l.Map(v => v); Kept.Add(Ab374Statics.E!.Sample()); static ref Cell<int>? Get() => ref Ab374Statics.E; return S.Hold(0); });
 
+    // S14229. An async lambda runs an await foreach over an async iterator that throws after a complete await. The catch around the loop samples the object.
+    public static Cell<int> R6ExcAwaitForeachOfAnIteratorThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await foreach (int n in R6ExcThrowWhenEnumerated(l.Map(v => v))) { Kept.Add(n); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14230. An async lambda runs an await foreach over an async iterator that throws before any await. The catch around the loop samples the object.
+    public static Cell<int> R6ExcAwaitForeachOfAnIteratorThatThrowsAtOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await foreach (int n in R6ExcThrowAtOnceWhenEnumerated(l.Map(v => v))) { Kept.Add(n); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14231. A foreach with no await enumerates the task of an async method through an extension GetEnumerator. The await of the task is not at the call, and Result throws an AggregateException. Thus, the catch of the object never runs.
+    public static Cell<int> Ab355ForeachWithNoAwaitOfAnAsyncMethodGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { foreach (int n in Ab355ListInItsTask(l.Map(v => v))) { Kept.Add(n); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } } catch (AggregateException) { Kept.Add(0); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109602,6 +109614,14 @@ public static class Shapes
         public static Cell<int>? E;
     }
 
+    // Helpers of the shapes of AB355.
+    private static async Task<List<int>> Ab355ListInItsTask(Cell<int> c)
+    {
+        await Task.CompletedTask;
+
+        throw new R4CsFault(c);
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -109610,6 +109630,9 @@ public static class Shapes
 
 file static class Helpers
 {
+    // Extension methods of the shapes of AB355.
+    public static IEnumerator<int> GetEnumerator(this Task<List<int>> task) => task.Result.GetEnumerator();
+
     // Extension methods of the Round 6 shapes: cs.
     public static int R6CsOldReadNow(this Cell<int> c) => c.Sample();
 

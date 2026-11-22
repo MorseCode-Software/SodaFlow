@@ -45,7 +45,8 @@ internal sealed partial class SinkWalker
     }
 
     // True when the caller awaits the task of a call at the call. That is an await of the call, also through
-    // ConfigureAwait, and an await using whose resource the call disposes.
+    // ConfigureAwait, and an await using whose resource the call disposes. An await foreach awaits each MoveNextAsync
+    // of the sequence that the call gives, and an async iterator throws its objects there.
     private static bool AwaitsTheTaskOf(SyntaxNode call)
     {
         SyntaxNode? task = call.Parent;
@@ -60,6 +61,7 @@ internal sealed partial class SinkWalker
         {
             AwaitExpressionSyntax => true,
             UsingStatementSyntax used => used.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
+            CommonForEachStatementSyntax loop => loop.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
             EqualsValueClauseSyntax { Parent.Parent.Parent: var declared } =>
                 declared is UsingStatementSyntax { AwaitKeyword.RawKind: (int)SyntaxKind.AwaitKeyword }
                     or LocalDeclarationStatementSyntax { AwaitKeyword.RawKind: (int)SyntaxKind.AwaitKeyword },

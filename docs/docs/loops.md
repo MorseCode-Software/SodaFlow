@@ -326,8 +326,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   object that a `throw` in its `try` block, or in a method or a lambda that the block calls, can
   send to that clause. That includes a lambda that a method of the platform, such as
   `List<T>.ForEach`, runs in the call. An `async` method, local function, or lambda puts the object
-  into its task instead, so the clause gets it only around an `await` of the call, or around an
-  `await using` whose `DisposeAsync` throws it. A task that `RunSynchronously` runs keeps the object
+  into its task instead, so the clause gets it only around an `await` of the call, around an
+  `await foreach` over the sequence that an async iterator gives, or around an `await using` whose
+  `DisposeAsync` throws it. A task that `RunSynchronously` runs keeps the object
   as well. The runtime throws a `TypeInitializationException` in place of an object that a static
   constructor throws, and a `TargetInvocationException` in place of one that a method throws through
   `MethodInfo.Invoke` or a constructor through `Activator.CreateInstance` or `new T()` of a type

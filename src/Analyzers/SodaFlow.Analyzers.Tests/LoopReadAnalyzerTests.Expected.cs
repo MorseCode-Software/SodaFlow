@@ -8219,6 +8219,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6LimWriteThroughAConstantConditionalRefReadTheTaken"] = ["SF1001"],
             ["R6LimWriteThroughAConstantConditionalRefOfALocalFunctionReadTheTaken"] = ["SF1001"],
             ["Ab374WriteThroughAConditionalRefOnFalseReadTheTaken"] = ["SF1001"],
-            ["Ab374WriteThroughARefOfAStaticFieldThatALocalFunctionReturns"] = ["SF1001"]
+            ["Ab374WriteThroughARefOfAStaticFieldThatALocalFunctionReturns"] = ["SF1001"],
+            ["R6ExcAwaitForeachOfAnIteratorThatThrows"] = ["SF1001"],
+            ["R6ExcAwaitForeachOfAnIteratorThatThrowsAtOnce"] = ["SF1001"]
         };
 }
