@@ -180,7 +180,8 @@ before. The fix is in SodaFlow.Core, so it reaches an implementation you write a
 
 Fixed: a deadline at infinity, at double.MaxValue, or more than about 29,000 years ahead no longer makes every
 transaction in the process throw, and a NaN deadline is now refused with ArgumentOutOfRangeException in the
-transaction that gives it. A listener of an alarm, or of Time, that throws no longer fails whichever unrelated
+transaction that gives it. Such a deadline, or one at DateTime.MaxValue, also no longer makes the timer thread spin and
+flood the handler. A listener of an alarm, or of Time, that throws no longer fails whichever unrelated
 transaction delivered the alarm; the exception goes to the handler of the timer system. The fixes are in SodaFlow.Core,
 so they reach an implementation you write as well.
 

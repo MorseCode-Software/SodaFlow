@@ -378,6 +378,15 @@ all of them, so it was always the earliest timer and was always due. At now thro
 transaction that gives a NaN, for any timer system whose time is a double or a float, so that transaction fails and
 the cell keeps its deadline.
 
+Fixed: a deadline more than about 24.8 days ahead no longer makes the timer thread spin. The thread passed its wait
+straight to WaitOne, which throws above int.MaxValue milliseconds; the thread gave each throw to the handler and
+tried again at once, which used a core and called the handler about 220,000 times a second until the deadline was
+cleared. A deadline at DateTime.MaxValue, a natural spelling of "never", did it, and so did the TimeSpan.MaxValue that
+the seconds clock now gives for a far deadline. WaitOne also cut its wait to whole milliseconds, so under a clock
+resolution a deadline less than a millisecond past a step made waits of no time until the clock reached its next step.
+The wait is now rounded up to whole milliseconds and kept between one millisecond and the thread's longest wait of
+1,000 seconds; the worst case under a resolution is a wake each millisecond for one step.
+
 Fixed: a listener of an alarm, or of the updates of Time, that throws no longer fails an unrelated transaction. The
 start hook delivers a due alarm in a transaction of its own, at the start of whichever transaction comes first after the
 deadline, on any thread, and nothing caught a throw there: it left the hook and failed that transaction before its body
