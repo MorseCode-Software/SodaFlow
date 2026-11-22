@@ -223,6 +223,47 @@ public sealed class BindableActionTests
         }
     }
 
+    // A nested message loop can deliver a click into a transaction that then fails for a cause
+    // that has no connection to the click. The send must reach the graph also then. Before, it
+    // waited in the post queue of that transaction, and the failure discarded it.
+    [Test]
+    public async Task FiresWhenTheTransactionOfTheCallFails()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        CellSink<int> other = Cell.CreateSink(0);
+        List<int> fired = [];
+
+        using IBindableAction<int> a = Action(sink);
+
+        using (a.FiringsStream.Listen(fired.Add))
+        {
+            // The listener runs immediately in the Send below, thus it cannot have a longer life
+            // than the using block.
+            // ReSharper disable AccessToDisposedClosure
+            IListener nested = other.Updates().Listen(_ =>
+            {
+                a.Execute(7);
+
+                throw new InvalidOperationException("from the graph");
+            });
+
+            // ReSharper restore AccessToDisposedClosure
+
+            try
+            {
+                await Assert.That(() => other.Send(1)).ThrowsExactly<InvalidOperationException>();
+            }
+            finally
+            {
+                nested.Dispose();
+            }
+
+            await Assert.That(fired)
+                .IsEquivalentTo(expected: [7], ordering: CollectionOrdering.Matching)
+                .Because("the send ran after the transaction failed");
+        }
+    }
+
     // The control for the two tests above: the send reads the cell, and a true cell lets the send occur.
     [Test]
     public async Task FiresWhenTheCellIsTrueAtTheSend()

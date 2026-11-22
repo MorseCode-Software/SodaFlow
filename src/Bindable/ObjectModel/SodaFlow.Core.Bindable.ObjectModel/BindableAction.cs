@@ -109,9 +109,9 @@ public static partial class BindableCoreExtensionMethods
 
             // This code tests the value here and not in the posted action. The test of the type
             // is a diagnostic for the author of the XAML, and it must throw where that person can
-            // see it. When a transaction is open, PostWrite defers, and a throw from the deferred
-            // action leaves Transaction.Close. That stops a transaction that has no connection to
-            // this command, and discards the other work in its queue.
+            // see it. When a transaction is open, PostWrite defers the send until that transaction
+            // releases the lock. A throw from the deferred send then comes out of the code that
+            // opened that transaction, which has no connection to this command.
             this.ValidateParameter(parameter);
 
             // The state carries this object and the parameter, thus the post captures nothing.

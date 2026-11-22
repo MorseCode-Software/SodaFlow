@@ -151,8 +151,8 @@ public sealed class BindableValueConcurrencyTests
     // The same two writes on the other path. A setter usually sends immediately, because with no
     // open transaction PostWrite runs the write there. Thus, the first write reaches the
     // cell before the code calls the second setter, and no refresh can sample between the two.
-    // From inside a transaction the write defers, and the two stay in the post queue until that
-    // transaction closes. In that arrangement a refresh that samples before that point gives the view the
+    // From inside a transaction the write defers, and the two wait until that transaction releases
+    // the lock. In that arrangement a refresh that samples before that point gives the view the
     // previous value. This test holds the correct behavior: the two writes drain before a refresh
     // runs, and each refresh samples and carries no value, thus neither one can do that.
     [Test]
@@ -891,8 +891,8 @@ public sealed class BindableValueConcurrencyTests
         await Assert.That(scheduler.RunAll()).IsEqualTo(0).Because("the throw comes one time");
     }
 
-    // A write in an open transaction waits for the close of that transaction. Thus, a throw from
-    // the graph leaves that close, and the code that opened the transaction gets it. A binding
+    // A write in an open transaction waits until that transaction releases the lock. Thus, a throw
+    // from the graph comes out of the code that opened the transaction. A binding
     // engine opens no transaction, thus that code is not a binding engine. The scheduler does not
     // throw it a second time.
     [Test]
@@ -919,6 +919,49 @@ public sealed class BindableValueConcurrencyTests
         scheduler.RunAll();
 
         await Assert.That(b.Value).IsEqualTo("kept");
+    }
+
+    // A nested message loop can deliver a write into a transaction that then fails for a cause
+    // that has no connection to the write. The write must reach the graph also then. Before, it
+    // waited in the post queue of that transaction, and the failure discarded it.
+    [Test]
+    public async Task AWriteInAnOpenTransactionThatFailsReachesTheGraph()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<int> c = Cell.CreateSink(0);
+        CellSink<int> other = Cell.CreateSink(0);
+
+        using ITwoWayBindableValue<int> b = c.ToTwoWayImpl(scheduler: scheduler);
+
+        _ = b.Value;
+
+        // The listener runs immediately in the Send below, thus it cannot have a longer life than
+        // the using block.
+        // ReSharper disable AccessToDisposedClosure
+        IListener nested = other.Updates().Listen(_ =>
+        {
+            b.Value = 5;
+
+            throw new InvalidOperationException("from the graph");
+        });
+
+        // ReSharper restore AccessToDisposedClosure
+
+        try
+        {
+            await Assert.That(() => other.Send(1)).ThrowsExactly<InvalidOperationException>();
+        }
+        finally
+        {
+            nested.Dispose();
+        }
+
+        int cellAfterTheFailure = c.Sample();
+
+        scheduler.RunAll();
+
+        await Assert.That(cellAfterTheFailure).IsEqualTo(5).Because("the write ran after the transaction failed");
+        await Assert.That(b.Value).IsEqualTo(5).Because("and the value agrees with the cell");
     }
 
     // Nothing changes for a scheduler with no thread of its own. Thus, each test that exists,

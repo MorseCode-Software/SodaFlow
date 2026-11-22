@@ -110,22 +110,49 @@ public static partial class BindableCoreExtensionMethods
     ///     <para>
     ///         When no transaction is open, this method opens one and runs
     ///         immediately, thus the behavior does not change. That is the usual
-    ///         condition, a binding setter that an idle dispatcher calls. When a
-    ///         transaction is open, this method runs in a new transaction that it
-    ///         opens after the current one ends. A transaction is open only when a
-    ///         nested message loop delivered the write from a callback. The send is
-    ///         correct in each condition. Do not call <c>Send</c> on a sink directly
-    ///         from a binding setter.
+    ///         condition, a binding setter that an idle dispatcher calls. A throw
+    ///         from the send then goes to the caller.
     ///     </para>
     ///     <para>
-    ///         Each posted callback runs as its own transaction. Thus, two writes
-    ///         cannot occur in one transaction. For that cause a
-    ///         <c>StreamSink&lt;T&gt;</c> is sufficient as a write target, and a
-    ///         variant that combines writes is not necessary.
+    ///         When a transaction is open, the send runs in a new transaction. This
+    ///         method opens that transaction on the same thread, after the open
+    ///         transaction releases the lock. This occurs also when the open
+    ///         transaction fails. The write or the click has no connection to that
+    ///         failure. A throw from the send then comes out of the code that
+    ///         opened the transaction. When that transaction also failed, the two
+    ///         exceptions come out together. A transaction is open only when a nested
+    ///         message loop delivered the write from a callback. Do not call
+    ///         <c>Send</c> on a sink directly from a binding setter.
+    ///     </para>
+    ///     <para>
+    ///         Before, the send went into the post queue of the open transaction. A
+    ///         transaction that fails discards that queue, thus the write or the
+    ///         click did not reach the graph.
+    ///     </para>
+    ///     <para>
+    ///         Each send runs as its own transaction. Thus, two writes cannot occur in
+    ///         one transaction. For that cause a <c>StreamSink&lt;T&gt;</c> is
+    ///         sufficient as a write target, and a variant that combines writes is
+    ///         not necessary.
     ///     </para>
     /// </remarks>
-    private static void PostWrite<TState>(Action<TState> write, TState state) =>
+    private static void PostWrite<TState>(Action<TState> write, TState state)
+    {
+        if (TransactionInternal.HasCurrentTransaction())
+        {
+            PostWriteAfterRelease(write: write, state: state);
+
+            return;
+        }
+
         TransactionInternal.PostImpl(action: write, state: state);
+    }
+
+    // This is a different method from PostWrite, because a lambda that captures a parameter makes
+    // its closure at the start of the method. Here, only the path with an open transaction makes
+    // the closure. In PostWrite, the usual path with no open transaction also makes it.
+    private static void PostWriteAfterRelease<TState>(Action<TState> write, TState state) =>
+        TransactionInternal.AfterReleaseImpl(() => TransactionInternal.PostImpl(action: write, state: state));
 
     /// <summary>
     ///     Throws when the caller is not on the binding thread.

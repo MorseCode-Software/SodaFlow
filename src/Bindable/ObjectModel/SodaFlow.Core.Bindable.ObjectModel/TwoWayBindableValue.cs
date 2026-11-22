@@ -233,8 +233,8 @@ public static partial class BindableCoreExtensionMethods
                     // or shows it as a validation error that the refresh below then removes. A throw
                     // from the graph is a defect and not a validation result. Thus, the scheduler
                     // throws it on the binding thread, outside the binding engine. When a
-                    // transaction is open, the write waits for its close, and a throw leaves that
-                    // close to the code that opened the transaction.
+                    // transaction is open, the write waits until that transaction releases the
+                    // lock, and a throw goes to the code that opened the transaction.
                     failure = ExceptionDispatchInfo.Capture(e);
                 }
 
@@ -248,8 +248,8 @@ public static partial class BindableCoreExtensionMethods
                 // write runs in a transaction of its own, and a throw from the graph stops that
                 // transaction. This code runs after that transaction closes. Thus, a scheduler that
                 // drops the posts of a transaction that fails does not drop this refresh. When a
-                // transaction is open, the write waits for its close, and the scheduler runs this
-                // refresh after the write.
+                // transaction is open, the write waits until that transaction releases the lock,
+                // and the scheduler runs this refresh after the write.
                 this.ScheduleRefreshFromCell();
 
                 // The refresh comes first. Thus, the cached value agrees with the cell when the throw
