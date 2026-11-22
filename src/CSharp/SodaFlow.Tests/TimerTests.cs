@@ -635,6 +635,83 @@ public sealed class TimerTests
         await Assert.That(raw.Time.Sample()).IsGreaterThan(0.0);
     }
 
+    // The start hook of each transaction runs the timers that are due. A deadline that is far
+    // away, or at infinity, has no interval in a TimeSpan. A hook that asked for that interval
+    // failed each transaction in the process, the one that clears the deadline included.
+    [Test]
+    [Arguments(double.PositiveInfinity)]
+    [Arguments(double.MaxValue)]
+    [Arguments(1e15)]
+    public async Task AFarDeadlineLeavesEachTransactionWorking(double far)
+    {
+        SecondsTimerSystem timers = this.Keep(new SecondsTimerSystem(Ignore));
+        CellSink<Maybe<double>> deadline = Cell.CreateSink<Maybe<double>>(Maybe.None);
+        StreamSink<int> other = Stream.CreateSink<int>();
+        Cell<int> held = other.Hold(0);
+        List<double> alarms = [];
+
+        using IListener l = timers.At(deadline).Listen(alarms.Add);
+
+        deadline.Send(Maybe.Some(far));
+        other.Send(1);
+        deadline.Send(Maybe.None);
+        other.Send(2);
+
+        await Assert.That(held.Sample()).IsEqualTo(2);
+        await Assert.That(deadline.Sample()).IsEqualTo(Maybe<double>.None);
+        await Assert.That(alarms).IsEmpty();
+    }
+
+    // NaN is not in order with other times: the comparer puts it first, thus it is always due.
+    // The transaction that gives it fails, and only that one.
+    [Test]
+    public async Task ANaNDeadlineIsRefusedInTheTransactionThatGivesIt()
+    {
+        SecondsTimerSystem timers = this.Keep(new SecondsTimerSystem(Ignore));
+        CellSink<Maybe<double>> deadline = Cell.CreateSink<Maybe<double>>(Maybe.None);
+        StreamSink<int> other = Stream.CreateSink<int>();
+        Cell<int> held = other.Hold(0);
+
+        using IListener l = timers.At(deadline).Listen(static _ =>
+        {
+        });
+
+        await Assert.That(() => deadline.Send(Maybe.Some(double.NaN))).ThrowsExactly<ArgumentOutOfRangeException>();
+
+        other.Send(1);
+
+        await Assert.That(deadline.Sample()).IsEqualTo(Maybe<double>.None);
+        await Assert.That(held.Sample()).IsEqualTo(1);
+    }
+
+    // The hook finds a due timer with the comparer. Thus, a clock whose subtraction throws still
+    // fires its alarms in a transaction, and the other transactions work. Its timer thread gives
+    // each throw to the handler.
+    [Test]
+    public async Task ADueTimerFiresInATransactionAlsoWhenTheSubtractionThrows()
+    {
+        HandSecondsClock clock = new();
+        int handled = 0;
+
+        TimerSystem<double> timers =
+            this.Keep(
+                new TimerSystem<double>(
+                    implementation: clock,
+                    handleException: _ => Interlocked.Increment(ref handled)));
+
+        StreamSink<int> other = Stream.CreateSink<int>();
+        Cell<int> held = other.Hold(0);
+        List<double> alarms = [];
+
+        using IListener l = timers.At(Cell.Constant(Maybe.Some(5.0))).Listen(alarms.Add);
+
+        clock.NowValue = 6;
+        other.Send(1);
+
+        await Assert.That(alarms).IsEquivalentTo(expected: [5.0], ordering: CollectionOrdering.Matching);
+        await Assert.That(held.Sample()).IsEqualTo(1);
+    }
+
     private static void Ignore(Exception e)
     {
     }
@@ -671,6 +748,17 @@ public sealed class TimerTests
     private sealed class HandClock
     {
         internal DateTime Now { get; set; }
+    }
+
+    // A clock in seconds that a test moves, whose subtraction always throws.
+    private sealed class HandSecondsClock : TimerSystemImplementationBase<double>
+    {
+        public override double Now => this.NowValue;
+
+        internal double NowValue { get; set; }
+
+        protected override TimeSpan SubtractTimes(double first, double second) =>
+            throw new InvalidOperationException("The test clock gives no interval.");
     }
 
     // A clock on the base, with the thread of the base, for the tests of that thread.

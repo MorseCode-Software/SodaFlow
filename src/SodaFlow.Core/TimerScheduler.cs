@@ -16,6 +16,7 @@ namespace SodaFlow;
 /// <typeparam name="T">The type used to express a point in time.</typeparam>
 internal sealed class TimerScheduler<T>
 {
+    private readonly IComparer<T> comparer;
     private readonly object lockObject = new();
     private readonly Func<T> now;
     private readonly Func<T, T, TimeSpan> subtractTimes;
@@ -51,6 +52,7 @@ internal sealed class TimerScheduler<T>
     /// <param name="subtractTimes">Gives the interval from its second time to its first.</param>
     internal TimerScheduler(IComparer<T> comparer, Func<T> now, Func<T, T, TimeSpan> subtractTimes)
     {
+        this.comparer = comparer;
         this.now = now;
         this.subtractTimes = subtractTimes;
         this.timers = new SortedSet<ScheduledTimer<T>>(new TimerComparer(comparer));
@@ -71,6 +73,16 @@ internal sealed class TimerScheduler<T>
     /// </summary>
     internal bool TryAdd(ScheduledTimer<T> timer)
     {
+        // A time that is not a number is not in order with the other times. The comparer puts it
+        // before each of them, thus it is always the first timer and never stops being due. The
+        // refusal fails only the transaction that set it.
+        if (timer.Time is double.NaN or float.NaN)
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName: nameof(timer),
+                message: "The time of a timer cannot be NaN.");
+        }
+
         lock (this.lockObject)
         {
             // In the lock, because Stop sets the flag in it.
@@ -112,9 +124,41 @@ internal sealed class TimerScheduler<T>
     /// </summary>
     internal void RunTimersTo(T time)
     {
-        if (this.hasTimers)
+        // The start hook of each transaction calls this. Thus, it compares the times and does not
+        // subtract them, because only the timer thread needs an interval. A subtraction can throw,
+        // for example for a deadline at infinity. A throw here fails each transaction in the
+        // process, the transaction that removes that deadline included.
+        if (!this.hasTimers)
         {
-            this.TimeUntilNext(time);
+            return;
+        }
+
+        while (true)
+        {
+            ScheduledTimer<T> fired;
+
+            lock (this.lockObject)
+            {
+                // A stopped implementation fires nothing.
+                if (this.stopped || this.timers.Count < 1)
+                {
+                    return;
+                }
+
+                // ReSharper disable once NullableWarningSuppressionIsUsed - The set holds at least one timer, thus
+                // Min is not null.
+                fired = this.timers.Min!;
+
+                if (this.comparer.Compare(x: fired.Time, y: time) > 0)
+                {
+                    return;
+                }
+
+                this.timers.Remove(fired);
+                this.hasTimers = this.timers.Count > 0;
+            }
+
+            fired.Callback();
         }
     }
 
@@ -207,7 +251,7 @@ internal sealed class TimerScheduler<T>
 
             lock (this.lockObject)
             {
-                // A stopped implementation fires nothing, also from RunTimersTo.
+                // A stopped implementation fires nothing.
                 if (this.stopped || this.timers.Count < 1)
                 {
                     waitTime = TimeSpan.FromSeconds(1000);
