@@ -431,9 +431,24 @@ internal class Node<T> : Node
 
         private readonly Node<T> source = source;
 
+        // Set by Unlisten. A firing that the transaction queued for this link before the stop
+        // reads it, and does not run the action. The removal from the node stops only the firings
+        // after it. A different thread can stop the link while a queued firing waits, thus it is
+        // volatile.
+        private volatile bool stopped;
+
         internal override bool IsAlive => this.Action.TryGetTarget(out _);
 
-        public void Unlisten() => this.source.RemoveListener(this);
+        /// <summary>Gets a value that is true after <see cref="Unlisten" />.</summary>
+        internal bool IsStopped => this.stopped;
+
+        public void Unlisten()
+        {
+            // Before the removal. Thus, a firing that reads the flag after this call returns sees
+            // the stop.
+            this.stopped = true;
+            this.source.RemoveListener(this);
+        }
     }
 }
 

@@ -50,6 +50,7 @@
         <Compile Include="DenotationalSemanticsTests.cs"/>
         <Compile Include="EitherTests.cs"/>
         <Compile Include="LazySampleTests.cs"/>
+        <Compile Include="ListenerStopTests.cs"/>
         <Compile Include="EnumerableExtensionMethodsTests.cs"/>
         <Compile Include="FailedTransactionTests.cs"/>
         <Compile Include="ForwardReferenceTests.cs"/>

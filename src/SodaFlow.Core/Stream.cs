@@ -327,7 +327,8 @@ public class Stream<T> : ILastAction
         // condition, a stream that did not fire in this transaction.
         if (!suppressEarlierFirings && this.firings is { Count: > 0 })
         {
-            trans.Prioritized(new ReplayEntry(target: target, action: action, firings: [.. this.firings]));
+            trans.Prioritized(
+                new ReplayEntry(target: target, action: action, link: nodeTarget, firings: [.. this.firings]));
         }
 
         return nodeTarget;
@@ -336,16 +337,26 @@ public class Stream<T> : ILastAction
     // Sends a new listener the values that this transaction sent before the listener came. This
     // removes the sequence dependency between send and listen. An entry and not a lambda:
     // the entry holds what the lambda captured, and it can tell the action of a discard.
-    private sealed class ReplayEntry(in Node target, in object action, in List<T> firings)
+    // The link is the link of the listener on this stream, which a stop marks. The router of the
+    // per-key cells gives no link, because its listener is on a different stream, and a stop there
+    // removes the route.
+    private sealed class ReplayEntry(in Node target, in object action, in Node<T>.Target? link, in List<T> firings)
         : TransactionInternal.Entry(target)
     {
         private readonly object action = action;
         private readonly List<T> firings = firings;
+        private readonly Node<T>.Target? link = link;
 
         public override void Execute(TransactionInternal trans)
         {
             foreach (T a in this.firings)
             {
+                // A listener that one of these values stops gets none of the values after it.
+                if (this.link is { IsStopped: true })
+                {
+                    return;
+                }
+
                 trans.InCallback++;
 
                 try
@@ -360,7 +371,13 @@ public class Stream<T> : ILastAction
             }
         }
 
-        public override void Discard(Exception cause) => (this.action as IFailedFiringAction)?.FiringFailed(cause);
+        public override void Discard(Exception cause)
+        {
+            if (this.link is not { IsStopped: true })
+            {
+                (this.action as IFailedFiringAction)?.FiringFailed(cause);
+            }
+        }
     }
 
     /// <summary>
@@ -382,6 +399,7 @@ public class Stream<T> : ILastAction
                 new ReplayEntry(
                     target: target,
                     action: action,
+                    link: null,
                     firings: current.GetRange(index: 0, count: Math.Min(val1: count, val2: current.Count))));
         }
     }
@@ -1619,8 +1637,9 @@ public class Stream<T> : ILastAction
                 // Read the weak reference.
                 if (this.target.Action.TryGetTarget(out object? action))
                 {
-                    // The garbage collector did not remove the action, thus call it.
-                    if (this.target.IsActivated)
+                    // The garbage collector did not remove the action, thus call it. A link that
+                    // stopped after the stream fired gets nothing. See Node<T>.Target.
+                    if (this.target is { IsActivated: true, IsStopped: false })
                     {
                         StreamInternal.Fire(action: action, trans: trans, value: this.value);
                     }
@@ -1642,7 +1661,7 @@ public class Stream<T> : ILastAction
         // ignores a firing that it did not get.
         public override void Discard(Exception cause)
         {
-            if (this.target.IsActivated
+            if (this.target is { IsActivated: true, IsStopped: false }
                 && this.target.Action.TryGetTarget(out object? action)
                 && action is IFailedFiringAction failed)
             {
