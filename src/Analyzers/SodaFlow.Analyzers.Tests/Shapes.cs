@@ -57940,6 +57940,110 @@ public static class Shapes
     public static Cell<int> R6PairPNoBuildPlainTwoObjects() =>
         Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj m = new(); R6PairPlainObj n = new(); m.Set(l.Map(v => v)); Kept.Add(n.Read()); Kept.Add(m); return S.Hold(0); });
 
+    // S14005. System.Text.Json writes an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerStjTwoPropertiesPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(JsonSerializer.Serialize(new R6ApiTwoRows(new SerialRow(Plain), new SerialRow(l.Map(v => v))))); return S.Hold(0); });
+
+    // S14006. System.Text.Json writes two nested objects of one type, each in an outer object of one type. The first is plain.
+    public static Cell<int> R6ApiSerStjNestedPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(JsonSerializer.Serialize(new R6ApiTwoOuters(new SerialOuter(new SerialRow(Plain)), new SerialOuter(new SerialRow(l.Map(v => v)))))); return S.Hold(0); });
+
+    // S14007. System.Text.Json writes a chain of two nodes of one type. The outer node is plain.
+    public static Cell<int> R6ApiSerStjNodeChainPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(JsonSerializer.Serialize(new R6ApiNode(Plain, new R6ApiNode(l.Map(v => v), null)))); return S.Hold(0); });
+
+    // S14008. System.Text.Json with IncludeFields writes two fields of one type. The first is plain.
+    public static Cell<int> R6ApiSerStjFieldsPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(JsonSerializer.Serialize(new R6ApiTwoRowFields(new SerialRow(Plain), new SerialRow(l.Map(v => v))), new JsonSerializerOptions { IncludeFields = true })); return S.Hold(0); });
+
+    // S14009. System.Text.Json with IncludeFields writes a property and a field of one type. The property is plain.
+    public static Cell<int> R6ApiSerStjPropertyAndFieldPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(JsonSerializer.Serialize(new R6ApiRowPropertyAndField(new SerialRow(Plain), new SerialRow(l.Map(v => v))), new JsonSerializerOptions { IncludeFields = true })); return S.Hold(0); });
+
+    // S14010. Serialize<T> names the type of an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerStjGenericPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiTwoRows pair = new(new SerialRow(Plain), new SerialRow(l.Map(v => v))); Kept.Add(JsonSerializer.Serialize<R6ApiTwoRows>(pair)); return S.Hold(0); });
+
+    // S14011. Serialize with a Type argument writes an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerStjTypeArgumentPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiTwoRows pair = new(new SerialRow(Plain), new SerialRow(l.Map(v => v))); Kept.Add(JsonSerializer.Serialize(pair, typeof(R6ApiTwoRows))); return S.Hold(0); });
+
+    // S14012. Serialize<object> writes an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerStjAsObjectPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiTwoRows pair = new(new SerialRow(Plain), new SerialRow(l.Map(v => v))); Kept.Add(JsonSerializer.Serialize<object>(pair)); return S.Hold(0); });
+
+    // S14013. SerializeToUtf8Bytes writes an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerStjUtf8BytesPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiTwoRows pair = new(new SerialRow(Plain), new SerialRow(l.Map(v => v))); Kept.Add(JsonSerializer.SerializeToUtf8Bytes(pair)); return S.Hold(0); });
+
+    // S14014. SerializeToNode writes an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerStjToNodePlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiTwoRows pair = new(new SerialRow(Plain), new SerialRow(l.Map(v => v))); Kept.Add(JsonSerializer.SerializeToNode(pair)!); return S.Hold(0); });
+
+    // S14015. Serialize into a stream writes an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerStjStreamPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiTwoRows pair = new(new SerialRow(Plain), new SerialRow(l.Map(v => v))); JsonSerializer.Serialize(System.IO.Stream.Null, pair); return S.Hold(0); });
+
+    // S14016. SerializeAsync writes an object at once, and the wait gets the exception of the getter.
+    public static Cell<int> R6ApiSerStjAsyncWaited() =>
+        Cell.Loop<int>().WithoutCaptures(l => { JsonSerializer.SerializeAsync(System.IO.Stream.Null, new R6ApiTwoRows(new SerialRow(Plain), new SerialRow(l.Map(v => v)))).Wait(); return S.Hold(0); });
+
+    // S14017. JsonConvert writes an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerNetTwoPropertiesPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R6ApiTwoRows(new SerialRow(Plain), new SerialRow(l.Map(v => v))))); return S.Hold(0); });
+
+    // S14018. JsonConvert writes two nested objects of one type. The first is plain.
+    public static Cell<int> R6ApiSerNetNestedPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R6ApiTwoOuters(new SerialOuter(new SerialRow(Plain)), new SerialOuter(new SerialRow(l.Map(v => v)))))); return S.Hold(0); });
+
+    // S14019. JsonConvert writes a chain of two nodes of one type. The outer node is plain.
+    public static Cell<int> R6ApiSerNetNodeChainPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R6ApiNode(Plain, new R6ApiNode(l.Map(v => v), null)))); return S.Hold(0); });
+
+    // S14020. JsonConvert writes two public fields of one type. The first is plain.
+    public static Cell<int> R6ApiSerNetFieldsPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R6ApiTwoRowFields(new SerialRow(Plain), new SerialRow(l.Map(v => v))))); return S.Hold(0); });
+
+    // S14021. JsonConvert writes a property and a field of one type. The property is plain.
+    public static Cell<int> R6ApiSerNetPropertyAndFieldPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R6ApiRowPropertyAndField(new SerialRow(Plain), new SerialRow(l.Map(v => v))))); return S.Hold(0); });
+
+    // S14022. JsonConvert with a Type argument writes an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerNetTypeArgumentPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiTwoRows pair = new(new SerialRow(Plain), new SerialRow(l.Map(v => v))); Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(pair, typeof(R6ApiTwoRows), (Newtonsoft.Json.JsonSerializerSettings?)null)); return S.Hold(0); });
+
+    // S14023. JsonConvert with settings writes an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerNetSettingsPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiTwoRows pair = new(new SerialRow(Plain), new SerialRow(l.Map(v => v))); Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(pair, new Newtonsoft.Json.JsonSerializerSettings())); return S.Hold(0); });
+
+    // S14024. A Json.NET serializer object writes an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerNetSerializerObjectPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiTwoRows pair = new(new SerialRow(Plain), new SerialRow(l.Map(v => v))); Newtonsoft.Json.JsonSerializer.CreateDefault().Serialize(TextWriter.Null, pair); return S.Hold(0); });
+
+    // S14025. JToken.FromObject writes an object with two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerNetJTokenPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6ApiTwoRows pair = new(new SerialRow(Plain), new SerialRow(l.Map(v => v))); Kept.Add(Newtonsoft.Json.Linq.JToken.FromObject(pair)); return S.Hold(0); });
+
+    // S14026. The converter of a type writes two properties of that type. The first is plain.
+    public static Cell<int> R6ApiSerStjConverterOfTwoPropertiesPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(JsonSerializer.Serialize(new R6ApiTwoStjBoxes(new R6ApiStjBox(Plain), new R6ApiStjBox(l.Map(v => v))))); return S.Hold(0); });
+
+    // S14027. A converter of the options writes two properties of its type. The first is plain.
+    public static Cell<int> R6ApiSerStjOptionsConverterOfTwoPropertiesPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(JsonSerializer.Serialize(new R6ApiTwoBoxes(new Ag84Box(Plain), new Ag84Box(l.Map(v => v))), new JsonSerializerOptions { Converters = { new Ag84BoxConverter() } })); return S.Hold(0); });
+
+    // S14028. The Json.NET converter of a type writes two properties of that type. The first is plain.
+    public static Cell<int> R6ApiSerNetConverterOfTwoPropertiesPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R6ApiTwoNetBoxes(new Ag84NetBox(Plain), new Ag84NetBox(l.Map(v => v))))); return S.Hold(0); });
+
+    // S14029. Json.NET calls the ShouldSerialize method of two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerNetShouldSerializeOfTwoPropertiesPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R6ApiTwoShouldWrites(new R4LimShouldWrite(Plain), new R4LimShouldWrite(l.Map(v => v))))); return S.Hold(0); });
+
+    // S14030. Json.NET reads the Specified getter of two properties of one type. The first is plain.
+    public static Cell<int> R6ApiSerNetSpecifiedOfTwoPropertiesPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R6ApiTwoSpecified(new R5ApiJsonNetSpecified(Plain), new R5ApiJsonNetSpecified(l.Map(v => v))))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

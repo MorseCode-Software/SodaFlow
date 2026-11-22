@@ -45,6 +45,25 @@ internal sealed partial class LoopStateEvaluator
             return known;
         }
 
+        Followed? result =
+            this.FollowImpliedOfTheObject(call: call, member: member, owner: owner, arguments: arguments);
+
+        this.implied[(call, member)] = result;
+
+        return result;
+    }
+
+    /// <summary>
+    ///     The same call as <see cref="FollowImplied" />, but the walk does not
+    ///     keep the result for the node. A serializer calls the same member of
+    ///     each object in its value at one node. Each object has its own state.
+    /// </summary>
+    public Followed? FollowImpliedOfTheObject(
+        SyntaxNode call,
+        IMethodSymbol member,
+        LoopState? owner,
+        IEnumerable<(ExpressionSyntax Written, LoopState State)> arguments)
+    {
         // The member of the object, when the code names one of an interface or a base type. A
         // value that is one of two objects has the member of each.
         IMethodSymbol[] actual =
@@ -52,8 +71,7 @@ internal sealed partial class LoopStateEvaluator
             .. owner?.Members?.Resolve(member.OriginalDefinition).OfType<IMethodSymbol>() ?? []
         ];
 
-        Followed? result =
-            (actual.Length == 0 ? [member] : actual)
+        return (actual.Length == 0 ? [member] : actual)
             .Select(static found => found.OriginalDefinition)
             .Aggregate(
                 seed: (Followed?)null,
@@ -65,10 +83,6 @@ internal sealed partial class LoopStateEvaluator
                             definition: definition,
                             owner: owner,
                             arguments: arguments)));
-
-        this.implied[(call, member)] = result;
-
-        return result;
     }
 
     private Followed? FollowImpliedDefinition(

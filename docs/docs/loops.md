@@ -566,8 +566,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   with a `Condition` other than `Always` still reads the value to decide, so the analyzer reads that
   member.
   It reads `IncludeFields`, `IgnoreReadOnlyProperties`, and `IgnoreReadOnlyFields` where you create
-  the options in the call. It reads the object that you give the serializer and the objects inside
-  it, to the depth of 64 at which `System.Text.Json` stops by default.
+  the options in the call. It reads the object that you give the serializer and each object inside
+  it with its own state, also two objects of one type, to the depth of 64 at which
+  `System.Text.Json` stops by default.
 
 ### Its limits
 

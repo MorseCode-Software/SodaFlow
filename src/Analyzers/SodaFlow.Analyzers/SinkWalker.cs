@@ -4265,7 +4265,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
             this.ReadTheTestsOf(written: written, state: state, serializer: serializer, member: property);
 
-            if (this.evaluator.FollowImplied(call: written, member: read, owner: state, arguments: []) is { } getter)
+            if (this.evaluator.FollowImpliedOfTheObject(call: written, member: read, owner: state, arguments: [])
+                is { } getter)
             {
                 this.Report(getter);
 
@@ -4310,12 +4311,14 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     {
         if (SodaFlowSymbols.ShouldSerializeOf(member: member, serializer: serializer) is { } test)
         {
-            this.Report(this.evaluator.FollowImplied(call: written, member: test, owner: state, arguments: []));
+            this.Report(
+                this.evaluator.FollowImpliedOfTheObject(call: written, member: test, owner: state, arguments: []));
         }
 
         if (SodaFlowSymbols.SpecifiedOf(member: member, serializer: serializer) is { } specified)
         {
-            this.Report(this.evaluator.FollowImplied(call: written, member: specified, owner: state, arguments: []));
+            this.Report(
+                this.evaluator.FollowImpliedOfTheObject(call: written, member: specified, owner: state, arguments: []));
         }
     }
 
@@ -4352,7 +4355,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         }
 
         this.Report(
-            this.evaluator.FollowImplied(
+            this.evaluator.FollowImpliedOfTheObject(
                 call: written,
                 member: converter.Write,
                 owner: converter.State,
