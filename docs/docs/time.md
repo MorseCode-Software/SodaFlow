@@ -70,6 +70,11 @@ on a stopped `TimerSystemImplementationBase` throws the same, so a timer that co
 an error at the call rather than silence. A cell with no time sets nothing and passes. A custom
 implementation should do the same after its `Stop`.
 
+A disposal inside a transaction, from a listener or a `Transaction.Run` block, removes the
+timer system's hook at once, so no alarm reaches the graph after it. The timer thread itself, and
+the `Stop` of a custom implementation, stop when that transaction ends, because an alarm on that
+thread waits for the transaction's lock.
+
 ## `Time`
 
 `Time` is a `Behavior<T>` giving the current time:
