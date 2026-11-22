@@ -218,21 +218,13 @@ public class Stream<T> : ILastAction
                 arg2: trans,
                 arg3: (_, a) =>
                 {
+                    // The first firing stops the listener. A stopped link gets none of the firings
+                    // that are in the queue or in the loop of Listen, thus no second value comes.
+                    // A firing runs only after listen returns. Thus, listener has its value here.
                     // ReSharper disable once AccessToModifiedClosure - The assignment below
                     // gives listener its value after listen returns, and this closure must read
                     // the value it holds at the time the stream fires.
-                    TListener? listenerLocal = listener;
-
-                    // The first firing removes the listener and sets null. Dispose does not
-                    // stop a firing that is in the queue or in the loop of Listen. Thus, this
-                    // test stops the second value.
-                    if (listenerLocal == null)
-                    {
-                        return;
-                    }
-
-                    listenerLocal.Dispose();
-                    listener = null;
+                    listener?.Dispose();
                     handler(a);
                 });
 
@@ -1591,22 +1583,14 @@ public class Stream<T> : ILastAction
         }
     }
 
-    // The first firing sends and stops the link. Listen can send the earlier firings of a
-    // transaction to this action in one loop, and Dispose does not stop that loop. Thus, the
-    // flag stops the second value.
+    // The first firing sends and stops the link. A stopped link gets none of the firings that
+    // are in the queue or in the loop of Listen, thus no second value comes.
     private sealed class OnceAction(in Stream<T> @out) : StreamAction<T>
     {
         private readonly Stream<T> @out = @out;
-        private bool fired;
 
         public override void Fire(TransactionInternal trans, T value)
         {
-            if (this.fired)
-            {
-                return;
-            }
-
-            this.fired = true;
             this.@out.Send(trans: trans, a: value);
             this.Dispose();
         }
