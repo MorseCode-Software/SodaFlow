@@ -149,6 +149,17 @@ and once when it runs again, whose publish decision is ignored. The first call's
 transaction, but any change it made to the strategy's state stays. The built-in strategies decide from the queue and
 give the right answer on the second call.
 
+Fixed: a long queue of operations that complete synchronously no longer overflows the stack. An operation whose task is
+already complete when it returns delivers its result at once, and with Queue, QueuePerGroup, or any strategy that starts
+the next item when one ends, that delivery starts the next waiting item, whose operation completes and starts the one
+after it. Each of those ran inside the call for the item before it, about ten stack frames an item, so releasing the
+first item of a long queue ended the process with a stack overflow, which no code can catch: 800 waiting items were
+enough on a main thread. The pipeline now runs those starts and deliveries one after another, in a loop on the same
+thread, so the stack stays the same depth however long the queue is. Each operation still starts inline, on the thread
+that delivered the item before it, and the starts and the results come in the same order as before, also where one end
+starts more than one item. Work that the code of an operation starts is not held back for the loop, so an operation that
+calls Execute on another pipeline and waits for its task still gets the result.
+
 Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
 build.
