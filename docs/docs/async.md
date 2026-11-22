@@ -188,9 +188,11 @@ the state `Admit` returned is discarded.
 
 `Cancel()` follows the transaction too. Every hook runs in a transaction, and a cancel asked for
 inside one takes effect when that transaction commits; a transaction that fails cancels nothing.
-Two things follow. The item's token still reads as not canceled for the rest of the hook. And an
-exception thrown by a callback registered on that token goes to `handleException`, because by then
-the transaction has finished and there is no caller left to throw to.
+Two things follow. The item's token still reads as not canceled for the rest of the hook, and it
+changes only once the transaction has released its lock, as described under [Cancellation and
+status](#cancellation-and-status). And an exception thrown by a callback registered on that token
+goes to `handleException`, because by then the transaction has finished and there is no caller left
+to throw to.
 
 ## Cancellation and status
 
@@ -204,6 +206,17 @@ committed. If that transaction fails, nothing is canceled: a running operation k
 and a queued item stays queued. If a callback you registered on an operation's token throws while
 the pipeline cancels it, the other items are still canceled, and the exception goes to
 `handleException`.
+
+Taking effect has two steps. At the commit, before a transaction on any other thread can run, the
+pipeline records the cancellation. From then on a queued item does not start, and a running item
+does not publish, even when its operation has already returned and its result is only waiting for
+the lock to be delivered. The tokens themselves are canceled a moment later, once the transaction
+has released the lock. That is what makes cancellation safe to react to. A callback registered on
+the token runs on the thread that cancels it, and so does the code after an `await` that such a
+callback completes, such as the cleanup in a `catch (OperationCanceledException)`. All of it runs
+with no transaction open, so it can send, start a transaction, or wait on another thread that needs
+one. The cost is small: an operation that polls its token sees the cancellation just after the
+commit rather than at it.
 
 A cancellation is a request, and every item ends on its own terms. Only entry into the queue is
 synchronous with your input: an item enters `Items` in the same transaction as the value that
@@ -220,7 +233,10 @@ down. With `cancelOnDispose`, that cancels what is in flight even when you dispo
 transaction, and even if that transaction then fails: a disposal is not undone. Disposing from a
 listener callback is fine too; the cancel then happens straight after the transaction, before any
 other thread gets a turn, so another thread that finishes a running item cannot start a queued one
-after the disposal. Only when that transaction fails can another thread get in first.
+after the disposal. Only when that transaction fails can another thread get in first. The tokens
+follow the same two steps as above, so the code that a disposal's cancellation runs is never inside
+your listener callback, and a callback on a token that throws does not make `Dispose` throw: the
+other items are still canceled, and the exception goes to `handleException`.
 
 How much of the status you hold is your choice, and you make it by how many type parameters you
 keep. The declared return type is `AsyncMapStatus<TInput, TResult>`, which carries everything;
@@ -292,7 +308,9 @@ transactions. An operation starts only after the transaction that started it has
 released its lock, on the same thread, so even the code before its first `await` runs with no
 transaction open, and a call to `Execute` there sends its value at once. `Execute` still accepts a
 caller that has a transaction open: it defers the value to a transaction of its own, and the
-pipeline admits it once the caller's transaction ends.
+pipeline admits it once the caller's transaction ends. The same holds at the other end: when a
+cancellation completes an `await` in the operation, the code after it also runs with no
+transaction open (see [Cancellation and status](#cancellation-and-status)).
 
 That ordering matters for any synchronous work at the start of an operation. If it ran inside the
 transaction, it would hold the lock that every thread needs to start a transaction, so slow work
