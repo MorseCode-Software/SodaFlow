@@ -24,7 +24,8 @@ namespace SodaFlow.Benchmarks;
 ///         The collection holds ten thousand items. The cells are on keys at equal
 ///         distances across it, and each edit updates keys that have a cell. Each
 ///         edit writes a new score, thus nothing can stop at equality. On the sorted
-///         view, the new score moves the key.
+///         view, the sign of the score changes at each edit. Thus, each edit moves
+///         the key to the other end of the sort.
 ///     </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -39,6 +40,12 @@ public class PerKeyEditBenchmarks
     private const int ItemCount = 10_000;
 
     private int nextScore = ItemCount;
+
+    /// <summary>
+    ///     True when the edited key of the sort is at the end. The key starts first,
+    ///     because its seed score is zero and no other score is lower.
+    /// </summary>
+    private bool sortedKeyIsLast;
 
     // Populated fully in the setup. Built small here, thus the fields never have to be nullable.
     private Shape onCollection = Shape.Build(where: Where.Collection, cellCount: 1, editedKeyCount: 1, listen: true);
@@ -67,6 +74,7 @@ public class PerKeyEditBenchmarks
         this.tenKeys = Shape.Build(where: Where.Collection, cellCount: this.CellCount, editedKeyCount: 10, listen: true);
         this.throughFilter = Shape.Build(where: Where.Filter, cellCount: this.CellCount, editedKeyCount: 1, listen: true);
         this.throughSort = Shape.Build(where: Where.Sort, cellCount: this.CellCount, editedKeyCount: 1, listen: true);
+        this.sortedKeyIsLast = false;
     }
 
     /// <summary>Releases the listeners and the cells.</summary>
@@ -96,9 +104,15 @@ public class PerKeyEditBenchmarks
     [Benchmark(Description = "edit one key, cells through a filter")]
     public void EditOneKeyThroughFilter() => this.throughFilter.Edit(++this.nextScore);
 
-    /// <summary>One edit of one key, with the cells on a sort by score. The edit moves the key.</summary>
+    /// <summary>One edit of one key, with the cells on a sort by score. Each edit moves the key.</summary>
     [Benchmark(Description = "edit one key, cells through a sort")]
-    public void EditOneKeyThroughSort() => this.throughSort.Edit(++this.nextScore);
+    public void EditOneKeyThroughSort()
+    {
+        // A positive score is above each seed score, and a negative score is below each one.
+        this.sortedKeyIsLast = !this.sortedKeyIsLast;
+        int score = ++this.nextScore;
+        this.throughSort.Edit(this.sortedKeyIsLast ? score : -score);
+    }
 
     /// <summary>A collection, the state cells, their listeners if any, and one edit.</summary>
     private sealed class Shape
