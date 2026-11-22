@@ -9,6 +9,12 @@ and its hash code is that of no case. Code that read a default on purpose and ex
 value with First instead. Maybe<T> already had a safe default, None, and the two structs now agree. The tests that
 pinned the old behavior now pin the throw.
 
+Fixed: ToString on a default Either no longer throws. It went through Match, which throws for a default instance since
+the change above, so string interpolation, string.Join, a log line, the debugger, and the message of a failed
+assertion all met an InvalidOperationException in place of a description, and the assertion lost its expected value
+and its place. ToString now gives {No case} for a default instance, as Maybe<T> gives {None}, and names the case held
+as before for every other value. Match and the members that read the value still throw.
+
 Added: overloads of Match, MatchVoid, MatchSome, MatchNone, and Map on Maybe<T>, and of Match and MatchVoid on every
 Either, that take a state as their first argument and hand it to whichever function runs. A lambda that reads a local
 captures it, and the compiled code makes a closure for the local and a delegate for each lambda on every call. For a
