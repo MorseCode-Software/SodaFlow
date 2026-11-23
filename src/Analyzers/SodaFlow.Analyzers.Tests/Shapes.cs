@@ -58432,6 +58432,22 @@ public static class Shapes
     public static Cell<int> Ab409TwoRefParametersOfTwoLocalsWithOneName() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; return S.Hold(Ab409PassWithALocal(ref c, l.Map(v => v))); });
 
+    // S14128. Names of one object, Round 6: an element of an ImmutableArray that holds the local.
+    public static Cell<int> R6NmClassThroughAnImmutableArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; ImmutableArray<SettableSlot> ia = [d]; ia[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S14129. AB410. A foreach over an ImmutableArray that holds the local writes a pending cell through each element. The read is through the local.
+    public static Cell<int> Ab410ClassThroughAForeachOfAnImmutableArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; ImmutableArray<SettableSlot> ia = [d]; foreach (SettableSlot s in ia) { s.Share = l.Map(v => v); } return S.Hold(d.Share!.Sample()); });
+
+    // S14130. AB410. A second local of the ImmutableArray is a copy of the struct, with the same elements. A pending cell goes in through an element of the copy.
+    public static Cell<int> Ab410ClassThroughACopyOfAnImmutableArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; ImmutableArray<SettableSlot> ia = [d]; ImmutableArray<SettableSlot> copy = ia; copy[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S14131. AB410 control. The ImmutableArray holds a second object. A pending cell goes in through its element, and the read is through the local of the first object.
+    public static Cell<int> Ab410ImmutableArrayOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot e = new() { Share = Plain }; ImmutableArray<SettableSlot> ia = [e]; ia[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

@@ -1474,7 +1474,7 @@ internal sealed partial class LoopStateEvaluator
 
         if ((info.Type ?? info.ConvertedType) is not { IsReferenceType: true } type)
         {
-            return state.WithNoObjects;
+            return OfAStruct(place: place, state: state);
         }
 
         // A new collection holds the objects that it got, and is not one of them. Members of a

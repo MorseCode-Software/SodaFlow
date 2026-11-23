@@ -8148,6 +8148,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6NmTwoRefParametersOfOneStaticField"] = ["SF1004"],
             ["R6NmRefAndInParametersOfOneLocal"] = ["SF1004"],
             ["Ab409TwoRefParametersOfOneLocalWriteInABranch"] = ["SF1004"],
-            ["Ab409TwoRefParametersOfOneStaticFieldByTwoSpellings"] = ["SF1004"]
+            ["Ab409TwoRefParametersOfOneStaticFieldByTwoSpellings"] = ["SF1004"],
+            ["R6NmClassThroughAnImmutableArray"] = ["SF1001"],
+            ["Ab410ClassThroughAForeachOfAnImmutableArray"] = ["SF1001"],
+            ["Ab410ClassThroughACopyOfAnImmutableArray"] = ["SF1001"]
         };
 }
