@@ -453,8 +453,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   name, a partial method or a partial property, read from the part that has its code, a property
   that uses `field`, a member of an extension block, also in its static form, in a property
   pattern, given by name as a function, and where it writes through a `ref` receiver, a static
-  member of an interface called through a type parameter, and the constructor that `new T()` runs,
-  where the call says the type of `T`. A call of a partial method with no part that has code reads
+  member of an interface called through a type parameter, also an operator such as `a + b`, and the
+  constructor that `new T()` runs, where the call says the type of `T`. A call of a partial method with no part that has code reads
   nothing, not even its arguments, because the compiler removes it.
 - Events and delegates: the handlers added with `+=` run where the event is raised, and a delegate
   made with `+` or `Delegate.Combine` runs each of its functions. Each element of the

@@ -1634,10 +1634,46 @@ internal sealed partial class LoopStateEvaluator
         operation is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } method
             ? this.FollowImplied(
                 call: call,
-                member: method,
+                member: this.OperatorThroughATypeArgument(method) ?? method,
                 owner: null,
                 arguments: [.. operands.Select(operand => (operand, this.Eval(operand)))])
             : null;
+
+    /// <summary>
+    ///     The operator of the type argument that implements a static operator of
+    ///     an interface, for an operator on a value of a type parameter. Null when
+    ///     the call of this code does not say the type argument.
+    /// </summary>
+    /// <remarks>
+    ///     The interface has the type parameter as a type argument, as in
+    ///     <c>IAdditionOperators&lt;T, T, T&gt;</c>.
+    /// </remarks>
+    private IMethodSymbol? OperatorThroughATypeArgument(IMethodSymbol method)
+    {
+        if (method is not { IsStatic: true, ContainingType: { TypeKind: TypeKind.Interface } owner })
+        {
+            return null;
+        }
+
+        IMethodSymbol definition = method.OriginalDefinition;
+
+        return owner.TypeArguments
+            .Select(this.TypeArgumentFor)
+            .OfType<INamedTypeSymbol>()
+            .SelectMany(actual =>
+                actual.AllInterfaces
+                    .Where(candidate => SymbolEqualityComparer.Default.Equals(
+                        x: candidate.OriginalDefinition,
+                        y: definition.ContainingType))
+                    .SelectMany(candidate => candidate.GetMembers(definition.Name).OfType<IMethodSymbol>())
+                    .Where(candidate => SymbolEqualityComparer.Default.Equals(
+                        x: candidate.OriginalDefinition,
+                        y: definition))
+                    .Select(actual.FindImplementationForInterfaceMember))
+            .OfType<IMethodSymbol>()
+            .Select(static found => found.OriginalDefinition)
+            .FirstOrDefault();
+    }
 
     // The name of a member in a report: the property for an accessor, and the operator as the
     // code declares it.

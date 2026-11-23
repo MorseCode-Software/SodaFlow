@@ -60688,6 +60688,18 @@ public static class Shapes
     public static Cell<int> Ab391PartialVoidMethodWithABodyRuns() =>
         Cell.Loop<int>().WithoutCaptures(l => { new Ab391Parts(l.Map(v => v)).LogNow(); return S.Hold(0); });
 
+    // S14692. A generic method adds two values with the + of a static abstract interface, and the + of the type argument samples a pending member.
+    public static Cell<int> R6CsGenericMathOperatorReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R6CsAddOf(new R6CsNumber(l.Map(v => v)), new R6CsNumber(Plain))); return S.Hold(0); });
+
+    // S14693. Control: a generic method adds two values with the + of a static abstract interface, and each value has a plain member.
+    public static Cell<int> Ab393GenericMathOperatorOfPlainValues() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R6CsAddOf(new R6CsNumber(Plain), new R6CsNumber(Plain))); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S14694. A generic method adds two values with the + of a static abstract interface, and the second value has a pending member.
+    public static Cell<int> Ab393GenericMathOperatorOfAPendingSecondValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R6CsAddOf(new R6CsNumber(Plain), new R6CsNumber(l.Map(v => v)))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
