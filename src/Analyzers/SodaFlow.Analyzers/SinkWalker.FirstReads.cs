@@ -70,17 +70,17 @@ internal sealed partial class SinkWalker
         // A build of two or more cells records only a read through a name that always runs.
         Action<ComputedValue, ReadKey?>? marks =
             always
-                ? this.Runs
+                ? this.RecordsTheRun
                 : turn is { Parent: { } loop } && LoopStateEvaluator.LoopBodyOf(loop) == turn
                     ? (cell, _) => this.RunsInATurn(cell: cell, turn: turn)
                     : null;
 
         return marks == null || after == null
             ? marks
-            : (cell, key) => (this.afterTheTry ??= []).Add((after, () => marks(cell, key)));
+            : (cell, key) => (this.afterTheTry ??= []).Add((after, () => marks(arg1: cell, arg2: key)));
     }
 
-    private void Runs(ComputedValue cell, ReadKey? key)
+    private void RecordsTheRun(ComputedValue cell, ReadKey? key)
     {
         if (!cell.ManyCells)
         {
@@ -102,7 +102,15 @@ internal sealed partial class SinkWalker
             return;
         }
 
-        switch (LoopStateEvaluator.Unwrapped(written))
+        ExpressionSyntax name = LoopStateEvaluator.Unwrapped(written);
+
+        // A write of an element writes the collection that the name holds.
+        while (name is ElementAccessExpressionSyntax element)
+        {
+            name = LoopStateEvaluator.Unwrapped(element.Expression);
+        }
+
+        switch (name)
         {
             case TupleExpressionSyntax parts:
                 foreach (ArgumentSyntax part in parts.Arguments)
@@ -111,12 +119,11 @@ internal sealed partial class SinkWalker
                 }
 
                 break;
-            case ElementAccessExpressionSyntax element:
-                this.ForgetsTheRunsThrough(element.Expression);
-
-                break;
-            case var name when this.region.SymbolOf(name) is { } symbol:
-                this.ForgetsTheRunsOf(symbol);
+            default:
+                if (this.region.SymbolOf(name) is { } symbol)
+                {
+                    this.ForgetsTheRunsOf(symbol);
+                }
 
                 break;
         }

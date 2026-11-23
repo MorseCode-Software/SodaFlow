@@ -18,16 +18,15 @@ internal sealed partial class LoopStateEvaluator
 
         if (name is IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })
         {
-            return this.region.SymbolOf(name) is { } symbol
-                   && symbol is ILocalSymbol or IParameterSymbol or IFieldSymbol { IsStatic: false }
+            return this.region.SymbolOf(name) is (ILocalSymbol or IParameterSymbol or IFieldSymbol { IsStatic: false })
+                and { } symbol
                 ? new ReadKey(name: symbol, index: null)
                 : null;
         }
 
         return name is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } element
                && Unwrapped(element.Expression) is IdentifierNameSyntax collection
-               && this.region.SymbolOf(collection) is { } named
-               && named is ILocalSymbol or IParameterSymbol
+               && this.region.SymbolOf(collection) is (ILocalSymbol or IParameterSymbol) and { } named
                && this.region.ModelFor(element).GetConstantValue(arguments[0].Expression)
                    is { HasValue: true, Value: { } index }
             ? new ReadKey(name: named, index: index)

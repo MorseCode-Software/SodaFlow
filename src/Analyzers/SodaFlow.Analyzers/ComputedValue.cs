@@ -68,7 +68,7 @@ internal sealed class ComputedValue(
     ///     True after a read that the walk knows to run the functions. Also true
     ///     after such a read in each turn of a loop that the walk reads now.
     /// </summary>
-    public bool HasRunNow => this.hasRun || this.turns > 0;
+    private bool HasRunNow => this.hasRun || this.turns > 0;
 
     /// <summary>Records a read that runs the functions.</summary>
     public void Runs() => this.hasRun = true;
