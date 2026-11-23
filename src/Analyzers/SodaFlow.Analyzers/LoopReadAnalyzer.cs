@@ -354,11 +354,33 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     ///     outside a function cannot give a lambda. Thus, it gives no function,
     ///     as each other value with no lambda does.
     /// </remarks>
-    private static ExpressionSyntax? FunctionAt(ISymbol local, SyntaxNode use, SemanticModel model)
+    private static ExpressionSyntax? FunctionAt(ISymbol local, SyntaxNode use, SemanticModel model) =>
+        // A name of a method or of a local function gives that function. BlockOf reads it.
+        ValueAt(local: local, use: use, model: model) is { } value
+        && FunctionIn(written: value, model: model)
+            is (AnonymousFunctionExpressionSyntax or SimpleNameSyntax or MemberAccessExpressionSyntax)
+            and var function
+            ? function
+            : null;
+
+    // The value of a local at a use, by the rules of FunctionAt.
+    private static ExpressionSyntax? ValueAt(ISymbol local, SyntaxNode use, SemanticModel model)
     {
-        if (local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                is not VariableDeclaratorSyntax { Initializer.Value: var value } declarator
-            || declarator.Ancestors().FirstOrDefault(static node => node is BlockSyntax or SwitchSectionSyntax)
+        SyntaxNode? declared = local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+
+        // C# lets no code read a local before it gets a value. Thus, a local with no initializer has
+        // the value of an assignment before the use. A deconstruction declaration gives the local the
+        // element at its position.
+        ExpressionSyntax? value =
+            declared switch
+            {
+                VariableDeclaratorSyntax declarator => declarator.Initializer?.Value,
+                SingleVariableDesignationSyntax designation => ValueGiven(name: designation, model: model)?.Value,
+                _ => null
+            };
+
+        if (declared is not (VariableDeclaratorSyntax or SingleVariableDesignationSyntax)
+            || declared.Ancestors().FirstOrDefault(static node => node is BlockSyntax or SwitchSectionSyntax)
                 is not { } scope)
         {
             return null;
@@ -402,7 +424,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             }
 
             if (at == null
-                || ValueGiven(name) is not
+                || ValueGiven(name: name, model: model) is not
                 {
                     Assignment.Parent: ExpressionStatementSyntax { Parent: var block }, Value: var given
                 }
@@ -415,12 +437,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             value = given;
         }
 
-        // A name of a method or of a local function gives that function. BlockOf reads it.
-        return FunctionIn(written: value, model: model)
-            is (AnonymousFunctionExpressionSyntax or SimpleNameSyntax or MemberAccessExpressionSyntax)
-            and var function
-                ? function
-                : null;
+        return value;
     }
 
     // True for a name in a lambda or a local function in a scope.
@@ -447,27 +464,66 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     }
 
     // The value that a simple assignment gives a name. A deconstruction of a tuple literal into a
-    // tuple of names gives each name the element at the same position.
-    private static (AssignmentExpressionSyntax Assignment, ExpressionSyntax Value)? ValueGiven(SyntaxNode name) =>
-        name.Parent switch
+    // tuple of names gives each name the element at the same position. That is also true for a tuple
+    // in a tuple and for a deconstruction declaration. A local of a tuple there gives the element of
+    // its value.
+    private static (AssignmentExpressionSyntax Assignment, ExpressionSyntax Value)? ValueGiven(
+        SyntaxNode name,
+        SemanticModel model)
+    {
+        List<int> places = [];
+
+        for (SyntaxNode part = name;;)
         {
-            AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assigned =>
-                (assigned, assigned.Right),
-            ArgumentSyntax
-                {
-                    Parent: TupleExpressionSyntax
-                    {
-                        Parent: AssignmentExpressionSyntax
-                        {
-                            RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
-                            Right: TupleExpressionSyntax right
-                        } assigned
-                    } left
-                } element
-                when assigned.Left == left && right.Arguments.Count == left.Arguments.Count =>
-                (assigned, right.Arguments[left.Arguments.IndexOf(element)].Expression),
-            _ => null
-        };
+            switch (part.Parent)
+            {
+                case AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assigned
+                    when assigned.Left == part:
+                    return ElementAt(value: assigned.Right, places: places, model: model) is { } value
+                        ? (assigned, value)
+                        : null;
+                case ArgumentSyntax { Parent: TupleExpressionSyntax tuple } element:
+                    places.Insert(index: 0, item: tuple.Arguments.IndexOf(element));
+                    part = tuple;
+
+                    break;
+                case DeclarationExpressionSyntax declaration when declaration.Designation == part:
+                    part = declaration;
+
+                    break;
+                case ParenthesizedVariableDesignationSyntax several:
+                    places.Insert(index: 0, item: several.Variables.IndexOf((VariableDesignationSyntax)part));
+                    part = several;
+
+                    break;
+                default:
+                    return null;
+            }
+        }
+    }
+
+    // The element of a value at the positions, one for each level of the tuples. A name of a local of
+    // a tuple type stands for the value that the local has there.
+    private static ExpressionSyntax? ElementAt(ExpressionSyntax value, IReadOnlyList<int> places, SemanticModel model)
+    {
+        foreach (int place in places)
+        {
+            if (value is IdentifierNameSyntax held
+                && model.GetSymbolInfo(held).Symbol is ILocalSymbol { Type.IsTupleType: true } tuple)
+            {
+                value = ValueAt(local: tuple, use: held, model: model) ?? value;
+            }
+
+            if (value is not TupleExpressionSyntax literal || place >= literal.Arguments.Count)
+            {
+                return null;
+            }
+
+            value = literal.Arguments[place].Expression;
+        }
+
+        return value;
+    }
 
     /// <summary>
     ///     The element of a returned tuple literal that closes the loop. C# converts

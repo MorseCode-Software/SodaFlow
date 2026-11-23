@@ -231,12 +231,15 @@ The analyzer reads the code that runs while a loop is open: the function that yo
 block or a forward reference. That function can be a lambda, an anonymous method, or a method of
 your project given by name, also in parentheses, in a cast, or in `new Func<...>(...)`. It can also
 be a local that holds such a function, from its declaration or from the last assignment before the
-block, where both are statements of one block or of one `switch` section. That assignment can be a
-deconstruction of a tuple literal, such as `(block, n) = (Build, 1)`, which gives the local the
-element at its place. A block whose function the analyzer cannot find this way, such as a delegate
-from a field or a parameter, a local that gets its function under a condition, a local that a
-different deconstruction gives a value, or a local that a lambda or a local function assigns anywhere
-in that block, gets `SF1003`, because none of its code is checked. So does
+block, where both are statements of one block or of one `switch` section. A local with no
+initializer counts the same way, from the last assignment before the block. That assignment, or the
+declaration, can be a deconstruction of a tuple literal, such as `(block, n) = (Build, 1)` or
+`var (block, n) = (Build, 1)`, also of a tuple literal in a tuple literal, or of a local that holds
+a tuple literal, which gives the local the element at its place. A block whose function the
+analyzer cannot find this way, such as a delegate from a field or a parameter, a local that gets
+its function under a condition, a local that a different deconstruction gives a value, such as one
+through a `Deconstruct` method, or a local that a lambda or a local function assigns anywhere in
+that block, gets `SF1003`, because none of its code is checked. So does
 a virtual or override method given by name, unless you give it through `base` or on a value of a
 sealed type, or it is a sealed override: an object can override it with a body that the analyzer
 does not see. When that code calls your own methods, constructors, local functions, or property

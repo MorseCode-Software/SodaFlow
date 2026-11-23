@@ -40832,7 +40832,7 @@ public static class Shapes
     public static Cell<int> Ab327BlockInALocalGivenByADeconstructionOfACallGetsSF1003() =>
         ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); int n; (block, n) = Ab327Pair(); Kept.Add(n); return Cell.Loop<int>().WithoutCaptures(block); }))();
 
-    // S9728. A nested deconstruction gives the block local its function. The analyzer does not read that function.
+    // S9728. A nested deconstruction gives the block local its function, which samples.
     public static Cell<int> Ab327BlockInALocalGivenByANestedDeconstructionGetsSF1003() =>
         ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); int n; int m; ((block, n), m) = (((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }), 1), 2); Kept.Add(n + m); return Cell.Loop<int>().WithoutCaptures(block); }))();
 
@@ -58751,6 +58751,46 @@ public static class Shapes
     // S14207. A dynamic call with no argument of a method with two overloads. Only the overload with a params parameter and no other parameter takes no argument.
     public static Cell<int> Ab379DynamicCallOfTheParamsOverloadWithNoOtherParameter() =>
         Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab379Overloads(l.Map(v => v)); int x = d.Count(); return S.Hold(x); });
+
+    // S14208. A local delegate with no initializer gets a lambda that samples in its one assignment. The block is that local.
+    public static Cell<int> R6LimBlockInALocalWithNoInitializerAssignedOnce() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block; block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S14209. A deconstruction declaration of a tuple literal gives a local delegate a lambda that samples. The block is that local.
+    public static Cell<int> R6LimBlockInALocalOfADeconstructionDeclaration() =>
+        ((Func<Cell<int>>)(() => { (Func<LoopedCell<int>, Cell<int>> block, int n) = ((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }), 1); Kept.Add(n); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S14210. A deconstruction of a nested tuple literal gives a local delegate a lambda that samples. The block is that local.
+    public static Cell<int> R6LimBlockInALocalGivenByANestedDeconstruction() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); int n; int k; ((block, n), k) = (((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }), 1), 2); Kept.Add(n + k); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S14211. A deconstruction of a tuple in a local gives a local delegate a lambda that samples. The page says that this block gets SF1003.
+    public static Cell<int> R6LimBlockInALocalGivenByADeconstructionOfATupleLocal() =>
+        ((Func<Cell<int>>)(() => { var pair = ((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }), 1); Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); int n; (block, n) = pair; Kept.Add(n); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S14212. A deconstruction declaration with var gives a local delegate a lambda that samples. The block is that local.
+    public static Cell<int> Ab380BlockInALocalOfADeconstructionDeclarationWithVar() =>
+        ((Func<Cell<int>>)(() => { var (block, n) = ((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }), 1); Kept.Add(n); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S14213. A deconstruction declaration gives a local delegate at the second place a lambda that samples. The block is that local.
+    public static Cell<int> Ab380BlockInALocalOfADeconstructionDeclarationAtTheSecondPlace() =>
+        ((Func<Cell<int>>)(() => { (int n, Func<LoopedCell<int>, Cell<int>> block) = (1, (Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); })); Kept.Add(n); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S14214. A local delegate with no initializer gets a lambda that does not sample and then a lambda that samples. The block is that local.
+    public static Cell<int> Ab380BlockInALocalWithNoInitializerAssignedTwice() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block; block = l => S.Hold(0); block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S14215. A local delegate with no initializer gets a lambda that samples and then a lambda that does not sample. The block is that local.
+    public static Cell<int> Ab380BlockInALocalWithNoInitializerAssignedLastWithAPlainLambda() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block; block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; block = l => S.Hold(0); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S14216. A local delegate with no initializer gets its lambda in each branch of an if. The block is that local.
+    public static Cell<int> Ab380BlockInALocalWithNoInitializerAssignedInABranch() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block; if (Plain != null) { block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; } else { block = l => S.Hold(0); } return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S14217. A tuple local gets a lambda that samples and then a lambda that does not sample. A deconstruction of the local gives a local delegate its first element. The block is that local.
+    public static Cell<int> Ab380BlockInALocalGivenByATupleLocalThatGetsASecondValue() =>
+        ((Func<Cell<int>>)(() => { var pair = ((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }), 1); pair = ((Func<LoopedCell<int>, Cell<int>>)(l => S.Hold(0)), 2); Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); int n; (block, n) = pair; Kept.Add(n); return Cell.Loop<int>().WithoutCaptures(block); }))();
 
     public sealed class Scene(Stream<int> restarts)
     {

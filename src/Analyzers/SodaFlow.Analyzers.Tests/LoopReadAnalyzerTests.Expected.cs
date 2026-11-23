@@ -5809,7 +5809,7 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab326BlockInALocalOfTheResultOfACallGetsSF1003"] = ["SF1003"],
             ["R5LimBlockInALocalGivenByADeconstructionSamples"] = ["SF1001"],
             ["Ab327BlockInALocalGivenByADeconstructionOfACallGetsSF1003"] = ["SF1003"],
-            ["Ab327BlockInALocalGivenByANestedDeconstructionGetsSF1003"] = ["SF1003"],
+            ["Ab327BlockInALocalGivenByANestedDeconstructionGetsSF1003"] = ["SF1001"],
             ["Ab327BlockInALocalGivenByADeconstructionWithADiscardSamples"] = ["SF1001"],
             ["Ab327BlockInALocalReadInATupleSamples"] = ["SF1001"],
             ["R5LimBlockOfAVirtualMethodOfAnUnseenObject"] = ["SF1003"],
@@ -8205,6 +8205,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab379DynamicCallOfAParamsMethodWithNoElement"] = ["SF1005"],
             ["Ab379DynamicCallOfAParamsMethodReadsTheSecondElement"] = ["SF1004"],
             ["Ab379DynamicCallOfTheParamsOverloadWhoseElementsFit"] = ["SF1005"],
-            ["Ab379DynamicCallOfTheParamsOverloadWithNoOtherParameter"] = ["SF1005"]
+            ["Ab379DynamicCallOfTheParamsOverloadWithNoOtherParameter"] = ["SF1005"],
+            ["R6LimBlockInALocalWithNoInitializerAssignedOnce"] = ["SF1001"],
+            ["R6LimBlockInALocalOfADeconstructionDeclaration"] = ["SF1001"],
+            ["R6LimBlockInALocalGivenByANestedDeconstruction"] = ["SF1001"],
+            ["R6LimBlockInALocalGivenByADeconstructionOfATupleLocal"] = ["SF1001"],
+            ["Ab380BlockInALocalOfADeconstructionDeclarationWithVar"] = ["SF1001"],
+            ["Ab380BlockInALocalOfADeconstructionDeclarationAtTheSecondPlace"] = ["SF1001"],
+            ["Ab380BlockInALocalWithNoInitializerAssignedTwice"] = ["SF1001"],
+            ["Ab380BlockInALocalWithNoInitializerAssignedInABranch"] = ["SF1003"]
         };
 }
