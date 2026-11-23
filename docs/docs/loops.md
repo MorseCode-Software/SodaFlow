@@ -325,7 +325,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   function of a `Map` at a first read that always runs. The variable of a `catch` clause gets each
   object that a `throw` in its `try` block, or in a method or a lambda that the block calls, can
   send to that clause. That includes a lambda that a method of the platform, such as
-  `List<T>.ForEach`, runs in the call. `ExceptionDispatchInfo.Throw` of an object, and `Throw` of
+  `List<T>.ForEach`, runs in the call. An object that the code of a LINQ query or of an iterator
+  throws goes to the clauses around the code that enumerates the query, and not to those around the
+  code that makes it. `ExceptionDispatchInfo.Throw` of an object, and `Throw` of
   `ExceptionDispatchInfo.Capture` of an object, count as a `throw` of that object. An `async`
   method, local function, or lambda puts the object into its task instead, so the clause gets it
   only where the code waits for that task: around an `await` of the task, also of a local that holds
@@ -805,8 +807,6 @@ Some reads that throw it does not see:
   constructor gets, where a different method of your object reads the value. A delegate that your
   object keeps in a local or in a member of its own, such as `this.factory = this.Read;` and then
   `new Lazy<int>(this.factory)`, is seen.
-- An object that a lambda of a LINQ query throws, for a `catch` around the code that enumerates
-  the query. The analyzer does not give the object to that clause.
 - The objects of a task for a `catch` around `Task.WaitAll`, `Task.WaitAny`, or a wait of a task
   from `Task.Factory.StartNew`. The analyzer gives such a `catch` no object.
 - A write through a `ref` local of a conditional `ref` whose condition is not a constant, or through

@@ -59224,6 +59224,70 @@ public static class Shapes
     public static Cell<int> Ab359ThrowInALambdaOfAFinallyLetsTheObjectGoOn() =>
         Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } finally { Action a = () => throw new InvalidOperationException("x"); Kept.Add(a); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
 
+    // S14326. AG101. A query in a local throws from its lambda where ToList in a try runs it. The catch samples the object.
+    public static Cell<int> R6ExcQueryInALocalThatToListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new List<int> { 1 }.Select(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : n); try { Kept.Add(q.ToList()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14327. AG101. A query that the try makes and runs with ToList in one expression throws from its lambda. The catch samples the object.
+    public static Cell<int> R6ExcQueryMadeAndRunInTheTry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(new List<int> { 1 }.Select(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : n).ToList()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14328. AG101. Count runs a Where whose predicate throws. The catch samples the object.
+    public static Cell<int> R6ExcQueryThatCountRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(new List<int> { 1 }.Where(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : true).Count()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14329. AG101. A foreach in a try enumerates a query whose lambda throws. The catch samples the object.
+    public static Cell<int> R6ExcQueryThatAForeachRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new List<int> { 1 }.Select(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : n); try { foreach (int n in q) { Kept.Add(n); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14330. AG101. First runs a Select whose lambda throws. The catch samples the object.
+    public static Cell<int> R6ExcQueryThatFirstRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(new List<int> { 1 }.Select(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : n).First()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14331. AG101. ToList runs an OrderBy whose key selector throws. The catch samples the object.
+    public static Cell<int> R6ExcQueryOrderByThatToListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(new List<int> { 1, 2 }.OrderBy(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : n).ToList()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14332. AG101. A query expression in a local throws from its select clause where ToList in a try runs it. The catch samples the object.
+    public static Cell<int> R6ExcQueryExpressionInALocalThatToListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = from n in new List<int> { 1 } select n > 0 ? throw new R4CsFault(l.Map(v => v)) : n; try { Kept.Add(q.ToList()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14333. AG101. A method of the code enumerates a query whose lambda throws. The catch around the call samples the object.
+    public static Cell<int> R6ExcQueryThatAMethodEnumerates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new List<int> { 1 }.Select(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : n); try { Kept.Add(R6ExcCount(q)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14334. A try enumerates a query whose lambda throws. The catch samples the pending member of the object. The page names this as a limit.
+    public static Cell<int> R6LimCatchAroundAQueryWhoseLambdaThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(new List<int> { 1 }.Select(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : n).ToList()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14335. A loop makes a query expression in a try, and enumerates it after that try. Its select clause throws, and an outer catch only keeps the object. The catch around the place where the code made the query never runs.
+    public static Cell<int> R6ExcQueryExpressionDefinedInATryInALoopGetsNothingThere() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = []; try { for (int i = 0; i < 2; i++) { try { q = from n in new List<int> { 1 } select n > 0 ? throw new R4CsFault(l.Map(v => v)) : n; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } Kept.Add(q.ToList()); } } catch (R4CsFault) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14336. A Select with an async lambda that throws makes tasks that keep the object. ToList in the try throws nothing. Thus, the catch never runs.
+    public static Cell<int> Ag101AsyncLambdaOfAQueryGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); try { Kept.Add(new List<int> { 1 }.Select(async n => { await Task.CompletedTask; return n > 0 ? throw new R4CsFault(c) : n; }).ToList()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14337. A method makes a query in a try and returns it, and the caller enumerates it. The catch in the method never runs, and the catch around the call keeps the object only.
+    public static Cell<int> Ag101QueryThatAMethodReturnsGetsNothingInTheMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(Ag101Make(l.Map(v => v)).ToList()); } catch (R4CsFault) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14338. An iterator that throws is made in a try and enumerated after it. The catch around the place that makes it never runs.
+    public static Cell<int> Ag101IteratorMadeInATryGetsNothingThere() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = []; try { q = Ag101Throwing(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } try { Kept.Add(q.ToList()); } catch (R4CsFault) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14339. An iterator that throws is made before a try and enumerated in it. The catch samples the object.
+    public static Cell<int> Ag101IteratorEnumeratedInATry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = Ag101Throwing(l.Map(v => v)); try { Kept.Add(q.ToList()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14340. A Where of a Select whose lambda throws runs where ToList in the try runs them. The catch samples the object.
+    public static Cell<int> Ag101SourceOfAQueryThatToListRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new List<int> { 1 }.Select(n => n > 0 ? throw new R4CsFault(l.Map(v => v)) : n).Where(n => n > 0); try { Kept.Add(q.ToList()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14341. A catch in the lambda of a query gets the object, and samples it, where ToList runs the query.
+    public static Cell<int> Ag101CatchInTheLambdaOfAQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); IEnumerable<int> q = new List<int> { 1 }.Select(n => { try { throw new R4CsFault(c); } catch (R4CsFault e) { return e.Share.Sample(); } }); Kept.Add(q.ToList()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -110110,6 +110174,31 @@ public static class Shapes
                 }
             }
         }
+    }
+
+    // Helpers of the shapes of AG101.
+    private static IEnumerable<int> Ag101Make(Cell<int> c)
+    {
+        try
+        {
+            return new List<int> { 1 }.Select(n => n > 0 ? throw new R4CsFault(c) : n);
+        }
+        catch (R4CsFault e)
+        {
+            Kept.Add(e.Share.Sample());
+
+            return [];
+        }
+    }
+
+    private static IEnumerable<int> Ag101Throwing(Cell<int> c)
+    {
+        if (Kept.Count >= 0)
+        {
+            throw new R4CsFault(c);
+        }
+
+        yield return 1;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

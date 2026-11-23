@@ -63,6 +63,33 @@ internal sealed partial class SinkWalker
                 node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
             .Any(static node => node is LabeledStatementSyntax);
 
+    // The expression of this walker that enumerates the query that runs now, where the walk knows it.
+    private SyntaxNode? enumeratedAt;
+
+    // Each object that leaves the code of the query that this walker runs. Null where the walk does not know the
+    // expression that enumerates that query.
+    private List<(ITypeSymbol? Type, LoopState State)>? ofTheQuery;
+
+    // True for a lambda of the query that runs now, where the walk knows the expression that enumerates the query.
+    // While a query runs, the walk reads only the code of the query. Thus, each lambda around a throw is in that code.
+    // An async lambda puts the object into its task.
+    private bool IsOfTheQueryThatRuns(AnonymousFunctionExpressionSyntax lambda) =>
+        this.ofTheQuery != null && !IsAsync(lambda);
+
+    // A query runs where something enumerates it. Thus, an object that leaves the code of the query goes to the catch
+    // clauses around the expression that enumerates it. It does not go to the clauses around the code of the query.
+    private bool LeavesTheQueryThatRuns(SyntaxNode code, ITypeSymbol? type, LoopState state)
+    {
+        if (this.ofTheQuery == null || code != this.running?.Call)
+        {
+            return false;
+        }
+
+        this.ofTheQuery.Add((type, state));
+
+        return true;
+    }
+
     // True for an async method, local function, or lambda.
     private static bool IsAsync(SyntaxNode? function) =>
         function switch

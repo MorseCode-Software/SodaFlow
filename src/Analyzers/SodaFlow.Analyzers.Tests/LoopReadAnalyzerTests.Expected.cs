@@ -8293,6 +8293,18 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab359ThrowInABranchOfAFinallyLetsTheObjectGoOn"] = ["SF1001"],
             ["Ab359CatchBeforeAFinallyThatThrowsGetsTheObject"] = ["SF1001"],
             ["Ab359TheObjectOfAThrowInAFinallyGoesOn"] = ["SF1001"],
-            ["Ab359ThrowInALambdaOfAFinallyLetsTheObjectGoOn"] = ["SF1001"]
+            ["Ab359ThrowInALambdaOfAFinallyLetsTheObjectGoOn"] = ["SF1001"],
+            ["R6ExcQueryInALocalThatToListRuns"] = ["SF1001"],
+            ["R6ExcQueryMadeAndRunInTheTry"] = ["SF1001"],
+            ["R6ExcQueryThatCountRuns"] = ["SF1001"],
+            ["R6ExcQueryThatAForeachRuns"] = ["SF1001"],
+            ["R6ExcQueryThatFirstRuns"] = ["SF1001"],
+            ["R6ExcQueryOrderByThatToListRuns"] = ["SF1001"],
+            ["R6ExcQueryExpressionInALocalThatToListRuns"] = ["SF1001"],
+            ["R6ExcQueryThatAMethodEnumerates"] = ["SF1001"],
+            ["R6LimCatchAroundAQueryWhoseLambdaThrows"] = ["SF1001"],
+            ["Ag101IteratorEnumeratedInATry"] = ["SF1001"],
+            ["Ag101SourceOfAQueryThatToListRuns"] = ["SF1001"],
+            ["Ag101CatchInTheLambdaOfAQuery"] = ["SF1001"]
         };
 }

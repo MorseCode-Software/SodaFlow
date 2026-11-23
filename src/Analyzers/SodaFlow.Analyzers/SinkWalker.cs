@@ -4465,7 +4465,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         // Most values are not a query and contain none.
         if (!state.Queries.IsEmpty)
         {
+            SyntaxNode? outer = this.enumeratedAt;
+            this.enumeratedAt = written;
             this.Run(state: state, enumerated: this.region.TypeOf(written));
+            this.enumeratedAt = outer;
         }
     }
 
@@ -4561,9 +4564,25 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 : query.Definer.ReadBy(new SinkWalker(region: this.region, evaluator: query.Definer, sink: to));
 
         QueryValue? outer = walker.running;
+        List<(ITypeSymbol? Type, LoopState State)>? outerObjects = walker.ofTheQuery;
+        SyntaxNode? at = this.enumeratedAt;
         walker.running = query;
+        walker.ofTheQuery = at != null ? [] : null;
         walker.RunHere(query.Call);
+        List<(ITypeSymbol? Type, LoopState State)>? objects = walker.ofTheQuery;
         walker.running = outer;
+        walker.ofTheQuery = outerObjects;
+
+        if (objects == null || at == null)
+        {
+            return;
+        }
+
+        // The objects of the code of the query go from the expression that enumerates it.
+        foreach ((ITypeSymbol? type, LoopState state) in objects)
+        {
+            this.Sends(from: at, type: type, state: state);
+        }
     }
 
     private void RunHere(SyntaxNode call)
@@ -5143,9 +5162,15 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         for (;
              parent is not (null or LocalFunctionStatementSyntax or MemberDeclarationSyntax)
              && (parent is not AnonymousFunctionExpressionSyntax lambda
-                 || (this.running == null && this.entered.Contains(lambda) && !IsAsync(lambda)));
+                 || (this.running == null && this.entered.Contains(lambda) && !IsAsync(lambda))
+                 || this.IsOfTheQueryThatRuns(lambda));
              child = parent, parent = parent.Parent)
         {
+            if (this.LeavesTheQueryThatRuns(code: child, type: type, state: state))
+            {
+                return;
+            }
+
             // The runtime ignores an exception in a filter, and the object goes nowhere.
             if (parent is CatchFilterClauseSyntax)
             {
