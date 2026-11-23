@@ -265,15 +265,17 @@ let fromRemoves (removesStream: Stream<'TKey>) : Stream<CollectionEdit<'TKey, 'T
 // --- observation --------------------------------------------------------------------------
 
 /// <summary>
-///     The mutable part of the item. It is <c>None</c> while the store has no such key.
+///     The mutable part of the item. It is <c>None</c> while the collection or view that it reads
+///     has no such key.
 /// </summary>
 /// <param name="key">The key to monitor.</param>
 /// <param name="collection">The collection or view to read.</param>
 /// <returns>A cell tracking that key's state.</returns>
 /// <remarks>
 ///     The cost is low, thus code can make one for each bound row. It gets only the changes that
-///     name its key, and it does not read the other items. A weak cache holds one for each key,
-///     thus N observers of one key share a node, and two views of the same root give the same cell.
+///     name its key, and it does not read the other items. Each collection and each view keeps a
+///     weak cache of these cells, one for each key. Thus, N observers of one key through one view
+///     share a cell. Two views give two cells, because each view answers for its own members.
 ///     The key can be missing now. A removal sends <c>None</c>, and a subsequent add with the same
 ///     key sends <c>Some</c> again. Thus, a view that binds to a key can continue after the item.
 /// </remarks>
