@@ -8232,6 +8232,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab356CodeAfterAnAwaitForeachOfWithCancellationOfAnObjectRunsNow"] = ["SF1001"],
             ["Ab356AwaitForeachOfWithCancellationGetsTheEnumeratorNow"] = ["SF1005"],
             ["Ab356AwaitForeachOfConfigureAwaitDisposesAsyncNow"] = ["SF1005"],
-            ["Ab356AwaitForeachOfConfigureAwaitGivesTheCurrentOfTheEnumerator"] = ["SF1001"]
+            ["Ab356AwaitForeachOfConfigureAwaitGivesTheCurrentOfTheEnumerator"] = ["SF1001"],
+            ["R6ExcDispatchInfoThrowsTheObjectAgain"] = ["SF1001"],
+            ["R6ExcStaticDispatchInfoThrowsTheObjectAgain"] = ["SF1001"],
+            ["R6ExcDispatchInfoOfAnInnerExceptionThrowsTheObject"] = ["SF1001"]
         };
 }

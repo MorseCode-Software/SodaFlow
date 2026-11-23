@@ -3650,7 +3650,7 @@ internal sealed partial class LoopStateEvaluator
                 : null;
         }
 
-        if (method.Name == "GetResult" && this.FaultOfATask(invocation: invocation, method: method) is { } fault)
+        if (this.FaultOfAPlatformCall(invocation: invocation, method: method) is { } fault)
         {
             return fault;
         }

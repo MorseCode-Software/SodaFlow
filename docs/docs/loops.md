@@ -325,7 +325,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   function of a `Map` at a first read that always runs. The variable of a `catch` clause gets each
   object that a `throw` in its `try` block, or in a method or a lambda that the block calls, can
   send to that clause. That includes a lambda that a method of the platform, such as
-  `List<T>.ForEach`, runs in the call. An `async` method, local function, or lambda puts the object
+  `List<T>.ForEach`, runs in the call. `ExceptionDispatchInfo.Throw` of an object, and `Throw` of
+  `ExceptionDispatchInfo.Capture` of an object, count as a `throw` of that object. An `async` method, local function, or lambda puts the object
   into its task instead, so the clause gets it only around an `await` of the call, around an
   `await foreach` over the sequence that an async iterator gives, or around an `await using` whose
   `DisposeAsync` throws it. A task that `RunSynchronously` runs keeps the object

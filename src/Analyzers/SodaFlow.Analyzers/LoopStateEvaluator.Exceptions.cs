@@ -70,6 +70,63 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
     /// <summary>
+    ///     The objects that a call of the platform throws again. Null for a
+    ///     call that throws no object that the walk knows.
+    /// </summary>
+    /// <param name="invocation">The call.</param>
+    /// <param name="method">The method of the call.</param>
+    private Followed? FaultOfAPlatformCall(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
+        method.Name switch
+        {
+            "GetResult" => this.FaultOfATask(invocation: invocation, method: method),
+            "Throw" => this.DispatchedAgain(invocation: invocation, method: method),
+            _ => null
+        };
+
+    /// <summary>
+    ///     The object that <c>Throw</c> of <c>ExceptionDispatchInfo</c> throws
+    ///     again. The static <c>Throw</c> throws its argument. The other
+    ///     <c>Throw</c> throws the argument of the <c>Capture</c> that made the
+    ///     receiver. Each one throws as a <c>throw</c> statement does.
+    /// </summary>
+    /// <remarks>
+    ///     The walk knows the object only where the receiver is a call of
+    ///     <c>ExceptionDispatchInfo</c>. <c>Capture</c> is the only such method
+    ///     that gives an <c>ExceptionDispatchInfo</c>.
+    /// </remarks>
+    /// <param name="invocation">The call of <c>Throw</c>.</param>
+    /// <param name="method">The method of the call.</param>
+    private Followed? DispatchedAgain(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (!IsADispatchInfo(method.ContainingType))
+        {
+            return null;
+        }
+
+        ExpressionSyntax? thrown =
+            method.IsStatic
+                ? invocation.ArgumentList.Arguments is { Count: 1 } arguments ? arguments[0].Expression : null
+                : invocation.Expression is MemberAccessExpressionSyntax
+                  {
+                      Expression: InvocationExpressionSyntax { ArgumentList.Arguments.Count: 1 } capture
+                  }
+                  && this.region.SymbolOf(capture) is IMethodSymbol captures
+                  && IsADispatchInfo(captures.ContainingType)
+                    ? capture.ArgumentList.Arguments[0].Expression
+                    : null;
+
+        return thrown == null
+            ? null
+            : WithThrown(
+                followed: Followed.Nothing,
+                thrown: ImmutableArray.Create<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)>(
+                    (invocation, this.region.TypeOf(thrown), this.Eval(thrown))));
+
+        static bool IsADispatchInfo(INamedTypeSymbol? type) =>
+            type is { Name: "ExceptionDispatchInfo", ContainingNamespace.Name: "ExceptionServices" };
+    }
+
+    /// <summary>
     ///     The objects that the functions of a task threw, for a call of
     ///     <c>GetResult</c> of the awaiter of the task. The call throws each of
     ///     them again. Null where the task has no function that the walk can

@@ -58908,6 +58908,34 @@ public static class Shapes
     public static Cell<int> Ab356WithCancellationOfTheCodeRunsNoIterator() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (long n in Ab356SamplesLongs(l.Map(v => v)).WithCancellation(CancellationToken.None)) { Kept.Add(n); } }; run().Wait(0); return S.Hold(0); });
 
+    // S14247. ExceptionDispatchInfo.Capture of the caught object throws it again, and the outer catch samples it.
+    public static Cell<int> R6ExcDispatchInfoThrowsTheObjectAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ExceptionDispatchInfo.Capture(e).Throw(); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14248. ExceptionDispatchInfo.Throw of the caught object throws it again, and the outer catch samples it.
+    public static Cell<int> R6ExcStaticDispatchInfoThrowsTheObjectAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ExceptionDispatchInfo.Throw(e); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14249. ExceptionDispatchInfo.Capture of the inner exception of an AggregateException throws the object, and the outer catch samples it.
+    public static Cell<int> R6ExcDispatchInfoOfAnInnerExceptionThrowsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException a) { ExceptionDispatchInfo.Capture(a.InnerException!).Throw(); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14250. A static method Throw of the code gets the caught object and does nothing with it. Thus, the outer catch of the object never runs.
+    public static Cell<int> Ab360ThrowOfTheCodeGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Ab360Dispatcher.Throw(e); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14251. Throw of an ExceptionDispatchInfo that a method of the code makes of a different object throws that object. Thus, the outer catch of the caught object never runs.
+    public static Cell<int> Ab360ThrowOfADispatchInfoOfACallThatIsNotCaptureGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Ab360InfoOfAnother(e).Throw(); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } catch (InvalidOperationException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14252. Throw of the ExceptionDispatchInfo that a method Capture of the code makes of a different object throws that object. Thus, the outer catch of the caught object never runs.
+    public static Cell<int> Ab360ThrowOfACaptureOfTheCodeGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Ab360Dispatcher.Capture(e).Throw(); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } catch (InvalidOperationException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14253. A class of the code with the name ExceptionDispatchInfo has a static Throw that does nothing. Thus, the outer catch of the object never runs.
+    public static Cell<int> Ab360ThrowOfADispatchInfoOfTheCodeGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Ab360Holder.ExceptionDispatchInfo.Throw(e); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109720,6 +109748,26 @@ public static class Shapes
 
         yield return c.Sample();
     }
+
+    // Helpers of the shapes of AB360.
+    public static class Ab360Dispatcher
+    {
+        public static void Throw(Exception e) => Kept.Add(e.Message.Length);
+
+        public static ExceptionDispatchInfo Capture(Exception e) =>
+            ExceptionDispatchInfo.Capture(new InvalidOperationException(e.Message));
+    }
+
+    public static class Ab360Holder
+    {
+        public static class ExceptionDispatchInfo
+        {
+            public static void Throw(Exception e) => Kept.Add(e.Message.Length);
+        }
+    }
+
+    private static ExceptionDispatchInfo Ab360InfoOfAnother(Exception e) =>
+        ExceptionDispatchInfo.Capture(new InvalidOperationException(e.Message));
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
