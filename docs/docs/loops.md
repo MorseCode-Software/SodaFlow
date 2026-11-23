@@ -981,11 +981,6 @@ Some reads that throw it does not see:
   object. Inside a method or a constructor, each name of one object that the list above gives, when
   it gets `this`, also through `Add` or as an element of a collection expression such as `[this]`,
   is the same object as `this` until code gives it a different value.
-- A write through a local that went into an element of an array in a static field, read through a
-  third local that got that element, as in `F[0] = d; var q = F[0];` and then a write through `d`
-  and a read through `q`. The same holds when the write goes through a `ref` local of the element or
-  through a local that a lambda uses, and for a write that a constructor makes through its
-  parameter, read through a second name of the object of the argument.
 - A write in the function of a `Map`, a `Lift`, or a collection view that the analyzer did not see
   you build, such as a cell in a field that a read in the block runs for the first time. A function
   that you give to `Map` or `Lift` should have no side effects in any case.

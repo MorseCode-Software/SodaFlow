@@ -62016,6 +62016,50 @@ public static class Shapes
     public static Cell<int> Ab363AwaitOfAContinuationThatNothingWaitsFor() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> f = async () => await Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously); Kept.Add(f()); return S.Hold(0); });
 
+    // S15031. Carried from Round 4 (AB222, R4PairFieldArrayPlainThenLocalReadThirdReversed). Pair matrix: an element of a static field array, through the field gets the object of a local. A plain cell goes in through an element of a static field array, through the field, then a pending cell through a local. The read is through a third name (a local). (Left out in Round 5 as R5FuCPairFieldArrayPlainThenLocalReadThirdReversed, AB297.)
+    public static Cell<int> R6FuCFuCPairFieldArrayPlainThenLocalReadThirdReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); R4PairFa174[0] = d; SettableSlot q = R4PairFa174[0]; R4PairFa174[0].Share = Plain; d.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S15032. Pair matrix: an element of a static field array, through the field gets the object of a local. A plain cell goes in through an element of a static field array, through the field, then a pending cell through a local. The read is through a third name (a local). (Left out in Round 5 as R5PairFieldArrayPlainThenLocalReadThirdReversed, AB297.)
+    public static Cell<int> R6FuCPairFieldArrayPlainThenLocalReadThirdReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); R5PairFa174[0] = d; SettableSlot q = R5PairFa174[0]; R5PairFa174[0].Share = Plain; d.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S15033. Pair matrix, Round 5: a ref local gets the object of an element of a static field array. A plain cell goes in through an element of a static field array, then a pending cell through a ref local. The read is through a third name (a local). (Left out in Round 5 as R5PairFieldArrayPlainThenRefLocalReadThird, AB297.)
+    public static Cell<int> R6FuCPairFieldArrayPlainThenRefLocalReadThird() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ref SettableSlot r = ref R5PairXFa6[0]; SettableSlot q = r; R5PairXFa6[0].Share = Plain; r.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S15034. Pair matrix, Round 5: an element of a static field array gets the object of a local that a lambda captures. A plain cell goes in through an element of a static field array, then a pending cell through a local that a lambda captures. The read is through a third name (a local). (Left out in Round 5 as R5PairFieldArrayPlainThenCapturedLocalReadThirdReversed, AB297.)
+    public static Cell<int> R6FuCPairFieldArrayPlainThenCapturedLocalReadThirdReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new(); Func<SettableSlot> seen = () => c; _ = seen; R5PairXFa552[0] = c; SettableSlot q = R5PairXFa552[0]; R5PairXFa552[0].Share = Plain; c.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S15035. Pair matrix, Round 5: an element of a local array gets the object of an element of a static field array. A plain cell goes in through an element of a static field array, then a pending cell through an element of a local array. The second write is in a constructor that gets the name as a parameter. The read is through an element of a static field array. (Left out in Round 5 as R5PairFieldArrayPlainThenElementReadFieldArraySecondInAConstructor, AB297.)
+    public static Cell<int> R6FuCPairFieldArrayPlainThenElementReadFieldArraySecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R5PairSpare]; a[0] = R5PairXFa652[0]; SettableSlot q = a[0]; R5PairXFa652[0].Share = Plain; _ = new R5PairWriter(a[0], l.Map(v => v)); return S.Hold(R5PairXFa652[0].Share!.Sample()); });
+
+    // S15036. Pair matrix, Round 5: an element of a local array gets the object of a static field. A plain cell goes in through a static field, then a pending cell through an element of a local array. The second write is in a constructor that gets the name as a parameter. The read is through a static field. (Left out in Round 5 as R5PairStaticFieldPlainThenElementReadStaticFieldSecondInAConstructor, AB297.)
+    public static Cell<int> R6FuCPairStaticFieldPlainThenElementReadStaticFieldSecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R5PairSpare]; a[0] = R5PairXSf676; SettableSlot q = a[0]; R5PairXSf676.Share = Plain; _ = new R5PairWriter(a[0], l.Map(v => v)); return S.Hold(R5PairXSf676.Share!.Sample()); });
+
+    // S15037. Pair matrix: an element of a static field array, through the field gets the object of a local. A plain cell goes in through an element of a static field array, through the field, then a pending cell through a local. The read is through a third name (a local).
+    public static Cell<int> R6PairFieldArrayPlainThenLocalReadThirdReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); R6PairFa174[0] = d; SettableSlot q = R6PairFa174[0]; R6PairFa174[0].Share = Plain; d.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S15038. Pair matrix, Round 5: a ref local gets the object of an element of a static field array. A plain cell goes in through an element of a static field array, then a pending cell through a ref local. The read is through a third name (a local).
+    public static Cell<int> R6PairFieldArrayPlainThenRefLocalReadThird() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ref SettableSlot r = ref R6PairXFa6[0]; SettableSlot q = r; R6PairXFa6[0].Share = Plain; r.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S15039. Pair matrix, Round 5: an element of a static field array gets the object of a local that a lambda captures. A plain cell goes in through an element of a static field array, then a pending cell through a local that a lambda captures. The read is through a third name (a local).
+    public static Cell<int> R6PairFieldArrayPlainThenCapturedLocalReadThirdReversed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = new(); Func<SettableSlot> seen = () => c; _ = seen; R6PairXFa552[0] = c; SettableSlot q = R6PairXFa552[0]; R6PairXFa552[0].Share = Plain; c.Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S15040. Pair matrix, Round 5: an element of a local array gets the object of an element of a static field array. A plain cell goes in through an element of a static field array, then a pending cell through an element of a local array. The second write is in a constructor that gets the name as a parameter. The read is through an element of a static field array.
+    public static Cell<int> R6PairFieldArrayPlainThenElementReadFieldArraySecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R6PairSpare]; a[0] = R6PairXFa652[0]; SettableSlot q = a[0]; R6PairXFa652[0].Share = Plain; _ = new R6PairWriter(a[0], l.Map(v => v)); return S.Hold(R6PairXFa652[0].Share!.Sample()); });
+
+    // S15041. Pair matrix, Round 5: an element of a local array gets the object of a static field. A plain cell goes in through a static field, then a pending cell through an element of a local array. The second write is in a constructor that gets the name as a parameter. The read is through a static field.
+    public static Cell<int> R6PairStaticFieldPlainThenElementReadStaticFieldSecondInAConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R6PairSpare]; a[0] = R6PairXSf676; SettableSlot q = a[0]; R6PairXSf676.Share = Plain; _ = new R6PairWriter(a[0], l.Map(v => v)); return S.Hold(R6PairXSf676.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

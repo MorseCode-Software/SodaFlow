@@ -8815,6 +8815,17 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab363ContinuationWritesInTheCall"] = ["SF1001"],
             ["Ab363JoinedOptions"] = ["SF1001"],
             ["Ab363OptionsWithATokenAndAScheduler"] = ["SF1001"],
-            ["Ab363ContinuationThatThrowsAnObject"] = ["SF1001"]
+            ["Ab363ContinuationThatThrowsAnObject"] = ["SF1001"],
+            ["R6FuCFuCPairFieldArrayPlainThenLocalReadThirdReversed"] = ["SF1001"],
+            ["R6FuCPairFieldArrayPlainThenLocalReadThirdReversed"] = ["SF1001"],
+            ["R6FuCPairFieldArrayPlainThenRefLocalReadThird"] = ["SF1001"],
+            ["R6FuCPairFieldArrayPlainThenCapturedLocalReadThirdReversed"] = ["SF1001"],
+            ["R6FuCPairFieldArrayPlainThenElementReadFieldArraySecondInAConstructor"] = ["SF1001"],
+            ["R6FuCPairStaticFieldPlainThenElementReadStaticFieldSecondInAConstructor"] = ["SF1001"],
+            ["R6PairFieldArrayPlainThenLocalReadThirdReversed"] = ["SF1001"],
+            ["R6PairFieldArrayPlainThenRefLocalReadThird"] = ["SF1001"],
+            ["R6PairFieldArrayPlainThenCapturedLocalReadThirdReversed"] = ["SF1001"],
+            ["R6PairFieldArrayPlainThenElementReadFieldArraySecondInAConstructor"] = ["SF1001"],
+            ["R6PairStaticFieldPlainThenElementReadStaticFieldSecondInAConstructor"] = ["SF1001"]
         };
 }
