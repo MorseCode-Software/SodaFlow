@@ -17,6 +17,46 @@ internal sealed partial class LoopStateEvaluator
     public bool HasAnElement(ExpressionSyntax collection) =>
         this.StorePositionsOf(collection) is (_, { Length: > 0 });
 
+    /// <summary>
+    ///     The value that the call of this code gives a parameter, where that
+    ///     value is a constant. The default value of the parameter, where the
+    ///     call gives no argument for it. Nothing for each other parameter.
+    /// </summary>
+    /// <remarks>
+    ///     The value of a parameter that the code writes can change. A lambda
+    ///     gets no such value for a parameter of the method around it.
+    /// </remarks>
+    /// <param name="parameter">The parameter.</param>
+    public Optional<object?> ArgumentConstantOf(IParameterSymbol parameter)
+    {
+        if (this.call is not { Site: InvocationExpressionSyntax { ArgumentList.Arguments: var arguments } site }
+            || this.region.SymbolOf(site) is not IMethodSymbol method
+            || !SymbolEqualityComparer.Default.Equals(
+                x: (method.ReducedFrom ?? method).OriginalDefinition,
+                y: parameter.ContainingSymbol.OriginalDefinition)
+            || IsWrittenIn(parameter: parameter, region: this.region))
+        {
+            return default;
+        }
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            if (ParameterFor(method: method, argument: arguments[i], position: i)?.Name == parameter.Name)
+            {
+                return this.region.ModelFor(arguments[i].Expression).GetConstantValue(arguments[i].Expression);
+            }
+        }
+
+        return parameter.HasExplicitDefaultValue ? new Optional<object?>(parameter.ExplicitDefaultValue) : default;
+    }
+
+    /// <summary>
+    ///     True for a value that has an object of the store. A run counts where
+    ///     a test for null of such a value permits it.
+    /// </summary>
+    /// <param name="value">The expression of the value.</param>
+    public bool HasAnObject(ExpressionSyntax value) => !this.region.Objects.Now(this.Eval(value).Objects).IsEmpty;
+
     // True when each run of the code runs the node one time. The node has only blocks and its own
     // statement around it, up to the code. A finally block runs what is in it also, and so does the
     // branch of an if that a constant selects. The block of a try with no catch clause runs the

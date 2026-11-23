@@ -292,7 +292,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 dispose: resource,
                 runsOnEachPath: () =>
                     resource.FirstAncestorOrSelf<StatementSyntax>() is { } statement
-                    && this.AlwaysRunsAt(place: statement, turn: out _)));
+                    && this.SurelyRunsAt(place: statement, forARun: true, after: out _)));
 
         LoopState state = this.evaluator.Eval(resource);
 
@@ -2249,11 +2249,13 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     // The same as AlwaysRuns, for a statement or for the expression that is the body of a function.
     // For a first read, also see MarksOfAFirstRead.
     // A call asks with forACall. For it, a goto to a label before the call is no exit, and the block
-    // of a try with no catch clause runs the call before the code after that try.
+    // of a try with no catch clause runs the call before the code after that try. Also, the arguments
+    // of the code can give a condition a known value: see ValueOf. A run asks with forARun.
     private bool AlwaysRunsAt(
         SyntaxNode place,
         bool forAFirstRead,
         bool forACall,
+        bool forARun,
         out SyntaxNode? turn,
         out TryStatementSyntax? after)
     {
@@ -2271,7 +2273,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             switch (ancestor)
             {
                 case AnonymousFunctionExpressionSyntax lambda when this.entered.Contains(lambda):
-                    if (this.ExitsBefore(function: lambda, place: place.SpanStart, forACall: forACall))
+                    if (this.ExitsBefore(
+                            function: lambda,
+                            place: place.SpanStart,
+                            forACall: forACall,
+                            forARun: forARun))
                     {
                         return false;
                     }
@@ -2302,8 +2308,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     turn = body;
 
                     return false;
-                case IfStatementSyntax
-                    or ElseClauseSyntax
+                case IfStatementSyntax branch
+                    when this.RunsThePartOf(branch: branch, part: child, forACall: forACall, forARun: forARun):
+                    continue;
+                case ElseClauseSyntax
                     or SwitchSectionSyntax
                     or SwitchStatementSyntax
                     or LabeledStatementSyntax
@@ -2331,7 +2339,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     or MemberDeclarationSyntax
                     or AccessorDeclarationSyntax:
                     // A return statement is no statement before itself.
-                    return !this.ExitsBefore(function: ancestor, place: place.SpanStart, forACall: forACall);
+                    return !this.ExitsBefore(
+                        function: ancestor,
+                        place: place.SpanStart,
+                        forACall: forACall,
+                        forARun: forARun);
                 // The if around an else clause tells if the clause runs.
                 case ElseClauseSyntax:
                     continue;
@@ -3650,7 +3662,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                         this.evaluator.FollowEvictionsOfADispose(
                             map: receiver,
                             dispose: node,
-                            runsOnEachPath: () => this.SurelyRuns(call: node, after: out _)));
+                            runsOnEachPath: () => this.SurelyRuns(call: node, forARun: true, after: out _)));
 
                     break;
                 // A clock of the library base keeps the callback of SetTimer. Its RunTimersTo runs
@@ -3725,7 +3737,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         // A callee runs a timer of a different code only where the call runs on all paths. The walk
         // does not know the path that the arguments of the callee select.
-        bool always = this.SurelyRuns(call: call, after: out _);
+        bool always = this.SurelyRuns(call: call, forARun: true, after: out _);
 
         foreach (KeptTimer timer in this.region.Objects.TimersOf(this.region.Objects.Now(clocks))
                      .Where(timer => (always || timer.Keeper == this) && !this.IsAfter(time: timer.Time, now: now))
@@ -3753,7 +3765,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     // block can run without the call.
     private void CancelsATimerAt(SyntaxNode call, ExpressionSyntax timer)
     {
-        if (!this.region.Objects.HasTimers || !this.SurelyRuns(call: call, after: out TryStatementSyntax? after))
+        if (!this.region.Objects.HasTimers
+            || !this.SurelyRuns(call: call, forARun: false, after: out TryStatementSyntax? after))
         {
             return;
         }

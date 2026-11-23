@@ -555,7 +555,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   a `finally` block or in a `try` block with no `catch` runs on every path, and so does a call in
   the `else` of an `if` on a constant, in the `switch` section that a constant or a lone `default`
   selects, after a `goto` to a label before it, and in a loop or a `List<T>.ForEach` that always
-  runs at least once.
+  runs at least once. A condition on a parameter whose argument is a constant counts as that
+  constant, and so does a parameter with a default value that the call leaves out, unless the method
+  writes the parameter. A test for `null` of a value that the analyzer saw made counts as not
+  `null`, so `if (clock == null) return;` and `clock?.RunTimersTo(0)` run the timers. A condition
+  that the arguments do not decide, such as one on a field, keeps the call from counting.
   A `Cancel` or a `Dispose` of the timer before the run, or the end of a `using` statement of it,
   takes the timer away when it runs on every path, by the same rule, also in a loop that always
   runs at least once. In a `try` block it takes the timer away at the end of the `try`, so a run of

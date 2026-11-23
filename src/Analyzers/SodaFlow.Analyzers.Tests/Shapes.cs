@@ -60852,6 +60852,86 @@ public static class Shapes
     public static Cell<int> Ab364TimerHelperSkipsInAForEachOfAnEmptyInitializer() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunInAForEachOfAnEmptyInitializer(clock); return S.Hold(0); });
 
+    // S14733. A method of this code calls RunTimersTo only when its argument is true. The block gives true, thus the callback samples.
+    public static Cell<int> R6PathTimerHelperRunsIfTrue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunIf(clock, true); return S.Hold(0); });
+
+    // S14734. A method of this code returns early when its clock is null, and otherwise calls RunTimersTo. The clock is not null, thus the callback samples.
+    public static Cell<int> R6PathTimerHelperRunsAfterAReturnGuard() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunAfterAReturnGuard(clock); return S.Hold(0); });
+
+    // S14735. A method of this code calls RunTimersTo through a conditional access. The clock is not null.
+    public static Cell<int> R6PathTimerHelperRunsThroughAConditionalAccess() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunThroughAConditionalAccess(clock); return S.Hold(0); });
+
+    // S14736. The extension method RunTimersTo of this code with skip false runs the timers. The callback samples.
+    public static Cell<int> R6PathTimerExtensionThatDoesNotSkip() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); clock.RunTimersTo(now: 0, skip: false); return S.Hold(0); });
+
+    // S14737. A method of this code disposes the map only when its argument is true. The block gives true.
+    public static Cell<int> R6PathMapHelperDisposesIfTrue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; R6PathDisposeIf(m, true); return S.Hold(n); });
+
+    // S14738. A method of this code returns early for null and otherwise disposes the map.
+    public static Cell<int> R6PathMapHelperDisposesAfterAReturnGuard() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; R6PathDisposeAfterAReturnGuard(m); return S.Hold(n); });
+
+    // S14739. A method of this code disposes the map through a conditional access.
+    public static Cell<int> R6PathMapHelperDisposesThroughAConditionalAccess() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; R6PathDisposeThroughAConditionalAccess(m); return S.Hold(n); });
+
+    // S14740. A method of this code disposes the map with a using statement in an if. The block gives true.
+    public static Cell<int> R6PathMapHelperDisposesInAUsingOfABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; R6PathDisposeInAUsingIf(m, true); return S.Hold(n); });
+
+    // S14741. The extension method Dispose of this code with a count of one disposes the map.
+    public static Cell<int> R6PathMapExtensionDisposeOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; m.Dispose(times: 1); return S.Hold(n); });
+
+    // S14742. A method of this code calls RunTimersTo in the else branch of an if on its parameter. The argument is false.
+    public static Cell<int> Ag100TimerHelperRunsInTheElseOfAFalseArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunInTheElseOf(clock, false); return S.Hold(0); });
+
+    // S14743. A method of this code calls RunTimersTo only when its parameter is true. The call gives no argument, and the default value is true.
+    public static Cell<int> Ag100TimerHelperRunsIfTheDefaultIsTrue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunIfByDefault(clock); return S.Hold(0); });
+
+    // S14744. A method of this code changes its parameter before the if on it. The argument is true, but the parameter is then false, thus the timer does not run.
+    public static Cell<int> Ag100TimerHelperSkipsAfterAWriteOfTheParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunIfAfterAWrite(clock, true); return S.Hold(0); });
+
+    // S14745. A method of this code calls RunTimersTo only when its parameter is less than 1. The argument is 0.
+    public static Cell<int> Ag100TimerHelperRunsIfLess() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunIfLess(clock, 0); return S.Hold(0); });
+
+    // S14746. A method of this code calls RunTimersTo only when its parameter is 0 or less. The argument is 0.
+    public static Cell<int> Ag100TimerHelperRunsIfAtMost() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunIfAtMost(clock, 0); return S.Hold(0); });
+
+    // S14747. A method of this code calls RunTimersTo only when its parameter is 1 or more. The argument is 1.
+    public static Cell<int> Ag100TimerHelperRunsIfAtLeast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunIfAtLeast(clock, 1); return S.Hold(0); });
+
+    // S14748. A method of this code calls RunTimersTo only when its parameter is 1. The argument is 1.
+    public static Cell<int> Ag100TimerHelperRunsIfEqual() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunIfEqual(clock, 1); return S.Hold(0); });
+
+    // S14749. A method of this code calls RunTimersTo only when its parameter is not 0. The argument is 1.
+    public static Cell<int> Ag100TimerHelperRunsIfNotEqual() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunIfNotEqual(clock, 1); return S.Hold(0); });
+
+    // S14750. A method of this code calls RunTimersTo only when its string parameter is run. The argument is run.
+    public static Cell<int> Ag100TimerHelperRunsIfNamed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunIfNamed(clock, "run"); return S.Hold(0); });
+
+    // S14751. A method of this code calls RunTimersTo only when its clock is not null. The clock is not null.
+    public static Cell<int> Ag100TimerHelperRunsIfNotNull() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunIfNotNull(clock); return S.Hold(0); });
+
+    // S14752. A method of this code calls a local function with true. The local function calls RunTimersTo only when its parameter is true.
+    public static Cell<int> Ag100TimerHelperRunsInALocalFunctionIfTrue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunInALocalFunctionIf(clock); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112544,6 +112624,105 @@ public static class Shapes
 
     private static void Ab364RunInAForEachOfAnEmptyInitializer(R4ApiStepClock clock) =>
         new List<int> { }.ForEach(n => clock.RunTimersTo(n));
+
+    // Helpers of the AG100 edges.
+    private static void Ag100RunInTheElseOf(R4ApiStepClock clock, bool go)
+    {
+        if (go)
+        {
+        }
+        else
+        {
+            clock.RunTimersTo(0);
+        }
+    }
+
+    private static void Ag100RunIfByDefault(R4ApiStepClock clock, bool go = true)
+    {
+        if (go)
+        {
+            clock.RunTimersTo(0);
+        }
+    }
+
+    private static void Ag100RunIfAfterAWrite(R4ApiStepClock clock, bool go)
+    {
+        go = !go;
+
+        if (go)
+        {
+            clock.RunTimersTo(0);
+        }
+    }
+
+    private static void Ag100RunIfLess(R4ApiStepClock clock, int n)
+    {
+        if (n < 1)
+        {
+            clock.RunTimersTo(0);
+        }
+    }
+
+    private static void Ag100RunIfAtMost(R4ApiStepClock clock, int n)
+    {
+        if (n <= 0)
+        {
+            clock.RunTimersTo(0);
+        }
+    }
+
+    private static void Ag100RunIfAtLeast(R4ApiStepClock clock, int n)
+    {
+        if (n >= 1)
+        {
+            clock.RunTimersTo(0);
+        }
+    }
+
+    private static void Ag100RunIfEqual(R4ApiStepClock clock, int n)
+    {
+        if (n == 1)
+        {
+            clock.RunTimersTo(0);
+        }
+    }
+
+    private static void Ag100RunIfNotEqual(R4ApiStepClock clock, int n)
+    {
+        if (n != 0)
+        {
+            clock.RunTimersTo(0);
+        }
+    }
+
+    private static void Ag100RunIfNamed(R4ApiStepClock clock, string name)
+    {
+        if (name == "run")
+        {
+            clock.RunTimersTo(0);
+        }
+    }
+
+    private static void Ag100RunIfNotNull(R4ApiStepClock? clock)
+    {
+        if (clock != null)
+        {
+            clock.RunTimersTo(0);
+        }
+    }
+
+    private static void Ag100RunInALocalFunctionIf(R4ApiStepClock clock)
+    {
+        Run(true);
+
+        void Run(bool go)
+        {
+            if (go)
+            {
+                clock.RunTimersTo(0);
+            }
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

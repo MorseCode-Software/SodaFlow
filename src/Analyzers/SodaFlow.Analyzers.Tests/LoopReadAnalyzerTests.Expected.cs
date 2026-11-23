@@ -8609,6 +8609,25 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab364TimerHelperRunsInASwitchOfAStringConstant"] = ["SF1001"],
             ["Ab368CancelAfterAThrowInATry"] = ["SF1001"],
             ["Ab368HandlerRemovedAfterAThrowInATryWithACatch"] = ["SF1001"],
-            ["Ab368HandlerRemovedBeforeAFinallyThatRings"] = ["SF1001"]
+            ["Ab368HandlerRemovedBeforeAFinallyThatRings"] = ["SF1001"],
+            ["R6PathTimerHelperRunsIfTrue"] = ["SF1001"],
+            ["R6PathTimerHelperRunsAfterAReturnGuard"] = ["SF1001"],
+            ["R6PathTimerHelperRunsThroughAConditionalAccess"] = ["SF1001"],
+            ["R6PathTimerExtensionThatDoesNotSkip"] = ["SF1001"],
+            ["R6PathMapHelperDisposesIfTrue"] = ["SF1001"],
+            ["R6PathMapHelperDisposesAfterAReturnGuard"] = ["SF1001"],
+            ["R6PathMapHelperDisposesThroughAConditionalAccess"] = ["SF1001"],
+            ["R6PathMapHelperDisposesInAUsingOfABranch"] = ["SF1001"],
+            ["R6PathMapExtensionDisposeOfOne"] = ["SF1001"],
+            ["Ag100TimerHelperRunsInTheElseOfAFalseArgument"] = ["SF1001"],
+            ["Ag100TimerHelperRunsIfTheDefaultIsTrue"] = ["SF1001"],
+            ["Ag100TimerHelperRunsIfLess"] = ["SF1001"],
+            ["Ag100TimerHelperRunsIfAtMost"] = ["SF1001"],
+            ["Ag100TimerHelperRunsIfAtLeast"] = ["SF1001"],
+            ["Ag100TimerHelperRunsIfEqual"] = ["SF1001"],
+            ["Ag100TimerHelperRunsIfNotEqual"] = ["SF1001"],
+            ["Ag100TimerHelperRunsIfNamed"] = ["SF1001"],
+            ["Ag100TimerHelperRunsIfNotNull"] = ["SF1001"],
+            ["Ag100TimerHelperRunsInALocalFunctionIfTrue"] = ["SF1001"]
         };
 }
