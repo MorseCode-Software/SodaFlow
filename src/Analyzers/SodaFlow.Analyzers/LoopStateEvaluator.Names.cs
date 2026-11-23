@@ -600,7 +600,7 @@ internal sealed partial class LoopStateEvaluator
 
     // True when a token is the name of a different symbol, or the owner of a member that is a
     // location. A name with no symbol can be the field.
-    private bool ReadsOnlyAMemberOf(SyntaxToken token, IFieldSymbol field)
+    private bool ReadsOnlyAMemberOf(SyntaxToken token, ISymbol field)
     {
         if (token.Parent is not IdentifierNameSyntax name)
         {
@@ -1095,16 +1095,16 @@ internal sealed partial class LoopStateEvaluator
                                              } method
                                              && !(method.ReducedFrom ?? method).DeclaringSyntaxReferences.IsEmpty =>
                                         this.GivesOnlyFields(method)
-                                        || this.CanStandBetween(
-                                            method: method.ReducedFrom ?? method,
-                                            collection: type,
-                                            callees: MaxCalleesBetween,
-                                            call: call,
-                                            callee: null)
-                                        && (!ofTheName
-                                            || SetsNoName(
+                                        || (this.CanStandBetween(
                                                 method: method.ReducedFrom ?? method,
-                                                callees: MaxCalleesBetween)),
+                                                collection: type,
+                                                callees: MaxCalleesBetween,
+                                                call: call,
+                                                callee: null)
+                                            && (!ofTheName
+                                                || SetsNoName(
+                                                    method: method.ReducedFrom ?? method,
+                                                    callees: MaxCalleesBetween))),
                                     // The constructor that the compiler writes for a type with no
                                     // initializer and no static constructor runs no code of the
                                     // project.

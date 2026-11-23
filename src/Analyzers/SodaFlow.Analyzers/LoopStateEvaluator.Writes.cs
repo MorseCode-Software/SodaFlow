@@ -26,6 +26,7 @@ internal sealed partial class LoopStateEvaluator
     {
         ISymbol key = member.OriginalDefinition;
         this.region.AddAMemberWrite();
+
         (this.writesThroughThis ??= new Dictionary<ISymbol, int>(SymbolEqualityComparer.Default))[key] =
             this.region.MemberWrites;
 

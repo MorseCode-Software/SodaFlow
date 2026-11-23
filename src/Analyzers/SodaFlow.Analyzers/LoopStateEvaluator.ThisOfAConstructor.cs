@@ -70,7 +70,7 @@ internal sealed partial class LoopStateEvaluator
     // The value of this that a name keeps in the code of a constructor: the object of the store, with
     // no state for a member. The store has the members of the object. A copy of them in the name does
     // not get the next write to the object.
-    public LoopState ForANameOfTheBuiltObject(LoopState state, ExpressionSyntax? from) =>
+    private LoopState ForANameOfTheBuiltObject(LoopState state, ExpressionSyntax? from) =>
         from != null
         && Unwrapped(from) is ThisExpressionSyntax
         && this.thisInTheStore is { } built

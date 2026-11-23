@@ -1152,7 +1152,7 @@ internal sealed class SodaFlowSymbols
         };
 
     // True when code uses this as a value, or calls a method of the type on this whose code does.
-    private static bool UsesThisAsAValue(SyntaxNode code, INamedTypeSymbol type, int calls) =>
+    private static bool UsesThisAsAValue(SyntaxNode code, INamespaceOrTypeSymbol type, int calls) =>
         code.DescendantNodes()
             .Any(node => node switch
             {

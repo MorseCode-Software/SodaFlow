@@ -569,7 +569,7 @@ internal sealed partial class LoopStateEvaluator
 
     // True for a type whose creation runs no code before the body of its constructor. Its base type
     // has no code, and it gives no member that is not static an initializer.
-    private static bool HasNoInitializers(INamedTypeSymbol type) =>
+    private static bool HasNoInitializers(ITypeSymbol type) =>
         type.BaseType is null or { SpecialType: SpecialType.System_Object or SpecialType.System_ValueType }
         && type.DeclaringSyntaxReferences
             .Select(static reference => reference.GetSyntax())

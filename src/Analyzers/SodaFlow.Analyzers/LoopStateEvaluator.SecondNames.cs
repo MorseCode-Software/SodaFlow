@@ -242,9 +242,8 @@ internal sealed partial class LoopStateEvaluator
     private static ExpressionSyntax? ReturnedBy(ArrowExpressionClauseSyntax? arrow, BlockSyntax? body) =>
         arrow?.Expression
         ?? (body?.Statements is { Count: 1 } statements
-            && statements[0] is ReturnStatementSyntax { Expression: { } returned }
-                ? returned
-                : null);
+            ? (statements[0] as ReturnStatementSyntax)?.Expression
+            : null);
 
     // The field that a method of this compilation gives an out parameter. Each statement of the method only gives an
     // out parameter a literal or a field, which it names alone or through this. Null for each other parameter.
@@ -331,14 +330,14 @@ internal sealed partial class LoopStateEvaluator
         if (this.quiet
             || this.function != null
             || !replaces
-            || (target switch
+            || target switch
                 {
                     DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax single } =>
                         this.region.ModelFor(single).GetDeclaredSymbol(single),
                     SingleVariableDesignationSyntax single => this.region.ModelFor(single).GetDeclaredSymbol(single),
                     IdentifierNameSyntax name => this.region.SymbolOf(name),
                     _ => null
-                }) is not ILocalSymbol { RefKind: RefKind.None } local
+                } is not ILocalSymbol { RefKind: RefKind.None } local
             || this.FieldGivenTo(method: method.OriginalDefinition, parameter: parameter.OriginalDefinition)
                 is not { } field
             || !SymbolEqualityComparer.Default.Equals(x: field.Type, y: local.Type)
