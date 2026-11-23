@@ -61676,6 +61676,18 @@ public static class Shapes
     public static Cell<int> Ab374WriteThroughAConstantConditionalRefOfAMethodReadTheOther() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab374Pair p = new() { A = Plain, B = Plain }; p.PickTheFirst() = l.Map(v => v); Kept.Add(p.B!.Sample()); return S.Hold(0); });
 
+    // S14946. The block disposes a map in a lambda that List.ForEach runs. The eviction handler samples.
+    public static Cell<int> R6LimEvictionHandlerAtADisposeInListForEach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; List<IDisposable> all = [m]; all.ForEach(d => d.Dispose()); return S.Hold(n); });
+
+    // S14947. The block disposes two maps in a lambda that List.ForEach runs. The eviction handler of the second map samples.
+    public static Cell<int> Ab364EvictionHandlerOfTheSecondMapAtADisposeInListForEach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> a = Items().Map(project: k => k, onEvicted: _ => { }); MappedItems<int> b = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = a.Items.Sample().Count + b.Items.Sample().Count; List<IDisposable> all = [a, b]; all.ForEach(d => d.Dispose()); return S.Hold(n); });
+
+    // S14948. A lambda that List.ForEach runs disposes each map of an empty list. The list does not hold the map, and its eviction handler does not run.
+    public static Cell<int> Ab364EvictionHandlerAtADisposeInListForEachOfAnEmptyList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; List<IDisposable> all = []; all.ForEach(d => d.Dispose()); return S.Hold(n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

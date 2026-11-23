@@ -287,8 +287,8 @@ is quiet.
   the block, also one through `IDisposable`, through a list that holds the map, or through a field,
   unless the code uses the map for nothing but that `Dispose`. A map that goes straight into a field
   counts as one that built its objects, because code that the analyzer does not read can use it
-  there. It does not read the handler where the code disposes the map in a lambda that
-  `List<T>.ForEach` runs.
+  there. A lambda that a method of a collection runs for its items, such as `List<T>.ForEach`, gets
+  each item, so a `Dispose` there reads the handler of each map that the list holds.
 - **A call that the compiler removes.** A call of a method with `[Conditional]`, such as
   `Debug.WriteLine` in a release build, does not run, and neither do its arguments, when the build
   defines none of its symbols.

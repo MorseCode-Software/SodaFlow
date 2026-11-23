@@ -4078,9 +4078,17 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                         continue;
                     }
 
-                    if (!given.IsNone)
+                    // The callee gives the function the elements of its owner. IsNone is true for a state
+                    // that has only objects of the store, and such a state counts here.
+                    LoopState each =
+                        source != null && declared is IParameterSymbol { Type: var type }
+                            ? given.Join(
+                                LoopStateEvaluator.ElementOf(collection: this.evaluator.Eval(source), type: type))
+                            : given;
+
+                    if (!each.IsNone || !each.Objects.IsEmpty)
                     {
-                        this.evaluator.Declare(local: declared, state: given);
+                        this.evaluator.Declare(local: declared, state: each);
                     }
 
                     // The callee gives the function the values that its owner has.

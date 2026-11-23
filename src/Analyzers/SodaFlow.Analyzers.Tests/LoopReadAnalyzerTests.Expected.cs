@@ -8755,6 +8755,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab374WriteThroughANestedConditionalRefReadTheThird"] = ["SF1001"],
             ["Ab374WriteThroughAConditionalRefAfterANewValueOfTheCondition"] = ["SF1001"],
             ["Ab374WriteThroughAConditionalRefAfterANewValueOfALocation"] = ["SF1001"],
-            ["Ab374WriteThroughAConstantConditionalRefOfAMethodReadTheTaken"] = ["SF1001"]
+            ["Ab374WriteThroughAConstantConditionalRefOfAMethodReadTheTaken"] = ["SF1001"],
+            ["R6LimEvictionHandlerAtADisposeInListForEach"] = ["SF1001"],
+            ["Ab364EvictionHandlerOfTheSecondMapAtADisposeInListForEach"] = ["SF1001"]
         };
 }
