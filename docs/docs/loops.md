@@ -512,8 +512,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   class runs only the static constructor of the nested class, and a delegate of a static method runs
   it where something calls the delegate, not where the code makes the delegate. A first use that the
   code can skip, such as one in a branch or in an arm of `?:`, counts only for itself, so the
-  analyzer reads the constructor again at the next use. A use in a loop counts for the rest of the
-  block, also when the loop has no turn.
+  analyzer reads the constructor again at the next use. A use in each turn of a loop counts for the
+  rest of the block only when the loop always runs its first turn, by the rule for an `await` below,
+  and the code around the loop always runs it: each loop around it has a first turn too, and no
+  branch, no `try` without a `catch`, and no call in a branch holds it. A use in any other loop
+  counts only for itself, because the loop can run no turn.
 - A value of the type `dynamic` whose object the analyzer saw made. It reads the method, the getter
   or the setter, the indexer, the event accessor of a `+=` or a `-=`, the operator, also of `++`,
   `--`, and a compound assignment, the conversion, with or without a cast, the `operator true` or

@@ -60404,6 +60404,38 @@ public static class Shapes
     public static Cell<int> Ab436IfElseWithAYieldOnlyInTheThenSamples() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { if (Kept.Count < 0) { yield return 1; } else { } Kept.Add(l.Sample()); yield return 2; } });
 
+    // S14621. The first use of a class with a static constructor is in a while loop whose condition is false at run time. The block then sets the field that the static constructor samples to a pending cell, and a second use runs the static constructor.
+    public static Cell<int> R6FuStaticConstructorFirstUseInALoopWithNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6FuShare.A = Plain; while (Never) { Kept.Add(R6FuCctorInAWhile.Value); } R6FuShare.A = l.Map(v => v); Kept.Add(R6FuCctorInAWhile.Value); return S.Hold(0); });
+
+    // S14622. The same, with a foreach over an empty array.
+    public static Cell<int> R6FuStaticConstructorFirstUseInAForeachWithNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6FuShare.B = Plain; foreach (int i in Array.Empty<int>()) { Kept.Add(R6FuCctorInAForeach.Value + i); } R6FuShare.B = l.Map(v => v); Kept.Add(R6FuCctorInAForeach.Value); return S.Hold(0); });
+
+    // S14623. The first use of a class with a static constructor is in a for loop that always runs its first turn. Thus, a second use does not run the static constructor.
+    public static Cell<int> Ab377StaticConstructorFirstUseInAForWithAFirstTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab377Share.A = Plain; for (int i = 0; i < 1; i++) { Kept.Add(Ab377CctorInAFor.Value); } Ab377Share.A = l.Map(v => v); Kept.Add(Ab377CctorInAFor.Value); return S.Hold(0); });
+
+    // S14624. The first use of a class with a static constructor is in a do loop. Thus, a second use does not run the static constructor.
+    public static Cell<int> Ab377StaticConstructorFirstUseInADoLoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab377Share.B = Plain; do { Kept.Add(Ab377CctorInADo.Value); } while (Never); Ab377Share.B = l.Map(v => v); Kept.Add(Ab377CctorInADo.Value); return S.Hold(0); });
+
+    // S14625. The first use of a class with a static constructor is in a lambda that ForEach runs for each element of an empty list. A second use runs the static constructor.
+    public static Cell<int> Ab377StaticConstructorFirstUseInAForEachLambdaOverAnEmptyList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab377Share.C = Plain; new List<int>().ForEach(i => Kept.Add(Ab377CctorInAForEachLambda.Value + i)); Ab377Share.C = l.Map(v => v); Kept.Add(Ab377CctorInAForEachLambda.Value); return S.Hold(0); });
+
+    // S14626. The first use of a class with a static constructor is in a do loop in a branch that does not run. A second use runs the static constructor.
+    public static Cell<int> Ab377StaticConstructorFirstUseInADoLoopInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab377Share.D = Plain; if (Never) { do { Kept.Add(Ab377CctorInABranch.Value); } while (Never); } Ab377Share.D = l.Map(v => v); Kept.Add(Ab377CctorInABranch.Value); return S.Hold(0); });
+
+    // S14627. The first use of a class with a static constructor is in a do loop in a try block. The block throws before the loop, and a use in the finally block runs the static constructor.
+    public static Cell<int> Ab377StaticConstructorFirstUseInADoLoopInATryThatThrowsBeforeIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab377Share.E = Plain; try { if (Kept.Count >= 0) { throw new InvalidOperationException(); } do { Kept.Add(Ab377CctorInATry.Value); } while (Never); } finally { Ab377Share.E = l.Map(v => v); Kept.Add(Ab377CctorInATry.Value); } return S.Hold(0); });
+
+    // S14628. The first use of a class with a static constructor is in a do loop of a local function. The block calls the function only in a branch that does not run.
+    public static Cell<int> Ab377StaticConstructorFirstUseInADoLoopOfAFunctionThatABranchCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab377Share.F = Plain; if (Never) { Use(); } Ab377Share.F = l.Map(v => v); Kept.Add(Ab377CctorInAFunction.Value); return S.Hold(0); void Use() { do { Kept.Add(Ab377CctorInAFunction.Value); } while (Never); } });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -111857,6 +111889,66 @@ public static class Shapes
         public IEnumerator<int> GetEnumerator() => Enumerable.Empty<int>().GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    // Helpers of the AB377 shapes. Each class runs its static constructor one time in the process, thus
+    // each shape has its own class.
+    public static class Ab377Share
+    {
+        public static Cell<int>? A;
+
+        public static Cell<int>? B;
+
+        public static Cell<int>? C;
+
+        public static Cell<int>? D;
+
+        public static Cell<int>? E;
+
+        public static Cell<int>? F;
+    }
+
+    public static class Ab377CctorInAFor
+    {
+        public static readonly int Value;
+
+        static Ab377CctorInAFor() => Value = Ab377Share.A!.Sample();
+    }
+
+    public static class Ab377CctorInADo
+    {
+        public static readonly int Value;
+
+        static Ab377CctorInADo() => Value = Ab377Share.B!.Sample();
+    }
+
+    // More helpers of the AB377 shapes.
+    public static class Ab377CctorInAForEachLambda
+    {
+        public static readonly int Value;
+
+        static Ab377CctorInAForEachLambda() => Value = Ab377Share.C!.Sample();
+    }
+
+    public static class Ab377CctorInABranch
+    {
+        public static readonly int Value;
+
+        static Ab377CctorInABranch() => Value = Ab377Share.D!.Sample();
+    }
+
+    public static class Ab377CctorInATry
+    {
+        public static readonly int Value;
+
+        static Ab377CctorInATry() => Value = Ab377Share.E!.Sample();
+    }
+
+    public static class Ab377CctorInAFunction
+    {
+        public static readonly int Value;
+
+        static Ab377CctorInAFunction() => Value = Ab377Share.F!.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

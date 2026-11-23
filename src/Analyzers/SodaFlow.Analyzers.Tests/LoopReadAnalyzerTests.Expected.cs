@@ -8535,6 +8535,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab436SwitchWithAContinueInASectionSamples"] = ["SF1001"],
             ["Ab436SwitchWithNoDefaultSamples"] = ["SF1001"],
             ["Ab436LabelAfterTheYieldSamples"] = ["SF1001"],
-            ["Ab436IfElseWithAYieldOnlyInTheThenSamples"] = ["SF1001"]
+            ["Ab436IfElseWithAYieldOnlyInTheThenSamples"] = ["SF1001"],
+            ["R6FuStaticConstructorFirstUseInALoopWithNoTurn"] = ["SF1005"],
+            ["R6FuStaticConstructorFirstUseInAForeachWithNoTurn"] = ["SF1005"],
+            ["Ab377StaticConstructorFirstUseInAForEachLambdaOverAnEmptyList"] = ["SF1005"],
+            ["Ab377StaticConstructorFirstUseInADoLoopInABranch"] = ["SF1005"],
+            ["Ab377StaticConstructorFirstUseInADoLoopInATryThatThrowsBeforeIt"] = ["SF1005"],
+            ["Ab377StaticConstructorFirstUseInADoLoopOfAFunctionThatABranchCalls"] = ["SF1005"]
         };
 }

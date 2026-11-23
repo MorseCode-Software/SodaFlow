@@ -129,6 +129,13 @@ internal sealed partial class LoopStateEvaluator
             ? member
             : null;
 
+    // True when each run of the block runs a use in the first turn of a loop of this code. The walker
+    // of a different frame knows the loops of its code. Thus, a loop of a caller does not count.
+    private bool RunsInEachFirstTurn(SyntaxNode use) =>
+        this.walker?.WhereACallRuns(use) is (_, { } turn)
+        && this.walker.AlwaysRunsTheFirstTurnOf(turn)
+        && (this.call?.AlwaysRuns ?? true);
+
     // True when a node is in the code of a type itself, and not in a type in it.
     private static bool IsInTheCodeOf(SyntaxNode node, INamedTypeSymbol type) =>
         node.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } code
@@ -145,14 +152,14 @@ internal sealed partial class LoopStateEvaluator
 
         // A use that the code can skip, as in a branch, runs the constructor only when it runs. Thus,
         // the walk reads the constructor there, and the next use reads it again. A use in each turn of
-        // a loop counts as sure.
+        // a loop counts as sure only when the first turn always runs. A loop can run no turn.
         if ((constructor?.Parent
                 ?? (atAFieldRead
                     ? owner.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                     : null)) is not TypeDeclarationSyntax type
             || !this.region.StartsTheType(
                 type: owner,
-                sure: this.WhereItRuns(use) is (true, _) or (_, not null)))
+                sure: this.WhereItRuns(use) is (true, _) || this.RunsInEachFirstTurn(use)))
         {
             return null;
         }

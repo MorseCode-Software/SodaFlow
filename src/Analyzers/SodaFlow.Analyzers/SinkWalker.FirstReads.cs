@@ -82,6 +82,21 @@ internal sealed partial class SinkWalker
             _ => false
         };
 
+    /// <summary>
+    ///     True when each run of the function runs the first turn of a loop. The
+    ///     loop always has a first turn, and each loop around it has one also.
+    ///     A try with no catch clause around the loop can end before the loop.
+    /// </summary>
+    /// <param name="turn">
+    ///     The body of the loop, or the body of a lambda that a callee runs for
+    ///     each element. Such a lambda has no first turn.
+    /// </param>
+    public bool AlwaysRunsTheFirstTurnOf(SyntaxNode turn) =>
+        turn.Parent is { } loop
+        && this.HasAFirstTurn(loop)
+        && this.AlwaysRunsAt(place: loop, forAFirstRead: true, turn: out _, after: out TryStatementSyntax? after)
+        && after == null;
+
     private void RunsInATurn(ComputedValue cell, SyntaxNode turn)
     {
         cell.RunsInATurn();
