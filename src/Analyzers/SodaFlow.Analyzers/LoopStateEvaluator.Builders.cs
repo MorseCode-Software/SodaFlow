@@ -12,7 +12,7 @@ namespace SodaFlow.Analyzers;
 internal sealed partial class LoopStateEvaluator
 {
     // The most names that can give the expression of a member that holds a build. See
-    // MemberThatANameReads.
+    // WithTheBuildOfAMember.
     private const int MaxNamesOfABuild = 4;
 
     /// <summary>
@@ -31,13 +31,7 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     /// <param name="heldIn">The expression of the member.</param>
     /// <param name="state">The state of the member that the walk knows.</param>
-    public LoopState WithTheBuildOfAMember(ExpressionSyntax heldIn, LoopState state) =>
-        this.WithTheBuildOfAMember(heldIn: heldIn, state: state, names: 0);
-
-    // The same, after the given number of names that gave the expression of the member. A local
-    // with one value and a getter that is only an expression each give the member that they read.
-    // Two getters can read each other, thus the number of such names has a limit.
-    private LoopState WithTheBuildOfAMember(ExpressionSyntax heldIn, LoopState state, int names)
+    public LoopState WithTheBuildOfAMember(ExpressionSyntax heldIn, LoopState state)
     {
         if (!state.IsNone)
         {
@@ -46,27 +40,35 @@ internal sealed partial class LoopStateEvaluator
 
         // A member of this, or a member of a different object.
         ExpressionSyntax? owner;
+        ISymbol? symbol;
 
-        switch (Unwrapped(heldIn))
+        // A local with one value and a getter that is only an expression each give the member that
+        // they read. Two getters can read each other, thus the number of such names has a limit.
+        for (int names = 0;; names++)
         {
-            case MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax or BaseExpressionSyntax }:
-            case IdentifierNameSyntax:
-                owner = null;
+            switch (Unwrapped(heldIn))
+            {
+                case MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax or BaseExpressionSyntax }:
+                case IdentifierNameSyntax:
+                    owner = null;
 
+                    break;
+                case MemberAccessExpressionSyntax access:
+                    owner = access.Expression;
+
+                    break;
+                default:
+                    return state;
+            }
+
+            symbol = this.region.SymbolOf(Unwrapped(heldIn));
+
+            if (names == MaxNamesOfABuild || this.MemberThatANameReads(symbol: symbol, owner: owner) is not { } named)
+            {
                 break;
-            case MemberAccessExpressionSyntax access:
-                owner = access.Expression;
+            }
 
-                break;
-            default:
-                return state;
-        }
-
-        ISymbol? symbol = this.region.SymbolOf(Unwrapped(heldIn));
-
-        if (names < MaxNamesOfABuild && this.MemberThatANameReads(symbol: symbol, owner: owner) is { } named)
-        {
-            return this.WithTheBuildOfAMember(heldIn: named, state: state, names: names + 1);
+            heldIn = named;
         }
 
         if (symbol is not ({ } member and (IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false })))

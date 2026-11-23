@@ -59576,7 +59576,7 @@ public static class Shapes
     public static Cell<int> Ab427LocalThatGetsASecondValue() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab427LocalSetAgain().SetAndRead(l.Map(v => v))));
 
-    // S14414. Control: a method sets a member of this to a pending cell, and samples the map of a second object of the same class through a getter. The second object has a plain member.
+    // S14414. Control: a method sets a member of this to a pending cell. It samples the map of a second object of the same class through a getter. The second object has a plain member.
     public static Cell<int> Ab427GetterOfADifferentObject() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab427Getters().SetAndReadTheOther(l.Map(v => v), other: new Ab427Getters())));
 
