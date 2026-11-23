@@ -447,23 +447,24 @@ The analyzer follows a value made from the placeholder through the code of your 
   writes a field or a property with no body. A write in a method that the block calls counts as
   well, where the block always calls the method one time and the method writes through a static
   field, an element of an array in one, or a parameter whose argument is such a name. So does a
-  write through one of the names in a lambda or a local function that the block itself calls. So
-  does a write through `this` in a method that the block calls on one of the names, also an
-  assignment to `this` in a method of a struct, and a read through `this` in such a method sees the
-  last value too. Where such a method writes a member through `this` and then through a second name
-  of the same object, such as a static field, an element of an array in one, or a parameter, the
-  later write is the one that counts. Where the analyzer cannot tell that the second name holds the
-  same object, both writes count. A new object that goes into a name with an object initializer, as
-  in `slots[0] = new Slot { Cell = value }`, gives the name only the values that the initializer
-  sets, also where such a method puts it and keeps it there to its end. A method or a local function
-  that always gives its `ref` or `out` parameter a value replaces what a local, or a field of the
-  object in a local, held before, where the block always calls it and passes no second `ref` or
-  `out` argument. A constructor that puts `this` into a name makes that name a name of the new
-  object, as a registry does with a static field or a static property. So does a constructor that
-  does this through a method of the object that it calls on `this`, also by its name alone or
-  through a second such method, to the depth that the analyzer reads calls. The name can also be an
-  element of an array or a list that the constructor gets, a value of a dictionary that it gets, or
-  a field of an object that it gets.
+  write through one of the names in a lambda or a local function that the block itself calls: it
+  reaches the other names, but it does not replace a write through a second name, and a write
+  through a second name does not replace it. So does a write through `this` in a method that the
+  block calls on one of the names, also an assignment to `this` in a method of a struct, and a read
+  through `this` in such a method sees the last value too. Where such a method writes a member
+  through `this` and then through a second name of the same object, such as a static field, an
+  element of an array in one, or a parameter, the later write is the one that counts. Where the
+  analyzer cannot tell that the second name holds the same object, both writes count. A new object
+  that goes into a name with an object initializer, as in `slots[0] = new Slot { Cell = value }`,
+  gives the name only the values that the initializer sets, also where such a method puts it and
+  keeps it there to its end. A method or a local function that always gives its `ref` or `out`
+  parameter a value replaces what a local, or a field of the object in a local, held before, where
+  the block always calls it and passes no second `ref` or `out` argument. A constructor that puts
+  `this` into a name makes that name a name of the new object, as a registry does with a static
+  field or a static property. So does a constructor that does this through a method of the object
+  that it calls on `this`, also by its name alone or through a second such method, to the depth that
+  the analyzer reads calls. The name can also be an element of an array or a list that the
+  constructor gets, a value of a dictionary that it gets, or a field of an object that it gets.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes the `Equals`, `GetHashCode`,
@@ -696,7 +697,10 @@ The analyzer does not replace the check at run time. Where it cannot be sure, it
 careful side, so it can report a read that does not throw:
 
 - A collection that it cannot follow item by item has the state of all its items. A list that
-  holds one pending cell and one plain cell then reports a read of either.
+  holds one pending cell and one plain cell then reports a read of either. An array made with
+  `new T[n]`, and an array of two or more dimensions, is such a collection: a pending cell in one
+  element reports a read of any other element, also after a plain value is written over it, and so
+  does a write that a method you call makes at an index that it gets.
 - A `foreach` that sets a member of each item does not clear a pending value when the `foreach`
   runs inside another loop. It can also leave the value for a list that the code changes in a way
   other than `Add`, `Insert`, or `AddRange`, or that gets an item under a condition with no loop
@@ -718,6 +722,13 @@ careful side, so it can report a read that does not throw:
   the `finally` block. A call there that throws, or a `Dispose` that throws at the end of a
   `using`, leaves the first object going on, so a `catch` of it further out can get `SF1001`
   although it never runs.
+- A `catch` that takes the exception of an early read, such as a `catch (InvalidOperationException)`
+  or a `catch (Exception)` around a `Sample` of the looped value, does not clear the report of that
+  read. The code still reads the value before the loop closes, and the `catch` only hides it. The
+  same holds for a read in a query and for a read in a task.
+- A `?.` on a local that is `null`, a null-conditional assignment on `null`, and `??=` on a local
+  that already has a value skip their value at run time, but the analyzer still reads it. A sample
+  or a pending cell there gets a report.
 - A read after a `switch` whose sections all await, where no `default` or `var` pattern takes
   every value, also when its `case` labels cover every value, as `case true` and `case false` do.
   The analyzer cannot know that a section runs, so it reads the code after the `switch` as code
@@ -747,8 +758,10 @@ careful side, so it can report a read that does not throw:
   element of an array in a static field, can have written that member of any such object. So a
   read of the member through an element whose object the analyzer does not know, or through a
   local that got such an element, after a call that wrote that member, also gets what the call
-  wrote. That is so even when the call wrote a
-  different object.
+  wrote. That is so even when the call wrote a different object. In the same way, a write into a
+  member of an object of your class through an element of an array, a static field, an element of an
+  array in a static field, or a field of a holder object reaches a read of that member through any
+  other object of the class, also one that the code made with `new` itself.
 - A new object that a method you call puts through a `ref` parameter into an element of an array in
   a static field, or into an element at an index in a local, does not replace the object that was
   there before. A read through that location still gets what the earlier object had.
