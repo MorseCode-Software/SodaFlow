@@ -647,6 +647,11 @@ careful side, so it can report a read that does not throw:
   keeps the exception and the code after the call goes on. Only a later `Wait` or `Result` throws.
   The same holds for a sample before the first `await` of an `async` method, local function, or
   lambda whose task nothing waits for.
+- A `finally` block that throws a different object replaces the object of its `try` block and of
+  its `catch` clauses. The analyzer knows that only for a `throw` statement at the first level of
+  the `finally` block. A call there that throws, or a `Dispose` that throws at the end of a
+  `using`, leaves the first object going on, so a `catch` of it further out can get `SF1001`
+  although it never runs.
 - A read after a `switch` whose sections all await, where no `default` or `var` pattern takes
   every value, also when its `case` labels cover every value, as `case true` and `case false` do.
   The analyzer cannot know that a section runs, so it reads the code after the `switch` as code

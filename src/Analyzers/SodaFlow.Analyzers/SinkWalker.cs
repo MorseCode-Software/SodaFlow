@@ -5152,8 +5152,20 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 return;
             }
 
-            if (parent is not TryStatementSyntax attempt || attempt.Block != child)
+            if (parent is not TryStatementSyntax attempt)
             {
+                continue;
+            }
+
+            bool replaced = child != attempt.Finally && ThrowsAnObjectOfItsOwn(attempt.Finally);
+
+            if (attempt.Block != child)
+            {
+                if (replaced)
+                {
+                    return;
+                }
+
                 continue;
             }
 
@@ -5175,6 +5187,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 {
                     return;
                 }
+            }
+
+            if (replaced)
+            {
+                return;
             }
         }
 

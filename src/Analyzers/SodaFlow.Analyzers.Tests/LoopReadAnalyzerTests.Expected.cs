@@ -8288,6 +8288,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag102WaitOfTaskRunOfAnAsyncLambda"] = ["SF1001"],
             ["Ag102InnerExceptionsOfTheExceptionOfATask"] = ["SF1001"],
             ["Ag102WaitWithATimeLimit"] = ["SF1001"],
-            ["Ag102ConditionalResult"] = ["SF1001"]
+            ["Ag102ConditionalResult"] = ["SF1001"],
+            ["Ab359GotoPastTheThrowInAFinallyLetsTheObjectGoOn"] = ["SF1001"],
+            ["Ab359ThrowInABranchOfAFinallyLetsTheObjectGoOn"] = ["SF1001"],
+            ["Ab359CatchBeforeAFinallyThatThrowsGetsTheObject"] = ["SF1001"],
+            ["Ab359TheObjectOfAThrowInAFinallyGoesOn"] = ["SF1001"],
+            ["Ab359ThrowInALambdaOfAFinallyLetsTheObjectGoOn"] = ["SF1001"]
         };
 }

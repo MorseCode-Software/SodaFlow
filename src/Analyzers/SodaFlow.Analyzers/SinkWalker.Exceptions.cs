@@ -52,6 +52,17 @@ internal sealed partial class SinkWalker
         }
     }
 
+    // True for a finally block that always throws an object of its own: it has a throw statement at its first level.
+    // The runtime then gives that object, and not the object of the try block or of a catch clause. A goto can skip
+    // the throw statement. Thus, a finally block with a label gets false. A call in the finally block can also
+    // throw, but the walk does not know that each such call throws.
+    private static bool ThrowsAnObjectOfItsOwn(FinallyClauseSyntax? clause) =>
+        clause != null
+        && clause.Block.Statements.Any(static statement => statement is ThrowStatementSyntax)
+        && !clause.Block.DescendantNodes(static node =>
+                node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+            .Any(static node => node is LabeledStatementSyntax);
+
     // True for an async method, local function, or lambda.
     private static bool IsAsync(SyntaxNode? function) =>
         function switch

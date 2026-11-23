@@ -59196,6 +59196,34 @@ public static class Shapes
     public static Cell<int> Ag102InvokeOfTheCodeGetsNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); try { Ag102Nest.Parallel.Invoke(() => throw new R4CsFault(c)); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
 
+    // S14319. A throw in a finally block replaces the object that the try threw. The catch of the object never runs.
+    public static Cell<int> R6ExcThrowInAFinallyReplacesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } finally { throw new InvalidOperationException("x"); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } catch (InvalidOperationException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14320. A throw in a catch clause of a try with a finally block that throws. The finally block replaces the object of the catch clause, and the outer catch of that object never runs.
+    public static Cell<int> Ab359ThrowInAFinallyReplacesTheObjectOfACatch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new ArgumentException("a"); } catch (ArgumentException) { throw new R4CsFault(l.Map(v => v)); } finally { throw new InvalidOperationException("x"); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } catch (InvalidOperationException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14321. A goto in a finally block skips its throw statement. Thus, the object of the try goes on, and the outer catch samples it.
+    public static Cell<int> Ab359GotoPastTheThrowInAFinallyLetsTheObjectGoOn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } finally { if (Kept.Count >= 0) { goto done; } throw new InvalidOperationException("x"); done: Kept.Add(1); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } catch (InvalidOperationException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14322. A finally block throws only in a branch that does not run. Thus, the object of the try goes on, and the outer catch samples it.
+    public static Cell<int> Ab359ThrowInABranchOfAFinallyLetsTheObjectGoOn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } finally { if (Kept.Count < 0) { throw new InvalidOperationException("x"); } } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } catch (InvalidOperationException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14323. A catch clause of the try with the finally block that throws gets the object first, and keeps its member. The outer catch of the object of the finally block samples that member.
+    public static Cell<int> Ab359CatchBeforeAFinallyThatThrowsGetsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? got = null; try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { got = e.Share; } finally { throw new InvalidOperationException("x"); } } catch (InvalidOperationException) { Kept.Add(got!.Sample()); } return S.Hold(0); });
+
+    // S14324. A throw in a finally block sends its own object to the outer catch, which samples it.
+    public static Cell<int> Ab359TheObjectOfAThrowInAFinallyGoesOn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new InvalidOperationException("x"); } finally { throw new R4CsFault(l.Map(v => v)); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14325. A throw statement in a lambda of a finally block does not run there. Thus, the object of the try goes on, and the outer catch samples it.
+    public static Cell<int> Ab359ThrowInALambdaOfAFinallyLetsTheObjectGoOn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } finally { Action a = () => throw new InvalidOperationException("x"); Kept.Add(a); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
