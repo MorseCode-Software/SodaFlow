@@ -78,28 +78,25 @@ internal sealed partial class LoopStateEvaluator
             return null;
         }
 
-        for (int position = 0; position < arguments.Arguments.Count; position++)
-        {
-            ArgumentSyntax argument = arguments.Arguments[position];
+        ArgumentSyntax? given =
+            arguments.Arguments
+                .Where((argument, position) =>
+                    SymbolEqualityComparer.Default.Equals(
+                        x: SodaFlowSymbols.ParameterOf(callee: constructor, argument: argument, position: position),
+                        y: parameter))
+                .FirstOrDefault();
 
-            if (SymbolEqualityComparer.Default.Equals(
-                    x: SodaFlowSymbols.ParameterOf(callee: constructor, argument: argument, position: position),
-                    y: parameter))
-            {
-                return NameByRef(argument) is { } name
-                       && this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None }
-                    ? name
-                    : null;
-            }
-        }
-
-        return null;
+        return given != null
+               && NameByRef(given) is { } name
+               && this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None }
+            ? name
+            : null;
     }
 
     // The parameter with ref whose ref a constructor of this compilation puts into a ref field, as in
     // this.Target = ref target. The constructor calls no other constructor and gives the field no
     // other ref. Null for each other constructor.
-    private static IParameterSymbol? TheParameterInARefField(IMethodSymbol constructor, IFieldSymbol field)
+    private static IParameterSymbol? TheParameterInARefField(IMethodSymbol constructor, ISymbol field)
     {
         if (constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
             is not ConstructorDeclarationSyntax { Initializer: null } declaration)
@@ -141,7 +138,7 @@ internal sealed partial class LoopStateEvaluator
     }
 
     // True when the code gives a ref field of a local a second ref, as in r.Target = ref y.
-    private bool GivesARefTo(IFieldSymbol field, ISymbol holder, SyntaxNode code) =>
+    private bool GivesARefTo(ISymbol field, ISymbol holder, SyntaxNode code) =>
         code.DescendantNodes()
             .OfType<AssignmentExpressionSyntax>()
             .Any(assignment =>

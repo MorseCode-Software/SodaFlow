@@ -14,7 +14,7 @@ internal sealed partial class SinkWalker
 
     // Records the resource of a using declaration for the end of its block. C# permits a using
     // declaration also at the top level of a file, which no loop block calls.
-    private void DisposesAtTheEnd(VariableDeclarationSyntax declaration, ExpressionSyntax resource)
+    private void DisposesAtTheEnd(SyntaxNode declaration, ExpressionSyntax resource)
     {
         if (declaration.Parent?.Parent is BlockSyntax block)
         {

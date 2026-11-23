@@ -21,7 +21,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The same for the collection and the indexes of an element access, or of a null-conditional
     // element access.
-    private ExpressionSyntax? PositionOf(ExpressionSyntax collection, BracketedArgumentListSyntax indexes) =>
+    private ExpressionSyntax? PositionOf(ExpressionSyntax collection, BaseArgumentListSyntax indexes) =>
         (this.ElementsOf(collection) ?? this.ElementsOfARange(collection)) is { } all
             ? this.PositionIn(index: indexes.Arguments[0].Expression, count: all.Count) is { } index
                 ? all[index]
@@ -86,7 +86,7 @@ internal sealed partial class LoopStateEvaluator
     // or a span keeps the order. Null for each other expression.
     private static (ExpressionSyntax Of, RangeExpressionSyntax Range)? RangeOf(ExpressionSyntax collection) =>
         Unwrapped(collection) is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } slice
-        && arguments[0].Expression is RangeExpressionSyntax range
+        && arguments.First().Expression is RangeExpressionSyntax range
             ? (slice.Expression, range)
             : null;
 
@@ -113,7 +113,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The value that a read by a constant key gives, for a dictionary in a local whose initializer
     // gave that key a value. Null for each other read.
-    private ExpressionSyntax? ValueOfAKey(ExpressionSyntax collection, BracketedArgumentListSyntax indexes)
+    private ExpressionSyntax? ValueOfAKey(SyntaxNode collection, BaseArgumentListSyntax indexes)
     {
         if (indexes.Arguments.Count != 1 || this.region.SymbolOf(collection) is not ILocalSymbol local)
         {
@@ -260,7 +260,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The same for the collection and the indexes of an element access, or of a null-conditional
     // element access.
-    private LoopState? AtAStorePosition(ExpressionSyntax collection, BracketedArgumentListSyntax indexes) =>
+    private LoopState? AtAStorePosition(ExpressionSyntax collection, BaseArgumentListSyntax indexes) =>
         indexes.Arguments.Count == 1
             ? this.AtAStorePosition(collection: collection, index: indexes.Arguments[0].Expression)
             : null;
