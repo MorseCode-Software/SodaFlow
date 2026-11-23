@@ -368,53 +368,54 @@ The analyzer follows a value made from the placeholder through the code of your 
   inside a list pattern knows the positions of the inner collection wherever a read such as
   `cells[0][1]` knows them, also after a write through two indexes or through a second name of the
   inner collection. Otherwise, it gives each of its variables every element of the inner collection.
-  An element of a range with constant bounds, as `cells[1..][0]`, is one element too.
-  A positional pattern on a tuple gives each part its own item. A `Dictionary` that you write with
-  constant keys and no comparer, and that the code then only reads, keeps the value of each key
-  apart, so `cells["total"]` is that one value. A key of the type `object` has the type of its
-  constant too, so the `int` 1 and the `long` 1 are two keys. `Array.Fill` puts its value into each
-  element that it fills, as an assignment to that element would, and `Array.Reverse` of a whole
-  array moves each element to the other end. A `Span<T>`, `ReadOnlySpan<T>`, `Memory<T>`,
+  An element of a range with constant bounds, as `cells[1..][0]`, is one element too. The arguments
+  that a call that runs one time gives one by one to a `params` parameter keep their positions in
+  the same way. A positional pattern on a tuple gives each part its own item. A `Dictionary` that
+  you write with constant keys and no comparer, and that the code then only reads, keeps the value
+  of each key apart, so `cells["total"]` is that one value. A key of the type `object` has the type
+  of its constant too, so the `int` 1 and the `long` 1 are two keys. `Array.Fill` puts its value
+  into each element that it fills, as an assignment to that element would, and `Array.Reverse` of a
+  whole array moves each element to the other end. A `Span<T>`, `ReadOnlySpan<T>`, `Memory<T>`,
   `ReadOnlyMemory<T>`, or `ArraySegment<T>` that a method makes from an array in one of its locals
   or parameters, with an implicit conversion, `AsSpan`, `AsMemory`, a constructor, `Slice`, or a
   range, is another name for the elements of that array, as long as neither name gets a second
   value. That holds as well where the code makes the view and writes through it in one expression,
   as in `cells.AsSpan(1)[0] = value`. `Fill`, a write to an element, through a `ref` local of an
-  element, or through the `ref` variable of a `foreach` over the view, and `CopyTo` into it
-  put their values into the array, and so do `CopyTo` into the array itself and `Array.Copy`. Where
-  each step from the array to the view starts at a constant, as `AsSpan(1)` or `[1..]` does, a write
-  to an element at a constant index and a `Fill` reach only the elements of the array that they
-  write. Otherwise, they reach every element. A write through the `ref` variable of a `foreach`
-  adds its value to every element of the array and does not replace what each one held. The span
-  that `CollectionsMarshal.AsSpan` makes of a
-  local `List<T>` is another name for the elements of that list in the same way, and a write through
-  it reaches every element. A span that `new Span<T>(ref local)` makes is another name for that
-  local. A `ReadOnlyCollection<T>` that a method makes of a `List<T>` in one of its locals or
-  parameters, with `AsReadOnly` or with `new`, is another name for that list, so a read through it
-  sees each later put into the list, until the local gets a different list. A write through a `ref`
-  that an indexer, a property, a method, or a local function of yours returns goes where that `ref`
-  points: a parameter, a local of the code around a local function, a static field, or a member of
-  the object of the call or an element of that member. So does a write through a `ref` local of such
-  an indexer, and a write through a conditional `ref` goes to both of its locations. A write through
-  a `ref` local of a conditional `ref`, or through a conditional `ref` that a method or a local
-  function returns, goes to the location that a constant condition selects. A write through a `ref`
-  that a method returns, to a static field or to an element of an array parameter, adds its value to
-  what the location held and does not replace it, so a plain cell written that way over a pending
-  one still counts as pending. A write through a `ref` local of a static field replaces what the
-  field held, as a write to the field itself does. Two `ref` or `in` arguments of one call that are
-  one location, such as `ref c` twice or `ref a[0]` and `in a[0]`, are one location in the method
-  too, so a write through one parameter is a write through the other. A write to a member through an
-  element of a local array, `List<T>`, or `Dictionary` created with no comparer, at a constant index
-  or key or at an index in a local, replaces what an earlier write gave that member. So does a write
-  through a local that got that element, and a write through any other name of the object in the
-  element, such as `d` after `a[0] = d`, when the analyzer knows which object that is. A later read
-  through the element or the local sees only the last value. An index in a local that gets only a
-  constant is that constant index. A local that gets the array or the list in a field, or in a
-  static property with no body, sees each element that code puts in through the field later, also in
-  a method and through a `ref` local of a field of such an element at a constant index or at an
-  index in a local, until the local or the field gets a different value. The other way also holds: a
-  read through the field sees an element that code puts in through such a local, at an index or with
-  `Add`, `Insert`, or `AddRange` of a `List<T>`.
+  element, or through the `ref` variable of a `foreach` over the view, and `CopyTo` into it put
+  their values into the array, and so do `CopyTo` into the array itself and `Array.Copy`. Where each
+  step from the array to the view starts at a constant, as `AsSpan(1)` or `[1..]` does, a write to
+  an element at a constant index and a `Fill` reach only the elements of the array that they write.
+  Otherwise, they reach every element. A write through the `ref` variable of a `foreach` adds its
+  value to every element of the array and does not replace what each one held. The span that
+  `CollectionsMarshal.AsSpan` makes of a local `List<T>` is another name for the elements of that
+  list in the same way, and a write through it reaches every element. A span that
+  `new Span<T>(ref local)` makes is another name for that local. A `ReadOnlyCollection<T>` that a
+  method makes of a `List<T>` in one of its locals or parameters, with `AsReadOnly` or with `new`,
+  is another name for that list, so a read through it sees each later put into the list, until the
+  local gets a different list. A write through a `ref` that an indexer, a property, a method, or a
+  local function of yours returns goes where that `ref` points: a parameter, a local of the code
+  around a local function, a static field, or a member of the object of the call or an element of
+  that member. So does a write through a `ref` local of such an indexer, and a write through a
+  conditional `ref` goes to both of its locations. A write through a `ref` local of a conditional
+  `ref`, or through a conditional `ref` that a method or a local function returns, goes to the
+  location that a constant condition selects. A write through a `ref` that a method returns, to a
+  static field or to an element of an array parameter, adds its value to what the location held and
+  does not replace it, so a plain cell written that way over a pending one still counts as pending.
+  A write through a `ref` local of a static field replaces what the field held, as a write to the
+  field itself does. Two `ref` or `in` arguments of one call that are one location, such as `ref c`
+  twice or `ref a[0]` and `in a[0]`, are one location in the method too, so a write through one
+  parameter is a write through the other. A write to a member through an element of a local array,
+  `List<T>`, or `Dictionary` created with no comparer, at a constant index or key or at an index in
+  a local, replaces what an earlier write gave that member. So does a write through a local that got
+  that element, and a write through any other name of the object in the element, such as `d` after
+  `a[0] = d`, when the analyzer knows which object that is. A later read through the element or the
+  local sees only the last value. An index in a local that gets only a constant is that constant
+  index. A local that gets the array or the list in a field, or in a static property with no body,
+  sees each element that code puts in through the field later, also in a method and through a `ref`
+  local of a field of such an element at a constant index or at an index in a local, until the local
+  or the field gets a different value. The other way also holds: a read through the field sees an
+  element that code puts in through such a local, at an index or with `Add`, `Insert`, or `AddRange`
+  of a `List<T>`.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
   from there. A name is a local, a parameter, a static field or a static property with no body, a

@@ -612,6 +612,12 @@ internal sealed partial class LoopStateEvaluator
                         this.IsKnownWhenItGoesIn(binding.Argument) && !this.CanBeUnseen(binding.Argument)))
                 {
                     this.region.Objects.IsComplete(array);
+
+                    // The array has the arguments in the order of the call, as a literal has its elements.
+                    this.region.Objects.HasPositions(
+                        collection: array,
+                        values: group.Select(static binding => binding.State).ToImmutableArray(),
+                        givenBy: group.Select(static SyntaxNode? (binding) => binding.Argument).ToImmutableArray());
                 }
 
                 parameters[group.Key] = holding.WithObjects(ImmutableArray.Create(array));

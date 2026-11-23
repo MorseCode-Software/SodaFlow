@@ -61496,6 +61496,34 @@ public static class Shapes
     public static Cell<int> Ab385ForeachWithNoRefWritesOnlyTheVariable() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain]; foreach (Cell<int> c in a.AsSpan()) { Cell<int> r = c; r = l.Map(v => v); Kept.Add(r); } return S.Hold(a[0].Sample()); });
 
+    // S14901. A params ReadOnlySpan parameter gets a plain first item and a pending second item, and the method samples only the first.
+    public static Cell<int> R6CsParamsSpanReadsThePlainArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R6CsFirstOfASpan(Plain, l.Map(v => v))); return S.Hold(0); });
+
+    // S14902. A params array parameter gets a plain first item and a pending second item, and the method samples only the first.
+    public static Cell<int> R6CsParamsArrayReadsThePlainArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R6CsFirstOfAnArray(Plain, l.Map(v => v))); return S.Hold(0); });
+
+    // S14903. AB386. A params List parameter gets a plain first item and a pending second item, and the method samples only the first.
+    public static Cell<int> Ab386ParamsListReadsThePlainArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R6CsFirstOfAList(Plain, l.Map(v => v))); return S.Hold(0); });
+
+    // S14904. AB386. A params ReadOnlySpan parameter gets a pending first item and a plain second item, and the method samples only the second.
+    public static Cell<int> Ab386ParamsSpanReadsThePlainSecondArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab386SecondOfASpan(l.Map(v => v), Plain)); return S.Hold(0); });
+
+    // S14905. AB386. A params ReadOnlySpan parameter gets a plain first item and a pending second item, and the method samples only the second.
+    public static Cell<int> Ab386ParamsSpanReadsThePendingSecondArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab386SecondOfASpan(Plain, l.Map(v => v))); return S.Hold(0); });
+
+    // S14906. AB386. A params array parameter gets a plain first item and a pending second item. The method samples the item from the end.
+    public static Cell<int> Ab386ParamsArrayReadsThePendingArgumentFromTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab386LastOfAnArray(Plain, l.Map(v => v))); return S.Hold(0); });
+
+    // S14907. AB386. A params array parameter gets a pending first item and a plain second item. The method samples the item from the end.
+    public static Cell<int> Ab386ParamsArrayReadsThePlainArgumentFromTheEnd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab386LastOfAnArray(l.Map(v => v), Plain)); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -113363,6 +113391,11 @@ public static class Shapes
 
     // Helpers of the shapes of AB385.
     private static void Ab385Put(ref Cell<int> target, Cell<int> value) => target = value;
+
+    // Helpers of the shapes of AB386.
+    private static int Ab386SecondOfASpan(params ReadOnlySpan<Cell<int>> all) => all[1].Sample();
+
+    private static int Ab386LastOfAnArray(params Cell<int>[] all) => all[^1].Sample();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
