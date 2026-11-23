@@ -58628,6 +58628,18 @@ public static class Shapes
     public static Cell<int> Ab408AnOutParameterOfASecondObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { R6NmWrap w = new(); R6NmWrap other = new(); w.Inner.Share = Plain; other.GetInner(out SettableSlot e); e.Share = l.Map(v => v); return S.Hold(w.Inner.Share!.Sample()); });
 
+    // S14177. AB338. A local function that is declared after the loop gives the block local a function that samples, and the code calls it before the loop.
+    public static Cell<int> R6FuAb338BlockInALocalSetByALaterLocalFunction() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); Set(); return Cell.Loop<int>().WithoutCaptures(block); void Set() => block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; }))();
+
+    // S14178. AB338. The same, but the local function is declared before the code calls it.
+    public static Cell<int> R6FuAb338BlockInALocalSetByAnEarlierLocalFunction() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); void Set() => block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; Set(); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
+    // S14179. AB338. The same, but a lambda in a local gives the block local the function.
+    public static Cell<int> R6FuAb338BlockInALocalSetByALambda() =>
+        ((Func<Cell<int>>)(() => { Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); Action set = () => block = l => { Kept.Add(l.Sample()); return S.Hold(0); }; set(); return Cell.Loop<int>().WithoutCaptures(block); }))();
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

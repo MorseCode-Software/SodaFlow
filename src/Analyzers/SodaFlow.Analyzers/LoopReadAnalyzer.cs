@@ -348,9 +348,11 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
     ///     statement of the block of the declaration. A label can run such a
     ///     statement again after the use, and a function around the use can run
     ///     after a later statement. A write after the statement of the use cannot
-    ///     change the local before the use. An assignment statement that holds
-    ///     the use outside a function cannot give a lambda. Thus, it gives no
-    ///     function, as each other value with no lambda does.
+    ///     change the local before the use. A lambda or a local function can
+    ///     run before the use, wherever it is. Thus, a write in one of them
+    ///     gives no function. An assignment statement that holds the use
+    ///     outside a function cannot give a lambda. Thus, it gives no function,
+    ///     as each other value with no lambda does.
     /// </remarks>
     private static ExpressionSyntax? FunctionAt(ISymbol local, SyntaxNode use, SemanticModel model)
     {
@@ -393,7 +395,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 };
 
             if (!writes
-                || name.SpanStart >= at?.End
+                || (name.SpanStart >= at?.End && !IsInAFunction(name: name, scope: uses))
                 || !SymbolEqualityComparer.Default.Equals(x: model.GetSymbolInfo(name).Symbol, y: local))
             {
                 continue;
@@ -420,6 +422,12 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
                 ? function
                 : null;
     }
+
+    // True for a name in a lambda or a local function in a scope.
+    private static bool IsInAFunction(SyntaxNode name, SyntaxNode scope) =>
+        name.Ancestors()
+            .TakeWhile(node => node != scope)
+            .Any(static node => node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax);
 
     // True for an element of a tuple on the left of a deconstruction, also of a tuple in a tuple. A
     // foreach can deconstruct only into new locals.

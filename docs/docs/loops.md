@@ -234,8 +234,9 @@ be a local that holds such a function, from its declaration or from the last ass
 block, where both are statements of one block or of one `switch` section. That assignment can be a
 deconstruction of a tuple literal, such as `(block, n) = (Build, 1)`, which gives the local the
 element at its place. A block whose function the analyzer cannot find this way, such as a delegate
-from a field or a parameter, a local that gets its function under a condition, or a local that a
-different deconstruction gives a value, gets `SF1003`, because none of its code is checked. So does
+from a field or a parameter, a local that gets its function under a condition, a local that a
+different deconstruction gives a value, or a local that a lambda or a local function assigns anywhere
+in that block, gets `SF1003`, because none of its code is checked. So does
 a virtual or override method given by name, unless you give it through `base` or on a value of a
 sealed type, or it is a sealed override: an object can override it with a body that the analyzer
 does not see. When that code calls your own methods, constructors, local functions, or property
