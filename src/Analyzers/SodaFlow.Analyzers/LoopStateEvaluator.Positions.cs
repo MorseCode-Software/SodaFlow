@@ -17,11 +17,26 @@ internal sealed partial class LoopStateEvaluator
     // row contains the element. A dictionary in a local gives the value of a constant key: see
     // ValuesByKeyOf.
     private ExpressionSyntax? PositionOf(ElementAccessExpressionSyntax access) =>
-        this.ElementsOf(access.Expression) is { } all
-            ? this.PositionIn(index: access.ArgumentList.Arguments[0].Expression, count: all.Count) is { } index
+        this.PositionOf(collection: access.Expression, indexes: access.ArgumentList);
+
+    // The same for the collection and the indexes of an element access, or of a null-conditional
+    // element access.
+    private ExpressionSyntax? PositionOf(ExpressionSyntax collection, BracketedArgumentListSyntax indexes) =>
+        this.ElementsOf(collection) is { } all
+            ? this.PositionIn(index: indexes.Arguments[0].Expression, count: all.Count) is { } index
                 ? all[index]
                 : null
-            : this.ValueOfAKey(access);
+            : this.ValueOfAKey(collection: collection, indexes: indexes);
+
+    // The state of a null-conditional element access, as for an element access with the same collection.
+    // The value before the mark is the collection.
+    private LoopState EvalElementBinding(ElementBindingExpressionSyntax binding, ExpressionSyntax collection) =>
+        (this.PositionOf(collection: collection, indexes: binding.ArgumentList) is { } position
+            ? this.StateAtAPosition(position)
+            : this.AtAStorePosition(collection: collection, indexes: binding.ArgumentList)
+              ?? this.FollowExpression(binding)?.State
+              ?? ElementOf(collection: this.Eval(collection), type: this.region.TypeOf(binding)))
+        .Join(this.TypeState(binding));
 
     // The state of the expression of an element. The expression can be in the code of a definer of
     // this function. That code read it, and a second read here makes a second object for a
@@ -58,10 +73,9 @@ internal sealed partial class LoopStateEvaluator
 
     // The value that a read by a constant key gives, for a dictionary in a local whose initializer
     // gave that key a value. Null for each other read.
-    private ExpressionSyntax? ValueOfAKey(ElementAccessExpressionSyntax access)
+    private ExpressionSyntax? ValueOfAKey(ExpressionSyntax collection, BracketedArgumentListSyntax indexes)
     {
-        if (access.ArgumentList.Arguments.Count != 1
-            || this.region.SymbolOf(access.Expression) is not ILocalSymbol local)
+        if (indexes.Arguments.Count != 1 || this.region.SymbolOf(collection) is not ILocalSymbol local)
         {
             return null;
         }
@@ -75,7 +89,7 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return known != null
-               && this.KeyOf(key: access.ArgumentList.Arguments[0].Expression, ofObjects: HasObjectKeys(local))
+               && this.KeyOf(key: indexes.Arguments[0].Expression, ofObjects: HasObjectKeys(local))
                    is { } key
                && known.TryGetValue(key: key, value: out ExpressionSyntax? value)
             ? value
@@ -202,8 +216,13 @@ internal sealed partial class LoopStateEvaluator
     // The value of the element that a read by a constant index gives, from the positions of the
     // store. The value came into this code as its collection did, as each other element.
     private LoopState? AtAStorePosition(ElementAccessExpressionSyntax access) =>
-        access.ArgumentList.Arguments.Count == 1
-            ? this.AtAStorePosition(collection: access.Expression, index: access.ArgumentList.Arguments[0].Expression)
+        this.AtAStorePosition(collection: access.Expression, indexes: access.ArgumentList);
+
+    // The same for the collection and the indexes of an element access, or of a null-conditional
+    // element access.
+    private LoopState? AtAStorePosition(ExpressionSyntax collection, BracketedArgumentListSyntax indexes) =>
+        indexes.Arguments.Count == 1
+            ? this.AtAStorePosition(collection: collection, index: indexes.Arguments[0].Expression)
             : null;
 
     // The same for the collection and the index of an ElementAt.
@@ -1219,6 +1238,10 @@ internal sealed partial class LoopStateEvaluator
         name.Parent switch
         {
             ElementAccessExpressionSyntax access => !IsWritten(access),
+            // A null-conditional element access. Its first token is the bracket of its index.
+            ConditionalAccessExpressionSyntax access =>
+                access.WhenNotNull.GetFirstToken().Parent?.Parent is ElementBindingExpressionSyntax binding
+                && !IsWritten(binding),
             // The property. A method with the name Count can be one of this compilation.
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Count" or "Length" } member =>
                 member.Parent is not InvocationExpressionSyntax,

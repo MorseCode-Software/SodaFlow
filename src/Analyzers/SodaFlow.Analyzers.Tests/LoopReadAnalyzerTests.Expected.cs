@@ -8705,6 +8705,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6FuCApiApplyOfASentLinkedFunction"] = ["SF1002"],
             ["R6FuCFuCApiFromUpdatesOfATransformThatReturnsALinkedCell"] = ["SF1002"],
             ["R6FuCFuApplyOfASinkThatGetsAFunctionThatReturnsALinkedCell"] = ["SF1002"],
-            ["R6FuCFuFromUpdatesOfASinkOfPairs"] = ["SF1002"]
+            ["R6FuCFuFromUpdatesOfASinkOfPairs"] = ["SF1002"],
+            ["R6CsNullConditionalElementReadGetsThePendingElement"] = ["SF1001"],
+            ["R6CsNullConditionalListElementReadGetsThePendingElement"] = ["SF1001"],
+            ["Ab383NullConditionalElementFromTheEndGetsThePendingElement"] = ["SF1001"],
+            ["Ab383NullConditionalWriteThenNullConditionalRead"] = ["SF1001"],
+            ["Ab383NullConditionalRowOfAJaggedArrayGetsThePendingRow"] = ["SF1001"],
+            ["Ab383NullConditionalIndexerOfThisCodeGetsThePendingElement"] = ["SF1001"],
+            ["Ab383NullConditionalReadInALambdaGetsThePendingElement"] = ["SF1001"]
         };
 }

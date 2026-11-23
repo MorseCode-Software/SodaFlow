@@ -1974,6 +1974,8 @@ internal sealed partial class LoopStateEvaluator
                             : this.Eval(e.Expression),
                         type: this.region.TypeOf(expression))
                     .Join(this.TypeState(expression)),
+            ElementBindingExpressionSyntax b when ConditionalReceiver(b) is { } owner =>
+                this.EvalElementBinding(binding: b, collection: owner),
             // A lambda is a value. Its code runs when something calls it.
             AnonymousFunctionExpressionSyntax function =>
                 LoopState.OfFunction(

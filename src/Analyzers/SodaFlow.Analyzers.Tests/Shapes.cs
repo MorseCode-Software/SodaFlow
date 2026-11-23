@@ -61336,6 +61336,62 @@ public static class Shapes
     public static Cell<int> Ab424FromUpdatesOfASentPlainTransform() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Func<Cell<int>, Cell<int>>> ts = Stream.CreateSink<Func<Cell<int>, Cell<int>>>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: Plain)], CollectionEdit<int, ItemId, Cell<int>>.FromUpdates(key: 1, transformsStream: ts)); Cell<int> sw = all.StateCell(1).Map(m => m.Match(onSome: c => c, onNone: () => Plain)).SwitchC(); ts.Send(_ => Plain.Map(v => v + 1)); return sw; });
 
+    // S14861. A null-conditional element access reads the pending element of an array.
+    public static Cell<int> R6CsNullConditionalElementReadGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, l.Map(v => v)]; Kept.Add(all?[1].Sample()); return S.Hold(0); });
+
+    // S14862. A null-conditional element access reads the pending element of a list.
+    public static Cell<int> R6CsNullConditionalListElementReadGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> all = [l.Map(v => v)]; Kept.Add(all?[0].Sample()); return S.Hold(0); });
+
+    // S14863. AB383. A null-conditional element access reads the plain element of a list.
+    public static Cell<int> Ab383NullConditionalElementReadGetsThePlainElementOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> all = [Plain, l.Map(v => v)]; Kept.Add(all?[0].Sample()); return S.Hold(0); });
+
+    // S14864. AB383. A null-conditional element access from the end reads the plain element of an array.
+    public static Cell<int> Ab383NullConditionalElementFromTheEndGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [l.Map(v => v), Plain]; Kept.Add(all?[^1].Sample()); return S.Hold(0); });
+
+    // S14865. AB383. A null-conditional element access from the end reads the pending element of an array.
+    public static Cell<int> Ab383NullConditionalElementFromTheEndGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, l.Map(v => v)]; Kept.Add(all?[^1].Sample()); return S.Hold(0); });
+
+    // S14866. AB383. A null-conditional assignment puts the pending cell into an element. Then a null-conditional element access reads that element.
+    public static Cell<int> Ab383NullConditionalWriteThenNullConditionalRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, Plain]; all?[1] = l.Map(v => v); Kept.Add(all?[1].Sample()); return S.Hold(0); });
+
+    // S14867. AB383. A null-conditional element access reads the plain value of a constant key of a dictionary.
+    public static Cell<int> Ab383NullConditionalReadOfAKeyGetsThePlainValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<int, Cell<int>> all = new() { [0] = Plain, [1] = l.Map(v => v) }; Kept.Add(all?[0].Sample()); return S.Hold(0); });
+
+    // S14868. AB383. A null-conditional element access reads the plain row of a jagged array, and the block samples the element of the row.
+    public static Cell<int> Ab383NullConditionalRowOfAJaggedArrayGetsThePlainRow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] all = [[Plain], [l.Map(v => v)]]; Kept.Add(all?[0][0].Sample()); return S.Hold(0); });
+
+    // S14869. AB383. A null-conditional element access reads the pending row of a jagged array, and the block samples the element of the row.
+    public static Cell<int> Ab383NullConditionalRowOfAJaggedArrayGetsThePendingRow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] all = [[Plain], [l.Map(v => v)]]; Kept.Add(all?[1][0].Sample()); return S.Hold(0); });
+
+    // S14870. AB383. The block puts the pending cell into element 0 of an array. A null-conditional element access reads the plain element 1.
+    public static Cell<int> Ab383NullConditionalReadAfterAWriteGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, Plain]; all[0] = l.Map(v => v); Kept.Add(all?[1].Sample()); return S.Hold(0); });
+
+    // S14871. AB383. A null-conditional element access reads the pending element through the getter of an indexer of this code.
+    public static Cell<int> Ab383NullConditionalIndexerOfThisCodeGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSlots s = new(); s[0] = l.Map(v => v); Kept.Add(s?[0].Sample()); return S.Hold(0); });
+
+    // S14872. AB383. An indexer of this code keeps nothing and gives the plain cell. A null-conditional element access reads it after a write of the pending cell.
+    public static Cell<int> Ab383NullConditionalIndexerThatGivesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab383Plain p = new(); p[0] = l.Map(v => v); Kept.Add(p?[0].Sample()); return S.Hold(0); });
+
+    // S14873. AB383. A lambda that the block calls reads the plain element of a local array with a null-conditional element access.
+    public static Cell<int> Ab383NullConditionalReadInALambdaGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, l.Map(v => v)]; Func<int?> read = () => all?[0].Sample(); Kept.Add(read()); return S.Hold(0); });
+
+    // S14874. AB383. A lambda that the block calls reads the pending element of a local array with a null-conditional element access.
+    public static Cell<int> Ab383NullConditionalReadInALambdaGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, l.Map(v => v)]; Func<int?> read = () => all?[1].Sample(); Kept.Add(read()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -113190,6 +113246,16 @@ public static class Shapes
     }
 
     private static Cell<int> Ab401Build(Ab401Box box) => Plain.Map(v => v + box.Share.Sample());
+
+    // Helpers of the shapes of AB383.
+    public sealed class Ab383Plain
+    {
+        public Cell<int> this[int i]
+        {
+            get => Plain;
+            set { }
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
