@@ -69,6 +69,7 @@
         <Compile Include="LoopStateEvaluator.Content.cs"/>
         <Compile Include="LoopStateEvaluator.Dynamic.cs"/>
         <Compile Include="LoopStateEvaluator.DelegateCreations.cs"/>
+        <Compile Include="LoopStateEvaluator.DelegateMembers.cs"/>
         <Compile Include="LoopStateEvaluator.Delegates.cs"/>
         <Compile Include="LoopStateEvaluator.Elements.cs"/>
         <Compile Include="LoopStateEvaluator.Escapes.cs"/>

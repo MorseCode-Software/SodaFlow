@@ -8872,6 +8872,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab423ACreationInABranchThatDoesNotRun"] = ["SF1001"],
             ["Ab423AConstructorPutsThisIntoAStaticListAtAnIndex"] = ["SF1001"],
             ["Ab423AConstructorPutsThisIntoAStaticListAtAnIndexThatItGets"] = ["SF1001"],
-            ["Ab423AConstructorAddsThisToAStaticListThroughAMethod"] = ["SF1004"]
+            ["Ab423AConstructorAddsThisToAStaticListThroughAMethod"] = ["SF1004"],
+            ["R6FuAb350LazyOfADelegatePropertyOfAGivenObject"] = ["SF1004"],
+            ["R6FuAb350LazyOfADelegateFieldOfAGivenObject"] = ["SF1004"],
+            ["R6FuAb350MapOfADelegateGetterOfAGivenObject"] = ["SF1004"],
+            ["R6FuAb350LazyOfADelegatePropertyThroughAField"] = ["SF1004"],
+            ["Ab350MapOfAGetterOfThisThroughALocal"] = ["SF1004"],
+            ["Ab350MapOfAGetterOfThis"] = ["SF1004"],
+            ["Ab350MapOfAGetterOfTheBase"] = ["SF1004"]
         };
 }

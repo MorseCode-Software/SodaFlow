@@ -82,6 +82,7 @@ internal sealed partial class LoopStateEvaluator
                             members: members,
                             receiver: receiver,
                             target: null,
+                            returnsAFunction: CanReturnAFunction(property.Type),
                             returnsAnObject: this.DoesNotSayItsClass(property.Type)));
                 });
     }

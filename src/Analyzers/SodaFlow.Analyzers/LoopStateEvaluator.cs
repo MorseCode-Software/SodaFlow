@@ -2269,7 +2269,9 @@ internal sealed partial class LoopStateEvaluator
                     if ((property.DeclaringSyntaxReferences.Length > 0 || SodaFlowSymbols.IsLazyValue(property))
                         && this.Follow(expression) is { } getter)
                     {
-                        LoopState got = getter.State.Join(this.TypeState(expression));
+                        LoopState got =
+                            this.OnTheObjectOfAGetter(read: expression, property: property, state: getter.State)
+                                .Join(this.TypeState(expression));
 
                         // The getter of an iterator runs when something enumerates the result.
                         return IsIteratorProperty(property) ? got.WithQuery(this.QueryAt(expression)) : got;
@@ -2373,7 +2375,12 @@ internal sealed partial class LoopStateEvaluator
                         && (!symbol.ContainingType.IsTupleType || owner.Members.Has(symbol)))
                     {
                         LoopState through =
-                            owner.Members.StateThrough(
+                            this.OfAnUnknownDelegateMember(
+                                read: expression,
+                                owner: ownerExpression,
+                                ofTheOwner: owner,
+                                member: symbol)
+                            ?? owner.Members.StateThrough(
                                 member: symbol,
                                 implementations: this.region.Symbols.Implementations);
 

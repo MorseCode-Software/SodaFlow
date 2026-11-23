@@ -62300,6 +62300,46 @@ public static class Shapes
     public static Cell<int> Ab423AConstructorAddsThisToAStaticListThroughAMethod() =>
         Cell.Loop<int>().WithoutCaptures(l => { _ = new Ab423AddedByAMethod(Ab423L22, l.Map(v => v)); return S.Hold(Ab423SumOfAdded(Ab423L22)); });
 
+    // S15102. AB350. A constructor builds a lazy value with a delegate property of an object that it gets. The property holds a method group of that object, which samples a member. A method sets that member to a pending cell and reads the value.
+    public static Cell<int> R6FuAb350LazyOfADelegatePropertyOfAGivenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuAb350Given(new R6FuAb350Holder()).SetAndRead(l.Map(v => v))));
+
+    // S15103. AB350. The same, but the delegate is in a field of the object that the constructor gets.
+    public static Cell<int> R6FuAb350LazyOfADelegateFieldOfAGivenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuAb350GivenField(new R6FuAb350Holder()).SetAndRead(l.Map(v => v))));
+
+    // S15104. AB350. A constructor builds a map with a delegate that a getter of an object that it gets returns. The getter returns a method group of that object, which samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> R6FuAb350MapOfADelegateGetterOfAGivenObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuAb350GivenMap(new R6FuAb350Holder()).SetAndRead(l.Map(v => v))));
+
+    // S15105. AB350. A constructor keeps an object that it gets in a field, and builds a lazy value with a delegate property of that object through the field. A method sets the member that the delegate samples to a pending cell and reads the value.
+    public static Cell<int> R6FuAb350LazyOfADelegatePropertyThroughAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuAb350GivenThroughAField(new R6FuAb350Holder()).SetAndRead(l.Map(v => v))));
+
+    // S15106. Control: a constructor builds a map with a delegate that a getter of an object that it gets returns. The method of the delegate does not sample. A method sets a member of the object to a pending cell and samples the map.
+    public static Cell<int> Ab350MapOfADelegateGetterOfAGivenObjectThatDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350GivenPlainGetter(new Ab350PlainGetterHolder()).SetAndRead(l.Map(v => v))));
+
+    // S15107. Control: a constructor builds a Lazy with a delegate property of an object that it gets. The method does not set the member that the delegate samples. It keeps the pending cell and reads the value.
+    public static Cell<int> Ab350LazyOfADelegateOfAGivenObjectWithNoSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350GivenNoSet(new R6FuAb350Holder()).KeepAndRead(l.Map(v => v))));
+
+    // S15108. A constructor builds a map with a delegate that its own getter returns, through a local that has this. The method of the delegate samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab350MapOfAGetterOfThisThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350SelfGetter().SetAndRead(l.Map(v => v))));
+
+    // S15109. Control: a constructor builds a Lazy with a delegate property of an object that it gets. That property holds a method of a third object. A method sets a member of the object that the constructor gets to a pending cell and reads the value.
+    public static Cell<int> Ab350LazyOfADelegateOfAThirdObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350GivenThird(new Ab350ThirdHolder()).SetAndRead(l.Map(v => v))));
+
+    // S15110. A constructor builds a map with a delegate that its own getter returns, through this. The method of the delegate samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab350MapOfAGetterOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350ThisGetter().SetAndRead(l.Map(v => v))));
+
+    // S15111. A constructor builds a map with a delegate that a getter of its base class returns, through base. The method of the delegate samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab350MapOfAGetterOfTheBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350DerivedGetter().SetAndRead(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -114948,6 +114988,159 @@ public static class Shapes
         }
 
         return sum;
+    }
+
+    public sealed class Ab350PlainGetterHolder
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public Func<int, int> Adder => this.Add;
+
+        private int Add(int v) => v + 1;
+    }
+
+    public sealed class Ab350GivenPlainGetter
+    {
+        private readonly Ab350PlainGetterHolder holder;
+
+        private readonly Cell<int> map;
+
+        public Ab350GivenPlainGetter(Ab350PlainGetterHolder holder)
+        {
+            this.holder = holder;
+            this.map = Cell.Constant(1).Map(holder.Adder);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.holder.Share = pending;
+
+            return this.map.Sample();
+        }
+    }
+
+    public sealed class Ab350GivenNoSet
+    {
+        private readonly Lazy<int> value;
+
+        public Ab350GivenNoSet(R6FuAb350Holder holder)
+        {
+            this.value = new Lazy<int>(holder.Factory);
+        }
+
+        public int KeepAndRead(Cell<int> pending)
+        {
+            Kept.Add(pending);
+
+            return this.value.Value;
+        }
+    }
+
+    public sealed class Ab350SelfGetter
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab350SelfGetter()
+        {
+            Ab350SelfGetter self = this;
+            this.map = Cell.Constant(1).Map(self.Adder);
+        }
+
+        public Func<int, int> Adder => this.Add;
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab350ThirdHolder
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        private readonly R6FuAb350Holder inner = new();
+
+        public Ab350ThirdHolder()
+        {
+            this.Factory = this.inner.Read;
+        }
+
+        public Func<int> Factory { get; }
+    }
+
+    public sealed class Ab350GivenThird
+    {
+        private readonly Ab350ThirdHolder holder;
+
+        private readonly Lazy<int> value;
+
+        public Ab350GivenThird(Ab350ThirdHolder holder)
+        {
+            this.holder = holder;
+            this.value = new Lazy<int>(holder.Factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.holder.Share = pending;
+
+            return this.value.Value;
+        }
+    }
+
+    public sealed class Ab350ThisGetter
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab350ThisGetter()
+        {
+            this.map = Cell.Constant(1).Map(this.Adder);
+        }
+
+        public Func<int, int> Adder => this.Add;
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public class Ab350BaseGetter
+    {
+        protected Cell<int> Share = Cell.Constant(0);
+
+        public Func<int, int> Adder => this.Add;
+
+        private int Add(int v) => v + this.Share.Sample();
+    }
+
+    public sealed class Ab350DerivedGetter : Ab350BaseGetter
+    {
+        private readonly Cell<int> map;
+
+        public Ab350DerivedGetter()
+        {
+            this.map = Cell.Constant(1).Map(base.Adder);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+
+            return this.map.Sample();
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
