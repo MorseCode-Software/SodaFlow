@@ -62060,6 +62060,122 @@ public static class Shapes
     public static Cell<int> R6PairStaticFieldPlainThenElementReadStaticFieldSecondInAConstructor() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [R6PairSpare]; a[0] = R6PairXSf676; SettableSlot q = a[0]; R6PairXSf676.Share = Plain; _ = new R6PairWriter(a[0], l.Map(v => v)); return S.Hold(R6PairXSf676.Share!.Sample()); });
 
+    // S15042. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a method group of a kept object. The write goes through a property with a backing field (or a second local of the kept object).
+    public static Cell<int> R6PairNMethodGroupOfAKeptObjectMapCtorSetAndReadWriteThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBKeptMapCtorW2().SetAndRead(l.Map(v => v))));
+
+    // S15043. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a method group of a kept object. The write goes through a property with a backing field (or a second local of the kept object).
+    public static Cell<int> R6PairNMethodGroupOfAKeptObjectLazyCtorSetAndReadWriteThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBKeptLazyCtorW2().SetAndRead(l.Map(v => v))));
+
+    // S15044. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a method group of a local that gets a kept object. The write goes through a property with a backing field (or a second local of the kept object).
+    public static Cell<int> R6PairNMethodGroupOfALocalOfAKeptObjectMapCtorSetAndReadWriteThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBKeptLocMapCtorW2().SetAndRead(l.Map(v => v))));
+
+    // S15045. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a method group of a local that gets a kept object. The write goes through a property with a backing field (or a second local of the kept object).
+    public static Cell<int> R6PairNMethodGroupOfALocalOfAKeptObjectLazyCtorSetAndReadWriteThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBKeptLocLazyCtorW2().SetAndRead(l.Map(v => v))));
+
+    // S15046. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a lambda that samples a member of a kept object. The write goes through a property with a backing field (or a second local of the kept object).
+    public static Cell<int> R6PairNLambdaOfAKeptObjectMapCtorSetAndReadWriteThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBKeptLamMapCtorW2().SetAndRead(l.Map(v => v))));
+
+    // S15047. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a lambda that samples a member of a kept object. The write goes through a property with a backing field (or a second local of the kept object).
+    public static Cell<int> R6PairNLambdaOfAKeptObjectLazyCtorSetAndReadWriteThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBKeptLamLazyCtorW2().SetAndRead(l.Map(v => v))));
+
+    // S15048. Probe with no build: one method writes a kept object through a second local, the next reads it through the member.
+    public static Cell<int> R6PairPNoBuildKeptSecondLocalThenRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairKeptObj().SetThroughALocalAndRead(l.Map(v => v))));
+
+    // S15049. Probe with no build: one method writes a kept object through a second local and reads it through the member.
+    public static Cell<int> R6PairPNoBuildKeptSecondLocalReadInOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairKeptObj().SetThroughALocalAndReadInOne(l.Map(v => v))));
+
+    // S15050. AB430, the edge: a local gets a field of this. Then a method writes a pending cell through the field and reads it through the local.
+    public static Cell<int> Ab430WriteThroughTheFieldReadThroughALocalOfIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Kept().DirectThenLocal(l.Map(v => v))));
+
+    // S15051. AB430, the edge: a method writes a pending cell through a local that got a field of this and reads it through the local.
+    public static Cell<int> Ab430WriteAndReadThroughALocalOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Kept().SetAndReadThroughTheLocal(l.Map(v => v))));
+
+    // S15052. AB430, the edge: a local gets a readonly field of this by its simple name. A method writes a pending cell through the local and reads it through the field.
+    public static Cell<int> Ab430WriteThroughALocalOfAFieldBySimpleName() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Kept().SimpleNameThenField(l.Map(v => v))));
+
+    // S15053. AB430, the edge: a call of a method of the object comes between the local of a readonly field and the write. The call cannot change the field.
+    public static Cell<int> Ab430ACallBetweenTheLocalOfAReadonlyFieldAndTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Kept().LocalThenACallThenWrite(l.Map(v => v))));
+
+    // S15054. AB430, the edge: a field that is not readonly, with no code between the local and the write.
+    public static Cell<int> Ab430WriteThroughALocalOfAWritableField() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Open().SetAndRead(l.Map(v => v))));
+
+    // S15055. AB430, the edge: a call gives a field that is not readonly a new object between the local and the write. The read through the field sees the new object.
+    public static Cell<int> Ab430ACallGivesTheWritableFieldANewObjectBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Open().RenewBetween(l.Map(v => v))));
+
+    // S15056. AB430, the edge: a field is not readonly. A call of a method that changes no field comes between the local of the field and the write.
+    public static Cell<int> Ab430ACallThatChangesNoFieldBetweenTheLocalOfAWritableField() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Open().TouchBetween(l.Map(v => v))));
+
+    // S15057. AB430, the edge: a constructor gives a readonly field a new object between the local and the write. The read through the field sees the new object.
+    public static Cell<int> Ab430AConstructorGivesTheReadonlyFieldANewObjectBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Renewed(l.Map(v => v)).Seen));
+
+    // S15058. AB430, the edge: a struct method gives this a new value between the local of a readonly field and the write. The read through the field sees the new object.
+    public static Cell<int> Ab430AStructGetsANewValueBetweenTheLocalAndTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Pair(new R6PairSlot()).RenewBetween(l.Map(v => v))));
+
+    // S15059. AB430, the edge: a struct method writes a pending cell through a local of a readonly field and reads it through the field.
+    public static Cell<int> Ab430WriteThroughALocalOfAFieldOfAStruct() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Pair(new R6PairSlot()).SetAndRead(l.Map(v => v))));
+
+    // S15060. AB430, the edge: the local gets the field only in a branch. The write through the local and the read through the field are of one object.
+    public static Cell<int> Ab430ALocalThatGetsTheFieldInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Kept().InABranch(l.Map(v => v), true)));
+
+    // S15061. AB430, the edge: the local gets the field only in a branch. The write goes through the field and the read through the local.
+    public static Cell<int> Ab430ALocalThatGetsTheFieldInABranchReadThroughTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Kept().InABranchReadThroughTheLocal(l.Map(v => v), true)));
+
+    // S15062. AB430, the edge: a lambda that the method calls writes a pending cell through the local of a field of this. The read is through the field.
+    public static Cell<int> Ab430ALambdaWritesThroughTheLocalOfAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Kept().ThroughALambda(l.Map(v => v))));
+
+    // S15063. AB430, the edge: a struct method gives this a new value itself between the local of a readonly field and the write. The read through the field sees the new object.
+    public static Cell<int> Ab430AStructGivesThisANewValueBetweenTheLocalAndTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Pair(new R6PairSlot()).GivesThisANewValueBetween(l.Map(v => v))));
+
+    // S15064. AB430, the edge: a local that gets a field of this of a struct type has a copy of the value. A read through the field does not get a write through the local.
+    public static Cell<int> Ab430ALocalOfAStructFieldIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Boxed().WriteThroughACopy(l.Map(v => v))));
+
+    // S15065. AB430, the edge: a struct method gives this the value of a parameter between the local of a readonly field and the write. The read through the field sees the object of the parameter.
+    public static Cell<int> Ab430AStructGetsTheValueOfAParameterBetweenTheLocalAndTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Pair(new R6PairSlot()).TakesTheValueOfBetween(new Ab430Pair(new R6PairSlot()), l.Map(v => v))));
+
+    // S15066. AB430, the edge: a pending cell goes through a field that is not readonly, and then a call gives the field a new object. The read through a local that got the field before sees the first object.
+    public static Cell<int> Ab430ACallGivesTheWritableFieldANewObjectAfterAWriteThroughIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Open3().WriteThenRenew(l.Map(v => v))));
+
+    // S15067. AB430, the edge: the walk did not see the object of a readonly field of a struct made. A struct method writes a pending cell through a local of the field and reads it through the field.
+    public static Cell<int> Ab430WriteThroughALocalOfAFieldOfAStructOfAnOlderObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Pair(Ab430Loose).SetAndRead(l.Map(v => v))));
+
+    // S15068. AB430, the edge: a pending cell goes through a readonly field of a struct, and then a call gives this a new value. The read through a local that got the field before sees the first object.
+    public static Cell<int> Ab430AStructGetsANewValueAfterAWriteThroughItsField() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Pair(Ab430Loose).WriteThenRenew(l.Map(v => v))));
+
+    // S15069. AB430, the edge: a pending cell goes through a readonly field of a struct, and then the method gives this the value of a parameter. The read through a local that got the field before sees the first object.
+    public static Cell<int> Ab430AStructTakesTheValueOfAParameterAfterAWriteThroughItsField() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Pair(Ab430Loose).WriteThenTake(new Ab430Pair(Ab430Loose2), l.Map(v => v))));
+
+    // S15070. AB430, the edge: a constructor writes a pending cell through a readonly field, and then gives the field a second object. The read through a local that got the field before sees the first object.
+    public static Cell<int> Ab430AConstructorGivesTheReadonlyFieldASecondObjectAfterAWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Renewed2(Ab430Loose, Ab430Loose2, l.Map(v => v)).Seen));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -114150,6 +114266,258 @@ public static class Shapes
     public static class Ab363Tasks
     {
         public static void WaitAll(params Task[] tasks) => Kept.Add(tasks);
+    }
+
+    public sealed class Ab430Kept
+    {
+        private readonly R6PairSlot slot = new();
+
+        private int touched;
+
+        public int DirectThenLocal(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            this.slot.Share = pending;
+
+            return s2.Share.Sample();
+        }
+
+        public int SetAndReadThroughTheLocal(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            s2.Share = pending;
+
+            return s2.Share.Sample();
+        }
+
+        public int SimpleNameThenField(Cell<int> pending)
+        {
+            // The shape tests a read of the field by its simple name.
+            // ReSharper disable once ArrangeThisQualifier
+            R6PairSlot s2 = slot;
+            s2.Share = pending;
+
+            return this.slot.Share.Sample();
+        }
+
+        public int LocalThenACallThenWrite(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            this.Touch();
+            s2.Share = pending;
+
+            return this.slot.Share.Sample();
+        }
+
+        public int InABranch(Cell<int> pending, bool take)
+        {
+            R6PairSlot s2 = new();
+
+            if (take)
+            {
+                s2 = this.slot;
+            }
+
+            s2.Share = pending;
+
+            return this.slot.Share.Sample();
+        }
+
+        public int InABranchReadThroughTheLocal(Cell<int> pending, bool take)
+        {
+            R6PairSlot s2 = new();
+
+            if (take)
+            {
+                s2 = this.slot;
+            }
+
+            this.slot.Share = pending;
+
+            return s2.Share.Sample();
+        }
+
+        public int ThroughALambda(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            Action set = () => s2.Share = pending;
+            set();
+
+            return this.slot.Share.Sample();
+        }
+
+        public int Touched => this.touched;
+
+        private void Touch() => this.touched++;
+    }
+
+    public sealed class Ab430Open
+    {
+        private R6PairSlot slot = new();
+
+        private int touched;
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            s2.Share = pending;
+
+            return this.slot.Share.Sample();
+        }
+
+        public int RenewBetween(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            this.Renew();
+            s2.Share = pending;
+
+            return this.slot.Share.Sample();
+        }
+
+        public int TouchBetween(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            this.Touch();
+            s2.Share = pending;
+
+            return this.slot.Share.Sample();
+        }
+
+        public int Touched => this.touched;
+
+        private void Renew() => this.slot = new R6PairSlot();
+
+        private void Touch() => this.touched++;
+    }
+
+    public sealed class Ab430Renewed
+    {
+        private readonly R6PairSlot slot = new();
+
+        public Ab430Renewed(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            this.slot = new R6PairSlot();
+            s2.Share = pending;
+            this.Seen = this.slot.Share.Sample();
+        }
+
+        public int Seen { get; }
+    }
+
+    public struct Ab430Pair(R6PairSlot slot)
+    {
+        private readonly R6PairSlot slot = slot;
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            s2.Share = pending;
+
+            return this.slot.Share.Sample();
+        }
+
+        public int RenewBetween(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            this.Renew();
+            s2.Share = pending;
+
+            return this.slot.Share.Sample();
+        }
+
+        public int GivesThisANewValueBetween(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            this = new Ab430Pair(new R6PairSlot());
+            s2.Share = pending;
+
+            return this.slot.Share.Sample();
+        }
+
+        public int TakesTheValueOfBetween(Ab430Pair other, Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            this = other;
+            s2.Share = pending;
+
+            return this.slot.Share.Sample();
+        }
+
+        public int WriteThenRenew(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            this.slot.Share = pending;
+            this.Renew();
+
+            return s2.Share.Sample();
+        }
+
+        public int WriteThenTake(Ab430Pair other, Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            this.slot.Share = pending;
+            this = other;
+
+            return s2.Share.Sample();
+        }
+
+        private void Renew() => this = new Ab430Pair(new R6PairSlot());
+    }
+
+    public struct Ab430Box
+    {
+        public Cell<int> Share;
+    }
+
+    public sealed class Ab430Boxed
+    {
+        private Ab430Box box = new() { Share = Cell.Constant(0) };
+
+        public int WriteThroughACopy(Cell<int> pending)
+        {
+            Ab430Box s2 = this.box;
+            s2.Share = pending;
+            Kept.Add(s2.Share);
+
+            return this.box.Share.Sample();
+        }
+    }
+
+    private static R6PairSlot Ab430Loose = new();
+
+    private static R6PairSlot Ab430Loose2 = new();
+
+    public sealed class Ab430Open3
+    {
+        private R6PairSlot slot = new();
+
+        public int WriteThenRenew(Cell<int> pending)
+        {
+            R6PairSlot s2 = this.slot;
+            this.slot.Share = pending;
+            this.Renew();
+
+            return s2.Share.Sample();
+        }
+
+        private void Renew() => this.slot = new R6PairSlot();
+    }
+
+    public sealed class Ab430Renewed2
+    {
+        private readonly R6PairSlot slot;
+
+        public Ab430Renewed2(R6PairSlot first, R6PairSlot second, Cell<int> pending)
+        {
+            this.slot = first;
+            R6PairSlot s2 = this.slot;
+            this.slot.Share = pending;
+            this.slot = second;
+            this.Seen = s2.Share.Sample();
+        }
+
+        public int Seen { get; }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

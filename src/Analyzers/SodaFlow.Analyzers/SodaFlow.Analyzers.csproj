@@ -74,6 +74,7 @@
         <Compile Include="LoopStateEvaluator.Escapes.cs"/>
         <Compile Include="LoopStateEvaluator.Exceptions.cs"/>
         <Compile Include="LoopStateEvaluator.FieldArrays.cs"/>
+        <Compile Include="LoopStateEvaluator.FieldsOfThis.cs"/>
         <Compile Include="LoopStateEvaluator.ExtensionBlocks.cs"/>
         <Compile Include="LoopStateEvaluator.FunctionReads.cs"/>
         <Compile Include="LoopStateEvaluator.Implied.cs"/>

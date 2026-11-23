@@ -208,7 +208,8 @@ internal sealed partial class LoopStateEvaluator
                 || !this.Frame.FirstNameOf.TryGetValue(key: second, value: out ExpressionSyntax? first)
                 || this.WindowsOfTheRecordOf(first: first, at: at) is not (var windows, var ran)
                 || this.region.SymbolOf(first) is not { } firstName
-                || this.GetsAValueIn(windows: windows, ran: ran, names: [firstName, second], use: at))
+                || this.GetsAValueIn(windows: windows, ran: ran, names: [firstName, second], use: at)
+                || (firstName is IFieldSymbol field && this.CanChangeTheFieldIn(field: field, windows: windows)))
             {
                 break;
             }
@@ -350,6 +351,14 @@ internal sealed partial class LoopStateEvaluator
         {
             this.Frame.FirstNameOf[local] = viewed;
             this.Frame.RunThatNamed[viewed] = this;
+
+            return;
+        }
+
+        // A local that gets a field of this is a second name of that field.
+        if (KeepsItsObject(local) && this.AFieldOfThisIn(value) is { } field)
+        {
+            this.NotesALocalOfAFieldOfThis(local: local, field: field, sure: sure);
 
             return;
         }

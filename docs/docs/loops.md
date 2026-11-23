@@ -435,6 +435,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   refers to. So is a `ref` field of a `ref struct` in a local, where a constructor of yours sets the
   field to a `ref` parameter and the code passes it `ref` of a local: the field is a name of that
   local, as long as the code gives the struct local no other value and the field no other `ref`. A
+  local that gets a field of `this`, as in `var slot = this.slot;`, is another name of that field
+  until code gives the local or the field a different object. A call can do that to a field that
+  is not `readonly`, or to any field of a struct, so for such a field a call between the two ends
+  this. After that, and after a local that gets the field only in a branch, a write through either
+  name still reaches a read through the other. A
   write to a field or a property with no body through any of the names replaces what earlier writes
   through all of them gave that member, and a read through any of them sees the last value, while
   each name keeps the object. A virtual or abstract property counts as having no body only where no
@@ -778,6 +783,10 @@ careful side, so it can report a read that does not throw:
   member of an object of your class through an element of an array, a static field, an element of an
   array in a static field, or a field of a holder object reaches a read of that member through any
   other object of the class, also one that the code made with `new` itself.
+- A local that gets a field of `this` that is not `readonly`, with a call between that can give the
+  field a different object, as in `var slot = this.slot; this.Renew(); slot.Share = value;`. The
+  analyzer does not read whether the call did, so a write through the local still reaches a read
+  through the field, also where the call gave the field a new object.
 - A new object that a method you call puts through a `ref` parameter into an element of an array in
   a static field, or into an element at an index in a local, does not replace the object that was
   there before. A read through that location still gets what the earlier object had.

@@ -100,7 +100,10 @@ internal sealed partial class LoopReadAnalyzerTests
         // A conditional ref on a condition that is not a constant selects one of two locations. The
         // analyzer does not know which. Thus, a write through the ref goes to the two locations.
         "R6LimWriteThroughAConditionalRefReadTheFirst",
-        "Ab374WriteThroughAConditionalRefOfALocalFunctionReadTheFirst"
+        "Ab374WriteThroughAConditionalRefOfALocalFunctionReadTheFirst",
+        // A call can give a field that is not readonly a new object. The analyzer does not read if the call did
+        // that. Thus, a read through the field gets each write through a local that got the field before the call.
+        "Ab430ACallGivesTheWritableFieldANewObjectBetween"
     ];
 
     private static readonly Assembly[] ShapeLibraries =
