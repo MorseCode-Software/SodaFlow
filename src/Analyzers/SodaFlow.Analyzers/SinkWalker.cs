@@ -2730,6 +2730,14 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     state: state,
                     owner: collection);
 
+                if (target is ElementAccessExpressionSyntax given)
+                {
+                    this.evaluator.GivesTheCallersAPutIntoAStaticElement(
+                        element: given,
+                        state: state,
+                        replaces: replaces);
+                }
+
                 if (this.region.SymbolOf(target) is IPropertySymbol { DeclaringSyntaxReferences.IsEmpty: true })
                 {
                     foreach (ArgumentSyntax index in indexes.Arguments)
@@ -3506,6 +3514,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                             call: node,
                             method: method,
                             state: added);
+
+                        this.evaluator.AddsThisToAStaticList(list: receiver, method: method, state: added);
                     }
 
                     // A search reads its argument, and the collection does not get it. An object

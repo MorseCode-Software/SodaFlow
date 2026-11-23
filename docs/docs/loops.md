@@ -436,42 +436,52 @@ The analyzer follows a value made from the placeholder through the code of your 
   field to a `ref` parameter and the code passes it `ref` of a local: the field is a name of that
   local, as long as the code gives the struct local no other value and the field no other `ref`. A
   local that gets a field of `this`, as in `var slot = this.slot;`, is another name of that field
-  until code gives the local or the field a different object. A call can do that to a field that
-  is not `readonly`, or to any field of a struct, so for such a field a call between the two ends
-  this. After that, and after a local that gets the field only in a branch, a write through either
-  name still reaches a read through the other. A
-  write to a field or a property with no body through any of the names replaces what earlier writes
-  through all of them gave that member, and a read through any of them sees the last value, while
-  each name keeps the object. A virtual or abstract property counts as having no body only where no
-  override in your project gives it one. A local that code takes a `ref` to anywhere in its
-  function, as in `ref d` or `new Span<T>(ref d)`, is no such name, because the `ref` can give it a
-  new object at any time. A write through an expression that is no such name, such as a conditional
-  expression, reaches a later read through each name whose object the analyzer cannot tell apart
-  from the object of the write. It tells two objects apart where the write goes to an object that
-  the code creates after the name got its object, through the creation itself or through a local
-  that only that creation gives a value, and where it goes through a private `static readonly` field
-  that a creation fills and whose object your code never hands on: each use of the field reads or
-  writes a field or a property with no body. A write in a method that the block calls counts as
-  well, where the block always calls the method one time and the method writes through a static
-  field, an element of an array in one, or a parameter whose argument is such a name. So does a
-  write through one of the names in a lambda or a local function that the block itself calls: it
-  reaches the other names, but it does not replace a write through a second name, and a write
-  through a second name does not replace it. So does a write through `this` in a method that the
-  block calls on one of the names, also an assignment to `this` in a method of a struct, and a read
-  through `this` in such a method sees the last value too. Where such a method writes a member
-  through `this` and then through a second name of the same object, such as a static field, an
-  element of an array in one, or a parameter, the later write is the one that counts. Where the
-  analyzer cannot tell that the second name holds the same object, both writes count. A new object
-  that goes into a name with an object initializer, as in `slots[0] = new Slot { Cell = value }`,
-  gives the name only the values that the initializer sets, also where such a method puts it and
-  keeps it there to its end. A method or a local function that always gives its `ref` or `out`
-  parameter a value replaces what a local, or a field of the object in a local, held before, where
-  the block always calls it and passes no second `ref` or `out` argument. A constructor that puts
-  `this` into a name makes that name a name of the new object, as a registry does with a static
-  field or a static property. So does a constructor that does this through a method of the object
-  that it calls on `this`, also by its name alone or through a second such method, to the depth that
-  the analyzer reads calls. The name can also be an element of an array or a list that the
-  constructor gets, a value of a dictionary that it gets, or a field of an object that it gets.
+  until code gives the local or the field a different object. A call can do that to a field that is
+  not `readonly`, or to any field of a struct, so for such a field a call between the two ends this.
+  After that, and after a local that gets the field only in a branch, a write through either name
+  still reaches a read through the other. A write to a field or a property with no body through any
+  of the names replaces what earlier writes through all of them gave that member, and a read through
+  any of them sees the last value, while each name keeps the object. A virtual or abstract property
+  counts as having no body only where no override in your project gives it one. A local that code
+  takes a `ref` to anywhere in its function, as in `ref d` or `new Span<T>(ref d)`, is no such name,
+  because the `ref` can give it a new object at any time. A write through an expression that is no
+  such name, such as a conditional expression, reaches a later read through each name whose object
+  the analyzer cannot tell apart from the object of the write. It tells two objects apart where the
+  write goes to an object that the code creates after the name got its object, through the creation
+  itself or through a local that only that creation gives a value, and where it goes through a
+  private `static readonly` field that a creation fills and whose object your code never hands on:
+  each use of the field reads or writes a field or a property with no body. A write in a method that
+  the block calls counts as well, where the block always calls the method one time and the method
+  writes through a static field, an element of an array in one, or a parameter whose argument is
+  such a name. So does a write through one of the names in a lambda or a local function that the
+  block itself calls: it reaches the other names, but it does not replace a write through a second
+  name, and a write through a second name does not replace it. So does a write through `this` in a
+  method that the block calls on one of the names, also an assignment to `this` in a method of a
+  struct, and a read through `this` in such a method sees the last value too. Where such a method
+  writes a member through `this` and then through a second name of the same object, such as a static
+  field, an element of an array in one, or a parameter, the later write is the one that counts.
+  Where the analyzer cannot tell that the second name holds the same object, both writes count. A
+  new object that goes into a name with an object initializer, as in
+  `slots[0] = new Slot { Cell = value }`, gives the name only the values that the initializer sets,
+  also where such a method puts it and keeps it there to its end. A method or a local function that
+  always gives its `ref` or `out` parameter a value replaces what a local, or a field of the object
+  in a local, held before, where the block always calls it and passes no second `ref` or `out`
+  argument. A constructor that puts `this` into a name makes that name a name of the new object, as
+  a registry does with a static field or a static property. So does a constructor that does this
+  through a method of the object that it calls on `this`, also by its name alone or through a second
+  such method, to the depth that the analyzer reads calls. The name can also be an element of an
+  array or a list that the constructor gets, a value of a dictionary that it gets, or a field of an
+  object that it gets. It can be an element of an array or a list in a static field too, at a
+  constant index, by the name of the field or as an argument, where the constructor always puts
+  `this` there and the calls up to the code that reads the element always run. Where it puts `this`
+  there only on one path, at an index that is not a constant, or in a call that does not always run,
+  each element of the collection can be the new object. A list in a static field that the
+  constructor adds `this` to, by its name or as an argument, holds the new object from then on, also
+  for a method that reads the list later: an event that code raises through an element of that list
+  runs each handler that the code added through the new object. Inside a method or a constructor,
+  each name of one object that the list above gives, when it gets `this`, also through `Add` or as
+  an element of a collection expression such as `[this]`, is the same object as `this` until code
+  gives it a different value.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes the `Equals`, `GetHashCode`,
@@ -787,6 +797,10 @@ careful side, so it can report a read that does not throw:
   field a different object, as in `var slot = this.slot; this.Renew(); slot.Share = value;`. The
   analyzer does not read whether the call did, so a write through the local still reaches a read
   through the field, also where the call gave the field a new object.
+- A constructor that puts `this` into an element of an array or a list in a static field only on one
+  path, at an index that is not a constant, or in a call that does not always run. Each element of
+  the collection then counts as the new object also, so a read through an element that kept its
+  first object gets what the new object has.
 - A new object that a method you call puts through a `ref` parameter into an element of an array in
   a static field, or into an element at an index in a local, does not replace the object that was
   there before. A read through that location still gets what the earlier object had.
@@ -983,13 +997,6 @@ Some reads that throw it does not see:
 - A write through a span, a memory, or a segment that a method gets as a parameter, that
   `MemoryMarshal` makes, that `CollectionsMarshal` makes of a list that is not in a local, or that a
   lambda or a local function uses. The write does not reach the array.
-- A constructor that puts `this` into an array or a list in a static field, also one that it gets
-  as a parameter. An element of that array or list is then not a name of the new object. A write
-  through `this` or through the new object does not reach a read through the element, and an event
-  that code raises through the element does not run a handler that the code added through the new
-  object. Inside a method or a constructor, each name of one object that the list above gives, when
-  it gets `this`, also through `Add` or as an element of a collection expression such as `[this]`,
-  is the same object as `this` until code gives it a different value.
 - A write in the function of a `Map`, a `Lift`, or a collection view that the analyzer did not see
   you build, such as a cell in a field that a read in the block runs for the first time. A function
   that you give to `Map` or `Lift` should have no side effects in any case.

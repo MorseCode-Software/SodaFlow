@@ -103,7 +103,10 @@ internal sealed partial class LoopReadAnalyzerTests
         "Ab374WriteThroughAConditionalRefOfALocalFunctionReadTheFirst",
         // A call can give a field that is not readonly a new object. The analyzer does not read if the call did
         // that. Thus, a read through the field gets each write through a local that got the field before the call.
-        "Ab430ACallGivesTheWritableFieldANewObjectBetween"
+        "Ab430ACallGivesTheWritableFieldANewObjectBetween",
+        // The constructor puts this into the element only in a branch. The analyzer does not read if the branch
+        // runs. Thus, each element of the array can be the new object.
+        "Ab423AConstructorPutsThisInABranchThatDoesNotRun"
     ];
 
     private static readonly Assembly[] ShapeLibraries =

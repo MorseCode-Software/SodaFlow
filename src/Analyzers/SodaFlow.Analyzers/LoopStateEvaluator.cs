@@ -1963,6 +1963,8 @@ internal sealed partial class LoopStateEvaluator
                 this.StateAtAPosition(position).Join(this.TypeState(expression)),
             ElementAccessExpressionSyntax e when this.AtAStorePosition(e) is { } known =>
                 known.Join(this.TypeState(expression)),
+            ElementAccessExpressionSyntax e when this.PutIntoAStaticElement(e) is { } put =>
+                put.Join(this.TypeState(expression)),
             ElementAccessExpressionSyntax e => this.FollowExpression(e) is { } indexed
                 ? indexed.State.Join(this.TypeState(expression))
                 : ElementOf(

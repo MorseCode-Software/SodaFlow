@@ -62176,6 +62176,130 @@ public static class Shapes
     public static Cell<int> Ab430AConstructorGivesTheReadonlyFieldASecondObjectAfterAWrite() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab430Renewed2(Ab430Loose, Ab430Loose2, l.Map(v => v)).Seen));
 
+    // S15071. Carried from Round 4 (AB246, R4LimEventRaisedThroughAListThatTheConstructorFilled). An event of a new object whose constructor puts the object into a list gets a handler that samples, and a call raises each object of the list. (Left out in Round 5 as R5FuCLimEventRaisedThroughAListThatTheConstructorFilled, AB300.)
+    public static Cell<int> R6FuCFuCLimEventRaisedThroughAListThatTheConstructorFilled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4LimBell bell = new(); Action h = () => Kept.Add(l.Sample()); bell.Rang += h; R4LimRingAll(); return S.Hold(0); });
+
+    // S15072. Carried from Round 4 (AB246, R4LimHandlerRemovedFromAnEventOfAnObjectThatItsConstructorShares). An event of a new object whose constructor puts the object into a list gets a handler that samples. A call raises each object of the list before the remove. (Left out in Round 5 as R5FuCLimHandlerRemovedFromAnEventOfAnObjectThatItsConstructorShares, AB300.)
+    public static Cell<int> R6FuCFuCLimHandlerRemovedFromAnEventOfAnObjectThatItsConstructorShares() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4LimBell bell = new(); Action h = () => Kept.Add(l.Sample()); bell.Rang += h; R4LimRingAll(); bell.Rang -= h; return S.Hold(0); });
+
+    // S15073. AG93, the constructor form: the constructor gives this to the name and then writes a pending cell through this; the block reads through the name, which is an element of a static field array. (Left out in Round 5 as R5PairConstructorGivesThisToFieldArrayPendingThisReadName, AB300.)
+    public static Cell<int> R6FuCPairConstructorGivesThisToFieldArrayPendingThisReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeF made = new(R5PairMadeFa, l.Map(v => v)); return S.Hold(R5PairMadeFa[0].Share!.Sample()); });
+
+    // S15074. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the local of the new object and reads through the name, which is an element of a static field array. (Left out in Round 5 as R5PairConstructorGivesThisToFieldArrayPlainThisThenPendingMadeReadName, AB300.)
+    public static Cell<int> R6FuCPairConstructorGivesThisToFieldArrayPlainThisThenPendingMadeReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeF made = new(R5PairMadeFa, Plain); made.Share = l.Map(v => v); return S.Hold(R5PairMadeFa[0].Share!.Sample()); });
+
+    // S15075. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the name and reads through the local of the new object, which is an element of a static field array. (Left out in Round 5 as R5PairConstructorGivesThisToFieldArrayPlainThisThenPendingNameReadMade, AB300.)
+    public static Cell<int> R6FuCPairConstructorGivesThisToFieldArrayPlainThisThenPendingNameReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5PairMadeF made = new(R5PairMadeFa, Plain); R5PairMadeFa[0].Share = l.Map(v => v); return S.Hold(made.Share!.Sample()); });
+
+    // S15076. AG93, the constructor form: the constructor gives this to the name and then writes a pending cell through this; the block reads through the name, which is an element of a static field array.
+    public static Cell<int> R6PairConstructorGivesThisToFieldArrayPendingThisReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairMadeF made = new(R6PairMadeFa, l.Map(v => v)); return S.Hold(R6PairMadeFa[0].Share!.Sample()); });
+
+    // S15077. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the local of the new object and reads through the name, which is an element of a static field array.
+    public static Cell<int> R6PairConstructorGivesThisToFieldArrayPlainThisThenPendingMadeReadName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairMadeF made = new(R6PairMadeFa, Plain); made.Share = l.Map(v => v); return S.Hold(R6PairMadeFa[0].Share!.Sample()); });
+
+    // S15078. AG93, the constructor form: the constructor gives this to the name and writes a plain cell through this; the block writes a pending cell through the name and reads through the local of the new object, which is an element of a static field array.
+    public static Cell<int> R6PairConstructorGivesThisToFieldArrayPlainThisThenPendingNameReadMade() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairMadeF made = new(R6PairMadeFa, Plain); R6PairMadeFa[0].Share = l.Map(v => v); return S.Hold(made.Share!.Sample()); });
+
+    // S15079. AB423, the edge: the block puts a different object into the element after the constructor put this there. The read through the element sees that object.
+    public static Cell<int> Ab423APutIntoTheElementAfterTheConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Made made = new(Ab423A1, l.Map(v => v)); Ab423A1[0] = new Ab423Made(); return S.Hold(Ab423A1[0].Share.Sample()); });
+
+    // S15080. AB423, the edge: the constructor puts this into the first element of an array in a static field. The read is through the second element.
+    public static Cell<int> Ab423AReadThroughASecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Made made = new(Ab423A2, l.Map(v => v)); return S.Hold(Ab423A2[1].Share.Sample()); });
+
+    // S15081. AB423, the edge: a call puts a different object into the element between the constructor and the write through the new object.
+    public static Cell<int> Ab423ACallPutsADifferentObjectIntoTheElementBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Made made = new(Ab423A3, Plain); Ab423RenewA3(); made.Share = l.Map(v => v); return S.Hold(Ab423A3[0].Share.Sample()); });
+
+    // S15082. AB423, the edge: the constructor puts this into the element through a method of the object that it calls on this.
+    public static Cell<int> Ab423AConstructorPutsThisThroughAMethodOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423ByAMethod made = new(Ab423A4, l.Map(v => v)); return S.Hold(Ab423A4[0].Share.Sample()); });
+
+    // S15083. AB423, the edge: the constructor puts this into the element only in a branch that does not run. The element keeps the first object, which has a pending cell.
+    public static Cell<int> Ab423AConstructorPutsThisOnlyInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423A5[0].Share = l.Map(v => v); Ab423Made made = new(Ab423A5, Plain, false); return S.Hold(Ab423A5[0].Share.Sample()); });
+
+    // S15084. AB423, the edge: the constructor writes a pending cell through this and then puts this into the element.
+    public static Cell<int> Ab423AConstructorWritesAndThenPutsThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairMadeF made = new(Ab423F6, l.Map(v => v), true); return S.Hold(Ab423F6[0].Share!.Sample()); });
+
+    // S15085. AB423, the edge: the constructor puts this into an array in a static field that it names itself.
+    public static Cell<int> Ab423AConstructorPutsThisIntoAStaticArrayByName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Direct made = new(l.Map(v => v)); return S.Hold(Ab423D7[0].Share.Sample()); });
+
+    // S15086. AB423, the edge: the constructor adds this to a list in a static field that it gets as a parameter. The block reads each element of the list.
+    public static Cell<int> Ab423AConstructorAddsThisToAStaticListThatItGets() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Listed made = new(Ab423L8, l.Map(v => v)); return S.Hold(Ab423SumOf(Ab423L8)); });
+
+    // S15087. AB423, the edge: the constructor of a new object puts it into a list. The block adds a handler to its event and takes the handler away before a call raises each object of the list.
+    public static Cell<int> Ab423AHandlerTakenAwayBeforeTheRaise() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Bell bell = new(); Action h = () => Kept.Add(l.Sample()); bell.Rang += h; bell.Rang -= h; Ab423RingAll(); return S.Hold(0); });
+
+    // S15088. AB423, the edge: the constructor adds this to a list in a static field. The block reads each element of the list after a write of a pending cell through the new object.
+    public static Cell<int> Ab423AConstructorAddsThisToAStaticListWriteThroughTheNewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Listed made = new(Plain); made.Share = l.Map(v => v); return S.Hold(Ab423SumOf(Ab423L10)); });
+
+    // S15089. AB423, the edge: the constructor puts this into the element only in a branch, and the branch runs.
+    public static Cell<int> Ab423AConstructorPutsThisInABranchThatRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Made made = new(Ab423A11, l.Map(v => v), true); return S.Hold(Ab423A11[0].Share.Sample()); });
+
+    // S15090. AB423, the edge: the constructor puts this into the element at an index that it gets as a parameter.
+    public static Cell<int> Ab423AConstructorPutsThisAtAnIndexThatItGets() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423At made = new(Ab423B12, 0, l.Map(v => v)); return S.Hold(Ab423B12[0].Share.Sample()); });
+
+    // S15091. AB423, the edge: the constructor puts this into the element only in a branch that does not run. The new object has a pending cell, and the element keeps the first object.
+    public static Cell<int> Ab423AConstructorPutsThisInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Made made = new(Ab423A13, l.Map(v => v), false); return S.Hold(Ab423A13[0].Share.Sample()); });
+
+    // S15092. AB423, the edge: the block makes the object only in a branch. The constructor puts this into the element, and the branch runs.
+    public static Cell<int> Ab423ACreationInABranchThatRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (Ab423On) { _ = new Ab423Made(Ab423A14, l.Map(v => v)); } return S.Hold(Ab423A14[0].Share.Sample()); });
+
+    // S15093. AB423, the edge: the constructor puts this into the first element and then puts the object of the second element there. The read through the element sees the second object.
+    public static Cell<int> Ab423AConstructorPutsASecondObjectAfterThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Twice made = new(Ab423T15, Ab423T15[1], l.Map(v => v)); return S.Hold(Ab423T15[0].Share.Sample()); });
+
+    // S15094. AB423, the edge: the block makes the object only in a branch that does not run. The element keeps its first object, which has a pending cell.
+    public static Cell<int> Ab423ACreationInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423A18[0].Share = l.Map(v => v); if (Ab423Off) { _ = new Ab423Made(Ab423A18, Plain); } return S.Hold(Ab423A18[0].Share.Sample()); });
+
+    // S15095. AB423, the edge: the constructor puts this through an indexer of a class in a static field. The indexer keeps nothing, so the read through it does not see the new object.
+    public static Cell<int> Ab423AConstructorPutsThisThroughAnIndexerThatKeepsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Kept made = new(Ab423Idx, l.Map(v => v)); return S.Hold(Ab423Idx[0].Share.Sample()); });
+
+    // S15096. AB423, the edge: the constructor puts this through an indexer of a class in a static field at an index that it gets. The indexer keeps nothing, so the read through it does not see the new object.
+    public static Cell<int> Ab423AConstructorPutsThisThroughAnIndexerAtAnIndexThatItGets() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Kept made = new(Ab423Idx2, 0, l.Map(v => v)); return S.Hold(Ab423Idx2[0].Share.Sample()); });
+
+    // S15097. AB423, the edge: the constructor asks a list in a static field if it has this, and adds nothing. A call raises each object of the list, which is empty.
+    public static Cell<int> Ab423AConstructorThatOnlyAsksAStaticList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423Asked asked = new(); Action h = () => Kept.Add(l.Sample()); asked.Rang += h; Ab423RingAsked(); return S.Hold(0); });
+
+    // S15098. AB423, the edge: the constructor gives its parameter a new list and adds this to that list. The list in the static field stays empty.
+    public static Cell<int> Ab423AConstructorAddsThisToANewListOfItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { _ = new Ab423Relisted(Ab423L21, l.Map(v => v)); return S.Hold(Ab423SumOfRelisted(Ab423L21)); });
+
+    // S15099. AB423, the edge: the constructor gets a list in a static field. It puts this into the first element through the indexer of the list.
+    public static Cell<int> Ab423AConstructorPutsThisIntoAStaticListAtAnIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423InList made = new(Ab423LI, l.Map(v => v)); return S.Hold(Ab423LI[0].Share.Sample()); });
+
+    // S15100. AB423, the edge: the constructor gets a list in a static field and an index. It puts this into the list through the indexer at that index.
+    public static Cell<int> Ab423AConstructorPutsThisIntoAStaticListAtAnIndexThatItGets() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab423InList made = new(Ab423LJ, 0, l.Map(v => v)); return S.Hold(Ab423LJ[0].Share.Sample()); });
+
+    // S15101. AB423, the edge: the constructor gives a list in a static field to a method of the object, and the method adds this to it.
+    public static Cell<int> Ab423AConstructorAddsThisToAStaticListThroughAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { _ = new Ab423AddedByAMethod(Ab423L22, l.Map(v => v)); return S.Hold(Ab423SumOfAdded(Ab423L22)); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -114518,6 +114642,312 @@ public static class Shapes
         }
 
         public int Seen { get; }
+    }
+
+    public sealed class Ab423Made
+    {
+        public Ab423Made()
+        {
+        }
+
+        public Ab423Made(Ab423Made[] into, Cell<int> share)
+        {
+            into[0] = this;
+            this.Share = share;
+        }
+
+        public Ab423Made(Ab423Made[] into, Cell<int> share, bool put)
+        {
+            if (put)
+            {
+                into[0] = this;
+            }
+
+            this.Share = share;
+        }
+
+        public Cell<int> Share { get; set; } = Cell.Constant(0);
+    }
+
+    public sealed class Ab423ByAMethod
+    {
+        public Ab423ByAMethod()
+        {
+        }
+
+        public Ab423ByAMethod(Ab423ByAMethod[] into, Cell<int> share)
+        {
+            this.PutInto(into);
+            this.Share = share;
+        }
+
+        public Cell<int> Share { get; set; } = Cell.Constant(0);
+
+        private void PutInto(Ab423ByAMethod[] into) => into[0] = this;
+    }
+
+    public sealed class Ab423Direct
+    {
+        public Ab423Direct()
+        {
+        }
+
+        public Ab423Direct(Cell<int> share)
+        {
+            Ab423D7[0] = this;
+            this.Share = share;
+        }
+
+        public Cell<int> Share { get; set; } = Cell.Constant(0);
+    }
+
+    public sealed class Ab423Listed
+    {
+        public Ab423Listed(List<Ab423Listed> into, Cell<int> share)
+        {
+            into.Add(this);
+            this.Share = share;
+        }
+
+        public Ab423Listed(Cell<int> share)
+        {
+            Ab423L10.Add(this);
+            this.Share = share;
+        }
+
+        public Cell<int> Share { get; set; }
+    }
+
+    private static readonly Ab423Made[] Ab423A1 = [new Ab423Made()];
+
+    private static readonly Ab423Made[] Ab423A2 = [new Ab423Made(), new Ab423Made()];
+
+    private static readonly Ab423Made[] Ab423A3 = [new Ab423Made()];
+
+    private static readonly Ab423ByAMethod[] Ab423A4 = [new Ab423ByAMethod()];
+
+    private static readonly Ab423Made[] Ab423A5 = [new Ab423Made()];
+
+    private static readonly R6PairMadeF[] Ab423F6 = [new R6PairMadeF()];
+
+    private static readonly Ab423Direct[] Ab423D7 = [new Ab423Direct()];
+
+    private static readonly List<Ab423Listed> Ab423L8 = [];
+
+    private static readonly List<Ab423Listed> Ab423L10 = [];
+
+    private static void Ab423RenewA3() => Ab423A3[0] = new Ab423Made();
+
+    public sealed class Ab423Bell
+    {
+        public Ab423Bell() => Ab423Bells.Add(this);
+
+        public event Action? Rang;
+
+        public void Ring() => this.Rang?.Invoke();
+    }
+
+    private static readonly List<Ab423Bell> Ab423Bells = [];
+
+    private static void Ab423RingAll()
+    {
+        foreach (Ab423Bell bell in Ab423Bells.ToArray())
+        {
+            bell.Ring();
+        }
+    }
+
+    private static int Ab423SumOf(List<Ab423Listed> all)
+    {
+        int sum = 0;
+
+        foreach (Ab423Listed one in all)
+        {
+            sum += one.Share.Sample();
+        }
+
+        return sum;
+    }
+
+    public sealed class Ab423At
+    {
+        public Ab423At()
+        {
+        }
+
+        public Ab423At(Ab423At[] into, int at, Cell<int> share)
+        {
+            into[at] = this;
+            this.Share = share;
+        }
+
+        public Cell<int> Share { get; set; } = Cell.Constant(0);
+    }
+
+    private static readonly Ab423Made[] Ab423A11 = [new Ab423Made()];
+
+    private static readonly Ab423At[] Ab423B12 = [new Ab423At()];
+
+    private static readonly Ab423Made[] Ab423A13 = [new Ab423Made()];
+
+    private static readonly bool Ab423On = Environment.ProcessorCount > 0;
+
+    private static readonly Ab423Made[] Ab423A14 = [new Ab423Made()];
+
+    private static readonly Ab423Twice[] Ab423T15 = [new Ab423Twice(), new Ab423Twice()];
+
+    public sealed class Ab423Twice
+    {
+        public Ab423Twice()
+        {
+        }
+
+        public Ab423Twice(Ab423Twice[] into, Ab423Twice other, Cell<int> share)
+        {
+            into[0] = this;
+            into[0] = other;
+            this.Share = share;
+        }
+
+        public Cell<int> Share { get; set; } = Cell.Constant(0);
+    }
+
+    private static readonly bool Ab423Off = Environment.ProcessorCount < 0;
+
+    private static readonly Ab423Made[] Ab423A18 = [new Ab423Made()];
+
+    private static readonly Ab423Indexed Ab423Idx = new();
+
+    private static readonly Ab423Indexed Ab423Idx2 = new();
+
+    public sealed class Ab423Indexed
+    {
+        private readonly Ab423Kept first = new();
+
+        public Ab423Kept this[int at]
+        {
+            get => this.first;
+            set => Kept.Add((at, value));
+        }
+    }
+
+    public sealed class Ab423Kept
+    {
+        public Ab423Kept()
+        {
+        }
+
+        public Ab423Kept(Ab423Indexed into, Cell<int> share)
+        {
+            into[0] = this;
+            this.Share = share;
+        }
+
+        public Ab423Kept(Ab423Indexed into, int at, Cell<int> share)
+        {
+            into[at] = this;
+            this.Share = share;
+        }
+
+        public Cell<int> Share { get; set; } = Cell.Constant(0);
+    }
+
+    public sealed class Ab423Asked
+    {
+        public Ab423Asked() => Kept.Add(Ab423Askers.Contains(this));
+
+        public event Action? Rang;
+
+        public void Ring() => this.Rang?.Invoke();
+    }
+
+    private static readonly List<Ab423Asked> Ab423Askers = [];
+
+    private static void Ab423RingAsked()
+    {
+        foreach (Ab423Asked asked in Ab423Askers.ToArray())
+        {
+            asked.Ring();
+        }
+    }
+
+    public sealed class Ab423Relisted
+    {
+        public Ab423Relisted(List<Ab423Relisted> into, Cell<int> share)
+        {
+            into = [];
+            into.Add(this);
+            this.Share = share;
+            Kept.Add(into);
+        }
+
+        public Cell<int> Share { get; }
+    }
+
+    private static readonly List<Ab423Relisted> Ab423L21 = [];
+
+    private static int Ab423SumOfRelisted(List<Ab423Relisted> all)
+    {
+        int sum = 0;
+
+        foreach (Ab423Relisted one in all)
+        {
+            sum += one.Share.Sample();
+        }
+
+        return sum;
+    }
+
+    public sealed class Ab423InList
+    {
+        public Ab423InList()
+        {
+        }
+
+        public Ab423InList(List<Ab423InList> into, Cell<int> share)
+        {
+            into[0] = this;
+            this.Share = share;
+        }
+
+        public Ab423InList(List<Ab423InList> into, int at, Cell<int> share)
+        {
+            into[at] = this;
+            this.Share = share;
+        }
+
+        public Cell<int> Share { get; set; } = Cell.Constant(0);
+    }
+
+    private static readonly List<Ab423InList> Ab423LI = [new Ab423InList()];
+
+    private static readonly List<Ab423InList> Ab423LJ = [new Ab423InList()];
+
+    public sealed class Ab423AddedByAMethod
+    {
+        public Ab423AddedByAMethod(List<Ab423AddedByAMethod> into, Cell<int> share)
+        {
+            this.AddTo(into);
+            this.Share = share;
+        }
+
+        public Cell<int> Share { get; }
+
+        private void AddTo(List<Ab423AddedByAMethod> into) => into.Add(this);
+    }
+
+    private static readonly List<Ab423AddedByAMethod> Ab423L22 = [];
+
+    private static int Ab423SumOfAdded(List<Ab423AddedByAMethod> all)
+    {
+        int sum = 0;
+
+        foreach (Ab423AddedByAMethod one in all)
+        {
+            sum += one.Share.Sample();
+        }
+
+        return sum;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

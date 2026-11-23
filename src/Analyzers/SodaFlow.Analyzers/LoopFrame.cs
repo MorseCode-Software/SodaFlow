@@ -101,6 +101,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     } = [];
 
     /// <summary>
+    ///     Each element of a collection in a static field that got objects of the
+    ///     store from a sure put of a callee. The index is a constant. The name
+    ///     holds the objects from the end of the call.
+    /// </summary>
+    public List<(NameOfAnObject Name, ImmutableArray<MadeObject> Objects)> PutsIntoStaticElements { get; } = [];
+
+    /// <summary>
     ///     For a parameter with ref or out that this code gave a value: the
     ///     number of entries that <see cref="PutsIntoLocations" /> had at that
     ///     assignment.
