@@ -8158,6 +8158,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab411AsReadOnlySeesAnInsert"] = ["SF1001"],
             ["Ab411AsReadOnlyGivenToAMethodThatReads"] = ["SF1004"],
             ["Ab411AsReadOnlyInAForeach"] = ["SF1001"],
-            ["Ab411AViewThatABranchGivesASecondList"] = ["SF1001"]
+            ["Ab411AViewThatABranchGivesASecondList"] = ["SF1001"],
+            ["R6FuCFuArrArrayCopyInACallee"] = ["SF1001"],
+            ["R6FuCFuArrPutThroughACallResult"] = ["SF1001"],
+            ["R6FuCFuArrPutThroughASecondField"] = ["SF1001"],
+            ["R6FuCFuRefReturnWriteSeenThroughASecondName"] = ["SF1001"],
+            ["Ab421PutThroughTheFieldThatTheInitializerNames"] = ["SF1001"]
         };
 }

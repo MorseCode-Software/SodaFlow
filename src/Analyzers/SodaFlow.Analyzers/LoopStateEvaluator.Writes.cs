@@ -1121,11 +1121,16 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
+        LoopState ofTheOwner = this.Eval(owner);
+
         LoopState collection =
-            StateOfAMember(
-                owner: this.Eval(owner),
+            this.WithTheObjectsInTheMember(
+                owner: ofTheOwner,
                 member: member,
-                implementations: this.region.Symbols.Implementations);
+                state: StateOfAMember(
+                    owner: ofTheOwner,
+                    member: member,
+                    implementations: this.region.Symbols.Implementations));
 
         foreach (MadeObject made in collection.Objects)
         {

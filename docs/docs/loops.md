@@ -772,9 +772,12 @@ Some reads that throw it does not see:
 - A function that the block sends into a sink, where an `Apply` of that sink, or a
   `CollectionEdit.FromUpdates` of it, runs it. The analyzer does not read what such a function
   returns, so a cycle through its result gets no `SF1002`.
-- A write into an element of an array in a field that a method you call makes through a `ref`
-  local, through `Array.Copy`, through an array that a call returns, or through a second field that
-  holds the same array, read through a local that got the array before the call.
+- A write into an element of an array in a field that a method you call makes through a second
+  name of the array that the analyzer does not follow, read through a local that got the array
+  before the call. It follows a `ref` local, `Array.Copy` into a static field, the array of a static
+  field that a method returns when the method only returns it, a second static `readonly` field
+  whose initializer names the first one, and a `ref` that a method of your object returns of an
+  element of its `readonly` field.
 - A write through a span, a memory, or a segment that a method gets as a parameter, that
   `MemoryMarshal` makes, that `CollectionsMarshal` makes of a list that is not in a local, or that a
   lambda or a local function uses. The write does not reach the array.

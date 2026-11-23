@@ -58,6 +58,8 @@ internal sealed class LoopRegion(
     private readonly HashSet<MadeObject> olderObjects = [];
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Dictionary<ISymbol, ExpressionSyntax?> initializerOf = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<ISymbol, ImmutableArray<ISymbol>> namedByTheInitializer =
+        new(SymbolEqualityComparer.Default);
     private readonly Action<Diagnostic> report = report;
 
     // A read of the block after the first one reports only what the reads before did not.
@@ -242,7 +244,19 @@ internal sealed class LoopRegion(
     ///     <see cref="Construction.StateWithTheAliases" /> and
     ///     <see cref="Construction.StateImplementedTogether" />.
     /// </param>
-    public LoopState FieldState(ISymbol field, Func<ISymbol, bool>? canHave = null) =>
+    public LoopState FieldState(ISymbol field, Func<ISymbol, bool>? canHave = null)
+    {
+        LoopState state = this.OwnFieldState(field: field, canHave: canHave);
+
+        foreach (ISymbol named in this.FieldsNamedByTheInitializerOf(field))
+        {
+            state = state.Join(this.OwnFieldState(field: named, canHave: canHave));
+        }
+
+        return state;
+    }
+
+    private LoopState OwnFieldState(ISymbol field, Func<ISymbol, bool>? canHave) =>
         Construction.StateWithTheAliases(
                 states: this.fields,
                 key: field.OriginalDefinition,
@@ -290,7 +304,64 @@ internal sealed class LoopRegion(
 
         this.lastWrites[key] = this.MemberWrites;
 
+        // A second field that holds the same array gets each put into it also. A read of this field reads that
+        // field too, thus the two directions are the same.
+        foreach (ISymbol named in this.FieldsNamedByTheInitializerOf(key))
+        {
+            this.fields[named] =
+                this.fields.TryGetValue(key: named, value: out LoopState? before) ? before.Join(state) : state;
+
+            this.lastWrites[named] = this.MemberWrites;
+        }
+
         this.hasInterfaceFields |= key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
+    }
+
+    /// <summary>
+    ///     The static fields with readonly that hold the same object as a static
+    ///     field with readonly, from its initializer. That is the field that the
+    ///     initializer names, the field that the initializer of that field names,
+    ///     and so on. Empty for each other field.
+    /// </summary>
+    /// <remarks>
+    ///     No code can give such a field a different value after its
+    ///     initializer. Thus, the two fields hold one object at each read.
+    /// </remarks>
+    private ImmutableArray<ISymbol> FieldsNamedByTheInitializerOf(ISymbol field)
+    {
+        if (field.OriginalDefinition is not IFieldSymbol { IsStatic: true, IsReadOnly: true } original)
+        {
+            return ImmutableArray<ISymbol>.Empty;
+        }
+
+        field = original;
+
+        if (this.namedByTheInitializer.TryGetValue(key: field, value: out ImmutableArray<ISymbol> known))
+        {
+            return known;
+        }
+
+        List<ISymbol> named = [];
+
+        for (ISymbol at = field; named.Count < 8;)
+        {
+            if (this.InitializerOf(at) is not ((IdentifierNameSyntax or MemberAccessExpressionSyntax) and var value)
+                || this.ModelFor(value).GetSymbolInfo(value).Symbol?.OriginalDefinition
+                    is not IFieldSymbol { IsStatic: true, IsReadOnly: true } next
+                || SymbolEqualityComparer.Default.Equals(x: next, y: field)
+                || named.Contains(value: next, comparer: SymbolEqualityComparer.Default))
+            {
+                break;
+            }
+
+            named.Add(next);
+            at = next;
+        }
+
+        ImmutableArray<ISymbol> all = named.ToImmutableArray();
+        this.namedByTheInitializer[field] = all;
+
+        return all;
     }
 
     private SemanticModel ModelFor(SyntaxTree tree)

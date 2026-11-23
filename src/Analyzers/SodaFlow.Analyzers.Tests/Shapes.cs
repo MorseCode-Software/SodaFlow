@@ -58484,6 +58484,38 @@ public static class Shapes
     public static Cell<int> Ab411ACopyOfTheListMadeWithNew() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = [Plain]; List<Cell<int>> ys = new(xs); xs[0] = l.Map(v => v); return S.Hold(ys[0].Sample()); });
 
+    // S14141. A local gets the array of a static field. A callee writes a pending cell into a second array, a plain cell goes in through the local, then a callee copies the second array into the first with Array.Copy. The read is through the local. (Left out in Round 5 as R5FuArrArrayCopyInACallee, AB296.)
+    public static Cell<int> R6FuCFuArrArrayCopyInACallee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R5FuCopyTarget; R5FuSetTheCopySource(l.Map(v => v)); a[0].Share = Plain; R5FuCopyTheArray(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S14142. A local gets the array of a static field. A plain cell goes in through the local, then a callee puts a new object with a pending cell through the array that a call returns. The read is through the local. (Left out in Round 5 as R5FuArrPutThroughACallResult, AB296.)
+    public static Cell<int> R6FuCFuArrPutThroughACallResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R5FuReturned; a[0].Share = Plain; R5FuPutThroughTheResult(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S14143. A local gets the array of a static field. A second static field holds the same array. A plain cell goes in through the local, then a callee puts a new object with a pending cell through the second field. The read is through the local. (Left out in Round 5 as R5FuArrPutThroughASecondField, AB296.)
+    public static Cell<int> R6FuCFuArrPutThroughASecondField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = R5FuFirst; a[0].Share = Plain; R5FuPutThroughTheSecond(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S14144. A method with a ref return gives an element of an array of its object. A second name of the array sees the pending cell that the block writes through the ref. (Left out in Round 5 as R5FuRefReturnWriteSeenThroughASecondName, AB296.)
+    public static Cell<int> R6FuCFuRefReturnWriteSeenThroughASecondName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5FuRefHolder h = new(); Cell<int>[] cells = h.Cells; h.At(0) = l.Map(v => v); Kept.Add(cells[0].Sample()); return S.Hold(0); });
+
+    // S14145. AB421. A local gets the array of a static field whose initializer names a second static field. A callee puts a new object with a pending cell through the second field. The read is through the local.
+    public static Cell<int> Ab421PutThroughTheFieldThatTheInitializerNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab421Second; a[0].Share = Plain; Ab421PutThroughTheFirst(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S14146. AB421 control. A callee puts a new object with a pending cell through a static field that holds a different array. The read is through the local of the first array.
+    public static Cell<int> Ab421PutThroughAFieldOfADifferentArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab421Second; a[0].Share = Plain; Ab421PutThroughTheOther(l.Map(v => v)); return S.Hold(a[0].Share!.Sample()); });
+
+    // S14147. AB421 control. A callee copies an array of plain cells into the array of a static field with Array.Copy. The read is through a local of the array.
+    public static Cell<int> Ab421ArrayCopyOfPlainCellsInACallee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab421Target; Ab421SetTheSource(l.Map(v => v)); a[0].Share = Plain; Ab421CopyThePlainOnes(); return S.Hold(a[0].Share!.Sample()); });
+
+    // S14148. AB421 control. A method of an object gives a field with no readonly a new array. A local got the first array before. A pending cell then goes in through a ref that a method returns of the new array.
+    public static Cell<int> Ab421RefReturnWriteIntoANewArrayOfTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab421Renewed h = new(); Cell<int>[] cells = h.Cells; h.Renew(); h.At(0) = l.Map(v => v); Kept.Add(cells[0].Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109022,6 +109054,31 @@ public static class Shapes
     }
 
     private static int Ab411ReadFirst(ReadOnlyCollection<Cell<int>> view) => view[0].Sample();
+
+    private static readonly SettableSlot[] Ab421First = [new()];
+    private static readonly SettableSlot[] Ab421Second = Ab421First;
+    private static readonly SettableSlot[] Ab421Other = [new()];
+    private static readonly SettableSlot[] Ab421Target = [new()];
+    private static readonly SettableSlot[] Ab421Source = [new()];
+    private static readonly SettableSlot[] Ab421Plain = [new() { Share = Plain }];
+
+    private static void Ab421PutThroughTheFirst(Cell<int> share) => Ab421First[0] = new SettableSlot { Share = share };
+
+    private static void Ab421PutThroughTheOther(Cell<int> share) => Ab421Other[0] = new SettableSlot { Share = share };
+
+    private static void Ab421SetTheSource(Cell<int> share) => Ab421Source[0].Share = share;
+
+    private static void Ab421CopyThePlainOnes() =>
+        Array.Copy(sourceArray: Ab421Plain, destinationArray: Ab421Target, length: 1);
+
+    public sealed class Ab421Renewed
+    {
+        public Cell<int>[] Cells = [Cell.Constant(0)];
+
+        public void Renew() => this.Cells = [Cell.Constant(0)];
+
+        public ref Cell<int> At(int index) => ref this.Cells[index];
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

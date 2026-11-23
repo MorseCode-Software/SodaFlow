@@ -201,6 +201,8 @@ internal sealed partial class LoopStateEvaluator
                     state: this.Eval(this.TheArrayOfAView(source) ?? source).AsOneOfItsElements);
             }
 
+            this.CopiesIntoAStaticField(method: method, arguments: arguments);
+
             return;
         }
 

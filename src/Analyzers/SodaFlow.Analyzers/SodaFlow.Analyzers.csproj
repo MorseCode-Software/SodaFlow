@@ -70,6 +70,7 @@
         <Compile Include="LoopStateEvaluator.Elements.cs"/>
         <Compile Include="LoopStateEvaluator.Escapes.cs"/>
         <Compile Include="LoopStateEvaluator.Exceptions.cs"/>
+        <Compile Include="LoopStateEvaluator.FieldArrays.cs"/>
         <Compile Include="LoopStateEvaluator.FunctionReads.cs"/>
         <Compile Include="LoopStateEvaluator.Implied.cs"/>
         <Compile Include="LoopStateEvaluator.Names.cs"/>

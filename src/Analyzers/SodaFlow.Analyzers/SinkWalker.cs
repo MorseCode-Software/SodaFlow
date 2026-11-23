@@ -2606,6 +2606,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 when ElementTarget(target) is (var collection, var indexes):
                 this.evaluator.ForgetsThePositionsOf(collection);
                 this.evaluator.Absorb(target: collection, state: state);
+                this.evaluator.PutsThroughAFieldThatACallReturns(collection: collection, state: state);
 
                 if (target is ElementAccessExpressionSyntax put)
                 {
