@@ -8512,6 +8512,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab370SwitchOnAConstantWithAWhenClauseSamples"] = ["SF1001"],
             ["Ab370ReadUnderATrueCastConstant"] = ["SF1001"],
             ["Ab370ReadUnderATrueConditionalConstant"] = ["SF1001"],
-            ["Ab370ReadUnderAConditionalThatIsNotAConstant"] = ["SF1001"]
+            ["Ab370ReadUnderAConditionalThatIsNotAConstant"] = ["SF1001"],
+            ["Ab371FirstReadInAnArmThatAConstantRulesOut"] = ["SF1001"],
+            ["Ab371FirstReadInTheElseOfAnIfThatIsNotAConstant"] = ["SF1001"],
+            ["Ab371FirstReadInACaseSectionOfTwo"] = ["SF1001"],
+            ["Ab371FirstReadAfterABreakInADefaultOnlySection"] = ["SF1001"],
+            ["Ab371FirstReadInALabeledStatementAfterAGoto"] = ["SF1001"],
+            ["Ab371FirstReadInTheOneCaseSectionOfASwitch"] = ["SF1001"],
+            ["Ab371FirstReadInADefaultSectionAfterACaseThatRuns"] = ["SF1001"]
         };
 }

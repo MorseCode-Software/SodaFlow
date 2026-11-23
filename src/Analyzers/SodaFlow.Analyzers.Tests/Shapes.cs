@@ -60192,6 +60192,58 @@ public static class Shapes
     public static Cell<int> Ab370ReadUnderAConditionalThatIsNotAConstant() =>
         Cell.Loop<int>().WithoutCaptures(l => { if (Kept.Count >= 0 ? true : false) { Kept.Add(l.Sample()); } return S.Hold(0); });
 
+    // S14568. A Map samples a capture. The first read of the map is in the else branch of an if on the constant false, so it always runs. The capture then becomes pending, and a second read does not run the function again.
+    public static Cell<int> R6LimFirstReadInTheElseOfAConstantFalseIf() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); if (false) { } else { Kept.Add(m.Sample()); } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14569. A Map samples a capture. The first read of the map is in the arm of a conditional on the constant true. The capture then becomes pending before a second read.
+    public static Cell<int> R6LimFirstReadInAnArmOfAConstantConditional() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); Kept.Add(true ? m.Sample() : 0); c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14570. A Map samples a capture. The first read of the map is in the one section of a switch, a default section, which always runs.
+    public static Cell<int> R6LimFirstReadInADefaultOnlySwitchSection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); switch (Kept.Count) { default: Kept.Add(m.Sample()); break; } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14571. A Map samples a capture. The first read of the map is a labeled statement that no goto names.
+    public static Cell<int> R6LimFirstReadInALabeledStatement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); here: Kept.Add(m.Sample()); c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14572. A control: the first read of the map is in an arm that a constant rules out. Thus, the second read runs the function, and the function samples a pending capture.
+    public static Cell<int> Ab371FirstReadInAnArmThatAConstantRulesOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); Kept.Add(false ? m.Sample() : 0); c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14573. A control: the first read of the map is in the else branch of an if that is not a constant. That branch does not run.
+    public static Cell<int> Ab371FirstReadInTheElseOfAnIfThatIsNotAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); if (Kept.Count >= 0) { } else { Kept.Add(m.Sample()); } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14574. A control: the first read of the map is in a case section of a switch with two sections. That section does not run.
+    public static Cell<int> Ab371FirstReadInACaseSectionOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); switch (Kept.Count) { case -1: Kept.Add(m.Sample()); break; default: break; } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14575. A control: the first read of the map is after a break in the one section of a switch. The break always runs.
+    public static Cell<int> Ab371FirstReadAfterABreakInADefaultOnlySection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); switch (Kept.Count) { default: if (Kept.Count >= 0) { break; } Kept.Add(m.Sample()); break; } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14576. The first read of the map is in the one section of a switch. The pattern of that section matches each value.
+    public static Cell<int> Ab371FirstReadInAPatternSectionThatMatchesEachValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); switch (Kept.Count) { case var n: Kept.Add(m.Sample() + n); break; } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14577. A control: the first read of the map is in a labeled statement after a goto that skips it.
+    public static Cell<int> Ab371FirstReadInALabeledStatementAfterAGoto() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); goto skip; here: Kept.Add(m.Sample()); skip: c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14578. A control: the first read of the map is in the one section of a switch. The value is not the constant of that case. Thus, the section does not run.
+    public static Cell<int> Ab371FirstReadInTheOneCaseSectionOfASwitch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); switch (Kept.Count) { case -1: Kept.Add(m.Sample()); break; } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14579. A control: the first read of the map is in the default section of a switch. A case before it matches each value, thus the default section does not run.
+    public static Cell<int> Ab371FirstReadInADefaultSectionAfterACaseThatRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); switch (Kept.Count) { case >= 0: break; default: Kept.Add(m.Sample()); break; } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14580. The first read of the map is a labeled statement. A goto after it runs it again, and the second run does not run the function again.
+    public static Cell<int> Ab371FirstReadInALabeledStatementThatAGotoRunsAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); int n = 0; here: Kept.Add(m.Sample()); n++; if (n < 2) { goto here; } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

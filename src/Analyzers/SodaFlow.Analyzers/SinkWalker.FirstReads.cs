@@ -13,7 +13,8 @@ namespace SodaFlow.Analyzers;
 // only when the block runs to its end.
 internal sealed partial class SinkWalker
 {
-    // Each if on the constant true that the walk read.
+    // Each if on a constant that the walk read. The walk reads only the branch that the constant
+    // selects.
     private readonly HashSet<IfStatementSyntax> alwaysTaken = [];
 
     // The marks of the first reads in a try block, which the walk applies at the end of that try.
@@ -37,7 +38,7 @@ internal sealed partial class SinkWalker
     /// </remarks>
     private Action<ComputedValue>? MarksOfAFirstRead(SyntaxNode read)
     {
-        if (WhereItAlwaysRuns(expression: read, constants: null) is not { } place)
+        if (WhereItAlwaysRuns(expression: read, constants: this.region) is not { } place)
         {
             return null;
         }
@@ -62,6 +63,24 @@ internal sealed partial class SinkWalker
             ? marks
             : cell => (this.afterTheTry ??= []).Add((after, () => marks(cell)));
     }
+
+    // True when a statement or a clause always runs the code in it that holds a node. The walk reads
+    // an else clause only when the constant of its if selects it. A switch with one section always
+    // runs it when it matches each value and no break of the switch comes before the node. A goto
+    // before the node is an exit of the function, which the walk finds at the function. A goto to
+    // the label after the node can only run the labeled statement again.
+    private bool AlwaysRunsItsCode(SyntaxNode construct, SyntaxNode place) =>
+        construct switch
+        {
+            ElseClauseSyntax { Parent: IfStatementSyntax branch } => this.alwaysTaken.Contains(branch),
+            SwitchSectionSyntax { Parent: SwitchStatementSyntax { Sections.Count: 1 } choice } section =>
+                section.Labels.Any(this.MatchesEachValue)
+                && !JumpsOutBefore(construct: choice, code: section, at: place.SpanStart),
+            // The walk gets to the switch only from a section that always runs.
+            SwitchStatementSyntax => true,
+            LabeledStatementSyntax => true,
+            _ => false
+        };
 
     private void RunsInATurn(ComputedValue cell, SyntaxNode turn)
     {

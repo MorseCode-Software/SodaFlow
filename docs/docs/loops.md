@@ -704,12 +704,16 @@ careful side, so it can report a read that does not throw:
   empty array, and a lambda that the code calls only in a branch that does not run.
 - A first read of a cell that the analyzer cannot be sure runs leaves the cell for the next read,
   which then runs the function again. That is a read in a branch of an `if` or an arm of a `?:`
-  whose condition is not a constant, and a read in a `catch` or `finally` block. A read in a `try`
-  block counts only for the code after the `try`, and only when the `try` has no `catch` clause. A
-  read in a loop counts for the code after the loop only when the loop always runs its first turn:
-  a `do`, a `while (true)`, a `for` with no condition or from a constant up to a larger one, and a
-  `foreach` over an array literal with an item. Inside any loop, a read that each turn runs counts
-  for the turns after it.
+  whose condition is not a constant, a read in a `switch` section, a read in a labeled statement
+  that a `goto` names, and a read in a `catch` or `finally` block. A read in the branch of an `if`,
+  also the `else`, or the arm of a `?:` that a constant condition selects counts as one that runs.
+  So does a read in the only section of a `switch` where that section takes every value, with a
+  `default` or a `var` pattern with no `when`, and no `break` comes before the read. A read in a
+  `try` block counts only for the code after the `try`, and only when the `try` has no `catch`
+  clause. A read in a loop counts for the code after the loop only when the loop always runs its
+  first turn: a `do`, a `while (true)`, a `for` with no condition or from a constant up to a larger
+  one, and a `foreach` over an array literal with an item. Inside any loop, a read that each turn
+  runs counts for the turns after it.
 - The coalesce function of a sink runs only when two sends go into the sink in one transaction. The
   analyzer counts the sends that are statements of the block itself, with no `return` or `goto`
   before them: one such send does not run the function, and two or more fire only what it returns.

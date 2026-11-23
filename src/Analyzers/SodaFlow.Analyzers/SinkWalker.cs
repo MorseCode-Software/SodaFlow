@@ -903,11 +903,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             return;
         }
 
-        if (always)
-        {
-            this.alwaysTaken.Add(node);
-        }
-
+        this.alwaysTaken.Add(node);
         this.Visit(node.Condition);
         this.Visit(always ? node.Statement : node.Else);
     }
@@ -2277,8 +2273,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     turn = body;
 
                     return false;
-                // The walk reads only the statement of an if on the constant true.
+                // The walk reads only the branch that the constant of an if selects.
                 case IfStatementSyntax branch when this.alwaysTaken.Contains(branch):
+                    continue;
+                case ElseClauseSyntax or SwitchSectionSyntax or SwitchStatementSyntax or LabeledStatementSyntax
+                    when this.AlwaysRunsItsCode(construct: ancestor, place: place):
                     continue;
                 // The code after a try with no catch clause runs only when the block runs to its end.
                 // The finally block can run before that.
