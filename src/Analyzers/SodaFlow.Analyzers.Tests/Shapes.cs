@@ -60948,6 +60948,22 @@ public static class Shapes
     public static Cell<int> Ab365MapHelperDisposesThroughAHelperInABranch() =>
         Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; if (Kept.Count >= 0) { Ab365DisposeThroughAHelper(m); } return S.Hold(n); });
 
+    // S14757. A method of this code sets a timer that samples the cell that it gets. The block calls RunTimersTo in an if whose condition is true.
+    public static Cell<int> R6PathTimerOfAHelperRunsInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); R6PathSetTimer(clock, l); if (Kept.Count >= 0) { clock.RunTimersTo(0); } return S.Hold(0); });
+
+    // S14758. A method of this code sets a timer. The block calls RunTimersTo in a for statement with one turn.
+    public static Cell<int> R6PathTimerOfAHelperRunsInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); R6PathSetTimer(clock, l); for (int i = 0; i < 1; i++) { clock.RunTimersTo(i); } return S.Hold(0); });
+
+    // S14759. A method of this code sets a timer. The block calls RunTimersTo in a try with a finally block.
+    public static Cell<int> R6PathTimerOfAHelperRunsInATry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); R6PathSetTimer(clock, l); try { clock.RunTimersTo(0); } finally { Kept.Add(0); } return S.Hold(0); });
+
+    // S14760. A method of this code sets a timer. The block calls RunTimersTo through a conditional access.
+    public static Cell<int> R6PathTimerOfAHelperRunsThroughAConditionalAccess() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock? clock = new(); R6PathSetTimer(clock, l); clock?.RunTimersTo(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

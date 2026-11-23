@@ -3738,12 +3738,13 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         // A callee runs a timer of a different code only where the call runs on all paths, and so
         // does each call between that code and the callee. The walk does not know the path that the
-        // arguments of a callee select.
+        // arguments of a callee select. The code that called the method that set the timer is not a
+        // different code.
         bool always = this.SurelyRuns(call: call, forARun: true, after: out _);
 
         foreach (KeptTimer timer in this.region.Objects.TimersOf(this.region.Objects.Now(clocks))
                      .Where(timer =>
-                         (timer.Keeper == this
+                         (timer.Keeper.evaluator.Frame.IsWithin(this.evaluator.Frame)
                           || (always
                               && this.evaluator.CallsRunFor(
                                   owns: timer.Keeper.evaluator.Frame.IsWithin,

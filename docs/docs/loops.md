@@ -548,19 +548,21 @@ The analyzer follows a value made from the placeholder through the code of your 
   bindable, when you write its `Value`. `RunTimersTo` of a clock built on
   `TimerSystemImplementationBase` runs, in the call, each callback that `SetTimer` gave the same
   clock before it, unless both times are integer constants and the time of the callback is later.
-  The clock can be in a local, a field, a property, or a parameter, where the analyzer saw it
-  made, and the two calls can be in different methods. A method of yours runs the timers that its
-  caller set only where its call of `RunTimersTo` runs on every path of that method, and where each
-  call of a method between the code that set the timers and that method runs on every path too. The
-  same holds for a method of yours that disposes a map or a timer system that its caller made. A
-  call in a `finally` block or in a `try` block with no `catch` runs on every path, and so does a
-  call in the `else` of an `if` on a constant, in the `switch` section that a constant or a lone
-  `default` selects, after a `goto` to a label before it, and in a loop or a `List<T>.ForEach` that
-  always runs at least once. A condition on a parameter whose argument is a constant counts as that
-  constant, and so does a parameter with a default value that the call leaves out, unless the method
-  writes the parameter. A test for `null` of a value that the analyzer saw made counts as not
-  `null`, so `if (clock == null) return;` and `clock?.RunTimersTo(0)` run the timers. A condition
-  that the arguments do not decide, such as one on a field, keeps the call from counting.
+  The clock can be in a local, a field, a property, or a parameter, where the analyzer saw it made,
+  and the two calls can be in different methods. A timer that a method of yours sets runs, in the
+  code that called that method, as a timer that this code set does. A method of yours runs the
+  timers that its caller set only where its call of `RunTimersTo` runs on every path of that method,
+  and where each call of a method between the code that set the timers and that method runs on every
+  path too. The same holds for a method of yours that disposes a map or a timer system that its
+  caller made. A call in a `finally` block or in a `try` block with no `catch` runs on every path,
+  and so does a call in the `else` of an `if` on a constant, in the `switch` section that a constant
+  or a lone `default` selects, after a `goto` to a label before it, and in a loop or a
+  `List<T>.ForEach` that always runs at least once. A condition on a parameter whose argument is a
+  constant counts as that constant, and so does a parameter with a default value that the call
+  leaves out, unless the method writes the parameter. A test for `null` of a value that the analyzer
+  saw made counts as not `null`, so `if (clock == null) return;` and `clock?.RunTimersTo(0)` run the
+  timers. A condition that the arguments do not decide, such as one on a field, keeps the call from
+  counting.
   A `Cancel` or a `Dispose` of the timer before the run, or the end of a `using` statement of it,
   takes the timer away when it runs on every path, by the same rule, also in a loop that always
   runs at least once. In a `try` block it takes the timer away at the end of the `try`, so a run of
