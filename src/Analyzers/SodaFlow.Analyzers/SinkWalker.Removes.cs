@@ -18,7 +18,7 @@ internal sealed partial class SinkWalker
         // handler, takes the handler away here: see AfterARemoveThroughACall.
         if (!this.addsAHandler
             || node.Expression is not InvocationExpressionSyntax call
-            || this.evaluator.AfterARemoveThroughACall(call) is not var (target, member, state)
+            || this.evaluator.AfterARemoveThroughACall(call) is not (var target, var member, var state)
             || !this.RemovesOnEachPath(call))
         {
             return;

@@ -34,7 +34,7 @@ internal sealed partial class LoopStateEvaluator
     {
         if (this.quiet
             || FunctionOf(call) is not { } code
-            || this.RemoveOfACall(call) is not var (handler, target, location, ran)
+            || this.RemoveOfACall(call) is not (var handler, var target, var location, var ran)
             || this.TheLambdaOfTheLastRemove(code: code, at: call, handler: handler, location: location, ran: ran)
                 is not { } lambda)
         {
@@ -77,19 +77,19 @@ internal sealed partial class LoopStateEvaluator
                 _ => (null, null)
             };
 
-        if (body is not { } function
-            || (function is BlockSyntax { Statements: { Count: > 0 } statements }
+        if (body == null
+            || (body is BlockSyntax { Statements: { Count: > 0 } statements }
                     ? (statements[0] as ExpressionStatementSyntax)?.Expression
-                    : function)
+                    : body)
                 is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SubtractAssignmentExpression } remove
             || Unwrapped(remove.Right) is not IdentifierNameSyntax handler
-            || NamesInAFunction(function: function, name: handler) != 1
-            || this.NamedLocation(remove.Left) is not var (variable, member)
+            || NamesInAFunction(function: body, name: handler) != 1
+            || this.NamedLocation(remove.Left) is not (var variable, var member)
             || InTheCode(name: handler, symbol: this.region.SymbolOf(handler), call: call, method: method)
                 is not { } handlerInTheCode
             || (member != null
                     ? InTheCode(
-                        name: OwnerOf(remove.Left),
+                        name: OwnerName(remove.Left),
                         symbol: variable,
                         call: call,
                         method: method)
@@ -99,9 +99,9 @@ internal sealed partial class LoopStateEvaluator
             return null;
         }
 
-        return (handlerInTheCode, target, (local, member), [function, call]);
+        return (handlerInTheCode, target, (local, member), [body, call]);
 
-        static IdentifierNameSyntax OwnerOf(ExpressionSyntax location) =>
+        static IdentifierNameSyntax OwnerName(ExpressionSyntax location) =>
             (IdentifierNameSyntax)((MemberAccessExpressionSyntax)Unwrapped(location)).Expression;
     }
 
@@ -109,7 +109,7 @@ internal sealed partial class LoopStateEvaluator
     // function has its argument, which must be a name. Each other name is a name that the function
     // reads from the code around it.
     private static ExpressionSyntax? InTheCode(
-        IdentifierNameSyntax name,
+        ExpressionSyntax name,
         ISymbol? symbol,
         InvocationExpressionSyntax call,
         IMethodSymbol? method)
@@ -141,11 +141,11 @@ internal sealed partial class LoopStateEvaluator
     }
 
     // True for a use in one of the nodes.
-    private static bool IsInAny(IReadOnlyCollection<SyntaxNode> nodes, SyntaxNode use) =>
+    private static bool IsInAny(IEnumerable<SyntaxNode> nodes, SyntaxNode use) =>
         nodes.Any(node => node.SyntaxTree == use.SyntaxTree && node.Span.Contains(use.Span));
 
     // The number of names in a function with the text of the given name.
-    private static int NamesInAFunction(SyntaxNode function, IdentifierNameSyntax name) =>
+    private static int NamesInAFunction(SyntaxNode function, SimpleNameSyntax name) =>
         function.DescendantNodesAndSelf()
             .OfType<IdentifierNameSyntax>()
             .Count(each => each.Identifier.ValueText == name.Identifier.ValueText);

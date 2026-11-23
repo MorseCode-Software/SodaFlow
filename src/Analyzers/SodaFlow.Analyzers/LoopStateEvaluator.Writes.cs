@@ -129,7 +129,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The location of a name with ref in the given record, when the walk can read it again.
     private ExpressionSyntax? TheLocationIn(
-        Dictionary<ISymbol, ExpressionSyntax> locations,
+        IReadOnlyDictionary<ISymbol, ExpressionSyntax> locations,
         ExpressionSyntax written)
     {
         if (this.function != null
@@ -144,7 +144,7 @@ internal sealed partial class LoopStateEvaluator
             return null;
         }
 
-        return PartsOf(location).Any(part =>
+        return NamesInTheParts(location).Any(part =>
             this.region.SymbolOf(part) is { } symbol and (ILocalSymbol or IParameterSymbol)
             && this.GetsAValue(
                 name: symbol,
@@ -157,14 +157,14 @@ internal sealed partial class LoopStateEvaluator
 
         // A new value of a name in a part can move the location. A local that is the location
         // itself does not move it. The condition of a conditional ref does not move it either.
-        static IEnumerable<IdentifierNameSyntax> PartsOf(ExpressionSyntax location) =>
+        static IEnumerable<IdentifierNameSyntax> NamesInTheParts(ExpressionSyntax location) =>
             Unwrapped(location) switch
             {
                 IdentifierNameSyntax => [],
                 ConditionalExpressionSyntax
                 {
                     WhenTrue: RefExpressionSyntax whenTrue, WhenFalse: RefExpressionSyntax whenFalse
-                } => PartsOf(whenTrue.Expression).Concat(PartsOf(whenFalse.Expression)),
+                } => NamesInTheParts(whenTrue.Expression).Concat(NamesInTheParts(whenFalse.Expression)),
                 var target => target.DescendantNodes().OfType<IdentifierNameSyntax>()
             };
     }
@@ -1507,13 +1507,9 @@ internal sealed partial class LoopStateEvaluator
                      .OfType<IdentifierNameSyntax>()
                      .Where(use =>
                          use.Identifier.ValueText == local.Name
-                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local)))
+                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local)
+                         && !IsInAny(nodes: ran, use: use)))
         {
-            if (IsInAny(nodes: ran, use: use))
-            {
-                continue;
-            }
-
             if (FunctionOf(use) != code)
             {
                 return null;
@@ -1764,13 +1760,9 @@ internal sealed partial class LoopStateEvaluator
                      .OfType<IdentifierNameSyntax>()
                      .Where(use =>
                          use.Identifier.ValueText == variable.Name
-                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: variable)))
+                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: variable)
+                         && !IsInAny(nodes: ran, use: use)))
         {
-            if (IsInAny(nodes: ran, use: use))
-            {
-                continue;
-            }
-
             if (FunctionOf(use) != code)
             {
                 return null;
