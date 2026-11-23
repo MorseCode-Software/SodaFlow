@@ -8690,6 +8690,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6FuCLimFormattableStringFormattedLaterInTheBlock"] = ["SF1005"],
             ["Ab425FormattableStringInvariantLaterInTheBlock"] = ["SF1005"],
             ["Ab425FormattableStringToStringWithAProviderLaterInTheBlock"] = ["SF1005"],
-            ["Ab425FormattableLaterInTheBlock"] = ["SF1005"]
+            ["Ab425FormattableLaterInTheBlock"] = ["SF1005"],
+            ["R6SmpTwoMapsOfOneCallInALoopSecondReadAfterTheSet"] = ["SF1001"],
+            ["R6SmpTwoMapsOfOneSelectSecondReadAfterTheSet"] = ["SF1001"],
+            ["Ab401LocalOfTheSecondMapAfterTheFirstRead"] = ["SF1001"],
+            ["Ab401ElementGetsTheSecondMapAfterTheFirstRead"] = ["SF1001"],
+            ["Ab401LoopCallsAHelperThatBuildsTheMap"] = ["SF1001"],
+            ["Ab401TwoReadsInOneTurnOfALoop"] = ["SF1001"]
         };
 }

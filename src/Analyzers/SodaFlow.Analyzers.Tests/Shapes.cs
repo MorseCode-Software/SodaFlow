@@ -61248,6 +61248,38 @@ public static class Shapes
     public static Cell<int> Ab425FormattableStringReassignedBeforeTheFormat() =>
         Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); FormattableString f = $"n{t}"; f = $"plain"; Kept.Add(f.ToString()); return S.Hold(0); });
 
+    // S14839. A loop builds two maps with one Map call into an array. The function samples a captured local. The block samples the first map, sets the local pending, and samples the second map, whose function runs then.
+    public static Cell<int> R6SmpTwoMapsOfOneCallInALoopSecondReadAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int>[] cells = new Cell<int>[2]; for (int i = 0; i < 2; i++) { cells[i] = Plain.Map(v => v + c.Sample()); } int x = cells[0].Sample(); c = l.Map(v => v); return S.Hold(cells[1].Sample() + x); });
+
+    // S14840. A Select builds two maps with one Map call into a list. The block samples the first map, sets the captured local pending, and samples the second map.
+    public static Cell<int> R6SmpTwoMapsOfOneSelectSecondReadAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; List<Cell<int>> cells = Enumerable.Range(0, 2).Select(_ => Plain.Map(v => v + c.Sample())).ToList(); int x = cells[0].Sample(); c = l.Map(v => v); return S.Hold(cells[1].Sample() + x); });
+
+    // S14841. A loop builds two maps with one Map call into an array. A local gets the first map, and the block samples it, gives the local the second map, sets the captured local pending, and samples the local again.
+    public static Cell<int> Ab401LocalOfTheSecondMapAfterTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int>[] cells = new Cell<int>[2]; for (int i = 0; i < 2; i++) { cells[i] = Plain.Map(v => v + c.Sample()); } Cell<int> a = cells[0]; int x = a.Sample(); a = cells[1]; c = l.Map(v => v); return S.Hold(a.Sample() + x); });
+
+    // S14842. A loop builds two maps with one Map call into an array. The block samples the first element, puts the second map into it, sets the captured local pending, and samples the first element again.
+    public static Cell<int> Ab401ElementGetsTheSecondMapAfterTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int>[] cells = new Cell<int>[2]; for (int i = 0; i < 2; i++) { cells[i] = Plain.Map(v => v + c.Sample()); } int x = cells[0].Sample(); cells[0] = cells[1]; c = l.Map(v => v); return S.Hold(cells[0].Sample() + x); });
+
+    // S14843. Control: a loop builds two maps with one Map call into an array. A local gets the first map, and the block samples it two times around the set.
+    public static Cell<int> Ab401LocalOfTheFirstMapReadTwice() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int>[] cells = new Cell<int>[2]; for (int i = 0; i < 2; i++) { cells[i] = Plain.Map(v => v + c.Sample()); } Cell<int> a = cells[0]; int x = a.Sample(); c = l.Map(v => v); return S.Hold(a.Sample() + x); });
+
+    // S14844. Control: a Select builds two maps with one Map call into a list. The block samples the first map two times around the set.
+    public static Cell<int> Ab401SelectFirstMapReadTwice() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; List<Cell<int>> cells = Enumerable.Range(0, 2).Select(_ => Plain.Map(v => v + c.Sample())).ToList(); int x = cells[0].Sample(); c = l.Map(v => v); return S.Hold(cells[0].Sample() + x); });
+
+    // S14845. A loop calls a helper two times with an object that the block made. The helper builds a map whose function samples a member of the object. The block samples the first map, sets the member pending, and samples the second map.
+    public static Cell<int> Ab401LoopCallsAHelperThatBuildsTheMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab401Box b = new(); Cell<int>[] cells = new Cell<int>[2]; for (int i = 0; i < 2; i++) { cells[i] = Ab401Build(b); } int x = cells[0].Sample(); b.Share = l.Map(v => v); return S.Hold(cells[1].Sample() + x); });
+
+    // S14846. A loop builds two maps with one Map call into an array. In one turn of a second loop, the block samples the first map, sets the captured local pending, and samples the second map.
+    public static Cell<int> Ab401TwoReadsInOneTurnOfALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int>[] cells = new Cell<int>[2]; for (int i = 0; i < 2; i++) { cells[i] = Plain.Map(v => v + c.Sample()); } int x = 0; foreach (int _ in new[] { 0 }) { x += cells[0].Sample(); c = l.Map(v => v); x += cells[1].Sample(); } return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -113095,6 +113127,13 @@ public static class Shapes
 
         return built == Plain ? 1 : 0;
     }
+
+    public sealed class Ab401Box
+    {
+        public Cell<int> Share = Cell.Constant(0);
+    }
+
+    private static Cell<int> Ab401Build(Ab401Box box) => Plain.Map(v => v + box.Share.Sample());
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

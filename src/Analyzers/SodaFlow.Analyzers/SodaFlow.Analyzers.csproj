@@ -92,6 +92,7 @@
         <Compile Include="LoopStateEvaluator.Positions.cs"/>
         <Compile Include="LoopStateEvaluator.PutsThroughLocals.cs"/>
         <Compile Include="LoopStateEvaluator.ReadBack.cs"/>
+        <Compile Include="LoopStateEvaluator.ReadKeys.cs"/>
         <Compile Include="LoopStateEvaluator.Reflection.cs"/>
         <Compile Include="LoopStateEvaluator.Recursion.cs"/>
         <Compile Include="LoopStateEvaluator.RefsOfOneLocation.cs"/>
@@ -120,6 +121,7 @@
         <Compile Include="PlatformCallers.cs"/>
         <Compile Include="PlatformReceivers.cs"/>
         <Compile Include="QueryValue.cs"/>
+        <Compile Include="ReadKey.cs"/>
         <Compile Include="SentContent.cs"/>
         <Compile Include="SerializerOptions.cs"/>
         <Compile Include="ShapeNumber.cs"/>

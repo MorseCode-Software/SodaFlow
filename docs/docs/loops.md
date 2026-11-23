@@ -275,7 +275,12 @@ is quiet.
   through code of yours that it runs, such as a method, a getter, an indexer, an operator, a
   conversion, or a constructor, also one called on its parameter. What the function writes there
   counts for the code after the read. A second read of the cell does not run the function again, when the analyzer knows that
-  the first read ran (see the limits below). Collection views work the
+  the first read ran (see the limits below). Where one call builds two or more cells, as in a loop,
+  in a lambda such as the selector of a `Select`, or in a helper that the analyzer reads one time
+  for two or more calls, the first read counts only for the name that the code reads through: a
+  local, a parameter, a field of the object, or an element of a local at a constant index, as in
+  `cells[0]`. A read of a second cell of the same call, through a different name, runs the function
+  then. Collection views work the
   same way. Their predicates, selectors, sort orders, and comparers run when something reads the
   view. The eviction handler of a `Map` on a collection runs when a key leaves the view, and in a
   call of `Dispose` for each object the map built. The analyzer reads the handler at a `Dispose` in
@@ -762,6 +767,9 @@ careful side, so it can report a read that does not throw:
   type with an element that is not a spread, an array creation whose sizes are constants larger than
   zero, or a local with such a value that no code writes. Inside any loop, a read that each turn
   runs counts for the turns after it.
+- Where one call builds two or more cells, a first read counts only for the name that the code
+  reads through, and only where the read always runs, outside a loop. A read of the same cell
+  through a different name, such as a local that got `cells[0]`, runs the function again.
 - The coalesce function of a sink runs only when two sends go into the sink in one transaction. The
   analyzer counts the sends that are statements of the block itself, with no `return` or `goto`
   before them: one such send does not run the function, and two or more fire only what it returns.
@@ -849,6 +857,14 @@ careful side, so it can report a read that does not throw:
 
 Some reads that throw it does not see:
 
+- A first read of a cell that one call builds two or more times, through a name that a method, a
+  `ref` or `out` argument, or a lambda gives a different cell after an earlier read through that
+  name. The analyzer clears the record of the name only at an assignment in the code that it
+  reads.
+- A cell that a method of yours builds and returns, where the call gives the method no value made
+  from the placeholder, and where the function of the cell reads a static member that the block
+  makes pending after the call. The analyzer does not read such a method, so the cell has no
+  function to run at its first read.
 - Reflection, such as `Activator.CreateInstance` or `MethodInfo.Invoke`. A value made from the
   placeholder that you pass to one of these gets `SF1003`. The analyzer follows these literal
   forms: `typeof(T).GetMethod("M").Invoke(obj, [a])`, where `T` and its base types have one public

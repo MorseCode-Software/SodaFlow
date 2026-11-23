@@ -23,6 +23,9 @@ internal sealed partial class SinkWalker
     // The marks of the first reads in each turn of a loop, with the body of that loop.
     private List<(SyntaxNode Turn, ComputedValue Cell)>? turnMarks;
 
+    // Each build of two or more cells with a record of a read through a name.
+    private List<ComputedValue>? runsAtNames;
+
     private bool AlwaysRunsAt(SyntaxNode place, out SyntaxNode? turn) =>
         this.AlwaysRunsAt(
             place: place,
@@ -42,7 +45,7 @@ internal sealed partial class SinkWalker
     ///     turn. It also runs before the code after a loop that always has a
     ///     first turn.
     /// </remarks>
-    private Action<ComputedValue>? MarksOfAFirstRead(SyntaxNode read)
+    private Action<ComputedValue, ReadKey?>? MarksOfAFirstRead(SyntaxNode read)
     {
         if (WhereItAlwaysRuns(expression: read, constants: this.region) is not { } place)
         {
@@ -60,16 +63,67 @@ internal sealed partial class SinkWalker
 
         // A callee that runs a lambda for each element can run it no time. The walk does not record
         // the end of such a turn.
-        Action<ComputedValue>? marks =
+        // A build of two or more cells records only a read through a name that always runs.
+        Action<ComputedValue, ReadKey?>? marks =
             always
-                ? static cell => cell.Runs()
+                ? this.Runs
                 : turn is { Parent: { } loop } && LoopStateEvaluator.LoopBodyOf(loop) == turn
-                    ? cell => this.RunsInATurn(cell: cell, turn: turn)
+                    ? (cell, _) => this.RunsInATurn(cell: cell, turn: turn)
                     : null;
 
         return marks == null || after == null
             ? marks
-            : cell => (this.afterTheTry ??= []).Add((after, () => marks(cell)));
+            : (cell, key) => (this.afterTheTry ??= []).Add((after, () => marks(cell, key)));
+    }
+
+    private void Runs(ComputedValue cell, ReadKey? key)
+    {
+        if (!cell.ManyCells)
+        {
+            cell.Runs();
+        }
+        else if (key != null)
+        {
+            cell.RunsAt(key);
+            (this.runsAtNames ??= []).Add(cell);
+        }
+    }
+
+    // Removes the records of the reads through a name that the code gives a value. The name then holds a
+    // different cell.
+    private void ForgetsTheRunsThrough(ExpressionSyntax written)
+    {
+        if (this.runsAtNames is not { Count: > 0 })
+        {
+            return;
+        }
+
+        switch (LoopStateEvaluator.Unwrapped(written))
+        {
+            case TupleExpressionSyntax parts:
+                foreach (ArgumentSyntax part in parts.Arguments)
+                {
+                    this.ForgetsTheRunsThrough(part.Expression);
+                }
+
+                break;
+            case ElementAccessExpressionSyntax element:
+                this.ForgetsTheRunsThrough(element.Expression);
+
+                break;
+            case var name when this.region.SymbolOf(name) is { } symbol:
+                this.ForgetsTheRunsOf(symbol);
+
+                break;
+        }
+    }
+
+    private void ForgetsTheRunsOf(ISymbol name)
+    {
+        foreach (ComputedValue cell in this.runsAtNames ?? [])
+        {
+            cell.Forgets(name);
+        }
     }
 
     // True when a statement or a clause always runs the code in it that holds a node. The walk reads

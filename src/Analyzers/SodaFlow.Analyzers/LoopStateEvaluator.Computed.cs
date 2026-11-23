@@ -107,7 +107,8 @@ internal sealed partial class LoopStateEvaluator
                         functions: functions.ToImmutable(),
                         given: given,
                         manyTimes: manyTimes,
-                        writes: writes)));
+                        writes: writes,
+                        manyCells: this.CanBuildTwoOrMoreCells(invocation))));
     }
 
     // True for code with an assignment. An increment gives a number, which has no state.
@@ -340,8 +341,9 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="read">The read, which is where the walk reports what the functions read.</param>
     /// <param name="state">The state of the cell.</param>
     /// <param name="marks">
-    ///     What records the run of a cell. The position of the read tells the
-    ///     walk how. Null when the walk cannot know that the read runs.
+    ///     What records the run of a cell, with the name of the read. The
+    ///     position of the read tells the walk how. Null when the walk cannot
+    ///     know that the read runs.
     /// </param>
     /// <param name="heldIn">
     ///     The expression of the cell at the read, for a cell in a member. Null
@@ -355,20 +357,23 @@ internal sealed partial class LoopStateEvaluator
     public LoopState AtTheFirstRead(
         SyntaxNode read,
         LoopState state,
-        Action<ComputedValue>? marks,
+        Action<ComputedValue, ReadKey?>? marks,
         ExpressionSyntax? heldIn = null,
         Action<Finding>? ofACaller = null)
     {
         List<Finding> found = [];
         List<Finding>? ofCallers = null;
 
-        foreach (ComputedValue cell in state.Computed.Where(static cell => !cell.HasRunNow))
+        // A build that makes two or more cells has a record for each name of a read.
+        ReadKey? key = state.Computed.Any(static cell => cell.ManyCells) ? this.ReadKeyOf(heldIn) : null;
+
+        foreach (ComputedValue cell in state.Computed.Where(cell => !cell.HasRunAt(key)))
         {
             // The mark comes before the walk of the functions. Thus, a function that reads its own
             // cell does not run again.
             if (!this.quiet)
             {
-                marks?.Invoke(cell);
+                marks?.Invoke(cell, key);
             }
 
             // An object of the store can get a pending member through a second name, which the

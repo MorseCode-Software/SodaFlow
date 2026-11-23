@@ -1997,6 +1997,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     public override void VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
+        this.ForgetsTheRunsThrough(node.Left);
+
         if (!node.IsKind(SyntaxKind.SimpleAssignmentExpression))
         {
             base.VisitAssignmentExpression(node);
