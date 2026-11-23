@@ -451,9 +451,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   get-only property creates in its initializer. That includes the `Equals`, `GetHashCode`,
   `ToString`, and `Deconstruct` that the compiler writes for a record, also where you call one by
   name, a property that uses `field`, a member of an extension block, also in its static form,
-  in a property pattern, and where it writes through a `ref` receiver, a static member of an
-  interface called through a type parameter, and the constructor that `new T()` runs, where the
-  call says the type of `T`.
+  in a property pattern, given by name as a function, and where it writes through a `ref`
+  receiver, a static member of an interface called through a type parameter, and the constructor
+  that `new T()` runs, where the call says the type of `T`.
 - Events and delegates: the handlers added with `+=` run where the event is raised, and a delegate
   made with `+` or `Delegate.Combine` runs each of its functions. Each element of the
   `GetInvocationList()` of a delegate is one of those functions. An element at a constant index is
@@ -936,4 +936,7 @@ Some reads that throw it does not see:
   runs, so a value made from the placeholder that you pass to it gets `SF1003`. A call with no
   receiver or on `this`, inside a method of an object, runs the override of the class that the
   analyzer saw the object made with. Where it does not know that class, it reads the method of each
-  class that the object can be, so it can report a read that only one of them makes.
+  class that the object can be, so it can report a read that only one of them makes. A virtual or
+  an interface method that you give by name as a function, as in `Map(o.Add)`, runs the override of
+  the class that the analyzer saw the object made with. On an object that it did not see built, the
+  analyzer reads the method that the name gives, with no `SF1003`.

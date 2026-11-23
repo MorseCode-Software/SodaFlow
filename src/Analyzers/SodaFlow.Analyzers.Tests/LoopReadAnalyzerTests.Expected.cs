@@ -8555,6 +8555,15 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6CsExtensionPropertyGetterInTheStaticSpelling"] = ["SF1004"],
             ["R6CsExtensionPropertyInAPropertyPattern"] = ["SF1004"],
             ["R6CsExtensionOnARefReceiverWritesIt"] = ["SF1001"],
-            ["Ab387ExtensionOnARefReceiverInTheStaticSpellingWritesIt"] = ["SF1001"]
+            ["Ab387ExtensionOnARefReceiverInTheStaticSpellingWritesIt"] = ["SF1001"],
+            ["R6CsExtensionMethodGroupIsCalled"] = ["SF1004"],
+            ["R6CsOldExtensionMethodGroupIsCalled"] = ["SF1004"],
+            ["R6SmpCtorMapOfAnExtensionMethodGroupOnThis"] = ["SF1004"],
+            ["R6SmpMapOfAnExtensionMethodGroupOnALocal"] = ["SF1001"],
+            ["R6SmpBaseCtorMapOfAVirtualMethodGroup"] = ["SF1004"],
+            ["R6SmpMapOfAVirtualMethodGroupOfABaseLocal"] = ["SF1001"],
+            ["R6SmpMapOfAnInterfaceMethodGroup"] = ["SF1001"],
+            ["Ab388ExtensionMethodGroupCalledWithAnArgument"] = ["SF1004"],
+            ["Ab388BlockMethodGroupWithAParameterIsCalled"] = ["SF1004"]
         };
 }

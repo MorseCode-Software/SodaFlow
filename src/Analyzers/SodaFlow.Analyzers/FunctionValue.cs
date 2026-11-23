@@ -30,12 +30,18 @@ namespace SodaFlow.Analyzers;
 ///     owner and the evaluator of the code that names the group. Null for each
 ///     other function.
 /// </param>
+/// <param name="extended">
+///     For a method group of an extension method, the expression of the
+///     receiver. The first parameter of the method gets it, with the state of
+///     <paramref name="receiver" />. Null for each other function.
+/// </param>
 internal sealed class FunctionValue(
     in SyntaxNode declaration,
     in LoopStateEvaluator? definer,
     in LoopState? receiver,
     in LoopStateEvaluator? ofThis,
-    in (LoopStateEvaluator Namer, ExpressionSyntax Written)? owner)
+    in (LoopStateEvaluator Namer, ExpressionSyntax Written)? owner,
+    in ExpressionSyntax? extended = null)
 {
     public SyntaxNode Declaration { get; } = declaration;
 
@@ -46,4 +52,6 @@ internal sealed class FunctionValue(
     public LoopStateEvaluator? OfThis { get; } = ofThis;
 
     public (LoopStateEvaluator Namer, ExpressionSyntax Written)? Owner { get; } = owner;
+
+    public ExpressionSyntax? Extended { get; } = extended;
 }

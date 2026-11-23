@@ -2466,25 +2466,9 @@ internal sealed partial class LoopStateEvaluator
             return this.Eval(read.Expression).WithLinked(false);
         }
 
-        SyntaxNode? declaration =
-            (group.ReducedFrom ?? group).OriginalDefinition.DeclaringSyntaxReferences
-            .Select(static reference => reference.GetSyntax())
-            .FirstOrDefault(static syntax => syntax is MethodDeclarationSyntax or LocalFunctionStatementSyntax);
-
-        if (declaration == null)
-        {
-            return this.TypeState(expression);
-        }
-
-        return LoopState.OfFunction(
-            new FunctionValue(
-                declaration: declaration,
-                definer: declaration is LocalFunctionStatementSyntax ? this : null,
-                receiver: expression is MemberAccessExpressionSyntax { Expression: not ThisExpressionSyntax } owned
-                    ? this.Eval(owned.Expression)
-                    : null,
-                ofThis: NamesAMethodOfThis(expression: expression, group: group) ? this : null,
-                owner: this.OwnerOfAGroup(expression)));
+        return this.FunctionsOfAGroup(expression: expression, group: group) is { IsNone: false } functions
+            ? functions
+            : this.TypeState(expression);
     }
 
     private LoopState EvalInvocation(InvocationExpressionSyntax invocation)
@@ -4124,7 +4108,8 @@ internal sealed partial class LoopStateEvaluator
                 when model.GetDeclaredSymbol(function.Declaration) is IMethodSymbol method
                      && BodyOf(method) is { } body:
             {
-                IReadOnlyList<Binding> bindings = Bindings(method.Parameters);
+                IReadOnlyList<Binding> bindings =
+                    this.WithTheReceiverOfAGroup(function: function, method: method, bind: Bindings);
 
                 if (function.Definer != null)
                 {

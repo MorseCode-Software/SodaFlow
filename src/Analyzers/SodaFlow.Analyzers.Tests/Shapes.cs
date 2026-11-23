@@ -60524,6 +60524,54 @@ public static class Shapes
     public static Cell<int> Ab387ExtensionOnAValueReceiverWritesACopy() =>
         Cell.Loop<int>().WithoutCaptures(l => { R6CsSlot s = new() { Share = Plain }; s.Ab387PutInACopy(l.Map(v => v)); Kept.Add(s.Share.Sample()); return S.Hold(0); });
 
+    // S14651. A delegate of a method of an extension block is made on a pending cell and called, and the method samples its receiver.
+    public static Cell<int> R6CsExtensionMethodGroupIsCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int> f = l.Map(v => v).R6CsReadNow; Kept.Add(f()); return S.Hold(0); });
+
+    // S14652. A delegate of an extension method with a this parameter is made on a pending cell and called, and the method samples its receiver.
+    public static Cell<int> R6CsOldExtensionMethodGroupIsCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int> f = l.Map(v => v).R6CsOldReadNow; Kept.Add(f()); return S.Hold(0); });
+
+    // S14653. A constructor builds a map with a method group of an extension method on this. The method samples a member. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> R6SmpCtorMapOfAnExtensionMethodGroupOnThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpD1().SetAndRead(l.Map(v => v))); });
+
+    // S14654. The block builds a map with a method group of an extension method on a local object. The method samples a member that the block sets pending after the build.
+    public static Cell<int> R6SmpMapOfAnExtensionMethodGroupOnALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpD2b o = new(); Cell<int> w = Plain.Map(o.R6SmpAddShareD2b); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14655. A base constructor builds a map with a method group of a virtual method. The override of the derived class samples a member. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> R6SmpBaseCtorMapOfAVirtualMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpD3().SetAndRead(l.Map(v => v))); });
+
+    // S14656. The block builds a map with a method group of a virtual method of a local of the base type. The override samples a member that the block sets pending after the build.
+    public static Cell<int> R6SmpMapOfAVirtualMethodGroupOfABaseLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpD5Base o = new R6SmpD5(); Cell<int> w = Plain.Map(o.Add); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14657. The block builds a map with a method group of an interface method of a local. The implementation samples a member that the block sets pending after the build.
+    public static Cell<int> R6SmpMapOfAnInterfaceMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpD6 o = new(); IR6SmpD6 a = o; Cell<int> w = Plain.Map(a.Add); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14658. Control: a method maps with the group base.Add, which runs the method of the base class and not the override, which samples.
+    public static Cell<int> Ab388MapOfTheGroupOfBaseRunsTheBaseMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab388BaseGroup o = new(); Cell<int> w = o.MapOfTheBase(); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14659. Control: the block maps with a method group of an interface method of a local, and the member that the implementation samples stays plain.
+    public static Cell<int> Ab388MapOfAnInterfaceMethodGroupOfAPlainMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpD6 o = new(); IR6SmpD6 a = o; Cell<int> w = Plain.Map(a.Add); Kept.Add(l.Map(v => v)); return S.Hold(w.Sample()); });
+
+    // S14660. Control: the block maps with a method group of an extension method on a local, and the member that the method samples stays plain.
+    public static Cell<int> Ab388MapOfAnExtensionMethodGroupOfAPlainMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpD2b o = new(); Cell<int> w = Plain.Map(o.R6SmpAddShareD2b); Kept.Add(l.Map(v => v)); return S.Hold(w.Sample()); });
+
+    // S14661. A delegate of a method group of an extension method on a local is called with an argument after the block sets the member that the method samples.
+    public static Cell<int> Ab388ExtensionMethodGroupCalledWithAnArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpD2b o = new(); Func<int, int> f = o.R6SmpAddShareD2b; o.Share = l.Map(v => v); Kept.Add(f(1)); return S.Hold(0); });
+
+    // S14662. A delegate of a method of an extension block with a parameter is called with a pending cell, and the method samples its parameter.
+    public static Cell<int> Ab388BlockMethodGroupWithAParameterIsCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> f = Plain.Ab388SampleOf; Kept.Add(f(l.Map(v => v))); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112042,6 +112090,18 @@ public static class Shapes
     extension(R6CsSlot s)
     {
         public void Ab387PutInACopy(Cell<int> c) => s.Share = c;
+    }
+
+    public sealed class Ab388BaseGroup : R6SmpD5Base
+    {
+        public override int Add(int v) => v + this.Share.Sample();
+
+        public Cell<int> MapOfTheBase() => Plain.Map(base.Add);
+    }
+
+    extension(Cell<int> c)
+    {
+        public int Ab388SampleOf(Cell<int> d) => d.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
