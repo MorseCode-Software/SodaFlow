@@ -171,7 +171,7 @@ internal sealed partial class LoopStateEvaluator
 
         foreach ((int position, bool gives, bool function) in this.UsesOf(name: local, code: code))
         {
-            if (!gives)
+            if (!gives || this.NeverRuns(node: code.FindToken(position).Parent, code: code))
             {
                 continue;
             }
@@ -189,6 +189,23 @@ internal sealed partial class LoopStateEvaluator
         return !inAFunction && LastWriteBefore(writes: writes, at: at, noCallBetween: false) is { } last
             ? new[] { last }
             : writes.Select(static write => write.Value).OfType<ExpressionSyntax>().ToArray();
+    }
+
+    // True when a node is in a branch of an if statement that never runs. That is the statement of a
+    // constant false condition, or the else of a constant true condition. A write there gives no value.
+    private bool NeverRuns(SyntaxNode? node, SyntaxNode code)
+    {
+        for (SyntaxNode? current = node; current != null && current != code; current = current.Parent)
+        {
+            if (current.Parent is IfStatementSyntax branch
+                && (current == branch.Statement || current == branch.Else)
+                && SinkWalker.ConstantOf(region: this.region, condition: branch.Condition) == (current == branch.Else))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

@@ -714,8 +714,11 @@ careful side, so it can report a read that does not throw:
   a sample can then get `SF1002`, although the sample runs before the end of the transaction.
 - A local of a constructor or a method of your object, such as a delegate or a cell that the code
   gives to a `Map`, a `Lift`, or a `Lazy<T>` that a different method reads, counts with each of
-  its values when a branch, a loop, or a lambda can give it a value before the build. Where the last
-  value before the build is sure, only that value counts. The same holds for a delegate in a member
+  its values when a branch, a loop, or a lambda can give it a value before the build. A branch of
+  an `if` that a constant condition rules out, such as `if (false)` or the `else` of a `const` that
+  is `true`, gives no value. A `static readonly` field is not a constant, so a branch on one still
+  counts. Where the last value before the build is sure, only that value counts. The same holds for
+  a delegate in a member
   of the object. There, a call between that value and the build makes each value that the code of
   the class gives the member count. A build in a method, not in a constructor, also counts the value
   that the member has where the different method reads.

@@ -58292,6 +58292,18 @@ public static class Shapes
     public static Cell<int> R6FuBlockOfASealedOverrideOfATypeThatIsNotSealed() =>
         Cell.Loop<int>().WithoutCaptures(R6FuSealedOverrideBuilders[0].Build);
 
+    // S14093. A constructor gives a delegate local a function that does not sample. A branch with a constant false condition gives it a method group that samples. A lazy value gets the local.
+    public static Cell<int> Ab418LocalSetUnderAFalseConstantBeforeTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab418LocalSetUnderAFalseConstant().SetAndRead(l.Map(v => v))));
+
+    // S14094. The same, but the else of a constant true condition gives the local the method group that samples.
+    public static Cell<int> Ab418LocalSetInTheElseOfATrueConstantBeforeTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab418LocalSetInTheElseOfATrueConstant().SetAndRead(l.Map(v => v))));
+
+    // S14095. Control: the same, but a branch with a constant true condition gives the local the method group that samples.
+    public static Cell<int> Ab418LocalSetUnderATrueConstantBeforeTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab418LocalSetUnderATrueConstant().SetAndRead(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -108677,6 +108689,100 @@ public static class Shapes
         {
             public static SodaFlow.Cell<bool> Constant(bool value) => SodaFlow.Cell.Constant(!value);
         }
+    }
+
+    public sealed class Ab418LocalSetUnderAFalseConstant
+    {
+        private const bool Off = false;
+
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab418LocalSetUnderAFalseConstant()
+        {
+            Func<int> read = R6FuZero;
+
+            if (Off)
+            {
+                read = this.Read;
+            }
+
+            this.value = new Lazy<int>(read);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab418LocalSetInTheElseOfATrueConstant
+    {
+        private const bool On = true;
+
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab418LocalSetInTheElseOfATrueConstant()
+        {
+            Func<int> read = R6FuZero;
+
+            if (On)
+            {
+                Kept.Add(0);
+            }
+            else
+            {
+                read = this.Read;
+            }
+
+            this.value = new Lazy<int>(read);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab418LocalSetUnderATrueConstant
+    {
+        private const bool On = true;
+
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab418LocalSetUnderATrueConstant()
+        {
+            Func<int> read = R6FuZero;
+
+            if (On)
+            {
+                read = this.Read;
+            }
+
+            this.value = new Lazy<int>(read);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
