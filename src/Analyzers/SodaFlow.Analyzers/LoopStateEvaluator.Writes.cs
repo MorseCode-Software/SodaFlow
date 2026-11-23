@@ -554,8 +554,8 @@ internal sealed partial class LoopStateEvaluator
 
     // The parts of a location that the walk can read again. They are the array or the field, the
     // owner of the field, and the index of the element. The array is in a local, in a parameter, or in a
-    // field. The owner is null for a static field and for a field of this object. Null for each
-    // other expression.
+    // field. The owner is null for a static field and for a field of this object. A static property
+    // with no code is a static field. Null for each other expression.
     private (ISymbol Of, ISymbol? Owner, int Index)? LocationKeyOf(ExpressionSyntax written) =>
         Unwrapped(written) switch
         {
@@ -566,6 +566,10 @@ internal sealed partial class LoopStateEvaluator
                      && this.ConstantIndexOf(indexes[0]) is { } index =>
                 (collection, null, index),
             IdentifierNameSyntax name when this.region.SymbolOf(name) is IFieldSymbol field => (field, null, -1),
+            (IdentifierNameSyntax or MemberAccessExpressionSyntax) and var named
+                when this.region.SymbolOf(named) is IPropertySymbol { IsStatic: true } property
+                     && this.IsAStaticLocation(property) =>
+                (property, null, -1),
             MemberAccessExpressionSyntax access when this.region.SymbolOf(access) is IFieldSymbol field =>
                 Unwrapped(access.Expression) switch
                 {
@@ -579,6 +583,11 @@ internal sealed partial class LoopStateEvaluator
             InvocationExpressionSyntax call => this.LocationReturnedBy(call),
             _ => null
         };
+
+    // True for a static property of this compilation with no code. Each read of it gives the value of
+    // the last write to it, as for a static field.
+    private bool IsAStaticLocation(IPropertySymbol property) =>
+        !property.DeclaringSyntaxReferences.IsEmpty && this.IsALocation(property);
 
     // The location that a call gives the value of, as a read of it at the call does. A parameter
     // of the callee there is its argument, and an array or an owner of a field must be a name of
@@ -784,7 +793,8 @@ internal sealed partial class LoopStateEvaluator
                || (aCallCounts
                    && this.region.SymbolOf(node) is IMethodSymbol method
                    && (method.MethodKind is MethodKind.DelegateInvoke or MethodKind.LocalFunction
-                       || (key is { Owner: null, Of: IFieldSymbol } && !method.DeclaringSyntaxReferences.IsEmpty)));
+                       || (key is { Owner: null, Of: IFieldSymbol or IPropertySymbol }
+                           && !method.DeclaringSyntaxReferences.IsEmpty)));
     }
 
     // True for the target of an assignment whose value is the given name.

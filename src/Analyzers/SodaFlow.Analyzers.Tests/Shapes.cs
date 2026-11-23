@@ -58340,6 +58340,50 @@ public static class Shapes
     public static Cell<int> Ab337NestedListPatternOfOneOfTwoArrays() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; Cell<int>[] b = [Plain, l.Map(v => v)]; Cell<int>[][] cells = [Kept.Count < 0 ? a : b]; if (cells is [[_, var x]]) { Kept.Add(x.Sample()); } return S.Hold(0); });
 
+    // S14105. Names of one object, Round 6, AB339: a local gets the list of a get-only static auto-property, and a pending cell goes in through the local. The block reads the last item through the property.
+    public static Cell<int> R6NmAb339AddThroughALocalOfAGetOnlyStaticPropertyList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = R6NmListPropA; xs.Add(l.Map(v => v)); return S.Hold(R6NmListPropA[^1].Sample()); });
+
+    // S14106. Names of one object, Round 6, AB339: the same with a settable static auto-property that the block sets first.
+    public static Cell<int> R6NmAb339AddThroughALocalOfASettableStaticPropertyList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmListPropB = [Plain]; List<Cell<int>> xs = R6NmListPropB; xs.Add(l.Map(v => v)); return S.Hold(R6NmListPropB[1].Sample()); });
+
+    // S14107. Names of one object, Round 6, AB339: a pending cell goes in through the static auto-property, and the block reads the last item through the local.
+    public static Cell<int> R6NmAb339AddThroughAStaticPropertyReadThroughTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmListPropC = [Plain]; List<Cell<int>> xs = R6NmListPropC; R6NmListPropC.Add(l.Map(v => v)); return S.Hold(xs[^1].Sample()); });
+
+    // S14108. Names of one object, Round 6, AB339: a pending cell goes in at an index through the local of the list of a static auto-property. The block reads that index through the property.
+    public static Cell<int> R6NmAb339SetAtAnIndexThroughALocalOfAStaticPropertyList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmListPropE = [Plain]; List<Cell<int>> xs = R6NmListPropE; xs[0] = l.Map(v => v); return S.Hold(R6NmListPropE[0].Sample()); });
+
+    // S14109. AB339 control. A local gets the list of a static auto-property. The block then gives the property a new list, and puts a pending cell in through the local. The read through the property gets the new list, which is plain.
+    public static Cell<int> Ab339AddThroughALocalAfterTheStaticPropertyGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab339ListA = [Plain]; List<Cell<int>> xs = Ab339ListA; Ab339ListA = [Plain]; xs.Add(l.Map(v => v)); return S.Hold(Ab339ListA[^1].Sample()); });
+
+    // S14110. AB339. A pending cell goes in at an index through the static auto-property. The block reads that index through the local.
+    public static Cell<int> Ab339SetAtAnIndexThroughAStaticPropertyReadThroughTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab339ListB = [Plain]; List<Cell<int>> xs = Ab339ListB; Ab339ListB[0] = l.Map(v => v); return S.Hold(xs[0].Sample()); });
+
+    // S14111. AB339 control. A pending cell goes in at index 0 through the local. The block then sets index 0 through the static auto-property to a plain cell, and reads it there.
+    public static Cell<int> Ab339SetThroughTheStaticPropertyReplacesAPutThroughTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab339ListC = [Plain]; List<Cell<int>> xs = Ab339ListC; xs[0] = l.Map(v => v); Ab339ListC[0] = Plain; return S.Hold(Ab339ListC[0].Sample()); });
+
+    // S14112. AB339 control. A local gets the list of an instance auto-property of one object. A pending cell goes in through the local. The read is through the same property of a second object.
+    public static Cell<int> Ab339AddThroughALocalOfAnInstancePropertyReadThroughASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab339Holder h = new(); Ab339Holder g = new(); List<Cell<int>> xs = h.Items; xs.Add(l.Map(v => v)); return S.Hold(g.Items[^1].Sample()); });
+
+    // S14113. AB339 control. A static property with a body gives a new list at each read. A pending cell goes in through a local of one list, and the read is through a second read of the property.
+    public static Cell<int> Ab339AddThroughALocalOfAStaticPropertyWithABody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = Ab339Fresh; xs.Add(l.Map(v => v)); return S.Hold(Ab339Fresh[^1].Sample()); });
+
+    // S14114. AB339 control. Two static fields hold two objects. A local gets the list of an instance auto-property of the first object, and a pending cell goes in through the local. The read is through the same property of the second object.
+    public static Cell<int> Ab339AddThroughALocalOfAnInstancePropertyOfAStaticFieldObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = Ab339H1.Items; xs.Add(l.Map(v => v)); return S.Hold(Ab339H2.Items[^1].Sample()); });
+
+    // S14115. AB339 control. A static property with a body gives one of two lists in turn. A local gets the first list, and a pending cell goes in through it. The second read of the property gives the second list, which is plain.
+    public static Cell<int> Ab339AddThroughALocalOfAStaticPropertyThatAlternates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab339Turn = 0; List<Cell<int>> xs = Ab339Alternate; xs.Add(l.Map(v => v)); return S.Hold(Ab339Alternate[^1].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -108819,6 +108863,26 @@ public static class Shapes
         }
 
         private int Read() => this.share.Sample();
+    }
+
+    private static List<Cell<int>> Ab339ListA { get; set; } = [];
+    private static List<Cell<int>> Ab339ListB { get; set; } = [];
+    private static List<Cell<int>> Ab339ListC { get; set; } = [];
+
+    private static List<Cell<int>> Ab339Fresh => [Plain];
+
+    private static Ab339Holder Ab339H1 = new();
+    private static Ab339Holder Ab339H2 = new();
+
+    private static int Ab339Turn;
+    private static List<Cell<int>> Ab339A1 = [Plain];
+    private static List<Cell<int>> Ab339A2 = [Plain];
+
+    private static List<Cell<int>> Ab339Alternate => Ab339Turn++ % 2 == 0 ? Ab339A1 : Ab339A2;
+
+    public sealed class Ab339Holder
+    {
+        public List<Cell<int>> Items { get; } = [Plain];
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
