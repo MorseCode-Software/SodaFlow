@@ -28,7 +28,7 @@ internal sealed partial class LoopStateEvaluator
     ///     permits layers of helpers around that. A method that calls itself
     ///     usually stops before this limit, at <see cref="ShapeOfACallAgain" />.
     /// </summary>
-    private const int MaxInlineDepth = 6;
+    internal const int MaxInlineDepth = 6;
 
     private static readonly ImmutableArray<string> Suffixes = ImmutableArray.Create(item1: "Impl", item2: "Internal");
 

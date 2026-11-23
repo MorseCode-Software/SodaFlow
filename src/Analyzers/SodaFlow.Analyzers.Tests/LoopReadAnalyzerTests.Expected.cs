@@ -8173,6 +8173,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6NmAb344ThisThenParameter"] = ["SF1001"],
             ["R6NmAb344ThisThenParameterReadSecondLocal"] = ["SF1001"],
             ["R6NmAb344ThisThenAStaticArrayElement"] = ["SF1001"],
-            ["Ab344ThisThenAStaticFieldWhereAFlagIsTrue"] = ["SF1001"]
+            ["Ab344ThisThenAStaticFieldWhereAFlagIsTrue"] = ["SF1001"],
+            ["R6NmAb345RegisterNoStateReadField"] = ["SF1001"],
+            ["R6NmAb345RegisterNoStateReadLocal"] = ["SF1001"],
+            ["R6NmAb345RegisterWithStatePendingAfterReadField"] = ["SF1001"],
+            ["R6NmAb345RegisterThroughTwoMethodsNoState"] = ["SF1001"]
         };
 }

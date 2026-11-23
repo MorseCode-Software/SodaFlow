@@ -1118,20 +1118,54 @@ internal sealed class SodaFlowSymbols
             || (owner.Name == "Activator" && IsSystem(owner.ContainingNamespace)));
 
     /// <summary>
-    ///     True for a constructor whose code uses <c>this</c> as a value, and not
-    ///     only as the owner of a member. Such a constructor can give the new
+    ///     True for a constructor or a method whose code uses <c>this</c> as a
+    ///     value, and not only as the owner of a member. Such code can give the
     ///     object a second name. The answer for a constructor is the same at each
-    ///     creation.
+    ///     creation, and for a method at each call.
     /// </summary>
+    /// <remarks>
+    ///     The code can also call a method of its type on this, and that method
+    ///     can use this as a value. The walk reads such calls to the depth that it
+    ///     reads callees. A call by name counts each method of the type with that
+    ///     name that is not static.
+    /// </remarks>
     public bool GivesThisAway(IMethodSymbol definition) =>
         this.givesThisAway.GetOrAdd(
             key: definition,
-            valueFactory: static constructor =>
-                constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is ConstructorDeclarationSyntax code
-                && code.DescendantNodes()
-                    .OfType<ThisExpressionSyntax>()
-                    .Any(static used => used.Parent is not MemberAccessExpressionSyntax { Expression: var owner }
-                                        || owner != used));
+            valueFactory: static method =>
+                method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    is ConstructorDeclarationSyntax or MethodDeclarationSyntax
+                && UsesThisAsAValue(
+                    code: method.DeclaringSyntaxReferences[0].GetSyntax(),
+                    type: method.ContainingType,
+                    calls: LoopStateEvaluator.MaxInlineDepth));
+
+    // The name of a method that a call by a simple name, or through this, calls. Null for each other
+    // call.
+    private static string? NameOfACallOnThis(InvocationExpressionSyntax call) =>
+        call.Expression switch
+        {
+            IdentifierNameSyntax name => name.Identifier.ValueText,
+            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax name } =>
+                name.Identifier.ValueText,
+            _ => null
+        };
+
+    // True when code uses this as a value, or calls a method of the type on this whose code does.
+    private static bool UsesThisAsAValue(SyntaxNode code, INamedTypeSymbol type, int calls) =>
+        code.DescendantNodes()
+            .Any(node => node switch
+            {
+                ThisExpressionSyntax used =>
+                    used.Parent is not MemberAccessExpressionSyntax { Expression: var owner } || owner != used,
+                InvocationExpressionSyntax call when calls > 0 && NameOfACallOnThis(call) is { } name =>
+                    type.GetMembers(name)
+                        .Any(member => member is IMethodSymbol { IsStatic: false } method
+                                       && method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                                           is MethodDeclarationSyntax called
+                                       && UsesThisAsAValue(code: called, type: type, calls: calls - 1)),
+                _ => false
+            });
 
     /// <summary>
     ///     True for a field whose object no second name can hold, as the given

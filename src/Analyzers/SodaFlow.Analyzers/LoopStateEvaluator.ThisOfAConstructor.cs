@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -57,6 +58,27 @@ internal sealed partial class LoopStateEvaluator
         this.region.Symbols.GivesThisAway(definition)
         && this.depth < MaxInlineDepth
         && this.region.TryEnterForObjects();
+
+    // True for a call on the object that a constructor builds, of a method that gives this away.
+    // The walk reads such a method also with no state, because it can give the new object a name.
+    private bool GivesTheBuiltObjectAway(SyntaxNode call, Dictionary<ISymbol, LoopState> members) =>
+        this.thisInTheStore != null
+        && ReferenceEquals(objA: members, objB: this.thisMembers)
+        && this.region.SymbolOf(call) is IMethodSymbol method
+        && this.region.Symbols.GivesThisAway(method.OriginalDefinition);
+
+    // The value of this that a name keeps in the code of a constructor: the object of the store, with
+    // no state for a member. The store has the members of the object. A copy of them in the name does
+    // not get the next write to the object.
+    public LoopState ForANameOfTheBuiltObject(LoopState state, ExpressionSyntax? from) =>
+        from != null
+        && Unwrapped(from) is ThisExpressionSyntax
+        && this.thisInTheStore is { } built
+        && this.builtType is { } type
+        && state.Objects.Contains(built)
+        && state.Objects.All(made => this.region.Objects.StateOf(made) != null)
+            ? state.WithMembers(Construction.Of(type))
+            : state;
 
     // The object that the walk made for a creation before it read the constructor, with the state
     // that the creation gives it. Null for each other expression.

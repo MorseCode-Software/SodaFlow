@@ -2050,6 +2050,7 @@ internal sealed partial class LoopStateEvaluator
         int? laterThan = null)
     {
         bool isThroughThis = owner != null && this.IsANameOfThis(owner);
+        state = this.ForANameOfTheBuiltObject(state: state, from: from);
 
         // A write through a name that got this is a write to the object that the code is in.
         if (isThroughThis)

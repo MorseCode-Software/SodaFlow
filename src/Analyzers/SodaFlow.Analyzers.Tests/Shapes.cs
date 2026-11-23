@@ -58572,6 +58572,26 @@ public static class Shapes
     public static Cell<int> Ab344ThisThenAParameterOfADifferentObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab344Self d = new(); Ab344Self other = new(); d.ThisThenParameter(other, Plain, l.Map(v => v)); return S.Hold(d.Share!.Sample()); });
 
+    // S14163. Names of one object, Round 6, AB345: a constructor with no cell calls a method of the object that puts this into a static field. A pending cell goes in through the local of the new object, and the read is through the static field.
+    public static Cell<int> R6NmAb345RegisterNoStateReadField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmReg made = new(1); made.Share = l.Map(v => v); return S.Hold(R6NmReg.Last.Share!.Sample()); });
+
+    // S14164. Names of one object, Round 6, AB345: the same, with the pending cell through the static field and the read through the local.
+    public static Cell<int> R6NmAb345RegisterNoStateReadLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmReg made = new(2); R6NmReg.Last.Share = l.Map(v => v); return S.Hold(made.Share!.Sample()); });
+
+    // S14165. Names of one object, Round 6, AB345: the constructor gets a pending cell and calls the method that puts this into a static field. A plain cell then goes in through the local, and the read is through the static field.
+    public static Cell<int> R6NmAb345RegisterWithStatePlainAfterReadField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmRegWithCell made = new(l.Map(v => v)); made.Share = Plain; return S.Hold(R6NmRegWithCell.Last.Share!.Sample()); });
+
+    // S14166. Names of one object, Round 6, AB345: the constructor gets a plain cell and calls the method that puts this into a static field. A pending cell then goes in through the local, and the read is through the static field.
+    public static Cell<int> R6NmAb345RegisterWithStatePendingAfterReadField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmRegWithCell made = new(Plain); made.Share = l.Map(v => v); return S.Hold(R6NmRegWithCell.Last.Share!.Sample()); });
+
+    // S14167. Names of one object, Round 6, AB345: the constructor calls the method with no this qualifier, and the method calls a second method that puts this into a static field.
+    public static Cell<int> R6NmAb345RegisterThroughTwoMethodsNoState() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmRegTwo made = new(); made.Share = l.Map(v => v); return S.Hold(R6NmRegTwo.Last.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

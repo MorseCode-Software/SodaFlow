@@ -414,7 +414,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   `ref` or `out` parameter a value replaces what a local, or a field of the object in a local, held
   before, where the block always calls it and passes no second `ref` or `out` argument. A
   constructor that puts `this` into a name makes that name a name of the new object, as a registry
-  does with a static field or a static property. The name can also be an element of an array or a
+  does with a static field or a static property. So does a constructor that does this through a
+  method of the object that it calls on `this`, also by its name alone or through a second such
+  method, to the depth that the analyzer reads calls. The name can also be an element of an array or a
   list that the constructor gets, a value of a dictionary that it gets, or a field of an object that
   it gets.
 - Your helpers, constructors, property getters, records, and object initializers, and a call

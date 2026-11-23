@@ -166,7 +166,8 @@ internal sealed partial class LoopStateEvaluator
             definer == null
             && members.Count == 0
             && this.region is { HasFields: false, Objects.ChangedAStaticObject: false }
-            && bindings.All(static binding => binding.State.IsNone);
+            && bindings.All(static binding => binding.State.IsNone)
+            && !this.GivesTheBuiltObjectAway(call: call, members: members);
 
         // A lambda or a local function reads the locals of its code, which each call can change.
         // Thus, only a callee with a frame of its own stops at a call in its own code.
