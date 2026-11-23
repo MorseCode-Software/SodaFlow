@@ -59916,6 +59916,10 @@ public static class Shapes
     public static Cell<int> Ab352ThisInAStaticFieldBeforeTheBuild() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab352Kept().SetAndRead(l.Map(v => v))));
 
+    // S14499. A constructor gives a delegate local a method group, gives a delegate member of a kept box the local, and builds a map with that member. A method sets the member that the method group samples to a pending cell and samples the map.
+    public static Cell<int> Ab350MapOfAMemberOfABoxSetFromALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350BoxFromALocal().SetAndRead(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -111194,6 +111198,32 @@ public static class Shapes
         }
 
         private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab350BoxFromALocal
+    {
+        public readonly Cell<int> Built;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        private readonly R6PairFnBox box = new();
+
+        public Ab350BoxFromALocal()
+        {
+            Func<int, int> add = this.Add;
+            this.box.FMap = add;
+            this.Built = Cell.Constant(1).Map(this.box.FMap);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+            int r = this.Built.Sample();
+
+            return r;
+        }
+
+        private int Add(int v) => v + this.share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

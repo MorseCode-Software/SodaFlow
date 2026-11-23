@@ -145,7 +145,6 @@ internal sealed partial class LoopStateEvaluator
         }
 
         List<(int Position, ExpressionSyntax? Value, StatementSyntax? Statement)> writes = [];
-        bool inAFunction = false;
 
         foreach (AssignmentExpressionSyntax assignment in code.DescendantNodes().OfType<AssignmentExpressionSyntax>())
         {
@@ -160,8 +159,6 @@ internal sealed partial class LoopStateEvaluator
                 continue;
             }
 
-            inAFunction |= FunctionOf(assignment) != code;
-
             writes.Add(WriteOf(assignment));
         }
 
@@ -170,7 +167,10 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
-        ExpressionSyntax? only = inAFunction ? null : LastWriteBefore(writes: writes, at: access, noCallBetween: true);
+        // A write in a lambda or a local function is in no block around the value. Thus, it is never
+        // the last write. It runs only through a call or a creation, and such a call between the last
+        // write and the value stops that write.
+        ExpressionSyntax? only = LastWriteBefore(writes: writes, at: access, noCallBetween: true);
         LoopState state = LoopState.None;
 
         // A map or a Lazy keeps the delegate that the member has at the build.
