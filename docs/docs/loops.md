@@ -339,11 +339,14 @@ The analyzer follows a value made from the placeholder through the code of your 
   parameter. The `InnerException` of
   such an exception has the object, and so does the `InnerException` of an exception of the platform
   that you create with an inner exception, and each of the `InnerExceptions` of an
-  `AggregateException`, also through `First` or another LINQ method that gives one element. `Flatten`
-  and `GetBaseException` of such an exception have the object too. `GetResult` of the awaiter of a task throws the object that a function of
-  the task threw. Its filter gets the object too, and a local that the filter sets keeps it. The
-  analyzer reports no read in a filter, because an exception there is lost and makes the filter
-  false.
+  `AggregateException`, also through `First` or another LINQ method that gives one element.
+  `Flatten` and `GetBaseException` of such an exception have the object too. `GetResult` of the
+  awaiter of a task throws the object that a function of the task threw. An `await` of the task of
+  `Task.FromException` or `ValueTask.FromException`, and of the task of a `TaskCompletionSource`
+  after `SetException` or `TrySetException`, throws that object too, and so does `GetResult` of
+  its awaiter. The filter of the `catch` clause gets the object too, and a local that the filter
+  sets keeps it. The analyzer reports no read in a filter, because an exception there is lost and
+  makes the filter false.
 - Collections, arrays, and dictionaries. A list, an array, or a span that you write as a literal
   keeps each element apart, also where the literal spreads a second such local, so `cells[0]`,
   `cells[^1]`, `cells.ElementAt(1)`, and each element of a list pattern in an `is` or a `switch` on

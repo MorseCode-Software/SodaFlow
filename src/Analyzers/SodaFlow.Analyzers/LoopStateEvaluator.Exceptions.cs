@@ -53,6 +53,23 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
+    ///     The state of a member of an object of the platform that holds the
+    ///     objects of an exception or of a task. Null for each other member.
+    /// </summary>
+    /// <param name="owner">The state of the object.</param>
+    /// <param name="member">The member that the code reads.</param>
+    /// <param name="read">The read of the member.</param>
+    private LoopState? MemberOfAPlatformObject(LoopState owner, ISymbol member, ExpressionSyntax read) =>
+        // A test of the name comes before each other test, because each read of a member comes here.
+        member.Name switch
+        {
+            "InnerException" or "InnerExceptions" => InnerExceptionsOf(owner: owner, member: member),
+            "Task" when !owner.Faults.IsEmpty =>
+                LoopState.None.WithFaults(owner.Faults),
+            _ => null
+        };
+
+    /// <summary>
     ///     The state of <c>InnerException</c> or <c>InnerExceptions</c> of an
     ///     exception of the platform. Such an exception contains each object
     ///     that its constructor got. Null for each other member, and for an
@@ -81,6 +98,15 @@ internal sealed partial class LoopStateEvaluator
         this.ExceptionOfACall(invocation: invocation, method: method)
         ?? this.TaskOfACall(invocation: invocation, method: method)
         ?? this.MovedResult(invocation: invocation, method: method).WithoutFaults;
+
+    // The object of the one argument of a call that gets an exception, with the type of the argument. Empty for a call
+    // with a different count of arguments.
+    private ImmutableArray<(ITypeSymbol? Type, LoopState State)> ObjectOfAnArgument(
+        InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments is { Count: 1 } arguments
+        && this.Eval(arguments[0].Expression) is { } thrown
+            ? ImmutableArray.Create((this.region.TypeOf(arguments[0].Expression), thrown))
+            : ImmutableArray<(ITypeSymbol? Type, LoopState State)>.Empty;
 
     /// <summary>
     ///     The state of a call that gives one exception of an exception of the
@@ -252,29 +278,49 @@ internal sealed partial class LoopStateEvaluator
         type is INamedTypeSymbol { TypeArguments: { Length: 1 } arguments }
         && SodaFlowSymbols.IsTask(arguments[0] as INamedTypeSymbol);
 
+    /// <summary>
+    ///     The state of the values that a method of the platform got. For
+    ///     <c>SetException</c> and <c>TrySetException</c> of a
+    ///     <c>TaskCompletionSource</c>, that is the task of the source with the
+    ///     object in it. A source holds what the walk knows of its task.
+    /// </summary>
+    /// <remarks>
+    ///     Each overload has one parameter, which is an exception or a sequence
+    ///     of them. An object of a sequence can be of each type.
+    /// </remarks>
+    /// <param name="method">The method of the call.</param>
+    /// <param name="moved">The state of the values that the method got.</param>
+    private static LoopState ObjectsGivenToASource(IMethodSymbol method, LoopState moved) =>
+        method is { Name: "SetException" or "TrySetException", Parameters: { Length: 1 } parameters }
+            ? LoopState.None.WithFaults(
+                ImmutableArray.Create(
+                    (SodaFlowSymbols.IsEnumerated(parameters[0].Type) ? null : parameters[0].Type, moved)))
+            : moved;
+
     // WhenAll throws the objects of each task that it gets, and the task of WhenAny is one of the tasks that it gets.
     // ConfigureAwait, AsTask, and WaitAsync give the same task. Only a task has objects of a task, so the walk does not
-    // ask for the type of the method.
+    // test the type of the method.
     private static bool PassesTheFaults(IMethodSymbol method) =>
         method.Name is "WhenAll" or "WhenAny" or "ConfigureAwait" or "AsTask" or "WaitAsync";
 
     /// <summary>
     ///     The state of a call of the platform that gives a task with objects
-    ///     in it. A method that gives a task with the objects of the tasks that
-    ///     it gets, as <c>WhenAll</c> does, keeps those objects. Null for each
-    ///     other call, and where no task has an object.
+    ///     in it. <c>FromException</c> gives a task that keeps its argument. A
+    ///     method that gives a task with the objects of the tasks that it gets,
+    ///     as <c>WhenAll</c> does, keeps those objects. Null for each other
+    ///     call, and where no task has an object.
     /// </summary>
     /// <param name="invocation">The call.</param>
     /// <param name="method">The method of the call.</param>
     private LoopState? TaskOfACall(InvocationExpressionSyntax invocation, IMethodSymbol method)
     {
-        if (!PassesTheFaults(method))
-        {
-            return null;
-        }
-
+        // A test of the name comes before each other test, because each call of the platform comes here.
         ImmutableArray<(ITypeSymbol? Type, LoopState State)> faults =
-            this.Moved(invocation: invocation, method: method, withReceiver: true).Faults;
+            method.Name == "FromException"
+                ? this.ObjectOfAnArgument(invocation)
+                : PassesTheFaults(method)
+                    ? this.Moved(invocation: invocation, method: method, withReceiver: true).Faults
+                    : ImmutableArray<(ITypeSymbol? Type, LoopState State)>.Empty;
 
         return faults.IsEmpty ? null : this.MovedResult(invocation: invocation, method: method).WithFaults(faults);
     }

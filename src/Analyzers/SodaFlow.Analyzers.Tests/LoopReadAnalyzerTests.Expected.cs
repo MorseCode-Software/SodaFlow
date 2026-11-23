@@ -8266,6 +8266,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab354AwaitOfATaskOfAConditional"] = ["SF1001"],
             ["Ab354AwaitOfATaskOfAConditionalWithAValue"] = ["SF1001"],
             ["Ab354AwaitInALoopOfTheTaskOfTheTurnBefore"] = ["SF1001"],
-            ["Ab354ACalleeAwaitsATaskAndSamples"] = ["SF1005"]
+            ["Ab354ACalleeAwaitsATaskAndSamples"] = ["SF1005"],
+            ["R6ExcAwaitOfFromException"] = ["SF1001"],
+            ["R6ExcAwaitOfAMethodThatReturnsFromException"] = ["SF1001"],
+            ["R6ExcGetResultOfFromException"] = ["SF1001"],
+            ["R6ExcGetResultOfATaskCompletionSource"] = ["SF1001"],
+            ["Ab357AwaitOfATaskCompletionSourceAfterTrySetException"] = ["SF1001"],
+            ["Ab357GetResultOfATaskCompletionSourceAfterSetExceptionOfAList"] = ["SF1001"],
+            ["Ab357AwaitOfValueTaskFromException"] = ["SF1001"],
+            ["Ab357ResultOfATaskCompletionSourceIsTheCellOfSetResult"] = ["SF1001"]
         };
 }

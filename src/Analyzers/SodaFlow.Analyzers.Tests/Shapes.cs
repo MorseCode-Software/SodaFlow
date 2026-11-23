@@ -59092,6 +59092,42 @@ public static class Shapes
     public static Cell<int> Ab354ACalleeAwaitsATaskAndSamples() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab354AwaitAndSample(R6ExcThrowInItsTask(l.Map(v => v))).Wait(0); return S.Hold(0); });
 
+    // S14293. An async lambda awaits Task.FromException of an object with a pending member. The catch samples the object.
+    public static Cell<int> R6ExcAwaitOfFromException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await Task.FromException(new R4CsFault(l.Map(v => v))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14294. An async lambda awaits a method that is not async and returns Task.FromException. The catch samples the object.
+    public static Cell<int> R6ExcAwaitOfAMethodThatReturnsFromException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await R6ExcFaulted(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14295. GetResult of the awaiter of Task.FromException, in the block. The catch samples the object.
+    public static Cell<int> R6ExcGetResultOfFromException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Task.FromException(new R4CsFault(l.Map(v => v))).GetAwaiter().GetResult(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14296. SetException of a TaskCompletionSource puts the object into its task, and GetResult of the awaiter of the task throws it. The catch samples it.
+    public static Cell<int> R6ExcGetResultOfATaskCompletionSource() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TaskCompletionSource s = new(); s.SetException(new R4CsFault(l.Map(v => v))); try { s.Task.GetAwaiter().GetResult(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14297. TrySetException of a TaskCompletionSource puts the object into its task, and an await of the task throws it. The catch samples it.
+    public static Cell<int> Ab357AwaitOfATaskCompletionSourceAfterTrySetException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TaskCompletionSource s = new(); s.TrySetException(new R4CsFault(l.Map(v => v))); Func<Task> run = async () => { try { await s.Task; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14298. SetException of a list puts each object of the list into the task, and GetResult throws the first. The catch samples it.
+    public static Cell<int> Ab357GetResultOfATaskCompletionSourceAfterSetExceptionOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TaskCompletionSource<int> s = new(); s.SetException(new List<Exception> { new R4CsFault(l.Map(v => v)) }); try { Kept.Add(s.Task.GetAwaiter().GetResult()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14299. SetResult of a TaskCompletionSource completes its task with no object. Thus, the catch never runs.
+    public static Cell<int> Ab357TaskCompletionSourceWithAResultGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TaskCompletionSource<Cell<int>> s = new(); s.SetResult(l.Map(v => v)); try { Kept.Add(s.Task.GetAwaiter().GetResult()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14300. An async lambda awaits ValueTask.FromException of an object with a pending member. The catch samples the object.
+    public static Cell<int> Ab357AwaitOfValueTaskFromException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await ValueTask.FromException(new R4CsFault(l.Map(v => v))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14301. SetResult of a TaskCompletionSource gives its task a cell, and GetResult of the task gives that cell. The code samples it.
+    public static Cell<int> Ab357ResultOfATaskCompletionSourceIsTheCellOfSetResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { TaskCompletionSource<Cell<int>> s = new(); s.SetResult(l.Map(v => v)); Kept.Add(s.Task.GetAwaiter().GetResult().Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

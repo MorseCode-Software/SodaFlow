@@ -2341,7 +2341,7 @@ internal sealed partial class LoopStateEvaluator
                         return inMember;
                     }
 
-                    if (InnerExceptionsOf(owner: owner, member: symbol) is { } inner)
+                    if (this.MemberOfAPlatformObject(owner: owner, member: symbol, read: expression) is { } inner)
                     {
                         return inner.Join(this.TypeState(expression));
                     }
@@ -3209,12 +3209,14 @@ internal sealed partial class LoopStateEvaluator
                     : this.Eval(receiver)
                         .Join(this.Enumerated(written: receiver, parameter: definition.Parameters[0].Type));
 
-        return this.MovedArguments(
-            definition: definition,
-            arguments: invocation.ArgumentList.Arguments,
-            offset: method.ReducedFrom != null ? 1 : 0,
-            seed: seed,
-            withObjects: withObjects);
+        return ObjectsGivenToASource(
+            method: method,
+            moved: this.MovedArguments(
+                definition: definition,
+                arguments: invocation.ArgumentList.Arguments,
+                offset: method.ReducedFrom != null ? 1 : 0,
+                seed: seed,
+                withObjects: withObjects));
     }
 
     private LoopState MovedArguments(
