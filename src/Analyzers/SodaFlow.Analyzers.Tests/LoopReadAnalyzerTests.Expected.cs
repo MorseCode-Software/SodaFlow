@@ -8467,6 +8467,23 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6SmpCtorMapOfALocalSetThroughOut"] = ["SF1004"],
             ["R6SmpCtorLazyOfAMemberSetBySetterBetween"] = ["SF1004"],
             ["R6SmpCtorLazyOfALocalSetBeforeAGotoBack"] = ["SF1004"],
-            ["Ab396LazyOfAnOutLocalOfAStaticMethod"] = ["SF1004"]
+            ["Ab396LazyOfAnOutLocalOfAStaticMethod"] = ["SF1004"],
+            ["R6CsBuildOfAMemberOfADeconstructionAssignment"] = ["SF1004"],
+            ["R6CsBuildOfAMemberOfAnOutArgument"] = ["SF1004"],
+            ["R6CsMethodBuildOfAMemberOfACast"] = ["SF1004"],
+            ["R6CsMethodBuildOfAMemberOfAConditional"] = ["SF1004"],
+            ["R6CsMethodBuildOfAMemberOfADeconstruction"] = ["SF1004"],
+            ["R6SmpCtorLazyOfACastMethodGroup"] = ["SF1004"],
+            ["R6SmpCtorLazyOfAConditionalMethodGroup"] = ["SF1004"],
+            ["R6SmpCtorLazyOfAParenthesizedMethodGroup"] = ["SF1004"],
+            ["R6SmpCtorLazyBuiltByADeconstruction"] = ["SF1004"],
+            ["R6SmpFieldInitializerLazyReadsAStaticSetAfter"] = ["SF1005"],
+            ["R6SmpPropertyInitializerMapReadsAStaticSetAfter"] = ["SF1001"],
+            ["R6SmpCtorMapBuiltByInterlockedExchange"] = ["SF1004"],
+            ["R6SmpMethodLazyOfAMemberSetByACast"] = ["SF1004"],
+            ["R6SmpMethodLazyOfAMemberSetByAConditional"] = ["SF1004"],
+            ["R6SmpCtorLazyOfAMemberSetByADeconstruction"] = ["SF1004"],
+            ["Ab397MapBuiltByCompareExchange"] = ["SF1004"],
+            ["Ab397BuildOfAMemberOfAnOutArgumentInABranch"] = ["SF1004"]
         };
 }

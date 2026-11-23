@@ -94,19 +94,9 @@ internal static class MemberBuilds
         foreach (MemberDeclarationSyntax code in type.Members.Where(static member =>
                      member is not BaseTypeDeclarationSyntax))
         {
-            foreach (AssignmentExpressionSyntax assignment in
-                     code.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+            foreach ((string name, ExpressionSyntax given) in WritesIn(code))
             {
-                // A `+=` gives a delegate one more function.
-                if (assignment.Kind() is not (SyntaxKind.SimpleAssignmentExpression
-                        or SyntaxKind.CoalesceAssignmentExpression
-                        or SyntaxKind.AddAssignmentExpression)
-                    || NameOnThis(assignment.Left) is not { } name
-                    || ValueOf(code: code, value: assignment.Right) is not ({ } value, var onlyAName))
-                {
-                    continue;
-                }
-
+                (ExpressionSyntax value, bool onlyAName) = ValueOf(code: code, value: given);
                 Dictionary<string, ImmutableArray<ExpressionSyntax>.Builder> to = onlyAName ? names : values;
 
                 if (!to.TryGetValue(key: name, value: out ImmutableArray<ExpressionSyntax>.Builder? of))
@@ -120,6 +110,76 @@ internal static class MemberBuilds
         }
 
         return new Part(values: Built(values), names: Built(names));
+    }
+
+    // Each member of this that the code of a member writes, with the value of the write. An
+    // initializer, an assignment, a part of a deconstruction, and Interlocked.Exchange or
+    // CompareExchange each give a value.
+    private static IEnumerable<(string Name, ExpressionSyntax Value)> WritesIn(SyntaxNode code)
+    {
+        switch (code)
+        {
+            case FieldDeclarationSyntax field:
+                foreach (VariableDeclaratorSyntax variable in field.Declaration.Variables)
+                {
+                    if (variable.Initializer is { Value: var initial })
+                    {
+                        yield return (variable.Identifier.ValueText, initial);
+                    }
+                }
+
+                break;
+            case PropertyDeclarationSyntax { Initializer.Value: var initial } property:
+                yield return (property.Identifier.ValueText, initial);
+
+                break;
+        }
+
+        foreach (SyntaxNode node in code.DescendantNodes())
+        {
+            switch (node)
+            {
+                case AssignmentExpressionSyntax
+                    {
+                        RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+                        Left: TupleExpressionSyntax parts,
+                        Right: TupleExpressionSyntax given
+                    }
+                    when parts.Arguments.Count == given.Arguments.Count:
+                    for (int i = 0; i < parts.Arguments.Count; i++)
+                    {
+                        if (NameOnThis(parts.Arguments[i].Expression) is { } part)
+                        {
+                            yield return (part, given.Arguments[i].Expression);
+                        }
+                    }
+
+                    break;
+                // A `+=` gives a delegate one more function.
+                case AssignmentExpressionSyntax assignment
+                    when assignment.Kind() is SyntaxKind.SimpleAssignmentExpression
+                             or SyntaxKind.CoalesceAssignmentExpression
+                             or SyntaxKind.AddAssignmentExpression
+                         && NameOnThis(assignment.Left) is { } name:
+                    yield return (name, assignment.Right);
+
+                    break;
+                // Exchange and CompareExchange put their second argument into the first one.
+                case InvocationExpressionSyntax
+                    {
+                        Expression: MemberAccessExpressionSyntax
+                        {
+                            Name.Identifier.ValueText: "Exchange" or "CompareExchange"
+                        },
+                        ArgumentList.Arguments: { Count: >= 2 } arguments
+                    }
+                    when arguments[0].RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                         && NameOnThis(arguments[0].Expression) is { } exchanged:
+                    yield return (exchanged, arguments[1].Expression);
+
+                    break;
+            }
+        }
     }
 
     private static ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> Built(
@@ -141,11 +201,10 @@ internal static class MemberBuilds
             _ => null
         };
 
-    // The value of an assignment when it can be a function. A local gives the value of its
-    // declaration in the same member, also through more locals. A creation with a name as an
-    // argument can get a method group, as new Lazy<int>(this.Read) does. A value that is only a
-    // name can be a method group also. Null for each other value.
-    private static (ExpressionSyntax Value, bool OnlyAName)? ValueOf(SyntaxNode code, ExpressionSyntax value)
+    // The value of an assignment. A local gives the value of its declaration in the same member,
+    // also through more locals. A value that is only a name can be a method group. Each other
+    // value can be a function also, as a cast or a conditional of a method group is.
+    private static (ExpressionSyntax Value, bool OnlyAName) ValueOf(SyntaxNode code, ExpressionSyntax value)
     {
         HashSet<string> seen = [];
 
@@ -160,18 +219,7 @@ internal static class MemberBuilds
             value = declared;
         }
 
-        // A call can return a function that it built.
-        if (value.DescendantNodesAndSelf()
-            .Any(static node =>
-                node is AnonymousFunctionExpressionSyntax or InvocationExpressionSyntax
-                || (node is BaseObjectCreationExpressionSyntax { ArgumentList.Arguments: var arguments }
-                    && arguments.Any(static argument =>
-                        argument.Expression is SimpleNameSyntax or MemberAccessExpressionSyntax))))
-        {
-            return (value, false);
-        }
-
-        return value is SimpleNameSyntax or MemberAccessExpressionSyntax ? (value, true) : null;
+        return (value, value is SimpleNameSyntax or MemberAccessExpressionSyntax);
     }
 
     // The assignments of one type declaration, by the name of the member. A value that is only a

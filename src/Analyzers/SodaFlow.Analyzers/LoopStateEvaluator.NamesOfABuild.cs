@@ -479,16 +479,48 @@ internal sealed partial class LoopStateEvaluator
             writes.Add(WriteOf(assignment));
         }
 
+        foreach (ArgumentSyntax argument in code.DescendantNodes().OfType<ArgumentSyntax>())
+        {
+            // The name comes first, because it needs no binding.
+            if (!GivesAValue(argument.Expression)
+                || Unwrapped(argument.Expression) switch
+                {
+                    IdentifierNameSyntax name => name,
+                    MemberAccessExpressionSyntax
+                    {
+                        Expression: ThisExpressionSyntax or BaseExpressionSyntax, Name: IdentifierNameSyntax name
+                    } => name,
+                    _ => null
+                } is not { } written
+                || written.Identifier.ValueText != member.Name
+                || !SymbolEqualityComparer.Default.Equals(
+                    x: this.region.SymbolOf(argument.Expression)?.OriginalDefinition,
+                    y: member.OriginalDefinition))
+            {
+                continue;
+            }
+
+            inAFunction |= FunctionOf(argument) != code;
+
+            writes.AddRange(this.WritesOf(argument.Expression));
+        }
+
         if (!inAFunction && this.LastWriteBefore(writes: writes, at: at, noCallBetween: true) is { } last)
         {
             return [last];
         }
 
-        return MemberBuilds.Of(
-            member: member,
-            type: at.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type
-                ? this.region.ModelFor(type).GetDeclaredSymbol(type) as ITypeSymbol
-                : null);
+        // A value of an out argument comes from the code of the callee, which MemberBuilds does not read.
+        return
+        [
+            .. MemberBuilds.Of(
+                    member: member,
+                    type: at.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type
+                        ? this.region.ModelFor(type).GetDeclaredSymbol(type) as ITypeSymbol
+                        : null)
+                .Concat(writes.Select(static write => write.Value).OfType<ExpressionSyntax>())
+                .Distinct()
+        ];
     }
 
     // A write of an assignment, with the value that it gives and its statement. A `+=` adds a

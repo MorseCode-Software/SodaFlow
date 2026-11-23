@@ -59972,6 +59972,78 @@ public static class Shapes
     public static Cell<int> Ab396LazyOfAnOutLocalOfAStaticMethod() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab396OutOfAStatic().SetAndRead(l.Map(v => v))));
 
+    // S14513. A constructor gives a delegate member a plain function and then a method group by a deconstruction assignment, and builds a lazy value with it. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6CsBuildOfAMemberOfADeconstructionAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6CsSMemberOfADeconstructionAssignment().SetAndRead(l.Map(v => v))));
+
+    // S14514. A constructor gives a delegate member a plain function and then a method group through an out argument, and builds a lazy value with it. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6CsBuildOfAMemberOfAnOutArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6CsSMemberOfAnOutArgument().SetAndRead(l.Map(v => v))));
+
+    // S14515. A constructor gives a delegate member a method group with a cast. A method builds a lazy value with the member, and a third method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6CsMethodBuildOfAMemberOfACast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSMethodMemberOfACast m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14516. A constructor gives a delegate member a method group with a conditional. A method builds a lazy value with the member, and a third method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6CsMethodBuildOfAMemberOfAConditional() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSMethodMemberOfAConditional m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14517. A constructor gives a delegate member a method group by a deconstruction assignment. A method builds a lazy value with the member, and a third method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6CsMethodBuildOfAMemberOfADeconstruction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSMethodMemberOfADeconstruction m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14518. A constructor builds a Lazy with a cast of a method group of the object. The method samples a member. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6SmpCtorLazyOfACastMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpB1().SetAndRead(l.Map(v => v))); });
+
+    // S14519. A constructor builds a Lazy with a conditional of two method groups of the object. Both methods sample a member. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6SmpCtorLazyOfAConditionalMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpB2().SetAndRead(l.Map(v => v))); });
+
+    // S14520. A constructor builds a Lazy with a method group in parentheses. The method samples a member. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6SmpCtorLazyOfAParenthesizedMethodGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpB3().SetAndRead(l.Map(v => v))); });
+
+    // S14521. A constructor builds a Lazy into a member with a deconstruction. The function samples a member. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6SmpCtorLazyBuiltByADeconstruction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpB4().SetAndRead(l.Map(v => v))); });
+
+    // S14522. A field initializer builds a Lazy whose function samples a static field. The block makes the object, sets the static field pending, and calls a method that reads the value.
+    public static Cell<int> R6SmpFieldInitializerLazyReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpB5 m = new(); R6SmpS.B5 = l.Map(v => v); int r = m.Read(); R6SmpS.B5 = Plain; return S.Hold(r); });
+
+    // S14523. A property initializer builds a map whose function samples a static field. The block makes the object, sets the static field pending, and samples the map.
+    public static Cell<int> R6SmpPropertyInitializerMapReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpB6 m = new(); R6SmpS.B6 = l.Map(v => v); int r = m.Map.Sample(); R6SmpS.B6 = Plain; return S.Hold(r); });
+
+    // S14524. A constructor builds a map into a member with Interlocked.Exchange. The function samples a member. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> R6SmpCtorMapBuiltByInterlockedExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpB7().SetAndRead(l.Map(v => v))); });
+
+    // S14525. A constructor gives a delegate member a cast of a method group. A method builds a Lazy with the member. A third method sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> R6SmpMethodLazyOfAMemberSetByACast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpB9 m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14526. A constructor gives a delegate member a conditional of two functions. A method builds a Lazy with the member. A third method sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> R6SmpMethodLazyOfAMemberSetByAConditional() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpB10 m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14527. A constructor gives a delegate member a method group with a deconstruction, then builds a Lazy with the member. A method sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> R6SmpCtorLazyOfAMemberSetByADeconstruction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpB11().SetAndRead(l.Map(v => v))); });
+
+    // S14528. A constructor builds a map into a member with Interlocked.CompareExchange. The function samples a member. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> Ab397MapBuiltByCompareExchange() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab397CompareExchange().SetAndRead(l.Map(v => v))));
+
+    // S14529. Control: a constructor builds a Lazy with a cast of a method group that does not sample. A method sets a member to a pending cell and reads the value.
+    public static Cell<int> Ab397LazyOfACastMethodGroupThatDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab397PlainCast().SetAndRead(l.Map(v => v))));
+
+    // S14530. A constructor gives a delegate member a plain function, and then a method group through an out argument in a branch, and builds a lazy value with it. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab397BuildOfAMemberOfAnOutArgumentInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab397OutInABranch().SetAndRead(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -111330,6 +111402,76 @@ public static class Shapes
         private static void Ab396Give(Func<int> from, out Func<int> to) => to = from;
 
         private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab397OutInABranch
+    {
+        private readonly Lazy<int> value;
+
+        private Func<int> factory;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab397OutInABranch()
+        {
+            this.factory = this.Zero;
+
+            if (!Never)
+            {
+                R6CsGive(out this.factory, this.Read);
+            }
+
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+
+        private int Zero() => 0;
+    }
+
+    public sealed class Ab397CompareExchange
+    {
+        private Cell<int> map = Cell.Constant(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab397CompareExchange() =>
+            Interlocked.CompareExchange(
+                location1: ref this.map,
+                value: Cell.Constant(1).Map(v => v + this.share.Sample()),
+                comparand: this.map);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+    }
+
+    public sealed class Ab397PlainCast
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab397PlainCast() => this.value = new Lazy<int>((Func<int>)this.Zero);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Zero() => 0;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
