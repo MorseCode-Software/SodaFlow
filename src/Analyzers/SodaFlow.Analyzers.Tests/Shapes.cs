@@ -61280,6 +61280,30 @@ public static class Shapes
     public static Cell<int> Ab401TwoReadsInOneTurnOfALoop() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int>[] cells = new Cell<int>[2]; for (int i = 0; i < 2; i++) { cells[i] = Plain.Map(v => v + c.Sample()); } int x = 0; foreach (int _ in new[] { 0 }) { x += cells[0].Sample(); c = l.Map(v => v); x += cells[1].Sample(); } return S.Hold(x); });
 
+    // S14847. A Lazy samples a captured local. The block reads the value, sets the local pending, and reads the value again. The Lazy gives the value of the first read.
+    public static Cell<int> R6SmpLazyReadAgainAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Lazy<int> z = new(() => c.Sample()); int x = z.Value; c = l.Map(v => v); return S.Hold(z.Value + x); });
+
+    // S14848. The same with a static field that the function samples.
+    public static Cell<int> R6SmpLazyOfAStaticReadAgainAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.K6 = Plain; Lazy<int> z = new(() => R6SmpS.K6.Sample()); int x = z.Value; R6SmpS.K6 = l.Map(v => v); int y = z.Value; R6SmpS.K6 = Plain; return S.Hold(x + y); });
+
+    // S14849. An object builds a Lazy in its constructor. A method reads the value, sets the member that the function samples to a pending cell, and reads the value again.
+    public static Cell<int> R6SmpCtorLazyReadAgainAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpK7().ReadSetAndReadAgain(l.Map(v => v))); });
+
+    // S14850. Two Lazy locals get one delegate local that samples a captured local. The block reads the first, sets the captured local pending, and reads the second, which runs the function then.
+    public static Cell<int> Ab402SecondLazyOfOneDelegateAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Func<int> f = () => c.Sample(); Lazy<int> a = new(f); Lazy<int> b = new(f); int x = a.Value; c = l.Map(v => v); return S.Hold(b.Value + x); });
+
+    // S14851. A Lazy local gets a new Lazy of the same delegate after the first read. The block sets the captured local pending and reads the new Lazy, which runs the function then.
+    public static Cell<int> Ab402NewLazyOfTheSameDelegateAfterTheFirstRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Func<int> f = () => c.Sample(); Lazy<int> z = new(f); int x = z.Value; z = new(f); c = l.Map(v => v); return S.Hold(z.Value + x); });
+
+    // S14852. The block reads the value of a Lazy in a branch that does not run, sets the captured local pending, and reads the value, which runs the function then.
+    public static Cell<int> Ab402FirstReadInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Lazy<int> z = new(() => c.Sample()); int n = Kept.Count - Kept.Count; int x = 0; if (n > 0) { x = z.Value; } c = l.Map(v => v); return S.Hold(z.Value + x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

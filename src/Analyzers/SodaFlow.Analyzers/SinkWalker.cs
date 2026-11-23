@@ -5110,6 +5110,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         {
             this.evaluator.Wait(node);
         }
+        else if (SodaFlowSymbols.IsLazyValue(property))
+        {
+            this.ReadLazyValue(node);
+        }
         else
         {
             this.Report(this.evaluator.Follow(node));

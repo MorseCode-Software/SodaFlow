@@ -586,7 +586,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   `SystemClockTimerSystem` calls its `now` function.
   `Debounce` reads the `Time` of its timer system, and calls its `At`, when you call it.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it, the
-  function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value`, and the function
+  function of a `Lazy<T>` or a `ThreadLocal<T>` where something reads its `Value` (a `Lazy<T>` runs
+  it at the first read only, as a cell does: see the limits below), and the function
   of a `Task` that you create with `new` where `RunSynchronously` runs it. The `Result` of such a
   task, and `GetResult` of its awaiter, have the value that the function returns, however the task
   runs. A query expression over a type whose methods run their function in the call, such as
@@ -770,6 +771,9 @@ careful side, so it can report a read that does not throw:
 - Where one call builds two or more cells, a first read counts only for the name that the code
   reads through, and only where the read always runs, outside a loop. A read of the same cell
   through a different name, such as a local that got `cells[0]`, runs the function again.
+- The `Value` of a `Lazy<T>` runs no function where an earlier read of `Value` through the same
+  local, parameter, or field of the object always ran before it in the same method. Each other
+  read runs the function again, also a read through a second name of the same `Lazy<T>`.
 - The coalesce function of a sink runs only when two sends go into the sink in one transaction. The
   analyzer counts the sends that are statements of the block itself, with no `return` or `goto`
   before them: one such send does not run the function, and two or more fire only what it returns.

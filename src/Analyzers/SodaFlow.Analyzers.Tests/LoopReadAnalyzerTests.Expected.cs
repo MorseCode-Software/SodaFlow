@@ -8696,6 +8696,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab401LocalOfTheSecondMapAfterTheFirstRead"] = ["SF1001"],
             ["Ab401ElementGetsTheSecondMapAfterTheFirstRead"] = ["SF1001"],
             ["Ab401LoopCallsAHelperThatBuildsTheMap"] = ["SF1001"],
-            ["Ab401TwoReadsInOneTurnOfALoop"] = ["SF1001"]
+            ["Ab401TwoReadsInOneTurnOfALoop"] = ["SF1001"],
+            ["Ab402SecondLazyOfOneDelegateAfterTheSet"] = ["SF1001"],
+            ["Ab402NewLazyOfTheSameDelegateAfterTheFirstRead"] = ["SF1001"],
+            ["Ab402FirstReadInABranchThatDoesNotRun"] = ["SF1001"]
         };
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -25,6 +26,9 @@ internal sealed partial class SinkWalker
 
     // Each build of two or more cells with a record of a read through a name.
     private List<ComputedValue>? runsAtNames;
+
+    // The names through which a read of the Value of a Lazy ran each function of the Lazy.
+    private Dictionary<FunctionValue, List<ReadKey>>? lazyRuns;
 
     private bool AlwaysRunsAt(SyntaxNode place, out SyntaxNode? turn) =>
         this.AlwaysRunsAt(
@@ -93,7 +97,7 @@ internal sealed partial class SinkWalker
     // different cell.
     private void ForgetsTheRunsThrough(ExpressionSyntax written)
     {
-        if (this.runsAtNames is not { Count: > 0 })
+        if (this.runsAtNames is not { Count: > 0 } && this.lazyRuns is not { Count: > 0 })
         {
             return;
         }
@@ -123,6 +127,16 @@ internal sealed partial class SinkWalker
         foreach (ComputedValue cell in this.runsAtNames ?? [])
         {
             cell.Forgets(name);
+        }
+
+        if (this.lazyRuns == null)
+        {
+            return;
+        }
+
+        foreach (List<ReadKey> keys in this.lazyRuns.Values)
+        {
+            keys.RemoveAll(key => SymbolEqualityComparer.Default.Equals(x: key.Name, y: name));
         }
     }
 
@@ -160,6 +174,66 @@ internal sealed partial class SinkWalker
         && this.HasAFirstTurn(loop)
         && this.AlwaysRunsAt(
             place: loop,
+            forAFirstRead: true,
+            forACall: false,
+            forARun: false,
+            turn: out _,
+            after: out TryStatementSyntax? after)
+        && after == null;
+
+    /// <summary>
+    ///     The read of the <c>Value</c> of a <c>Lazy</c>. The <c>Lazy</c> runs
+    ///     its functions at the first read only, and keeps the value. Thus, a
+    ///     read through a name runs nothing when an earlier read through that
+    ///     name ran each function, and that read always runs.
+    /// </summary>
+    private void ReadLazyValue(SyntaxNode node)
+    {
+        ReadKey? key = null;
+        ImmutableArray<FunctionValue> functions = ImmutableArray<FunctionValue>.Empty;
+
+        if (node is MemberAccessExpressionSyntax { Expression: var owner }
+            && this.AlwaysRunsForAFirstRead(node)
+            && this.evaluator.ReadKeyOf(owner) is { } name)
+        {
+            key = name;
+            functions = this.evaluator.WithTheBuildOfAMember(heldIn: owner, state: this.evaluator.Eval(owner)).Functions;
+
+            if (!functions.IsEmpty && functions.All(function => this.HasRunAsALazy(function: function, key: name)))
+            {
+                return;
+            }
+        }
+
+        this.Report(this.evaluator.Follow(node));
+
+        if (key == null)
+        {
+            return;
+        }
+
+        foreach (FunctionValue function in functions)
+        {
+            this.lazyRuns ??= [];
+
+            if (!this.lazyRuns.TryGetValue(key: function, value: out List<ReadKey>? keys))
+            {
+                keys = [];
+                this.lazyRuns[function] = keys;
+            }
+
+            keys.Add(key);
+        }
+    }
+
+    private bool HasRunAsALazy(FunctionValue function, ReadKey key) =>
+        this.lazyRuns?.TryGetValue(key: function, value: out List<ReadKey>? keys) == true && keys.Exists(key.IsTheSameAs);
+
+    // True when a read always runs before the code after it, with no try block or loop between.
+    private bool AlwaysRunsForAFirstRead(SyntaxNode read) =>
+        WhereItAlwaysRuns(expression: read, constants: null) is { } place
+        && this.AlwaysRunsAt(
+            place: place,
             forAFirstRead: true,
             forACall: false,
             forARun: false,
