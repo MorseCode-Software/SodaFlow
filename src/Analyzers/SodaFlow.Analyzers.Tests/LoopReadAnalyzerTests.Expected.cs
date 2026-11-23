@@ -8519,6 +8519,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab371FirstReadAfterABreakInADefaultOnlySection"] = ["SF1001"],
             ["Ab371FirstReadInALabeledStatementAfterAGoto"] = ["SF1001"],
             ["Ab371FirstReadInTheOneCaseSectionOfASwitch"] = ["SF1001"],
-            ["Ab371FirstReadInADefaultSectionAfterACaseThatRuns"] = ["SF1001"]
+            ["Ab371FirstReadInADefaultSectionAfterACaseThatRuns"] = ["SF1001"],
+            ["Ab372LabeledSampleAfterAGotoToItRuns"] = ["SF1001"],
+            ["Ab372SampleAfterAReturnInABranchRuns"] = ["SF1001"]
         };
 }

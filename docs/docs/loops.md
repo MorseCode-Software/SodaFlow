@@ -699,9 +699,11 @@ careful side, so it can report a read that does not throw:
   the constant `false`, and the second turn of a `do` whose condition is the constant `false`. A
   `switch` statement on a constant skips each section that the compiler finds the constant cannot
   select. A `switch` expression on a constant skips each arm whose constant pattern is a different
-  value, and each arm after the first one whose constant pattern is that value. It still reads the
-  code after an `if` on a constant whose branch always returns, the body of a `foreach` over an
-  empty array, and a lambda that the code calls only in a branch that does not run.
+  value, and each arm after the first one whose constant pattern is that value. A statement of a
+  block that comes after a `return`, a `yield break`, a `goto`, a `break`, a `continue`, or a
+  `throw`, and that the compiler finds no path to, is not read. It still reads the code after an
+  `if` on a constant whose branch always returns, the body of a `foreach` over an empty array, and a
+  lambda that the code calls only in a branch that does not run.
 - A first read of a cell that the analyzer cannot be sure runs leaves the cell for the next read,
   which then runs the function again. That is a read in a branch of an `if` or an arm of a `?:`
   whose condition is not a constant, a read in a `switch` section, a read in a labeled statement

@@ -6,10 +6,72 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace SodaFlow.Analyzers;
 
-// The part of the walker that does not read code that a constant rules out. The compiler gives the
-// value of the constant. Thus, the walk skips only code that cannot run.
+// The part of the walker that does not read code that a constant rules out, or a statement that no
+// path gets to. The compiler gives the value of the constant and the paths. Thus, the walk skips only
+// code that cannot run.
 internal sealed partial class SinkWalker
 {
+    /// <summary>
+    ///     For each statement of a block, true when the statement comes after a
+    ///     jump and the compiler finds no path to its start. Null when no
+    ///     statement comes after a jump. Thus, the walk asks the compiler only
+    ///     about a statement after a jump.
+    /// </summary>
+    /// <remarks>
+    ///     A jump is a <c>return</c>, a <c>yield break</c>, a <c>goto</c>, a
+    ///     <c>break</c>, a <c>continue</c>, or a <c>throw</c>. The walk reads no
+    ///     local function where it is. Thus, it asks the compiler nothing about
+    ///     a local function.
+    /// </remarks>
+    private bool[]? StatementsThatCannotRun(SyntaxList<StatementSyntax> statements)
+    {
+        bool[]? cannotRun = null;
+        bool afterAJump = false;
+
+        for (int at = 0; at < statements.Count; at++)
+        {
+            StatementSyntax statement = statements[at];
+
+            if (afterAJump && statement is not LocalFunctionStatementSyntax)
+            {
+                // The compiler finds no path to the start of a labeled statement that only a goto gets to.
+                // Thus, the walk asks about the statement in the label.
+                StatementSyntax labeled = statement;
+
+                while (labeled is LabeledStatementSyntax label)
+                {
+                    labeled = label.Statement;
+                }
+
+                afterAJump =
+                    this.region.ModelFor(labeled).AnalyzeControlFlow(labeled) is { StartPointIsReachable: false };
+
+                if (afterAJump)
+                {
+                    (cannotRun ??= new bool[statements.Count])[at] = true;
+                }
+            }
+
+            afterAJump = afterAJump
+                         || statement
+                             is ReturnStatementSyntax
+                             or GotoStatementSyntax
+                             or BreakStatementSyntax
+                             or ContinueStatementSyntax
+                             or ThrowStatementSyntax
+                             or YieldStatementSyntax { RawKind: (int)SyntaxKind.YieldBreakStatement };
+        }
+
+        return cannotRun;
+    }
+
+    private void VisitIfItCanRun(StatementSyntax statement, bool cannotRun)
+    {
+        if (!cannotRun)
+        {
+            this.Visit(statement);
+        }
+    }
     // Each switch section that the constant value of its switch rules out.
     private HashSet<SwitchSectionSyntax>? ruledOut;
 

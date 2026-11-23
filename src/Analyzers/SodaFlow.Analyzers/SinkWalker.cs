@@ -982,10 +982,21 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     public override void VisitBlock(BlockSyntax node)
     {
         SyntaxList<StatementSyntax> statements = node.Statements;
+        bool[]? cannotRun = this.StatementsThatCannotRun(statements);
 
         if (!statements.Any(static statement => statement is LabeledStatementSyntax))
         {
-            base.VisitBlock(node);
+            if (cannotRun == null)
+            {
+                base.VisitBlock(node);
+
+                return;
+            }
+
+            for (int at = 0; at < statements.Count; at++)
+            {
+                this.VisitIfItCanRun(statement: statements[at], cannotRun: cannotRun[at]);
+            }
 
             return;
         }
@@ -1001,7 +1012,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
             if (last < 0)
             {
-                this.Visit(statements[first]);
+                this.VisitIfItCanRun(statement: statements[first], cannotRun: cannotRun?[first] == true);
                 first++;
 
                 continue;
@@ -1010,9 +1021,9 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             StatementSyntax[] turn = [.. statements.Skip(first).Take(last - first + 1)];
             int before = this.evaluator.ShapeOfWhatALoopLeaves(statements[first]);
 
-            foreach (StatementSyntax part in turn)
+            for (int at = first; at <= last; at++)
             {
-                this.Visit(part);
+                this.VisitIfItCanRun(statement: statements[at], cannotRun: cannotRun?[at] == true);
             }
 
             this.VisitTheSecondTurn(loop: node, body: statements[first], before: before, parts: turn);

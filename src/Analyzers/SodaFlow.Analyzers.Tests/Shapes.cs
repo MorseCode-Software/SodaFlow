@@ -60244,6 +60244,46 @@ public static class Shapes
     public static Cell<int> Ab371FirstReadInALabeledStatementThatAGotoRunsAgain() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); int n = 0; here: Kept.Add(m.Sample()); n++; if (n < 2) { goto here; } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
 
+    // S14581. A yield break ends an iterator, so the sample after it never runs, also for ToList.
+    public static Cell<int> R6CsIteratorCodeAfterAYieldBreakDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().ToList()); return S.Hold(0); IEnumerable<int> Items() { yield return 1; yield break; Kept.Add(l.Sample()); } });
+
+    // S14582. A return ends a local function, so the sample after it never runs.
+    public static Cell<int> R6CsLocalFunctionCodeAfterAReturnDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Get()); return S.Hold(0); int Get() { return 0; Kept.Add(l.Sample()); } });
+
+    // S14583. A goto jumps over a sample in the block to a label after it.
+    public static Cell<int> R6CsGotoOverASampleSkipsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { goto done; Kept.Add(l.Sample()); done: return S.Hold(0); });
+
+    // S14584. A control: a labeled sample comes after a goto to its label. Thus, the sample runs.
+    public static Cell<int> Ab372LabeledSampleAfterAGotoToItRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { goto there; there: Kept.Add(l.Sample()); return S.Hold(0); });
+
+    // S14585. A break ends the loop, so the sample after it in the body never runs.
+    public static Cell<int> Ab372CodeAfterABreakDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 1; i++) { break; Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S14586. A throw ends the try block, so the sample after it never runs. The catch clause gets the exception.
+    public static Cell<int> Ab372CodeAfterAThrowDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new InvalidOperationException(); Kept.Add(l.Sample()); } catch (InvalidOperationException) { } return S.Hold(0); });
+
+    // S14587. A return ends a local function. The second statement after the return also never runs, and it samples.
+    public static Cell<int> Ab372SecondStatementAfterAReturnDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Get()); return S.Hold(0); int Get() { return 0; Kept.Add(1); Kept.Add(l.Sample()); } });
+
+    // S14588. A control: a return in an if that does not run is a jump only in that branch. The sample after the if runs.
+    public static Cell<int> Ab372SampleAfterAReturnInABranchRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Get()); return S.Hold(0); int Get() { if (Kept.Count < 0) { return 0; } Kept.Add(l.Sample()); return 1; } });
+
+    // S14589. A continue starts the next turn of the loop, so the sample after it in the body never runs.
+    public static Cell<int> Ab372CodeAfterAContinueDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 1; i++) { continue; Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S14590. A goto back to a label makes a loop. In each turn of it, a goto jumps over the sample, so the sample never runs.
+    public static Cell<int> Ab372CodeAfterAGotoInTheTurnOfAGotoLoopDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = 0; again: n++; if (n > 3) { goto done; } goto mid; Kept.Add(l.Sample()); mid: if (n < 2) { goto again; } done: return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
