@@ -60664,6 +60664,30 @@ public static class Shapes
     public static Cell<int> Ab390QueryWithAWhereAndASelect() =>
         Cell.Loop<int>().WithoutCaptures(l => { int n = from v in new Ab390Box(l.Map(v => v)) where v > 0 select v + 1; Kept.Add(n); return S.Hold(0); });
 
+    // S14686. A partial method has a body in its second part, which samples its argument.
+    public static Cell<int> R6CsPartialMethodWithABodyReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new R6CsPartial(Plain).Read(l.Map(v => v))); return S.Hold(0); });
+
+    // S14687. A partial void method with no body is removed with its arguments, so the sample in its argument never runs.
+    public static Cell<int> R6CsPartialMethodWithNoBodyIsRemoved() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new R6CsPartial(l.Map(v => v)).LogNow(); return S.Hold(0); });
+
+    // S14688. A partial property has a getter in its second part, which samples a pending member.
+    public static Cell<int> R6CsPartialPropertyGetterReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new R6CsPartial(l.Map(v => v)).Level); return S.Hold(0); });
+
+    // S14689. A partial property keeps nothing: its getter gives the plain cell. The block sets it to a pending cell and samples it.
+    public static Cell<int> R6CsPartialPropertyThatKeepsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsPartial p = new(Plain) { Share = l.Map(v => v) }; Kept.Add(p.Share.Sample()); return S.Hold(0); });
+
+    // S14690. Control: a partial method has a body in its second part, which does not sample its argument.
+    public static Cell<int> Ab391PartialMethodWithABodyThatDoesNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Ab391Parts(Plain).Twice(l.Map(v => v))); return S.Hold(0); });
+
+    // S14691. A partial void method with a body is kept with its arguments, so the sample in its argument runs.
+    public static Cell<int> Ab391PartialVoidMethodWithABodyRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new Ab391Parts(l.Map(v => v)).LogNow(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112210,6 +112234,19 @@ public static class Shapes
         public Ab390Box Where(Func<int, bool> f) => this;
 
         public int Select(Func<int, int> f) => f(this.Share.Sample());
+    }
+
+    public sealed partial class Ab391Parts(Cell<int> share)
+    {
+        public partial int Twice(Cell<int> c);
+
+        public partial int Twice(Cell<int> c) => 2;
+
+        partial void Log(int n);
+
+        partial void Log(int n) => Kept.Add(n);
+
+        public void LogNow() => this.Log(share.Sample());
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

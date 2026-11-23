@@ -3796,7 +3796,7 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     private IReadOnlyList<IMethodSymbol> DefinitionsOf(InvocationExpressionSyntax invocation, IMethodSymbol method)
     {
-        IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+        IMethodSymbol definition = ImplementationPartOf((method.ReducedFrom ?? method).OriginalDefinition);
 
         // A static member of an interface has no body when it is abstract. A call through a type
         // parameter runs the member of the type argument that the call of this code gave.
@@ -4803,9 +4803,9 @@ internal sealed partial class LoopStateEvaluator
 
     /// <summary>The body of the getter of a property, when the getter has one.</summary>
     private static SyntaxNode? GetterOf(ISymbol definition) =>
-        definition.DeclaringSyntaxReferences
-            .Select(static reference =>
-                reference.GetSyntax() switch
+        DeclarationsOf(definition)
+            .Select(static declaration =>
+                declaration switch
                 {
                     PropertyDeclarationSyntax { ExpressionBody: { } arrow } => arrow.Expression,
                     PropertyDeclarationSyntax { AccessorList: { } accessors } =>

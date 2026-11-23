@@ -8582,6 +8582,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab389SampleGroupOfAMapRunsItsFunctionAtTheCall"] = ["SF1001"],
             ["R6CsQueryWithAnExtensionSelect"] = ["SF1004"],
             ["R6CsQueryWithAnInstanceSelect"] = ["SF1005"],
-            ["Ab390QueryWithAWhereAndASelect"] = ["SF1005"]
+            ["Ab390QueryWithAWhereAndASelect"] = ["SF1005"],
+            ["R6CsPartialMethodWithABodyReads"] = ["SF1004"],
+            ["R6CsPartialPropertyGetterReads"] = ["SF1005"],
+            ["Ab391PartialVoidMethodWithABodyRuns"] = ["SF1005"]
         };
 }

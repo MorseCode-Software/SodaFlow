@@ -1034,6 +1034,12 @@ internal sealed class SodaFlowSymbols
     /// </remarks>
     public bool IsRemovedFrom(SyntaxTree tree, IMethodSymbol method)
     {
+        // A partial method with no second part has no code, and the compiler removes each call of it.
+        if (method is { IsPartialDefinition: true, PartialImplementationPart: null })
+        {
+            return true;
+        }
+
         if (!method.IsConditional)
         {
             return false;

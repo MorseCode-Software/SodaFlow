@@ -2584,14 +2584,14 @@ internal sealed partial class LoopStateEvaluator
         && (property.IsVirtual || property.IsAbstract || property.IsOverride)
         && this.region.Symbols.Overrides.ReplacesWithCode(property);
 
-    // True for a field, or for a property of which each declaration has no accessor with a body.
+    // True for a field, or for a property of which each declaration has no accessor with a body. A
+    // partial property has its code in its second part, which DeclarationsOf finds.
     private static bool HasNoCode(ISymbol member) =>
         member is IFieldSymbol
         || (member is IPropertySymbol property
-            && property.DeclaringSyntaxReferences.All(static declared =>
-                declared.GetSyntax() is ParameterSyntax
-                    or PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: null }
-                || (declared.GetSyntax() is PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: { } list }
+            && DeclarationsOf(property).All(static declared =>
+                declared is ParameterSyntax or PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: null }
+                || (declared is PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: { } list }
                     && list.Accessors.All(static accessor => accessor.Body == null && accessor.ExpressionBody == null))));
 
     /// <summary>
