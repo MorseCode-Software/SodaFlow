@@ -8274,6 +8274,20 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab357AwaitOfATaskCompletionSourceAfterTrySetException"] = ["SF1001"],
             ["Ab357GetResultOfATaskCompletionSourceAfterSetExceptionOfAList"] = ["SF1001"],
             ["Ab357AwaitOfValueTaskFromException"] = ["SF1001"],
-            ["Ab357ResultOfATaskCompletionSourceIsTheCellOfSetResult"] = ["SF1001"]
+            ["Ab357ResultOfATaskCompletionSourceIsTheCellOfSetResult"] = ["SF1001"],
+            ["R6ExcWaitOfAFaultedTask"] = ["SF1001"],
+            ["R6ExcResultOfAFaultedTask"] = ["SF1001"],
+            ["R6ExcWaitOfAnAsyncMethod"] = ["SF1001"],
+            ["R6ExcResultOfAnAsyncMethod"] = ["SF1001"],
+            ["R6ExcWaitOfTaskRun"] = ["SF1001"],
+            ["R6ExcWaitOfFromException"] = ["SF1001"],
+            ["R6ExcExceptionOfAFaultedTask"] = ["SF1001"],
+            ["R6ExcParallelInvoke"] = ["SF1001"],
+            ["R6LimCatchOfAggregateExceptionAroundWait"] = ["SF1001"],
+            ["Ag102ParallelInvokeWithOptions"] = ["SF1001"],
+            ["Ag102WaitOfTaskRunOfAnAsyncLambda"] = ["SF1001"],
+            ["Ag102InnerExceptionsOfTheExceptionOfATask"] = ["SF1001"],
+            ["Ag102WaitWithATimeLimit"] = ["SF1001"],
+            ["Ag102ConditionalResult"] = ["SF1001"]
         };
 }

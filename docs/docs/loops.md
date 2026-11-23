@@ -327,26 +327,29 @@ The analyzer follows a value made from the placeholder through the code of your 
   send to that clause. That includes a lambda that a method of the platform, such as
   `List<T>.ForEach`, runs in the call. `ExceptionDispatchInfo.Throw` of an object, and `Throw` of
   `ExceptionDispatchInfo.Capture` of an object, count as a `throw` of that object. An `async`
-  method, local function, or lambda puts the object into its task instead, so the clause gets it only where the code waits for that task: around an
-  `await` of the task, also of a local that holds it, in parentheses, or through `ConfigureAwait`,
-  `AsTask`, `WaitAsync`, `WhenAll`, or the task that an `await` of `WhenAny` gives, around
-  `GetResult` of its awaiter, around an `await foreach` over the sequence that an async iterator
-  gives, or around an `await using` whose `DisposeAsync` throws it. An `await` of `WhenAny` itself
-  gives the task and throws nothing. A task that `RunSynchronously` runs keeps the object as well.
-  The runtime throws a `TypeInitializationException` in place of an object that a static
-  constructor throws, and a `TargetInvocationException` in place of one that a method throws through
-  `MethodInfo.Invoke` or a constructor through `Activator.CreateInstance` or `new T()` of a type
-  parameter. The `InnerException` of
-  such an exception has the object, and so does the `InnerException` of an exception of the platform
-  that you create with an inner exception, and each of the `InnerExceptions` of an
-  `AggregateException`, also through `First` or another LINQ method that gives one element.
-  `Flatten` and `GetBaseException` of such an exception have the object too. `GetResult` of the
-  awaiter of a task throws the object that a function of the task threw. An `await` of the task of
-  `Task.FromException` or `ValueTask.FromException`, and of the task of a `TaskCompletionSource`
-  after `SetException` or `TrySetException`, throws that object too, and so does `GetResult` of
-  its awaiter. The filter of the `catch` clause gets the object too, and a local that the filter
-  sets keeps it. The analyzer reports no read in a filter, because an exception there is lost and
-  makes the filter false.
+  method, local function, or lambda puts the object into its task instead, so the clause gets it
+  only where the code waits for that task: around an `await` of the task, also of a local that holds
+  it, in parentheses, or through `ConfigureAwait`, `AsTask`, `WaitAsync`, `WhenAll`, or the task
+  that an `await` of `WhenAny` gives, around `GetResult` of its awaiter, around an `await foreach`
+  over the sequence that an async iterator gives, or around an `await using` whose `DisposeAsync`
+  throws it. An `await` of `WhenAny` itself gives the task and throws nothing. A task that
+  `RunSynchronously` runs keeps the object as well. The runtime throws a
+  `TypeInitializationException` in place of an object that a static constructor throws, and a
+  `TargetInvocationException` in place of one that a method throws through `MethodInfo.Invoke` or a
+  constructor through `Activator.CreateInstance` or `new T()` of a type parameter. The
+  `InnerException` of such an exception has the object, and so does the `InnerException` of an
+  exception of the platform that you create with an inner exception, and each of the
+  `InnerExceptions` of an `AggregateException`, also through `First` or another LINQ method that
+  gives one element. `Flatten` and `GetBaseException` of such an exception have the object too.
+  `GetResult` of the awaiter of a task throws the object that a function of the task threw. An
+  `await` of the task of `Task.FromException` or `ValueTask.FromException`, and of the task of a
+  `TaskCompletionSource` after `SetException` or `TrySetException`, throws that object too, and so
+  does `GetResult` of its awaiter. `Wait` and `Result` of such a task throw an `AggregateException`
+  whose `InnerException` and `InnerExceptions` have the object, and so do `Wait` of a task from
+  `Task.Run` whose function throws it and `Parallel.Invoke` of such a function. The `Exception` of
+  the task has the object the same way. The filter of the `catch` clause gets the object too, and a
+  local that the filter sets keeps it. The analyzer reports no read in a filter, because an
+  exception there is lost and makes the filter false.
 - Collections, arrays, and dictionaries. A list, an array, or a span that you write as a literal
   keeps each element apart, also where the literal spreads a second such local, so `cells[0]`,
   `cells[^1]`, `cells.ElementAt(1)`, and each element of a list pattern in an `is` or a `switch` on
@@ -799,8 +802,8 @@ Some reads that throw it does not see:
   `new Lazy<int>(this.factory)`, is seen.
 - An object that a lambda of a LINQ query throws, for a `catch` around the code that enumerates
   the query. The analyzer does not give the object to that clause.
-- The `AggregateException` that `Wait` or `Result` of a task throws when a function of the task
-  threw. The analyzer gives a `catch` of it no object.
+- The objects of a task for a `catch` around `Task.WaitAll`, `Task.WaitAny`, or a wait of a task
+  from `Task.Factory.StartNew`. The analyzer gives such a `catch` no object.
 - A write through a `ref` local of a conditional `ref` whose condition is not a constant, or through
   such a conditional `ref` that a method or a local function returns. The analyzer gives the value to
   neither location. Where it gave the value to both, a read of the location that the condition

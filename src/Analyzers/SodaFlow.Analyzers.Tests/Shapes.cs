@@ -59128,6 +59128,74 @@ public static class Shapes
     public static Cell<int> Ab357ResultOfATaskCompletionSourceIsTheCellOfSetResult() =>
         Cell.Loop<int>().WithoutCaptures(l => { TaskCompletionSource<Cell<int>> s = new(); s.SetResult(l.Map(v => v)); Kept.Add(s.Task.GetAwaiter().GetResult().Sample()); return S.Hold(0); });
 
+    // S14302. AG102. RunSynchronously runs a task whose function throws, and Wait throws an AggregateException. The catch samples the object in its InnerException.
+    public static Cell<int> R6ExcWaitOfAFaultedTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task t = new(() => throw new R4CsFault(l.Map(v => v))); t.RunSynchronously(); try { t.Wait(); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14303. AG102. Result of a faulted task of a value throws an AggregateException. The catch samples the object in its first inner exception.
+    public static Cell<int> R6ExcResultOfAFaultedTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<int> t = new(() => throw new R4CsFault(l.Map(v => v))); t.RunSynchronously(); try { Kept.Add(t.Result); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerExceptions[0]).Share.Sample()); } return S.Hold(0); });
+
+    // S14304. AG102. Wait of the task of an async method that throws throws an AggregateException. The catch samples the object in its InnerException.
+    public static Cell<int> R6ExcWaitOfAnAsyncMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { R6ExcThrowInItsTask(l.Map(v => v)).Wait(); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14305. AG102. Result of the task of an async method that throws. The catch samples the object in the InnerException of the AggregateException.
+    public static Cell<int> R6ExcResultOfAnAsyncMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(R6ExcIntInItsTask(l.Map(v => v)).Result); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14306. AG102. Wait of Task.Run of a lambda that throws. The catch samples the object in the InnerException of the AggregateException.
+    public static Cell<int> R6ExcWaitOfTaskRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); try { Task.Run(() => throw new R4CsFault(c)).Wait(); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14307. AG102. Wait of Task.FromException. The catch samples the object in the InnerException of the AggregateException.
+    public static Cell<int> R6ExcWaitOfFromException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Task.FromException(new R4CsFault(l.Map(v => v))).Wait(); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14308. The Exception of a faulted task that nothing waits for holds the object. The code samples it.
+    public static Cell<int> R6ExcExceptionOfAFaultedTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task t = new(() => throw new R4CsFault(l.Map(v => v))); t.RunSynchronously(); Kept.Add(((R4CsFault)t.Exception!.InnerException!).Share.Sample()); return S.Hold(0); });
+
+    // S14309. Parallel.Invoke runs a lambda that throws, and throws an AggregateException. The catch samples the object in its InnerException.
+    public static Cell<int> R6ExcParallelInvoke() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); try { Parallel.Invoke(() => throw new R4CsFault(c)); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14310. A try calls Wait of the task of an async method that throws. The catch of the AggregateException samples the pending member of its inner exception. The page names this as a limit.
+    public static Cell<int> R6LimCatchOfAggregateExceptionAroundWait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { R6LimThrowInItsTask(l.Map(v => v)).Wait(); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14311. Wait of the task of WhenAny waits for the first task and does not throw. Thus, the catch never runs.
+    public static Cell<int> Ag102WaitOfWhenAnyGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Task.WhenAny(R6ExcThrowInItsTask(l.Map(v => v))).Wait(); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14312. Parallel.Invoke with options runs a lambda that throws, and throws an AggregateException. The catch samples the object in its InnerException.
+    public static Cell<int> Ag102ParallelInvokeWithOptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); try { Parallel.Invoke(new ParallelOptions(), () => throw new R4CsFault(c)); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14313. Wait of Task.Run of an async lambda that throws after a complete await throws an AggregateException. The catch samples the object in its InnerException.
+    public static Cell<int> Ag102WaitOfTaskRunOfAnAsyncLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); try { Task.Run(async () => { await Task.CompletedTask; throw new R4CsFault(c); }).Wait(); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14314. The Exception of the task of an async method that throws holds the object in its InnerExceptions. The code samples it.
+    public static Cell<int> Ag102InnerExceptionsOfTheExceptionOfATask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task t = R6ExcThrowInItsTask(l.Map(v => v)); Kept.Add(((R4CsFault)t.Exception!.InnerExceptions[0]).Share.Sample()); return S.Hold(0); });
+
+    // S14315. Wait with a time limit of the task of an async method that throws throws an AggregateException. The catch samples the object in its InnerException.
+    public static Cell<int> Ag102WaitWithATimeLimit() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { R6ExcThrowInItsTask(l.Map(v => v)).Wait(1000); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14316. A read of Result of a task through a null-conditional access throws an AggregateException. The catch samples the object in its InnerException.
+    public static Cell<int> Ag102ConditionalResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<int>? t = R6ExcIntInItsTask(l.Map(v => v)); try { Kept.Add(t?.Result ?? 0); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14317. A property Result of the code on a class that is not a task reads nothing that throws. Thus, the catch never runs.
+    public static Cell<int> Ag102ResultOfTheCodeGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag102Holder h = new(R6ExcThrowInItsTask(l.Map(v => v))); try { Kept.Add(h.Result); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14318. A class of the code with the name Parallel has an Invoke that runs its action and catches each exception. Thus, the catch around the call never runs.
+    public static Cell<int> Ag102InvokeOfTheCodeGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = l.Map(v => v); try { Ag102Nest.Parallel.Invoke(() => throw new R4CsFault(c)); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109985,6 +110053,34 @@ public static class Shapes
         catch (R4CsFault e)
         {
             Kept.Add(e.Share.Sample());
+        }
+    }
+
+    // Helpers of the shapes of AG102.
+    public sealed class Ag102Holder
+    {
+        private readonly Task task;
+
+        public Ag102Holder(Task task) => this.task = task;
+
+        public int Result => this.task.IsCompleted ? 1 : 0;
+    }
+
+    public static class Ag102Nest
+    {
+        public static class Parallel
+        {
+            public static void Invoke(Action action)
+            {
+                try
+                {
+                    action();
+                }
+                catch (R4CsFault)
+                {
+                    Kept.Add(1);
+                }
+            }
         }
     }
 

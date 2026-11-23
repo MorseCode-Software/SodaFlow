@@ -25,32 +25,149 @@ internal sealed partial class LoopStateEvaluator
         }
 
         INamedTypeSymbol? type = this.region.TypeOfThePlatform(wrapper);
-        IPropertySymbol? inner = type == null ? null : InnerExceptionOf(type);
 
         return WithThrown(
             followed: followed,
             thrown: followed.Thrown
-                .Select(one => (
-                    one.Call,
-                    (ITypeSymbol?)type,
-                    type != null && inner != null
-                        ? LoopState.None.WithMembers(Construction.Of(type).With(member: inner, state: one.State))
-                        : LoopState.None))
+                .Select(one => (one.Call, (ITypeSymbol?)type, WrapperOf(type: type, state: one.State)))
                 .ToImmutableArray());
+    }
 
-        static IPropertySymbol? InnerExceptionOf(INamedTypeSymbol exception)
+    /// <summary>
+    ///     The state of a new exception of the given type whose
+    ///     <c>InnerException</c> is the object. The <c>InnerExceptions</c> of an
+    ///     <c>AggregateException</c> contain the object too.
+    /// </summary>
+    /// <param name="type">The type of the new exception.</param>
+    /// <param name="state">The state of the object.</param>
+    private static LoopState WrapperOf(INamedTypeSymbol? type, LoopState state)
+    {
+        Construction? members = type == null ? null : Construction.Of(type);
+
+        for (INamedTypeSymbol? owner = type; owner != null && members != null; owner = owner.BaseType)
         {
-            for (INamedTypeSymbol? owner = exception; owner != null; owner = owner.BaseType)
+            foreach (IPropertySymbol inner in owner.GetMembers().OfType<IPropertySymbol>())
             {
-                if (owner.GetMembers("InnerException").OfType<IPropertySymbol>().FirstOrDefault() is { } found)
-                {
-                    return found;
-                }
+                members =
+                    inner.Name switch
+                    {
+                        "InnerException" when !members.Has(inner) => members.With(member: inner, state: state),
+                        "InnerExceptions" when !members.Has(inner) => members.With(
+                            member: inner,
+                            state: state.AsContainer),
+                        _ => members
+                    };
             }
+        }
 
+        return members == null || !members.HasState ? LoopState.None : LoopState.None.WithMembers(members);
+    }
+
+    /// <summary>
+    ///     Each object that a read of a task throws again. They are the objects
+    ///     that the functions of the task threw, and the objects that the state
+    ///     of the task keeps. Empty for a task whose result is a task, which
+    ///     gives that second task.
+    /// </summary>
+    /// <param name="read">The read of the task, which throws the objects.</param>
+    /// <param name="task">The expression of the task.</param>
+    /// <param name="value">The type of the value of the read.</param>
+    private ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)> ObjectsOfATask(
+        SyntaxNode read,
+        ExpressionSyntax task,
+        ITypeSymbol value)
+    {
+        if (GivesATask(this.region.TypeOf(task)))
+        {
+            return ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)>.Empty;
+        }
+
+        LoopState state = this.Eval(task);
+
+        ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)> kept =
+            state.Faults.Select(fault => (read, fault.Type, fault.State)).ToImmutableArray();
+
+        return this.FollowLazy(access: read, written: task, lazy: state.AsOneOfItsElements, value: value)
+            is { Thrown.IsEmpty: false } followed
+            ? followed.Thrown.AddRange(kept)
+            : kept;
+    }
+
+    /// <summary>
+    ///     The objects that <c>Wait</c> of a task throws, each in a new
+    ///     <c>AggregateException</c>. Null for each other call.
+    /// </summary>
+    /// <remarks>
+    ///     A receiver that is not a task keeps no object of a task. Thus, the
+    ///     walk does not test the type of the receiver.
+    /// </remarks>
+    /// <param name="invocation">The call.</param>
+    /// <param name="method">The method of the call.</param>
+    private Followed? FaultOfAWait(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
+        invocation.Expression is MemberAccessExpressionSyntax { Expression: var task }
+        && this.ObjectsOfATask(read: invocation, task: task, value: method.ReturnType) is { IsEmpty: false } thrown
+            ? this.Wrapped(
+                followed: WithThrown(followed: Followed.Nothing, thrown: thrown),
+                wrapper: "System.AggregateException")
+            : null;
+
+    /// <summary>
+    ///     The objects that a read of <c>Result</c> of a task throws, each in a
+    ///     new <c>AggregateException</c>. Null for each other read.
+    /// </summary>
+    /// <param name="read">The read of the property.</param>
+    /// <param name="owner">The expression of the task.</param>
+    /// <param name="property">The property.</param>
+    public Followed? FaultOfAResult(SyntaxNode read, ExpressionSyntax owner, IPropertySymbol property) =>
+        property.Name == "Result"
+        && this.ObjectsOfATask(read: read, task: owner, value: property.Type) is { IsEmpty: false } thrown
+            ? this.Wrapped(
+                followed: WithThrown(followed: Followed.Nothing, thrown: thrown),
+                wrapper: "System.AggregateException")
+            : null;
+
+    /// <summary>
+    ///     The objects that <c>Parallel.Invoke</c> throws, each in a new
+    ///     <c>AggregateException</c>. They are the objects that the functions
+    ///     that it gets throw. The walk reads those functions for their objects
+    ///     only, because they can run on a different thread.
+    /// </summary>
+    /// <param name="invocation">The call.</param>
+    /// <param name="method">The method of the call.</param>
+    private Followed? FaultOfAParallelInvoke(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (method is not { IsStatic: true, ContainingType.Name: "Parallel" }
+            || method.ContainingType.ContainingNamespace?.ToDisplayString() != "System.Threading.Tasks")
+        {
             return null;
         }
+
+        ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)> thrown =
+            invocation.ArgumentList.Arguments
+                .SelectMany(argument =>
+                    this.ObjectsOfAFunction(function: argument.Expression, value: method.ReturnType)
+                        .Select(one => ((SyntaxNode)invocation, one.Type, one.State)))
+                .ToImmutableArray();
+
+        return thrown.IsEmpty
+            ? null
+            : this.Wrapped(
+                followed: WithThrown(followed: Followed.Nothing, thrown: thrown),
+                wrapper: "System.AggregateException");
     }
+
+    // The objects that a function throws, and the objects of the task that it returns. Empty for a value that is no
+    // function that the walk knows.
+    private ImmutableArray<(ITypeSymbol? Type, LoopState State)> ObjectsOfAFunction(
+        ExpressionSyntax function,
+        ITypeSymbol value) =>
+        this.Eval(function) is { Functions.IsEmpty: false } functions
+        && this.FollowLazy(access: function, written: function, lazy: functions, value: value) is { } followed
+            ? followed.Thrown
+                .Select(static one => (one.Type, one.State))
+                .Concat(followed.State.Faults)
+                .ToImmutableArray()
+            : ImmutableArray<(ITypeSymbol? Type, LoopState State)>.Empty;
 
     /// <summary>
     ///     The state of a member of an object of the platform that holds the
@@ -66,6 +183,22 @@ internal sealed partial class LoopStateEvaluator
             "InnerException" or "InnerExceptions" => InnerExceptionsOf(owner: owner, member: member),
             "Task" when !owner.Faults.IsEmpty =>
                 LoopState.None.WithFaults(owner.Faults),
+            "Exception" when member is IPropertySymbol { Type: var type }
+                             && OwnerOf(read) is { } task
+                             && this.ObjectsOfATask(read: read, task: task, value: type)
+                                 is { IsEmpty: false } objects =>
+                objects.Aggregate(
+                    seed: LoopState.None,
+                    func: (all, one) => all.Join(
+                        WrapperOf(type: this.region.TypeOfThePlatform("System.AggregateException"), state: one.State))),
+            _ => null
+        };
+
+    private static ExpressionSyntax? OwnerOf(ExpressionSyntax read) =>
+        read switch
+        {
+            MemberAccessExpressionSyntax access => access.Expression,
+            MemberBindingExpressionSyntax binding => ConditionalReceiver(binding),
             _ => null
         };
 
@@ -176,6 +309,8 @@ internal sealed partial class LoopStateEvaluator
         {
             "GetResult" => this.FaultOfATask(invocation: invocation, method: method),
             "Throw" => this.DispatchedAgain(invocation: invocation, method: method),
+            "Wait" => this.FaultOfAWait(invocation: invocation, method: method),
+            "Invoke" => this.FaultOfAParallelInvoke(invocation: invocation, method: method),
             _ => null
         };
 
@@ -249,24 +384,10 @@ internal sealed partial class LoopStateEvaluator
             return null;
         }
 
-        LoopState state = this.Eval(task);
+        ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)> thrown =
+            this.ObjectsOfATask(read: invocation, task: task, value: method.ReturnType);
 
-        Followed? followed =
-            this.FollowLazy(
-                access: invocation,
-                written: task,
-                lazy: state.AsOneOfItsElements,
-                value: method.ReturnType);
-
-        // A task whose result is a task gives that second task, and does not throw its objects.
-        ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)> kept =
-            GivesATask(this.region.TypeOf(task))
-                ? ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)>.Empty
-                : state.Faults.Select(fault => ((SyntaxNode)invocation, fault.Type, fault.State)).ToImmutableArray();
-
-        return followed == null && kept.IsEmpty
-            ? null
-            : WithThrown(followed: Followed.Nothing, thrown: followed == null ? kept : followed.Thrown.AddRange(kept));
+        return thrown.IsEmpty ? null : WithThrown(followed: Followed.Nothing, thrown: thrown);
     }
 
     /// <summary>
@@ -318,6 +439,11 @@ internal sealed partial class LoopStateEvaluator
         ImmutableArray<(ITypeSymbol? Type, LoopState State)> faults =
             method.Name == "FromException"
                 ? this.ObjectOfAnArgument(invocation)
+                : method.Name == "Run"
+                    ? invocation.ArgumentList.Arguments
+                        .SelectMany(argument =>
+                            this.ObjectsOfAFunction(function: argument.Expression, value: method.ReturnType))
+                        .ToImmutableArray()
                 : PassesTheFaults(method)
                     ? this.Moved(invocation: invocation, method: method, withReceiver: true).Faults
                     : ImmutableArray<(ITypeSymbol? Type, LoopState State)>.Empty;

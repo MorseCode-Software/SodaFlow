@@ -5029,6 +5029,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             {
                 this.ReadGetter(node: node, property: property);
             }
+            else if (property.Name == "Result")
+            {
+                this.Report(this.evaluator.FaultOfAResult(read: node, owner: owner, property: property));
+            }
         }
         else if (this.region.Symbols.ReadsItsOwner(property))
         {
