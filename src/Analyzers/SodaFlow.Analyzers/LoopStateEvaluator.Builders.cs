@@ -120,7 +120,17 @@ internal sealed partial class LoopStateEvaluator
 
         // The evaluator keeps the value of each expression. Thus, a second read of a member of this
         // gets the same cell, and does not run its functions again.
-        return values.Aggregate(seed: state, func: (all, value) => all.Join(reader.EvalABuild(value)));
+        LoopState built = values.Aggregate(seed: state, func: (all, value) => all.Join(reader.EvalABuild(value)));
+
+        // The code of the build ran before the read. A lambda of the build that runs at the read
+        // is then a function of a frame that returned. Thus, the read gets its findings, as for a
+        // call: see Leave.
+        if (!ReferenceEquals(objA: reader, objB: this))
+        {
+            reader.Frame.Return();
+        }
+
+        return built;
     }
 
     // The expression that a local or a getter of this gives, when it can name a member. The local

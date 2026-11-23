@@ -8488,6 +8488,16 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6CsDerivedBuildOfALocalOfACast"] = ["SF1004"],
             ["R6CsDerivedBuildOfAMemberOfASecondAssignment"] = ["SF1004"],
             ["R6CsDerivedMethodBuildOfAMemberOfAGroup"] = ["SF1004"],
-            ["Ab398BuildTwoLevelsBelowTheBase"] = ["SF1004"]
+            ["Ab398BuildTwoLevelsBelowTheBase"] = ["SF1004"],
+            ["R6PairNLambdaLazyCtorReadInTheBlock"] = ["SF1005"],
+            ["R6PairNLocalFunctionLazyCtorReadInTheBlock"] = ["SF1005"],
+            ["R6PairNLocalOfALambdaLazyCtorReadInTheBlock"] = ["SF1005"],
+            ["R6PairNMemberOfALambdaLazyCtorReadInTheBlock"] = ["SF1005"],
+            ["R6PairNLambdaOfAKeptObjectLazyCtorReadInTheBlock"] = ["SF1005"],
+            ["R6PairPAloneLambdaLazyCtorReadInTheBlock"] = ["SF1005"],
+            ["R6PairPAloneLocalFunctionLazyCtorReadInTheBlock"] = ["SF1005"],
+            ["R6PairPAloneLocalOfALambdaLazyCtorReadInTheBlock"] = ["SF1005"],
+            ["R6PairPAloneMemberOfALambdaLazyCtorReadInTheBlock"] = ["SF1005"],
+            ["R6PairPAloneLambdaOfAKeptObjectLazyCtorReadInTheBlock"] = ["SF1005"]
         };
 }

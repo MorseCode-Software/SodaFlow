@@ -60060,6 +60060,50 @@ public static class Shapes
     public static Cell<int> Ab398BuildTwoLevelsBelowTheBase() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab398Leaf().SetAndRead(l.Map(v => v))));
 
+    // S14535. A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a lambda written at the build.
+    public static Cell<int> R6PairNLambdaLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14536. A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a local function of the build.
+    public static Cell<int> R6PairNLocalFunctionLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLFnLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14537. A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a delegate local of a lambda.
+    public static Cell<int> R6PairNLocalOfALambdaLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLocLamLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14538. A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a delegate member of a lambda.
+    public static Cell<int> R6PairNMemberOfALambdaLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemLamLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14539. A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a lambda that samples a member of a kept object.
+    public static Cell<int> R6PairNLambdaOfAKeptObjectLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBKeptLamLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14540. Probe: A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a lambda written at the build.
+    public static Cell<int> R6PairPAloneLambdaLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBPLamLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14541. Probe: A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a local function of the build.
+    public static Cell<int> R6PairPAloneLocalFunctionLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBPLFnLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14542. Probe: A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a delegate local of a lambda.
+    public static Cell<int> R6PairPAloneLocalOfALambdaLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBPLocLamLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14543. Probe: A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a delegate member of a lambda.
+    public static Cell<int> R6PairPAloneMemberOfALambdaLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBPMemLamLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14544. Probe: A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a lambda that samples a member of a kept object.
+    public static Cell<int> R6PairPAloneLambdaOfAKeptObjectLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBPKeptLamLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14545. Control: a constructor builds the member. The block reads the build, and no method sets the sampled member to a pending cell. The function of the Lazy is a lambda written at the build.
+    public static Cell<int> Ab428LambdaLazyReadInTheBlockWithNoSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamLazyCtor m = new(); Kept.Add(m.Built.Value); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
