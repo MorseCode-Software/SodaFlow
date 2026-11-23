@@ -378,7 +378,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   `ReadOnlyMemory<T>`, or `ArraySegment<T>` that a method makes from an array in one of its locals
   or parameters, with an implicit conversion, `AsSpan`, `AsMemory`, a constructor, `Slice`, or a
   range, is another name for the elements of that array, as long as neither name gets a second
-  value. `Fill`, a write to an element or through a `ref` local of an element, and `CopyTo` into it
+  value. That holds as well where the code makes the view and writes through it in one expression,
+  as in `cells.AsSpan(1)[0] = value`. `Fill`, a write to an element or through a `ref` local of an
+  element, and `CopyTo` into it
   put their values into the array, and so do `CopyTo` into the array itself and `Array.Copy`. Where
   each step from the array to the view starts at a constant, as `AsSpan(1)` or `[1..]` does, a write
   to an element at a constant index and a `Fill` reach only the elements of the array that they

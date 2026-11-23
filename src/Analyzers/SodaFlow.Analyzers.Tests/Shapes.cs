@@ -61428,6 +61428,42 @@ public static class Shapes
     public static Cell<int> Ab384RangeFromTheEndStartsAfterThePendingElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, l.Map(v => v), Plain]; Kept.Add(all[^1..][0].Sample()); return S.Hold(0); });
 
+    // S14884. Names of one object, Round 6: a control: the same, with the read of element 1.
+    public static Cell<int> R6NmSliceOfASpanWritesALaterElementReadIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; Span<Cell<int>> s = a.AsSpan(); s.Slice(1)[0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S14885. Names of one object, Round 6: AsSpan from index 1, written inline at its index 0, which is element 1. The read is of element 1.
+    public static Cell<int> R6NmInlineAsSpanFromOneWritesElementOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; a.AsSpan(1)[0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S14886. Names of one object, Round 6: a range of a span local from index 1, written inline at its index 0. The read is of element 1.
+    public static Cell<int> R6NmInlineRangeOfASpanWritesElementOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; Span<Cell<int>> s = a; s[1..][0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S14887. AB435. AsSpan from index 1 is written inline at its index 0, which is element 1 of the array. The read is of element 0.
+    public static Cell<int> Ab435InlineAsSpanFromOneReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; a.AsSpan(1)[0] = l.Map(v => v); return S.Hold(a[0].Sample()); });
+
+    // S14888. AB435. The span of AsMemory from index 1 is written inline at its index 0, which is element 1 of the array. The read is of element 1.
+    public static Cell<int> Ab435InlineSpanOfAsMemoryWritesElementOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; a.AsMemory(1).Span[0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S14889. AB435. A slice from index 1 of AsSpan from index 1 is written inline at its index 0, which is element 2 of the array. The read is of element 2.
+    public static Cell<int> Ab435InlineSliceOfAsSpanWritesElementTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain, Plain]; a.AsSpan(1).Slice(1)[0] = l.Map(v => v); return S.Hold(a[2].Sample()); });
+
+    // S14890. AB435. A slice from index 1 of AsSpan from index 1 is written inline at its index 0, which is element 2 of the array. The read is of element 1.
+    public static Cell<int> Ab435InlineSliceOfAsSpanReadElementOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain, Plain]; a.AsSpan(1).Slice(1)[0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S14891. AB435. AsSpan of the list of CollectionsMarshal is written inline at index 0. The read is of item 0 of the list.
+    public static Cell<int> Ab435InlineSpanOfAListWritesItemZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = [Plain]; CollectionsMarshal.AsSpan(xs)[0] = l.Map(v => v); return S.Hold(xs[0].Sample()); });
+
+    // S14892. AB435. A range of a span from a collection expression is written inline at its index 0, which is element 1 of the span. The read is of element 1.
+    public static Cell<int> Ab435InlineRangeOfASpanLiteralWritesElementOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Span<Cell<int>> s = [Plain, Plain]; s[1..][0] = l.Map(v => v); return S.Hold(s[1].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

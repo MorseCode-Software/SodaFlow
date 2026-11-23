@@ -8716,6 +8716,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab384RangeWithAnEndGetsThePendingElement"] = ["SF1001"],
             ["Ab384RangeAfterAWriteGetsThePendingElement"] = ["SF1001"],
             ["Ab384RangeOfASpanGetsThePendingElement"] = ["SF1001"],
-            ["Ab384RangeWithAStartThatIsNotAConstant"] = ["SF1001"]
+            ["Ab384RangeWithAStartThatIsNotAConstant"] = ["SF1001"],
+            ["R6NmSliceOfASpanWritesALaterElementReadIt"] = ["SF1001"],
+            ["R6NmInlineAsSpanFromOneWritesElementOne"] = ["SF1001"],
+            ["R6NmInlineRangeOfASpanWritesElementOne"] = ["SF1001"],
+            ["Ab435InlineSpanOfAsMemoryWritesElementOne"] = ["SF1001"],
+            ["Ab435InlineSliceOfAsSpanWritesElementTwo"] = ["SF1001"],
+            ["Ab435InlineSpanOfAListWritesItemZero"] = ["SF1001"],
+            ["Ab435InlineRangeOfASpanLiteralWritesElementOne"] = ["SF1001"]
         };
 }
