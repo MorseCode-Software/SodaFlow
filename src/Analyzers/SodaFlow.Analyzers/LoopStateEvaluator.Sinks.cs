@@ -956,13 +956,19 @@ internal sealed partial class LoopStateEvaluator
             return sent;
         }
 
-        // The function runs after the close. Each parameter gets the value of a send.
+        // The function runs after the close. Each parameter gets the value of a send. Of two sends of
+        // the block, the first gives the first parameter, and the second gives the second.
+        ImmutableArray<LoopState> given =
+            this.region.SentBefore.TwoSendsInto(creation) is { } two
+                ? ImmutableArray.Create(item1: two.First.Content, item2: two.Second.Content)
+                : ImmutableArray.Create(item1: sent.Content, item2: sent.Content);
+
         LoopState coalesced =
             this.ResultOfTheFunctions(
                     call: creation,
                     written: coalesce,
                     functions: this.Eval(coalesce),
-                    given: ImmutableArray.Create(item1: sent.Content, item2: sent.Content))
+                    given: given)
                 .AfterTheClose
                 .AsContent;
 

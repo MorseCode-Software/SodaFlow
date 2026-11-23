@@ -58248,6 +58248,22 @@ public static class Shapes
     public static Cell<int> Ab404JsonValueOfFieldsWithNoOptions() =>
         Cell.Loop<int>().WithoutCaptures(l => { System.Text.Json.Nodes.JsonValue value = System.Text.Json.Nodes.JsonValue.Create(new R6ApiTwoRowFields(new SerialRow(l.Map(v => v)), new SerialRow(Plain)))!; Kept.Add(value.ToJsonString()); return S.Hold(0); });
 
+    // S14082. A coalesce returns its second value, which is plain. The first send is linked.
+    public static Cell<int> R6ApiCoalesceReturnsTheSecondPlainSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, b) => b); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); s.Send(Plain); return h.SwitchC(); });
+
+    // S14083. A coalesce returns its first value, which is plain. The second send is linked.
+    public static Cell<int> R6ApiCoalesceReturnsTheFirstPlainSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((a, _) => a); Cell<Cell<int>> h = s.Hold(Plain); s.Send(Plain); s.Send(l.Map(v => v)); return h.SwitchC(); });
+
+    // S14084. A sink of a cell with a coalesce function that returns its second value. The first send is plain, and the second is linked.
+    public static Cell<int> Ab406CellSinkCoalesceReturnsTheSecondLinkedSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, (_, b) => b); s.Send(Plain); s.Send(l.Map(v => v)); return s.SwitchC(); });
+
+    // S14085. A coalesce function that returns its second value gets three sends. The last send is linked.
+    public static Cell<int> Ab406ThreeSendsTheLastIsLinked() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, b) => b); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); s.Send(Plain); s.Send(l.Map(v => v)); return h.SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

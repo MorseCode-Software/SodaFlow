@@ -643,6 +643,9 @@ careful side, so it can report a read that does not throw:
 - The coalesce function of a sink runs only when two sends go into the sink in one transaction. The
   analyzer counts the sends that are statements of the block itself, with no `return` or `goto`
   before them: one such send does not run the function, and two or more fire only what it returns.
+  With exactly two such sends into a sink of a stream, the first parameter of the function gets the
+  value of the first send and the second parameter that of the second. With more, and for a sink of
+  a cell, each parameter gets the value of each send.
   Any other send, such as one under a condition, in a loop, or in a function, counts as a send that
   can run the function, and its own value counts as well. A value that you make from the sink after
   the sends also gets the value of each send.

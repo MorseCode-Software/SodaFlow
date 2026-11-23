@@ -1296,7 +1296,8 @@ internal sealed partial class LoopStateEvaluator
                 {
                     this.region.Sent.Count(
                         creation: creation,
-                        inTheBlock: sinks.Length == 1 ? this.SendOfTheBlock(sink) : null);
+                        inTheBlock: sinks.Length == 1 ? this.SendOfTheBlock(sink) : null,
+                        content: content);
                 }
 
                 if (!content.IsNone)
