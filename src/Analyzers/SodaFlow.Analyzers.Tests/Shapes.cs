@@ -60352,6 +60352,58 @@ public static class Shapes
     public static Cell<int> Ab373AwaitInAForeachOverACollectionThatKeepsNoItem() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Ab373KeepsNoItem all = [1]; foreach (int x in all) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
 
+    // S14608. A method takes one item from an iterator whose first yield return is in the default section of a switch. The sample after the switch does not run.
+    public static Cell<int> R6FuYieldInADefaultSwitchSectionStopsTheCodeAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().Take(1).ToList()); return S.Hold(0); IEnumerable<int> Items() { switch (Kept.Count) { default: yield return 1; break; } Kept.Add(l.Sample()); } });
+
+    // S14609. First stops a local iterator at its first yield. Each section of a switch yields, so the sample after the switch never runs.
+    public static Cell<int> R6CsIteratorSwitchWithAYieldInEachSectionStops() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { switch (Kept.Count) { case 0: yield return 1; break; default: yield return 2; break; } Kept.Add(l.Sample()); } });
+
+    // S14610. First stops a local iterator at its first yield. Each branch of an if yields, so the sample after the if never runs.
+    public static Cell<int> R6CsIteratorIfElseWithAYieldInEachBranchStops() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { if (Kept.Count >= 0) { yield return 1; } else { yield return 2; } Kept.Add(l.Sample()); } });
+
+    // S14611. First stops a local iterator at its first yield. A label and a goto before the yield do not skip it.
+    public static Cell<int> R6CsIteratorYieldAfterALabelStops() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { int n = 0; again: n++; if (n < 2) { goto again; } yield return n; Kept.Add(l.Sample()); } });
+
+    // S14612. A control: the then branch of an if runs and does not yield. The yield is only in the else branch, thus the sample after the if runs.
+    public static Cell<int> Ab436IfElseWithAYieldOnlyInTheElseSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { if (Kept.Count >= 0) { } else { yield return 2; } Kept.Add(l.Sample()); yield return 3; } });
+
+    // S14613. A control: a break before the yield of a branch ends the loop. Thus, the sample after the loop runs.
+    public static Cell<int> Ab436IfElseWithABreakBeforeTheYieldSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { foreach (int n in new[] { 1 }) { if (Kept.Count >= 0) { if (Kept.Count >= 0) { break; } yield return 1; } else { yield return 2; } } Kept.Add(l.Sample()); yield return 3; } });
+
+    // S14614. Each branch of an if and an else if yields, so the sample after them never runs.
+    public static Cell<int> Ab436ElseIfChainWithAYieldInEachBranchStops() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { if (Kept.Count < 0) { yield return 1; } else if (Kept.Count < -1) { yield return 2; } else { yield return 3; } Kept.Add(l.Sample()); } });
+
+    // S14615. Each branch of an if is a yield statement with no block, so the sample after the if never runs.
+    public static Cell<int> Ab436IfElseWithAYieldStatementInEachBranchStops() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { if (Kept.Count >= 0) yield return 1; else yield return 2; Kept.Add(l.Sample()); } });
+
+    // S14616. A control: one section of a switch does not yield, and it runs. Thus, the sample after the switch runs.
+    public static Cell<int> Ab436SwitchWithASectionThatDoesNotYieldSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { switch (Kept.Count) { case -1: yield return 1; break; default: break; } Kept.Add(l.Sample()); yield return 2; } });
+
+    // S14617. A control: a section of a switch continues the loop, which then ends. Thus, the sample after the loop runs.
+    public static Cell<int> Ab436SwitchWithAContinueInASectionSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { for (int i = 0; i < 1; i++) { switch (Kept.Count) { case -1: yield return 1; break; default: continue; } } Kept.Add(l.Sample()); yield return 2; } });
+
+    // S14618. A control: a switch has no default section, and no section runs. Thus, the sample after the switch runs.
+    public static Cell<int> Ab436SwitchWithNoDefaultSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { switch (Kept.Count) { case -1: yield return 1; break; case -2: yield return 2; break; } Kept.Add(l.Sample()); yield return 3; } });
+
+    // S14619. A control: a goto before the yield goes to a label after it. Thus, the sample at the label runs.
+    public static Cell<int> Ab436LabelAfterTheYieldSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { if (Kept.Count >= 0) { goto after; } yield return 1; after: Kept.Add(l.Sample()); yield return 2; } });
+
+    // S14620. A control: the else branch of an if runs and does not yield. The yield is only in the other branch, thus the sample after the if runs.
+    public static Cell<int> Ab436IfElseWithAYieldOnlyInTheThenSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { if (Kept.Count < 0) { yield return 1; } else { } Kept.Add(l.Sample()); yield return 2; } });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

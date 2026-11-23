@@ -8528,6 +8528,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab373AwaitInAForeachOverASpreadOfAnEmptyArray"] = ["SF1001"],
             ["Ab373AwaitInAForeachOverALocalArrayThatGetsAnotherValue"] = ["SF1001"],
             ["Ab373AwaitInAForeachOverAnArrayWithASecondSizeOfZero"] = ["SF1001"],
-            ["Ab373AwaitInAForeachOverACollectionThatKeepsNoItem"] = ["SF1001"]
+            ["Ab373AwaitInAForeachOverACollectionThatKeepsNoItem"] = ["SF1001"],
+            ["Ab436IfElseWithAYieldOnlyInTheElseSamples"] = ["SF1001"],
+            ["Ab436IfElseWithABreakBeforeTheYieldSamples"] = ["SF1001"],
+            ["Ab436SwitchWithASectionThatDoesNotYieldSamples"] = ["SF1001"],
+            ["Ab436SwitchWithAContinueInASectionSamples"] = ["SF1001"],
+            ["Ab436SwitchWithNoDefaultSamples"] = ["SF1001"],
+            ["Ab436LabelAfterTheYieldSamples"] = ["SF1001"],
+            ["Ab436IfElseWithAYieldOnlyInTheThenSamples"] = ["SF1001"]
         };
 }

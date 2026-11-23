@@ -561,11 +561,16 @@ The analyzer follows a value made from the placeholder through the code of your 
   `throw`, or a `goto`, the iterator runs only up to its first `yield return` and the `finally`
   blocks around it. For a `yield return` in a loop, the code after the loop is skipped only when the
   loop always runs its first turn and no `break` or `continue` of the loop comes before the
-  `yield return`, the same rule as for an `await` below. Where the code takes no item, with `Take`
-  of zero or of a negative count, the iterator does not run at all. The analyzer still reads the
-  whole iterator where the code moves its enumerator by hand, where a method of yours gets the call
-  and takes one item, and where `Zip` stops at the end of a shorter sequence. An `async` method or
-  lambda runs in the block up to its
+  `yield return`, the same rule as for an `await` below. The code after an `if` is skipped when the
+  `if` has an `else` and each branch stops at a `yield` with no `goto`, `break`, or `continue`
+  before it. The code after a `switch` is skipped when each section stops at a `yield` before its
+  `break` and one section takes every value, the same rule as for an `await` below. A label after
+  the `yield return` keeps the code after the label, because a `goto` before the `yield return` can
+  go there. A `yield return` in one branch only skips nothing after the `if`. Where the code takes
+  no item, with `Take` of zero or of a negative count, the iterator does not run at all. The
+  analyzer still reads the whole iterator where the code moves its enumerator by hand, where a
+  method of yours gets the call and takes one item, and where `Zip` stops at the end of a shorter
+  sequence. An `async` method or lambda runs in the block up to its
   first `await` of a task that may not be complete, and the rest of it runs later, also where its
   body is a single expression, such as `async () => await t + x`. That holds for an `await` in a
   `switch` section, in a `finally` block, in the condition of a `do`, or in the header of a `for`,

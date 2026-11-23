@@ -612,10 +612,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         }
     }
 
-    // Records the code that does not run after the yield return of the first item. A try statement
-    // with a finally block splits that code: the finally block runs, and the code after the try
-    // statement does not. A goto to a label after the yield return can skip it. A break or a
-    // continue before it can end a loop around it, and the code after that loop then runs.
+    // Records the code that does not run after the yield return of the first item, or after a
+    // statement that stops in each branch. A try statement with a finally block splits that code:
+    // the finally block runs, and the code after the try statement does not. A goto to a label after
+    // the yield return can skip it. A break or a continue before it can end a loop around it, and
+    // the code after that loop then runs.
     private void StopsAfter(SyntaxNode yielded)
     {
         List<(SyntaxNode Block, int From)> parts = [];
@@ -645,7 +646,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             parts.Add((block, from));
         }
 
-        if (parts.Count > 0 && !parts[parts.Count - 1].Block.DescendantNodes().OfType<LabeledStatementSyntax>().Any())
+        if (parts.Count > 0
+            && !parts[parts.Count - 1]
+                .Block.DescendantNodes()
+                .OfType<LabeledStatementSyntax>()
+                .Any(label => label.SpanStart > yielded.SpanStart))
         {
             this.afterTheItem.AddRange(parts);
         }
@@ -899,6 +904,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         if (this.ConstantOf(node.Condition) is not { } always)
         {
             base.VisitIfStatement(node);
+            this.StopsInEachBranchOf(node);
 
             return;
         }
@@ -1316,6 +1322,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         {
             base.VisitSwitchStatement(node);
             this.AwaitsInEachSection(node);
+            this.StopsInEachSectionOf(node);
 
             return;
         }
@@ -1330,6 +1337,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             parts: [.. node.Sections.Skip(first).Take(last - first + 1)]);
 
         this.AwaitsInEachSection(node);
+        this.StopsInEachSectionOf(node);
     }
 
     // The first section that a goto case or a goto default goes back to, and the last section with
