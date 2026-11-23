@@ -94,9 +94,7 @@ internal sealed partial class LoopStateEvaluator
             MemberBuilds.Of(
                 member: read,
                 type: owner == null
-                    ? heldIn.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } code
-                        ? this.region.ModelFor(code).GetDeclaredSymbol(code) as ITypeSymbol
-                        : null
+                    ? this.TypeOfThis(heldIn)
                     : ReferenceEquals(objA: read, objB: member)
                         ? this.region.TypeOf(owner)
                         : null);
@@ -142,6 +140,34 @@ internal sealed partial class LoopStateEvaluator
                 when owner == null => GetterOf(property.OriginalDefinition) as ExpressionSyntax,
             _ => null
         };
+
+    // The type of the object of this code, for the code of a node. A method of a base class can run
+    // on an object of a derived class. The code of that class can give the members their values.
+    // Thus, the one type that the walk knows for the object of the call comes first, when it is that
+    // class or a class derived from it.
+    private ITypeSymbol? TypeOfThis(SyntaxNode at)
+    {
+        if (at.FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } code
+            || this.region.ModelFor(code).GetDeclaredSymbol(code) is not INamedTypeSymbol declared)
+        {
+            return null;
+        }
+
+        INamedTypeSymbol[] known = [.. (this.thisObject?.Types ?? []).Take(2)];
+        INamedTypeSymbol? actual = known.Length == 1 ? known[0] : null;
+
+        for (INamedTypeSymbol? each = actual?.OriginalDefinition;
+             each != null;
+             each = each.BaseType?.OriginalDefinition)
+        {
+            if (SymbolEqualityComparer.Default.Equals(x: each, y: declared.OriginalDefinition))
+            {
+                return actual;
+            }
+        }
+
+        return declared;
+    }
 
     /// <summary>
     ///     The walk of a function at the first read of its value. The function

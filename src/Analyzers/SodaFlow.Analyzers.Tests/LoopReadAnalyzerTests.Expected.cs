@@ -8484,6 +8484,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6SmpMethodLazyOfAMemberSetByAConditional"] = ["SF1004"],
             ["R6SmpCtorLazyOfAMemberSetByADeconstruction"] = ["SF1004"],
             ["Ab397MapBuiltByCompareExchange"] = ["SF1004"],
-            ["Ab397BuildOfAMemberOfAnOutArgumentInABranch"] = ["SF1004"]
+            ["Ab397BuildOfAMemberOfAnOutArgumentInABranch"] = ["SF1004"],
+            ["R6CsDerivedBuildOfALocalOfACast"] = ["SF1004"],
+            ["R6CsDerivedBuildOfAMemberOfASecondAssignment"] = ["SF1004"],
+            ["R6CsDerivedMethodBuildOfAMemberOfAGroup"] = ["SF1004"],
+            ["Ab398BuildTwoLevelsBelowTheBase"] = ["SF1004"]
         };
 }

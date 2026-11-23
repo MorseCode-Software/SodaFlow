@@ -513,11 +513,7 @@ internal sealed partial class LoopStateEvaluator
         // A value of an out argument comes from the code of the callee, which MemberBuilds does not read.
         return
         [
-            .. MemberBuilds.Of(
-                    member: member,
-                    type: at.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type
-                        ? this.region.ModelFor(type).GetDeclaredSymbol(type) as ITypeSymbol
-                        : null)
+            .. MemberBuilds.Of(member: member, type: this.TypeOfThis(at))
                 .Concat(writes.Select(static write => write.Value).OfType<ExpressionSyntax>())
                 .Distinct()
         ];

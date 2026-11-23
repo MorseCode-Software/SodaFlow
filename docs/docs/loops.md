@@ -669,13 +669,14 @@ careful side, so it can report a read that does not throw:
 - A cell or a `Lazy` that a constructor or a method of an object builds into a member, when nothing
   made from the placeholder goes into that call. The analyzer does not read such a call. Where it
   reads that member and knows nothing of its value, it takes the value of each assignment to the
-  member in the code of the class that the read names and of its base classes, with the members
-  that the object has at the read. An initializer of the member, a part of a deconstruction of a
-  tuple literal into it, and an `Interlocked.Exchange` or `CompareExchange` of it count as such
-  assignments, and a value counts whatever its form, such as a cast or a conditional of a method
-  group. A read through a local that only ever holds the member, or
-  through a getter of the object that only returns it, counts as a read of the member. It does not know whether that code ran, so a read can get a
-  report from an assignment in a method that you never called.
+  member in the code of the class of the object, where the analyzer knows that class, or else of the
+  class that the read names, and of its base classes, with the members that the object has at the
+  read. An initializer of the member, a part of a deconstruction of a tuple literal into it, and an
+  `Interlocked.Exchange` or `CompareExchange` of it count as such assignments, and a value counts
+  whatever its form, such as a cast or a conditional of a method group. A read through a local that
+  only ever holds the member, or through a getter of the object that only returns it, counts as a
+  read of the member. It does not know whether that code ran, so a read can get a report from an
+  assignment in a method that you never called.
 - The `Result` of a task that you create with `new` has the value that its function returns even
   where no code runs the task. Such a `Result` waits forever, and the code after it does not run.
 - A method that writes a member through an object that the analyzer does not know, such as an

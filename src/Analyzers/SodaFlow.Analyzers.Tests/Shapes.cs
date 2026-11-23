@@ -60044,6 +60044,22 @@ public static class Shapes
     public static Cell<int> Ab397BuildOfAMemberOfAnOutArgumentInABranch() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab397OutInABranch().SetAndRead(l.Map(v => v))));
 
+    // S14531. a constructor gives a local a method group with a cast and builds a lazy value with it. A method sets the member to a pending cell and reads the value. The members, the method, and the read are in an abstract base class.
+    public static Cell<int> R6CsDerivedBuildOfALocalOfACast() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6CsLocalOfACast().SetAndRead(l.Map(v => v))));
+
+    // S14532. a constructor gives a delegate member a plain function and then a method group, and builds a lazy value with it. A method sets the member to a pending cell and reads the value. The members, the method, and the read are in an abstract base class.
+    public static Cell<int> R6CsDerivedBuildOfAMemberOfASecondAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6CsMemberOfASecondAssignment().SetAndRead(l.Map(v => v))));
+
+    // S14533. a constructor gives a delegate member a method group. A method builds a lazy value with the member, and a third method sets the member to a pending cell and reads the value. The members, the method, and the read are in an abstract base class.
+    public static Cell<int> R6CsDerivedMethodBuildOfAMemberOfAGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsMethodMemberOfAGroup m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14534. A class is two levels below an abstract base. Its constructor gives a local a method group with a cast and builds a lazy value with it. A method of the base sets the member to a pending cell and reads the value.
+    public static Cell<int> Ab398BuildTwoLevelsBelowTheBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab398Leaf().SetAndRead(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -111472,6 +111488,19 @@ public static class Shapes
         }
 
         private int Zero() => 0;
+    }
+
+    public abstract class Ab398Middle : R6CsBuildBase
+    {
+    }
+
+    public sealed class Ab398Leaf : Ab398Middle
+    {
+        public Ab398Leaf()
+        {
+            Func<int> read = (Func<int>)this.Read;
+            this.value = new Lazy<int>(read);
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
