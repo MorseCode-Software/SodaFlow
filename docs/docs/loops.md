@@ -379,12 +379,14 @@ The analyzer follows a value made from the placeholder through the code of your 
   or parameters, with an implicit conversion, `AsSpan`, `AsMemory`, a constructor, `Slice`, or a
   range, is another name for the elements of that array, as long as neither name gets a second
   value. That holds as well where the code makes the view and writes through it in one expression,
-  as in `cells.AsSpan(1)[0] = value`. `Fill`, a write to an element or through a `ref` local of an
-  element, and `CopyTo` into it
+  as in `cells.AsSpan(1)[0] = value`. `Fill`, a write to an element, through a `ref` local of an
+  element, or through the `ref` variable of a `foreach` over the view, and `CopyTo` into it
   put their values into the array, and so do `CopyTo` into the array itself and `Array.Copy`. Where
   each step from the array to the view starts at a constant, as `AsSpan(1)` or `[1..]` does, a write
   to an element at a constant index and a `Fill` reach only the elements of the array that they
-  write. Otherwise, they reach every element. The span that `CollectionsMarshal.AsSpan` makes of a
+  write. Otherwise, they reach every element. A write through the `ref` variable of a `foreach`
+  adds its value to every element of the array and does not replace what each one held. The span
+  that `CollectionsMarshal.AsSpan` makes of a
   local `List<T>` is another name for the elements of that list in the same way, and a write through
   it reaches every element. A span that `new Span<T>(ref local)` makes is another name for that
   local. A `ReadOnlyCollection<T>` that a method makes of a `List<T>` in one of its locals or

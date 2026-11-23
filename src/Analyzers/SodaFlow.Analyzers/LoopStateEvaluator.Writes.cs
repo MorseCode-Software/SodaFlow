@@ -1196,6 +1196,15 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="value">The expression of the value, when the code has one.</param>
     public void GetsThroughARef(ExpressionSyntax collection, LoopState state, ExpressionSyntax? value)
     {
+        // An element of a view of a local array is an element of that array. The variable of a
+        // foreach with ref over the view is such an element.
+        if (IsAView(this.region.TypeOf(collection)) && this.TheArrayOfAView(collection) is { } array)
+        {
+            this.PutsThroughAView(array: array, value: value, state: state);
+
+            return;
+        }
+
         if (value != null)
         {
             this.Gets(collection: collection, value: value);

@@ -8723,6 +8723,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab435InlineSpanOfAsMemoryWritesElementOne"] = ["SF1001"],
             ["Ab435InlineSliceOfAsSpanWritesElementTwo"] = ["SF1001"],
             ["Ab435InlineSpanOfAListWritesItemZero"] = ["SF1001"],
-            ["Ab435InlineRangeOfASpanLiteralWritesElementOne"] = ["SF1001"]
+            ["Ab435InlineRangeOfASpanLiteralWritesElementOne"] = ["SF1001"],
+            ["R6NmRefForeachOverASpanWritesTheArray"] = ["SF1001"],
+            ["R6NmRefForeachOverASpanLocal"] = ["SF1001"],
+            ["R6NmRefForeachOverTheSpanOfAList"] = ["SF1001"],
+            ["R6CsForeachRefWritesTheArray"] = ["SF1001"],
+            ["Ab385RefForeachReadsThePendingElement"] = ["SF1001"],
+            ["Ab385RefForeachOverASliceWritesItsElement"] = ["SF1001"],
+            ["Ab385RefForeachGivesTheVariableByRef"] = ["SF1001"]
         };
 }

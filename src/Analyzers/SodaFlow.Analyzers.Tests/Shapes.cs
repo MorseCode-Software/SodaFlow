@@ -61464,6 +61464,38 @@ public static class Shapes
     public static Cell<int> Ab435InlineRangeOfASpanLiteralWritesElementOne() =>
         Cell.Loop<int>().WithoutCaptures(l => { Span<Cell<int>> s = [Plain, Plain]; s[1..][0] = l.Map(v => v); return S.Hold(s[1].Sample()); });
 
+    // S14893. Names of one object, Round 6: a foreach with a ref variable over a span of an array writes a pending cell into each element.
+    public static Cell<int> R6NmRefForeachOverASpanWritesTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain]; foreach (ref Cell<int> r in a.AsSpan()) { r = l.Map(v => v); } return S.Hold(a[0].Sample()); });
+
+    // S14894. Names of one object, Round 6: a foreach with a ref variable over a span local of an array writes a pending cell into each element.
+    public static Cell<int> R6NmRefForeachOverASpanLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain]; Span<Cell<int>> s = a; foreach (ref Cell<int> r in s) { r = l.Map(v => v); } return S.Hold(a[0].Sample()); });
+
+    // S14895. Names of one object, Round 6: a foreach with a ref variable over the span of a list writes a pending cell into each item.
+    public static Cell<int> R6NmRefForeachOverTheSpanOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = [Plain]; foreach (ref Cell<int> r in CollectionsMarshal.AsSpan(xs)) { r = l.Map(v => v); } return S.Hold(xs[0].Sample()); });
+
+    // S14896. A foreach with a ref variable over a span writes a pending cell into the array, and the block samples the element.
+    public static Cell<int> R6CsForeachRefWritesTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain]; foreach (ref Cell<int> c in all.AsSpan()) { c = l.Map(v => v); } Kept.Add(all[0].Sample()); return S.Hold(0); });
+
+    // S14897. AB385. A foreach with a ref variable over a span of an array reads each element, and samples the pending element.
+    public static Cell<int> Ab385RefForeachReadsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, l.Map(v => v)]; int n = 0; foreach (ref Cell<int> r in a.AsSpan()) { n += r.Sample(); } return S.Hold(n); });
+
+    // S14898. AB385. A foreach with a ref variable over a slice of an array writes a pending cell into each element of the slice. The read is of the element in the slice.
+    public static Cell<int> Ab385RefForeachOverASliceWritesItsElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; foreach (ref Cell<int> r in a.AsSpan(1)) { r = l.Map(v => v); } return S.Hold(a[1].Sample()); });
+
+    // S14899. AB385. A foreach with a ref variable over a span of an array gives the pending cell to a method through ref. The read is of the element.
+    public static Cell<int> Ab385RefForeachGivesTheVariableByRef() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain]; foreach (ref Cell<int> r in a.AsSpan()) { Ab385Put(ref r, l.Map(v => v)); } return S.Hold(a[0].Sample()); });
+
+    // S14900. AB385. A foreach with no ref over a span of an array writes a pending cell only into its variable. The read is of the element.
+    public static Cell<int> Ab385ForeachWithNoRefWritesOnlyTheVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain]; foreach (Cell<int> c in a.AsSpan()) { Cell<int> r = c; r = l.Map(v => v); Kept.Add(r); } return S.Hold(a[0].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -113328,6 +113360,9 @@ public static class Shapes
             set { }
         }
     }
+
+    // Helpers of the shapes of AB385.
+    private static void Ab385Put(ref Cell<int> target, Cell<int> value) => target = value;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
