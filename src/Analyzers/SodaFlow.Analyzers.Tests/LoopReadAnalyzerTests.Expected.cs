@@ -8521,6 +8521,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab371FirstReadInTheOneCaseSectionOfASwitch"] = ["SF1001"],
             ["Ab371FirstReadInADefaultSectionAfterACaseThatRuns"] = ["SF1001"],
             ["Ab372LabeledSampleAfterAGotoToItRuns"] = ["SF1001"],
-            ["Ab372SampleAfterAReturnInABranchRuns"] = ["SF1001"]
+            ["Ab372SampleAfterAReturnInABranchRuns"] = ["SF1001"],
+            ["Ab373FirstReadInAForWithLessOrEqualAndNoTurn"] = ["SF1001"],
+            ["Ab373AwaitInAForeachOverAnArrayOfSizeZero"] = ["SF1001"],
+            ["Ab373AwaitInAForeachOverAnEmptyCollectionExpression"] = ["SF1001"],
+            ["Ab373AwaitInAForeachOverASpreadOfAnEmptyArray"] = ["SF1001"],
+            ["Ab373AwaitInAForeachOverALocalArrayThatGetsAnotherValue"] = ["SF1001"],
+            ["Ab373AwaitInAForeachOverAnArrayWithASecondSizeOfZero"] = ["SF1001"],
+            ["Ab373AwaitInAForeachOverACollectionThatKeepsNoItem"] = ["SF1001"]
         };
 }

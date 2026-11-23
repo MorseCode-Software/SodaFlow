@@ -192,7 +192,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The value of a local that no code writes. Each other expression is itself. The read of a
     // hold checks that the code of the transaction made the hold.
-    private ExpressionSyntax ValueOfALocalThatNoCodeWrites(ExpressionSyntax cell) =>
+    internal ExpressionSyntax ValueOfALocalThatNoCodeWrites(ExpressionSyntax cell) =>
         cell is IdentifierNameSyntax name
         && this.region.SymbolOf(name) is ILocalSymbol { DeclaringSyntaxReferences.Length: 1 } local
         && local.DeclaringSyntaxReferences[0].GetSyntax()

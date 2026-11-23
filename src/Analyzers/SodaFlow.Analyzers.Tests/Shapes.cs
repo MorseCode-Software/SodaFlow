@@ -60284,6 +60284,74 @@ public static class Shapes
     public static Cell<int> Ab372CodeAfterAGotoInTheTurnOfAGotoLoopDoesNotRun() =>
         Cell.Loop<int>().WithoutCaptures(l => { int n = 0; again: n++; if (n > 3) { goto done; } goto mid; Kept.Add(l.Sample()); mid: if (n < 2) { goto again; } done: return S.Hold(0); });
 
+    // S14591. First stops a local iterator at a yield in a foreach over a local array of two items, so the sample after the loop never runs.
+    public static Cell<int> R6CsIteratorYieldInALoopOverALocalArrayStops() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { int[] all = [1, 2]; foreach (int n in all) { yield return n; } Kept.Add(l.Sample()); } });
+
+    // S14592. First stops a local iterator at a yield in a for loop whose condition is i <= 1 from 0, so the sample after the loop never runs.
+    public static Cell<int> R6CsIteratorYieldInAForWithLessOrEqualStops() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { for (int i = 0; i <= 1; i++) { yield return i; } Kept.Add(l.Sample()); } });
+
+    // S14593. A Map samples a capture. The first read of the map is in a for loop from 0 while the variable is less than or equal to 1, which always runs its first turn.
+    public static Cell<int> R6LimFirstReadInAForUpToAConstantWithLessOrEqual() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); for (int i = 0; i <= 1; i++) { Kept.Add(m.Sample()); } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14594. An iterator yields in a for loop from 0 while the variable is less than or equal to 1, and samples after the loop. First takes one item.
+    public static Cell<int> R6LimYieldInAForWithLessOrEqualThenFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Items().First()); return S.Hold(0); IEnumerable<int> Items() { for (int i = 0; i <= 1; i++) { yield return i; } Kept.Add(l.Sample()); } });
+
+    // S14595. An async lambda awaits in a for loop from 0 while the variable is less than or equal to 1, and samples after the loop.
+    public static Cell<int> R6LimAwaitInAForWithLessOrEqual() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { for (int i = 0; i <= 1; i++) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14596. An async lambda awaits in a foreach over a collection expression with one item, and samples after the loop.
+    public static Cell<int> R6LimAwaitInAForeachOverACollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int x in (int[])[1]) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14597. An async lambda awaits in a foreach over an array creation with a size and no initializer, and samples after the loop.
+    public static Cell<int> R6LimAwaitInAForeachOverAnArrayOfOneDefaultItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int x in new int[1]) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14598. A control: the first read of the map is in a for loop from 1 while the variable is less than or equal to 0. The loop runs no turn.
+    public static Cell<int> Ab373FirstReadInAForWithLessOrEqualAndNoTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); for (int i = 1; i <= 0; i++) { Kept.Add(m.Sample()); } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14599. The first read of the map is in a for loop from 1 while the variable is less than or equal to 1. The loop runs one turn.
+    public static Cell<int> Ab373FirstReadInAForWithLessOrEqualAndEqualBounds() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = S.Hold(0).Map(v => v + c.Sample()); for (int i = 1; i <= 1; i++) { Kept.Add(m.Sample()); } c = l.Map(v => v); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S14600. A control: an async lambda awaits in a foreach over an array creation with the size 0, and samples after the loop.
+    public static Cell<int> Ab373AwaitInAForeachOverAnArrayOfSizeZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int x in new int[0]) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14601. An async lambda awaits in a foreach over an array creation of two dimensions with a size, and samples after the loop.
+    public static Cell<int> Ab373AwaitInAForeachOverAnArrayOfTwoDimensions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int x in new int[1, 2]) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14602. A control: an async lambda awaits in a foreach over a collection expression with no element, and samples after the loop.
+    public static Cell<int> Ab373AwaitInAForeachOverAnEmptyCollectionExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int x in (int[])[]) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14603. A control: an async lambda awaits in a foreach over a collection expression that spreads an empty array, and samples after the loop.
+    public static Cell<int> Ab373AwaitInAForeachOverASpreadOfAnEmptyArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int x in (int[])[.. Array.Empty<int>()]) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14604. A control: a local array gets an empty array before a foreach over it. An async lambda awaits in the loop, and samples after the loop.
+    public static Cell<int> Ab373AwaitInAForeachOverALocalArrayThatGetsAnotherValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { int[] all = [1]; all = []; foreach (int x in all) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14605. An async lambda awaits in a foreach over a local array creation with a size, and samples after the loop.
+    public static Cell<int> Ab373AwaitInAForeachOverALocalArrayOfOneDefaultItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { int[] all = new int[1]; foreach (int x in all) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14606. A control: an async lambda awaits in a foreach over an array of two dimensions whose second size is 0, and samples after the loop.
+    public static Cell<int> Ab373AwaitInAForeachOverAnArrayWithASecondSizeOfZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { foreach (int x in new int[1, 0]) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14607. A control: a collection expression makes a local of a type that keeps no item. An async lambda awaits in a foreach over that local, and samples after the loop.
+    public static Cell<int> Ab373AwaitInAForeachOverACollectionThatKeepsNoItem() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Ab373KeepsNoItem all = [1]; foreach (int x in all) { await R2NeverDone.Task; } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -111725,6 +111793,18 @@ public static class Shapes
             Func<int> read = (Func<int>)this.Read;
             this.value = new Lazy<int>(read);
         }
+    }
+
+    // A helper of the AB373 shapes: a collection that a collection expression can make, and that keeps no item.
+    public sealed class Ab373KeepsNoItem : IEnumerable<int>
+    {
+        public void Add(int item)
+        {
+        }
+
+        public IEnumerator<int> GetEnumerator() => Enumerable.Empty<int>().GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -579,12 +579,15 @@ The analyzer follows a value made from the placeholder through the code of your 
   after the loop or the `switch` runs later only when every way to it passes the `await`, and the
   same holds for an `await` or an `await foreach` there. For a loop, that means the loop always
   runs its first turn and no `break` or `continue` of the loop comes before the `await`. The loops
-  that always run their first turn are a `do`, a `while (true)`, a `for` with no condition or from
-  a constant up to a larger one, and a `foreach` over an array literal with an item. For a
-  `switch`, it means each section awaits before each `break` of the `switch`, and one section takes
-  every value: a `default`, or a `var` pattern with no `when`. Otherwise, the code after the loop or
-  the `switch` counts as code that runs in the block, because the loop can run no turn, a section
-  can leave before its `await`, or no section can run. An
+  that always run their first turn are a `do`, a `while (true)`, a `for` with no condition, or one
+  that counts up from a constant with `<` to a larger constant or with `<=` to one that is not
+  smaller, and a `foreach` over an array with an element: an array literal with an item, a
+  collection expression of an array type with an element that is not a spread, an array creation
+  whose sizes are constants larger than zero, or a local with such a value that no code writes.
+  For a `switch`, it means each section awaits before each `break` of the `switch`, and one section
+  takes every value: a `default`, or a `var` pattern with no `when`. Otherwise, the code after the
+  loop or the `switch` counts as code that runs in the block, because the loop can run no turn, a
+  section can leave before its `await`, or no section can run. An
   `await foreach` runs its body in the block only for an item that the sequence gives at once, and
   the code after it only when every item comes at once. An async iterator runs nothing until
   something enumerates it. An `await foreach` over `ConfigureAwait` or `WithCancellation` of the
@@ -713,8 +716,11 @@ careful side, so it can report a read that does not throw:
   `default` or a `var` pattern with no `when`, and no `break` comes before the read. A read in a
   `try` block counts only for the code after the `try`, and only when the `try` has no `catch`
   clause. A read in a loop counts for the code after the loop only when the loop always runs its
-  first turn: a `do`, a `while (true)`, a `for` with no condition or from a constant up to a larger
-  one, and a `foreach` over an array literal with an item. Inside any loop, a read that each turn
+  first turn: a `do`, a `while (true)`, a `for` with no condition, or one that counts up from a
+  constant with `<` to a larger constant or with `<=` to one that is not smaller, and a `foreach`
+  over an array with an element: an array literal with an item, a collection expression of an array
+  type with an element that is not a spread, an array creation whose sizes are constants larger than
+  zero, or a local with such a value that no code writes. Inside any loop, a read that each turn
   runs counts for the turns after it.
 - The coalesce function of a sink runs only when two sends go into the sink in one transaction. The
   analyzer counts the sends that are statements of the block itself, with no `return` or `goto`

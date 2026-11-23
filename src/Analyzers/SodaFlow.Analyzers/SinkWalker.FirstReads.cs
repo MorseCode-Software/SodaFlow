@@ -124,8 +124,11 @@ internal sealed partial class SinkWalker
     /// <summary>
     ///     True when a loop always runs its first turn. A do loop, a while loop
     ///     on the constant true, and a for loop with no condition have one. A
-    ///     for loop from a constant to a larger constant has one also, and so
-    ///     has a foreach over an array literal with an element.
+    ///     for loop from a constant up to a constant that it reaches has one
+    ///     also. A foreach over an array with an element has one too. That
+    ///     array is an array literal, a collection expression of an array type,
+    ///     or an array creation with constant sizes larger than zero. It can
+    ///     also be the value of a local that no code writes.
     /// </summary>
     private bool HasAFirstTurn(SyntaxNode loop) =>
         loop switch
@@ -133,30 +136,49 @@ internal sealed partial class SinkWalker
             DoStatementSyntax => true,
             WhileStatementSyntax repeat => this.ConstantOf(repeat.Condition) == true,
             ForStatementSyntax counted => counted.Condition == null || this.CountsUpFromBelow(counted),
-            // The compiler needs an element to give an implicit array its type.
-            ForEachStatementSyntax each =>
-                LoopStateEvaluator.Unwrapped(each.Expression)
-                    is ArrayCreationExpressionSyntax { Initializer.Expressions.Count: > 0 }
-                    or ImplicitArrayCreationExpressionSyntax,
+            ForEachStatementSyntax each => this.HasAnElement(LoopStateEvaluator.Unwrapped(each.Expression)),
             _ => false
         };
 
-    // True for a for loop whose condition is a variable of the loop less than a constant, and the
-    // variable starts at a smaller constant.
+    // The compiler needs an element to give an implicit array its type. An element that starts with
+    // .. can give no item.
+    // The value of a local that no code writes is the value of its declaration. For each other name,
+    // the evaluator gives the name itself.
+    private bool HasAnElement(ExpressionSyntax array) =>
+        array switch
+        {
+            ArrayCreationExpressionSyntax { Initializer: { } items } => items.Expressions.Count > 0,
+            ArrayCreationExpressionSyntax { Type.RankSpecifiers: { Count: > 0 } ranks } => ranks[0].Sizes.All(size =>
+                this.region.ModelFor(size).GetConstantValue(size) is { Value: int count } && count > 0),
+            ImplicitArrayCreationExpressionSyntax => true,
+            // The compiler gives a collection expression in a cast no type. The cast has the type.
+            CollectionExpressionSyntax collection =>
+                collection.Elements.Any(static element => element is ExpressionElementSyntax)
+                && (collection.Parent is CastExpressionSyntax cast
+                    ? this.region.ModelFor(cast).GetTypeInfo(cast).Type
+                    : this.region.ModelFor(collection).GetTypeInfo(collection).ConvertedType) is IArrayTypeSymbol,
+            IdentifierNameSyntax name =>
+                this.evaluator.ValueOfALocalThatNoCodeWrites(name) is not IdentifierNameSyntax and var value
+                && this.HasAnElement(value),
+            _ => false
+        };
+
+    // True for a for loop whose condition compares a variable of the loop to a constant with < or
+    // <=. The variable starts at a constant that meets the condition.
     private bool CountsUpFromBelow(ForStatementSyntax loop) =>
         loop is
         {
             Declaration.Variables: var variables,
             Condition: BinaryExpressionSyntax
             {
-                RawKind: (int)SyntaxKind.LessThanExpression,
+                RawKind: (int)SyntaxKind.LessThanExpression or (int)SyntaxKind.LessThanOrEqualExpression,
                 Left: IdentifierNameSyntax name,
                 Right: var end
-            }
+            } condition
         }
         && variables.FirstOrDefault(variable => variable.Identifier.ValueText == name.Identifier.ValueText)
             is { Initializer.Value: var start }
         && this.region.ModelFor(loop).GetConstantValue(start) is { Value: int from }
         && this.region.ModelFor(loop).GetConstantValue(end) is { Value: int to }
-        && from < to;
+        && (condition.IsKind(SyntaxKind.LessThanExpression) ? from < to : from <= to);
 }
