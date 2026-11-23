@@ -73,7 +73,7 @@ internal sealed partial class SinkWalker
     // True for a lambda of the query that runs now, where the walk knows the expression that enumerates the query.
     // While a query runs, the walk reads only the code of the query. Thus, each lambda around a throw is in that code.
     // An async lambda puts the object into its task.
-    private bool IsOfTheQueryThatRuns(AnonymousFunctionExpressionSyntax lambda) =>
+    private bool IsOfTheQueryThatRuns(SyntaxNode lambda) =>
         this.ofTheQuery != null && !IsAsync(lambda);
 
     // A query runs where something enumerates it. Thus, an object that leaves the code of the query goes to the catch

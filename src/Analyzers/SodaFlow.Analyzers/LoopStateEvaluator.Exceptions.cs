@@ -42,25 +42,31 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="state">The state of the object.</param>
     private static LoopState WrapperOf(INamedTypeSymbol? type, LoopState state)
     {
-        Construction? members = type == null ? null : Construction.Of(type);
-
-        for (INamedTypeSymbol? owner = type; owner != null && members != null; owner = owner.BaseType)
+        if (type == null)
         {
-            foreach (IPropertySymbol inner in owner.GetMembers().OfType<IPropertySymbol>())
-            {
-                members =
-                    inner.Name switch
-                    {
-                        "InnerException" when !members.Has(inner) => members.With(member: inner, state: state),
-                        "InnerExceptions" when !members.Has(inner) => members.With(
-                            member: inner,
-                            state: state.AsContainer),
-                        _ => members
-                    };
-            }
+            return LoopState.None;
         }
 
-        return members == null || !members.HasState ? LoopState.None : LoopState.None.WithMembers(members);
+        Construction members = Construction.Of(type);
+
+        for (INamedTypeSymbol? owner = type; owner != null; owner = owner.BaseType)
+        {
+            members = owner.GetMembers()
+                .OfType<IPropertySymbol>()
+                .Aggregate(
+                    seed: members,
+                    func: (all, inner) =>
+                        inner.Name switch
+                        {
+                            "InnerException" when !all.Has(inner) => all.With(member: inner, state: state),
+                            "InnerExceptions" when !all.Has(inner) => all.With(
+                                member: inner,
+                                state: state.AsContainer),
+                            _ => all
+                        });
+        }
+
+        return members.HasState ? LoopState.None.WithMembers(members) : LoopState.None;
     }
 
     /// <summary>
@@ -327,7 +333,7 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     /// <param name="invocation">The call of <c>Throw</c>.</param>
     /// <param name="method">The method of the call.</param>
-    private Followed? DispatchedAgain(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    private Followed? DispatchedAgain(InvocationExpressionSyntax invocation, ISymbol method)
     {
         if (!IsADispatchInfo(method.ContainingType))
         {
@@ -421,7 +427,7 @@ internal sealed partial class LoopStateEvaluator
     // WhenAll throws the objects of each task that it gets, and the task of WhenAny is one of the tasks that it gets.
     // ConfigureAwait, AsTask, and WaitAsync give the same task. Only a task has objects of a task, so the walk does not
     // test the type of the method.
-    private static bool PassesTheFaults(IMethodSymbol method) =>
+    private static bool PassesTheFaults(ISymbol method) =>
         method.Name is "WhenAll" or "WhenAny" or "ConfigureAwait" or "AsTask" or "WaitAsync";
 
     /// <summary>
