@@ -596,14 +596,16 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>
     ///     True for a member of the platform that gives a task that is complete.
-    ///     Such a member is <c>CompletedTask</c> or <c>FromResult</c> of
-    ///     <c>Task</c> or of <c>ValueTask</c>, or a constructor of
-    ///     <c>ValueTask</c> that gets a value.
+    ///     Such a member is <c>CompletedTask</c>, <c>FromResult</c>,
+    ///     <c>FromException</c>, or <c>FromCanceled</c> of <c>Task</c> or of
+    ///     <c>ValueTask</c>. A constructor of <c>ValueTask</c> that gets a value
+    ///     is such a member also. A task that keeps an exception is complete.
     /// </summary>
     public static bool MakesACompleteTask(ISymbol? member) =>
         member switch
         {
-            IPropertySymbol { Name: "CompletedTask" } or IMethodSymbol { Name: "FromResult" } =>
+            IPropertySymbol { Name: "CompletedTask" }
+                or IMethodSymbol { Name: "FromResult" or "FromException" or "FromCanceled" } =>
                 IsTask(member.ContainingType),
             IMethodSymbol { MethodKind: MethodKind.Constructor } constructor =>
                 constructor.ContainingType.Name == "ValueTask"

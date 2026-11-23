@@ -61904,6 +61904,118 @@ public static class Shapes
     public static Cell<int> Ab390SelectWithAnOptionalSecondFunction() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); int n = from v in new Ab390TwoFunctions(1) select v + p.Sample(); Kept.Add(n); return S.Hold(0); });
 
+    // S15003. ContinueWith with ExecuteSynchronously on a complete task runs its lambda in the call, and the lambda samples.
+    public static Cell<int> R6ExcContinueWithRunsInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously).Wait(1000); return S.Hold(0); });
+
+    // S15004. ContinueWith with ExecuteSynchronously on a faulted task runs its lambda in the call, and the lambda samples the object in the Exception of the task.
+    public static Cell<int> R6ExcContinueWithReadsTheFault() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task t = Task.FromException(new R4CsFault(l.Map(v => v))); t.ContinueWith(a => Kept.Add(((R4CsFault)a.Exception!.InnerException!).Share.Sample()), TaskContinuationOptions.ExecuteSynchronously).Wait(1000); return S.Hold(0); });
+
+    // S15005. GetResult of the awaiter of a continuation that ExecuteSynchronously ran, whose lambda samples, throws the exception of the sample.
+    public static Cell<int> R6ExcGetResultOfAContinuationThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously).GetAwaiter().GetResult(); return S.Hold(0); });
+
+    // S15006. Wait of a local that holds a continuation that samples throws the exception of the sample.
+    public static Cell<int> Ab363WaitOfALocalThatHoldsTheContinuation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task c = Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously); c.Wait(1000); return S.Hold(0); });
+
+    // S15007. Result of a continuation whose function samples throws the exception of the sample.
+    public static Cell<int> Ab363ResultOfAContinuationThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = Task.CompletedTask.ContinueWith(_ => l.Sample(), TaskContinuationOptions.ExecuteSynchronously).Result; return S.Hold(n); });
+
+    // S15008. Result of a conditional access of a continuation whose function samples throws the exception of the sample.
+    public static Cell<int> Ab363ConditionalResultOfAContinuation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task<int>? c = Task.CompletedTask.ContinueWith(_ => l.Sample(), TaskContinuationOptions.ExecuteSynchronously); Kept.Add(c?.Result); return S.Hold(0); });
+
+    // S15009. Result of a continuation gives the pending cell that its function returns, and the block samples it.
+    public static Cell<int> Ab363ResultOfAContinuationThatGivesAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Task.CompletedTask.ContinueWith(_ => l.Map(v => v), TaskContinuationOptions.ExecuteSynchronously).Result; return S.Hold(c.Sample()); });
+
+    // S15010. An await in an async lambda throws the exception of a continuation that samples, and the block waits for the lambda.
+    public static Cell<int> Ab363AwaitOfAContinuationInAnAsyncLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> f = async () => await Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously); f().Wait(1000); return S.Hold(0); });
+
+    // S15011. An await through ConfigureAwait throws the exception of a continuation that samples.
+    public static Cell<int> Ab363AwaitThroughConfigureAwait() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> f = async () => await Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously).ConfigureAwait(false); f().Wait(1000); return S.Hold(0); });
+
+    // S15012. An await of WhenAll throws the exception of a continuation that samples.
+    public static Cell<int> Ab363AwaitOfWhenAllOfAContinuation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> f = async () => await Task.WhenAll(Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously)); f().Wait(1000); return S.Hold(0); });
+
+    // S15013. Task.WaitAll of a continuation that samples throws the exception of the sample.
+    public static Cell<int> Ab363WaitAllOfAContinuation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.WaitAll(Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously)); return S.Hold(0); });
+
+    // S15014. Two waits of one continuation that samples. The second wait throws.
+    public static Cell<int> Ab363TwoWaitsOfOneContinuation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task c = Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously); Kept.Add(c.Wait(0)); c.Wait(1000); return S.Hold(0); });
+
+    // S15015. A method of the project makes a continuation that samples its parameter, and the block waits for it.
+    public static Cell<int> Ab363ContinuationThatACalleeMakes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab363Continue(l).Wait(1000); return S.Hold(0); });
+
+    // S15016. Control: a method of the project makes a continuation that samples its parameter, and nothing waits for it.
+    public static Cell<int> Ab363ContinuationThatACalleeMakesAndNothingWaitsFor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab363Continue(l)); return S.Hold(0); });
+
+    // S15017. A continuation gets the pending cell as its state object and samples it, and the block waits for it.
+    public static Cell<int> Ab363ContinuationWithAStateObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.CompletedTask.ContinueWith((_, o) => Kept.Add(((Cell<int>)o!).Sample()), l, TaskContinuationOptions.ExecuteSynchronously).Wait(1000); return S.Hold(0); });
+
+    // S15018. A continuation of a task of the pending cell samples its result, and the block waits for it.
+    public static Cell<int> Ab363ContinuationOfATaskOfAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.FromResult(l).ContinueWith(a => Kept.Add(a.Result.Sample()), TaskContinuationOptions.ExecuteSynchronously).Wait(1000); return S.Hold(0); });
+
+    // S15019. A continuation of a canceled task runs in the call, samples, and the block waits for it.
+    public static Cell<int> Ab363ContinuationOfACanceledTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.FromCanceled(new CancellationToken(true)).ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously).Wait(1000); return S.Hold(0); });
+
+    // S15020. A continuation writes a pending cell in the call, and the block samples it. Nothing waits for the continuation.
+    public static Cell<int> Ab363ContinuationWritesInTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = new() { Share = Plain }; Task.CompletedTask.ContinueWith(_ => s.Share = l.Map(v => v), TaskContinuationOptions.ExecuteSynchronously); return S.Hold(s.Share!.Sample()); });
+
+    // S15021. The options of a continuation join ExecuteSynchronously with a second option.
+    public static Cell<int> Ab363JoinedOptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.DenyChildAttach | TaskContinuationOptions.ExecuteSynchronously).Wait(1000); return S.Hold(0); });
+
+    // S15022. A continuation gets a token, ExecuteSynchronously, and the default scheduler.
+    public static Cell<int> Ab363OptionsWithATokenAndAScheduler() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default).Wait(1000); return S.Hold(0); });
+
+    // S15023. Control: the block waits for a continuation that samples a plain cell.
+    public static Cell<int> Ab363ContinuationOfAPlainSampleThatTheBlockWaitsFor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.CompletedTask.ContinueWith(_ => Kept.Add(Plain.Sample()), TaskContinuationOptions.ExecuteSynchronously).Wait(1000); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S15024. Control: a continuation with no option runs on a different thread, where the sample does not throw, and the block waits for it.
+    public static Cell<int> Ab363WaitOfAContinuationWithNoOption() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample())).Wait(1000); return S.Hold(0); });
+
+    // S15025. Control: a continuation with a different option runs on a different thread, and the block waits for it.
+    public static Cell<int> Ab363ContinuationWithADifferentOption() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.DenyChildAttach).Wait(1000); return S.Hold(0); });
+
+    // S15026. Control: a continuation of a task that never completes does not run, and the wait ends at once.
+    public static Cell<int> Ab363ContinuationOfATaskThatIsNotComplete() =>
+        Cell.Loop<int>().WithoutCaptures(l => { new TaskCompletionSource().Task.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously).Wait(0); return S.Hold(0); });
+
+    // S15027. Control: a ContinueWith of the project keeps its function and gives a complete task, and the block waits for that task.
+    public static Cell<int> Ab363ContinueWithOfTheCodeThatKeepsItsFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously, "kept").Wait(1000); return S.Hold(0); });
+
+    // S15028. Control: a WaitAll of the project waits for nothing, and the continuation keeps the exception of its sample.
+    public static Cell<int> Ab363WaitAllOfTheCodeWaitsForNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab363Tasks.WaitAll(Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously)); return S.Hold(0); });
+
+    // S15029. A continuation throws an object with a pending cell, GetResult of its awaiter throws the object again, and the catch samples it.
+    public static Cell<int> Ab363ContinuationThatThrowsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Task.CompletedTask.ContinueWith(_ => throw new R4CsFault(l.Map(v => v)), TaskContinuationOptions.ExecuteSynchronously).GetAwaiter().GetResult(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S15030. Control: an async lambda awaits a continuation that samples, and nothing waits for the task of the lambda.
+    public static Cell<int> Ab363AwaitOfAContinuationThatNothingWaitsFor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> f = async () => await Task.CompletedTask.ContinueWith(_ => Kept.Add(l.Sample()), TaskContinuationOptions.ExecuteSynchronously); Kept.Add(f()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -113988,6 +114100,14 @@ public static class Shapes
         public int Select(Func<int, int> f, Func<int, int>? g = null) => f(this.value) + (g?.Invoke(this.value) ?? 0);
     }
 
+    private static Task Ab363Continue(Cell<int> c) =>
+        Task.CompletedTask.ContinueWith(_ => Kept.Add(c.Sample()), TaskContinuationOptions.ExecuteSynchronously);
+
+    public static class Ab363Tasks
+    {
+        public static void WaitAll(params Task[] tasks) => Kept.Add(tasks);
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -113996,6 +114116,16 @@ public static class Shapes
 
 file static class Helpers
 {
+    // A ContinueWith of this code, which keeps its function and does not run it.
+    public static Task ContinueWith(this Task task, Action<Task> f, TaskContinuationOptions options, string name)
+    {
+        Ab363Functions.Add((f, options, name));
+
+        return task;
+    }
+
+    private static readonly List<object> Ab363Functions = [];
+
     // An extension method of the AB434 shapes that removes a handler.
     public static void Ab434Unhook(this Shapes.Ab95Bell bell, Action handler) => bell.Rang -= handler;
 

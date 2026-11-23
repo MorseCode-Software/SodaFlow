@@ -317,6 +317,7 @@ internal sealed partial class LoopStateEvaluator
             "Throw" => this.DispatchedAgain(invocation: invocation, method: method),
             "Wait" => this.FaultOfAWait(invocation: invocation, method: method),
             "Invoke" => this.FaultOfAParallelInvoke(invocation: invocation, method: method),
+            "ContinueWith" => this.FollowContinuation(invocation: invocation, method: method),
             _ => null
         };
 

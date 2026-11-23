@@ -130,6 +130,12 @@ internal sealed class LoopRegion(
     /// </summary>
     public bool ReadsCodeAfterTheTransaction => this.readAfterTheTransaction.Count > 0;
 
+    /// <summary>
+    ///     True after the walk read a continuation whose task keeps its
+    ///     findings. Only then can a wait of a task report findings.
+    /// </summary>
+    public bool KeepsTheReadsOfAContinuation { get; set; }
+
     /// <summary>Reads a function that runs after the transaction of the block.</summary>
     /// <remarks>
     ///     A posted function can post a function also. The walk does not read a

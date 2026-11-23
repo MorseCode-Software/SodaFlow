@@ -52,6 +52,15 @@ internal sealed partial class SinkWalker
         }
     }
 
+    // A wait of a task throws the exception of each read that a continuation of the task made in the call.
+    private void ReportsTheReadsThatAWaitThrows(SyntaxNode wait)
+    {
+        foreach (Finding finding in this.evaluator.ReadsThatAWaitThrows(wait))
+        {
+            this.sink(finding);
+        }
+    }
+
     // True for a finally block that always throws an object of its own: it has a throw statement at its first level.
     // The runtime then gives that object, and not the object of the try block or of a catch clause. A goto can skip
     // the throw statement. Thus, a finally block with a label gets false. A call in the finally block can also

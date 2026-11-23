@@ -8795,6 +8795,26 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab390ContinuationVariableIsThePendingCell"] = ["SF1001"],
             ["Ab390WhereVariableIsThePendingCell"] = ["SF1001"],
             ["Ab390SelectGivesItsFunctionToThePlatform"] = ["SF1001"],
-            ["Ab390SelectWithAnOptionalSecondFunction"] = ["SF1001"]
+            ["Ab390SelectWithAnOptionalSecondFunction"] = ["SF1001"],
+            ["R6ExcContinueWithRunsInTheCall"] = ["SF1001"],
+            ["R6ExcContinueWithReadsTheFault"] = ["SF1004"],
+            ["R6ExcGetResultOfAContinuationThatSamples"] = ["SF1001"],
+            ["Ab363WaitOfALocalThatHoldsTheContinuation"] = ["SF1001"],
+            ["Ab363ResultOfAContinuationThatSamples"] = ["SF1001"],
+            ["Ab363ConditionalResultOfAContinuation"] = ["SF1001"],
+            ["Ab363ResultOfAContinuationThatGivesAPendingCell"] = ["SF1001"],
+            ["Ab363AwaitOfAContinuationInAnAsyncLambda"] = ["SF1001"],
+            ["Ab363AwaitThroughConfigureAwait"] = ["SF1001"],
+            ["Ab363AwaitOfWhenAllOfAContinuation"] = ["SF1001"],
+            ["Ab363WaitAllOfAContinuation"] = ["SF1001"],
+            ["Ab363TwoWaitsOfOneContinuation"] = ["SF1001"],
+            ["Ab363ContinuationThatACalleeMakes"] = ["SF1004"],
+            ["Ab363ContinuationWithAStateObject"] = ["SF1004"],
+            ["Ab363ContinuationOfATaskOfAPendingCell"] = ["SF1004"],
+            ["Ab363ContinuationOfACanceledTask"] = ["SF1001"],
+            ["Ab363ContinuationWritesInTheCall"] = ["SF1001"],
+            ["Ab363JoinedOptions"] = ["SF1001"],
+            ["Ab363OptionsWithATokenAndAScheduler"] = ["SF1001"],
+            ["Ab363ContinuationThatThrowsAnObject"] = ["SF1001"]
         };
 }

@@ -344,7 +344,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   that an `await` of `WhenAny` gives, around `GetResult` of its awaiter, around an `await foreach`
   over the sequence that an async iterator gives, or around an `await using` whose `DisposeAsync`
   throws it. An `await` of `WhenAny` itself gives the task and throws nothing. A task that
-  `RunSynchronously` runs keeps the object as well. The runtime throws a
+  `RunSynchronously` runs keeps the object as well, and so does the task of a `ContinueWith` that
+  runs its function in the call, as described under code that waits. The runtime throws a
   `TypeInitializationException` in place of an object that a static constructor throws, and a
   `TargetInvocationException` in place of one that a method throws through `MethodInfo.Invoke` or a
   constructor through `Activator.CreateInstance` or `new T()` of a type parameter. The
@@ -607,9 +608,17 @@ The analyzer follows a value made from the placeholder through the code of your 
   it at the first read only, as a cell does: see the limits below), and the function
   of a `Task` that you create with `new` where `RunSynchronously` runs it. The `Result` of such a
   task, and `GetResult` of its awaiter, have the value that the function returns, however the task
-  runs. A query expression over a type whose methods run their function in the call, such as
-  `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. For a query over a type
-  of your project whose methods for the clauses return no sequence, the analyzer reads each of those
+  runs. A `ContinueWith` with the option `TaskContinuationOptions.ExecuteSynchronously`, written as
+  a constant, on a task that the analyzer knows is complete, runs its function in the call, so the
+  analyzer reads the function there. The task of the continuation keeps the exception of a read in
+  that function, so the analyzer reports such a read only where the code waits for that task: with
+  `Wait`, `Task.WaitAll`, `Result`, or `GetResult` of its awaiter. An `await` of the task, also
+  through `ConfigureAwait` or `WhenAll`, puts the exception into the task of its `async` function,
+  and the report comes where the code waits for that task. A continuation that nothing waits for
+  gets no report. A query expression over a type whose methods run their function in the call,
+  such as `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. For a query
+  over a type of your project whose methods for the clauses return no sequence, the analyzer
+  reads each of those
   methods as a call where the query is written, with the result of the clause before it. Each
   expression of a clause is a lambda that the method gets, so the analyzer reads it where the code of
   the method runs that lambda, with the range variable that the method gives it, and not where the
@@ -942,6 +951,10 @@ Some reads that throw it does not see:
   counts as that function.
 - The objects of a task for a `catch` around `Task.WaitAll`, `Task.WaitAny`, or a wait of a task
   from `Task.Factory.StartNew`. The analyzer gives such a `catch` no object.
+- The function of a `ContinueWith` with `ExecuteSynchronously` on a task that the analyzer does not
+  know is complete, or with options that are not a constant. Such a function runs where the first
+  task completes, which can be in the block, as `SetResult` of a `TaskCompletionSource` does, or on
+  a different thread. The analyzer does not read it, so a wait for its task gets no report.
 - A static initializer of a class with no static constructor. The runtime can run such initializers
   at any time before the first read of a field. The analyzer reads them at the first read of a
   static field, or of a static property with no code, through the name of the class or in the code
@@ -1001,7 +1014,8 @@ Some reads that throw it does not see:
   also through `WithCancellation` or `ConfigureAwait`, and over an iterator whose first
   `yield return` is not at the top level of its body. The analyzer reads the `DisposeAsync` of the
   enumerator at the end of such a loop as code that runs later too. The analyzer knows the complete
-  tasks that the platform makes, such as `Task.CompletedTask` and `Task.FromResult`, a local, a
+  tasks that the platform makes, such as `Task.CompletedTask`, `Task.FromResult`,
+  `Task.FromException`, and `Task.FromCanceled`, a local, a
   `readonly` field, or a get-only property whose initializer is such a task, and a method or a
   getter of your own that returns only such tasks. An awaiter of your own whose `IsCompleted` always
   returns `true`, and is not virtual, is complete too.

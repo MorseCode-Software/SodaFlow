@@ -3659,6 +3659,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         else
         {
             this.Report(followed);
+            this.ReportsTheReadsThatAWaitThrows(node);
         }
 
         if (receiver != null)
@@ -4976,6 +4977,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             else if (property.Name == "Result")
             {
                 this.Report(this.evaluator.FaultOfAResult(read: node, owner: owner, property: property));
+                this.ReportsTheReadsThatAWaitThrows(node);
             }
         }
         else if (this.region.Symbols.ReadsItsOwner(property))
