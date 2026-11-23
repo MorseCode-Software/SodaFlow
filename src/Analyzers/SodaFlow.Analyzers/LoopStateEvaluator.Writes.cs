@@ -1044,9 +1044,17 @@ internal sealed partial class LoopStateEvaluator
         foreach (ExpressionSyntax returned in body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
         {
             (ExpressionSyntax name, bool isAnElement) =
-                Unwrapped(returned) is ElementAccessExpressionSyntax element
+                Unwrapped(this.SelectedLocation(returned)) is ElementAccessExpressionSyntax element
                     ? (Unwrapped(element.Expression), true)
-                    : (Unwrapped(returned), false);
+                    : (Unwrapped(this.SelectedLocation(returned)), false);
+
+            // A static field through the name of its type is the same location in the caller.
+            if (name is MemberAccessExpressionSyntax && this.IsAStaticField(name))
+            {
+                locations.Add((name, isAnElement));
+
+                continue;
+            }
 
             if (name is not IdentifierNameSyntax || this.region.SymbolOf(name) is not { } returnedName)
             {
@@ -1216,6 +1224,22 @@ internal sealed partial class LoopStateEvaluator
                     after: reference.Span.End,
                     before: int.MaxValue,
                     orAFunctionUsesIt: false));
+
+    // The location of a ref. A conditional ref on a constant is the location that the constant
+    // selects. The walk does not know the location of a conditional ref on a different condition.
+    private ExpressionSyntax SelectedLocation(ExpressionSyntax location)
+    {
+        while (Unwrapped(location) is ConditionalExpressionSyntax
+               {
+                   WhenTrue: RefExpressionSyntax whenTrue, WhenFalse: RefExpressionSyntax whenFalse
+               } conditional
+               && SinkWalker.ConstantOf(region: this.region, condition: conditional.Condition) is { } always)
+        {
+            location = always ? whenTrue.Expression : whenFalse.Expression;
+        }
+
+        return location;
+    }
 
     // True for a static field. A local with ref for it reads the field again at each use. Thus, it
     // gets each value that code gives the field after the declaration.

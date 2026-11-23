@@ -58816,6 +58816,26 @@ public static class Shapes
     public static Cell<int> Ab381RefParameterOfALocalFunctionSetTwoTimesKeepsTheLocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c = l.Map(v => v); Cell<int> p = c; Give(ref c, p); Kept.Add(c!.Sample()); static void Give(ref Cell<int>? x, Cell<int> y) { x = Plain; x = y; } return S.Hold(0); });
 
+    // S14224. A control: the same write, and the read is of the location that the constant selects.
+    public static Cell<int> R6LimWriteThroughAConstantConditionalRefReadTheTaken() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6LimStatics.C = Plain; R6LimStatics.D = Plain; ref Cell<int>? r = ref (true ? ref R6LimStatics.C : ref R6LimStatics.D); r = l.Map(v => v); Kept.Add(R6LimStatics.C!.Sample()); return S.Hold(0); });
+
+    // S14225. A control: the same write, and the read is of the location that the constant selects.
+    public static Cell<int> R6LimWriteThroughAConstantConditionalRefOfALocalFunctionReadTheTaken() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6LimRefs2.C = Plain; R6LimRefs2.D = Plain; Pick() = l.Map(v => v); Kept.Add(R6LimRefs2.C!.Sample()); static ref Cell<int>? Pick() => ref (true ? ref R6LimRefs2.C : ref R6LimRefs2.D); return S.Hold(0); });
+
+    // S14226. A write of a pending cell through a ref local of a conditional ref on the constant false. The read is of the location that the constant selects.
+    public static Cell<int> Ab374WriteThroughAConditionalRefOnFalseReadTheTaken() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab374Statics.A = Plain; Ab374Statics.B = Plain; ref Cell<int>? r = ref (false ? ref Ab374Statics.A : ref Ab374Statics.B); r = l.Map(v => v); Kept.Add(Ab374Statics.B!.Sample()); return S.Hold(0); });
+
+    // S14227. A write of a plain cell through a ref local of a conditional ref on the constant true replaces the pending cell of the location that the constant selects.
+    public static Cell<int> Ab374WriteThroughAConditionalRefOnTrueReplacesTheTaken() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab374Statics.C = l.Map(v => v); Ab374Statics.D = Plain; ref Cell<int>? r = ref (true ? ref Ab374Statics.C : ref Ab374Statics.D); r = Plain; Kept.Add(Ab374Statics.C!.Sample()); return S.Hold(0); });
+
+    // S14228. A local function returns a ref to a static field through the name of its type. The block writes a pending cell through it and reads the field.
+    public static Cell<int> Ab374WriteThroughARefOfAStaticFieldThatALocalFunctionReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab374Statics.E = Plain; Get() = l.Map(v => v); Kept.Add(Ab374Statics.E!.Sample()); static ref Cell<int>? Get() => ref Ab374Statics.E; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109570,6 +109590,16 @@ public static class Shapes
         public int Count(int k, params int[] xs) => k + xs.Length;
 
         public int Count(params string[] xs) => xs.Length + this.c.Sample();
+    }
+
+    // Helpers of the shapes of AB374.
+    public static class Ab374Statics
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+        public static Cell<int>? C;
+        public static Cell<int>? D;
+        public static Cell<int>? E;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

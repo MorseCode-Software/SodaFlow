@@ -8215,6 +8215,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab380BlockInALocalWithNoInitializerAssignedTwice"] = ["SF1001"],
             ["Ab380BlockInALocalWithNoInitializerAssignedInABranch"] = ["SF1003"],
             ["Ab381RefParameterOfALocalFunctionSetUnderAConditionKeepsTheLocal"] = ["SF1001"],
-            ["Ab381RefParameterOfALocalFunctionSetTwoTimesKeepsTheLocal"] = ["SF1001"]
+            ["Ab381RefParameterOfALocalFunctionSetTwoTimesKeepsTheLocal"] = ["SF1001"],
+            ["R6LimWriteThroughAConstantConditionalRefReadTheTaken"] = ["SF1001"],
+            ["R6LimWriteThroughAConstantConditionalRefOfALocalFunctionReadTheTaken"] = ["SF1001"],
+            ["Ab374WriteThroughAConditionalRefOnFalseReadTheTaken"] = ["SF1001"],
+            ["Ab374WriteThroughARefOfAStaticFieldThatALocalFunctionReturns"] = ["SF1001"]
         };
 }

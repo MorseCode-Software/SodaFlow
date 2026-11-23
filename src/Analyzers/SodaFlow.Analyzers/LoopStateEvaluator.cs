@@ -888,6 +888,8 @@ internal sealed partial class LoopStateEvaluator
         // assignment to that location, and the name keeps it.
         if (value is RefExpressionSyntax { Expression: var location })
         {
+            location = this.SelectedLocation(location);
+
             if (replaces
                 && local is ILocalSymbol
                 && (this.IsALocationThatTheWalkCanReadAgain(location)

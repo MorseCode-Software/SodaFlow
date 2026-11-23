@@ -367,7 +367,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   returns goes where that `ref` points: a parameter, a local of the code around a local function, a
   static field, or a member of the object of the call or an element of that member. So does a write
   through a `ref` local of such an indexer, and a write through a conditional `ref` goes to both of
-  its locations. A write through a `ref` that a method returns, to a static field or to an element
+  its locations. A write through a `ref` local of a conditional `ref`, or through a conditional `ref`
+  that a method or a local function returns, goes to the location that a constant condition selects.
+  A write through a `ref` that a method returns, to a static field or to an element
   of an array parameter, adds its value to what the location held and does not replace it, so a
   plain cell written that way over a pending one still counts as pending. A write through a `ref`
   local of a static field replaces what the field held, as a write to the field itself does. Two
@@ -788,6 +790,10 @@ Some reads that throw it does not see:
   the query. The analyzer does not give the object to that clause.
 - The `AggregateException` that `Wait` or `Result` of a task throws when a function of the task
   threw. The analyzer gives a `catch` of it no object.
+- A write through a `ref` local of a conditional `ref` whose condition is not a constant, or through
+  such a conditional `ref` that a method or a local function returns. The analyzer gives the value to
+  neither location. Where it gave the value to both, a read of the location that the condition
+  rules out would get a report, and the analyzer cannot tell the two reads apart.
 - A static initializer of a class with no static constructor. The runtime can run such initializers
   at any time before the first read of a field. The analyzer reads them at the first read of a
   static field, or of a static property with no code, through the name of the class or in the code
