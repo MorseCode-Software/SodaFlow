@@ -61212,6 +61212,18 @@ public static class Shapes
     public static Cell<int> Ab343MapAssignedToALocalOnlyDisposed() =>
         Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m; m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); m.Dispose(); return S.Hold(0); });
 
+    // S14830. A helper returns a map and a setter that share a local of the helper. The block sets the local pending through the setter and samples the map. (Left out in Round 5 as R5SmpHelperMapAndSetterShareALocal, AB277.)
+    public static Cell<int> R6FuCSmpHelperMapAndSetterShareALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> w, Action<Cell<int>> set) = R5SmpMakePair(); set(l.Map(v => v)); return S.Hold(w.Sample()); });
+
+    // S14831. The same, with the sample before the setter runs. A control. (Left out in Round 5 as R5SmpHelperMapAndSetterSampledBefore, AB277.)
+    public static Cell<int> R6FuCSmpHelperMapAndSetterSampledBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> w, Action<Cell<int>> set) = R5SmpMakePair(); int n = w.Sample(); set(l.Map(v => v)); return S.Hold(n); });
+
+    // S14832. A helper returns a map and a setter that share a local of the helper. The block keeps the tuple in a local, sets the local of the helper pending through the setter, and samples the map.
+    public static Cell<int> Ab426HelperPairKeptInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> Map, Action<Cell<int>> Set) pair = R5SmpMakePair(); pair.Set(l.Map(v => v)); return S.Hold(pair.Map.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

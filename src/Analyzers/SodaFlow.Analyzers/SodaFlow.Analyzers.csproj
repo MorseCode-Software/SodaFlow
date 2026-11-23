@@ -94,6 +94,7 @@
         <Compile Include="LoopStateEvaluator.Reflection.cs"/>
         <Compile Include="LoopStateEvaluator.Recursion.cs"/>
         <Compile Include="LoopStateEvaluator.RefsOfOneLocation.cs"/>
+        <Compile Include="LoopStateEvaluator.ReturnedFunctions.cs"/>
         <Compile Include="LoopStateEvaluator.SecondNames.cs"/>
         <Compile Include="LoopStateEvaluator.StructCollections.cs"/>
         <Compile Include="LoopStateEvaluator.Sinks.cs"/>

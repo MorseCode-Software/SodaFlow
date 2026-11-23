@@ -950,12 +950,6 @@ Some reads that throw it does not see:
   call. And when a method returns a sealed class, the result of a call that comes before the first
   write through a result of a call counts as a new object, so a read through it does not see that
   write.
-- A delegate that one of your methods returns as an element of a tuple. The analyzer loses the
-  function of the delegate there, whether the code deconstructs the tuple or keeps it in a local.
-  A call of it then counts as code that the analyzer cannot read: a value made from the placeholder
-  that you pass to it gets `SF1003`, and what the function writes, such as a capture that another
-  function of the method reads, is not seen. The same delegate returned alone, or in a tuple that
-  the block itself makes, is read.
 - A chain of your own calls more than six calls deep. There, the analyzer reports `SF1003` at the
   call where it stops. The same happens past a budget of 512 bodies of methods, constructors,
   getters, and lambdas that it reads for one block, at the call that would go over it.

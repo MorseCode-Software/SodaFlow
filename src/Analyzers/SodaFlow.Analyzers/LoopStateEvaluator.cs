@@ -3782,7 +3782,7 @@ internal sealed partial class LoopStateEvaluator
             members: members,
             receiver: receiverState,
             target: null,
-            returnsAFunction: definition.ReturnType.TypeKind == TypeKind.Delegate,
+            returnsAFunction: CanReturnAFunction(definition.ReturnType),
             returnsAnObject: this.DoesNotSayItsClass(this.TypeArgumentFor(method.ReturnType) ?? method.ReturnType),
             owner: receiverState == null ? null : receiver);
     }
