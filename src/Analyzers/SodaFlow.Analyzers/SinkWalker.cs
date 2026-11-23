@@ -2011,8 +2011,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
             // A delegate that loses the last occurrence of a function, as in handlers -= handler.
             if (node.IsKind(SyntaxKind.SubtractAssignmentExpression)
-                && this.AlwaysRuns(assignment: node, turn: out SyntaxNode? removedIn)
-                && removedIn == null
+                && this.RemovesOnEachPath(node)
                 && this.evaluator.AfterTheLastRemove(node) is { } left)
             {
                 this.AssignState(target: node.Left, state: left, replaces: true, turn: null);
@@ -3749,13 +3748,24 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 .FirstOrDefault();
     }
 
-    // A call that the code can skip, or that a loop runs, keeps the timer.
+    // A call that the code can skip keeps the timer. A loop that always has a first turn runs the
+    // call. In the block of a try, the call takes the timer at the end of the try. The finally
+    // block can run without the call.
     private void CancelsATimerAt(SyntaxNode call, ExpressionSyntax timer)
     {
-        if (this.region.Objects.HasTimers && this.WhereACallRuns(call) is (true, null))
+        if (!this.region.Objects.HasTimers || !this.SurelyRuns(call: call, after: out TryStatementSyntax? after))
+        {
+            return;
+        }
+
+        if (after == null)
         {
             this.CancelsATimer(timer);
+
+            return;
         }
+
+        (this.afterTheTry ??= []).Add((after, () => this.CancelsATimer(timer)));
     }
 
     // A Cancel or a Dispose of a timer takes it from its clock, which then does not run its

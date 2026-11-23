@@ -8606,6 +8606,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab364TimerHelperRunsInAForEachOfAList"] = ["SF1001"],
             ["Ab364TimerHelperRunsForEachTimeOfOne"] = ["SF1001"],
             ["Ab364TimerHelperRunsInASwitchOfALongConstant"] = ["SF1001"],
-            ["Ab364TimerHelperRunsInASwitchOfAStringConstant"] = ["SF1001"]
+            ["Ab364TimerHelperRunsInASwitchOfAStringConstant"] = ["SF1001"],
+            ["Ab368CancelAfterAThrowInATry"] = ["SF1001"],
+            ["Ab368HandlerRemovedAfterAThrowInATryWithACatch"] = ["SF1001"],
+            ["Ab368HandlerRemovedBeforeAFinallyThatRings"] = ["SF1001"]
         };
 }

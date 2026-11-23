@@ -60808,6 +60808,50 @@ public static class Shapes
     public static Cell<int> Ab364TimerHelperSkipsAfterAPatternOfASwitch() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunAfterAPattern(clock); return S.Hold(0); });
 
+    // S14722. The same, with the Cancel in a for loop from 0 to 1.
+    public static Cell<int> R6FuTimerCancelledInALoopThatRunsOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); for (int i = 0; i < 1; i++) { t.Cancel(); } clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14723. The block cancels the timer in a try with a finally block, which runs on every path.
+    public static Cell<int> R6PathCancelInATry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); try { t.Cancel(); } finally { Kept.Add(0); } clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14724. The block cancels the timer in the else branch of an if on the constant false.
+    public static Cell<int> R6PathCancelInTheElseOfAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); if (R6PathOff) { } else { t.Cancel(); } clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14725. The block removes the handler in a try with a finally block.
+    public static Cell<int> R6PathHandlerRemovedInATry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; try { b.Rang -= h; } finally { Kept.Add(0); } b.Ring(); return S.Hold(0); });
+
+    // S14726. The block removes the handler in the else branch of an if on the constant false.
+    public static Cell<int> R6PathHandlerRemovedInTheElseOfAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; if (R6PathOff) { } else { b.Rang -= h; } b.Ring(); return S.Hold(0); });
+
+    // S14727. The block cancels the timer in a try block after a call that throws. The finally block runs the timers, thus the callback samples.
+    public static Cell<int> Ab368CancelAfterAThrowInATry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); try { Ab364Fail(); t.Cancel(); } finally { clock.RunTimersTo(0); } return S.Hold(0); });
+
+    // S14728. The block removes the handler in the branch of an if on the constant true.
+    public static Cell<int> Ab368HandlerRemovedInAnIfOnTrue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; if (!R6PathOff) { b.Rang -= h; } b.Ring(); return S.Hold(0); });
+
+    // S14729. The block removes the handler in a try block with a catch clause, after a call that throws. Thus, the remove does not run, and the handler samples.
+    public static Cell<int> Ab368HandlerRemovedAfterAThrowInATryWithACatch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; try { Ab364Fail(); b.Rang -= h; } catch (FormatException) { } b.Ring(); return S.Hold(0); });
+
+    // S14730. The block removes the handler in a finally block.
+    public static Cell<int> Ab368HandlerRemovedInAFinally() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; try { Kept.Add(0); } finally { b.Rang -= h; } b.Ring(); return S.Hold(0); });
+
+    // S14731. The block removes the handler in a try block after a call that throws. The finally block rings, thus the handler samples.
+    public static Cell<int> Ab368HandlerRemovedBeforeAFinallyThatRings() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; try { Ab364Fail(); b.Rang -= h; } finally { b.Ring(); } return S.Hold(0); });
+
+    // S14732. A method of this code calls RunTimersTo in a lambda that ForEach runs for each element of a new list with an empty initializer. Thus, the timer does not run.
+    public static Cell<int> Ab364TimerHelperSkipsInAForEachOfAnEmptyInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunInAForEachOfAnEmptyInitializer(clock); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112497,6 +112541,9 @@ public static class Shapes
                 break;
         }
     }
+
+    private static void Ab364RunInAForEachOfAnEmptyInitializer(R4ApiStepClock clock) =>
+        new List<int> { }.ForEach(n => clock.RunTimersTo(n));
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

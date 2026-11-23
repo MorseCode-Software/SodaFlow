@@ -1450,7 +1450,10 @@ internal sealed partial class LoopStateEvaluator
             || Unwrapped(value) is not AnonymousFunctionExpressionSyntax lambda
             || FunctionOf(remove) is not { } code
             || code.DescendantNodes().OfType<LabeledStatementSyntax>().Any()
-            || !RunsStraightIn(node: declarator, code: code)
+            || !this.RunsStraightIn(
+                node: declarator,
+                code: code,
+                names: [local.Name, .. NameOfTheOwner(remove.Left)])
             || this.GetsASecondValue(local: local, scope: code)
             || this.UsesOfTheLocation(location: remove.Left, code: code) is not (var changes, var start))
         {
@@ -1478,7 +1481,10 @@ internal sealed partial class LoopStateEvaluator
                     continue;
                 case AssignmentExpressionSyntax change when change.Right == use && changes.Contains(change):
                 {
-                    if (!RunsStraightIn(node: change, code: code))
+                    if (!this.RunsStraightIn(
+                            node: change,
+                            code: code,
+                            names: [local.Name, .. NameOfTheOwner(remove.Left)]))
                     {
                         return null;
                     }
@@ -1691,7 +1697,7 @@ internal sealed partial class LoopStateEvaluator
             || variable.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax declarator
             || FunctionOf(declarator) != code
-            || !RunsStraightIn(node: declarator, code: code)
+            || !this.RunsStraightIn(node: declarator, code: code, names: [variable.Name])
             || (member != null
                 && (declarator.Initializer?.Value is not BaseObjectCreationExpressionSyntax
                     || this.GetsASecondValue(local: variable, scope: code))))
@@ -1750,19 +1756,6 @@ internal sealed partial class LoopStateEvaluator
 
         return (changes, member == null ? declarator : null);
     }
-
-    // True when each run of the code runs the node. The node has only blocks and its own statement
-    // around it, up to the code.
-    private static bool RunsStraightIn(SyntaxNode node, SyntaxNode code) =>
-        node.Ancestors()
-            .TakeWhile(around => around != code)
-            .All(static around =>
-                around is BlockSyntax
-                    or ExpressionStatementSyntax
-                    or LocalDeclarationStatementSyntax
-                    or VariableDeclarationSyntax
-                    or VariableDeclaratorSyntax
-                    or EqualsValueClauseSyntax);
 
     // The state of an expression at this time. The walk reads a node one time, and this takes
     // that read away for the expression and for each of its parts.

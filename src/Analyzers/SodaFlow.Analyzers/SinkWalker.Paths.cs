@@ -79,6 +79,13 @@ internal sealed partial class SinkWalker
         return false;
     }
 
+    // True when each run of the function of a remove of a handler runs it. AlwaysRuns finds it with
+    // no turn, or the remove runs as a call runs. AfterTheLastRemove asks that each add and the remove
+    // run one time: see RunsStraightIn.
+    private bool RemovesOnEachPath(AssignmentExpressionSyntax remove) =>
+        (this.AlwaysRuns(assignment: remove, turn: out SyntaxNode? turn) && turn == null)
+        || (remove.Parent is ExpressionStatementSyntax statement && this.SurelyRunsAt(place: statement, after: out _));
+
     // A foreach over a collection whose positions the store knows has a first turn when the
     // collection has an element.
     private bool HasATurn(SyntaxNode loop) =>

@@ -557,7 +557,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   selects, after a `goto` to a label before it, and in a loop or a `List<T>.ForEach` that always
   runs at least once.
   A `Cancel` or a `Dispose` of the timer before the run, or the end of a `using` statement of it,
-  takes the timer away when it runs on every path, outside a loop.
+  takes the timer away when it runs on every path, by the same rule, also in a loop that always
+  runs at least once. In a `try` block it takes the timer away at the end of the `try`, so a run of
+  the timers in the `finally` block still runs it. A `Cancel` under a condition that is not a
+  constant keeps the timer.
   A `TimerSystem` calls `Start` and `Now` of its implementation when you construct it. Disposing it
   inside a transaction calls `Stop` only after the transaction releases its lock, so a `Dispose` in
   the block runs no `Stop` there, and the analyzer does not read it. The construction of a
@@ -786,13 +789,15 @@ careful side, so it can report a read that does not throw:
   analyzer then knows the type of the result, and a name that this type does not have does not
   reach it.
 - A handler removed with `-=` still counts as a handler of the event, unless the code adds and
-  removes that one handler in a straight line. The handler must be a local that holds one lambda,
-  and the code must add it to and remove it from a local delegate, or an event of a local that
-  holds an object made with `new`. A local delegate can have any code between the add and the
-  remove. An event of such an object can too, as long as no code before the remove uses the
-  object other than to add or remove handlers, and no constructor that `new` runs passes `this`
-  on. Otherwise, nothing can come between the add and the remove. An event of `this`, of a field,
-  or of a parameter never qualifies.
+  removes that one handler in a straight line. A `finally` block, the branch of an `if` that a
+  constant selects, and a `try` block with no `catch` whose `finally` block does not name the
+  handler or the local of the event are part of a straight line. The handler must be a local that
+  holds one lambda, and the code must add it to and remove it from a local delegate, or an event of
+  a local that holds an object made with `new`. A local delegate can have any code between the add
+  and the remove. An event of such an object can too, as long as no code before the remove uses the
+  object other than to add or remove handlers, and no constructor that `new` runs passes `this` on.
+  Otherwise, nothing can come between the add and the remove. An event of `this`, of a field, or of
+  a parameter never qualifies.
 - A sample of a hold gives only the initial value where the hold is made and sampled in the
   transaction of the block: in the block's own code, in a function that `Transaction.Run` runs, in
   the function of a `Map` of a `Cell.Constant`, or in a local function, lambda, or method that such
