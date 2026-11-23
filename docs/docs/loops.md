@@ -516,7 +516,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   implements that, the constructor, the `AppendLiteral`, and the `AppendFormatted` of an
   interpolated string handler of your own, which gets each value in place of that `ToString`, and no
   append where that constructor sets `shouldAppend` only to the constant `false`, `Dispose` at the
-  end of a `using` or a `foreach`, `DisposeAsync` at the end of an `await using`, also of a resource
+  end of a `using` statement or a `foreach`, and at the end of the block of a `using` declaration,
+  from the last declaration to the first, `DisposeAsync` at the end of an `await using`, also of a
+  resource
   in `ConfigureAwait`, `GetAwaiter` at an `await`, with `IsCompleted` of its awaiter and `GetResult`
   where the analyzer knows that the awaiter is complete, the enumerator of a `foreach`, the `Add` of
   a collection initializer or a collection expression, the `Create` method of a `CollectionBuilder`,

@@ -8735,6 +8735,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab386ParamsArrayReadsThePendingArgumentFromTheEnd"] = ["SF1004"],
             ["R6CsIndexerInitializerWritesTheElement"] = ["SF1001"],
             ["Ab394IndexerInitializerRunsASetterThatSamples"] = ["SF1004"],
-            ["Ab394IndexerAssignmentRunsASetterThatSamples"] = ["SF1004"]
+            ["Ab394IndexerAssignmentRunsASetterThatSamples"] = ["SF1004"],
+            ["R6CsUsingDeclarationDisposesAfterALaterWrite"] = ["SF1005"],
+            ["R6CsUsingDeclarationsDisposeFromTheLast"] = ["SF1005"],
+            ["Ab382UsingDeclarationInAnInnerBlockDisposesAfterItsWrite"] = ["SF1005"],
+            ["Ab382UsingDeclarationOfTwoVariablesDisposesTheSecondFirst"] = ["SF1005"],
+            ["Ab382UsingDeclarationInALoopDisposesAtTheEndOfTheTurn"] = ["SF1005"],
+            ["Ab382UsingDeclarationInABlockWithALabel"] = ["SF1005"]
         };
 }

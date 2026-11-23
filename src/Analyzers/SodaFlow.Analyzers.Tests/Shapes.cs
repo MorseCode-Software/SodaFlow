@@ -61544,6 +61544,46 @@ public static class Shapes
     public static Cell<int> Ab394IndexerInitializerRunsASetterThatSamplesThePlainCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab394Reads r = new() { [0] = Plain }; return S.Hold(0); });
 
+    // S14913. A using declaration disposes at the end of the block, after the block writes a pending cell to the holder that Dispose samples.
+    public static Cell<int> R6CsUsingDeclarationDisposesAfterALaterWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsHolder h = new(Plain); using R6CsReadsAtDispose d = new(h); h.Share = l.Map(v => v); return S.Hold(0); });
+
+    // S14914. A using declaration disposes at the end of the block, after the block writes a plain cell over the pending one that Dispose would sample.
+    public static Cell<int> R6CsUsingDeclarationDisposesAfterAPlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsHolder h = new(l.Map(v => v)); using R6CsReadsAtDispose d = new(h); h.Share = Plain; return S.Hold(0); });
+
+    // S14915. Two using declarations dispose from the last to the first. The second writes a pending cell to the holder, and then the first samples it.
+    public static Cell<int> R6CsUsingDeclarationsDisposeFromTheLast() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsHolder h = new(Plain); using R6CsReadsAtDispose first = new(h); using R6CsWritesAtDispose second = new(h, l.Map(v => v)); return S.Hold(0); });
+
+    // S14916. Two using declarations dispose from the last to the first. The second samples the plain cell, and then the first writes the pending cell, which nothing samples.
+    public static Cell<int> R6CsUsingDeclarationsDisposeTheReaderFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsHolder h = new(Plain); using R6CsWritesAtDispose first = new(h, l.Map(v => v)); using R6CsReadsAtDispose second = new(h); return S.Hold(0); });
+
+    // S14917. AB382. A using declaration in an inner block disposes at the end of that block, before the block after it writes a pending cell.
+    public static Cell<int> Ab382UsingDeclarationInAnInnerBlockDisposesFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsHolder h = new(Plain); { using R6CsReadsAtDispose d = new(h); } h.Share = l.Map(v => v); return S.Hold(0); });
+
+    // S14918. AB382. A using declaration in an inner block disposes at the end of that block, after the inner block writes a pending cell.
+    public static Cell<int> Ab382UsingDeclarationInAnInnerBlockDisposesAfterItsWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsHolder h = new(Plain); { using R6CsReadsAtDispose d = new(h); h.Share = l.Map(v => v); } h.Share = Plain; return S.Hold(0); });
+
+    // S14919. AB382. A using declaration with two variables disposes the second first. The second writes a pending cell, and then the first samples it.
+    public static Cell<int> Ab382UsingDeclarationOfTwoVariablesDisposesTheSecondFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsHolder h = new(Plain); using IDisposable first = new R6CsReadsAtDispose(h), second = new R6CsWritesAtDispose(h, l.Map(v => v)); return S.Hold(0); });
+
+    // S14920. AB382. A using declaration with two variables disposes the second first. The second samples the plain cell, and then the first writes the pending cell.
+    public static Cell<int> Ab382UsingDeclarationOfTwoVariablesDisposesTheReaderFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsHolder h = new(Plain); using IDisposable first = new R6CsWritesAtDispose(h, l.Map(v => v)), second = new R6CsReadsAtDispose(h); return S.Hold(0); });
+
+    // S14921. AB382. A using declaration in the body of a loop disposes at the end of each turn, after the turn writes a pending cell.
+    public static Cell<int> Ab382UsingDeclarationInALoopDisposesAtTheEndOfTheTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsHolder h = new(Plain); for (int i = 0; i < 1; i++) { using R6CsReadsAtDispose d = new(h); h.Share = l.Map(v => v); } return S.Hold(0); });
+
+    // S14922. AB382. A block with a label and a goto back to it disposes its using declaration at its end, after the block writes a pending cell.
+    public static Cell<int> Ab382UsingDeclarationInABlockWithALabel() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsHolder h = new(Plain); using R6CsReadsAtDispose d = new(h); int i = 0; again: i++; if (i < 2) { goto again; } h.Share = l.Map(v => v); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

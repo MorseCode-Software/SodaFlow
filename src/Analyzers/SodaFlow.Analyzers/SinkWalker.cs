@@ -196,7 +196,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             // A using declaration calls Dispose when the code leaves the block that it is in.
             if (disposes && !awaits && !this.EndsLater(declaration))
             {
-                this.CheckDisposed(declarator.Initializer.Value);
+                this.DisposesAtTheEnd(declaration: declaration, resource: declarator.Initializer.Value);
             }
         }
 
@@ -995,6 +995,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             if (cannotRun == null)
             {
                 base.VisitBlock(node);
+                this.DisposesEachAtTheEndOf(node);
 
                 return;
             }
@@ -1003,6 +1004,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             {
                 this.VisitIfItCanRun(statement: statements[at], cannotRun: cannotRun[at]);
             }
+
+            this.DisposesEachAtTheEndOf(node);
 
             return;
         }
@@ -1035,6 +1038,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             this.VisitTheSecondTurn(loop: node, body: statements[first], before: before, parts: turn);
             first = last + 1;
         }
+
+        this.DisposesEachAtTheEndOf(node);
     }
 
     // The position in the statements of the last one, from the label on, that has a goto to the
