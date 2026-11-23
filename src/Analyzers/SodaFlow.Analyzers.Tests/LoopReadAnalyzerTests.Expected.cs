@@ -8634,6 +8634,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6PathTimerOfAHelperRunsInABranch"] = ["SF1005"],
             ["R6PathTimerOfAHelperRunsInALoop"] = ["SF1005"],
             ["R6PathTimerOfAHelperRunsInATry"] = ["SF1005"],
-            ["R6PathTimerOfAHelperRunsThroughAConditionalAccess"] = ["SF1005"]
+            ["R6PathTimerOfAHelperRunsThroughAConditionalAccess"] = ["SF1005"],
+            ["R6PathCancelInALambdaOfABranch"] = ["SF1001"],
+            ["R6PathCancelInALocalFunctionOfABranch"] = ["SF1001"],
+            ["R6PathDisposeOfATimerInALambdaOfABranch"] = ["SF1001"],
+            ["R6PathCancelInALambdaThatAHelperSkips"] = ["SF1001"],
+            ["R6PathCancelInALambdaOfAnArm"] = ["SF1001"],
+            ["R6PathCancelInALambdaOfANullDelegate"] = ["SF1001"],
+            ["R6PathCancelInALambdaAfterAnEarlyExit"] = ["SF1001"],
+            ["Ab367CancelInALambdaAfterAThrowInATry"] = ["SF1001"]
         };
 }

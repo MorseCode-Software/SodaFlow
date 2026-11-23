@@ -71,12 +71,18 @@ internal sealed partial class LoopStateEvaluator
     ///     True for the frame of the code that has the value, and for the frame
     ///     of each code that called that code.
     /// </param>
-    /// <param name="forARun">True for a run of the timers or a Dispose.</param>
+    /// <param name="forARun">
+    ///     True for a run of the timers or a Dispose. For a cancel, a call in
+    ///     the block of a try does not count. The finally block of that try can
+    ///     run the timers without the cancel.
+    /// </param>
     public bool CallsRunFor(Func<LoopFrame, bool> owns, bool forARun)
     {
         for (CallOfThisCode? each = this.call; each != null && !owns(each.Caller.Frame); each = each.Caller.call)
         {
-            if (each.Caller.walker?.SurelyRuns(call: each.Site, forARun: forARun, after: out _) != true)
+            if (each.Caller.walker?.SurelyRuns(call: each.Site, forARun: forARun, after: out TryStatementSyntax? after)
+                != true
+                || (!forARun && after != null))
             {
                 return false;
             }

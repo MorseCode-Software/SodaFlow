@@ -3771,11 +3771,13 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     // A call that the code can skip keeps the timer. A loop that always has a first turn runs the
     // call. In the block of a try, the call takes the timer at the end of the try. The finally
-    // block can run without the call.
+    // block can run without the call. In a lambda, a local function, or a callee, each call of the
+    // code up to the block must run on all paths also.
     private void CancelsATimerAt(SyntaxNode call, ExpressionSyntax timer)
     {
         if (!this.region.Objects.HasTimers
-            || !this.SurelyRuns(call: call, forARun: false, after: out TryStatementSyntax? after))
+            || !this.SurelyRuns(call: call, forARun: false, after: out TryStatementSyntax? after)
+            || !this.evaluator.CallsRunFor(owns: static _ => false, forARun: false))
         {
             return;
         }

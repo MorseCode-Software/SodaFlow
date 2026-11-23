@@ -60964,6 +60964,38 @@ public static class Shapes
     public static Cell<int> R6PathTimerOfAHelperRunsThroughAConditionalAccess() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock? clock = new(); R6PathSetTimer(clock, l); clock?.RunTimersTo(0); return S.Hold(0); });
 
+    // S14761. A lambda cancels the timer. The block calls the lambda only in a branch that does not run, thus RunTimersTo runs the callback.
+    public static Cell<int> R6PathCancelInALambdaOfABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); Action stop = () => t.Cancel(); if (Kept.Count < 0) { stop(); } clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14762. A local function cancels the timer. The block calls it only in a branch that does not run.
+    public static Cell<int> R6PathCancelInALocalFunctionOfABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); if (Kept.Count < 0) { Stop(); } clock.RunTimersTo(0); return S.Hold(0); void Stop() => t.Cancel(); });
+
+    // S14763. A lambda disposes the timer. The block calls the lambda only in a branch that does not run.
+    public static Cell<int> R6PathDisposeOfATimerInALambdaOfABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); Action stop = () => t.Dispose(); if (Kept.Count < 0) { stop(); } clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14764. A lambda cancels the timer. The block gives the lambda to a method of this code that calls it only for true, and gives false.
+    public static Cell<int> R6PathCancelInALambdaThatAHelperSkips() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathCallIf(() => t.Cancel(), false); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14765. A lambda cancels the timer. The block calls it only in the arm of a ?: that does not run.
+    public static Cell<int> R6PathCancelInALambdaOfAnArm() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); Func<int> stop = () => { t.Cancel(); return 0; }; int k = Kept.Count < 0 ? stop() : 1; clock.RunTimersTo(0); return S.Hold(k); });
+
+    // S14766. A lambda cancels the timer. The block calls it through a conditional access on a null delegate.
+    public static Cell<int> R6PathCancelInALambdaOfANullDelegate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); Action? stop = Kept.Count < 0 ? () => t.Cancel() : null; stop?.Invoke(); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14767. A lambda cancels the timer. The block calls it only after a return guard that returns.
+    public static Cell<int> R6PathCancelInALambdaAfterAnEarlyExit() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); Action stop = () => t.Cancel(); Func<bool> run = () => { if (Kept.Count >= 0) { return false; } stop(); return true; }; _ = run(); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14768. A lambda cancels the timer. The block calls it in a try block after a call that throws. The finally block runs the timers, thus the callback samples.
+    public static Cell<int> Ab367CancelInALambdaAfterAThrowInATry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); Action stop = () => t.Cancel(); try { Ab364Fail(); stop(); } finally { clock.RunTimersTo(0); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

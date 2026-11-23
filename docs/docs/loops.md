@@ -567,7 +567,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   takes the timer away when it runs on every path, by the same rule, also in a loop that always
   runs at least once. In a `try` block it takes the timer away at the end of the `try`, so a run of
   the timers in the `finally` block still runs it. A `Cancel` under a condition that is not a
-  constant keeps the timer.
+  constant keeps the timer. A `Cancel` in a lambda, a local function, or a method of yours takes the
+  timer away only where each call of that code, up to the block, runs on every path too, and not in
+  a `try` block.
   A `TimerSystem` calls `Start` and `Now` of its implementation when you construct it. Disposing it
   inside a transaction calls `Stop` only after the transaction releases its lock, so a `Dispose` in
   the block runs no `Stop` there, and the analyzer does not read it. The construction of a
