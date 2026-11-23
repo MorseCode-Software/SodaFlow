@@ -136,6 +136,10 @@ internal sealed partial class LoopStateEvaluator
     ///     the function two or more times for one call.
     /// </param>
     /// <param name="owner">The expression of the object, when the call has one for a different object.</param>
+    /// <param name="range">
+    ///     For the expression of a query clause, the range variable that the
+    ///     lambda of the clause gets as its parameter, with the argument.
+    /// </param>
     private Followed? Enter(
         SyntaxNode call,
         string name,
@@ -148,7 +152,8 @@ internal sealed partial class LoopStateEvaluator
         bool returnsAFunction = false,
         bool returnsAnObject = false,
         bool manyTimes = false,
-        ExpressionSyntax? owner = null)
+        ExpressionSyntax? owner = null,
+        (ISymbol Variable, LoopState State)? range = null)
     {
         // Take of no item gives an empty sequence and does not start the iterator.
         if (this.TakesNoItem(call) && IsAnIteratorBody(body))
@@ -202,12 +207,15 @@ internal sealed partial class LoopStateEvaluator
             definer = definer.Quiet();
         }
 
-        // The body of a lambda or of a local function is a part of that function.
+        // The body of a lambda or of a local function is a part of that function. The expression of a
+        // query clause is a lambda of its own.
         SyntaxNode? function =
             definer == null
                 ? null
-                : body.FirstAncestorOrSelf<SyntaxNode>(static node =>
-                    node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax);
+                : IsTheBodyOfAClause(body)
+                    ? body
+                    : body.FirstAncestorOrSelf<SyntaxNode>(static node =>
+                        node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax);
 
         LoopStateEvaluator inner =
             this.Inner(
@@ -218,7 +226,8 @@ internal sealed partial class LoopStateEvaluator
                 function: function,
                 eachRun: manyTimes ? body : null,
                 self: self,
-                itsObject: receiver?.Members);
+                itsObject: receiver?.Members,
+                range: range);
 
         if (owner != null && definer == null)
         {
@@ -279,7 +288,8 @@ internal sealed partial class LoopStateEvaluator
                         function: function,
                         eachRun: body,
                         self: self,
-                        itsObject: receiver?.Members);
+                        itsObject: receiver?.Members,
+                        range: range);
 
                 if (started != null)
                 {
@@ -531,9 +541,15 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode? function,
         SyntaxNode? eachRun,
         MadeObject? self,
-        Construction? itsObject = null)
+        Construction? itsObject = null,
+        (ISymbol Variable, LoopState State)? range = null)
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
+
+        if (range is var (variable, argument))
+        {
+            parameters[variable] = argument;
+        }
 
         LoopFrame frame =
             definer?.Frame

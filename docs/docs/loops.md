@@ -610,9 +610,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   runs. A query expression over a type whose methods run their function in the call, such as
   `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. For a query over a type
   of your project whose methods for the clauses return no sequence, the analyzer reads each of those
-  methods as a call where the query is written, with the result of the clause before it. It does not
-  read the expression of a clause, because such a method can run its function or keep it. Where the
-  code takes only one item from the call of an iterator, with `First`, `FirstOrDefault` with no
+  methods as a call where the query is written, with the result of the clause before it. Each
+  expression of a clause is a lambda that the method gets, so the analyzer reads it where the code of
+  the method runs that lambda, with the range variable that the method gives it, and not where the
+  method only keeps it. Where the code takes only one item from the call of an iterator, with
+  `First`, `FirstOrDefault` with no
   predicate, `Any()` with no predicate, `Take(1)`, `ElementAt(0)`, or `ElementAtOrDefault(0)`, also
   after a `Select`, an `AsEnumerable`, or a query expression with only a `select` clause, or with a
   `foreach` that leaves the loop in its first pass on every path, by a `break`, a `return`, a

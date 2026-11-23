@@ -61788,6 +61788,122 @@ public static class Shapes
     public static Cell<int> Ab406CoalesceReturnsAPlainSecondSendAfterASendThatALaterSendLinks() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> u = t.Hold(Plain); StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, b) => b); Cell<Cell<int>> h = s.Hold(Plain); s.Send(u.SwitchC()); s.Send(Plain); t.Send(l.Map(v => v)); return h.SwitchC(); });
 
+    // S14974. A query calls the instance Select of an object of the project, which runs the select expression, and the expression samples a pending cell.
+    public static Cell<int> Ab390QueryWhoseSelectExpressionReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); int n = from v in new R6CsSelectable(Plain) select v + p.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S14975. A query calls an extension Select of the object, which runs the select expression, and the expression samples a pending cell.
+    public static Cell<int> Ab390ExtensionSelectRunsTheExpression() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); int n = from v in new R6CsHolder(Plain) select v + p.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S14976. The Select of the project gives the select expression its pending member as the range variable, and the expression samples it.
+    public static Cell<int> Ab390RangeVariableIsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = from c in new Ab390Cells(l.Map(v => v)) select c.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S14977. Control: the Select of the project gives the select expression a plain member as the range variable.
+    public static Cell<int> Ab390RangeVariableIsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = from c in new Ab390Cells(Plain) select c.Sample(); Kept.Add(n); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S14978. Control: the Where of the project does not run its function, and the where expression samples a pending cell.
+    public static Cell<int> Ab390WhereThatDoesNotRunItsFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); int n = from v in new Ab390Box(Plain) where p.Sample() > 0 select v + 1; Kept.Add(n); return S.Hold(0); });
+
+    // S14979. The Select of the project keeps the select expression, and a later call of the object runs it.
+    public static Cell<int> Ab390SelectKeepsItAndALaterCallRunsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Later k = from v in new Ab390Later(1) select v + p.Sample(); Kept.Add(k.Run()); return S.Hold(0); });
+
+    // S14980. Control: the Select of the project keeps the select expression, and nothing runs it.
+    public static Cell<int> Ab390SelectKeepsItAndNothingRunsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Later k = from v in new Ab390Later(1) select v + p.Sample(); Kept.Add(k); return S.Hold(0); });
+
+    // S14981. The select expression writes a pending cell to a local, and the block samples the local after the query.
+    public static Cell<int> Ab390SelectExpressionWritesALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; int n = from v in new R6CsSelectable(Plain) select (c = l.Map(w => w)) == null ? 0 : v; Kept.Add(n); return S.Hold(c.Sample()); });
+
+    // S14982. A local that the query does not name keeps its pending cell after the query, and the block samples it.
+    public static Cell<int> Ab390LocalAfterTheQueryKeepsItsState() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> q = l.Map(v => v); int n = from v in new R6CsSelectable(Plain) select v + 1; Kept.Add(n); return S.Hold(q.Sample()); });
+
+    // S14983. The Where and the Select of the project run their functions, and the select expression samples a pending cell.
+    public static Cell<int> Ab390WhereAndSelectBothRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) where v > 0 select v + p.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S14984. The Where of the project runs the where expression, which samples a pending cell.
+    public static Cell<int> Ab390WhereRunsAndSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) where p.Sample() > 0 select v + 0; Kept.Add(n); return S.Hold(0); });
+
+    // S14985. The OrderBy of the project runs the key expression, which samples a pending cell.
+    public static Cell<int> Ab390OrderByRunsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) orderby p.Sample() select v + 1; Kept.Add(n); return S.Hold(0); });
+
+    // S14986. The Select of the project runs the expression of a let clause, which samples a pending cell.
+    public static Cell<int> Ab390LetRunsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) let w = p.Sample() select v + w; Kept.Add(n); return S.Hold(0); });
+
+    // S14987. The SelectMany of the project runs the source expression of a second from clause, which samples a pending cell.
+    public static Cell<int> Ab390SecondFromRunsItsSource() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) from w in new Ab390Runs<int>(p.Sample()) select v + w; Kept.Add(n); return S.Hold(0); });
+
+    // S14988. The SelectMany of the project runs the select expression that the compiler puts into it, which samples a pending cell.
+    public static Cell<int> Ab390SecondFromRunsTheSelect() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) from w in new Ab390Runs<int>(1) select v + w + p.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S14989. The Join of the project runs the outer key expression, which samples a pending cell.
+    public static Cell<int> Ab390JoinRunsTheOuterKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) join w in new Ab390Runs<int>(1) on p.Sample() equals w select v + w; Kept.Add(n); return S.Hold(0); });
+
+    // S14990. The Join of the project runs the inner key expression, which samples a pending cell.
+    public static Cell<int> Ab390JoinRunsTheInnerKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) join w in new Ab390Runs<int>(1) on v equals p.Sample() select v + w; Kept.Add(n); return S.Hold(0); });
+
+    // S14991. The Join of the project runs the select expression that the compiler puts into it, which samples a pending cell.
+    public static Cell<int> Ab390JoinRunsTheSelect() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) join w in new Ab390Runs<int>(1) on v equals w select v + p.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S14992. The Join of the project gives the inner key expression its pending cell as the variable of the join, and the expression samples it.
+    public static Cell<int> Ab390JoinInnerVariableIsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab390Runs<int> n = from v in new Ab390Runs<int>(1) join c in new Ab390Runs<Cell<int>>(l.Map(w => w)) on v equals c.Sample() select v; Kept.Add(n); return S.Hold(0); });
+
+    // S14993. The GroupBy of the project runs the key expression, which samples a pending cell.
+    public static Cell<int> Ab390GroupRunsTheKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) group v + 1 by p.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S14994. The GroupBy of the project runs the element expression, which samples a pending cell.
+    public static Cell<int> Ab390GroupRunsTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) group p.Sample() by v; Kept.Add(n); return S.Hold(0); });
+
+    // S14995. The Select of the project runs the select expression after into, which samples a pending cell.
+    public static Cell<int> Ab390ContinuationRunsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390Runs<int> n = from v in new Ab390Runs<int>(1) select v + 1 into w select w + p.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S14996. The Select of the project gives the select expression after into its pending cell as the variable of into, and the expression samples it.
+    public static Cell<int> Ab390ContinuationVariableIsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab390Runs<int> n = from c in new Ab390Runs<Cell<int>>(l.Map(v => v)) select c into d select d.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S14997. The Where of the project gives the where expression its pending cell as the range variable, and the expression samples it.
+    public static Cell<int> Ab390WhereVariableIsThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab390Runs<Cell<int>> n = from c in new Ab390Runs<Cell<int>>(l.Map(v => v)) where c.Sample() > 0 select c; Kept.Add(n); return S.Hold(0); });
+
+    // S14998. Control: after a let clause, the select expression gets an object with two variables, and samples the plain one.
+    public static Cell<int> Ab390AfterALetTheVariableIsNotTheArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab390Runs<int> n = from c in new Ab390Runs<Cell<int>>(Plain) let k = l.Map(v => v) select c.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S14999. Control: the select expression does not name the range variable, which is a pending cell.
+    public static Cell<int> Ab390ConstantSelectOfAPendingCellVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab390Runs<int> n = from c in new Ab390Runs<Cell<int>>(l.Map(w => w)) select 1; Kept.Add(n); return S.Hold(0); });
+
+    // S15000. The Select of the project gives its function to ConvertAll of a list, which runs it with the pending member, and the select expression samples it.
+    public static Cell<int> Ab390SelectGivesItsFunctionToThePlatform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = from c in new Ab390ThroughAList(l.Map(v => v)) select c.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S15001. Control: the SelectMany of the project runs its functions, and the Join keeps its functions. The select expression samples a pending cell, and only the join gets it.
+    public static Cell<int> Ab390SelectOfAJoinAfterASecondFrom() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Ab390KeepsTheJoin<int> n = from v in new Ab390KeepsTheJoin<int>(1) from w in new Ab390KeepsTheJoin<int>(2) join x in new Ab390KeepsTheJoin<int>(3) on v equals x select p.Sample(); Kept.Add(n); return S.Hold(0); });
+
+    // S15002. The Select of the project has an optional second function, which the query does not give, and runs the select expression, which samples a pending cell.
+    public static Cell<int> Ab390SelectWithAnOptionalSecondFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); int n = from v in new Ab390TwoFunctions(1) select v + p.Sample(); Kept.Add(n); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -113772,6 +113888,105 @@ public static class Shapes
     }
 
     private static void Ab434RemoveFromACopy(Action? all, Action handler) => all -= handler;
+
+    public sealed class Ab390Cells(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        public int Select(Func<Cell<int>, int> f) => f(this.share);
+    }
+
+    public sealed class Ab390ThroughAList(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        public int Select(Func<Cell<int>, int> f) =>
+            new List<Cell<int>> { this.share }.ConvertAll(new Converter<Cell<int>, int>(f))[0];
+    }
+
+    public sealed class Ab390Later(int value)
+    {
+        private readonly int value = value;
+
+        private Func<int, int>? kept;
+
+        public Ab390Later Select(Func<int, int> f)
+        {
+            this.kept = f;
+
+            return this;
+        }
+
+        public int Run() => this.kept!(this.value);
+    }
+
+    public sealed class Ab390Runs<T>(T value)
+    {
+        private readonly T value = value;
+
+        public Ab390Runs<T> Where(Func<T, bool> f) => f(this.value) ? this : this;
+
+        public Ab390Runs<TResult> Select<TResult>(Func<T, TResult> f) => new(f(this.value));
+
+        public Ab390Runs<T> OrderBy<TKey>(Func<T, TKey> f)
+        {
+            Kept.Add(f(this.value));
+
+            return this;
+        }
+
+        public Ab390Runs<TResult> SelectMany<TOther, TResult>(
+            Func<T, Ab390Runs<TOther>> f,
+            Func<T, TOther, TResult> g) =>
+            new(g(this.value, f(this.value).value));
+
+        public Ab390Runs<TResult> Join<TOther, TKey, TResult>(
+            Ab390Runs<TOther> other,
+            Func<T, TKey> outer,
+            Func<TOther, TKey> inner,
+            Func<T, TOther, TResult> result)
+        {
+            Kept.Add(outer(this.value));
+            Kept.Add(inner(other.value));
+
+            return new Ab390Runs<TResult>(result(this.value, other.value));
+        }
+
+        public Ab390Runs<TElement> GroupBy<TKey, TElement>(Func<T, TKey> key, Func<T, TElement> element)
+        {
+            Kept.Add(key(this.value));
+
+            return new Ab390Runs<TElement>(element(this.value));
+        }
+    }
+
+    public sealed class Ab390KeepsTheJoin<T>(T value)
+    {
+        private readonly T value = value;
+
+        public Ab390KeepsTheJoin<TResult> SelectMany<TOther, TResult>(
+            Func<T, Ab390KeepsTheJoin<TOther>> f,
+            Func<T, TOther, TResult> g) =>
+            new(g(this.value, f(this.value).value));
+
+        public Ab390KeepsTheJoin<TResult> Join<TOther, TKey, TResult>(
+            Ab390KeepsTheJoin<TOther> other,
+            Func<T, TKey> outer,
+            Func<TOther, TKey> inner,
+            Func<T, TOther, TResult> result)
+        {
+            Kept.Add((other, outer, inner, result));
+
+            return new Ab390KeepsTheJoin<TResult>(default!);
+        }
+    }
+
+    public sealed class Ab390TwoFunctions(int value)
+    {
+        private readonly int value = value;
+
+        public int Select(Func<int, int> f, Func<int, int>? g = null) => f(this.value) + (g?.Invoke(this.value) ?? 0);
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

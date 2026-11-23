@@ -2189,8 +2189,12 @@ internal sealed partial class LoopStateEvaluator
 
         switch (symbol)
         {
+            // The lambda of a query clause that a method of this compilation calls gets its range
+            // variable as an argument.
             case IRangeVariableSymbol variable:
-                return this.EvalRangeVariable(expression: expression, variable: variable);
+                return this.bound.TryGetValue(key: variable, value: out LoopState? given)
+                    ? given
+                    : this.EvalRangeVariable(expression: expression, variable: variable);
             case ILocalSymbol or IParameterSymbol:
             {
                 if (SymbolEqualityComparer.Default.Equals(x: symbol, y: this.region.Placeholder))
@@ -4104,6 +4108,23 @@ internal sealed partial class LoopStateEvaluator
                     returnsAnObject: model.GetSymbolInfo(lambda).Symbol is IMethodSymbol { ReturnType: { } returned }
                                      && this.DoesNotSayItsClass(returned),
                     manyTimes: each is { ManyTimes: true });
+            case ExpressionSyntax clause when function.Definer != null && IsTheBodyOfAClause(clause):
+                return this.Enter(
+                    call: call,
+                    name: name,
+                    body: clause,
+                    bindings: [],
+                    definer: function.Definer,
+                    members: function.Definer.thisMembers,
+                    receiver: null,
+                    target: target,
+                    manyTimes: each is { ManyTimes: true },
+                    range: TheRangeVariableOf(clause: clause, model: model) is { } variable
+                        ? (variable,
+                            each is (_, var passed, _) ? passed
+                            : arguments.Count > 0 ? this.Eval(arguments[0].Expression)
+                            : LoopState.None)
+                        : null);
             case LocalFunctionStatementSyntax or MethodDeclarationSyntax
                 when model.GetDeclaredSymbol(function.Declaration) is IMethodSymbol method
                      && BodyOf(method) is { } body:
