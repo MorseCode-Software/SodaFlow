@@ -2540,7 +2540,7 @@ internal sealed partial class LoopStateEvaluator
             LoopState result =
                 kind == CalleeKind.Mover
                     ? this.WithParts(
-                        state: this.MovedResult(invocation: invocation, method: method),
+                        state: this.ResultOfAPlatformCall(invocation: invocation, method: method),
                         // Only the factory of the type itself puts each argument in its property.
                         made: SodaFlowSymbols.HoldsParts(method.ContainingType) ? method.ReturnType : null,
                         callee: method,

@@ -58936,6 +58936,50 @@ public static class Shapes
     public static Cell<int> Ab360ThrowOfADispatchInfoOfTheCodeGetsNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Ab360Holder.ExceptionDispatchInfo.Throw(e); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
 
+    // S14254. Flatten of an AggregateException keeps the object, and the catch samples its first inner exception.
+    public static Cell<int> R6ExcFlattenOfAnAggregateException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.Flatten().InnerExceptions[0]).Share.Sample()); } return S.Hold(0); });
+
+    // S14255. GetBaseException of an AggregateException with one inner exception is that object, and the catch samples it.
+    public static Cell<int> R6ExcGetBaseExceptionOfAnAggregateException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.GetBaseException()).Share.Sample()); } return S.Hold(0); });
+
+    // S14256. First of the InnerExceptions of an AggregateException is the object, and the catch samples it.
+    public static Cell<int> R6ExcFirstOfTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerExceptions.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S14257. The InnerExceptions of an AggregateException are a collection, and not the object. Thus, a pattern of the type of the object on the collection fails, and the code never samples.
+    public static Cell<int> Ab358InnerExceptionsAreNotTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { object all = e.InnerExceptions; Kept.Add(all is R4CsFault f ? f.Share.Sample() : 0); } return S.Hold(0); });
+
+    // S14258. Last of the InnerExceptions of an AggregateException is the object, and the catch samples it.
+    public static Cell<int> Ab358LastOfTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(((R4CsFault)e.InnerExceptions.Last()).Share.Sample()); } return S.Hold(0); });
+
+    // S14259. GetBaseException of the object itself is the object, and the catch samples it.
+    public static Cell<int> Ab358GetBaseExceptionOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (Exception e) { Kept.Add(((R4CsFault)e.GetBaseException()).Share.Sample()); } return S.Hold(0); });
+
+    // S14260. A method Flatten of the code gets an AggregateException and gives a new one with no inner exception. Thus, the catch finds no object and never samples.
+    public static Cell<int> Ab358FlattenOfTheCodeGivesADifferentException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(e.Flatten(0).InnerExceptions.Count == 0 ? 0 : ((R4CsFault)e.Flatten(0).InnerExceptions[0]).Share.Sample()); } return S.Hold(0); });
+
+    // S14261. First of a list of exceptions of the code is the object, and the code samples it.
+    public static Cell<int> Ab358FirstOfAListOfExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Exception> all = [new R4CsFault(l.Map(v => v))]; Kept.Add(((R4CsFault)all.First()).Share.Sample()); return S.Hold(0); });
+
+    // S14262. First of the inner exceptions of the code is the object, through a method of the code with the name First. That method gives a different exception. Thus, the code never samples.
+    public static Cell<int> Ab358FirstOfTheCodeGivesADifferentException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(e.InnerExceptions.First(0) is R4CsFault f ? f.Share.Sample() : 0); } return S.Hold(0); });
+
+    // S14263. FirstOrDefault of an empty list of cells gives its default value, a cell that the code samples.
+    public static Cell<int> Ab358FirstOrDefaultOfAnEmptyListGivesItsDefault() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> none = []; Kept.Add(none.FirstOrDefault(l.Map(v => v)).Sample()); return S.Hold(0); });
+
+    // S14264. Enumerable.First called as a static method on the InnerExceptions of an AggregateException is the object, and the catch samples it.
+    public static Cell<int> Ab358StaticFirstOfTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(((R4CsFault)Enumerable.First(e.InnerExceptions)).Share.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109777,6 +109821,11 @@ public static class Shapes
 
 file static class Helpers
 {
+    // Extension methods of the shapes of AB358.
+    public static AggregateException Flatten(this AggregateException e, int depth) => new(e.Message + depth);
+
+    public static Exception First(this IEnumerable<Exception> all, int skip) => new InvalidOperationException(all.Count().ToString() + skip);
+
     // Extension methods of the shapes of AB356.
     public static IEnumerator<int> GetEnumerator(this ConfiguredCancelableAsyncEnumerable<int> items) =>
         new List<int> { 1 }.GetEnumerator();

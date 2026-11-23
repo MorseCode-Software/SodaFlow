@@ -8235,6 +8235,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab356AwaitForeachOfConfigureAwaitGivesTheCurrentOfTheEnumerator"] = ["SF1001"],
             ["R6ExcDispatchInfoThrowsTheObjectAgain"] = ["SF1001"],
             ["R6ExcStaticDispatchInfoThrowsTheObjectAgain"] = ["SF1001"],
-            ["R6ExcDispatchInfoOfAnInnerExceptionThrowsTheObject"] = ["SF1001"]
+            ["R6ExcDispatchInfoOfAnInnerExceptionThrowsTheObject"] = ["SF1001"],
+            ["R6ExcFlattenOfAnAggregateException"] = ["SF1001"],
+            ["R6ExcGetBaseExceptionOfAnAggregateException"] = ["SF1001"],
+            ["R6ExcFirstOfTheInnerExceptions"] = ["SF1001"],
+            ["Ab358LastOfTheInnerExceptions"] = ["SF1001"],
+            ["Ab358GetBaseExceptionOfTheObject"] = ["SF1001"],
+            ["Ab358FirstOfAListOfExceptions"] = ["SF1001"],
+            ["Ab358FirstOrDefaultOfAnEmptyListGivesItsDefault"] = ["SF1001"],
+            ["Ab358StaticFirstOfTheInnerExceptions"] = ["SF1001"]
         };
 }

@@ -336,7 +336,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   parameter. The `InnerException` of
   such an exception has the object, and so does the `InnerException` of an exception of the platform
   that you create with an inner exception, and each of the `InnerExceptions` of an
-  `AggregateException`. `GetResult` of the awaiter of a task throws the object that a function of
+  `AggregateException`, also through `First` or another LINQ method that gives one element. `Flatten`
+  and `GetBaseException` of such an exception have the object too. `GetResult` of the awaiter of a task throws the object that a function of
   the task threw. Its filter gets the object too, and a local that the filter sets keeps it. The
   analyzer reports no read in a filter, because an exception there is lost and makes the filter
   false.

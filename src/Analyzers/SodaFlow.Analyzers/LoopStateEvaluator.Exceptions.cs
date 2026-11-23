@@ -70,6 +70,74 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
     /// <summary>
+    ///     The state of what a method of code that cannot know the library
+    ///     returns. A method of the platform that gives an exception has a rule
+    ///     of its own.
+    /// </summary>
+    /// <param name="invocation">The call.</param>
+    /// <param name="method">The method of the call.</param>
+    private LoopState ResultOfAPlatformCall(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
+        this.ExceptionOfACall(invocation: invocation, method: method)
+        ?? this.MovedResult(invocation: invocation, method: method);
+
+    /// <summary>
+    ///     The state of a call that gives one exception of an exception of the
+    ///     platform. <c>Flatten</c> and <c>GetBaseException</c> give the
+    ///     exception itself or one of the exceptions that it holds, and the walk
+    ///     reads one state for each of them. A method that gives one element of
+    ///     a sequence of exceptions, as <c>First</c> does, gives one of those
+    ///     exceptions. Null for each other call.
+    /// </summary>
+    /// <remarks>
+    ///     The walk gives no state to the result of a method of the platform
+    ///     whose type is an exception of the platform. But an object of this
+    ///     compilation can have that type.
+    /// </remarks>
+    /// <param name="invocation">The call.</param>
+    /// <param name="method">The method of the call.</param>
+    private LoopState? ExceptionOfACall(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
+        // A test of the name comes before each other test, because each call of the platform comes here.
+        method.Name switch
+        {
+            "Flatten" or "GetBaseException" when invocation.Expression is MemberAccessExpressionSyntax
+                {
+                    Expression: var receiver
+                } => this.Eval(receiver),
+            "First" or "FirstOrDefault" or "Last" or "LastOrDefault" or "Single" or "SingleOrDefault" or "ElementAt"
+                or "ElementAtOrDefault"
+                when method.ReturnType is INamedTypeSymbol element
+                     && IsOfAnException(element)
+                     && SequenceOf(invocation: invocation, method: method) is { } sequence =>
+                this.Eval(sequence).AsOneOfItsElements,
+            _ => null
+        };
+
+    // The sequence that an extension method gets, also where the code calls it as a static method.
+    private static ExpressionSyntax? SequenceOf(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
+        method.ReducedFrom != null
+            ? (invocation.Expression as MemberAccessExpressionSyntax)?.Expression
+            : method.IsExtensionMethod && invocation.ArgumentList.Arguments is { Count: > 0 } arguments
+                ? arguments[0].Expression
+                : null;
+
+    private static bool IsOfAnException(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? owner = type; owner != null; owner = owner.BaseType)
+        {
+            if (owner is
+                {
+                    Name: "Exception",
+                    ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
+                })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     ///     The objects that a call of the platform throws again. Null for a
     ///     call that throws no object that the walk knows.
     /// </summary>
