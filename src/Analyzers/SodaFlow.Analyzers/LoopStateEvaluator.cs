@@ -3320,12 +3320,14 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     private LoopState MovedResult(InvocationExpressionSyntax invocation, IMethodSymbol method)
     {
-        // A sequence of numbers has no state, but it can be or contain a query. That query is
-        // one that the callee got, or one that a function of the callee returns.
-        bool holdsState =
-            this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly);
-
         IMethodSymbol definition = (method.ReducedFrom ?? method).OriginalDefinition;
+
+        // A sequence of numbers has no state, but it can be or contain a query. That query is
+        // one that the callee got, or one that a function of the callee returns. A JsonValue has
+        // no type argument, but it keeps the value that it gets.
+        bool holdsState =
+            this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly)
+            || SodaFlowSymbols.KeepsAJsonValue(definition);
 
         // Reflection makes an object or calls a method that the analyzer cannot follow. Its
         // result is not one of the values that it got.

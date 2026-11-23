@@ -117,6 +117,7 @@
         <Compile Include="SinkWalker.FirstReads.cs"/>
         <Compile Include="SinkWalker.Exceptions.cs"/>
         <Compile Include="SinkWalker.Scopes.cs"/>
+        <Compile Include="SinkWalker.Nodes.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
         <Compile Include="WriteThroughAName.cs"/>
         <Compile Include="WritesThroughEach.cs"/>

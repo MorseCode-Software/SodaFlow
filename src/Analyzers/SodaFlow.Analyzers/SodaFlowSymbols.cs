@@ -669,12 +669,14 @@ internal sealed class SodaFlowSymbols
             _ => false
         };
 
-    // The library of a serializer. The tokens of Json.NET are in Json.NET, and the serializer of
-    // JSON data contracts is one of the data contract serializers.
+    // The library of a serializer. The tokens of Json.NET are in Json.NET, and the nodes of
+    // System.Text.Json are in System.Text.Json. The serializer of JSON data contracts is one of the
+    // data contract serializers.
     private static string? LibraryOf(ISymbol serializer) =>
         serializer.ContainingType?.ContainingNamespace?.ToDisplayString() switch
         {
             "Newtonsoft.Json.Linq" => "Newtonsoft.Json",
+            "System.Text.Json.Nodes" => "System.Text.Json",
             "System.Runtime.Serialization.Json" => DataContracts,
             var other => other
         };
@@ -711,6 +713,31 @@ internal sealed class SodaFlowSymbols
         && IsLinqToXml(owner);
 
     private static bool IsLinqToXml(ISymbol type) => type.ContainingNamespace?.ToDisplayString() == "System.Xml.Linq";
+
+    /// <summary>
+    ///     True for <c>Create&lt;T&gt;</c> of <c>JsonValue</c>. The node keeps
+    ///     the value, and a write of the node writes the value with
+    ///     <c>System.Text.Json</c>.
+    /// </summary>
+    public static bool KeepsAJsonValue(IMethodSymbol definition) =>
+        definition is { Name: "Create", IsGenericMethod: true, ContainingType: { Name: "JsonValue" } owner }
+        && IsJsonNodes(owner);
+
+    /// <summary>
+    ///     True for a method of a node of <c>System.Text.Json.Nodes</c> that
+    ///     writes the node: <c>ToJsonString</c>, <c>WriteTo</c>, and
+    ///     <c>ToString</c>. The node writes each value that it keeps.
+    /// </summary>
+    public static bool WritesAJsonNode(IMethodSymbol definition) =>
+        definition is
+        {
+            Name: "ToJsonString" or "WriteTo" or "ToString",
+            ContainingType: { Name: "JsonNode" or "JsonValue" or "JsonObject" or "JsonArray" } owner
+        }
+        && IsJsonNodes(owner);
+
+    private static bool IsJsonNodes(ISymbol type) =>
+        type.ContainingNamespace?.ToDisplayString() == "System.Text.Json.Nodes";
 
     /// <summary>
     ///     True for a property that the serializer reads. It is public, it is
@@ -1061,12 +1088,11 @@ internal sealed class SodaFlowSymbols
                 or ("JsonPropertyAttribute", "Newtonsoft.Json", "Newtonsoft.Json"));
 
     /// <summary>
-    ///     True for <c>System.Text.Json</c>. It writes the properties of the type
-    ///     that the call or the property names, and not those of the type of the
-    ///     object.
+    ///     True for <c>System.Text.Json</c> and its nodes. It writes the
+    ///     properties of the type that the call or the property names, and not
+    ///     those of the type of the object.
     /// </summary>
-    public static bool WritesTheDeclaredType(IMethodSymbol serializer) =>
-        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() == "System.Text.Json";
+    public static bool WritesTheDeclaredType(IMethodSymbol serializer) => LibraryOf(serializer) == "System.Text.Json";
 
     /// <summary>
     ///     True for a type with <c>JsonDerivedType</c> or <c>JsonPolymorphic</c>.

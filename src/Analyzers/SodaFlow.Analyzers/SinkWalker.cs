@@ -4119,6 +4119,12 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             return;
         }
 
+        if (receiver != null
+            && this.WritesANode(method: method, callee: callee, receiver: receiver, arguments: arguments))
+        {
+            return;
+        }
+
         if (!starts && !this.region.Symbols.TakesASequence(callee))
         {
             return;

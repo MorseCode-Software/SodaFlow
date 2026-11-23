@@ -8118,6 +8118,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6ApiSerNetShouldSerializeOfTwoPropertiesPendingFirst"] = ["SF1005"],
             ["R6ApiSerNetSpecifiedOfTwoPropertiesPendingFirst"] = ["SF1005"],
             ["R6ApiSerStjFieldsPendingFirst"] = ["SF1005"],
-            ["R6ApiSerNetFieldsPendingFirst"] = ["SF1005"]
+            ["R6ApiSerNetFieldsPendingFirst"] = ["SF1005"],
+            ["R6ApiSerStjJsonValueToJsonString"] = ["SF1005"],
+            ["R6ApiSerStjJsonObjectToJsonString"] = ["SF1005"],
+            ["R6ApiSerStjJsonValueSerialized"] = ["SF1005"],
+            ["Ab404JsonValueToString"] = ["SF1005"],
+            ["Ab404JsonValueWriteTo"] = ["SF1005"],
+            ["Ab404JsonArrayToJsonString"] = ["SF1005"],
+            ["Ab404JsonObjectOfTwoValuesPlainFirst"] = ["SF1005"]
         };
 }

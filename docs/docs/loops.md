@@ -568,7 +568,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   It reads `IncludeFields`, `IgnoreReadOnlyProperties`, and `IgnoreReadOnlyFields` where you create
   the options in the call. It reads the object that you give the serializer and each object inside
   it with its own state, also two objects of one type, to the depth of 64 at which
-  `System.Text.Json` stops by default.
+  `System.Text.Json` stops by default. A `JsonValue` that `JsonValue.Create` makes keeps its value,
+  and so does a `JsonObject` or a `JsonArray` that holds such a node. The analyzer reads a
+  `ToJsonString`, a `WriteTo`, or a `ToString` of the node, or a serializer call with it, as a
+  write of that value. There it reads the members of the type of the object, not those of the type
+  argument of `Create`, so it can report a getter that the node does not call.
 
 ### Its limits
 

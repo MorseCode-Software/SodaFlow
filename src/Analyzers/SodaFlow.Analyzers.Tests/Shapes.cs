@@ -58208,6 +58208,46 @@ public static class Shapes
     public static Cell<int> R6ApiSerNetFieldsPendingFirst() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Newtonsoft.Json.JsonConvert.SerializeObject(new R6ApiTwoRowFields(new SerialRow(l.Map(v => v)), new SerialRow(Plain)))); return S.Hold(0); });
 
+    // S14072. JsonValue.Create keeps an object, and ToJsonString writes it and calls its getter.
+    public static Cell<int> R6ApiSerStjJsonValueToJsonString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Text.Json.Nodes.JsonValue value = System.Text.Json.Nodes.JsonValue.Create(new SerialRow(l.Map(v => v)))!; Kept.Add(value.ToJsonString()); return S.Hold(0); });
+
+    // S14073. A JsonObject holds a JsonValue of an object, and ToJsonString writes it.
+    public static Cell<int> R6ApiSerStjJsonObjectToJsonString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Text.Json.Nodes.JsonObject o = new() { ["a"] = System.Text.Json.Nodes.JsonValue.Create(new SerialRow(l.Map(v => v))) }; Kept.Add(o.ToJsonString()); return S.Hold(0); });
+
+    // S14074. A serializer writes a JsonValue that holds an object.
+    public static Cell<int> R6ApiSerStjJsonValueSerialized() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(JsonSerializer.Serialize(System.Text.Json.Nodes.JsonValue.Create(new SerialRow(l.Map(v => v))))); return S.Hold(0); });
+
+    // S14075. JsonValue.Create keeps an object, and ToString writes it and calls its getter.
+    public static Cell<int> Ab404JsonValueToString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Text.Json.Nodes.JsonValue value = System.Text.Json.Nodes.JsonValue.Create(new SerialRow(l.Map(v => v)))!; Kept.Add(value.ToString()); return S.Hold(0); });
+
+    // S14076. JsonValue.Create keeps an object, and WriteTo writes it and calls its getter.
+    public static Cell<int> Ab404JsonValueWriteTo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Text.Json.Nodes.JsonValue value = System.Text.Json.Nodes.JsonValue.Create(new SerialRow(l.Map(v => v)))!; using MemoryStream m = new(); using Utf8JsonWriter w = new(m); value.WriteTo(w); w.Flush(); return S.Hold(0); });
+
+    // S14077. A JsonArray holds a JsonValue of an object, and ToJsonString writes it.
+    public static Cell<int> Ab404JsonArrayToJsonString() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Text.Json.Nodes.JsonArray a = new(System.Text.Json.Nodes.JsonValue.Create(new SerialRow(l.Map(v => v)))); Kept.Add(a.ToJsonString()); return S.Hold(0); });
+
+    // S14078. A JsonObject holds a JsonValue of a plain object and a JsonValue of an object that samples, and ToJsonString writes them.
+    public static Cell<int> Ab404JsonObjectOfTwoValuesPlainFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Text.Json.Nodes.JsonObject o = new() { ["a"] = System.Text.Json.Nodes.JsonValue.Create(new SerialRow(Plain)), ["b"] = System.Text.Json.Nodes.JsonValue.Create(new SerialRow(l.Map(v => v))) }; Kept.Add(o.ToJsonString()); return S.Hold(0); });
+
+    // S14079. JsonValue.Create keeps an object, and ToJsonString writes a different node, which holds a number.
+    public static Cell<int> Ab404ADifferentNodeIsWritten() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Text.Json.Nodes.JsonValue value = System.Text.Json.Nodes.JsonValue.Create(new SerialRow(l.Map(v => v)))!; System.Text.Json.Nodes.JsonValue other = System.Text.Json.Nodes.JsonValue.Create(1); Kept.Add(value); Kept.Add(other.ToJsonString()); return S.Hold(0); });
+
+    // S14080. JsonValue.Create keeps an object whose getter that samples has the JsonIgnore of System.Text.Json. ToJsonString writes it.
+    public static Cell<int> Ab404JsonValueOfAnIgnoredGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Text.Json.Nodes.JsonValue value = System.Text.Json.Nodes.JsonValue.Create(new SerialIgnoredRow(l.Map(v => v)))!; Kept.Add(value.ToJsonString()); return S.Hold(0); });
+
+    // S14081. JsonValue.Create keeps an object with two public fields, and ToJsonString writes it with no options, which writes no field.
+    public static Cell<int> Ab404JsonValueOfFieldsWithNoOptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { System.Text.Json.Nodes.JsonValue value = System.Text.Json.Nodes.JsonValue.Create(new R6ApiTwoRowFields(new SerialRow(l.Map(v => v)), new SerialRow(Plain)))!; Kept.Add(value.ToJsonString()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
