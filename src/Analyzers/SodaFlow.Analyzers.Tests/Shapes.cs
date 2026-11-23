@@ -62360,6 +62360,10 @@ public static class Shapes
     public static Cell<int> Ab401HelperOfAPlainMapReadAfterTheSet() =>
         Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.K4 = Plain; Cell<int> a = Ab401MakePlain(); R6SmpS.K4 = l.Map(v => v); int y = a.Sample(); R6SmpS.K4 = Plain; return S.Hold(y); });
 
+    // S15117. The block calls a static method one time. The method builds a map whose function samples a static field. The block calls a second static method that sets the field pending, and then it samples the map.
+    public static Cell<int> Ab401HelperReadAfterAMethodSetsTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = R6SmpMakeK4(); Ab401SetK4(l.Map(v => v)); int y = a.Sample(); Ab401SetK4(Plain); return S.Hold(y); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -115166,6 +115170,8 @@ public static class Shapes
     private static Cell<int> Ab401MapOfK4 => Plain.Map(v => v + R6SmpS.K4.Sample());
 
     private static Cell<int> Ab401MakePlain() => Plain.Map(v => v + 1);
+
+    private static void Ab401SetK4(Cell<int> value) => R6SmpS.K4 = value;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

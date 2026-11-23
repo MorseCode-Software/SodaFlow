@@ -8882,6 +8882,7 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab350MapOfAGetterOfTheBase"] = ["SF1004"],
             ["R6SmpTwoMapsOfOneHelperSecondReadAfterTheSet"] = ["SF1001"],
             ["Ab401HelperCalledOneTimeReadAfterTheSet"] = ["SF1001"],
-            ["Ab401StaticGetterReadAfterTheSet"] = ["SF1001"]
+            ["Ab401StaticGetterReadAfterTheSet"] = ["SF1001"],
+            ["Ab401HelperReadAfterAMethodSetsTheField"] = ["SF1001"]
         };
 }
