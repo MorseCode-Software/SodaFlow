@@ -102,7 +102,7 @@ internal sealed partial class LoopStateEvaluator
                 second: this.FollowTheStaticConstructorOf(use: creation, owner: type, atAFieldRead: false));
         }
 
-        return all;
+        return this.OfACreation(creation: creation, followed: all);
     }
 
     /// <summary>

@@ -327,7 +327,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   `await using` whose `DisposeAsync` throws it. A task that `RunSynchronously` runs keeps the object
   as well. The runtime throws a `TypeInitializationException` in place of an object that a static
   constructor throws, and a `TargetInvocationException` in place of one that a method throws through
-  `MethodInfo.Invoke` or a constructor through `Activator.CreateInstance`. The `InnerException` of
+  `MethodInfo.Invoke` or a constructor through `Activator.CreateInstance` or `new T()` of a type
+  parameter. The `InnerException` of
   such an exception has the object, and so does the `InnerException` of an exception of the platform
   that you create with an inner exception, and each of the `InnerExceptions` of an
   `AggregateException`. `GetResult` of the awaiter of a task throws the object that a function of

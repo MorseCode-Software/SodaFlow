@@ -4151,14 +4151,16 @@ internal sealed partial class LoopStateEvaluator
     }
 
     private Followed? FollowCreation(SyntaxNode creation, BaseArgumentListSyntax? arguments) =>
-        (this.region.SymbolOf(creation) as IMethodSymbol ?? this.ConstructorOfATypeArgument(creation))
-        is { } constructor
-        && !this.region.Symbols.IsSodaFlow(constructor)
-            ? this.FollowConstructor(
-                call: creation,
-                constructor: constructor,
-                arguments: arguments?.Arguments ?? default)
-            : null;
+        this.OfACreation(
+            creation: creation,
+            followed: (this.region.SymbolOf(creation) as IMethodSymbol ?? this.ConstructorOfATypeArgument(creation))
+                      is { } constructor
+                      && !this.region.Symbols.IsSodaFlow(constructor)
+                ? this.FollowConstructor(
+                    call: creation,
+                    constructor: constructor,
+                    arguments: arguments?.Arguments ?? default)
+                : null);
 
     /// <summary>
     ///     The constructor that the creation of a type parameter runs, when the

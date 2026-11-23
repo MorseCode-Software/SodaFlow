@@ -58708,6 +58708,26 @@ public static class Shapes
     public static Cell<int> Ab432StaticMethodCallsAMethodOfItsClassAndReadsNoField() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab432Shared.D = l.Map(v => v); Kept.Add(Ab432InitNotRead.Get()); Ab432Shared.D = Plain; return S.Hold(0); });
 
+    // S14197. A generic method runs new T() of a constructor that throws. An inner catch of the object samples its pending member, and an outer catch takes a TargetInvocationException.
+    public static Cell<int> R6LimCatchOfTheObjectAroundANewTOfAGenericMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6LimHeld.C = l.Map(v => v); try { try { Kept.Add(R6LimMake<R6LimThrowsAtNewC>()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } } catch (System.Reflection.TargetInvocationException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14198. A generic method runs new T() of a constructor that throws. An inner catch of a TargetInvocationException samples the pending member of its inner exception, and an outer catch takes the object.
+    public static Cell<int> R6LimCatchOfTheWrapperAroundANewTOfAGenericMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6LimHeld.D = l.Map(v => v); try { try { Kept.Add(R6LimMake<R6LimThrowsAtNewD>()); } catch (System.Reflection.TargetInvocationException t) { Kept.Add(((R4CsFault)t.InnerException!).Share.Sample()); } } catch (R4CsFault) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14199. A generic method runs new T() of a class whose static constructor throws. The catch of the TargetInvocationException samples a pending member of the object in the TypeInitializationException.
+    public static Cell<int> Ab378CatchOfTheWrapperAroundAStaticConstructorAtANewT() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab378Shared.A = l.Map(v => v); try { Kept.Add(R6LimMake<Ab378ThrowsAtA>()); } catch (System.Reflection.TargetInvocationException t) { Kept.Add(((R4CsFault)t.InnerException!.InnerException!).Share.Sample()); } return S.Hold(0); });
+
+    // S14200. A generic method runs new T() of a class whose static constructor throws. An inner catch of the TypeInitializationException samples a pending member of the object. An outer catch takes the TargetInvocationException.
+    public static Cell<int> Ab378CatchOfTheTypeInitializationExceptionAroundANewT() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab378Shared.B = l.Map(v => v); try { try { Kept.Add(R6LimMake<Ab378ThrowsAtB>()); } catch (TypeInitializationException e) { Kept.Add(((R4CsFault)e.InnerException!).Share.Sample()); } } catch (System.Reflection.TargetInvocationException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S14201. A control: new of a class runs a constructor that throws. An inner catch of the object samples its pending member, and an outer catch takes a TargetInvocationException.
+    public static Cell<int> Ab378CatchOfTheObjectAroundANewOfTheClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab378Shared.C = l.Map(v => v); try { try { Kept.Add(new Ab378ThrowsAtNewC()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } } catch (System.Reflection.TargetInvocationException) { Kept.Add(2); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109420,6 +109440,29 @@ public static class Shapes
         public static int Read() => Value;
 
         private static int Twice(int k) => 2 * k;
+    }
+
+    // Helpers of the shapes of AB378.
+    public static class Ab378Shared
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+        public static Cell<int>? C;
+    }
+
+    public sealed class Ab378ThrowsAtA
+    {
+        static Ab378ThrowsAtA() => throw new R4CsFault(Ab378Shared.A!);
+    }
+
+    public sealed class Ab378ThrowsAtB
+    {
+        static Ab378ThrowsAtB() => throw new R4CsFault(Ab378Shared.B!);
+    }
+
+    public sealed class Ab378ThrowsAtNewC
+    {
+        public Ab378ThrowsAtNewC() => throw new R4CsFault(Ab378Shared.C!);
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

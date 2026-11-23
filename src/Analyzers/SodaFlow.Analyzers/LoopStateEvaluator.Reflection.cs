@@ -139,6 +139,21 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
+    /// <summary>
+    ///     The result of a creation. The runtime makes an object of a type
+    ///     parameter, as in <c>new T()</c>, through reflection. Thus, it replaces
+    ///     each object that a constructor throws there with a
+    ///     <c>TargetInvocationException</c>, as at a call of
+    ///     <c>Activator.CreateInstance</c>.
+    /// </summary>
+    /// <param name="creation">The creation.</param>
+    /// <param name="followed">The result of the constructors of the creation.</param>
+    private Followed? OfACreation(SyntaxNode creation, Followed? followed) =>
+        // Only a creation of a type parameter has no symbol of a constructor.
+        followed is { Thrown.IsEmpty: false } && this.region.SymbolOf(creation) is not IMethodSymbol
+            ? this.Wrapped(followed: followed, wrapper: "System.Reflection.TargetInvocationException")
+            : followed;
+
     private INamedTypeSymbol? ReflectedType(TypeOfExpressionSyntax typeOf) =>
         this.region.SymbolOf(typeOf.Type) as INamedTypeSymbol;
 
