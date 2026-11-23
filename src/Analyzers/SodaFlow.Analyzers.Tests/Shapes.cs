@@ -59796,6 +59796,106 @@ public static class Shapes
     public static Cell<int> Ab351MapOfADelegateCreationThatDoesNotSample() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab351PlainCreation().SetAndRead(l.Map(v => v))));
 
+    // S14469. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate member of a kept box object, set at the build.
+    public static Cell<int> R6PairNMemberOfABoxMapCtorSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemMapCtor().SetAndRead(l.Map(v => v))));
+
+    // S14470. A constructor builds the member. One method sets the sampled member to a pending cell, and a second method reads the build. The function of the Map is a delegate member of a kept box object, set at the build.
+    public static Cell<int> R6PairNMemberOfABoxMapCtorSetThenReadInTwoCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBBoxMemMapCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Read()); return S.Hold(0); });
+
+    // S14471. A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Map is a delegate member of a kept box object, set at the build.
+    public static Cell<int> R6PairNMemberOfABoxMapCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBBoxMemMapCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Sample()); return S.Hold(0); });
+
+    // S14472. A method builds the member. A second method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate member of a kept box object, set at the build.
+    public static Cell<int> R6PairNMemberOfABoxMapMethodBuildThenSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBBoxMemMapMethod m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14473. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate member of a kept box object, set at the build.
+    public static Cell<int> R6PairNMemberOfABoxLazyCtorSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemLazyCtor().SetAndRead(l.Map(v => v))));
+
+    // S14474. A constructor builds the member. One method sets the sampled member to a pending cell, and a second method reads the build. The function of the Lazy is a delegate member of a kept box object, set at the build.
+    public static Cell<int> R6PairNMemberOfABoxLazyCtorSetThenReadInTwoCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBBoxMemLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Read()); return S.Hold(0); });
+
+    // S14475. A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a delegate member of a kept box object, set at the build.
+    public static Cell<int> R6PairNMemberOfABoxLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBBoxMemLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14476. A method builds the member. A second method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate member of a kept box object, set at the build.
+    public static Cell<int> R6PairNMemberOfABoxLazyMethodBuildThenSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBBoxMemLazyMethod m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14477. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lift is a delegate member of a kept box object, set at the build.
+    public static Cell<int> R6PairNMemberOfABoxLiftCtorSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemLiftCtor().SetAndRead(l.Map(v => v))));
+
+    // S14478. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate member of a kept box object, set at the build. The read has no this.
+    public static Cell<int> R6PairNMemberOfABoxMapCtorSetAndReadReadWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemMapCtorR1().SetAndRead(l.Map(v => v))));
+
+    // S14479. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate member of a kept box object, set at the build. The read goes through a getter.
+    public static Cell<int> R6PairNMemberOfABoxMapCtorSetAndReadReadThroughAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemMapCtorR2().SetAndRead(l.Map(v => v))));
+
+    // S14480. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate member of a kept box object, set at the build. The read goes through a local of the method.
+    public static Cell<int> R6PairNMemberOfABoxMapCtorSetAndReadReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemMapCtorR3().SetAndRead(l.Map(v => v))));
+
+    // S14481. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate member of a kept box object, set at the build. The read is in a third method.
+    public static Cell<int> R6PairNMemberOfABoxMapCtorSetAndReadReadInAThirdMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemMapCtorR4().SetAndRead(l.Map(v => v))));
+
+    // S14482. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate member of a kept box object, set at the build. The write has no this.
+    public static Cell<int> R6PairNMemberOfABoxMapCtorSetAndReadWriteWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemMapCtorW1().SetAndRead(l.Map(v => v))));
+
+    // S14483. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate member of a kept box object, set at the build. The write goes through a local that gets this.
+    public static Cell<int> R6PairNMemberOfABoxMapCtorSetAndReadWriteThroughALocalOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemMapCtorW4().SetAndRead(l.Map(v => v))));
+
+    // S14484. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate member of a kept box object, set at the build. The read has no this.
+    public static Cell<int> R6PairNMemberOfABoxLazyCtorSetAndReadReadWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemLazyCtorR1().SetAndRead(l.Map(v => v))));
+
+    // S14485. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate member of a kept box object, set at the build. The read goes through a getter.
+    public static Cell<int> R6PairNMemberOfABoxLazyCtorSetAndReadReadThroughAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemLazyCtorR2().SetAndRead(l.Map(v => v))));
+
+    // S14486. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate member of a kept box object, set at the build. The read goes through a local of the method.
+    public static Cell<int> R6PairNMemberOfABoxLazyCtorSetAndReadReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemLazyCtorR3().SetAndRead(l.Map(v => v))));
+
+    // S14487. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate member of a kept box object, set at the build. The read is in a third method.
+    public static Cell<int> R6PairNMemberOfABoxLazyCtorSetAndReadReadInAThirdMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemLazyCtorR4().SetAndRead(l.Map(v => v))));
+
+    // S14488. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate member of a kept box object, set at the build. The write has no this.
+    public static Cell<int> R6PairNMemberOfABoxLazyCtorSetAndReadWriteWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemLazyCtorW1().SetAndRead(l.Map(v => v))));
+
+    // S14489. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate member of a kept box object, set at the build. The write goes through a local that gets this.
+    public static Cell<int> R6PairNMemberOfABoxLazyCtorSetAndReadWriteThroughALocalOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBBoxMemLazyCtorW4().SetAndRead(l.Map(v => v))));
+
+    // S14490. A constructor gives a delegate member of a kept box a method group, calls a method, and builds a map with that member. A method sets the member that the method group samples to a pending cell and samples the map.
+    public static Cell<int> Ab350MapOfAMemberOfABoxWithACallBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350BoxWithACall().SetAndRead(l.Map(v => v))));
+
+    // S14491. Control: a constructor gives a delegate member of a kept box a method group that samples, then a function that does not sample, and builds a map with that member. A method sets a member to a pending cell and samples the map.
+    public static Cell<int> Ab350MapOfAMemberOfABoxSetAgain() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350BoxSetAgain().SetAndRead(l.Map(v => v))));
+
+    // S14492. Control: a constructor keeps an object that it gets, and builds a Lazy with a delegate property of that object. The delegate does not sample. A method sets a member of the object to a pending cell and reads the value.
+    public static Cell<int> Ab350LazyOfADelegateOfAGivenObjectThatDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350GivenPlain(new Ab350PlainHolder()).SetAndRead(l.Map(v => v))));
+
+    // S14493. Control: a constructor gives a delegate member of a second kept box a method group that samples, and builds a map with the same member of the first box, which does not sample. A method sets a member to a pending cell and samples the map.
+    public static Cell<int> Ab350MapOfAMemberOfASecondBox() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350TwoBoxes().SetAndRead(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -110895,6 +110995,124 @@ public static class Shapes
         }
 
         private int Plus(int v) => v + 1;
+    }
+
+    public sealed class Ab350BoxWithACall
+    {
+        public readonly Cell<int> Built;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        private readonly R6PairFnBox box = new();
+
+        public Ab350BoxWithACall()
+        {
+            this.box.FMap = this.Add;
+            this.Touch();
+            this.Built = Cell.Constant(1).Map(this.box.FMap);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+            int r = this.Built.Sample();
+
+            return r;
+        }
+
+        private void Touch()
+        {
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab350BoxSetAgain
+    {
+        public readonly Cell<int> Built;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        private readonly R6PairFnBox box = new();
+
+        public Ab350BoxSetAgain()
+        {
+            this.box.FMap = this.Add;
+            this.box.FMap = static v => v + 1;
+            this.Built = Cell.Constant(1).Map(this.box.FMap);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+            int r = this.Built.Sample();
+
+            return r;
+        }
+
+        private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab350PlainHolder
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public Ab350PlainHolder()
+        {
+            this.Factory = this.Zero;
+        }
+
+        public Func<int> Factory { get; }
+
+        private int Zero() => 0;
+    }
+
+    public sealed class Ab350GivenPlain
+    {
+        private readonly Ab350PlainHolder holder;
+
+        private readonly Lazy<int> value;
+
+        public Ab350GivenPlain(Ab350PlainHolder holder)
+        {
+            this.holder = holder;
+            this.value = new Lazy<int>(holder.Factory);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.holder.Share = pending;
+
+            return this.value.Value;
+        }
+    }
+
+    public sealed class Ab350TwoBoxes
+    {
+        public readonly Cell<int> Built;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        private readonly R6PairFnBox box = new();
+
+        private readonly R6PairFnBox other = new();
+
+        public Ab350TwoBoxes()
+        {
+            this.other.FMap = this.Add;
+            this.Built = Cell.Constant(1).Map(this.box.FMap);
+            Kept.Add(this.other);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+            int r = this.Built.Sample();
+
+            return r;
+        }
+
+        private int Add(int v) => v + this.share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -69,6 +69,19 @@ internal sealed partial class LoopStateEvaluator
                 this.GiveTheLocal(name: local, value: value, given: given, members: members);
             }
 
+            if (name is MemberAccessExpressionSyntax
+                {
+                    Expression: not (ThisExpressionSyntax or BaseExpressionSyntax)
+                } ofADifferentObject
+                && code != null)
+            {
+                this.GiveTheMemberOfADifferentObject(
+                    access: ofADifferentObject,
+                    code: code,
+                    given: given,
+                    members: members);
+            }
+
             // The name of a member access is a part of the access, which the loop reads.
             if (name is not (IdentifierNameSyntax
                     or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax or BaseExpressionSyntax })
@@ -109,6 +122,67 @@ internal sealed partial class LoopStateEvaluator
                 seed: code is ConstructorDeclarationSyntax || old == null ? LoopState.None : old,
                 func: (all, each) => all.Join(this.Eval(each)));
         }
+    }
+
+    // Gives a state to a delegate member of a different object that a value names, at the value. The
+    // function of the build writes that member through the same name, as in this.box.F = this.Add.
+    // The last write before the value gives the only value, by the rule for a member of this.
+    // Otherwise, each write in the function gives a value.
+    private void GiveTheMemberOfADifferentObject(
+        MemberAccessExpressionSyntax access,
+        SyntaxNode code,
+        HashSet<ISymbol> given,
+        List<(ISymbol Key, LoopState? Old)> members)
+    {
+        if (this.memo.ContainsKey(access)
+            || this.region.SymbolOf(access)
+                is not ({ IsStatic: false } member
+                and (IFieldSymbol { Type.TypeKind: TypeKind.Delegate }
+                or IPropertySymbol { Type.TypeKind: TypeKind.Delegate }))
+            || this.region.SymbolOf(Unwrapped(access.Expression)) is not { } owner)
+        {
+            return;
+        }
+
+        List<(int Position, ExpressionSyntax? Value, StatementSyntax? Statement)> writes = [];
+        bool inAFunction = false;
+
+        foreach (AssignmentExpressionSyntax assignment in code.DescendantNodes().OfType<AssignmentExpressionSyntax>())
+        {
+            // The name comes first, because it needs no binding.
+            if (Unwrapped(assignment.Left) is not MemberAccessExpressionSyntax { Expression: var itsOwner } written
+                || written.Name.Identifier.ValueText != member.Name
+                || !SymbolEqualityComparer.Default.Equals(
+                    x: this.region.SymbolOf(written)?.OriginalDefinition,
+                    y: member.OriginalDefinition)
+                || !SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(Unwrapped(itsOwner)), y: owner))
+            {
+                continue;
+            }
+
+            inAFunction |= FunctionOf(assignment) != code;
+
+            writes.Add(WriteOf(assignment));
+        }
+
+        if (writes.Count == 0)
+        {
+            return;
+        }
+
+        ExpressionSyntax? only = inAFunction ? null : LastWriteBefore(writes: writes, at: access, noCallBetween: true);
+        LoopState state = LoopState.None;
+
+        // A map or a Lazy keeps the delegate that the member has at the build.
+        foreach (ExpressionSyntax each in only != null
+                     ? [only]
+                     : writes.Select(static write => write.Value).OfType<ExpressionSyntax>())
+        {
+            this.GiveTheNamesOf(value: each, given: given, members: members);
+            state = state.Join(this.Eval(each));
+        }
+
+        this.memo[access] = state;
     }
 
     // Gives a state to a local that a name in a value names, at the value. The state stays after the
