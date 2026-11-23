@@ -60104,6 +60104,94 @@ public static class Shapes
     public static Cell<int> Ab428LambdaLazyReadInTheBlockWithNoSet() =>
         Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamLazyCtor m = new(); Kept.Add(m.Built.Value); return S.Hold(0); });
 
+    // S14546. The left side of && is the constant false, thus the right side, which samples, does not run.
+    public static Cell<int> R6PathAndOfAConstantFalse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (R6PathOff && l.Sample() > 0) { Kept.Add(0); } return S.Hold(0); });
+
+    // S14547. The left side of || is the constant true, thus the right side, which samples, does not run.
+    public static Cell<int> R6PathOrOfAConstantTrue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (!R6PathOff || l.Sample() > 0) { Kept.Add(0); } return S.Hold(0); });
+
+    // S14548. A switch expression on a constant does not take the arm that samples.
+    public static Cell<int> R6PathSwitchExpressionOnAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int k = R6PathOne switch { 2 => l.Sample(), _ => 0 }; return S.Hold(k); });
+
+    // S14549. A sample in the branch of an if whose condition is a constant made with a cast. The constant is false.
+    public static Cell<int> R6LimReadUnderAFalseCastConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if ((long)1 == 2) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S14550. A sample in the branch of an if whose condition is a constant conditional expression. The constant is false.
+    public static Cell<int> R6LimReadUnderAFalseConditionalConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (true ? false : true) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S14551. A sample in a switch section that a constant rules out. The page names this as a careful report.
+    public static Cell<int> R6LimReadInASwitchSectionThatAConstantRulesOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { switch (1) { case 2: Kept.Add(l.Sample()); break; default: Kept.Add(1); break; } return S.Hold(0); });
+
+    // S14552. A control: the left side of || is the constant false. Thus, the right side runs, and it samples.
+    public static Cell<int> Ab370OrOfAConstantFalseSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (R6PathOff || l.Sample() > 0) { Kept.Add(0); } return S.Hold(0); });
+
+    // S14553. A control: the right side of && is the constant false. The left side runs, and it samples.
+    public static Cell<int> Ab370AndWithAConstantFalseOnTheRightSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (l.Sample() > 0 && R6PathOff) { Kept.Add(0); } return S.Hold(0); });
+
+    // S14554. A control: a switch expression on a constant takes the arm that samples.
+    public static Cell<int> Ab370SwitchExpressionOnAConstantTakesTheArmThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int k = R6PathOne switch { 1 => l.Sample(), _ => 0 }; return S.Hold(k); });
+
+    // S14555. A control: a switch expression on a constant takes the discard arm, which samples.
+    public static Cell<int> Ab370SwitchExpressionOnAConstantTakesTheDiscardArm() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int k = R6PathOne switch { 2 => 0, _ => l.Sample() }; return S.Hold(k); });
+
+    // S14556. A switch expression on a constant takes the first arm. Thus, the discard arm, which samples, does not run.
+    public static Cell<int> Ab370SwitchExpressionOnAConstantStopsAtTheArmThatItTakes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int k = R6PathOne switch { 1 => 0, _ => l.Sample() }; return S.Hold(k); });
+
+    // S14557. A control: a switch expression on a constant has a relational arm that matches, and the arm samples.
+    public static Cell<int> Ab370SwitchExpressionOnAConstantWithARelationalArmSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int k = R6PathOne switch { > 0 => l.Sample(), _ => 0 }; return S.Hold(k); });
+
+    // S14558. A control: a switch expression on a constant has an arm with a when clause that is false. The next arm samples.
+    public static Cell<int> Ab370SwitchExpressionOnAConstantWithAWhenClauseSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int k = R6PathOne switch { 1 when Kept.Count < 0 => 0, _ => l.Sample() }; return S.Hold(k); });
+
+    // S14559. A control: a switch expression on a long constant takes an arm with an int constant, and the arm samples.
+    public static Cell<int> Ab370SwitchExpressionOnALongConstantTakesAnIntArm() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int k = (long)R6PathOne switch { 1 => l.Sample(), _ => 0 }; return S.Hold(k); });
+
+    // S14560. A control: a switch statement on a constant takes the section that samples.
+    public static Cell<int> Ab370SwitchSectionThatAConstantTakesSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { switch (R6PathOne) { case 1: Kept.Add(l.Sample()); break; default: Kept.Add(1); break; } return S.Hold(0); });
+
+    // S14561. A control: a switch statement on a constant takes the default section, which samples.
+    public static Cell<int> Ab370DefaultSectionOfASwitchOnAConstantSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { switch (R6PathOne) { case 2: Kept.Add(1); break; default: Kept.Add(l.Sample()); break; } return S.Hold(0); });
+
+    // S14562. A switch statement on a constant takes a case section. Thus, the default section, which samples, does not run.
+    public static Cell<int> Ab370DefaultSectionThatAConstantCaseRulesOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { switch (R6PathOne) { case 1: Kept.Add(1); break; default: Kept.Add(l.Sample()); break; } return S.Hold(0); });
+
+    // S14563. A control: a switch statement on a long constant takes a section with an int case, and the section samples.
+    public static Cell<int> Ab370SwitchOnALongConstantTakesAnIntCase() =>
+        Cell.Loop<int>().WithoutCaptures(l => { switch ((long)R6PathOne) { case 1: Kept.Add(l.Sample()); break; default: Kept.Add(1); break; } return S.Hold(0); });
+
+    // S14564. A control: a switch statement on a constant has a case with a when clause that is false. The default section samples.
+    public static Cell<int> Ab370SwitchOnAConstantWithAWhenClauseSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { switch (R6PathOne) { case 1 when Kept.Count < 0: Kept.Add(1); break; default: Kept.Add(l.Sample()); break; } return S.Hold(0); });
+
+    // S14565. A control: a sample in the branch of an if whose condition is a constant made with a cast. The constant is true.
+    public static Cell<int> Ab370ReadUnderATrueCastConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if ((long)1 == 1) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S14566. A control: a sample in the branch of an if whose condition is a constant conditional expression. The constant is true.
+    public static Cell<int> Ab370ReadUnderATrueConditionalConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (false ? false : true) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
+    // S14567. A control: a conditional expression whose condition is not a constant is not a constant. The branch samples.
+    public static Cell<int> Ab370ReadUnderAConditionalThatIsNotAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { if (Kept.Count >= 0 ? true : false) { Kept.Add(l.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

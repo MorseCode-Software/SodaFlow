@@ -118,6 +118,7 @@
         <Compile Include="SerializerOptions.cs"/>
         <Compile Include="ShapeNumber.cs"/>
         <Compile Include="SinkWalker.cs"/>
+        <Compile Include="SinkWalker.Constants.cs"/>
         <Compile Include="SinkWalker.FirstReads.cs"/>
         <Compile Include="SinkWalker.Exceptions.cs"/>
         <Compile Include="SinkWalker.Scopes.cs"/>

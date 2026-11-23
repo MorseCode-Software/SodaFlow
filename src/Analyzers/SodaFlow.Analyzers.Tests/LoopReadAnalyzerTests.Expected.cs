@@ -8498,6 +8498,20 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6PairPAloneLocalFunctionLazyCtorReadInTheBlock"] = ["SF1005"],
             ["R6PairPAloneLocalOfALambdaLazyCtorReadInTheBlock"] = ["SF1005"],
             ["R6PairPAloneMemberOfALambdaLazyCtorReadInTheBlock"] = ["SF1005"],
-            ["R6PairPAloneLambdaOfAKeptObjectLazyCtorReadInTheBlock"] = ["SF1005"]
+            ["R6PairPAloneLambdaOfAKeptObjectLazyCtorReadInTheBlock"] = ["SF1005"],
+            ["Ab370OrOfAConstantFalseSamples"] = ["SF1001"],
+            ["Ab370AndWithAConstantFalseOnTheRightSamples"] = ["SF1001"],
+            ["Ab370SwitchExpressionOnAConstantTakesTheArmThatSamples"] = ["SF1001"],
+            ["Ab370SwitchExpressionOnAConstantTakesTheDiscardArm"] = ["SF1001"],
+            ["Ab370SwitchExpressionOnAConstantWithARelationalArmSamples"] = ["SF1001"],
+            ["Ab370SwitchExpressionOnAConstantWithAWhenClauseSamples"] = ["SF1001"],
+            ["Ab370SwitchExpressionOnALongConstantTakesAnIntArm"] = ["SF1001"],
+            ["Ab370SwitchSectionThatAConstantTakesSamples"] = ["SF1001"],
+            ["Ab370DefaultSectionOfASwitchOnAConstantSamples"] = ["SF1001"],
+            ["Ab370SwitchOnALongConstantTakesAnIntCase"] = ["SF1001"],
+            ["Ab370SwitchOnAConstantWithAWhenClauseSamples"] = ["SF1001"],
+            ["Ab370ReadUnderATrueCastConstant"] = ["SF1001"],
+            ["Ab370ReadUnderATrueConditionalConstant"] = ["SF1001"],
+            ["Ab370ReadUnderAConditionalThatIsNotAConstant"] = ["SF1001"]
         };
 }

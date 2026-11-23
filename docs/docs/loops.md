@@ -692,11 +692,16 @@ careful side, so it can report a read that does not throw:
   calls, and an `Equals` that only two equal hash codes call, are reads of this kind. So is the
   function of a `Merge`, which runs only when both streams fire in one transaction: what it returns
   counts as a value of the merge even where one stream fires, or none does. Only a condition that is
-  a constant, also one made with `nameof`, `sizeof`, or `default`, is read for what it says: the
-  analyzer skips the branch of an `if` and the arm of a `?:` that the constant rules out, the body
-  of a `while` or a `for` whose condition is the constant `false`, and the second turn of a `do`
-  whose condition is the constant `false`. It still reads a `switch` section that a constant rules
-  out, and the code after an `if` on a constant whose branch always returns.
+  a constant, also one made with `nameof`, `sizeof`, `default`, a cast, or a `?:` of constants, is
+  read for what it says: the analyzer skips the branch of an `if` and the arm of a `?:` that the
+  constant rules out, the right side of a `&&` whose left side is the constant `false` and of a
+  `||` whose left side is the constant `true`, the body of a `while` or a `for` whose condition is
+  the constant `false`, and the second turn of a `do` whose condition is the constant `false`. A
+  `switch` statement on a constant skips each section that the compiler finds the constant cannot
+  select. A `switch` expression on a constant skips each arm whose constant pattern is a different
+  value, and each arm after the first one whose constant pattern is that value. It still reads the
+  code after an `if` on a constant whose branch always returns, the body of a `foreach` over an
+  empty array, and a lambda that the code calls only in a branch that does not run.
 - A first read of a cell that the analyzer cannot be sure runs leaves the cell for the next read,
   which then runs the function again. That is a read in a branch of an `if` or an arm of a `?:`
   whose condition is not a constant, and a read in a `catch` or `finally` block. A read in a `try`
