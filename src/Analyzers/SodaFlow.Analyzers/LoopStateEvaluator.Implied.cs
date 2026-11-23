@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -135,13 +136,17 @@ internal sealed partial class LoopStateEvaluator
 
         if (!this.region.Symbols.IsSodaFlow(definition) && BodyOf(definition) is { } body)
         {
+            // Each argument after the last parameter is one more element of a params array, as a
+            // dynamic call can give it.
+            ImmutableArray<IParameterSymbol> parameters = definition.Parameters;
+
             IReadOnlyList<Binding> bindings =
             [
                 .. arguments
-                    .Take(definition.Parameters.Length)
+                    .Take(parameters.LastOrDefault() is { IsParams: true } ? int.MaxValue : parameters.Length)
                     .Select((argument, position) =>
                         new Binding(
-                            parameter: definition.Parameters[position],
+                            parameter: parameters[position < parameters.Length ? position : parameters.Length - 1],
                             argument: argument.Written,
                             state: argument.State))
             ];

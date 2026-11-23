@@ -8199,6 +8199,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab432StaticInitializerOfAPropertyReadInAStaticMethodOfItsClass"] = ["SF1005"],
             ["R6LimCatchOfTheWrapperAroundANewTOfAGenericMethod"] = ["SF1001"],
             ["Ab378CatchOfTheWrapperAroundAStaticConstructorAtANewT"] = ["SF1001"],
-            ["Ab378CatchOfTheObjectAroundANewOfTheClass"] = ["SF1001"]
+            ["Ab378CatchOfTheObjectAroundANewOfTheClass"] = ["SF1001"],
+            ["R6LimDynamicCallOfAParamsMethod"] = ["SF1005"],
+            ["Ab379DynamicCallOfAParamsMethodWithOneElement"] = ["SF1005"],
+            ["Ab379DynamicCallOfAParamsMethodWithNoElement"] = ["SF1005"],
+            ["Ab379DynamicCallOfAParamsMethodReadsTheSecondElement"] = ["SF1004"],
+            ["Ab379DynamicCallOfTheParamsOverloadWhoseElementsFit"] = ["SF1005"],
+            ["Ab379DynamicCallOfTheParamsOverloadWithNoOtherParameter"] = ["SF1005"]
         };
 }

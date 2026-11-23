@@ -58728,6 +58728,30 @@ public static class Shapes
     public static Cell<int> Ab378CatchOfTheObjectAroundANewOfTheClass() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab378Shared.C = l.Map(v => v); try { try { Kept.Add(new Ab378ThrowsAtNewC()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } } catch (System.Reflection.TargetInvocationException) { Kept.Add(2); } return S.Hold(0); });
 
+    // S14202. A dynamic call of a method with a params parameter, with two arguments. The method samples a pending member of its object.
+    public static Cell<int> R6LimDynamicCallOfAParamsMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new R6LimSummer(l.Map(v => v)); int x = d.Sum(1, 2); return S.Hold(x); });
+
+    // S14203. A dynamic call of a method with a params parameter, with one argument of the element type. The method samples a pending member of its object.
+    public static Cell<int> Ab379DynamicCallOfAParamsMethodWithOneElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new R6LimSummer(l.Map(v => v)); int x = d.Sum(1); return S.Hold(x); });
+
+    // S14204. A dynamic call of a method with a params parameter, with no argument. The method samples a pending member of its object.
+    public static Cell<int> Ab379DynamicCallOfAParamsMethodWithNoElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new R6LimSummer(l.Map(v => v)); int x = d.Sum(); return S.Hold(x); });
+
+    // S14205. A dynamic call of a method with a parameter and a params parameter. The second element is a pending cell, and the method samples it.
+    public static Cell<int> Ab379DynamicCallOfAParamsMethodReadsTheSecondElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab379Reader(); int x = d.Second(1, Plain, l.Map(v => v)); return S.Hold(x); });
+
+    // S14206. A dynamic call with two arguments of a method with two overloads, each with a params parameter. Only the elements of one overload have the type of the arguments.
+    public static Cell<int> Ab379DynamicCallOfTheParamsOverloadWhoseElementsFit() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab379Overloads(l.Map(v => v)); int x = d.Sum(1, 2); return S.Hold(x); });
+
+    // S14207. A dynamic call with no argument of a method with two overloads. Only the overload with a params parameter and no other parameter takes no argument.
+    public static Cell<int> Ab379DynamicCallOfTheParamsOverloadWithNoOtherParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { dynamic d = new Ab379Overloads(l.Map(v => v)); int x = d.Count(); return S.Hold(x); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109463,6 +109487,25 @@ public static class Shapes
     public sealed class Ab378ThrowsAtNewC
     {
         public Ab378ThrowsAtNewC() => throw new R4CsFault(Ab378Shared.C!);
+    }
+
+    // Helpers of the shapes of AB379.
+    public sealed class Ab379Reader
+    {
+        public int Second(int k, params Cell<int>[] cells) => k + cells[1].Sample();
+    }
+
+    public sealed class Ab379Overloads(Cell<int> c)
+    {
+        private readonly Cell<int> c = c;
+
+        public int Sum(params int[] xs) => xs.Length + this.c.Sample();
+
+        public int Sum(params string[] xs) => xs.Length;
+
+        public int Count(int k, params int[] xs) => k + xs.Length;
+
+        public int Count(params string[] xs) => xs.Length + this.c.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

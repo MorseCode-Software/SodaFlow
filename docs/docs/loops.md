@@ -499,7 +499,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   `--`, and a compound assignment, the conversion, with or without a cast, the `operator true` or
   `operator false`, the enumerator of a `foreach`, and the `GetAwaiter` and `IsCompleted` of an
   `await`, that the runtime binder finds on the type of that object. It picks a method as the binder
-  does: by the names and the number of the arguments, with the optional parameters, and by the type
+  does: by the names and the number of the arguments, with the optional parameters and a `params`
+  parameter that takes each argument from its place on as one element, and by the type
   of each argument whose type the code knows, and it reads none where two methods remain. A
   conversion can have a standard conversion before or after it, as in the compiler. The analyzer
   does not read `GetResult` after an `await` of a dynamic value.
