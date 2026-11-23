@@ -504,7 +504,7 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
 
     // The element of a value at the positions, one for each level of the tuples. A name of a local of
     // a tuple type stands for the value that the local has there.
-    private static ExpressionSyntax? ElementAt(ExpressionSyntax value, IReadOnlyList<int> places, SemanticModel model)
+    private static ExpressionSyntax? ElementAt(ExpressionSyntax value, IEnumerable<int> places, SemanticModel model)
     {
         foreach (int place in places)
         {

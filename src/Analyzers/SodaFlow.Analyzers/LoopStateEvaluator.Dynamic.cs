@@ -146,6 +146,7 @@ internal sealed partial class LoopStateEvaluator
         }
 
         int last = parameters.Length - 1;
+
         ArgumentSyntax?[] placed =
             new ArgumentSyntax?[arguments.Count > parameters.Length ? arguments.Count : parameters.Length];
 
