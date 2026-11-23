@@ -8628,6 +8628,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag100TimerHelperRunsIfNotEqual"] = ["SF1001"],
             ["Ag100TimerHelperRunsIfNamed"] = ["SF1001"],
             ["Ag100TimerHelperRunsIfNotNull"] = ["SF1001"],
-            ["Ag100TimerHelperRunsInALocalFunctionIfTrue"] = ["SF1001"]
+            ["Ag100TimerHelperRunsInALocalFunctionIfTrue"] = ["SF1001"],
+            ["Ab365TimerHelperRunsThroughAHelperInABranch"] = ["SF1001"],
+            ["Ab365MapHelperDisposesThroughAHelperInABranch"] = ["SF1001"]
         };
 }

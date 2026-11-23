@@ -1440,13 +1440,16 @@ internal sealed partial class LoopStateEvaluator
 
     // The objects that a Dispose of a value disposes. A callee can get an object from its caller,
     // and the walk does not know the path that the arguments of the callee select. Thus, the callee
-    // disposes such an object only where its Dispose runs on all paths.
+    // disposes such an object only where its Dispose runs on all paths, and where each call between
+    // the code that made the object and the callee does also.
     private IEnumerable<MadeObject> ObjectsOfADispose(ExpressionSyntax value, Func<bool> runsOnEachPath)
     {
         bool? onEachPath = null;
 
         return this.region.Objects.Now(this.Eval(value).Objects)
-            .Where(made => made.IsFrom(this.Frame) || (onEachPath ??= runsOnEachPath()));
+            .Where(made =>
+                made.IsFrom(this.Frame)
+                || ((onEachPath ??= runsOnEachPath()) && this.CallsRunFor(owns: made.IsFrom, forARun: true)));
     }
 
     /// <summary>

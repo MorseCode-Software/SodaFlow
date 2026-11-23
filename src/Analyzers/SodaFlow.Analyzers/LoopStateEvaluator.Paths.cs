@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -56,6 +57,33 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     /// <param name="value">The expression of the value.</param>
     public bool HasAnObject(ExpressionSyntax value) => !this.region.Objects.Now(this.Eval(value).Objects).IsEmpty;
+
+    /// <summary>
+    ///     True when each call between the code that has a value and this code
+    ///     runs on all paths of its function. A run of the timers or a Dispose
+    ///     that always runs in this code then runs for that code also.
+    /// </summary>
+    /// <remarks>
+    ///     The call in the code that has the value is not part of the test.
+    ///     That code reads its own value on each path, as the block does.
+    /// </remarks>
+    /// <param name="owns">
+    ///     True for the frame of the code that has the value, and for the frame
+    ///     of each code that called that code.
+    /// </param>
+    /// <param name="forARun">True for a run of the timers or a Dispose.</param>
+    public bool CallsRunFor(Func<LoopFrame, bool> owns, bool forARun)
+    {
+        for (CallOfThisCode? each = this.call; each != null && !owns(each.Caller.Frame); each = each.Caller.call)
+        {
+            if (each.Caller.walker?.SurelyRuns(call: each.Site, forARun: forARun, after: out _) != true)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     // True when each run of the code runs the node one time. The node has only blocks and its own
     // statement around it, up to the code. A finally block runs what is in it also, and so does the

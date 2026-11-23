@@ -2328,7 +2328,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     after = attempt;
 
                     continue;
-                case SwitchSectionSyntax section when this.IsTheSectionOfEachValue(section: section, at: place.SpanStart):
+                case SwitchSectionSyntax section
+                    when this.IsTheSectionOfEachValue(section: section, at: place.SpanStart):
                     continue;
                 case SwitchStatementSyntax when child is SwitchSectionSyntax:
                     continue;
@@ -3735,12 +3736,19 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             return;
         }
 
-        // A callee runs a timer of a different code only where the call runs on all paths. The walk
-        // does not know the path that the arguments of the callee select.
+        // A callee runs a timer of a different code only where the call runs on all paths, and so
+        // does each call between that code and the callee. The walk does not know the path that the
+        // arguments of a callee select.
         bool always = this.SurelyRuns(call: call, forARun: true, after: out _);
 
         foreach (KeptTimer timer in this.region.Objects.TimersOf(this.region.Objects.Now(clocks))
-                     .Where(timer => (always || timer.Keeper == this) && !this.IsAfter(time: timer.Time, now: now))
+                     .Where(timer =>
+                         (timer.Keeper == this
+                          || (always
+                              && this.evaluator.CallsRunFor(
+                                  owns: timer.Keeper.evaluator.Frame.IsWithin,
+                                  forARun: true)))
+                         && !this.IsAfter(time: timer.Time, now: now))
                      .ToList())
         {
             this.region.Objects.TakesTheTimer(timer.Set);

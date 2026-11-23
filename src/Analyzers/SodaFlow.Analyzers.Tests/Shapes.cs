@@ -60932,6 +60932,22 @@ public static class Shapes
     public static Cell<int> Ag100TimerHelperRunsInALocalFunctionIfTrue() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ag100RunInALocalFunctionIf(clock); return S.Hold(0); });
 
+    // S14753. A method of this code calls a second method that runs the timers only when its argument is true. The argument is false, thus no callback runs.
+    public static Cell<int> R6PathTimerHelperRunsIfThroughAHelperFalse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunIfThroughAHelper(clock, false); return S.Hold(0); });
+
+    // S14754. A method of this code calls a second method that disposes on every path, only when its argument is true. The argument is false.
+    public static Cell<int> R6PathMapHelperDisposesIfThroughAHelperFalse() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; R6PathDisposeIfThroughAHelper(m, false); return S.Hold(n); });
+
+    // S14755. The block calls a method of this code only in a branch. The method calls a second method that runs the timers on every path. The branch runs, thus the callback samples.
+    public static Cell<int> Ab365TimerHelperRunsThroughAHelperInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); if (Kept.Count >= 0) { R6PathRunThroughAHelper(clock); } return S.Hold(0); });
+
+    // S14756. The block calls a method of this code only in a branch. The method calls a second method that disposes the map on every path. The branch runs, thus the eviction handler samples.
+    public static Cell<int> Ab365MapHelperDisposesThroughAHelperInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; if (Kept.Count >= 0) { Ab365DisposeThroughAHelper(m); } return S.Hold(n); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112723,6 +112739,8 @@ public static class Shapes
             }
         }
     }
+
+    private static void Ab365DisposeThroughAHelper(IDisposable d) => R6PathDispose(d);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

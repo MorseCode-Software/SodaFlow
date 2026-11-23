@@ -40,7 +40,7 @@ internal sealed partial class SinkWalker
     ///     that try runs after the call, but its finally block can run without
     ///     the call. Null when no such try is around the call.
     /// </param>
-    private bool SurelyRuns(SyntaxNode call, bool forARun, out TryStatementSyntax? after)
+    public bool SurelyRuns(SyntaxNode call, bool forARun, out TryStatementSyntax? after)
     {
         after = null;
         SyntaxNode start = call;
