@@ -202,13 +202,13 @@ internal sealed partial class LoopStateEvaluator
         return member is IMethodSymbol or IPropertySymbol
                && SymbolEqualityComparer.Default.Equals(x: member.ContainingAssembly, y: this.region.Assembly);
 
-        static bool Calls(ExpressionSyntax used) =>
+        static bool Calls(SyntaxNode used) =>
             used.Parent is InvocationExpressionSyntax call && call.Expression == used;
     }
 
     // True when a name in a lambda names a parameter or a local of the lambda. A name of a nested part can
     // also be a capture, thus the compiler gives the symbol of such a name.
-    private bool IsOwn(SimpleNameSyntax name, AnonymousFunctionExpressionSyntax lambda, DeclaredNames own)
+    private bool IsOwn(SimpleNameSyntax name, SyntaxNode lambda, DeclaredNames own)
     {
         string text = name.Identifier.ValueText;
 
