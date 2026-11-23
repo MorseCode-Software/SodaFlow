@@ -4716,11 +4716,18 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     {
         this.Visit(node.FromClause.Expression);
 
-        if (this.RunsInTheCall(node))
+        if (this.RunsInTheCall(query: node, orHasCode: false))
         {
             this.Visit(node.Body);
 
             return;
+        }
+
+        // The clause methods of a type of this code have a body, and the walk reads them as calls. Such
+        // a method can keep its function, thus the walk does not read the clauses here.
+        if (this.RunsInTheCall(query: node, orHasCode: true))
+        {
+            this.Report(this.evaluator.FollowClauseMethods(node));
         }
 
         this.evaluator.Wait(node);
@@ -4728,8 +4735,9 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     // True for a query expression whose each clause calls a method that cannot know the library and
     // that returns no sequence. Such a method runs its function in the call, as a method of
-    // SodaFlow.Functional does for Maybe. A clause that the compiler does not bind waits.
-    private bool RunsInTheCall(QueryExpressionSyntax query)
+    // SodaFlow.Functional does for Maybe. With orHasCode, a method of this compilation with a body
+    // also counts. A clause that the compiler does not bind waits.
+    private bool RunsInTheCall(QueryExpressionSyntax query, bool orHasCode)
     {
         SemanticModel model = this.region.ModelFor(query);
         List<ISymbol?> methods = [model.GetQueryClauseInfo(query.FromClause).CastInfo.Symbol];
@@ -4763,7 +4771,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         return methods.All(method =>
             method is not IMethodSymbol called
-            || (!this.region.Symbols.CanKnowTheLibrary(called.ContainingAssembly)
+            || ((!this.region.Symbols.CanKnowTheLibrary(called.ContainingAssembly)
+                 || (orHasCode && LoopStateEvaluator.HasCodeToRead(called)))
                 && !SodaFlowSymbols.IsEnumerated(called.ReturnType)
                 && !SodaFlowSymbols.IsAsyncEnumerated(called.ReturnType)));
     }

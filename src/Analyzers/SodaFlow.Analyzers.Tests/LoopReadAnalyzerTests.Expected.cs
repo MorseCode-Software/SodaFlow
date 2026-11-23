@@ -8579,6 +8579,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6SmpSelectOfTheStaticSampleGroup"] = ["SF1001"],
             ["Ab389MethodCallsTheSampleGroupOfItsParameter"] = ["SF1004"],
             ["Ab389StaticSampleGroupCalledWithAPendingCell"] = ["SF1001"],
-            ["Ab389SampleGroupOfAMapRunsItsFunctionAtTheCall"] = ["SF1001"]
+            ["Ab389SampleGroupOfAMapRunsItsFunctionAtTheCall"] = ["SF1001"],
+            ["R6CsQueryWithAnExtensionSelect"] = ["SF1004"],
+            ["R6CsQueryWithAnInstanceSelect"] = ["SF1005"],
+            ["Ab390QueryWithAWhereAndASelect"] = ["SF1005"]
         };
 }

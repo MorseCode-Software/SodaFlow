@@ -561,10 +561,13 @@ The analyzer follows a value made from the placeholder through the code of your 
   of a `Task` that you create with `new` where `RunSynchronously` runs it. The `Result` of such a
   task, and `GetResult` of its awaiter, have the value that the function returns, however the task
   runs. A query expression over a type whose methods run their function in the call, such as
-  `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. Where the code takes
-  only one item from the call of an iterator, with `First`, `FirstOrDefault` with no predicate,
-  `Any()` with no predicate, `Take(1)`, `ElementAt(0)`, or `ElementAtOrDefault(0)`, also after a
-  `Select`, an `AsEnumerable`, or a query expression with only a `select` clause, or with a
+  `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. For a query over a type
+  of your project whose methods for the clauses return no sequence, the analyzer reads each of those
+  methods as a call where the query is written, with the result of the clause before it. It does not
+  read the expression of a clause, because such a method can run its function or keep it. Where the
+  code takes only one item from the call of an iterator, with `First`, `FirstOrDefault` with no
+  predicate, `Any()` with no predicate, `Take(1)`, `ElementAt(0)`, or `ElementAtOrDefault(0)`, also
+  after a `Select`, an `AsEnumerable`, or a query expression with only a `select` clause, or with a
   `foreach` that leaves the loop in its first pass on every path, by a `break`, a `return`, a
   `throw`, or a `goto`, the iterator runs only up to its first `yield return` and the `finally`
   blocks around it. For a `yield return` in a loop, the code after the loop is skipped only when the

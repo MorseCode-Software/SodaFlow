@@ -60648,6 +60648,22 @@ public static class Shapes
     public static Cell<int> Ab389SampleGroupOfAMapRunsItsFunctionAtTheCall() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = Plain.Map(v => v + c.Sample()); c = l.Map(v => v); Func<int> f = m.Sample; Kept.Add(f()); return S.Hold(0); });
 
+    // S14682. A query calls an extension Select of the object, which samples a pending member.
+    public static Cell<int> R6CsQueryWithAnExtensionSelect() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = from v in new R6CsHolder(l.Map(v => v)) select v + 1; Kept.Add(n); return S.Hold(0); });
+
+    // S14683. A query calls the instance Select of an object of the project, which samples a pending member.
+    public static Cell<int> R6CsQueryWithAnInstanceSelect() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = from v in new R6CsSelectable(l.Map(v => v)) select v + 1; Kept.Add(n); return S.Hold(0); });
+
+    // S14684. Control: a query calls the instance Select of an object of the project, which samples a plain member.
+    public static Cell<int> Ab390QueryWithAnInstanceSelectOfAPlainMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = from v in new R6CsSelectable(Plain) select v + 1; Kept.Add(n); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S14685. A query calls the Where and then the Select of an object of the project. Where gives the object back, and Select samples its pending member.
+    public static Cell<int> Ab390QueryWithAWhereAndASelect() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int n = from v in new Ab390Box(l.Map(v => v)) where v > 0 select v + 1; Kept.Add(n); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112185,6 +112201,15 @@ public static class Shapes
         Func<int> f = c.Sample;
 
         return f();
+    }
+
+    public sealed class Ab390Box(Cell<int> share)
+    {
+        public Cell<int> Share { get; } = share;
+
+        public Ab390Box Where(Func<int, bool> f) => this;
+
+        public int Select(Func<int, int> f) => f(this.Share.Sample());
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

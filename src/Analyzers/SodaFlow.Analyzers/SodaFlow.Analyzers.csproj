@@ -62,6 +62,7 @@
         <Compile Include="LoopState.cs"/>
         <Compile Include="LoopStateEvaluator.Builders.cs"/>
         <Compile Include="LoopStateEvaluator.Callees.cs"/>
+        <Compile Include="LoopStateEvaluator.ClauseMethods.cs"/>
         <Compile Include="LoopStateEvaluator.Collections.cs"/>
         <Compile Include="LoopStateEvaluator.Computed.cs"/>
         <Compile Include="LoopStateEvaluator.Content.cs"/>
