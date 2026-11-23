@@ -8127,6 +8127,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab404JsonArrayToJsonString"] = ["SF1005"],
             ["Ab404JsonObjectOfTwoValuesPlainFirst"] = ["SF1005"],
             ["Ab406CellSinkCoalesceReturnsTheSecondLinkedSend"] = ["SF1002"],
-            ["Ab406ThreeSendsTheLastIsLinked"] = ["SF1002"]
+            ["Ab406ThreeSendsTheLastIsLinked"] = ["SF1002"],
+            ["Ab407ActionOfAConstantTrueCell"] = ["SF1002"],
+            ["Ab407ActionOfALocalThatCodeWrites"] = ["SF1002"],
+            ["Ab407ActionOfAConstantThatIsNotOfTheLibrary"] = ["SF1002"]
         };
 }

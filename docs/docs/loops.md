@@ -424,8 +424,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   an action that you post to any `IBindingScheduler`, and for a write to the `Value` of a
   two-way bindable of a sink, which sends the value into that sink after the transaction.
   `Execute` of a bindable action sends its parameter into the sink of its firings after the
-  transaction in the same way. Both hold wherever the code keeps the bindable or the action: in
-  a local, a field, a property of an object, a parameter, or the result of a method. Outside a
+  transaction in the same way, unless its enablement is `Cell.Constant(false)`, written in the
+  creation call or in a local that no code writes, because the action then sends nothing. Both
+  hold wherever the code keeps the bindable or the action: in a local, a field, a property of an
+  object, a parameter, or the result of a method. Outside a
   local that the creation call made, the sink must be one that the block made. The analyzer also
   reads the `Post` of a scheduler of your own where it knows the class of the scheduler, because
   such a `Post` can run the action at once.
@@ -588,6 +590,9 @@ careful side, so it can report a read that does not throw:
 - The `Updates` of a cell count as firing the first value of the cell too, unless the cell is a
   sink that the analyzer sees made. So a hold of the updates of a hold, switched as the close, can
   get `SF1002` although it returns.
+- `Execute` of an action that is never enabled still counts as a send where the analyzer does not
+  see `Cell.Constant(false)` in the creation call, such as an action in a field or from a method,
+  or an enablement cell that is false but not a constant.
 - Serializer options that you do not create in the call, such as options in a local or a field,
   count as options that write public fields and read-only properties.
 - A sample in the function of a task that `RunSynchronously` runs gets `SF1001`, although the task

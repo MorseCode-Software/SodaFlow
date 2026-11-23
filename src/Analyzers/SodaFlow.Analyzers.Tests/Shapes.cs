@@ -58264,6 +58264,30 @@ public static class Shapes
     public static Cell<int> Ab406ThreeSendsTheLastIsLinked() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, b) => b); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); s.Send(Plain); s.Send(l.Map(v => v)); return h.SwitchC(); });
 
+    // S14086. A disabled action executes with a linked cell, and sends nothing.
+    public static Cell<int> R6ApiDisabledActionExecuteSendsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>> a = R2ApiFactory.CreateBindableAction(fire, Cell.Constant(false)); a.Execute(l.Map(v => v)); return sw; });
+
+    // S14087. An action whose enablement is a constant false cell in a local executes with a linked cell.
+    public static Cell<int> R6ApiDisabledActionOfALocalCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); Cell<bool> off = Cell.Constant(false); SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>> a = R2ApiFactory.CreateBindableAction(fire, off); a.Execute(l.Map(v => v)); return sw; });
+
+    // S14088. A disabled action gets its enablement by the name of the parameter, and executes with a linked cell.
+    public static Cell<int> Ab407DisabledActionWithANamedEnablement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>> a = R2ApiFactory.CreateBindableAction(firingsStreamSink: fire, isEnabledCell: Cell.Constant(false)); a.Execute(l.Map(v => v)); return sw; });
+
+    // S14089. An action whose enablement is a constant true cell executes with a linked cell.
+    public static Cell<int> Ab407ActionOfAConstantTrueCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>> a = R2ApiFactory.CreateBindableAction(fire, Cell.Constant(true)); a.Execute(l.Map(v => v)); return sw; });
+
+    // S14090. The enablement is a local that gets a constant false cell and then a constant true cell. The action executes with a linked cell.
+    public static Cell<int> Ab407ActionOfALocalThatCodeWrites() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); Cell<bool> on = Cell.Constant(false); on = Cell.Constant(true); SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>> a = R2ApiFactory.CreateBindableAction(fire, on); a.Execute(l.Map(v => v)); return sw; });
+
+    // S14091. The enablement comes from a Constant method of a class of the code with the name Cell. That cell is true.
+    public static Cell<int> Ab407ActionOfAConstantThatIsNotOfTheLibrary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>> a = R2ApiFactory.CreateBindableAction(fire, Ab407Other.Cell.Constant(false)); a.Execute(l.Map(v => v)); return sw; });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -108640,6 +108664,16 @@ public static class Shapes
     private static readonly R6PairPlainObj[] R6PairPFa38 = [new()];
     private static R6PairPlainObj R6PairPSf39 = new();
     private static R6PairPlainObj R6PairPSf40 = new();
+
+    // A class with the name of a cell type of the library, which is not of the library. Its Constant makes a cell
+    // with the opposite value.
+    public static class Ab407Other
+    {
+        public static class Cell
+        {
+            public static SodaFlow.Cell<bool> Constant(bool value) => SodaFlow.Cell.Constant(!value);
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

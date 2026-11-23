@@ -344,7 +344,7 @@ internal sealed partial class LoopStateEvaluator
 
         ExpressionSyntax? sink = this.SinkArgumentOf(creation: creation, method: method);
 
-        if (sink == null)
+        if (sink == null || this.IsNeverEnabled(creation: creation, method: method))
         {
             return;
         }
@@ -354,6 +354,27 @@ internal sealed partial class LoopStateEvaluator
 
         this.region.ReadAfterTheTransaction(function: write, read: () => later.Sends(sink: sink, content: content));
     }
+
+    // The library reads the enablement of an action at Execute and again at the send. Thus, the
+    // constant false cell stops each send. The walk finds it in the creation call, or in a local that
+    // no code writes.
+    private bool IsNeverEnabled(InvocationExpressionSyntax creation, IMethodSymbol method) =>
+        method.Name == "CreateBindableAction"
+        && creation.ArgumentList.Arguments
+                .Where((argument, position) =>
+                    ParameterFor(method: method, argument: argument, position: position) is { Name: "isEnabledCell" })
+                .Select(static argument => argument.Expression)
+                .FirstOrDefault()
+            is { } enablement
+        && this.ValueOfALocalThatNoCodeWrites(Unwrapped(enablement)) is InvocationExpressionSyntax
+        {
+            Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Constant" },
+            ArgumentList.Arguments.Count: 1
+        } constant
+        && this.region.SymbolOf(constant) is IMethodSymbol made
+        && this.region.Symbols.IsSodaFlow(made)
+        && this.region.ModelFor(constant).GetConstantValue(constant.ArgumentList.Arguments[0].Expression)
+            is { Value: false };
 
     // A write to the bindable that the receiver has. A member, a callee, or a second name can give
     // the receiver that bindable. An action carries the sink of its firings as a member. The store
