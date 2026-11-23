@@ -61304,6 +61304,38 @@ public static class Shapes
     public static Cell<int> Ab402FirstReadInABranchThatDoesNotRun() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Lazy<int> z = new(() => c.Sample()); int n = Kept.Count - Kept.Count; int x = 0; if (n > 0) { x = z.Value; } c = l.Map(v => v); return S.Hold(z.Value + x); });
 
+    // S14853. The edits come from FromUpdates of a stream of pairs, and the block sends a pair whose transform returns a linked cell. The switch of the state cell of that key as the close selects it. (Left out in Round 5 as R5ApiFromUpdatesOfASentPairWithALinkedTransform, AG97.)
+    public static Cell<int> R6FuCApiFromUpdatesOfASentPairWithALinkedTransform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<(int Key, Func<Cell<int>, Cell<int>> Transform)> ups = Stream.CreateSink<(int Key, Func<Cell<int>, Cell<int>> Transform)>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: Plain)], CollectionEdit<int, ItemId, Cell<int>>.FromUpdates(ups)); Cell<int> sw = all.StateCell(1).Map(m => m.Match(onSome: c => c, onNone: () => Plain)).SwitchC(); ups.Send((1, _ => l.Map(v => v))); return sw; });
+
+    // S14854. The edits come from FromUpdates of a key and a stream of transforms, and the block sends a transform that returns a linked cell. The switch of the state cell as the close selects it. (Left out in Round 5 as R5ApiFromUpdatesOfASentLinkedTransform, AG97.)
+    public static Cell<int> R6FuCApiFromUpdatesOfASentLinkedTransform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Func<Cell<int>, Cell<int>>> ts = Stream.CreateSink<Func<Cell<int>, Cell<int>>>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: Plain)], CollectionEdit<int, ItemId, Cell<int>>.FromUpdates(key: 1, transformsStream: ts)); Cell<int> sw = all.StateCell(1).Map(m => m.Match(onSome: c => c, onNone: () => Plain)).SwitchC(); ts.Send(_ => l.Map(v => v)); return sw; });
+
+    // S14855. The block sends a function that returns a linked cell into a sink, and Apply runs the function that the hold of the sink holds. The switch of the result as the close is a cycle. (Left out in Round 5 as R5ApiApplyOfASentLinkedFunction, AG97.)
+    public static Cell<int> R6FuCApiApplyOfASentLinkedFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Func<int, Cell<int>>> fs = Stream.CreateSink<Func<int, Cell<int>>>(); Cell<int> sw = Plain.Apply(fs.Hold(_ => Plain)).SwitchC(); fs.Send(_ => l.Map(v => v)); return sw; });
+
+    // S14856. Carried from Round 4 (AB230, R4ApiFromUpdatesOfATransformThatReturnsALinkedCell). The edits of a collection come from FromUpdates of a stream of transforms. The block sends a transform that returns a linked cell, and the switch of the state cell as the close selects it. (Left out in Round 5 as R5FuCApiFromUpdatesOfATransformThatReturnsALinkedCell, AG97.)
+    public static Cell<int> R6FuCFuCApiFromUpdatesOfATransformThatReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Func<Cell<int>, Cell<int>>> transforms = Stream.CreateSink<Func<Cell<int>, Cell<int>>>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: Plain)], CollectionEdit<int, ItemId, Cell<int>>.FromUpdates(key: 1, transformsStream: transforms)); Cell<int> sw = all.StateCell(1).Map(m => m.Match(onSome: c => c, onNone: () => Plain)).SwitchC(); transforms.Send(_ => l.Map(v => v)); return sw; });
+
+    // S14857. The block sends a function that returns a linked cell into the cell of an apply. The switch of the result as the close selects that cell. (Left out in Round 5 as R5FuApplyOfASinkThatGetsAFunctionThatReturnsALinkedCell, AG97.)
+    public static Cell<int> R6FuCFuApplyOfASinkThatGetsAFunctionThatReturnsALinkedCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Func<int, Cell<int>>> fs = Cell.CreateSink<Func<int, Cell<int>>>(_ => Plain); Cell<int> r = Plain.Apply(fs).SwitchC(); fs.Send(_ => l.Map(v => v)); return r; });
+
+    // S14858. The edits come from FromUpdates of a sink of pairs of a key and a transform. The block sends a transform that returns a linked cell, and the switch of the state cell as the close selects it. (Left out in Round 5 as R5FuFromUpdatesOfASinkOfPairs, AG97.)
+    public static Cell<int> R6FuCFuFromUpdatesOfASinkOfPairs() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<(int Key, Func<Cell<int>, Cell<int>> Transform)> updates = Stream.CreateSink<(int Key, Func<Cell<int>, Cell<int>> Transform)>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: Plain)], CollectionEdit<int, ItemId, Cell<int>>.FromUpdates(updatesStream: updates)); Cell<int> sw = all.StateCell(1).Map(m => m.Match(onSome: c => c, onNone: () => Plain)).SwitchC(); updates.Send((1, _ => l.Map(v => v))); return sw; });
+
+    // S14859. Control: the block sends a function that returns a plain cell into a sink, and Apply runs the function that the hold of the sink holds. The switch of the result as the close selects the plain cell.
+    public static Cell<int> Ab424ApplyOfASentPlainFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Func<int, Cell<int>>> fs = Stream.CreateSink<Func<int, Cell<int>>>(); Cell<int> sw = Plain.Apply(fs.Hold(_ => Plain)).SwitchC(); fs.Send(_ => Plain.Map(v => v + 1)); return sw; });
+
+    // S14860. Control: the block sends a transform that returns a plain cell, and FromUpdates of the stream of transforms edits the collection. The switch of the state cell as the close selects the plain cell.
+    public static Cell<int> Ab424FromUpdatesOfASentPlainTransform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Func<Cell<int>, Cell<int>>> ts = Stream.CreateSink<Func<Cell<int>, Cell<int>>>(); ReactiveCollection<int, ItemId, Cell<int>> all = ReactiveCollection.Create<int, ItemId, Cell<int>>(initialEntries: [new Item<ItemId, Cell<int>>(identity: new ItemId(1), state: Plain)], CollectionEdit<int, ItemId, Cell<int>>.FromUpdates(key: 1, transformsStream: ts)); Cell<int> sw = all.StateCell(1).Map(m => m.Match(onSome: c => c, onNone: () => Plain)).SwitchC(); ts.Send(_ => Plain.Map(v => v + 1)); return sw; });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

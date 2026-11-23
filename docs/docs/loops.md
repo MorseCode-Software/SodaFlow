@@ -477,7 +477,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   `goto case` or `goto default` back to an earlier section of a `switch`, is read until a pass adds
   nothing new.
 - Sinks: a value that the block sends into a sink reaches each value made from that sink, also one
-  made before the send, such as a `Hold` of the sink or a switch of that hold. So does a value sent
+  made before the send, such as a `Hold` of the sink or a switch of that hold. A function that the
+  block sends counts too, where an `Apply` of the sink or a `CollectionEdit.FromUpdates` of it runs
+  the function: the analyzer reads what it returns, with the code around it as that code is at the
+  end of the block, so a cycle through its result gets `SF1002`. So does a value sent
   in a function that `Transaction.Post` runs after the transaction: a lambda, a local function, a
   method that you give to `Post` by its name, or a post inside a posted function. The same holds for
   an action that you post to any `IBindingScheduler`, and for a write to the `Value` of a
@@ -913,9 +916,6 @@ Some reads that throw it does not see:
   they can run. Where the runtime ran them earlier, they can have read a different value. A read in
   the code of the class does not run them when the block itself is in that class, because the code
   around the block can have run them first.
-- A function that the block sends into a sink, where an `Apply` of that sink, or a
-  `CollectionEdit.FromUpdates` of it, runs it. The analyzer does not read what such a function
-  returns, so a cycle through its result gets no `SF1002`.
 - A write into an element of an array in a field that a method you call makes through a second
   name of the array that the analyzer does not follow, read through a local that got the array
   before the call. It follows a `ref` local, `Array.Copy` into a static field, the array of a static

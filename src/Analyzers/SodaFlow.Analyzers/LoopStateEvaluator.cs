@@ -2695,7 +2695,7 @@ internal sealed partial class LoopStateEvaluator
                     pending: false,
                     linked: receiverState.Linked,
                     contentPending: false,
-                    contentLinked: false).WithContent(receiverState.Content.AfterTheClose.Join(firstArgument)),
+                    contentLinked: false).WithContent(HeldAfterTheClose(receiverState.Content).Join(firstArgument)),
                 OperatorRule.HoldLazy => new LoopState(
                     pending: firstArgument.Pending,
                     linked: receiverState.Linked,

@@ -99,6 +99,7 @@
         <Compile Include="LoopStateEvaluator.ReturnedFunctions.cs"/>
         <Compile Include="LoopStateEvaluator.SecondNames.cs"/>
         <Compile Include="LoopStateEvaluator.StructCollections.cs"/>
+        <Compile Include="LoopStateEvaluator.SentFunctions.cs"/>
         <Compile Include="LoopStateEvaluator.Sinks.cs"/>
         <Compile Include="LoopStateEvaluator.Together.cs"/>
         <Compile Include="LoopStateEvaluator.Windows.cs"/>

@@ -576,9 +576,15 @@ internal sealed class LoopState
 
     /// <summary>
     ///     The same state for a second read of the block. An object of the store
-    ///     and the evaluator of a function or of a query are of one read. Thus,
-    ///     no part of the state keeps them.
+    ///     and the evaluator of a query are of one read. Thus, no part of the
+    ///     state keeps them.
     /// </summary>
+    /// <remarks>
+    ///     The state keeps its functions. A function that a send gives to a sink
+    ///     runs in the second read, as the function of an <c>Apply</c> or of
+    ///     <c>FromUpdates</c> does. It reads the code around it as that code was
+    ///     at the end of the first read.
+    /// </remarks>
     public LoopState ForASecondRead =>
         new(
             pending: this.Pending,
@@ -586,7 +592,7 @@ internal sealed class LoopState
             members: this.Members?.Select(static state => state.ForASecondRead),
             content: this.content?.ForASecondRead,
             origin: this.Origin,
-            functions: ImmutableArray<FunctionValue>.Empty,
+            functions: this.Functions,
             queries: ImmutableArray<QueryValue>.Empty,
             isContainer: this.IsContainer,
             objects: NoObjects,

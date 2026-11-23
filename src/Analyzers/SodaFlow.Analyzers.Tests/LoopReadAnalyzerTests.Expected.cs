@@ -8699,6 +8699,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab401TwoReadsInOneTurnOfALoop"] = ["SF1001"],
             ["Ab402SecondLazyOfOneDelegateAfterTheSet"] = ["SF1001"],
             ["Ab402NewLazyOfTheSameDelegateAfterTheFirstRead"] = ["SF1001"],
-            ["Ab402FirstReadInABranchThatDoesNotRun"] = ["SF1001"]
+            ["Ab402FirstReadInABranchThatDoesNotRun"] = ["SF1001"],
+            ["R6FuCApiFromUpdatesOfASentPairWithALinkedTransform"] = ["SF1002"],
+            ["R6FuCApiFromUpdatesOfASentLinkedTransform"] = ["SF1002"],
+            ["R6FuCApiApplyOfASentLinkedFunction"] = ["SF1002"],
+            ["R6FuCFuCApiFromUpdatesOfATransformThatReturnsALinkedCell"] = ["SF1002"],
+            ["R6FuCFuApplyOfASinkThatGetsAFunctionThatReturnsALinkedCell"] = ["SF1002"],
+            ["R6FuCFuFromUpdatesOfASinkOfPairs"] = ["SF1002"]
         };
 }
