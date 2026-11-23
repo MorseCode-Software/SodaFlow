@@ -8681,6 +8681,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6FuAb342BlockLambdaSampledByAThirdHelper"] = ["SF1001"],
             ["R6FuAb342FunctionFromTheCallerSampledByTheSecondHelper"] = ["SF1004"],
             ["R6FuAb342BlockLambdaSampledByTheSecondHelper"] = ["SF1001"],
-            ["Ab342BlockLambdaOfACaptureSetPendingBeforeTheHelper"] = ["SF1001"]
+            ["Ab342BlockLambdaOfACaptureSetPendingBeforeTheHelper"] = ["SF1001"],
+            ["R6FuAb343MapInAStaticFieldDisposedThroughTheField"] = ["SF1001"],
+            ["R6FuAb343MapInAFieldOfALocalObjectDisposedThroughTheField"] = ["SF1001"],
+            ["R6FuAb343MapInALocalDisposedThroughAStaticField"] = ["SF1001"]
         };
 }

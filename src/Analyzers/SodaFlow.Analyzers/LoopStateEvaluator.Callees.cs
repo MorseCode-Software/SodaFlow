@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Locations =
     System.Collections.Immutable.ImmutableDictionary<
@@ -1496,6 +1497,12 @@ internal sealed partial class LoopStateEvaluator
         while (above is ParenthesizedExpressionSyntax or CastExpressionSyntax)
         {
             above = above.Parent;
+        }
+
+        // Code that the walk does not read can use a map in a field or a property.
+        if (above is AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment)
+        {
+            return this.region.SymbolOf(assignment.Left) is IFieldSymbol or IPropertySymbol;
         }
 
         if (above is not EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }

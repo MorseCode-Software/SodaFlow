@@ -318,8 +318,10 @@ internal sealed class LoopRegion(
     {
         ISymbol key = field.OriginalDefinition;
 
-        // A state that only holds objects of the store says what the owner of the field holds.
-        if (state is { IsNone: true, HoldsAnObject: false })
+        // A state that only holds objects of the store says what the owner of the field holds. A map of a
+        // collection with a handler stays, because a Dispose through the field runs that handler.
+        if (state is { IsNone: true, HoldsAnObject: false }
+            && !state.Objects.Any(made => this.Objects.HandlersOfAMap(made).Count > 0))
         {
             if (replaces)
             {

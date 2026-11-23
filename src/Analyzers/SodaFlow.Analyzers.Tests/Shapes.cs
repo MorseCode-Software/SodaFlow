@@ -61188,6 +61188,30 @@ public static class Shapes
     public static Cell<int> Ab342BlockLambdaOfACaptureSetPendingBeforeTheHelper() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Func<int, int> f = v => v + c.Sample(); c = l.Map(v => v); return S.Hold(R6FuMapsAFunctionAndSamples(f)); });
 
+    // S14824. AB343. The block puts a map of a collection, whose eviction handler samples the placeholder, into a writable static field, reads its items through the field, and disposes it through the field.
+    public static Cell<int> R6FuAb343MapInAStaticFieldDisposedThroughTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6FuMapField = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = R6FuMapField.Items.Sample().Count; R6FuMapField.Dispose(); return S.Hold(n); });
+
+    // S14825. AB343. The same, with a field of an object in a local.
+    public static Cell<int> R6FuAb343MapInAFieldOfALocalObjectDisposedThroughTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6FuMapBox b = new(); b.Map = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = b.Map.Items.Sample().Count; b.Map.Dispose(); return S.Hold(n); });
+
+    // S14826. AB343. A local holds the map and reads its items, and the block disposes the map through a static field that got it from the local.
+    public static Cell<int> R6FuAb343MapInALocalDisposedThroughAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); R6FuMapField = m; int n = m.Items.Sample().Count; R6FuMapField.Dispose(); return S.Hold(n); });
+
+    // S14827. Control: the block puts a map of a collection, whose eviction handler samples the placeholder, into a static field, reads its items through the field, and does not dispose it.
+    public static Cell<int> Ab343MapInAStaticFieldNotDisposed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6FuMapField = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = R6FuMapField.Items.Sample().Count; return S.Hold(n); });
+
+    // S14828. Control: the same, disposed through the field, with an eviction handler that samples a plain cell.
+    public static Cell<int> Ab343MapInAStaticFieldWithAPlainHandlerDisposedThroughTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6FuMapField = Items().Map(project: k => k, onEvicted: _ => Kept.Add(Plain.Sample())); int n = R6FuMapField.Items.Sample().Count; R6FuMapField.Dispose(); return S.Hold(n); });
+
+    // S14829. Control: the block gives a local, after its declaration, a map of a collection whose eviction handler samples the placeholder, and only disposes the map. The map built no object, so the handler does not run.
+    public static Cell<int> Ab343MapAssignedToALocalOnlyDisposed() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m; m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); m.Dispose(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

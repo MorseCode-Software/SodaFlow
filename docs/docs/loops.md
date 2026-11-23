@@ -279,9 +279,11 @@ is quiet.
   same way. Their predicates, selectors, sort orders, and comparers run when something reads the
   view. The eviction handler of a `Map` on a collection runs when a key leaves the view, and in a
   call of `Dispose` for each object the map built. The analyzer reads the handler at a `Dispose` in
-  the block, also one through `IDisposable` or through a list that holds the map, unless the code
-  uses the map for nothing but that `Dispose`. It does not read the handler where the code disposes
-  the map through a field, or in a lambda that `List<T>.ForEach` runs.
+  the block, also one through `IDisposable`, through a list that holds the map, or through a field,
+  unless the code uses the map for nothing but that `Dispose`. A map that goes straight into a field
+  counts as one that built its objects, because code that the analyzer does not read can use it
+  there. It does not read the handler where the code disposes the map in a lambda that
+  `List<T>.ForEach` runs.
 - **A call that the compiler removes.** A call of a method with `[Conditional]`, such as
   `Debug.WriteLine` in a release build, does not run, and neither do its arguments, when the build
   defines none of its symbols.
