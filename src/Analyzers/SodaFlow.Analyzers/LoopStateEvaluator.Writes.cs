@@ -26,6 +26,8 @@ internal sealed partial class LoopStateEvaluator
     {
         ISymbol key = member.OriginalDefinition;
         this.region.AddAMemberWrite();
+        (this.writesThroughThis ??= new Dictionary<ISymbol, int>(SymbolEqualityComparer.Default))[key] =
+            this.region.MemberWrites;
 
         if (this.Frame.WrittenThroughANameOfThis.Count > 0)
         {
@@ -1902,11 +1904,17 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="owner">The state of the object.</param>
     /// <param name="written">The expression of the object, when the call has one.</param>
     /// <param name="sets">The members, from <see cref="Followed.Sets" />.</param>
+    /// <param name="later">
+    ///     The members that the callee wrote through a second owner after its
+    ///     last write through this. That owner can be the same object, thus the
+    ///     copy does not replace what the member has.
+    /// </param>
     private void GivesItsOwner(
         SyntaxNode call,
         LoopState owner,
         ExpressionSyntax? written,
-        ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> sets)
+        ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> sets,
+        IReadOnlyDictionary<ISymbol, int> later)
     {
         // C# calls a method of a struct that the code cannot write on a copy of it. The writes of
         // the method go to the copy, and the struct keeps its members.
@@ -1919,6 +1927,8 @@ internal sealed partial class LoopStateEvaluator
 
         foreach ((ISymbol member, LoopState state, MadeObject? one) in sets)
         {
+            int? thisAt = later.TryGetValue(key: member.OriginalDefinition, value: out int at) ? at : null;
+
             // The write is a write to the member through the expression, as an assignment is.
             if (written != null)
             {
@@ -1926,12 +1936,13 @@ internal sealed partial class LoopStateEvaluator
                     owner: written,
                     member: member,
                     state: state,
-                    replaces: always,
+                    replaces: always && thisAt == null,
                     turn: turn,
-                    givenBackBy: call);
+                    givenBackBy: call,
+                    laterThan: thisAt);
 
                 // The callee knows the collection that it gave the member.
-                if (always && this.function == null && this.TheOneCollectionOf(written) is { } self)
+                if (always && thisAt == null && this.function == null && this.TheOneCollectionOf(written) is { } self)
                 {
                     this.region.Objects.IsTheCollectionIn(owner: self, member: member, collection: one);
                 }
@@ -1952,7 +1963,7 @@ internal sealed partial class LoopStateEvaluator
                 owner: owner,
                 change: old =>
                     old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: inOwner)),
-                replaces: always,
+                replaces: always && thisAt == null,
                 turn: turn,
                 member: member);
 
@@ -2026,6 +2037,7 @@ internal sealed partial class LoopStateEvaluator
     ///     The call whose callee wrote the member through this, when the write
     ///     comes back to the receiver. Null for each other write.
     /// </param>
+    /// <param name="laterThan">See NotesAWriteThroughANameOfOneObject.</param>
     public void SetMemberOf(
         ExpressionSyntax? owner,
         ISymbol member,
@@ -2034,10 +2046,13 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode? turn,
         ExpressionSyntax? from = null,
         bool fromTheCallee = false,
-        SyntaxNode? givenBackBy = null)
+        SyntaxNode? givenBackBy = null,
+        int? laterThan = null)
     {
+        bool isThroughThis = owner != null && this.IsANameOfThis(owner);
+
         // A write through a name that got this is a write to the object that the code is in.
-        if (owner != null && this.IsANameOfThis(owner))
+        if (isThroughThis)
         {
             this.SetMember(member: member, state: state, replaces: replaces, from: from);
 
@@ -2077,6 +2092,13 @@ internal sealed partial class LoopStateEvaluator
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
         this.region.AddAMemberWrite();
+
+        if (!isThroughThis)
+        {
+            (this.writesThroughOthers ??= new Dictionary<ISymbol, int>(SymbolEqualityComparer.Default))[
+                member.OriginalDefinition] = this.region.MemberWrites;
+        }
+
         this.NotesAnOwnWrite(written);
         this.NotesAnOwnWrite(owner);
 
@@ -2126,7 +2148,8 @@ internal sealed partial class LoopStateEvaluator
             state: state,
             replaces: replaces || (always && written != null && this.TheDeclaredLocationOf(written) != null),
             seen: fromTheCallee,
-            givenBackBy: givenBackBy);
+            givenBackBy: givenBackBy,
+            laterThan: laterThan);
 
         this.NotesAWriteAtAnElement(
             written: written,

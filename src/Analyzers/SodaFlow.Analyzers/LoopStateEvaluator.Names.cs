@@ -11,6 +11,36 @@ namespace SodaFlow.Analyzers;
 // The part of the evaluator for the names that hold one object: see NamesOfOneObject.
 internal sealed partial class LoopStateEvaluator
 {
+    private static readonly IReadOnlyDictionary<ISymbol, int> NoWrites =
+        new Dictionary<ISymbol, int>(SymbolEqualityComparer.Default);
+
+    // For each member: the count of member writes of the region at the last write through this. The
+    // second record has the count at the last write through a different owner.
+    private Dictionary<ISymbol, int>? writesThroughThis;
+    private Dictionary<ISymbol, int>? writesThroughOthers;
+
+    // Each member that this code wrote through a second owner after its last write through this. The
+    // value is the count at that write through this. See GivesItsOwner.
+    private IReadOnlyDictionary<ISymbol, int> WrittenThroughASecondOwnerAfterThis()
+    {
+        if (this.writesThroughThis == null || this.writesThroughOthers == null)
+        {
+            return NoWrites;
+        }
+
+        Dictionary<ISymbol, int>? later = null;
+
+        foreach (KeyValuePair<ISymbol, int> one in this.writesThroughThis)
+        {
+            if (this.writesThroughOthers.TryGetValue(key: one.Key, value: out int other) && other > one.Value)
+            {
+                (later ??= new Dictionary<ISymbol, int>(SymbolEqualityComparer.Default))[one.Key] = one.Value;
+            }
+        }
+
+        return later ?? NoWrites;
+    }
+
     /// <summary>
     ///     Records that the target of an assignment holds the object of the
     ///     value, when the two are names of an object.
@@ -154,7 +184,7 @@ internal sealed partial class LoopStateEvaluator
                 && this.IsAMemberLocation(member)
                 && members != null)
             {
-                one.Members.Add((member.OriginalDefinition, at.Span.End, members.StateOf(member), true));
+                one.Members.Add((member.OriginalDefinition, at.Span.End, members.StateOf(member), true, this.region.MemberWrites));
             }
         }
 
@@ -166,7 +196,7 @@ internal sealed partial class LoopStateEvaluator
     private void GivesTheCallersANewObject(
         (ISymbol Of, ISymbol? Owner, object? Index) name,
         SyntaxNode at,
-        IReadOnlyCollection<(ISymbol Member, int End, LoopState State, bool Accurate)> members)
+        IReadOnlyCollection<(ISymbol Member, int End, LoopState State, bool Accurate, int At)> members)
     {
         (ISymbol Of, ISymbol? Owner, object? Index)? named = name;
         SyntaxNode use = at;
@@ -282,13 +312,20 @@ internal sealed partial class LoopStateEvaluator
     ///     The state is the state of the member after the call. Thus, the write
     ///     is sure when the call always runs, as an assignment is.
     /// </param>
+    /// <param name="laterThan">
+    ///     For a write that a call gives back, where the callee wrote the
+    ///     member through a second owner after it wrote the member through
+    ///     this. The count of member writes of the region at that write
+    ///     through this.
+    /// </param>
     private void NotesAWriteThroughANameOfOneObject(
         ExpressionSyntax? written,
         ISymbol member,
         LoopState state,
         bool replaces,
         bool seen,
-        SyntaxNode? givenBackBy = null)
+        SyntaxNode? givenBackBy = null,
+        int? laterThan = null)
     {
         if (this.quiet)
         {
@@ -311,7 +348,7 @@ internal sealed partial class LoopStateEvaluator
         }
 
         (ISymbol Of, ISymbol? Owner, object? Index)? name =
-            replaces
+            (replaces || laterThan != null)
             && this.function == null
             && written != null
             && (givenBackBy != null
@@ -337,7 +374,8 @@ internal sealed partial class LoopStateEvaluator
             member: member,
             state: state,
             madeAt: givenBackBy == null && written != null ? this.WhereTheCodeMadeTheObjectOf(written) : null,
-            field: givenBackBy == null && name is { Of: IFieldSymbol field, Owner: null, Index: null } ? field : null);
+            field: givenBackBy == null && name is { Of: IFieldSymbol field, Owner: null, Index: null } ? field : null,
+            laterThan: laterThan);
 
         SyntaxNode? use = givenBackBy ?? written;
 
@@ -367,7 +405,8 @@ internal sealed partial class LoopStateEvaluator
                         InvocationExpressionSyntax invocation => invocation.ArgumentList.Span.End,
                         BaseObjectCreationExpressionSyntax { ArgumentList: { } arguments } => arguments.Span.End,
                         _ => use.Span.End
-                    });
+                    },
+                    laterThan: laterThan);
             }
         }
     }
@@ -379,7 +418,11 @@ internal sealed partial class LoopStateEvaluator
     // The arguments of a call run before its callee, and they can give a name a new object. Thus,
     // for a write of a callee, the name must hold its object up to the end of the arguments. A
     // write to a new object does not go to a record whose object is older: see IsOlderThan. A write
-    // through a static field that holds its object alone goes to no other record.
+    // through a static field that holds its object alone goes to no other record. A callee can write
+    // a member through this and then through a second name. The copy of this that comes back has
+    // the first write only. Thus, the copy does not replace the second write in a record of the
+    // name. It adds to it, or it changes nothing where a sure write gave the member its state after
+    // the write through this.
     private void NotesAWriteInThisFrame(
         (ISymbol Of, ISymbol? Owner, object? Index)? name,
         SyntaxNode? use,
@@ -389,7 +432,8 @@ internal sealed partial class LoopStateEvaluator
         LoopState state,
         int? before = null,
         int? madeAt = null,
-        IFieldSymbol? field = null)
+        IFieldSymbol? field = null,
+        int? laterThan = null)
     {
         List<NamesOfOneObject> all = this.Frame.NamesOfOneObject;
         bool? alone = null;
@@ -412,27 +456,35 @@ internal sealed partial class LoopStateEvaluator
                 && use != null
                 && one.Names.Any(each => this.IsTheName(name: each, read: through, use: use, before: before));
 
-            if (isOfIt)
+            if (isOfIt && laterThan == null)
             {
                 held.Add(one);
                 one.Members.RemoveAll(each => each.Member.Name == member.Name);
             }
-            else if (one.Members.Any(each => each.Member.Name == member.Name)
-                     && (madeAt is not { } made || !IsOlderThan(names: one, made: made))
-                     && !(alone ??= field != null && this.HoldsItsObjectAlone(field)))
+            else if (isOfIt
+                         ? !one.Members.Any(each =>
+                             each.Member.Name == member.Name && each.Accurate && each.At > laterThan)
+                         : one.Members.Any(each => each.Member.Name == member.Name)
+                           && (madeAt is not { } made || !IsOlderThan(names: one, made: made))
+                           && !(alone ??= field != null && this.HoldsItsObjectAlone(field)))
             {
                 for (int i = 0; i < one.Members.Count; i++)
                 {
                     if (one.Members[i].Member.Name == member.Name)
                     {
                         one.Members[i] =
-                            one.Members[i] with { State = one.Members[i].State.Join(state), Accurate = false };
+                            one.Members[i] with
+                            {
+                                State = one.Members[i].State.Join(state),
+                                Accurate = false,
+                                At = this.region.MemberWrites
+                            };
                     }
                 }
             }
         }
 
-        if (name is not { } named || use == null || FunctionOf(use) is not { } code)
+        if (name is not { } named || laterThan != null || use == null || FunctionOf(use) is not { } code)
         {
             return;
         }
@@ -450,7 +502,7 @@ internal sealed partial class LoopStateEvaluator
 
         foreach (NamesOfOneObject one in held)
         {
-            one.Members.Add((member.OriginalDefinition, end, state, true));
+            one.Members.Add((member.OriginalDefinition, end, state, true, this.region.MemberWrites));
         }
     }
 
@@ -729,7 +781,7 @@ internal sealed partial class LoopStateEvaluator
 
         foreach (NamesOfOneObject one in this.Frame.NamesOfOneObject)
         {
-            foreach ((ISymbol written, int end, LoopState state, bool isAccurate) in one.Members)
+            foreach ((ISymbol written, int end, LoopState state, bool isAccurate, int _) in one.Members)
             {
                 if (state is { Members: null, Objects.IsEmpty: true }
                     && (accurate
@@ -772,7 +824,7 @@ internal sealed partial class LoopStateEvaluator
 
         foreach (NamesOfOneObject one in this.Frame.NamesOfOneObject)
         {
-            foreach ((ISymbol written, int _, LoopState state, bool _) in one.Members)
+            foreach ((ISymbol written, int _, LoopState state, bool _, int _) in one.Members)
             {
                 if (state is { Members: null, Objects.IsEmpty: true }
                     && one.Names.Any(each => this.IsTheName(name: each, read: name, use: owner)))
@@ -820,8 +872,12 @@ internal sealed partial class LoopStateEvaluator
             ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
                 when this.region.TypeOf(element) is { } type
                      && this.CanBeAnObject(type)
-                     && element.Expression is IdentifierNameSyntax array
-                     && this.region.SymbolOf(array) is { } named
+                     && element.Expression is IdentifierNameSyntax or MemberAccessExpressionSyntax
+                     {
+                         Expression: IdentifierNameSyntax or MemberAccessExpressionSyntax
+                     }
+                     && this.region.SymbolOf(element.Expression) is { } named
+                     && (element.Expression is IdentifierNameSyntax || IsAStaticLocation(named))
                      && this.TheCollectionIn(named) is var collection
                      && (KeepsItsObject(collection)
                          ? this.KeepsItsElements(collection)

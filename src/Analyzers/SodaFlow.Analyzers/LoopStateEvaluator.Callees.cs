@@ -318,7 +318,12 @@ internal sealed partial class LoopStateEvaluator
 
         if (receiver != null)
         {
-            this.GivesItsOwner(call: call, owner: receiver, written: owner, sets: after.Sets);
+            this.GivesItsOwner(
+                call: call,
+                owner: receiver,
+                written: owner,
+                sets: after.Sets,
+                later: inner.WrittenThroughASecondOwnerAfterThis());
         }
 
         return after;

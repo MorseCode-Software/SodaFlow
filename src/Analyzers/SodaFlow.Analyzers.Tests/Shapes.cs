@@ -58544,6 +58544,34 @@ public static class Shapes
     public static Cell<int> Ab341APendingCellThroughASecondNewLocalBetween() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot other = new(); d.Share = Plain; other.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
 
+    // S14156. Names of one object, Round 6, AB344: a method of the object writes a plain cell through this, and then a pending cell through a static field that holds the same object. The block reads through its local.
+    public static Cell<int> R6NmAb344ThisThenStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmSelf d = new(); R6NmSelf.Last = d; d.ThisThenStatic(Plain, l.Map(v => v)); return S.Hold(d.Share!.Sample()); });
+
+    // S14157. Names of one object, Round 6, AB344: a method of the object writes a plain cell through this, and then a pending cell through a parameter that gets the same object.
+    public static Cell<int> R6NmAb344ThisThenParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmSelf d = new(); d.ThisThenParameter(d, Plain, l.Map(v => v)); return S.Hold(d.Share!.Sample()); });
+
+    // S14158. Names of one object, Round 6, AB344: the same, with a second local of the object as the argument and the read through the second local.
+    public static Cell<int> R6NmAb344ThisThenParameterReadSecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmSelf d = new(); R6NmSelf e = d; d.ThisThenParameter(e, Plain, l.Map(v => v)); return S.Hold(e.Share!.Sample()); });
+
+    // S14159. Names of one object, Round 6, AB344: a control: the method writes a pending cell through this, and then a plain cell through the static field.
+    public static Cell<int> R6NmAb344ThisPendingThenStaticFieldPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmSelf d = new(); R6NmSelf.Last = d; d.ThisThenStatic(l.Map(v => v), Plain); return S.Hold(d.Share!.Sample()); });
+
+    // S14160. Names of one object, Round 6, AB344: a method of the object writes a plain cell through this, and then a pending cell through element 0 of a static array that holds the object.
+    public static Cell<int> R6NmAb344ThisThenAStaticArrayElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmSelf d = new(); R6NmSelf.All[0] = d; d.ThisThenElement(Plain, l.Map(v => v)); return S.Hold(d.Share!.Sample()); });
+
+    // S14161. AB344, an edge. A method of the object writes a plain cell through this, and then, where a flag is true, a pending cell through a static field that holds the same object. The flag is true.
+    public static Cell<int> Ab344ThisThenAStaticFieldWhereAFlagIsTrue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab344Self d = new(); Ab344Self.Last = d; d.ThisThenStaticWhere(true, Plain, l.Map(v => v)); return S.Hold(d.Share!.Sample()); });
+
+    // S14162. AB344, a control. A method of the object writes a plain cell through this, and then a pending cell through a parameter that gets a different object.
+    public static Cell<int> Ab344ThisThenAParameterOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab344Self d = new(); Ab344Self other = new(); d.ThisThenParameter(other, Plain, l.Map(v => v)); return S.Hold(d.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109109,6 +109137,29 @@ public static class Shapes
     }
 
     private static SettableSlot Ab341Same(SettableSlot slot) => slot;
+
+    public sealed class Ab344Self
+    {
+        public static Ab344Self? Last;
+
+        public Cell<int>? Share { get; set; }
+
+        public void ThisThenStaticWhere(bool when, Cell<int> first, Cell<int> second)
+        {
+            this.Share = first;
+
+            if (when)
+            {
+                Ab344Self.Last!.Share = second;
+            }
+        }
+
+        public void ThisThenParameter(Ab344Self other, Cell<int> first, Cell<int> second)
+        {
+            this.Share = first;
+            other.Share = second;
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

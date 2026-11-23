@@ -405,7 +405,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   one, or a parameter whose argument is such a name. So does a write through one of the names in a
   lambda or a local function that the block itself calls. So does a write through `this` in a method
   that the block calls on one of the names, and a read through `this` in such a method sees the last
-  value too. A new object that goes into a name with an object initializer, as in
+  value too. Where such a method writes a member through `this` and then through a second name of
+  the same object, such as a static field, an element of an array in one, or a parameter, the later
+  write is the one that counts. Where the analyzer cannot tell that the second name holds the same
+  object, both writes count. A new object that goes into a name with an object initializer, as in
   `slots[0] = new Slot { Cell = value }`, gives the name only the values that the initializer sets,
   also where such a method puts it and keeps it there to its end. A method that always gives its
   `ref` or `out` parameter a value replaces what a local, or a field of the object in a local, held

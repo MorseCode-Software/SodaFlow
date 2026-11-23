@@ -8168,6 +8168,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6NmAb341WriteToASecondLocalBetweenTheCallAndTheRead"] = ["SF1001"],
             ["R6NmAb341ACreationWithAnInitializerBetween"] = ["SF1001"],
             ["R6NmAb341AWriteToASecondStaticFieldBetween"] = ["SF1001"],
-            ["Ab341ANameThatGotTheNewObjectThroughAMethod"] = ["SF1001"]
+            ["Ab341ANameThatGotTheNewObjectThroughAMethod"] = ["SF1001"],
+            ["R6NmAb344ThisThenStaticField"] = ["SF1001"],
+            ["R6NmAb344ThisThenParameter"] = ["SF1001"],
+            ["R6NmAb344ThisThenParameterReadSecondLocal"] = ["SF1001"],
+            ["R6NmAb344ThisThenAStaticArrayElement"] = ["SF1001"],
+            ["Ab344ThisThenAStaticFieldWhereAFlagIsTrue"] = ["SF1001"]
         };
 }
