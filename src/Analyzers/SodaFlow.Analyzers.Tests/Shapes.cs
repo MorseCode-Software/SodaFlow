@@ -59896,6 +59896,26 @@ public static class Shapes
     public static Cell<int> Ab350MapOfAMemberOfASecondBox() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350TwoBoxes().SetAndRead(l.Map(v => v))));
 
+    // S14494. AB352. A constructor gives a delegate member a function that does not sample, calls a static method with this, which gives the member a method group that samples, and builds a lazy value with the member. A method sets the member that the method group samples to a pending cell and reads the value.
+    public static Cell<int> R6FuAb352StaticCallWithThisSetsTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuAb352StaticCall().SetAndRead(l.Map(v => v))));
+
+    // S14495. AB352. The same, but the constructor makes an object with this, and the constructor of that object gives the member the method group.
+    public static Cell<int> R6FuAb352CreationWithThisSetsTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuAb352Creation().SetAndRead(l.Map(v => v))));
+
+    // S14496. AB352. The same as the static call, but the method that the static method calls is an instance method of a second object that gets this.
+    public static Cell<int> R6FuAb352CallOfAHelperObjectWithThisSetsTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuAb352HelperCall().SetAndRead(l.Map(v => v))));
+
+    // S14497. A constructor gives a delegate member a function that does not sample, calls a static method with this that does not change the member, and builds a Lazy with the member. A different method of the class gives the member a method group that samples, but no code calls it. A method sets the member that the method group samples to a pending cell and reads the value. The report is on the careful side.
+    public static Cell<int> Ab352CallWithThisThatDoesNotSetTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab352Registered().SetAndRead(l.Map(v => v))));
+
+    // S14498. Control: the same, but the constructor puts this into a static field, and calls nothing with it.
+    public static Cell<int> Ab352ThisInAStaticFieldBeforeTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab352Kept().SetAndRead(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -111113,6 +111133,67 @@ public static class Shapes
         }
 
         private int Add(int v) => v + this.share.Sample();
+    }
+
+    public static class Ab352Registry
+    {
+        public static object? Last;
+
+        public static void Add(object entry) => Last = entry;
+    }
+
+    public sealed class Ab352Registered
+    {
+        private readonly Lazy<int> value;
+
+        private Func<int> factory;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab352Registered()
+        {
+            this.factory = R6FuZero;
+            Ab352Registry.Add(this);
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public void Setup() => this.factory = this.Read;
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab352Kept
+    {
+        private readonly Lazy<int> value;
+
+        private Func<int> factory;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab352Kept()
+        {
+            this.factory = R6FuZero;
+            Ab352Registry.Last = this;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public void Setup() => this.factory = this.Read;
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

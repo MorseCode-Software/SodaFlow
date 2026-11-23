@@ -776,7 +776,9 @@ careful side, so it can report a read that does not throw:
   counts. Where the last value before the build is sure, only that value counts. The same holds for
   a delegate in a member
   of the object. There, a call between that value and the build makes each value that the code of
-  the class gives the member count. A build in a method, not in a constructor, also counts the value
+  the class gives the member count. So does a call or a creation before the build that gets `this`
+  as an argument, in a constructor that the analyzer reads, even when that call does not change the
+  member. A build in a method, not in a constructor, also counts the value
   that the member has where the different method reads.
 
 Some reads that throw it does not see:

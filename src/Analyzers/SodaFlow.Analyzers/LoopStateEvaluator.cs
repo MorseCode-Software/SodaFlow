@@ -1979,10 +1979,8 @@ internal sealed partial class LoopStateEvaluator
                 LoopState.OfFunction(
                     new FunctionValue(declaration: function, definer: this, receiver: null, ofThis: null, owner: null)),
             // The object that the code is in, with the members that the evaluator knows.
-            ThisExpressionSyntax when this.thisInTheStore is { } built => this.ThisInTheStore(built),
-            ThisExpressionSyntax when this.thisMembers.Count > 0 =>
-                LoopState.None.WithMembers(
-                    Construction.Of(this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default))),
+            ThisExpressionSyntax when this.thisInTheStore is { } built => this.ThisInTheStore(built, at: expression),
+            ThisExpressionSyntax when this.thisMembers.Count > 0 => this.ThisWithItsMembers(expression),
             InvocationExpressionSyntax inv => this.WithTheResultOfATask(read: inv, state: this.EvalInvocation(inv)),
             ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax => this.EvalNew(expression),
             MemberAccessExpressionSyntax read when this.WrittenThroughANameOfItsObject(read) is { } written => written,

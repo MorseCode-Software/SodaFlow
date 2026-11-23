@@ -8450,6 +8450,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6PairNMemberOfABoxLazyCtorSetAndReadReadInAThirdMethod"] = ["SF1004"],
             ["R6PairNMemberOfABoxLazyCtorSetAndReadWriteWithNoThis"] = ["SF1004"],
             ["R6PairNMemberOfABoxLazyCtorSetAndReadWriteThroughALocalOfThis"] = ["SF1004"],
-            ["Ab350MapOfAMemberOfABoxWithACallBetween"] = ["SF1004"]
+            ["Ab350MapOfAMemberOfABoxWithACallBetween"] = ["SF1004"],
+            ["R6FuAb352StaticCallWithThisSetsTheMember"] = ["SF1004"],
+            ["R6FuAb352CreationWithThisSetsTheMember"] = ["SF1004"],
+            ["R6FuAb352CallOfAHelperObjectWithThisSetsTheMember"] = ["SF1004"],
+            ["Ab352CallWithThisThatDoesNotSetTheMember"] = ["SF1004"]
         };
 }
