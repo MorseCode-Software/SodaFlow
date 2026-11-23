@@ -110,8 +110,8 @@ internal sealed partial class LoopStateEvaluator
                              ReducedFrom: null, ContainingType: { Name: "List" } owner
                          }
                          && SodaFlowSymbols.IsPlatform(owner) => list,
-            BaseObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } creation
-                when arguments[0] is
+            BaseObjectCreationExpressionSyntax creation
+                when TheOnlyArgumentOf(creation) is
                      {
                          RefKindKeyword.RawKind: (int)SyntaxKind.None, Expression: IdentifierNameSyntax list
                      }
@@ -123,6 +123,10 @@ internal sealed partial class LoopStateEvaluator
         && KeepsItsObject(of)
             ? viewed
             : null;
+
+    // The one argument of a creation. Null for a creation with no argument or with more than one.
+    private static ArgumentSyntax? TheOnlyArgumentOf(BaseObjectCreationExpressionSyntax creation) =>
+        creation.ArgumentList is { Arguments.Count: 1 } arguments ? arguments.Arguments[0] : null;
 
     /// <summary>
     ///     The local that a span over it by ref names, as in
