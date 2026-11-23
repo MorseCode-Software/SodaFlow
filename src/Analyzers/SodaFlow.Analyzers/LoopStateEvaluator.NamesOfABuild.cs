@@ -108,7 +108,11 @@ internal sealed partial class LoopStateEvaluator
             // A value can name the member again. That read gets no state.
             this.thisMembers[key] = LoopState.None;
 
-            IReadOnlyList<ExpressionSyntax> values = this.ValuesOfAMemberAt(member: member, code: code, at: value);
+            // A lambda of the value reads the member when it runs, which can be after a different write.
+            bool later = FunctionOf(name) != code;
+
+            IReadOnlyList<ExpressionSyntax> values =
+                this.ThroughTheSetters(this.ValuesOfAMemberAt(member: member, code: code, at: later ? name : value));
 
             foreach (ExpressionSyntax each in values)
             {
@@ -121,8 +125,35 @@ internal sealed partial class LoopStateEvaluator
             this.thisMembers[key] = values.Aggregate(
                 seed: code is ConstructorDeclarationSyntax || old == null ? LoopState.None : old,
                 func: (all, each) => all.Join(this.Eval(each)));
+
+            // The walk knows no state of the member at the read. Thus, the lambda reads each value
+            // that the member can have.
+            if (later && old == null)
+            {
+                members[members.Count - 1] = (key, this.thisMembers[key]);
+            }
         }
     }
+
+    // The value of a setter, as in set => this.factory = value, is each value that the class gives
+    // its property.
+    private IReadOnlyList<ExpressionSyntax> ThroughTheSetters(IReadOnlyList<ExpressionSyntax> values) =>
+        values.Any(static each => each is IdentifierNameSyntax { Identifier.ValueText: "value" })
+            ?
+            [
+                .. values.SelectMany(each =>
+                    this.region.SymbolOf(each)
+                        is IParameterSymbol
+                        {
+                            ContainingSymbol: IMethodSymbol
+                            {
+                                MethodKind: MethodKind.PropertySet, AssociatedSymbol: IPropertySymbol property
+                            }
+                        }
+                        ? MemberBuilds.Of(member: property, type: property.ContainingType)
+                        : (IEnumerable<ExpressionSyntax>)[each])
+            ]
+            : values;
 
     // Gives a state to a delegate member of a different object that a value names, at the value. The
     // function of the build writes that member through the same name, as in this.box.F = this.Add.
@@ -170,7 +201,7 @@ internal sealed partial class LoopStateEvaluator
         // A write in a lambda or a local function is in no block around the value. Thus, it is never
         // the last write. It runs only through a call or a creation, and such a call between the last
         // write and the value stops that write.
-        ExpressionSyntax? only = LastWriteBefore(writes: writes, at: access, noCallBetween: true);
+        ExpressionSyntax? only = this.LastWriteBefore(writes: writes, at: access, noCallBetween: true);
         LoopState state = LoopState.None;
 
         // A map or a Lazy keeps the delegate that the member has at the build.
@@ -197,8 +228,8 @@ internal sealed partial class LoopStateEvaluator
         if (this.region.SymbolOf(name) is not ILocalSymbol { RefKind: RefKind.None } local
             || given.Contains(local)
             || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                is not VariableDeclaratorSyntax declarator
-            || FunctionOf(declarator) is not { } itsCode)
+                is not ({ } declaration and (VariableDeclaratorSyntax or SingleVariableDesignationSyntax))
+            || FunctionOf(declaration) is not { } itsCode)
         {
             return;
         }
@@ -208,7 +239,7 @@ internal sealed partial class LoopStateEvaluator
         given.Add(local);
 
         IReadOnlyList<ExpressionSyntax> values =
-            this.ValuesOfALocalAt(local: local, declarator: declarator, code: itsCode, at: value);
+            this.ValuesOfALocalAt(local: local, declaration: declaration, code: itsCode, at: value);
 
         foreach (ExpressionSyntax each in values)
         {
@@ -226,19 +257,41 @@ internal sealed partial class LoopStateEvaluator
     ///     the first level of a block around the node. No loop around the node
     ///     can write the local after the node. Otherwise, each write gives a
     ///     value. A function can run at each time. Thus, a write in a function,
-    ///     or a node in a function, has no last write.
+    ///     or a node in a function, has no last write. A lambda of the node
+    ///     reads the local when it runs, also after the node. Thus, a read in
+    ///     such a lambda also has no last write.
     /// </remarks>
     private IReadOnlyList<ExpressionSyntax> ValuesOfALocalAt(
         ISymbol local,
-        VariableDeclaratorSyntax declarator,
+        SyntaxNode declaration,
         SyntaxNode code,
         SyntaxNode at)
     {
         List<(int Position, ExpressionSyntax? Value, StatementSyntax? Statement)> writes = [];
 
-        if (declarator.Initializer is { Value: var initial })
+        switch (declaration)
         {
-            writes.Add((declarator.SpanStart, initial, declarator.Parent?.Parent as LocalDeclarationStatementSyntax));
+            case VariableDeclaratorSyntax { Initializer.Value: var initial }:
+                writes.Add(
+                    (declaration.SpanStart, initial, declaration.Parent?.Parent as LocalDeclarationStatementSyntax));
+
+                break;
+            // A pattern gives the local the value that it tests.
+            case SingleVariableDesignationSyntax
+            {
+                Parent: DeclarationPatternSyntax { Parent: IsPatternExpressionSyntax test }
+            }:
+                writes.Add((declaration.SpanStart, test.Expression, null));
+
+                break;
+            case SingleVariableDesignationSyntax { Parent: DeclarationExpressionSyntax declared }:
+                writes.AddRange(this.WritesOf(declared));
+
+                break;
+            case SingleVariableDesignationSyntax:
+                writes.Add((declaration.SpanStart, null, null));
+
+                break;
         }
 
         bool inAFunction = FunctionOf(at) != code;
@@ -247,20 +300,20 @@ internal sealed partial class LoopStateEvaluator
         {
             if (!gives || this.NeverRuns(node: code.FindToken(position).Parent, code: code))
             {
+                inAFunction |= function && at.Span.Contains(position);
+
                 continue;
             }
 
             inAFunction |= function;
 
-            writes.Add(
-                code.FindToken(position).Parent
-                    is IdentifierNameSyntax { Parent: AssignmentExpressionSyntax assignment } written
-                && assignment.Left == written
-                    ? WriteOf(assignment)
-                    : (position, null, null));
+            writes.AddRange(
+                code.FindToken(position).Parent is IdentifierNameSyntax written
+                    ? this.WritesOf(written)
+                    : [(position, null, null)]);
         }
 
-        return !inAFunction && LastWriteBefore(writes: writes, at: at, noCallBetween: false) is { } last
+        return !inAFunction && this.LastWriteBefore(writes: writes, at: at, noCallBetween: false) is { } last
             ? new[] { last }
             : writes.Select(static write => write.Value).OfType<ExpressionSyntax>().ToArray();
     }
@@ -282,6 +335,111 @@ internal sealed partial class LoopStateEvaluator
         return false;
     }
 
+    // The writes that the code makes where it writes a name. An assignment, a part of a
+    // deconstruction of a tuple literal, and an out argument of a method of this compilation give
+    // their values. Each other write gives no value that the walk can read. A write with more than
+    // one value gives each of them. It then gives a write with no value, because no value of it is
+    // the only one.
+    private IEnumerable<(int Position, ExpressionSyntax? Value, StatementSyntax? Statement)> WritesOf(
+        SyntaxNode written) =>
+        written.Parent switch
+        {
+            AssignmentExpressionSyntax assignment when assignment.Left == written => [WriteOf(assignment)],
+            ArgumentSyntax
+                {
+                    Parent: TupleExpressionSyntax
+                    {
+                        Parent: AssignmentExpressionSyntax
+                        {
+                            RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+                            Right: TupleExpressionSyntax values
+                        } deconstruction
+                    } parts
+                } part
+                when deconstruction.Left == parts && values.Arguments.Count == parts.Arguments.Count =>
+            [
+                (written.SpanStart, values.Arguments[parts.Arguments.IndexOf(part)].Expression,
+                    deconstruction.Parent as ExpressionStatementSyntax)
+            ],
+            ArgumentSyntax
+                {
+                    RefKindKeyword.RawKind: (int)SyntaxKind.OutKeyword,
+                    Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax call }
+                } argument
+                when this.ValuesOfAnOut(argument: argument, call: call) is { Count: > 0 } given =>
+                given.Count == 1
+                    ? [(written.SpanStart, given[0], call.Parent as ExpressionStatementSyntax)]
+                    : [.. given.Select(each => (written.SpanStart, (ExpressionSyntax?)each, (StatementSyntax?)null)),
+                        (written.SpanStart, null, null)],
+            _ => [(written.SpanStart, null, null)]
+        };
+
+    // The values that a call gives an out argument. The callee is a method of this compilation, and each
+    // assignment to the parameter in its code gives a value. A value that is a parameter of the callee is the
+    // argument for that parameter. Each other value names the object of the callee. Thus, it counts only for a
+    // static callee or a callee on this. Null when a value is not known.
+    private IReadOnlyList<ExpressionSyntax>? ValuesOfAnOut(ArgumentSyntax argument, InvocationExpressionSyntax call)
+    {
+        SeparatedSyntaxList<ArgumentSyntax> arguments = call.ArgumentList.Arguments;
+
+        if (this.region.SymbolOf(call) is not IMethodSymbol { ReducedFrom: null } method
+            || BodyOf(method.OriginalDefinition) is not { } body
+            || method.OriginalDefinition.Parameters.FirstOrDefault(each => ArgumentOfTheCallFor(each) == argument)
+                is not { } parameter)
+        {
+            return null;
+        }
+
+        bool ofThisObject =
+            method.IsStatic
+            || call.Expression
+                is IdentifierNameSyntax
+                or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax };
+
+        List<ExpressionSyntax> values = [];
+
+        foreach (AssignmentExpressionSyntax assignment in
+                 body.DescendantNodesAndSelf().OfType<AssignmentExpressionSyntax>())
+        {
+            if (!assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+                || Unwrapped(assignment.Left) is not IdentifierNameSyntax { Identifier.ValueText: var name }
+                || name != parameter.Name
+                || !SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(assignment.Left), y: parameter))
+            {
+                continue;
+            }
+
+            if (this.region.SymbolOf(Unwrapped(assignment.Right)) is IParameterSymbol source
+                && SymbolEqualityComparer.Default.Equals(x: source.ContainingSymbol, y: method.OriginalDefinition))
+            {
+                if (ArgumentOfTheCallFor(source) is not { } fromTheCall)
+                {
+                    return null;
+                }
+
+                values.Add(fromTheCall.Expression);
+            }
+            else if (ofThisObject)
+            {
+                values.Add(assignment.Right);
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        return values;
+
+        // An argument with a name goes to the parameter with that name. Each other argument goes to
+        // the parameter at its position.
+        ArgumentSyntax? ArgumentOfTheCallFor(IParameterSymbol of) =>
+            arguments.FirstOrDefault(each => each.NameColon?.Name.Identifier.ValueText == of.Name)
+            ?? (of.Ordinal < arguments.Count && arguments[of.Ordinal].NameColon == null
+                ? arguments[of.Ordinal]
+                : null);
+    }
+
     /// <summary>
     ///     The values that a delegate member of this can have at a node.
     /// </summary>
@@ -294,7 +452,7 @@ internal sealed partial class LoopStateEvaluator
     private IReadOnlyList<ExpressionSyntax> ValuesOfAMemberAt(ISymbol member, SyntaxNode code, SyntaxNode at)
     {
         List<(int Position, ExpressionSyntax? Value, StatementSyntax? Statement)> writes = [];
-        bool inAFunction = false;
+        bool inAFunction = FunctionOf(at) != code;
 
         foreach (AssignmentExpressionSyntax assignment in code.DescendantNodes().OfType<AssignmentExpressionSyntax>())
         {
@@ -321,7 +479,7 @@ internal sealed partial class LoopStateEvaluator
             writes.Add(WriteOf(assignment));
         }
 
-        if (!inAFunction && LastWriteBefore(writes: writes, at: at, noCallBetween: true) is { } last)
+        if (!inAFunction && this.LastWriteBefore(writes: writes, at: at, noCallBetween: true) is { } last)
         {
             return [last];
         }
@@ -350,9 +508,10 @@ internal sealed partial class LoopStateEvaluator
 
     // The value of the last write before a node, when it is the only value that the node can see.
     // The write is at the first level of a block around the node, and no loop around the node
-    // writes again after the node. With noCallBetween, the statements from the write to the node
-    // contain no call and no creation.
-    private static ExpressionSyntax? LastWriteBefore(
+    // writes again after the node. A goto in the block can go back over the node, as a loop can.
+    // With noCallBetween, the statements from the write to the node contain no call, no creation,
+    // and no assignment through a setter with code.
+    private ExpressionSyntax? LastWriteBefore(
         IReadOnlyCollection<(int Position, ExpressionSyntax? Value, StatementSyntax? Statement)> writes,
         SyntaxNode at,
         bool noCallBetween)
@@ -371,7 +530,9 @@ internal sealed partial class LoopStateEvaluator
                                    or WhileStatementSyntax
                                    or DoStatementSyntax
                                && writes.Any(write =>
-                                   write.Position > at.SpanStart && around.Span.Contains(write.Position))))
+                                   write.Position > at.SpanStart && around.Span.Contains(write.Position)))
+            || (writes.Any(write => write.Position > at.SpanStart && block.Span.Contains(write.Position))
+                && block.DescendantNodes().Any(static node => node.IsKind(SyntaxKind.GotoStatement))))
         {
             return null;
         }
@@ -379,8 +540,13 @@ internal sealed partial class LoopStateEvaluator
         return noCallBetween
                && block.Statements
                    .Where(each => each.SpanStart > statement.SpanStart && each.Span.End <= at.SpanStart)
-                   .Any(static each => each.DescendantNodesAndSelf()
-                       .Any(static node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax))
+                   .Any(each => each.DescendantNodesAndSelf()
+                       .Any(node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax
+                                    || (node is AssignmentExpressionSyntax { Left: var target }
+                                        && this.region.SymbolOf(target) is IPropertySymbol { SetMethod: { } setter }
+                                        && setter.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                                            is AccessorDeclarationSyntax { Body: not null }
+                                            or AccessorDeclarationSyntax { ExpressionBody: not null })))
             ? null
             : only;
     }

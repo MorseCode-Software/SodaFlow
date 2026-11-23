@@ -59920,6 +59920,58 @@ public static class Shapes
     public static Cell<int> Ab350MapOfAMemberOfABoxSetFromALocal() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350BoxFromALocal().SetAndRead(l.Map(v => v))));
 
+    // S14500. A constructor gets a method group in an out local and builds a lazy value with it. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6CsBuildOfAnOutLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6CsSOutLocal().SetAndRead(l.Map(v => v))));
+
+    // S14501. A constructor gets a method group in a pattern local and builds a lazy value with it. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6CsBuildOfAPatternLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6CsSPatternLocal().SetAndRead(l.Map(v => v))));
+
+    // S14502. A constructor declares a local of a method group by a deconstruction and builds a lazy value with it. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6CsBuildOfADeconstructedLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6CsSDeconstructedLocal().SetAndRead(l.Map(v => v))));
+
+    // S14503. A constructor gives a local a method group by a deconstruction assignment and builds a lazy value with it. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6CsBuildOfALocalOfADeconstructionAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6CsSLocalOfADeconstructionAssignment().SetAndRead(l.Map(v => v))));
+
+    // S14504. A constructor builds a map whose lambda calls a delegate local. After the build, it gives the local a method group that samples a member. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> R6SmpCtorMapOfALambdaOfALocalSetAfterTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpC1().SetAndRead(l.Map(v => v))); });
+
+    // S14505. A constructor builds a Lazy whose lambda calls a delegate local. After the build, it gives the local a method group that samples a member. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6SmpCtorLazyOfALambdaOfALocalSetAfterTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpC2().SetAndRead(l.Map(v => v))); });
+
+    // S14506. A constructor builds a Lazy whose lambda calls a delegate member. After the build, it gives the member a method group that samples a member. A method sets that member to a pending cell and reads the value.
+    public static Cell<int> R6SmpCtorLazyOfALambdaOfAMemberSetAfterTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpC3().SetAndRead(l.Map(v => v))); });
+
+    // S14507. A constructor gives a delegate local a method group with a deconstruction, then builds a map with the local. A method sets the member that the method samples to a pending cell and samples the map.
+    public static Cell<int> R6SmpCtorMapOfALocalSetByADeconstruction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpC5().SetAndRead(l.Map(v => v))); });
+
+    // S14508. A constructor gives a delegate local a method group through an out argument, then builds a map with the local. A method sets the member that the method samples to a pending cell and samples the map.
+    public static Cell<int> R6SmpCtorMapOfALocalSetThroughOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpC6().SetAndRead(l.Map(v => v))); });
+
+    // S14509. A constructor gives a delegate member a function that does not sample, sets a property whose setter gives the member a method group, and builds a Lazy with the member. A method sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> R6SmpCtorLazyOfAMemberSetBySetterBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpC7().SetAndRead(l.Map(v => v))); });
+
+    // S14510. A constructor builds a Lazy with a delegate local, gives the local a method group that samples, and goes back to the build with a goto. A method sets the member to a pending cell and reads the value.
+    public static Cell<int> R6SmpCtorLazyOfALocalSetBeforeAGotoBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(new R6SmpC10().SetAndRead(l.Map(v => v))); });
+
+    // S14511. Control: a constructor gives a delegate member a function that does not sample. It sets an auto-property to a method group that samples, and builds a Lazy with the member. A method that no code calls gives the member a method group that samples. A method sets the member that the method group samples to a pending cell and reads the value.
+    public static Cell<int> Ab396AutoPropertyBetweenTheWriteAndTheBuild() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab396AutoBetween().SetAndRead(l.Map(v => v))));
+
+    // S14512. A constructor gives a delegate local a method group through an out argument of a static method, and builds a Lazy with the local. A method sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> Ab396LazyOfAnOutLocalOfAStaticMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab396OutOfAStatic().SetAndRead(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -111224,6 +111276,60 @@ public static class Shapes
         }
 
         private int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab396AutoBetween
+    {
+        private readonly Lazy<int> value;
+
+        private Func<int> factory;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab396AutoBetween()
+        {
+            this.factory = R6FuZero;
+            this.Other = this.Read;
+            this.value = new Lazy<int>(this.factory);
+        }
+
+        public Func<int> Other { get; set; }
+
+        public void SetTheMember() => this.factory = this.Read;
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab396OutOfAStatic
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab396OutOfAStatic()
+        {
+            Func<int> read = R6FuZero;
+            Ab396Give(from: this.Read, to: out read);
+            this.value = new Lazy<int>(read);
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private static void Ab396Give(Func<int> from, out Func<int> to) => to = from;
+
+        private int Read() => this.share.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

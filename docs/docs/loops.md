@@ -770,16 +770,18 @@ careful side, so it can report a read that does not throw:
   a sample can then get `SF1002`, although the sample runs before the end of the transaction.
 - A local of a constructor or a method of your object, such as a delegate or a cell that the code
   gives to a `Map`, a `Lift`, or a `Lazy<T>` that a different method reads, counts with each of
-  its values when a branch, a loop, or a lambda can give it a value before the build. A branch of
-  an `if` that a constant condition rules out, such as `if (false)` or the `else` of a `const` that
-  is `true`, gives no value. A `static readonly` field is not a constant, so a branch on one still
-  counts. Where the last value before the build is sure, only that value counts. The same holds for
-  a delegate in a member
-  of the object. There, a call between that value and the build makes each value that the code of
-  the class gives the member count. So does a call or a creation before the build that gets `this`
-  as an argument, in a constructor that the analyzer reads, even when that call does not change the
-  member. A build in a method, not in a constructor, also counts the value
-  that the member has where the different method reads.
+  its values when a branch, a loop, a `goto`, or a lambda can give it a value before the build, and
+  when a lambda of the build reads it, because that lambda can run after a later value. An `out`
+  argument of a method of yours, a pattern, and a deconstruction of a tuple literal each give the
+  local a value too. A branch of an `if` that a constant condition rules out, such as `if (false)`
+  or the `else` of a `const` that is `true`, gives no value. A `static readonly` field is not a
+  constant, so a branch on one still counts. Where the last value before the build is sure, only
+  that value counts. The same holds for a delegate in a member of the object. There, a call, a
+  creation, or an assignment through a property setter with code between that value and the build
+  makes each value that the code of the class gives the member count. So does a call or a creation
+  before the build that gets `this` as an argument, in a constructor that the analyzer reads, even
+  when that call does not change the member. A build in a method, not in a constructor, also counts
+  the value that the member has where the different method reads.
 
 Some reads that throw it does not see:
 

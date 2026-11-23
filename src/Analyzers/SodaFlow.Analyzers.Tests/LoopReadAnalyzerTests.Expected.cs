@@ -8455,6 +8455,18 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6FuAb352CreationWithThisSetsTheMember"] = ["SF1004"],
             ["R6FuAb352CallOfAHelperObjectWithThisSetsTheMember"] = ["SF1004"],
             ["Ab352CallWithThisThatDoesNotSetTheMember"] = ["SF1004"],
-            ["Ab350MapOfAMemberOfABoxSetFromALocal"] = ["SF1004"]
+            ["Ab350MapOfAMemberOfABoxSetFromALocal"] = ["SF1004"],
+            ["R6CsBuildOfAnOutLocal"] = ["SF1004"],
+            ["R6CsBuildOfAPatternLocal"] = ["SF1004"],
+            ["R6CsBuildOfADeconstructedLocal"] = ["SF1004"],
+            ["R6CsBuildOfALocalOfADeconstructionAssignment"] = ["SF1004"],
+            ["R6SmpCtorMapOfALambdaOfALocalSetAfterTheBuild"] = ["SF1004"],
+            ["R6SmpCtorLazyOfALambdaOfALocalSetAfterTheBuild"] = ["SF1004"],
+            ["R6SmpCtorLazyOfALambdaOfAMemberSetAfterTheBuild"] = ["SF1004"],
+            ["R6SmpCtorMapOfALocalSetByADeconstruction"] = ["SF1004"],
+            ["R6SmpCtorMapOfALocalSetThroughOut"] = ["SF1004"],
+            ["R6SmpCtorLazyOfAMemberSetBySetterBetween"] = ["SF1004"],
+            ["R6SmpCtorLazyOfALocalSetBeforeAGotoBack"] = ["SF1004"],
+            ["Ab396LazyOfAnOutLocalOfAStaticMethod"] = ["SF1004"]
         };
 }
