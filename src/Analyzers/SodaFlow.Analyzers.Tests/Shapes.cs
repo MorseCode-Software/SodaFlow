@@ -59884,7 +59884,7 @@ public static class Shapes
     public static Cell<int> Ab350MapOfAMemberOfABoxWithACallBetween() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350BoxWithACall().SetAndRead(l.Map(v => v))));
 
-    // S14491. Control: a constructor gives a delegate member of a kept box a method group that samples, then a function that does not sample, and builds a map with that member. A method sets a member to a pending cell and samples the map.
+    // S14491. Control: a constructor gives a delegate member of a kept box a method group that samples. It then gives the member a function that does not sample, and builds a map with that member. A method sets a member to a pending cell and samples the map.
     public static Cell<int> Ab350MapOfAMemberOfABoxSetAgain() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350BoxSetAgain().SetAndRead(l.Map(v => v))));
 
@@ -59892,7 +59892,7 @@ public static class Shapes
     public static Cell<int> Ab350LazyOfADelegateOfAGivenObjectThatDoesNotSample() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350GivenPlain(new Ab350PlainHolder()).SetAndRead(l.Map(v => v))));
 
-    // S14493. Control: a constructor gives a delegate member of a second kept box a method group that samples, and builds a map with the same member of the first box, which does not sample. A method sets a member to a pending cell and samples the map.
+    // S14493. Control: a constructor gives a delegate member of a second kept box a method group that samples. It builds a map with the same member of the first box, which does not sample. A method sets a member to a pending cell and samples the map.
     public static Cell<int> Ab350MapOfAMemberOfASecondBox() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350TwoBoxes().SetAndRead(l.Map(v => v))));
 
@@ -59916,7 +59916,7 @@ public static class Shapes
     public static Cell<int> Ab352ThisInAStaticFieldBeforeTheBuild() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab352Kept().SetAndRead(l.Map(v => v))));
 
-    // S14499. A constructor gives a delegate local a method group, gives a delegate member of a kept box the local, and builds a map with that member. A method sets the member that the method group samples to a pending cell and samples the map.
+    // S14499. A constructor gives a delegate local a method group and gives a delegate member of a kept box the local. It builds a map with that member. A method sets the member that the method group samples to a pending cell and samples the map.
     public static Cell<int> Ab350MapOfAMemberOfABoxSetFromALocal() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350BoxFromALocal().SetAndRead(l.Map(v => v))));
 

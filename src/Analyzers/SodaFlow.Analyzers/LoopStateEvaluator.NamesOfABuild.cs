@@ -64,22 +64,24 @@ internal sealed partial class LoopStateEvaluator
 
         foreach (ExpressionSyntax name in value.DescendantNodesAndSelf().OfType<ExpressionSyntax>())
         {
-            if (name is IdentifierNameSyntax local)
+            switch (name)
             {
-                this.GiveTheLocal(name: local, value: value, given: given, members: members);
-            }
+                case IdentifierNameSyntax local:
+                    this.GiveTheLocal(name: local, value: value, given: given, members: members);
 
-            if (name is MemberAccessExpressionSyntax
-                {
-                    Expression: not (ThisExpressionSyntax or BaseExpressionSyntax)
-                } ofADifferentObject
-                && code != null)
-            {
-                this.GiveTheMemberOfADifferentObject(
-                    access: ofADifferentObject,
-                    code: code,
-                    given: given,
-                    members: members);
+                    break;
+                case MemberAccessExpressionSyntax
+                    {
+                        Expression: not (ThisExpressionSyntax or BaseExpressionSyntax)
+                    } ofADifferentObject
+                    when code != null:
+                    this.GiveTheMemberOfADifferentObject(
+                        access: ofADifferentObject,
+                        code: code,
+                        given: given,
+                        members: members);
+
+                    break;
             }
 
             // The name of a member access is a part of the access, which the loop reads.
