@@ -22,7 +22,7 @@ internal sealed partial class LoopStateEvaluator
     // The same for the collection and the indexes of an element access, or of a null-conditional
     // element access.
     private ExpressionSyntax? PositionOf(ExpressionSyntax collection, BracketedArgumentListSyntax indexes) =>
-        this.ElementsOf(collection) is { } all
+        (this.ElementsOf(collection) ?? this.ElementsOfARange(collection)) is { } all
             ? this.PositionIn(index: indexes.Arguments[0].Expression, count: all.Count) is { } index
                 ? all[index]
                 : null
@@ -68,6 +68,46 @@ internal sealed partial class LoopStateEvaluator
 
         return this.region.ModelFor(index).GetConstantValue(index) is { Value: int at and >= 0 } && at < count
             ? at
+            : null;
+    }
+
+    // The elements of a range of an array or of a view, as in all[1..]. The walk must know the
+    // positions of the array or the view. Each bound must be a constant. Null for each other
+    // expression.
+    private IReadOnlyList<ExpressionSyntax>? ElementsOfARange(ExpressionSyntax collection) =>
+        RangeOf(collection) is (var of, var range)
+        && this.ElementsOf(of) is { } all
+        && this.BoundsIn(range: range, count: all.Count) is (var start, var end)
+            ? [.. all.Skip(start).Take(end - start)]
+            : null;
+
+    // The collection and the range of an element access with a range. The walk has positions only
+    // for an array, a span, and a list of the platform. A list has no range, and a range of an array
+    // or a span keeps the order. Null for each other expression.
+    private static (ExpressionSyntax Of, RangeExpressionSyntax Range)? RangeOf(ExpressionSyntax collection) =>
+        Unwrapped(collection) is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } slice
+        && arguments[0].Expression is RangeExpressionSyntax range
+            ? (slice.Expression, range)
+            : null;
+
+    // The start and the end of a range in a collection with a number of elements. Each bound is a
+    // constant from the start or from the end. A bound that the code does not write is an end of the
+    // collection. Null for a range that is not in the collection.
+    private (int Start, int End)? BoundsIn(RangeExpressionSyntax range, int count) =>
+        (range.LeftOperand == null ? 0 : this.BoundIn(bound: range.LeftOperand, count: count)) is { } start
+        && (range.RightOperand == null ? count : this.BoundIn(bound: range.RightOperand, count: count)) is { } end
+        && start <= end
+            ? (start, end)
+            : null;
+
+    // A bound of a range, from 0 to the number of elements. Null for a bound that is not a constant.
+    private int? BoundIn(ExpressionSyntax bound, int count)
+    {
+        bool fromTheEnd = bound is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.IndexExpression };
+        ExpressionSyntax number = fromTheEnd ? ((PrefixUnaryExpressionSyntax)bound).Operand : bound;
+
+        return this.region.ModelFor(number).GetConstantValue(number) is { Value: int at and >= 0 } && at <= count
+            ? fromTheEnd ? count - at : at
             : null;
     }
 
@@ -228,14 +268,27 @@ internal sealed partial class LoopStateEvaluator
     // The same for the collection and the index of an ElementAt.
     private LoopState? AtAStorePosition(ExpressionSyntax collection, SyntaxNode index)
     {
-        if (this.StorePositionsOf(collection) is not (_, var all)
-            || this.PositionIn(index: index, count: all.Length) is not { } at)
+        // A range of a collection has the positions of that collection from the start of the range.
+        (ExpressionSyntax Of, ImmutableArray<LoopState> All)? known =
+            this.StorePositionsOf(collection) is (_, var whole)
+                ? (collection, whole)
+                : this.StorePositionsOfARange(collection);
+
+        if (known is not (var of, var all) || this.PositionIn(index: index, count: all.Length) is not { } at)
         {
             return null;
         }
 
-        return this.Eval(collection).Origin is { } origin ? all[at].From(origin) : all[at];
+        return this.Eval(of).Origin is { } origin ? all[at].From(origin) : all[at];
     }
+
+    // The positions that the store has for a range of a collection. See ElementsOfARange.
+    private (ExpressionSyntax Of, ImmutableArray<LoopState> All)? StorePositionsOfARange(ExpressionSyntax collection) =>
+        RangeOf(collection) is (var of, var range)
+        && this.StorePositionsOf(of) is (_, var all)
+        && this.BoundsIn(range: range, count: all.Length) is (var start, var end)
+            ? (of, ImmutableArray.Create(items: all, start: start, length: end - start))
+            : null;
 
     /// <summary>
     ///     The state of the element that <c>ElementAt</c> or

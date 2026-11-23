@@ -368,6 +368,7 @@ The analyzer follows a value made from the placeholder through the code of your 
   inside a list pattern knows the positions of the inner collection wherever a read such as
   `cells[0][1]` knows them, also after a write through two indexes or through a second name of the
   inner collection. Otherwise, it gives each of its variables every element of the inner collection.
+  An element of a range with constant bounds, as `cells[1..][0]`, is one element too.
   A positional pattern on a tuple gives each part its own item. A `Dictionary` that you write with
   constant keys and no comparer, and that the code then only reads, keeps the value of each key
   apart, so `cells["total"]` is that one value. A key of the type `object` has the type of its

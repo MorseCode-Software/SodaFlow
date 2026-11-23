@@ -8712,6 +8712,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab383NullConditionalWriteThenNullConditionalRead"] = ["SF1001"],
             ["Ab383NullConditionalRowOfAJaggedArrayGetsThePendingRow"] = ["SF1001"],
             ["Ab383NullConditionalIndexerOfThisCodeGetsThePendingElement"] = ["SF1001"],
-            ["Ab383NullConditionalReadInALambdaGetsThePendingElement"] = ["SF1001"]
+            ["Ab383NullConditionalReadInALambdaGetsThePendingElement"] = ["SF1001"],
+            ["Ab384RangeWithAnEndGetsThePendingElement"] = ["SF1001"],
+            ["Ab384RangeAfterAWriteGetsThePendingElement"] = ["SF1001"],
+            ["Ab384RangeOfASpanGetsThePendingElement"] = ["SF1001"],
+            ["Ab384RangeWithAStartThatIsNotAConstant"] = ["SF1001"]
         };
 }

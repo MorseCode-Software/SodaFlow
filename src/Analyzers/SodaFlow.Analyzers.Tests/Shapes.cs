@@ -61392,6 +61392,42 @@ public static class Shapes
     public static Cell<int> Ab383NullConditionalReadInALambdaGetsThePendingElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, l.Map(v => v)]; Func<int?> read = () => all?[1].Sample(); Kept.Add(read()); return S.Hold(0); });
 
+    // S14875. A range of an array starts at the plain element, and the block samples its first element.
+    public static Cell<int> R6CsRangeOfAnArrayGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [l.Map(v => v), Plain]; Kept.Add(all[1..][0].Sample()); return S.Hold(0); });
+
+    // S14876. AB384. A range from the end of an array starts at a plain element, and the block samples its first element.
+    public static Cell<int> Ab384RangeFromTheEndGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [l.Map(v => v), Plain, Plain]; Kept.Add(all[^2..][0].Sample()); return S.Hold(0); });
+
+    // S14877. AB384. A range with an end starts at the pending element of an array, and the block samples its first element.
+    public static Cell<int> Ab384RangeWithAnEndGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, l.Map(v => v), Plain]; Kept.Add(all[1..2][0].Sample()); return S.Hold(0); });
+
+    // S14878. AB384. The block puts the pending cell into element 0 of an array. A range from index 1 starts at the plain element.
+    public static Cell<int> Ab384RangeAfterAWriteGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, Plain]; all[0] = l.Map(v => v); Kept.Add(all[1..][0].Sample()); return S.Hold(0); });
+
+    // S14879. AB384. The block puts the pending cell into element 1 of an array. A range from index 1 starts at the pending element.
+    public static Cell<int> Ab384RangeAfterAWriteGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, Plain]; all[1] = l.Map(v => v); Kept.Add(all[1..][0].Sample()); return S.Hold(0); });
+
+    // S14880. AB384. A range of a span starts at the plain element, and the block samples its first element.
+    public static Cell<int> Ab384RangeOfASpanGetsThePlainElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Span<Cell<int>> all = [l.Map(v => v), Plain]; Kept.Add(all[1..][0].Sample()); return S.Hold(0); });
+
+    // S14881. AB384. A range of a span starts at the pending element, and the block samples its first element.
+    public static Cell<int> Ab384RangeOfASpanGetsThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Span<Cell<int>> all = [Plain, l.Map(v => v)]; Kept.Add(all[1..][0].Sample()); return S.Hold(0); });
+
+    // S14882. AB384. A range with a start that is not a constant gives no position. The element at the start is pending.
+    public static Cell<int> Ab384RangeWithAStartThatIsNotAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int from = Kept.Count >= 0 ? 1 : 0; Cell<int>[] all = [Plain, l.Map(v => v)]; Kept.Add(all[from..][0].Sample()); return S.Hold(0); });
+
+    // S14883. AB384. A range from the end of an array starts after the pending element, and the block samples its first element.
+    public static Cell<int> Ab384RangeFromTheEndStartsAfterThePendingElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] all = [Plain, l.Map(v => v), Plain]; Kept.Add(all[^1..][0].Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
