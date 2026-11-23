@@ -289,8 +289,9 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
         }
 
         // An object can override a virtual method, and the walk does not know the class of the object.
-        // A name through base, or on a value of a sealed type, gives the method that it binds to.
-        if (named is { IsVirtual: true } or { IsOverride: true }
+        // A name through base, or on a value of a sealed type, gives the method that it binds to. No
+        // class can override a sealed override.
+        if (named is { IsVirtual: true } or { IsOverride: true, IsSealed: false }
             && written is not MemberAccessExpressionSyntax { Expression: BaseExpressionSyntax }
             && (written is MemberAccessExpressionSyntax access
                     ? model.GetTypeInfo(access.Expression).Type

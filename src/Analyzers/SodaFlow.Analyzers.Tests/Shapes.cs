@@ -58288,6 +58288,10 @@ public static class Shapes
     public static Cell<int> Ab407ActionOfAConstantThatIsNotOfTheLibrary() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> fire = Stream.CreateSink<Cell<int>>(); Cell<int> sw = fire.Hold(Plain).SwitchC(); SodaFlow.Bindable.ObjectModel.IBindableAction<Cell<int>> a = R2ApiFactory.CreateBindableAction(fire, Ab407Other.Cell.Constant(false)); a.Execute(l.Map(v => v)); return sw; });
 
+    // S14092. The block is a sealed override, given by name, of an element of a static array of a type that is not sealed. The override does not sample.
+    public static Cell<int> R6FuBlockOfASealedOverrideOfATypeThatIsNotSealed() =>
+        Cell.Loop<int>().WithoutCaptures(R6FuSealedOverrideBuilders[0].Build);
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
