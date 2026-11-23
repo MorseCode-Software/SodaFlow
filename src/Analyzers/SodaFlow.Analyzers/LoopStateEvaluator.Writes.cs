@@ -316,6 +316,15 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
+        // A read-only view of a list reads the list at each use. Thus, it is a second name of the list.
+        if (sure && KeepsItsObject(local) && this.TheListOfAReadOnlyView(value) is { } viewed)
+        {
+            this.Frame.FirstNameOf[local] = viewed;
+            this.Frame.RunThatNamed[viewed] = this;
+
+            return;
+        }
+
         if (!KeepsItsObject(local)
             || Unwrapped(value) is not IdentifierNameSyntax name
             || this.region.SymbolOf(name) is not ((ILocalSymbol or IParameterSymbol) and { } from)

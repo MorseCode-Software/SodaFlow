@@ -87,6 +87,44 @@ internal sealed partial class LoopStateEvaluator
         && SodaFlowSymbols.IsPlatform(marshal);
 
     /// <summary>
+    ///     The local list that a <c>ReadOnlyCollection</c> of the platform is a
+    ///     view of. <c>AsReadOnly</c> of the list makes such a view, and so does
+    ///     the constructor that gets the list. Null for each other value.
+    /// </summary>
+    /// <remarks>
+    ///     The name of the call and the count of the arguments come first, thus
+    ///     the walk asks for no symbol of a different value.
+    /// </remarks>
+    private IdentifierNameSyntax? TheListOfAReadOnlyView(ExpressionSyntax value) =>
+        Unwrapped(value) switch
+        {
+            InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Name.Identifier.ValueText: "AsReadOnly", Expression: IdentifierNameSyntax list
+                },
+                ArgumentList.Arguments.Count: 0
+            } call when this.region.SymbolOf(call) is IMethodSymbol
+                         {
+                             ReducedFrom: null, ContainingType: { Name: "List" } owner
+                         }
+                         && SodaFlowSymbols.IsPlatform(owner) => list,
+            BaseObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } creation
+                when arguments[0] is
+                     {
+                         RefKindKeyword.RawKind: (int)SyntaxKind.None, Expression: IdentifierNameSyntax list
+                     }
+                     && this.region.TypeOf(creation) is INamedTypeSymbol { Name: "ReadOnlyCollection", Arity: 1 } made
+                     && SodaFlowSymbols.IsPlatform(made) => list,
+            _ => null
+        } is { } viewed
+        && this.region.SymbolOf(viewed) is { } of
+        && KeepsItsObject(of)
+            ? viewed
+            : null;
+
+    /// <summary>
     ///     The local that a span over it by ref names, as in
     ///     <c>new Span&lt;T&gt;(ref local)</c>, for an element of that span. The
     ///     span has one element, which is the local. Null for each other element.

@@ -8151,6 +8151,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab409TwoRefParametersOfOneStaticFieldByTwoSpellings"] = ["SF1004"],
             ["R6NmClassThroughAnImmutableArray"] = ["SF1001"],
             ["Ab410ClassThroughAForeachOfAnImmutableArray"] = ["SF1001"],
-            ["Ab410ClassThroughACopyOfAnImmutableArray"] = ["SF1001"]
+            ["Ab410ClassThroughACopyOfAnImmutableArray"] = ["SF1001"],
+            ["R6NmListAsReadOnlyIsAView"] = ["SF1001"],
+            ["R6NmReadOnlyCollectionOverAList"] = ["SF1001"],
+            ["R6NmListAsReadOnlySeesAnAdd"] = ["SF1001"],
+            ["Ab411AsReadOnlySeesAnInsert"] = ["SF1001"],
+            ["Ab411AsReadOnlyGivenToAMethodThatReads"] = ["SF1004"],
+            ["Ab411AsReadOnlyInAForeach"] = ["SF1001"],
+            ["Ab411AViewThatABranchGivesASecondList"] = ["SF1001"]
         };
 }

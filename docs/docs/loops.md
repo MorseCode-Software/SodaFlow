@@ -356,7 +356,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   write. Otherwise, they reach every element. The span that `CollectionsMarshal.AsSpan` makes of a
   local `List<T>` is another name for the elements of that list in the same way, and a write through
   it reaches every element. A span that `new Span<T>(ref local)` makes is another name for that
-  local. A write through a `ref` that an indexer, a property, a method, or a local function of yours
+  local. A `ReadOnlyCollection<T>` that a method makes of a `List<T>` in one of its locals or
+  parameters, with `AsReadOnly` or with `new`, is another name for that list, so a read through it
+  sees each later put into the list, until the local gets a different list. A write through a `ref` that an indexer, a property, a method, or a local function of yours
   returns goes where that `ref` points: a parameter, a local of the code around a local function, a
   static field, or a member of the object of the call or an element of that member. So does a write
   through a `ref` local of such an indexer, and a write through a conditional `ref` goes to both of

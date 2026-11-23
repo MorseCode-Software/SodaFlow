@@ -58448,6 +58448,42 @@ public static class Shapes
     public static Cell<int> Ab410ImmutableArrayOfASecondObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot e = new() { Share = Plain }; ImmutableArray<SettableSlot> ia = [e]; ia[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
 
+    // S14132. Names of one object, Round 6: AsReadOnly gives a view of the list. A pending cell goes into the list, and the read is through the view.
+    public static Cell<int> R6NmListAsReadOnlyIsAView() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = [Plain]; ReadOnlyCollection<Cell<int>> ro = xs.AsReadOnly(); xs[0] = l.Map(v => v); return S.Hold(ro[0].Sample()); });
+
+    // S14133. Names of one object, Round 6: a ReadOnlyCollection made with new over the list. A pending cell goes into the list, and the read is through the collection.
+    public static Cell<int> R6NmReadOnlyCollectionOverAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = [Plain]; ReadOnlyCollection<Cell<int>> ro = new(xs); xs[0] = l.Map(v => v); return S.Hold(ro[0].Sample()); });
+
+    // S14134. Names of one object, Round 6: AsReadOnly of the list, then Add of a pending cell to the list. The read is of the last item of the view.
+    public static Cell<int> R6NmListAsReadOnlySeesAnAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = [Plain]; ReadOnlyCollection<Cell<int>> ro = xs.AsReadOnly(); xs.Add(l.Map(v => v)); return S.Hold(ro[1].Sample()); });
+
+    // S14135. AB411 control. AsReadOnly gives a view of the list. The local then gets a new list, and a pending cell goes into the new list. The view still shows the first list.
+    public static Cell<int> Ab411AsReadOnlyKeepsTheFirstListAfterTheLocalGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = [Plain]; ReadOnlyCollection<Cell<int>> ro = xs.AsReadOnly(); xs = [Plain]; xs[0] = l.Map(v => v); return S.Hold(ro[0].Sample()); });
+
+    // S14136. AB411. AsReadOnly of the list, then Insert of a pending cell at index 0 of the list. The read is of item 0 of the view.
+    public static Cell<int> Ab411AsReadOnlySeesAnInsert() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = [Plain]; ReadOnlyCollection<Cell<int>> ro = xs.AsReadOnly(); xs.Insert(0, l.Map(v => v)); return S.Hold(ro[0].Sample()); });
+
+    // S14137. AB411. A method gets the view, and samples its item 0. A pending cell went into the list before the call.
+    public static Cell<int> Ab411AsReadOnlyGivenToAMethodThatReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = [Plain]; ReadOnlyCollection<Cell<int>> ro = xs.AsReadOnly(); xs[0] = l.Map(v => v); return S.Hold(Ab411ReadFirst(ro)); });
+
+    // S14138. AB411. A foreach over the view samples each item. A pending cell went into the list before the foreach.
+    public static Cell<int> Ab411AsReadOnlyInAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = [Plain]; ReadOnlyCollection<Cell<int>> ro = xs.AsReadOnly(); xs[0] = l.Map(v => v); foreach (Cell<int> c in ro) { Kept.Add(c.Sample()); } return S.Hold(0); });
+
+    // S14139. AB411. The view of a list with a pending cell, then a view of a plain list in a branch that does not run. The read of item 0 of the view gets the pending cell.
+    public static Cell<int> Ab411AViewThatABranchGivesASecondList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> ys = [l.Map(v => v)]; List<Cell<int>> xs = [Plain]; ReadOnlyCollection<Cell<int>> ro = ys.AsReadOnly(); if (Kept.Count < 0) { ro = xs.AsReadOnly(); } return S.Hold(ro[0].Sample()); });
+
+    // S14140. AB411 control. A list made with new from a second list is a copy. A pending cell goes into the second list, and the read is through the copy.
+    public static Cell<int> Ab411ACopyOfTheListMadeWithNew() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> xs = [Plain]; List<Cell<int>> ys = new(xs); xs[0] = l.Map(v => v); return S.Hold(ys[0].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -108984,6 +109020,8 @@ public static class Shapes
 
         return Ab409First.Sample();
     }
+
+    private static int Ab411ReadFirst(ReadOnlyCollection<Cell<int>> view) => view[0].Sample();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
