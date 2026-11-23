@@ -22,7 +22,7 @@ internal sealed partial class LoopStateEvaluator
     public void PutsThroughAFieldThatACallReturns(ExpressionSyntax collection, LoopState state)
     {
         if (Unwrapped(collection) is InvocationExpressionSyntax call
-            && this.ReturnedBy(call) is ({ } returned, { })
+            && this.ReturnedBy(call) is ({ } returned, not null)
             && this.IsAStaticField(returned))
         {
             this.Absorb(target: returned, state: state);

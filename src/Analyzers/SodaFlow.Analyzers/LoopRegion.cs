@@ -58,8 +58,10 @@ internal sealed class LoopRegion(
     private readonly HashSet<MadeObject> olderObjects = [];
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Dictionary<ISymbol, ExpressionSyntax?> initializerOf = new(SymbolEqualityComparer.Default);
+
     private readonly Dictionary<ISymbol, ImmutableArray<ISymbol>> namedByTheInitializer =
         new(SymbolEqualityComparer.Default);
+
     private readonly Action<Diagnostic> report = report;
 
     // A read of the block after the first one reports only what the reads before did not.
@@ -246,15 +248,18 @@ internal sealed class LoopRegion(
     /// </param>
     public LoopState FieldState(ISymbol field, Func<ISymbol, bool>? canHave = null)
     {
-        LoopState state = this.OwnFieldState(field: field, canHave: canHave);
+        LoopState own = this.OwnFieldState(field: field, canHave: canHave);
+        ImmutableArray<ISymbol> named = this.FieldsNamedByTheInitializerOf(field);
 
-        foreach (ISymbol named in this.FieldsNamedByTheInitializerOf(field))
-        {
-            state = state.Join(this.OwnFieldState(field: named, canHave: canHave));
-        }
-
-        return state;
+        return named.IsEmpty ? own : this.WithTheFieldsNamed(state: own, named: named, canHave: canHave);
     }
+
+    // Most fields have no named field. Thus, only this method makes the function that it gives Aggregate.
+    private LoopState WithTheFieldsNamed(
+        LoopState state,
+        ImmutableArray<ISymbol> named,
+        Func<ISymbol, bool>? canHave) =>
+        named.Aggregate(seed: state, func: (all, one) => all.Join(this.OwnFieldState(field: one, canHave: canHave)));
 
     private LoopState OwnFieldState(ISymbol field, Func<ISymbol, bool>? canHave) =>
         Construction.StateWithTheAliases(
