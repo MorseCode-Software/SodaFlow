@@ -2533,6 +2533,14 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             }
         }
 
+        // A ref field of a ref struct in a local refers to a local: see TheLocalOfARefField.
+        if (value is not RefExpressionSyntax
+            && target is MemberAccessExpressionSyntax throughAField
+            && this.evaluator.TheLocalOfARefField(throughAField) is { } referred)
+        {
+            target = referred;
+        }
+
         // An indexer or a method of this compilation can return a ref to a member of its object. An
         // assignment through it puts the value there, and not into the object.
         if (this.PutsThroughARefToAMember(target: target, value: value))

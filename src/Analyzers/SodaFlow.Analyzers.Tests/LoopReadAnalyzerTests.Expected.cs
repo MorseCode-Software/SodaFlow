@@ -8741,6 +8741,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab382UsingDeclarationInAnInnerBlockDisposesAfterItsWrite"] = ["SF1005"],
             ["Ab382UsingDeclarationOfTwoVariablesDisposesTheSecondFirst"] = ["SF1005"],
             ["Ab382UsingDeclarationInALoopDisposesAtTheEndOfTheTurn"] = ["SF1005"],
-            ["Ab382UsingDeclarationInABlockWithALabel"] = ["SF1005"]
+            ["Ab382UsingDeclarationInABlockWithALabel"] = ["SF1005"],
+            ["R6CsWriteThroughARefFieldWritesTheLocal"] = ["SF1001"],
+            ["R6CsReadThroughARefFieldSeesALaterWrite"] = ["SF1001"],
+            ["Ab392WriteThroughARefFieldInALambda"] = ["SF1001"]
         };
 }

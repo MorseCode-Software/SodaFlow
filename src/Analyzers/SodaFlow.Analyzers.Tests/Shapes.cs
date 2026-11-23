@@ -61584,6 +61584,42 @@ public static class Shapes
     public static Cell<int> Ab382UsingDeclarationInABlockWithALabel() =>
         Cell.Loop<int>().WithoutCaptures(l => { R6CsHolder h = new(Plain); using R6CsReadsAtDispose d = new(h); int i = 0; again: i++; if (i < 2) { goto again; } h.Share = l.Map(v => v); return S.Hold(0); });
 
+    // S14923. A write through a ref field of a ref struct writes the local that it refers to, and the block samples the local.
+    public static Cell<int> R6CsWriteThroughARefFieldWritesTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> x = Plain; R6CsRefTo r = new(ref x); r.Target = l.Map(v => v); Kept.Add(x.Sample()); return S.Hold(0); });
+
+    // S14924. A read through a ref field of a ref struct sees a later write to the local that it refers to.
+    public static Cell<int> R6CsReadThroughARefFieldSeesALaterWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> x = Plain; R6CsRefTo r = new(ref x); x = l.Map(v => v); Kept.Add(r.Target.Sample()); return S.Hold(0); });
+
+    // S14925. AB392. A write of the plain cell through a ref field of a ref struct replaces the pending cell of the local that it refers to.
+    public static Cell<int> Ab392WriteThroughARefFieldOfThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> x = l.Map(v => v); R6CsRefTo r = new(ref x); r.Target = Plain; Kept.Add(x.Sample()); return S.Hold(0); });
+
+    // S14926. AB392. A read through a ref field of a ref struct sees a later write of the plain cell to the local that it refers to.
+    public static Cell<int> Ab392ReadThroughARefFieldSeesALaterPlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> x = l.Map(v => v); R6CsRefTo r = new(ref x); x = Plain; Kept.Add(r.Target.Sample()); return S.Hold(0); });
+
+    // S14927. AB392. A ref field of a ref struct refers to the first local. A write through the field does not change the second local.
+    public static Cell<int> Ab392WriteThroughARefFieldDoesNotWriteASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> x = Plain; Cell<int> y = Plain; R6CsRefTo r = new(ref x); r.Target = l.Map(v => v); Kept.Add(y.Sample()); return S.Hold(0); });
+
+    // S14928. AB392. A ref field of a ref struct gets a ref to a second local after the constructor. A write through the field does not change the first local.
+    public static Cell<int> Ab392RefFieldThatGetsASecondLocalReadTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> x = Plain; Cell<int> y = Plain; R6CsRefTo r = new(ref x); r.Target = ref y; r.Target = l.Map(v => v); Kept.Add(x.Sample()); return S.Hold(0); });
+
+    // S14929. AB392. A ref struct local gets a second value with a ref to a second local. A write through its ref field does not change the first local.
+    public static Cell<int> Ab392StructLocalThatGetsASecondValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> x = Plain; Cell<int> y = Plain; R6CsRefTo r = new(ref x); r = new(ref y); r.Target = l.Map(v => v); Kept.Add(x.Sample()); return S.Hold(0); });
+
+    // S14930. AB392. A lambda that the block calls writes a pending cell through a ref field of a ref struct, and then samples the local that the field refers to.
+    public static Cell<int> Ab392WriteThroughARefFieldInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action run = () => { Cell<int> x = Plain; R6CsRefTo r = new(ref x); r.Target = l.Map(v => v); Kept.Add(x.Sample()); }; run(); return S.Hold(0); });
+
+    // S14931. AB392. A constructor puts a ref to one of two locals into a ref field under a condition. A write through the field goes to the first local, and the block samples the second.
+    public static Cell<int> Ab392RefFieldThatAConstructorSetsUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> x = Plain; Cell<int> y = Plain; Ab392OneOfTwo r = new(ref x, ref y, true); r.Target = l.Map(v => v); Kept.Add(y.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -113464,6 +113500,24 @@ public static class Shapes
         {
             get => Plain;
             set => Kept.Add(value.Sample() + i);
+        }
+    }
+
+    // Helpers of the shapes of AB392.
+    public ref struct Ab392OneOfTwo
+    {
+        public ref Cell<int> Target;
+
+        public Ab392OneOfTwo(ref Cell<int> first, ref Cell<int> second, bool takesTheFirst)
+        {
+            if (takesTheFirst)
+            {
+                this.Target = ref first;
+            }
+            else
+            {
+                this.Target = ref second;
+            }
         }
     }
 

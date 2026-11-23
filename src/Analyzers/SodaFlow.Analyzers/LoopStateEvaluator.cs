@@ -1991,6 +1991,8 @@ internal sealed partial class LoopStateEvaluator
                 this.WithAnAccurateRecord(read: read, state: written),
             MemberAccessExpressionSyntax read when this.WrittenAtItsElement(read) is { } written =>
                 this.WithAnAccurateRecord(read: read, state: written),
+            MemberAccessExpressionSyntax read when this.TheLocalOfARefField(read) is { } referred =>
+                this.EvalAgainForAUse(referred),
             IdentifierNameSyntax
                 or MemberAccessExpressionSyntax
                 or MemberBindingExpressionSyntax

@@ -47,6 +47,113 @@ internal sealed partial class LoopStateEvaluator
             : location;
     }
 
+    /// <summary>
+    ///     The local that a ref field of a ref struct in a local refers to, as
+    ///     <c>r.Target</c> after <c>R r = new(ref x)</c>. Null for each other
+    ///     member access.
+    /// </summary>
+    /// <remarks>
+    ///     The constructor puts a ref to one of its parameters into the field.
+    ///     No code of the function gives the struct local a second value, or the
+    ///     field a second ref. Thus, the field refers to the local of the
+    ///     argument at each use.
+    /// </remarks>
+    public ExpressionSyntax? TheLocalOfARefField(MemberAccessExpressionSyntax access)
+    {
+        if (this.region.SymbolOf(access) is not IFieldSymbol { RefKind: not RefKind.None, IsStatic: false } field
+            || Unwrapped(access.Expression) is not IdentifierNameSyntax holder
+            || this.region.SymbolOf(holder) is not ILocalSymbol { RefKind: RefKind.None } local
+            || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is not VariableDeclaratorSyntax
+                {
+                    Initializer.Value: BaseObjectCreationExpressionSyntax { ArgumentList: { } arguments } creation
+                } declarator
+            || FunctionOf(declarator) is not { } code
+            || FunctionOf(access) != code
+            || this.region.SymbolOf(creation) is not IMethodSymbol constructor
+            || TheParameterInARefField(constructor: constructor, field: field) is not { } parameter
+            || this.UsesOf(name: local, code: code).Any(static one => one.Gives)
+            || this.GivesARefTo(field: field, holder: local, code: code))
+        {
+            return null;
+        }
+
+        for (int position = 0; position < arguments.Arguments.Count; position++)
+        {
+            ArgumentSyntax argument = arguments.Arguments[position];
+
+            if (SymbolEqualityComparer.Default.Equals(
+                    x: SodaFlowSymbols.ParameterOf(callee: constructor, argument: argument, position: position),
+                    y: parameter))
+            {
+                return NameByRef(argument) is { } name
+                       && this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None }
+                    ? name
+                    : null;
+            }
+        }
+
+        return null;
+    }
+
+    // The parameter with ref whose ref a constructor of this compilation puts into a ref field, as in
+    // this.Target = ref target. The constructor calls no other constructor and gives the field no
+    // other ref. Null for each other constructor.
+    private static IParameterSymbol? TheParameterInARefField(IMethodSymbol constructor, IFieldSymbol field)
+    {
+        if (constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is not ConstructorDeclarationSyntax { Initializer: null } declaration)
+        {
+            return null;
+        }
+
+        IParameterSymbol? found = null;
+
+        foreach (AssignmentExpressionSyntax assignment in declaration.DescendantNodes()
+                     .OfType<AssignmentExpressionSyntax>())
+        {
+            string? target =
+                assignment.Left switch
+                {
+                    IdentifierNameSyntax name => name.Identifier.ValueText,
+                    MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } own =>
+                        own.Name.Identifier.ValueText,
+                    _ => null
+                };
+
+            if (target != field.Name)
+            {
+                continue;
+            }
+
+            if (found != null
+                || assignment.Right is not RefExpressionSyntax { Expression: IdentifierNameSyntax given }
+                || constructor.Parameters.FirstOrDefault(one => one.Name == given.Identifier.ValueText)
+                    is not { RefKind: RefKind.Ref } parameter)
+            {
+                return null;
+            }
+
+            found = parameter;
+        }
+
+        return found;
+    }
+
+    // True when the code gives a ref field of a local a second ref, as in r.Target = ref y.
+    private bool GivesARefTo(IFieldSymbol field, ISymbol holder, SyntaxNode code) =>
+        code.DescendantNodes()
+            .OfType<AssignmentExpressionSyntax>()
+            .Any(assignment =>
+                assignment is
+                {
+                    Right: RefExpressionSyntax,
+                    Left: MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner } target
+                }
+                && target.Name.Identifier.ValueText == field.Name
+                && owner.Identifier.ValueText == holder.Name
+                && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(owner), y: holder));
+
     // True for the name that an assignment of a value with no ref gives a value.
     private static bool IsAnAssignmentTo(SyntaxNode? name) =>
         name?.Parent is AssignmentExpressionSyntax
