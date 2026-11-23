@@ -784,10 +784,11 @@ Some reads that throw it does not see:
   threw. The analyzer gives a `catch` of it no object.
 - A static initializer of a class with no static constructor. The runtime can run such initializers
   at any time before the first read of a field. The analyzer reads them at the first read of a
-  static field, or of a static property with no code, through the name of the class, which is the
-  last time that they can run. Where the runtime ran them earlier, they can have read a different
-  value. A read of a field in the code of the class itself, as in a static method of the class, does
-  not run them for the analyzer.
+  static field, or of a static property with no code, through the name of the class or in the code
+  of the class itself, as in a method of the class that the block calls, which is the last time that
+  they can run. Where the runtime ran them earlier, they can have read a different value. A read in
+  the code of the class does not run them when the block itself is in that class, because the code
+  around the block can have run them first.
 - A function that the block sends into a sink, where an `Apply` of that sink, or a
   `CollectionEdit.FromUpdates` of it, runs it. The analyzer does not read what such a function
   returns, so a cycle through its result gets no `SF1002`.

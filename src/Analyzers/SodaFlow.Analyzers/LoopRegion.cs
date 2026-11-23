@@ -90,6 +90,9 @@ internal sealed class LoopRegion(
     // runs it no second time.
     private readonly HashSet<INamedTypeSymbol> startingTypes = new(SymbolEqualityComparer.Default);
 
+    // True for a type declaration that has a static initializer. Each name in its code asks.
+    private readonly Dictionary<TypeDeclarationSyntax, bool> hasStaticInitializers = [];
+
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
 
@@ -216,6 +219,30 @@ internal sealed class LoopRegion(
 
     /// <summary>Records the end of the read of the static constructor of a type.</summary>
     public void EndsTheStaticConstructorOf(INamedTypeSymbol type) => this.startingTypes.Remove(type);
+
+    /// <summary>
+    ///     True when a type declaration has an initializer of a static field or
+    ///     of a static property.
+    /// </summary>
+    public bool HasStaticInitializers(TypeDeclarationSyntax type)
+    {
+        if (!this.hasStaticInitializers.TryGetValue(key: type, value: out bool has))
+        {
+            has = type.Members.Any(static member =>
+                member.Modifiers.Any(SyntaxKind.StaticKeyword)
+                && member switch
+                {
+                    FieldDeclarationSyntax field =>
+                        field.Declaration.Variables.Any(static one => one.Initializer != null),
+                    PropertyDeclarationSyntax property => property.Initializer != null,
+                    _ => false
+                });
+
+            this.hasStaticInitializers[type] = has;
+        }
+
+        return has;
+    }
 
     /// <summary>
     ///     Keeps the objects as results of calls that a second call can give

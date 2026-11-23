@@ -58688,6 +58688,26 @@ public static class Shapes
     public static Cell<int> Ab375StaticConstructorOfAStructDoesNotRunAtActivatorCreateInstanceOfT() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab375Shared.E = l.Map(v => v); Kept.Add(Activator.CreateInstance<Ab375StructE>()); Ab375Shared.E = Plain; return S.Hold(0); });
 
+    // S14192. A class has a static initializer that samples a static field and no static constructor. A static method of the class reads the field. The page names this as a limit.
+    public static Cell<int> R6LimStaticInitializerReadInAStaticMethodOfItsClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6LimInitShared.A = l.Map(v => v); Kept.Add(R6LimInitOnlyA.Get()); return S.Hold(0); });
+
+    // S14193. A class has a static initializer that samples a static field and no static constructor. An instance method of the class reads the field.
+    public static Cell<int> Ab432StaticInitializerReadInAnInstanceMethodOfItsClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab432Shared.A = l.Map(v => v); Kept.Add(new Ab432InitAtAnInstance().Get()); return S.Hold(0); });
+
+    // S14194. A class has a static initializer of a property with no code, and no static constructor. A static method of the class reads the property.
+    public static Cell<int> Ab432StaticInitializerOfAPropertyReadInAStaticMethodOfItsClass() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab432Shared.B = l.Map(v => v); Kept.Add(Ab432InitOfAProperty.Get()); return S.Hold(0); });
+
+    // S14195. A class has a static constructor and a static initializer that samples a static field. The code makes an object before the block. In the block, an instance method of the object reads the field.
+    public static Cell<int> Ab432StaticConstructorDoesNotRunAgainInTheCodeOfItsClass() =>
+        ((Func<Cell<int>>)(() => { Ab432Shared.C = Plain; Ab432WithAStaticConstructor made = new(); return Cell.Loop<int>().WithoutCaptures(l => { Ab432Shared.C = l.Map(v => v); Kept.Add(made.Get()); return S.Hold(0); }); }))();
+
+    // S14196. A class has a static initializer that samples a static field and no static constructor. A static method of the class calls a second method of the class, and no code reads a field.
+    public static Cell<int> Ab432StaticMethodCallsAMethodOfItsClassAndReadsNoField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab432Shared.D = l.Map(v => v); Kept.Add(Ab432InitNotRead.Get()); Ab432Shared.D = Plain; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109357,6 +109377,49 @@ public static class Shapes
         static Ab375StructE() => Kept.Add(Ab375Shared.E!.Sample());
 
         public Ab375StructE(int n) => this.N = n;
+    }
+
+    // Helpers of the shapes of AB432.
+    public static class Ab432Shared
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+        public static Cell<int>? C;
+        public static Cell<int>? D;
+    }
+
+    public sealed class Ab432InitAtAnInstance
+    {
+        private static readonly int Value = Ab432Shared.A!.Sample();
+
+        public int Get() => Value;
+    }
+
+    public sealed class Ab432InitOfAProperty
+    {
+        private static int Value { get; } = Ab432Shared.B!.Sample();
+
+        public static int Get() => Value;
+    }
+
+    public sealed class Ab432WithAStaticConstructor
+    {
+        private static readonly int Value = Ab432Shared.C!.Sample();
+
+        static Ab432WithAStaticConstructor() => Kept.Add(1);
+
+        public int Get() => Value;
+    }
+
+    public sealed class Ab432InitNotRead
+    {
+        private static readonly int Value = Ab432Shared.D!.Sample();
+
+        public static int Get() => Twice(1);
+
+        public static int Read() => Value;
+
+        private static int Twice(int k) => 2 * k;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -38,21 +38,42 @@ internal sealed partial class LoopStateEvaluator
     /// <summary>
     ///     The same for a simple name of a static member of a different type,
     ///     such as a name that <c>using static</c> or a base type gives. The code
-    ///     of the type itself runs after its static constructor.
+    ///     of the type itself runs after its static constructor. A read of a
+    ///     static field in the code of a type with initializers only runs them.
     /// </summary>
     /// <param name="name">The simple name.</param>
-    public Followed? FollowTheStaticConstructor(SimpleNameSyntax name) =>
+    public Followed? FollowTheStaticConstructor(SimpleNameSyntax name)
+    {
         // Most names are locals and types. The syntax and a test of the declarations come before
-        // the question to the compiler.
-        this.quiet
-        || !this.region.Symbols.DeclaresStaticConstructors
-        || (name.Parent is MemberAccessExpressionSyntax access && access.Name == name)
-        || name.Parent is MemberBindingExpressionSyntax or QualifiedNameSyntax or NameColonSyntax or NameEqualsSyntax
-        || SyntaxFacts.IsInTypeOnlyContext(name)
-        || this.StaticMemberOf(name) is not { ContainingType: { } type }
-        || IsInTheCodeOf(node: name, type: type)
-            ? null
-            : this.FollowTheStaticConstructorOf(use: name, owner: type, atAFieldRead: false);
+        // the question to the compiler. A type with initializers only gives the compilation no name
+        // of a static constructor. Thus, the test for it is the declaration of the type of the code.
+        if (this.quiet
+            || (name.Parent is MemberAccessExpressionSyntax access && access.Name == name)
+            || name.Parent
+                is MemberBindingExpressionSyntax or QualifiedNameSyntax or NameColonSyntax or NameEqualsSyntax
+            || SyntaxFacts.IsInTypeOnlyContext(name)
+            || (!this.region.Symbols.DeclaresStaticConstructors && !this.IsInCodeWithStaticInitializers(name))
+            || this.StaticMemberOf(name) is not { ContainingType: { } type } member)
+        {
+            return null;
+        }
+
+        if (!IsInTheCodeOf(node: name, type: type))
+        {
+            return this.FollowTheStaticConstructorOf(use: name, owner: type, atAFieldRead: false);
+        }
+
+        // An explicit static constructor ran before each code of its type. Code of the type around the
+        // block can have run the initializers before the block, and the walk does not know when.
+        return type.OriginalDefinition.StaticConstructors.All(static constructor => constructor.IsImplicitlyDeclared)
+               && this.IsAMemberLocation(member)
+               && !IsInTheCodeOf(node: this.region.Root, type: type)
+            ? this.FollowTheStaticConstructorOf(use: name, owner: type, atAFieldRead: true)
+            : null;
+    }
+
+    private bool IsInCodeWithStaticInitializers(SyntaxNode name) =>
+        name.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type && this.region.HasStaticInitializers(type);
 
     /// <summary>
     ///     The results of the static constructors that a creation runs: the one
