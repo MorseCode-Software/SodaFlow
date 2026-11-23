@@ -64,6 +64,7 @@ internal sealed partial class LoopStateEvaluator
     private LoopState FunctionsOfAGroup(ExpressionSyntax expression, IMethodSymbol group)
     {
         ExpressionSyntax? owned = expression is MemberAccessExpressionSyntax access ? access.Expression : null;
+
         ExpressionSyntax? extended =
             group.ReducedFrom != null || this.ExtensionParameterOf(group.OriginalDefinition) != null ? owned : null;
 
@@ -71,11 +72,11 @@ internal sealed partial class LoopStateEvaluator
             owned != null && (extended != null || owned is not ThisExpressionSyntax) ? this.Eval(owned) : null;
 
         return this.MethodsOfAGroup(owner: owned, group: group)
-            .Select(static method =>
+            .SelectMany(static method =>
                 method.DeclaringSyntaxReferences
                     .Select(static reference => reference.GetSyntax())
-                    .FirstOrDefault(static syntax => syntax is MethodDeclarationSyntax or LocalFunctionStatementSyntax))
-            .OfType<SyntaxNode>()
+                    .Where(static syntax => syntax is MethodDeclarationSyntax or LocalFunctionStatementSyntax)
+                    .Take(1))
             .Aggregate(
                 seed: LoopState.None,
                 func: (all, declaration) =>

@@ -29,14 +29,14 @@ internal sealed partial class LoopStateEvaluator
         IEnumerable<SyntaxNode> declared =
             member.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax());
 
-        return member is IPropertySymbol property && declared.Any(IsPartial)
-            ? declared.Concat(SecondPartsOf(property))
+        return member.DeclaringSyntaxReferences.Any(static reference => IsPartial(reference.GetSyntax()))
+            ? declared.Concat(SecondPartsOf(member))
             : declared;
     }
 
     // Each partial declaration of a property in its type. That includes the first declaration
     // again, which has no code and changes no result.
-    private static IEnumerable<SyntaxNode> SecondPartsOf(IPropertySymbol property) =>
+    private static IEnumerable<SyntaxNode> SecondPartsOf(ISymbol property) =>
         property.ContainingType.DeclaringSyntaxReferences
             .Select(static reference => reference.GetSyntax())
             .OfType<TypeDeclarationSyntax>()

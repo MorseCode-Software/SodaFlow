@@ -101,7 +101,7 @@ internal sealed partial class LoopStateEvaluator
     // The compiler writes a static method for a member of an extension block. For that method, this
     // gives the parameter of the block and the parameters of the member. Null for each other method.
     private (IParameterSymbol Extended, ImmutableArray<IParameterSymbol> Parameters)? BlockMemberOf(
-        IMethodSymbol implementation)
+        ISymbol implementation)
     {
         SyntaxNode? declaration =
             implementation.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() switch
@@ -140,12 +140,14 @@ internal sealed partial class LoopStateEvaluator
     ///     Gives the receiver of a call of a member of an extension block what
     ///     the member gave to the parameter of the block.
     /// </summary>
-    /// <param name="definition">The member.</param>
-    /// <param name="followed">What the walk found in the body of the member.</param>
-    /// <param name="receiver">The receiver of the call.</param>
-    public void GivesTheReceiverOfABlockMember(IMethodSymbol definition, Followed followed, ExpressionSyntax receiver)
+    /// <param name="definition">The callee.</param>
+    /// <param name="followed">What the walk found in the body of the callee, if it has one.</param>
+    /// <param name="receiver">The receiver of the call, if it has one.</param>
+    public void GivesTheReceiverOfABlockMember(ISymbol definition, Followed? followed, ExpressionSyntax? receiver)
     {
-        if (this.ExtensionParameterOf(definition) is { } extended
+        if (receiver != null
+            && followed != null
+            && this.ExtensionParameterOf(definition) is { } extended
             && followed.Outs.TryGetValue(key: extended, value: out LoopState? given))
         {
             this.Merge(target: receiver, state: given);
