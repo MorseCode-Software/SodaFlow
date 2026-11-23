@@ -925,8 +925,12 @@ Some reads that throw it does not see:
   `JsonConverterFactory` makes, the settings of Json.NET, and an object more than 64 levels inside
   the one that you give a serializer.
 - An interpolated string that becomes a `FormattableString` or an `IFormattable` and that code
-  formats later. It calls no `ToString` where you write it, and the analyzer reads none there. The
-  analyzer does read the `ToString` calls where `FormattableString.Invariant` gets the string.
+  formats later in a way other than these. It calls no `ToString` where you write it. The analyzer
+  reads the `ToString` calls where `FormattableString.Invariant` gets the string, and where the
+  code formats a local that holds only that string, with its `ToString` or with
+  `FormattableString.Invariant` or `FormattableString.CurrentCulture`. It reads each value as it is
+  at the format. Any other format, such as one in a method that gets the string or one through a
+  field, calls no `ToString` for the analyzer.
 - A function given to a `Map`, a `Lift`, or a collection view that reads a value only through a
   compound assignment operator, such as `operator +=`, that a type of yours declares.
 - A function that a constructor from outside your project keeps, other than a `Lazy<T>`, a

@@ -3632,7 +3632,8 @@ internal sealed partial class LoopStateEvaluator
         }
 
         if ((this.FollowRecordMemberCall(invocation: invocation, method: method)
-             ?? this.FollowTheStaticFormOfABlockMember(invocation: invocation, method: method)) is { } implied)
+             ?? this.FollowTheStaticFormOfABlockMember(invocation: invocation, method: method)
+             ?? this.FollowLaterFormat(invocation: invocation, method: method)) is { } implied)
         {
             return implied;
         }

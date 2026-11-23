@@ -1241,7 +1241,11 @@ internal sealed partial class LoopStateEvaluator
     ///     when the interpolated string formats it now. A handler of this
     ///     compilation gets the value in its <c>AppendFormatted</c>.
     /// </summary>
-    public Followed? FollowInterpolation(InterpolationSyntax interpolation)
+    /// <param name="interpolation">The interpolation.</param>
+    /// <param name="formatsNow">
+    ///     True for a format of a kept string, which formats each value now.
+    /// </param>
+    public Followed? FollowInterpolation(InterpolationSyntax interpolation, bool formatsNow = false)
     {
         // An interpolated string handler of this compilation gets the value in its AppendFormatted,
         // which formats it, and the platform does not. Only the string of a handler has a part for
@@ -1270,7 +1274,7 @@ internal sealed partial class LoopStateEvaluator
         if (this.region.Symbols is { ObjectToString: not null, DeclaresToString: true }
             && interpolation.Parent is InterpolatedStringExpressionSyntax printed
             && SodaFlowSymbols.HoldsParts(this.region.TypeOf(interpolation.Expression))
-            && this.FormatsNow(printed))
+            && (formatsNow || this.FormatsNow(printed)))
         {
             return this.FollowToStringOf(call: interpolation.Expression, value: this.Eval(interpolation.Expression));
         }
@@ -1279,7 +1283,7 @@ internal sealed partial class LoopStateEvaluator
             || !(symbols.DeclaresToString || symbols.DeclaresRecords)
             || this.Self(interpolation.Expression) is not { Members: { } members } owner
             || interpolation.Parent is not InterpolatedStringExpressionSyntax whole
-            || !this.FormatsNow(whole))
+            || !(formatsNow || this.FormatsNow(whole)))
         {
             return null;
         }

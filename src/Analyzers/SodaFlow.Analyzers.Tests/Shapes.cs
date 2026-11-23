@@ -61224,6 +61224,30 @@ public static class Shapes
     public static Cell<int> Ab426HelperPairKeptInALocal() =>
         Cell.Loop<int>().WithoutCaptures(l => { (Cell<int> Map, Action<Cell<int>> Set) pair = R5SmpMakePair(); pair.Set(l.Map(v => v)); return S.Hold(pair.Map.Sample()); });
 
+    // S14833. A FormattableString in a local is formatted later by its ToString, in the block. The page names this miss. (Left out in Round 5 as R5LimFormattableStringFormattedLaterInTheBlock, AG97.)
+    public static Cell<int> R6FuCLimFormattableStringFormattedLaterInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); FormattableString f = $"n{t}"; Kept.Add(f.ToString()); return S.Hold(0); });
+
+    // S14834. A FormattableString in a local is formatted later by FormattableString.Invariant, in the block. The ToString of the value reads a pending member.
+    public static Cell<int> Ab425FormattableStringInvariantLaterInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); FormattableString f = $"n{t}"; Kept.Add(FormattableString.Invariant(f)); return S.Hold(0); });
+
+    // S14835. A FormattableString in a local is formatted later by its ToString with a format provider, in the block.
+    public static Cell<int> Ab425FormattableStringToStringWithAProviderLaterInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); FormattableString f = $"n{t}"; Kept.Add(f.ToString(System.Globalization.CultureInfo.InvariantCulture)); return S.Hold(0); });
+
+    // S14836. An IFormattable in a local is formatted later by its ToString, in the block.
+    public static Cell<int> Ab425FormattableLaterInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); IFormattable f = $"n{t}"; Kept.Add(f.ToString(null, System.Globalization.CultureInfo.InvariantCulture)); return S.Hold(0); });
+
+    // S14837. Control: a FormattableString in a local that the block never formats.
+    public static Cell<int> Ab425FormattableStringNotFormatted() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); FormattableString f = $"n{t}"; Kept.Add(f.ArgumentCount); return S.Hold(0); });
+
+    // S14838. Control: a FormattableString local gets a second string with no value before the block formats it by its ToString.
+    public static Cell<int> Ab425FormattableStringReassignedBeforeTheFormat() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Tally t = new(l.Map(v => v)); FormattableString f = $"n{t}"; f = $"plain"; Kept.Add(f.ToString()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

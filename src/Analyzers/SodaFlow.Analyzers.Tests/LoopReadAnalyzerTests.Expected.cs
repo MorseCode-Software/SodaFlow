@@ -8686,6 +8686,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6FuAb343MapInAFieldOfALocalObjectDisposedThroughTheField"] = ["SF1001"],
             ["R6FuAb343MapInALocalDisposedThroughAStaticField"] = ["SF1001"],
             ["R6FuCSmpHelperMapAndSetterShareALocal"] = ["SF1001"],
-            ["Ab426HelperPairKeptInALocal"] = ["SF1001"]
+            ["Ab426HelperPairKeptInALocal"] = ["SF1001"],
+            ["R6FuCLimFormattableStringFormattedLaterInTheBlock"] = ["SF1005"],
+            ["Ab425FormattableStringInvariantLaterInTheBlock"] = ["SF1005"],
+            ["Ab425FormattableStringToStringWithAProviderLaterInTheBlock"] = ["SF1005"],
+            ["Ab425FormattableLaterInTheBlock"] = ["SF1005"]
         };
 }
