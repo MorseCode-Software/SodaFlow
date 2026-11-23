@@ -2292,10 +2292,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     turn = body;
 
                     return false;
-                // The walk reads only the branch that the constant of an if selects.
-                case IfStatementSyntax branch when this.alwaysTaken.Contains(branch):
-                    continue;
-                case ElseClauseSyntax or SwitchSectionSyntax or SwitchStatementSyntax or LabeledStatementSyntax
+                case IfStatementSyntax
+                    or ElseClauseSyntax
+                    or SwitchSectionSyntax
+                    or SwitchStatementSyntax
+                    or LabeledStatementSyntax
                     when this.AlwaysRunsItsCode(construct: ancestor, place: place):
                     continue;
                 // The code after a try with no catch clause runs only when the block runs to its end.

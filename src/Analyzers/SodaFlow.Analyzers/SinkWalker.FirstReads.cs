@@ -72,7 +72,9 @@ internal sealed partial class SinkWalker
     private bool AlwaysRunsItsCode(SyntaxNode construct, SyntaxNode place) =>
         construct switch
         {
-            ElseClauseSyntax { Parent: IfStatementSyntax branch } => this.alwaysTaken.Contains(branch),
+            // The walk reads only the branch that the constant of an if selects.
+            IfStatementSyntax branch => this.alwaysTaken.Contains(branch),
+            ElseClauseSyntax { Parent: { } choice } => this.AlwaysRunsItsCode(construct: choice, place: place),
             SwitchSectionSyntax { Parent: SwitchStatementSyntax { Sections.Count: 1 } choice } section =>
                 section.Labels.Any(this.MatchesEachValue)
                 && !JumpsOutBefore(construct: choice, code: section, at: place.SpanStart),
@@ -164,7 +166,7 @@ internal sealed partial class SinkWalker
         {
             ArrayCreationExpressionSyntax { Initializer: { } items } => items.Expressions.Count > 0,
             ArrayCreationExpressionSyntax { Type.RankSpecifiers: { Count: > 0 } ranks } => ranks[0].Sizes.All(size =>
-                this.region.ModelFor(size).GetConstantValue(size) is { Value: int count } && count > 0),
+                this.region.ModelFor(size).GetConstantValue(size) is { Value: > 0 }),
             ImplicitArrayCreationExpressionSyntax => true,
             // The compiler gives a collection expression in a cast no type. The cast has the type.
             CollectionExpressionSyntax collection =>

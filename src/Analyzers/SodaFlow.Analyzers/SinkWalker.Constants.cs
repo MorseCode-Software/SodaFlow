@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -65,13 +66,14 @@ internal sealed partial class SinkWalker
         return cannotRun;
     }
 
-    private void VisitIfItCanRun(StatementSyntax statement, bool cannotRun)
+    private void VisitIfItCanRun(SyntaxNode statement, bool cannotRun)
     {
         if (!cannotRun)
         {
             this.Visit(statement);
         }
     }
+
     // Each switch section that the constant value of its switch rules out.
     private HashSet<SwitchSectionSyntax>? ruledOut;
 
@@ -117,15 +119,11 @@ internal sealed partial class SinkWalker
             return;
         }
 
-        foreach (SwitchSectionSyntax section in node.Sections)
-        {
-            if (section.Statements.Count > 0
+        (this.ruledOut ??= []).UnionWith(
+            node.Sections.Where(section =>
+                section.Statements.Count > 0
                 && this.region.ModelFor(section).AnalyzeControlFlow(section.Statements[0])
-                    is { StartPointIsReachable: false })
-            {
-                (this.ruledOut ??= []).Add(section);
-            }
-        }
+                    is { StartPointIsReachable: false }));
     }
 
     // A switch expression on a constant does not run an arm whose constant pattern is a different
@@ -164,12 +162,9 @@ internal sealed partial class SinkWalker
     // never matches. Null for each other arm. The compiler converts the constant of a pattern to the
     // type of the value. Thus, Equals gives the result of the pattern for each value, also NaN.
     private bool? MatchesTheConstant(SwitchExpressionArmSyntax arm, object? input) =>
-        this.region.ModelFor(arm).GetOperation(arm)
-            is ISwitchExpressionArmOperation
-            {
-                Guard: null,
-                Pattern: IConstantPatternOperation { Value.ConstantValue: { HasValue: true, Value: var value } }
-            }
+        arm.WhenClause == null
+        && this.region.ModelFor(arm).GetOperation(arm.Pattern)
+            is IConstantPatternOperation { Value.ConstantValue: { HasValue: true, Value: var value } }
             ? Equals(objA: value, objB: input)
             : null;
 }
