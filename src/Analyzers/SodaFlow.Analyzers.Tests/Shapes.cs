@@ -61776,6 +61776,18 @@ public static class Shapes
     public static Cell<int> Ab434HandlerRemovedFromACopyInAHelper() =>
         Cell.Loop<int>().WithoutCaptures(l => { Action h = () => Kept.Add(l.Sample()); Action? all = null; all += h; Ab434RemoveFromACopy(all, h); all?.Invoke(); return S.Hold(0); });
 
+    // S14971. A coalesce returns its first value. The first send is a switch of a hold of a second sink, and the second send is linked. A later send into the second sink makes the first send linked.
+    public static Cell<int> Ab406CoalesceReturnsAFirstSendThatALaterSendLinks() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> u = t.Hold(Plain); StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((a, _) => a); Cell<Cell<int>> h = s.Hold(Plain); s.Send(u.SwitchC()); s.Send(l.Map(v => v)); t.Send(l.Map(v => v)); return h.SwitchC(); });
+
+    // S14972. A coalesce returns its second value. The first send is linked, and the second send is a switch of a hold of a second sink. A later send into the second sink makes the second send linked.
+    public static Cell<int> Ab406CoalesceReturnsASecondSendThatALaterSendLinks() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> u = t.Hold(Plain); StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, b) => b); Cell<Cell<int>> h = s.Hold(Plain); s.Send(l.Map(v => v)); s.Send(u.SwitchC()); t.Send(l.Map(v => v)); return h.SwitchC(); });
+
+    // S14973. A control: a coalesce returns its second value, which is plain. The first send is a switch of a hold of a second sink, which a later send makes linked.
+    public static Cell<int> Ab406CoalesceReturnsAPlainSecondSendAfterASendThatALaterSendLinks() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> t = Stream.CreateSink<Cell<int>>(); Cell<Cell<int>> u = t.Hold(Plain); StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, b) => b); Cell<Cell<int>> h = s.Hold(Plain); s.Send(u.SwitchC()); s.Send(Plain); t.Send(l.Map(v => v)); return h.SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

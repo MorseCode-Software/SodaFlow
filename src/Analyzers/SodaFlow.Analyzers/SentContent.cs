@@ -148,7 +148,8 @@ internal sealed class SentContent
             || !HaveOneShape(first: this.TwoSendsInto(creation), second: before.TwoSendsInto(creation)));
 
     // The two sends can change their own states and keep the state of their join. The function then
-    // gets new values.
+    // gets new values. A send of a value that a hold of a different sink makes is such a send, where a
+    // send into that sink comes after it.
     private static bool HaveOneShape(
         (LoopState First, LoopState Second)? first,
         (LoopState First, LoopState Second)? second) =>

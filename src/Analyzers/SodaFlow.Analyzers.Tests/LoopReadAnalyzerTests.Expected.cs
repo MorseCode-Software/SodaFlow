@@ -8770,6 +8770,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab434HandlerKeptByALaterOverride"] = ["SF1001"],
             ["Ab434HandlerRemovedFromTheSecondBellInAHelper"] = ["SF1001"],
             ["Ab434HandlerKeptByALambdaThatTheLocalGetsLater"] = ["SF1001"],
-            ["Ab434HandlerRemovedFromACopyInAHelper"] = ["SF1001"]
+            ["Ab434HandlerRemovedFromACopyInAHelper"] = ["SF1001"],
+            ["Ab406CoalesceReturnsAFirstSendThatALaterSendLinks"] = ["SF1002"],
+            ["Ab406CoalesceReturnsASecondSendThatALaterSendLinks"] = ["SF1002"]
         };
 }
