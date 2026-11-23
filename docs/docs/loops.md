@@ -450,7 +450,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes the `Equals`, `GetHashCode`,
   `ToString`, and `Deconstruct` that the compiler writes for a record, also where you call one by
-  name, a property that uses `field`, a member of an extension block, a static member of an
+  name, a property that uses `field`, a member of an extension block, also in its static form,
+  in a property pattern, and where it writes through a `ref` receiver, a static member of an
   interface called through a type parameter, and the constructor that `new T()` runs, where the
   call says the type of `T`.
 - Events and delegates: the handlers added with `+=` run where the event is raised, and a delegate

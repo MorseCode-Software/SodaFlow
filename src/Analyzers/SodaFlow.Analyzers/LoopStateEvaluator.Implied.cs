@@ -1663,7 +1663,9 @@ internal sealed partial class LoopStateEvaluator
 
         Followed? result =
             this.region.SymbolOf(name) is IPropertySymbol written && !this.region.Symbols.IsSodaFlow(written)
-                ? this.FollowGetterOn(access: name, written: written, owner: owner)
+                ? this.ExtensionParameterOf(written.OriginalDefinition) is { } extended
+                    ? this.FollowTheGetterOfABlockMember(name: name, written: written, extended: extended, owner: owner)
+                    : this.FollowGetterOn(access: name, written: written, owner: owner)
                 : null;
 
         this.followed[name] = result;

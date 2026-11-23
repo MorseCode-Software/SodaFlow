@@ -60488,6 +60488,42 @@ public static class Shapes
     public static Cell<int> Ab405RecordToStringCallInALambdaThatNothingCalls() =>
         Cell.Loop<int>().WithoutCaptures(l => { R6ApiNowRecord r = new(l.Map(v => v)); Func<string> print = () => r.ToString(); Kept.Add(print); return S.Hold(0); });
 
+    // S14642. A method of an extension block is called in its static form, and it samples its receiver.
+    public static Cell<int> R6CsExtensionBlockMethodInTheStaticSpelling() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Shapes.R6CsReadNow(l.Map(v => v))); return S.Hold(0); });
+
+    // S14643. The getter of a property of an extension block is called in its static form, and it samples its receiver.
+    public static Cell<int> R6CsExtensionPropertyGetterInTheStaticSpelling() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Shapes.get_R6CsNow(l.Map(v => v))); return S.Hold(0); });
+
+    // S14644. A property pattern names a property of an extension block, which samples its receiver.
+    public static Cell<int> R6CsExtensionPropertyInAPropertyPattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { bool big = l.Map(v => v) is { R6CsNow: > 0 }; Kept.Add(big); return S.Hold(0); });
+
+    // S14645. A method of an extension block on a ref struct receiver writes a pending cell to it, and the block samples the field.
+    public static Cell<int> R6CsExtensionOnARefReceiverWritesIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSlot s = new() { Share = Plain }; s.R6CsPut(l.Map(v => v)); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S14646. Control: a method of an extension block is called in its static form on a plain cell.
+    public static Cell<int> Ab387ExtensionBlockMethodInTheStaticSpellingOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Shapes.R6CsReadNow(Plain)); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S14647. Control: a property pattern names a property of an extension block on a plain cell.
+    public static Cell<int> Ab387ExtensionPropertyInAPropertyPatternOfAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { bool big = Plain is { R6CsNow: > 0 }; Kept.Add(big); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S14648. A method of an extension block on a ref struct receiver is called in its static form, and writes a pending cell to the struct.
+    public static Cell<int> Ab387ExtensionOnARefReceiverInTheStaticSpellingWritesIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSlot s = new() { Share = Plain }; Shapes.R6CsPut(ref s, l.Map(v => v)); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S14649. Control: a method of an extension block on a ref struct receiver writes a plain cell over a pending one.
+    public static Cell<int> Ab387ExtensionOnARefReceiverWritesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSlot s = new() { Share = l.Map(v => v) }; s.R6CsPut(Plain); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S14650. Control: a method of an extension block on a struct receiver by value writes a pending cell to a copy, and the block samples the field of the variable.
+    public static Cell<int> Ab387ExtensionOnAValueReceiverWritesACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSlot s = new() { Share = Plain }; s.Ab387PutInACopy(l.Map(v => v)); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112001,6 +112037,11 @@ public static class Shapes
         public static readonly int Value;
 
         static Ab377CctorInAFunction() => Value = Ab377Share.F!.Sample();
+    }
+
+    extension(R6CsSlot s)
+    {
+        public void Ab387PutInACopy(Cell<int> c) => s.Share = c;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

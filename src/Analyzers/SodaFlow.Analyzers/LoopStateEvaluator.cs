@@ -3649,9 +3649,10 @@ internal sealed partial class LoopStateEvaluator
                 arguments: [.. arguments.Select(argument => (argument.Expression, this.Eval(argument.Expression)))]);
         }
 
-        if (this.FollowRecordMemberCall(invocation: invocation, method: method) is { } recordMember)
+        if ((this.FollowRecordMemberCall(invocation: invocation, method: method)
+             ?? this.FollowTheStaticFormOfABlockMember(invocation: invocation, method: method)) is { } implied)
         {
-            return recordMember;
+            return implied;
         }
 
         if (this.region.Symbols.IsSodaFlow(method))

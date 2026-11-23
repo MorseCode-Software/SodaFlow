@@ -8550,6 +8550,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab405RecordEqualsCallCallsTheEqualsOfAMember"] = ["SF1005"],
             ["Ab405RecordEqualsOfAnObjectCallCallsTheEqualsOfAMember"] = ["SF1005"],
             ["Ab405RecordGetHashCodeCallCallsTheGetHashCodeOfAMember"] = ["SF1005"],
-            ["Ab405RecordDeconstructCallGivesThePendingMember"] = ["SF1001"]
+            ["Ab405RecordDeconstructCallGivesThePendingMember"] = ["SF1001"],
+            ["R6CsExtensionBlockMethodInTheStaticSpelling"] = ["SF1004"],
+            ["R6CsExtensionPropertyGetterInTheStaticSpelling"] = ["SF1004"],
+            ["R6CsExtensionPropertyInAPropertyPattern"] = ["SF1004"],
+            ["R6CsExtensionOnARefReceiverWritesIt"] = ["SF1001"],
+            ["Ab387ExtensionOnARefReceiverInTheStaticSpellingWritesIt"] = ["SF1001"]
         };
 }

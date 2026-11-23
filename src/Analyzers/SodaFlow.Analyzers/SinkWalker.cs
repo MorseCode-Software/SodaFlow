@@ -4813,6 +4813,14 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             this.evaluator.GivesAnArgument(argument: receiver, parameter: definition.Parameters[0], followed: followed);
         }
 
+        if (offset == 0 && receiver != null && followed != null)
+        {
+            this.evaluator.GivesTheReceiverOfABlockMember(
+                definition: definition,
+                followed: followed,
+                receiver: receiver);
+        }
+
         for (int i = 0; i < arguments.Count; i++)
         {
             if (SodaFlowSymbols.ParameterOf(callee: definition, argument: arguments[i], position: i + offset)
