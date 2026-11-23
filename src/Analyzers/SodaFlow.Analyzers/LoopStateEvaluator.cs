@@ -2457,13 +2457,11 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     private LoopState EvalMethodGroup(ExpressionSyntax expression, IMethodSymbol group)
     {
-        // A method group such as x.Sample is a read that runs after this. It is pending, as a lazy
-        // sample of x is.
         if (expression is MemberAccessExpressionSyntax read
             && SodaFlowSymbols.ReadMembers.Contains(read.Name.Identifier.ValueText)
             && this.region.Symbols.IsSodaFlow(group))
         {
-            return this.Eval(read.Expression).WithLinked(false);
+            return this.EvalAReadGroup(read: read, group: group);
         }
 
         return this.FunctionsOfAGroup(expression: expression, group: group) is { IsNone: false } functions
@@ -4142,6 +4140,16 @@ internal sealed partial class LoopStateEvaluator
                         returnsAnObject: this.DoesNotSayItsClass(method.ReturnType),
                         manyTimes: each is { ManyTimes: true }));
             }
+            // A method group of a read of the library, such as x.Sample.
+            case MemberAccessExpressionSyntax read when function.Definer != null:
+                return this.FollowAReadGroup(
+                    read: read,
+                    function: function,
+                    argument: each is (_, var given, _)
+                        ? given
+                        : arguments.Count > 0
+                            ? this.Eval(arguments[0].Expression)
+                            : LoopState.None);
             default:
                 return null;
         }

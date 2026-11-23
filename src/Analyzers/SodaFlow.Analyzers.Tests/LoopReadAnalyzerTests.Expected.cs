@@ -8564,6 +8564,21 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6SmpMapOfAVirtualMethodGroupOfABaseLocal"] = ["SF1001"],
             ["R6SmpMapOfAnInterfaceMethodGroup"] = ["SF1001"],
             ["Ab388ExtensionMethodGroupCalledWithAnArgument"] = ["SF1004"],
-            ["Ab388BlockMethodGroupWithAParameterIsCalled"] = ["SF1004"]
+            ["Ab388BlockMethodGroupWithAParameterIsCalled"] = ["SF1004"],
+            ["R6CsNaturalTypeMethodGroupOfACellIsCalled"] = ["SF1001"],
+            ["R6CsExplicitTypeMethodGroupOfACellIsCalled"] = ["SF1001"],
+            ["R6CsLazyOfTheSampleMethodGroupOfACell"] = ["SF1001"],
+            ["R6SmpDelegateLocalOfTheSampleGroupOfAMapCalled"] = ["SF1001"],
+            ["R6SmpHelperCallsTheSampleGroupOfThePlaceholder"] = ["SF1001"],
+            ["R6SmpMapOfAFunctionReturnedSampleGroup"] = ["SF1001"],
+            ["R6SmpRunOfTheSampleGroupOfThePlaceholder"] = ["SF1001"],
+            ["R6SmpRunOfTheSampleGroupOfAMap"] = ["SF1001"],
+            ["R6SmpDelegateLocalOfTheSampleGroupCalled"] = ["SF1001"],
+            ["R6SmpLazyOfTheSampleGroupRead"] = ["SF1001"],
+            ["R6SmpMapOfTheStaticSampleGroup"] = ["SF1001"],
+            ["R6SmpSelectOfTheStaticSampleGroup"] = ["SF1001"],
+            ["Ab389MethodCallsTheSampleGroupOfItsParameter"] = ["SF1004"],
+            ["Ab389StaticSampleGroupCalledWithAPendingCell"] = ["SF1001"],
+            ["Ab389SampleGroupOfAMapRunsItsFunctionAtTheCall"] = ["SF1001"]
         };
 }

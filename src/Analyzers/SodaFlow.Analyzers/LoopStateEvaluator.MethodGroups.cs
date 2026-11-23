@@ -118,6 +118,70 @@ internal sealed partial class LoopStateEvaluator
         return actual.Length == 0 ? [definition] : actual;
     }
 
+    /// <summary>
+    ///     A method group of a read of the library, such as <c>x.Sample</c>.
+    ///     Until the delegate runs, it is pending, as a lazy sample of x is. Its
+    ///     function reads x when something runs the delegate.
+    /// </summary>
+    /// <remarks>
+    ///     A static group with no receiver, such as
+    ///     <c>CellExtensionMethods.Sample</c>, reads its first argument.
+    /// </remarks>
+    private LoopState EvalAReadGroup(MemberAccessExpressionSyntax read, IMethodSymbol group)
+    {
+        LoopState owner = this.Eval(read.Expression);
+
+        return owner.WithLinked(false)
+            .Join(
+                LoopState.OfFunction(
+                    new FunctionValue(
+                        declaration: read,
+                        definer: this,
+                        receiver: group.ReducedFrom != null || !group.IsStatic ? owner : null,
+                        ofThis: null,
+                        owner: null)));
+    }
+
+    // The run of the function of a read group. The receiver is a value of the code of the group,
+    // and an argument is a value of this code. A cell whose functions run at its first read runs
+    // them now.
+    private Followed FollowAReadGroup(MemberAccessExpressionSyntax read, FunctionValue function, LoopState argument)
+    {
+        (LoopStateEvaluator reader, LoopState state) =
+            function is { Receiver: { } receiver, Definer: { } definer } ? (definer, receiver) : (this, argument);
+
+        if (!state.Computed.IsEmpty)
+        {
+            state = reader.AtTheFirstRead(read: read, state: state, marks: null);
+        }
+
+        if (!state.Pending)
+        {
+            return Followed.Nothing;
+        }
+
+        string name = read.Name.Identifier.ValueText;
+
+        return new Followed(
+            state: LoopState.None,
+            findings: ImmutableArray.Create(
+                new Finding(
+                    home: reader.Frame,
+                    origin: state.Origin,
+                    escape: false,
+                    diagnostic: Diagnostic.Create(
+                        descriptor: Diagnostics.ReadBeforeClose,
+                        location: read.GetLocation(),
+                        name,
+                        this.region.PlaceholderName),
+                    subject: name,
+                    readBack: state.ReadBack)),
+            outs: Followed.Nothing.Outs,
+            sets: Followed.Nothing.Sets,
+            through: Followed.Nothing.Through,
+            alwaysGives: Followed.Nothing.AlwaysGives);
+    }
+
     // A method group of an extension method gives its receiver to the first parameter, as a call
     // of the method does. The arguments of a call of the delegate go to the parameters after it. A
     // member of an extension block gives the receiver to the parameter of the block.

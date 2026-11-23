@@ -459,7 +459,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   `GetInvocationList()` of a delegate is one of those functions. An element at a constant index is
   the one function at that place where a local holds the list and the analyzer knows the functions
   in order: the delegate is a lambda, a method given by name, or a `+` or a `Delegate.Combine` of
-  two such delegates, directly or through locals that get no other value.
+  two such delegates, directly or through locals that get no other value. `Sample` given by name,
+  as in `Transaction.Run(cell.Sample)` or `Select(CellExtensionMethods.Sample)`, reads its cell
+  where the delegate runs, as a lambda that samples the cell does.
 - Loops: each pass of a `for`, `foreach`, `while`, or `do`, of a `goto` back to a label, or of a
   `goto case` or `goto default` back to an earlier section of a `switch`, is read until a pass adds
   nothing new.

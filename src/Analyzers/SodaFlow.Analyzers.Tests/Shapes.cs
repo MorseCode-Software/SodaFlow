@@ -60572,6 +60572,82 @@ public static class Shapes
     public static Cell<int> Ab388BlockMethodGroupWithAParameterIsCalled() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> f = Plain.Ab388SampleOf; Kept.Add(f(l.Map(v => v))); return S.Hold(0); });
 
+    // S14663. Control: a delegate of the Sample method of a pending cell is called.
+    public static Cell<int> R6CsNaturalTypeMethodGroupOfACellIsCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { var f = l.Map(v => v).Sample; Kept.Add(f()); return S.Hold(0); });
+
+    // S14664. A delegate local of an explicit type gets the Sample method of a pending cell, and the block calls it.
+    public static Cell<int> R6CsExplicitTypeMethodGroupOfACellIsCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int> f = l.Map(v => v).Sample; Kept.Add(f()); return S.Hold(0); });
+
+    // S14665. A Lazy gets the Sample method of a pending cell, and the block reads its value.
+    public static Cell<int> R6CsLazyOfTheSampleMethodGroupOfACell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int> z = new(l.Map(v => v).Sample); Kept.Add(z.Value); return S.Hold(0); });
+
+    // S14666. The block gives a delegate local the method group Sample of a map, and calls the delegate.
+    public static Cell<int> R6SmpDelegateLocalOfTheSampleGroupOfAMapCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Func<int> f = p.Sample; return S.Hold(f()); });
+
+    // S14667. The block gives a method of this code the method group Sample of the placeholder, and the method calls it.
+    public static Cell<int> R6SmpHelperCallsTheSampleGroupOfThePlaceholder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(R6SmpCall(l.Sample)); });
+
+    // S14668. The block maps a constant cell with the method group Sample of a map of the placeholder, in a lambda that ignores its parameter, and samples the result.
+    public static Cell<int> R6SmpMapOfAFunctionReturnedSampleGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); Func<int> f = p.Sample; return S.Hold(Plain.Map(v => v + f()).Sample()); });
+
+    // S14669. The block gives Transaction.Run the method group Sample of the placeholder.
+    public static Cell<int> R6SmpRunOfTheSampleGroupOfThePlaceholder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Transaction.Run(l.Sample)); });
+
+    // S14670. The block gives Transaction.Run the method group Sample of a map of the placeholder.
+    public static Cell<int> R6SmpRunOfTheSampleGroupOfAMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> p = l.Map(v => v); return S.Hold(Transaction.Run(p.Sample)); });
+
+    // S14671. The block keeps the method group Sample of the placeholder in a delegate local and calls it.
+    public static Cell<int> R6SmpDelegateLocalOfTheSampleGroupCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int> f = l.Sample; return S.Hold(f()); });
+
+    // S14672. The block builds a Lazy with the method group Sample of the placeholder and reads its value.
+    public static Cell<int> R6SmpLazyOfTheSampleGroupRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int> z = new(l.Sample); return S.Hold(z.Value); });
+
+    // S14673. The block maps a constant cell of a pending cell with the method group of CellExtensionMethods.Sample and samples the map.
+    public static Cell<int> R6SmpMapOfTheStaticSampleGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { return S.Hold(Cell.Constant(l.Map(v => v)).Map(CellExtensionMethods.Sample).Sample()); });
+
+    // S14674. The block selects with the method group of CellExtensionMethods.Sample over an array of the placeholder, and makes a list.
+    public static Cell<int> R6SmpSelectOfTheStaticSampleGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Cell<int>[] { l }.Select(CellExtensionMethods.Sample).ToList()); return S.Hold(0); });
+
+    // S14675. Control: a delegate of the Sample method of a plain cell is called.
+    public static Cell<int> Ab389SampleGroupOfAPlainCellIsCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int> f = Plain.Sample; Kept.Add(f()); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S14676. Control: the block selects with the static Sample group over an array of a plain cell, and makes a list.
+    public static Cell<int> Ab389SelectOfTheStaticSampleGroupOverAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Cell<int>[] { Plain }.Select(CellExtensionMethods.Sample).ToList()); Kept.Add(l); return S.Hold(0); });
+
+    // S14677. Control: the block keeps a select with the static Sample group over an array of the placeholder, and nothing enumerates it.
+    public static Cell<int> Ab389SelectOfTheStaticSampleGroupThatNothingEnumerates() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new Cell<int>[] { l }.Select(CellExtensionMethods.Sample)); return S.Hold(0); });
+
+    // S14678. Control: the block keeps a Lazy of the Sample group of the placeholder, and does not read its value.
+    public static Cell<int> Ab389LazyOfTheSampleGroupThatNothingReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Lazy<int> z = new(l.Sample); Kept.Add(z); return S.Hold(0); });
+
+    // S14679. A method makes the Sample group of its parameter and calls it, and the block gives it a pending cell.
+    public static Cell<int> Ab389MethodCallsTheSampleGroupOfItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab389SampleThroughAGroup(l.Map(v => v))); return S.Hold(0); });
+
+    // S14680. A delegate of the static Sample group is called with a pending cell.
+    public static Cell<int> Ab389StaticSampleGroupCalledWithAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Cell<int>, int> f = CellExtensionMethods.Sample; Kept.Add(f(l.Map(v => v))); return S.Hold(0); });
+
+    // S14681. A delegate of the Sample method of a map is called, and the function of the map runs then and samples a captured local that the block sets pending after the build.
+    public static Cell<int> Ab389SampleGroupOfAMapRunsItsFunctionAtTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> m = Plain.Map(v => v + c.Sample()); c = l.Map(v => v); Func<int> f = m.Sample; Kept.Add(f()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112102,6 +112178,13 @@ public static class Shapes
     extension(Cell<int> c)
     {
         public int Ab388SampleOf(Cell<int> d) => d.Sample();
+    }
+
+    private static int Ab389SampleThroughAGroup(Cell<int> c)
+    {
+        Func<int> f = c.Sample;
+
+        return f();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
