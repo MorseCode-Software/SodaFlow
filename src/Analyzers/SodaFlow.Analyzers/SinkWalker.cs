@@ -1809,6 +1809,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             this.Report(this.evaluator.FollowOutConversions(deconstruction: call, value: value, states: states));
         }
 
+        ImmutableArray<IParameterSymbol> outs = OutsOf(method);
+
         for (int i = 0; i < parts.Count; i++)
         {
             LoopState part = i < states.Count ? states[i] : LoopState.None;
@@ -1820,6 +1822,17 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             else
             {
                 this.DeclareDesignation(designation: parts[i], state: part);
+            }
+
+            if (i < outs.Length)
+            {
+                this.evaluator.NotesAFieldGivenOut(
+                    target: parts[i],
+                    parameter: outs[i],
+                    method: method,
+                    receiver: value,
+                    call: call,
+                    replaces: replaces);
             }
         }
 
@@ -4813,13 +4826,27 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     ? this.PositionsBeforeAGive(collection: indexed.Expression, call: call)
                     : null;
 
+            bool always = call != null && this.WhereACallRuns(call).InItsFunction;
+
             if (target is not ElementAccessExpressionSyntax || gives)
             {
-                this.AssignState(
-                    target: target,
-                    state: state,
-                    replaces: call != null && this.WhereACallRuns(call).InItsFunction,
-                    turn: null);
+                this.AssignState(target: target, state: state, replaces: always, turn: null);
+            }
+
+            // A method that gives the parameter a field of its object makes the local a name of that field.
+            // The method gives it in each run, thus the call needs to run only. The walk can follow no such
+            // method, because nothing from the loop goes in.
+            if (arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)
+                && arguments[i].Parent?.Parent is InvocationExpressionSyntax site
+                && arguments.Count(static argument => !argument.RefKindKeyword.IsKind(SyntaxKind.None)) == 1)
+            {
+                this.evaluator.NotesAFieldGivenOut(
+                    target: arguments[i].Expression,
+                    parameter: parameter,
+                    method: definition,
+                    receiver: receiver,
+                    call: site,
+                    replaces: this.WhereACallRuns(site).InItsFunction);
             }
 
             if (target is ElementAccessExpressionSyntax given)

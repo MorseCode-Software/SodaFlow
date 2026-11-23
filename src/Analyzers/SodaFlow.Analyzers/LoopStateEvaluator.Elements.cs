@@ -415,6 +415,7 @@ internal sealed partial class LoopStateEvaluator
                 this.region.SymbolOf(node) is not IPropertySymbol property
                 || this.IsAMemberLocation(property)
                 || this.TheFieldBehind(property) != null
+                || this.TheStaticElementBehind(property) != null
                 || (property.DeclaringSyntaxReferences.IsEmpty
                     && (SodaFlowSymbols.IsLazyValue(property) || this.region.Symbols.ReadsItsOwner(property)
                         ? this.RunsNoFunctionThatTheWalkKnows(owner: OwnerOfAProperty(node), callee: callee)

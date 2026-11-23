@@ -98,13 +98,7 @@ internal sealed partial class LoopStateEvaluator
         bool replaces)
     {
         List<NamesOfOneObject> all = this.Frame.NamesOfOneObject;
-
-        foreach (NamesOfOneObject one in all)
-        {
-            one.Names.RemoveAll(name => name.Is(of: target.Of, owner: target.Owner, index: target.Index));
-        }
-
-        all.RemoveAll(static one => one.Names.Count == 0);
+        this.LeavesItsRecords(target);
 
         if (replaces
             && value is BaseObjectCreationExpressionSyntax
@@ -136,8 +130,34 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
+        this.JoinsTheRecordOf(target: target, from: from, use: value, code: code, at: at);
+    }
+
+    // The target leaves each record that has it.
+    private void LeavesItsRecords((ISymbol Of, ISymbol? Owner, object? Index) target)
+    {
+        List<NamesOfOneObject> all = this.Frame.NamesOfOneObject;
+
+        foreach (NamesOfOneObject one in all)
+        {
+            one.Names.RemoveAll(name => name.Is(of: target.Of, owner: target.Owner, index: target.Index));
+        }
+
+        all.RemoveAll(static one => one.Names.Count == 0);
+    }
+
+    // The target joins the record that has a name that holds its object at a use, or a new record with that name.
+    private void JoinsTheRecordOf(
+        (ISymbol Of, ISymbol? Owner, object? Index) target,
+        (ISymbol Of, ISymbol? Owner, object? Index) from,
+        SyntaxNode use,
+        SyntaxNode code,
+        SyntaxNode at)
+    {
+        List<NamesOfOneObject> all = this.Frame.NamesOfOneObject;
+
         NamesOfOneObject? held =
-            all.FirstOrDefault(one => one.Names.Any(name => this.IsTheName(name: name, read: from, use: value)));
+            all.FirstOrDefault(one => one.Names.Any(name => this.IsTheName(name: name, read: from, use: use)));
 
         if (held == null)
         {
@@ -184,7 +204,8 @@ internal sealed partial class LoopStateEvaluator
                 && this.IsAMemberLocation(member)
                 && members != null)
             {
-                one.Members.Add((member.OriginalDefinition, at.Span.End, members.StateOf(member), true, this.region.MemberWrites));
+                one.Members.Add(
+                    (member.OriginalDefinition, at.Span.End, members.StateOf(member), true, this.region.MemberWrites));
             }
         }
 
@@ -856,6 +877,10 @@ internal sealed partial class LoopStateEvaluator
                                       && (KeepsItsObject(named) || IsAStaticLocation(named))
                                       && this.HoldsAnObject(named) =>
                 (named, null, null),
+            IdentifierNameSyntax or MemberAccessExpressionSyntax
+                when this.region.SymbolOf(written) is IPropertySymbol { IsStatic: true } property
+                     && this.TheStaticElementBehind(property) is { } element =>
+                element,
             IdentifierNameSyntax when this.TheDeclaredLocationOf(written) is { } location =>
                 this.NameOfAnObjectIn(location),
             MemberAccessExpressionSyntax access
@@ -868,6 +893,18 @@ internal sealed partial class LoopStateEvaluator
                       && this.region.SymbolOf(holder) is { } owner
                       && KeepsItsObject(owner)
                         ? (member, owner, null)
+                        : null,
+            InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } call
+                when this.region.SymbolOf(call) is IMethodSymbol method
+                     && this.FieldReturnedBy(method) is { } returned
+                     && this.HoldsAnObject(returned) =>
+                returned.IsStatic
+                    ? (returned, null, null)
+                    : !method.IsStatic
+                      && call.Expression is MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax holder }
+                      && this.region.SymbolOf(holder) is { } owner
+                      && KeepsItsObject(owner)
+                        ? (returned, owner, null)
                         : null,
             ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } indexes } element
                 when this.region.TypeOf(element) is { } type
@@ -1057,7 +1094,8 @@ internal sealed partial class LoopStateEvaluator
                                                  IsOverride: false
                                              } method
                                              && !(method.ReducedFrom ?? method).DeclaringSyntaxReferences.IsEmpty =>
-                                        this.CanStandBetween(
+                                        this.GivesOnlyFields(method)
+                                        || this.CanStandBetween(
                                             method: method.ReducedFrom ?? method,
                                             collection: type,
                                             callees: MaxCalleesBetween,
@@ -1078,6 +1116,14 @@ internal sealed partial class LoopStateEvaluator
                                         } implicitConstructor =>
                                         implicitConstructor.ContainingType.StaticConstructors.IsEmpty
                                         && HasNoInitializers(implicitConstructor.ContainingType),
+                                    // An out argument that declares a local gives no older name a
+                                    // value.
+                                    ArgumentSyntax
+                                    {
+                                        RefKindKeyword.RawKind: (int)SyntaxKind.OutKeyword,
+                                        Expression: DeclarationExpressionSyntax
+                                    } => true,
+                                    DeclarationExpressionSyntax or SingleVariableDesignationSyntax => true,
                                     // A new object gets the values of its initializer. The walk
                                     // reads each assignment of the initializer as a node.
                                     InitializerExpressionSyntax

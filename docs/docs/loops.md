@@ -383,9 +383,14 @@ The analyzer follows a value made from the placeholder through the code of your 
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
   from there. A name is a local, a parameter, a static field or a static property with no body, a
-  field or such a property of the object in a local, a property whose accessors only read and write
-  one field, or an element of a local collection or of an array in a static field, at a constant
-  index or key or at an index in a local. An element of a second local that got the collection from
+  field or such a property of the object in a local, a property whose get accessor only returns one
+  field and whose set accessor, where it has one, only writes it, the result of a method of yours with
+  no parameters that only returns a field, or an element of a local collection or of an array in a
+  static field, at a constant index or key or at an index in a local. A static property whose get
+  accessor only returns such an element of a static array is that element. A local that a method of
+  yours gives a field of its object through an `out` parameter is a name of that field, where each
+  statement of the method only gives an `out` parameter a field or a literal. A `Deconstruct` method
+  of yours of that form gives each part in the same way. An element of a second local that got the collection from
   the first is the same element, as long as neither local gets another value. A local that a lambda
   uses is a name as long as no lambda assigns it, and a `ref` local that code gives no other
   location, and assigns only with `=`, is a name of the location that it refers to. A write to a

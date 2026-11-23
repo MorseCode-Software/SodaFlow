@@ -8177,6 +8177,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6NmAb345RegisterNoStateReadField"] = ["SF1001"],
             ["R6NmAb345RegisterNoStateReadLocal"] = ["SF1001"],
             ["R6NmAb345RegisterWithStatePendingAfterReadField"] = ["SF1001"],
-            ["R6NmAb345RegisterThroughTwoMethodsNoState"] = ["SF1001"]
+            ["R6NmAb345RegisterThroughTwoMethodsNoState"] = ["SF1001"],
+            ["R6NmClassThroughADeconstructMethod"] = ["SF1001"],
+            ["R6NmInstanceGetterOfAFieldWriteThroughTheGetter"] = ["SF1001"],
+            ["R6NmInstanceBlockGetterOfAFieldWriteThroughTheGetter"] = ["SF1001"],
+            ["R6NmInstanceMethodThatReturnsAFieldWriteThroughTheCall"] = ["SF1001"],
+            ["R6NmInstanceMethodThatGivesAFieldByOut"] = ["SF1001"]
         };
 }

@@ -58592,6 +58592,42 @@ public static class Shapes
     public static Cell<int> R6NmAb345RegisterThroughTwoMethodsNoState() =>
         Cell.Loop<int>().WithoutCaptures(l => { R6NmRegTwo made = new(); made.Share = l.Map(v => v); return S.Hold(R6NmRegTwo.Last.Share!.Sample()); });
 
+    // S14168. Names of one object, Round 6: a Deconstruct method of the project gives a local the object in a field. A pending cell goes in through the local, and the read is through the field.
+    public static Cell<int> R6NmClassThroughADeconstructMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmPairHolder h = new(); h.First.Share = Plain; var (e, _) = h; e.Share = l.Map(v => v); return S.Hold(h.First.Share!.Sample()); });
+
+    // S14169. Names of one object, Round 6: an instance property with a body that returns a field of the object. A pending cell goes in through the property, and the read is through the field.
+    public static Cell<int> R6NmInstanceGetterOfAFieldWriteThroughTheGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmWrap w = new(); w.Inner.Share = Plain; w.Via.Share = l.Map(v => v); return S.Hold(w.Inner.Share!.Sample()); });
+
+    // S14170. Names of one object, Round 6: a pending cell through the field, then a plain cell through the instance property that returns it.
+    public static Cell<int> R6NmInstanceGetterOfAFieldPendingThenPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmWrap w = new(); w.Inner.Share = l.Map(v => v); w.Via.Share = Plain; return S.Hold(w.Inner.Share!.Sample()); });
+
+    // S14171. Names of one object, Round 6: a pending cell through the element, then a plain cell through the static property that returns it.
+    public static Cell<int> R6NmStaticGetterOfAnElementPendingThenPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmArrG[0].Share = l.Map(v => v); R6NmFirstOfG.Share = Plain; return S.Hold(R6NmArrG[0].Share!.Sample()); });
+
+    // S14172. Names of one object, Round 6: an instance property with a block body that returns a field. A pending cell goes in through the property, and the read is through the field.
+    public static Cell<int> R6NmInstanceBlockGetterOfAFieldWriteThroughTheGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmWrap w = new(); w.Inner.Share = Plain; w.ViaBlock.Share = l.Map(v => v); return S.Hold(w.Inner.Share!.Sample()); });
+
+    // S14173. Names of one object, Round 6: an instance method returns a field of its object. A pending cell goes in through the result of the call, and the read is through the field.
+    public static Cell<int> R6NmInstanceMethodThatReturnsAFieldWriteThroughTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmWrap w = new(); w.Inner.Share = Plain; w.TheInner().Share = l.Map(v => v); return S.Hold(w.Inner.Share!.Sample()); });
+
+    // S14174. Names of one object, Round 6: an instance method gives a field of its object to an out parameter. A pending cell goes in through the out local, and the read is through the field.
+    public static Cell<int> R6NmInstanceMethodThatGivesAFieldByOut() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmWrap w = new(); w.Inner.Share = Plain; w.GetInner(out SettableSlot e); e.Share = l.Map(v => v); return S.Hold(w.Inner.Share!.Sample()); });
+
+    // S14175. AB408, an edge. A pending cell through the field, then a plain cell through the result of an instance method that returns the field. The read is through the field.
+    public static Cell<int> Ab408AMethodThatReturnsAFieldPendingThenPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmWrap w = new(); w.Inner.Share = l.Map(v => v); w.TheInner().Share = Plain; return S.Hold(w.Inner.Share!.Sample()); });
+
+    // S14176. AB408, a control. An instance method gives a field of a second object to an out parameter. A pending cell goes in through the out local, and the read is through the field of the first object.
+    public static Cell<int> Ab408AnOutParameterOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmWrap w = new(); R6NmWrap other = new(); w.Inner.Share = Plain; other.GetInner(out SettableSlot e); e.Share = l.Map(v => v); return S.Hold(w.Inner.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
