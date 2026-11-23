@@ -20,7 +20,7 @@ internal sealed partial class LoopStateEvaluator
     ///     a local of the string can come between the two, and the walk does not
     ///     see it.
     /// </remarks>
-    private Followed? FollowLaterFormat(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    private Followed? FollowLaterFormat(InvocationExpressionSyntax invocation, ISymbol method)
     {
         if (method.Name is not ("ToString" or "Invariant" or "CurrentCulture")
             || method.ContainingType is not
