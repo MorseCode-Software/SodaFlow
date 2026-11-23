@@ -2249,19 +2249,30 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     // The same as AlwaysRuns, for a statement or for the expression that is the body of a function.
     // For a first read, also see MarksOfAFirstRead.
-    private bool AlwaysRunsAt(SyntaxNode place, bool forAFirstRead, out SyntaxNode? turn, out TryStatementSyntax? after)
+    // A call asks with forACall. For it, a goto to a label before the call is no exit, and the block
+    // of a try with no catch clause runs the call before the code after that try.
+    private bool AlwaysRunsAt(
+        SyntaxNode place,
+        bool forAFirstRead,
+        bool forACall,
+        out SyntaxNode? turn,
+        out TryStatementSyntax? after)
     {
         turn = null;
         after = null;
 
         bool inALambda = false;
+        SyntaxNode from = place;
 
         foreach (SyntaxNode ancestor in place.Ancestors())
         {
+            SyntaxNode child = from;
+            from = ancestor;
+
             switch (ancestor)
             {
                 case AnonymousFunctionExpressionSyntax lambda when this.entered.Contains(lambda):
-                    if (this.FirstExitOf(lambda) < place.SpanStart)
+                    if (this.ExitsBefore(function: lambda, place: place.SpanStart, forACall: forACall))
                     {
                         return false;
                     }
@@ -2299,11 +2310,20 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     or LabeledStatementSyntax
                     when this.AlwaysRunsItsCode(construct: ancestor, place: place):
                     continue;
+                // The finally block runs each time that the try statement runs.
+                case FinallyClauseSyntax:
+                    continue;
+                case TryStatementSyntax when child is FinallyClauseSyntax:
+                    continue;
                 // The code after a try with no catch clause runs only when the block runs to its end.
                 // The finally block can run before that.
-                case TryStatementSyntax { Catches.Count: 0 } attempt when forAFirstRead:
+                case TryStatementSyntax { Catches.Count: 0 } attempt when forAFirstRead || forACall:
                     after = attempt;
 
+                    continue;
+                case SwitchSectionSyntax section when this.IsTheSectionOfEachValue(section: section, at: place.SpanStart):
+                    continue;
+                case SwitchStatementSyntax when child is SwitchSectionSyntax:
                     continue;
                 // A call of the function that ends at a statement before the assignment does not
                 // run the assignment.
@@ -2312,10 +2332,14 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     or MemberDeclarationSyntax
                     or AccessorDeclarationSyntax:
                     // A return statement is no statement before itself.
-                    return this.FirstExitOf(ancestor) >= place.SpanStart;
+                    return !this.ExitsBefore(function: ancestor, place: place.SpanStart, forACall: forACall);
+                // The if around an else clause tells if the clause runs.
+                case ElseClauseSyntax:
+                    continue;
                 // A block, and a statement that always runs what is in it. Also the call that
                 // runs a lambda, and the statement that the call is in.
                 case BlockSyntax
+                    or LabeledStatementSyntax
                     or UsingStatementSyntax
                     or LockStatementSyntax
                     or CheckedStatementSyntax
@@ -3627,7 +3651,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                         this.evaluator.FollowEvictionsOfADispose(
                             map: receiver,
                             dispose: node,
-                            runsOnEachPath: () => this.WhereACallRuns(node).InItsFunction));
+                            runsOnEachPath: () => this.SurelyRuns(call: node, after: out _)));
 
                     break;
                 // A clock of the library base keeps the callback of SetTimer. Its RunTimersTo runs
@@ -3702,7 +3726,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         // A callee runs a timer of a different code only where the call runs on all paths. The walk
         // does not know the path that the arguments of the callee select.
-        bool always = this.WhereACallRuns(call) is (true, null);
+        bool always = this.SurelyRuns(call: call, after: out _);
 
         foreach (KeptTimer timer in this.region.Objects.TimersOf(this.region.Objects.Now(clocks))
                      .Where(timer => (always || timer.Keeper == this) && !this.IsAfter(time: timer.Time, now: now))

@@ -60716,6 +60716,98 @@ public static class Shapes
     public static Cell<int> Ab399AssignmentToThisOfACopy() =>
         Cell.Loop<int>().WithoutCaptures(l => { R6CsSpot s = new() { Share = Plain }; Ab399ResetCopy(s, l.Map(v => v)); Kept.Add(s.Share.Sample()); return S.Hold(0); });
 
+    // S14699. A method of this code calls RunTimersTo in the block of a try with a finally block. The call runs on every path.
+    public static Cell<int> R6PathTimerHelperRunsInATry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunInATry(clock); return S.Hold(0); });
+
+    // S14700. A method of this code calls RunTimersTo in a finally block. The call runs on every path.
+    public static Cell<int> R6PathTimerHelperRunsInAFinally() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunInAFinally(clock); return S.Hold(0); });
+
+    // S14701. A method of this code calls RunTimersTo in the else branch of an if on the constant false.
+    public static Cell<int> R6PathTimerHelperRunsInTheElseOfAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunInTheElseOfAConstant(clock); return S.Hold(0); });
+
+    // S14702. A method of this code calls RunTimersTo in the default section of a switch, which every value takes.
+    public static Cell<int> R6PathTimerHelperRunsInASwitchDefault() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunInASwitchDefault(clock, 1); return S.Hold(0); });
+
+    // S14703. A method of this code calls RunTimersTo in a do statement whose condition is the constant false. The one turn runs.
+    public static Cell<int> R6PathTimerHelperRunsInADoOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunInADoOnce(clock); return S.Hold(0); });
+
+    // S14704. A method of this code calls RunTimersTo in a for statement from 0 to 1. The one turn runs.
+    public static Cell<int> R6PathTimerHelperRunsInAForOnce() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunInAForOnce(clock); return S.Hold(0); });
+
+    // S14705. A method of this code goes to a label with goto, and the labeled statement calls RunTimersTo.
+    public static Cell<int> R6PathTimerHelperRunsAfterAGoto() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunAfterAGoto(clock); return S.Hold(0); });
+
+    // S14706. A method of this code calls RunTimersTo in a lambda that List.ForEach runs for one element.
+    public static Cell<int> R6PathTimerHelperRunsInAForEachLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathRunInAForEachLambda(clock); return S.Hold(0); });
+
+    // S14707. A method of this code disposes the map in a finally block.
+    public static Cell<int> R6PathMapHelperDisposesInAFinally() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; R6PathDisposeInAFinally(m); return S.Hold(n); });
+
+    // S14708. A method of this code disposes the map in the else branch of an if on the constant false.
+    public static Cell<int> R6PathMapHelperDisposesInTheElseOfAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; R6PathDisposeInTheElseOfAConstant(m); return S.Hold(n); });
+
+    // S14709. A method of this code disposes each item of a list in a foreach. The list holds the map.
+    public static Cell<int> R6PathMapHelperDisposesInAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; R6PathDisposeEach([m]); return S.Hold(n); });
+
+    // S14710. A method of this code calls RunTimersTo in the section of a switch that the constant value selects.
+    public static Cell<int> Ab364TimerHelperRunsInASwitchOfAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunInASwitchOfAConstant(clock); return S.Hold(0); });
+
+    // S14711. A method of this code calls RunTimersTo in the default section of a switch, after a break that always runs. Thus, the timer does not run.
+    public static Cell<int> Ab364TimerHelperSkipsAfterABreakOfASwitch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunAfterABreak(clock, 1); return S.Hold(0); });
+
+    // S14712. A method of this code calls RunTimersTo in the finally block of a try with a catch clause.
+    public static Cell<int> Ab364TimerHelperRunsInAFinallyAfterACatch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunInAFinallyAfterACatch(clock); return S.Hold(0); });
+
+    // S14713. A method of this code calls RunTimersTo in the block of a try with a catch clause. An exception before the call goes to the catch clause, thus the timer does not run.
+    public static Cell<int> Ab364TimerHelperSkipsInATryWithACatch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunInATryWithACatch(clock); return S.Hold(0); });
+
+    // S14714. A method of this code goes to a label after RunTimersTo with goto. Thus, the timer does not run.
+    public static Cell<int> Ab364TimerHelperSkipsAfterAGotoPastTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364SkipWithAGoto(clock); return S.Hold(0); });
+
+    // S14715. A method of this code calls RunTimersTo in a lambda that ForEach runs for each element of a list local with one element.
+    public static Cell<int> Ab364TimerHelperRunsInAForEachOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunInAForEachOfAList(clock); return S.Hold(0); });
+
+    // S14716. A method of this code calls RunTimersTo in a lambda that ForEach runs for each element of a new list with no element. Thus, the timer does not run.
+    public static Cell<int> Ab364TimerHelperSkipsInAForEachOfAnEmptyList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunInAForEachOfAnEmptyList(clock); return S.Hold(0); });
+
+    // S14717. A method of this code calls RunTimersTo in a foreach over the list that it gets. The list has one element.
+    public static Cell<int> Ab364TimerHelperRunsForEachTimeOfOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunEach(clock, [0]); return S.Hold(0); });
+
+    // S14718. A method of this code calls RunTimersTo in a foreach over the list that it gets. The list has no element, thus the timer does not run.
+    public static Cell<int> Ab364TimerHelperRunsForEachTimeOfNone() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunEach(clock, []); return S.Hold(0); });
+
+    // S14719. A method of this code calls RunTimersTo in the section of a switch that a constant of the type long selects.
+    public static Cell<int> Ab364TimerHelperRunsInASwitchOfALongConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunInASwitchOfALongConstant(clock); return S.Hold(0); });
+
+    // S14720. A method of this code calls RunTimersTo in the section of a switch that a constant string selects.
+    public static Cell<int> Ab364TimerHelperRunsInASwitchOfAStringConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunInASwitchOfAStringConstant(clock); return S.Hold(0); });
+
+    // S14721. A method of this code switches on a constant. A pattern with a when clause selects the first section, which does not call RunTimersTo. Thus, the timer does not run.
+    public static Cell<int> Ab364TimerHelperSkipsAfterAPatternOfASwitch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Ab364RunAfterAPattern(clock); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112280,6 +112372,131 @@ public static class Shapes
     private static void Ab399ResetRef(ref R6CsSpot s, Cell<int> c) => s.Reset(c);
 
     private static void Ab399ResetCopy(R6CsSpot s, Cell<int> c) => s.Reset(c);
+
+    // Helpers of the AB364 edges.
+    private static void Ab364RunInASwitchOfAConstant(R4ApiStepClock clock)
+    {
+        switch (R6PathOne)
+        {
+            case 1:
+                clock.RunTimersTo(0);
+
+                break;
+        }
+    }
+
+    private static void Ab364RunAfterABreak(R4ApiStepClock clock, int n)
+    {
+        switch (n)
+        {
+            default:
+                if (Kept.Count >= 0)
+                {
+                    break;
+                }
+
+                clock.RunTimersTo(0);
+
+                break;
+        }
+    }
+
+    private static void Ab364RunInAFinallyAfterACatch(R4ApiStepClock clock)
+    {
+        try
+        {
+            Kept.Add(0);
+        }
+        catch (FormatException)
+        {
+        }
+        finally
+        {
+            clock.RunTimersTo(0);
+        }
+    }
+
+    private static void Ab364RunInATryWithACatch(R4ApiStepClock clock)
+    {
+        try
+        {
+            Kept.Add(Ab364Fail());
+            clock.RunTimersTo(0);
+        }
+        catch (FormatException)
+        {
+        }
+    }
+
+    private static int Ab364Fail() => throw new FormatException();
+
+    private static void Ab364SkipWithAGoto(R4ApiStepClock clock)
+    {
+        if (Kept.Count >= 0)
+        {
+            goto end;
+        }
+
+        clock.RunTimersTo(0);
+        end:
+        Kept.Add(0);
+    }
+
+    private static void Ab364RunInAForEachOfAList(R4ApiStepClock clock)
+    {
+        List<int> times = [0];
+        times.ForEach(n => clock.RunTimersTo(n));
+    }
+
+    private static void Ab364RunInAForEachOfAnEmptyList(R4ApiStepClock clock) =>
+        new List<int>().ForEach(n => clock.RunTimersTo(n));
+
+    private static void Ab364RunEach(R4ApiStepClock clock, List<int> times)
+    {
+        foreach (int time in times)
+        {
+            clock.RunTimersTo(time);
+        }
+    }
+
+    private const long Ab364LongOne = 1;
+
+    private const string Ab364Name = "run";
+
+    private static void Ab364RunInASwitchOfALongConstant(R4ApiStepClock clock)
+    {
+        switch (Ab364LongOne)
+        {
+            case 1:
+                clock.RunTimersTo(0);
+
+                break;
+        }
+    }
+
+    private static void Ab364RunInASwitchOfAStringConstant(R4ApiStepClock clock)
+    {
+        switch (Ab364Name)
+        {
+            case "run":
+                clock.RunTimersTo(0);
+
+                break;
+        }
+    }
+
+    private static void Ab364RunAfterAPattern(R4ApiStepClock clock)
+    {
+        switch (R6PathOne)
+        {
+            case int n when n > 0:
+                break;
+            case 1:
+                clock.RunTimersTo(0);
+
+                break;
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

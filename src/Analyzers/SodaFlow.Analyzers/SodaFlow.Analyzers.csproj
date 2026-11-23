@@ -85,6 +85,7 @@
         <Compile Include="LoopStateEvaluator.OlderObjects.cs"/>
         <Compile Include="LoopStateEvaluator.Overrides.cs"/>
         <Compile Include="LoopStateEvaluator.PartialMembers.cs"/>
+        <Compile Include="LoopStateEvaluator.Paths.cs"/>
         <Compile Include="LoopStateEvaluator.Platform.cs"/>
         <Compile Include="LoopStateEvaluator.cs"/>
         <Compile Include="LoopStateEvaluator.Positions.cs"/>
@@ -127,6 +128,7 @@
         <Compile Include="SinkWalker.Scopes.cs"/>
         <Compile Include="SinkWalker.Nodes.cs"/>
         <Compile Include="SinkWalker.Sequences.cs"/>
+        <Compile Include="SinkWalker.Paths.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
         <Compile Include="WriteThroughAName.cs"/>
         <Compile Include="WritesThroughEach.cs"/>

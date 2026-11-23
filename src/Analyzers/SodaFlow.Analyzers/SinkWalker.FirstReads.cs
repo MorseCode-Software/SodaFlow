@@ -24,7 +24,7 @@ internal sealed partial class SinkWalker
     private List<(SyntaxNode Turn, ComputedValue Cell)>? turnMarks;
 
     private bool AlwaysRunsAt(SyntaxNode place, out SyntaxNode? turn) =>
-        this.AlwaysRunsAt(place: place, forAFirstRead: false, turn: out turn, after: out _);
+        this.AlwaysRunsAt(place: place, forAFirstRead: false, forACall: false, turn: out turn, after: out _);
 
     /// <summary>
     ///     What records the run of each cell that a first read runs. Null when
@@ -47,6 +47,7 @@ internal sealed partial class SinkWalker
             this.AlwaysRunsAt(
                 place: place,
                 forAFirstRead: true,
+                forACall: false,
                 turn: out SyntaxNode? turn,
                 after: out TryStatementSyntax? after);
 
@@ -96,7 +97,12 @@ internal sealed partial class SinkWalker
     public bool AlwaysRunsTheFirstTurnOf(SyntaxNode turn) =>
         turn.Parent is { } loop
         && this.HasAFirstTurn(loop)
-        && this.AlwaysRunsAt(place: loop, forAFirstRead: true, turn: out _, after: out TryStatementSyntax? after)
+        && this.AlwaysRunsAt(
+            place: loop,
+            forAFirstRead: true,
+            forACall: false,
+            turn: out _,
+            after: out TryStatementSyntax? after)
         && after == null;
 
     private void RunsInATurn(ComputedValue cell, SyntaxNode turn)

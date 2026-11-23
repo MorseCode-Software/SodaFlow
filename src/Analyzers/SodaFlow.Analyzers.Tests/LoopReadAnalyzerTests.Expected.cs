@@ -8589,6 +8589,23 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6CsGenericMathOperatorReads"] = ["SF1004"],
             ["Ab393GenericMathOperatorOfAPendingSecondValue"] = ["SF1004"],
             ["R6CsAssignmentToThisOfAStructWritesTheVariable"] = ["SF1001"],
-            ["Ab399AssignmentToThisThroughARefParameter"] = ["SF1001"]
+            ["Ab399AssignmentToThisThroughARefParameter"] = ["SF1001"],
+            ["R6PathTimerHelperRunsInATry"] = ["SF1001"],
+            ["R6PathTimerHelperRunsInAFinally"] = ["SF1001"],
+            ["R6PathTimerHelperRunsInTheElseOfAConstant"] = ["SF1001"],
+            ["R6PathTimerHelperRunsInASwitchDefault"] = ["SF1001"],
+            ["R6PathTimerHelperRunsInADoOnce"] = ["SF1001"],
+            ["R6PathTimerHelperRunsInAForOnce"] = ["SF1001"],
+            ["R6PathTimerHelperRunsAfterAGoto"] = ["SF1001"],
+            ["R6PathTimerHelperRunsInAForEachLambda"] = ["SF1001"],
+            ["R6PathMapHelperDisposesInAFinally"] = ["SF1001"],
+            ["R6PathMapHelperDisposesInTheElseOfAConstant"] = ["SF1001"],
+            ["R6PathMapHelperDisposesInAForeach"] = ["SF1001"],
+            ["Ab364TimerHelperRunsInASwitchOfAConstant"] = ["SF1001"],
+            ["Ab364TimerHelperRunsInAFinallyAfterACatch"] = ["SF1001"],
+            ["Ab364TimerHelperRunsInAForEachOfAList"] = ["SF1001"],
+            ["Ab364TimerHelperRunsForEachTimeOfOne"] = ["SF1001"],
+            ["Ab364TimerHelperRunsInASwitchOfALongConstant"] = ["SF1001"],
+            ["Ab364TimerHelperRunsInASwitchOfAStringConstant"] = ["SF1001"]
         };
 }

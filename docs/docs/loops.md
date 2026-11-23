@@ -279,7 +279,7 @@ is quiet.
   call of `Dispose` for each object the map built. The analyzer reads the handler at a `Dispose` in
   the block, also one through `IDisposable` or through a list that holds the map, unless the code
   uses the map for nothing but that `Dispose`. It does not read the handler where the code disposes
-  the map through a field.
+  the map through a field, or in a lambda that `List<T>.ForEach` runs.
 - **A call that the compiler removes.** A call of a method with `[Conditional]`, such as
   `Debug.WriteLine` in a release build, does not run, and neither do its arguments, when the build
   defines none of its symbols.
@@ -550,7 +550,12 @@ The analyzer follows a value made from the placeholder through the code of your 
   clock before it, unless both times are integer constants and the time of the callback is later.
   The clock can be in a local, a field, a property, or a parameter, where the analyzer saw it
   made, and the two calls can be in different methods. A method of yours runs the timers that its
-  caller set only where its call of `RunTimersTo` runs on every path of that method.
+  caller set only where its call of `RunTimersTo` runs on every path of that method, and the same
+  holds for a method of yours that disposes a map or a timer system that its caller made. A call in
+  a `finally` block or in a `try` block with no `catch` runs on every path, and so does a call in
+  the `else` of an `if` on a constant, in the `switch` section that a constant or a lone `default`
+  selects, after a `goto` to a label before it, and in a loop or a `List<T>.ForEach` that always
+  runs at least once.
   A `Cancel` or a `Dispose` of the timer before the run, or the end of a `using` statement of it,
   takes the timer away when it runs on every path, outside a loop.
   A `TimerSystem` calls `Start` and `Now` of its implementation when you construct it. Disposing it
