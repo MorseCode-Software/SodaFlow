@@ -297,7 +297,7 @@ internal sealed partial class LoopStateEvaluator
     public IReadOnlyList<LoopState>? StatesAtThePositionsIn(LoopState collection)
     {
         if (collection.Objects.Length != 1
-            || collection.Objects[0] is not { IsNew: true, IsOfTurnsBefore: false } made
+            || collection.Objects.FirstOrDefault() is not { IsNew: true, IsOfTurnsBefore: false } made
             || !this.region.Objects.HoldsOnlyWhatWentIn(made)
             || this.region.Objects.PositionsOf(made) is not { } all)
         {
