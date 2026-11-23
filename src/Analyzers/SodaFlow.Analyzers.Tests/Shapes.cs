@@ -61028,6 +61028,138 @@ public static class Shapes
     public static Cell<int> Ab434CancelOfANullableTimerUnderATest() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer a = clock.SetTimer(0, () => Kept.Add(l.Sample())); SodaFlow.Time.ITimer? t = Kept.Count < 0 ? a : null; if (t != null) { t.Cancel(); } clock.RunTimersTo(0); return S.Hold(0); });
 
+    // S14784. A map function calls an extension method of this code on its parameter. The method samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpMapExtensionOnTheParameterReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.A1 = Plain; Cell<int> w = Plain.Map(v => v.R6SmpPlusA1()); R6SmpS.A1 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14785. A map function reads a getter of its struct parameter. The getter samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpMapGetterOfAStructParameterReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.A4 = Plain; Cell<int> w = Cell.Constant(default(R6SmpNum)).Map(n => n.A4); R6SmpS.A4 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14786. A map function uses an operator of this code on its struct parameter. The operator samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpMapOperatorOfAStructParameterReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.A5 = Plain; Cell<int> w = Cell.Constant(default(R6SmpNum)).Map(n => n - n); R6SmpS.A5 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14787. A map function calls a method of its struct parameter. The method samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpMapMethodOfAStructParameterReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.A6 = Plain; Cell<int> w = Cell.Constant(default(R6SmpNum)).Map(n => n.ReadA6()); R6SmpS.A6 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14788. A map function calls ToString of its struct parameter. The override samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpMapToStringOfAStructParameterReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.A7 = Plain; Cell<int> w = Cell.Constant(default(R6SmpNum)).Map(n => n.ToString().Length); R6SmpS.A7 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14789. A map function reads an indexer of its struct parameter. The indexer samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpMapIndexerOfAStructParameterReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.A8 = Plain; Cell<int> w = Cell.Constant(default(R6SmpNum)).Map(n => n[0]); R6SmpS.A8 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14790. A predicate of a view calls an extension method of this code on its parameter. The method samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpViewExtensionOnTheParameterReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.A11 = Plain; ReactiveCollection<int, ItemId, int> view = Items().Filter(predicate: (_, state) => state.R6SmpPlusA11() > 0); R6SmpS.A11 = l.Map(v => v); return S.Hold(view.KeysCell.Sample().Count); });
+
+    // S14791. A map function creates an object of this code. The constructor samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpMapCreationReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.J1 = Plain; Cell<int> w = Plain.Map(v => v + new R6SmpJ1().Value); R6SmpS.J1 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14792. A deferred lazy sample calls an extension method of this code on a constant. The method samples a static field that the block sets to the loop after the build. The loop closes with a HoldLazy of it.
+    public static Cell<int> R6SmpCloseWithAHoldLazyOfADeferOfAnExtension() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.G2 = Plain; LazySample<int> d = LazySample.Defer(() => 0.R6SmpPlusG2()); R6SmpS.G2 = l; return S.HoldLazy(d); });
+
+    // S14793. The loop closes with a HoldLazy of a lazy sample of a map. The map function calls an extension method that samples a static field that the block sets to the loop after the build.
+    public static Cell<int> R6SmpCloseWithAHoldLazyOfAMapOfAnExtension() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.G6 = Plain; Cell<int> w = Plain.Map(v => v.R6SmpPlusG6()); R6SmpS.G6 = l; return S.HoldLazy(w.SampleLazy()); });
+
+    // S14794. The loop closes with an AccumLazy whose deferred initial state calls an extension method that samples a static field that holds the loop.
+    public static Cell<int> R6SmpCloseWithAnAccumLazyOfADeferOfAnExtension() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.H2 = Plain; LazySample<int> d = LazySample.Defer(() => 0.R6SmpPlusH2()); R6SmpS.H2 = l; return S.AccumLazy(d, (e, s) => s); });
+
+    // S14795. A map function declares a local function whose parameter has the name of a captured local. The outer function samples that local, which the block sets pending after the build.
+    public static Cell<int> R6SmpMapLocalFunctionParameterShadowsACapture() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => { int Inc(int c) => c + 1; return Inc(v) + c.Sample(); }); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14796. A map function gives Select a nested lambda whose parameter has the name of a captured local. The outer function samples that local, which the block sets pending after the build.
+    public static Cell<int> R6SmpMapSelectLambdaParameterShadowsACapture() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => new[] { v }.Select(c => c).Sum() + c.Sample()); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14797. A map function declares a pattern variable with the name of a captured local in a nested lambda. The outer function samples that local, which the block sets pending after the build.
+    public static Cell<int> R6SmpMapNestedPatternVariableShadowsACapture() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => new[] { v }.Count(x => x is int c && c > 0) + c.Sample()); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14798. A static map function calls an extension method on its parameter. The method samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpStaticMapExtensionOnTheParameterReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.K12 = Plain; Cell<int> w = Plain.Map(static v => v.R6SmpPlusK12()); R6SmpS.K12 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14799. A lift function calls an extension method on its parameter. The method samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpLiftExtensionOnTheParameterReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.K13 = Plain; Cell<int> w = Plain.Lift(Plain, (a, b) => a.R6SmpPlusK13() + b); R6SmpS.K13 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14800. A map function creates an object of this code with its parameter. The constructor samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpMapCreationWithTheParameterReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.K14 = Plain; Cell<int> w = Plain.Map(v => new R6SmpK14(v).Value); R6SmpS.K14 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14801. A map function reads a getter of a default struct value. The getter samples a static field that the block sets pending after the build.
+    public static Cell<int> R6SmpMapGetterOfADefaultStructReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.K15 = Plain; Cell<int> w = Plain.Map(v => v + default(R6SmpK15).Current); R6SmpS.K15 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14802. A map function casts its struct parameter with an explicit conversion of this code. The conversion samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapExplicitConversionReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400S.C1 = Plain; Cell<int> w = Cell.Constant(new Ab400Num(1)).Map(n => (int)n); Ab400S.C1 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14803. A map function gives its struct parameter to an operator of this code through a compound assignment. The operator samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapCompoundOperatorReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400S.C3 = Plain; Cell<int> w = Cell.Constant(new Ab400Num(1)).Map(n => { Ab400Num m = n; m += n; return m.Count; }); Ab400S.C3 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14804. A map function calls a method of its nullable struct parameter with a null-conditional call. The method samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapNullConditionalCallReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400S.C4 = Plain; Cell<int> w = Cell.Constant((Ab400Num?)new Ab400Num(1)).Map(n => n?.Read() ?? 0); Ab400S.C4 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14805. A map function reads a getter of its nullable struct parameter with a null-conditional access. The getter samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapNullConditionalGetterReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400S.C5 = Plain; Cell<int> w = Cell.Constant((Ab400Num?)new Ab400Num(1)).Map(n => n?.Current ?? 0); Ab400S.C5 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14806. A map function makes an object with a target-typed new. The constructor samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapTargetTypedCreationReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400S.C6 = Plain; Cell<int> w = Plain.Map(v => { Ab400Box b = new(); return v + b.Value; }); Ab400S.C6 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14807. A map function declares a local with the name of a captured local in a nested block. The function samples the captured local after the block, and the code sets it pending after the build.
+    public static Cell<int> Ab400MapBlockLocalShadowsACapture() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Cell<int> w = Plain.Map(v => { if (v > 0) { int c = v; v = c; } return v + c.Sample(); }); c = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14808. Control: a map function calls an extension method of this code that samples nothing. The block sets a static field pending after the build.
+    public static Cell<int> Ab400MapExtensionThatSamplesNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400S.C7 = Plain; Cell<int> w = Plain.Map(v => v.Ab400Same()); Ab400S.C7 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14809. Control: a map function calls a method of the platform on its parameter. The block sets a static field pending after the build.
+    public static Cell<int> Ab400MapPlatformMethodOfTheParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400S.C8 = Plain; Cell<int> w = Plain.Map(v => v.ToString().Length); Ab400S.C8 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14810. A map function gives its struct parameter to a long local through an implicit conversion of this code. The conversion samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapImplicitConversionReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400S.C2 = Plain; Cell<int> w = Cell.Constant(new Ab400Num(1)).Map(n => { long i = n; return (int)i; }); Ab400S.C2 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14811. A map function gives its struct parameter to a prefix operator of this code. The operator samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapPrefixOperatorReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400Unary.C9 = Plain; Cell<int> w = Cell.Constant(new Ab400Unary(1)).Map(n => (-n).Count); Ab400Unary.C9 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14812. A map function gives a copy of its struct parameter to a postfix operator of this code. The operator samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapPostfixOperatorReadsAStaticSetAfter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400Unary.C10 = Plain; Cell<int> w = Cell.Constant(new Ab400Unary(1)).Map(n => { Ab400Unary m = n; m++; return m.Count; }); Ab400Unary.C10 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14813. A map function gives its struct parameter to a prefix operator of this code, and reads only a member of the platform on the result. The operator samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapPrefixOperatorAlone() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400Unary.C9 = Plain; Cell<int> w = Cell.Constant(new Ab400Unary(1)).Map(n => (-n).GetHashCode()); Ab400Unary.C9 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14814. A map function gives a copy of its struct parameter to a postfix operator of this code, and reads only a member of the platform on the result. The operator samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapPostfixOperatorAlone() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400Unary.C10 = Plain; Cell<int> w = Cell.Constant(new Ab400Unary(1)).Map(n => { Ab400Unary m = n; m++; return m.GetHashCode(); }); Ab400Unary.C10 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14815. A map function gives its struct parameter to an operator of this code through a compound assignment, and reads only a member of the platform on the result. The operator samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapCompoundOperatorAlone() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400S.C3 = Plain; Cell<int> w = Cell.Constant(new Ab400Num(1)).Map(n => { Ab400Num m = n; m += n; return m.GetHashCode(); }); Ab400S.C3 = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S14816. A map function makes an object of this code with a target-typed new, and reads only a member of the platform on it. The constructor samples a static field that the block sets pending after the build.
+    public static Cell<int> Ab400MapTargetTypedCreationAlone() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab400S.C6 = Plain; Cell<int> w = Plain.Map(v => { Ab400Box b = new(); return v + b.GetHashCode(); }); Ab400S.C6 = l.Map(v => v); return S.Hold(w.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112822,6 +112954,53 @@ public static class Shapes
 
     private static void Ab365DisposeThroughAHelper(IDisposable d) => R6PathDispose(d);
 
+    public static class Ab400S
+    {
+        public static Cell<int> C1 = Cell.Constant(0);
+        public static Cell<int> C2 = Cell.Constant(0);
+        public static Cell<int> C3 = Cell.Constant(0);
+        public static Cell<int> C4 = Cell.Constant(0);
+        public static Cell<int> C5 = Cell.Constant(0);
+        public static Cell<int> C6 = Cell.Constant(0);
+        public static Cell<int> C7 = Cell.Constant(0);
+        public static Cell<int> C8 = Cell.Constant(0);
+    }
+
+    public readonly struct Ab400Num(in int count)
+    {
+        public int Count { get; } = count;
+
+        public int Current => Ab400S.C5.Sample();
+
+        public int Read() => Ab400S.C4.Sample();
+
+        public static explicit operator int(Ab400Num n) => Ab400S.C1.Sample();
+
+        public static implicit operator long(Ab400Num n) => Ab400S.C2.Sample();
+
+        public static Ab400Num operator +(Ab400Num a, Ab400Num b) => new(Ab400S.C3.Sample());
+    }
+
+    public sealed class Ab400Box
+    {
+        public Ab400Box() => this.Value = Ab400S.C6.Sample();
+
+        public int Value { get; }
+    }
+
+    public readonly struct Ab400Unary(in int count)
+    {
+        public static Cell<int> C9 = Cell.Constant(0);
+
+        public static Cell<int> C10 = Cell.Constant(0);
+
+        public int Count { get; } = count;
+
+        public static Ab400Unary operator -(Ab400Unary a) => new(C9.Sample());
+
+        public static Ab400Unary operator ++(Ab400Unary a) => new(C10.Sample());
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -112830,6 +113009,9 @@ public static class Shapes
 
 file static class Helpers
 {
+    // An extension method of the AB400 shapes that samples nothing.
+    public static int Ab400Same(this int v) => v;
+
     // Extension methods of the shapes of AB358.
     public static AggregateException Flatten(this AggregateException e, int depth) => new(e.Message + depth);
 

@@ -118,9 +118,10 @@ internal sealed partial class LoopStateEvaluator
     ///     True when a lambda can read a value that the code can change after
     ///     it makes the lambda. That is a name from the code around the lambda,
     ///     a member of an object, a static member, or a function of this
-    ///     compilation. This is a check of the syntax. Only the first name of a
-    ///     member access needs the compiler, because it can be a type. Then, the
-    ///     member after the type needs it also.
+    ///     compilation. The check of the names comes first. Only the first name
+    ///     of a member access needs the compiler, because it can be a type. Then,
+    ///     the member after the type needs it also. A name of a nested part
+    ///     needs it too, because it can be a capture.
     /// </summary>
     private bool CanReadALaterValue(AnonymousFunctionExpressionSyntax lambda, LoopState given)
     {
@@ -129,7 +130,7 @@ internal sealed partial class LoopStateEvaluator
             return true;
         }
 
-        HashSet<string>? own = null;
+        DeclaredNames? own = null;
 
         foreach (SyntaxNode node in lambda.Body.DescendantNodesAndSelf())
         {
@@ -140,7 +141,7 @@ internal sealed partial class LoopStateEvaluator
                 case SimpleNameSyntax name when IsAValue(name):
                     own ??= NamesDeclaredIn(lambda);
 
-                    if (!own.Contains(name.Identifier.ValueText)
+                    if (!this.IsOwn(name: name, lambda: lambda, own: own)
                         && (name.Parent is not MemberAccessExpressionSyntax access
                             || access.Expression != name
                             || this.region.SymbolOf(name) is not (ITypeSymbol or INamespaceSymbol)
@@ -153,7 +154,9 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
-        return false;
+        // A member of this compilation can read a static member, also when the lambda reaches it through
+        // its parameter or with no name. This check needs the compiler, thus it comes last.
+        return lambda.Body.DescendantNodesAndSelf().Any(this.RunsCodeOfThisCompilation);
 
         static bool IsAValue(ExpressionSyntax name) =>
             name.Parent switch
@@ -162,6 +165,57 @@ internal sealed partial class LoopStateEvaluator
                 MemberBindingExpressionSyntax or QualifiedNameSyntax or NameColonSyntax or NameEqualsSyntax => false,
                 _ => !SyntaxFacts.IsInTypeOnlyContext(name)
             };
+    }
+
+    /// <summary>
+    ///     True when a node of a lambda runs a member of this compilation. That
+    ///     is a method, a getter, an indexer, an operator, a conversion, or a
+    ///     constructor. The check of the syntax comes first, and then the
+    ///     compiler gives the member.
+    /// </summary>
+    private bool RunsCodeOfThisCompilation(SyntaxNode node)
+    {
+        DeclaredCode declared = this.region.Symbols.DeclaredCode;
+
+        ISymbol? member =
+            node switch
+            {
+                MemberAccessExpressionSyntax { Name: var name } access when Calls(access) || declared.CanRunCode(name)
+                    => this.MemberOf(access),
+                MemberBindingExpressionSyntax { Name: var name } binding
+                    when Calls(binding) || declared.CanRunCode(name) => this.MemberOf(binding),
+                ElementAccessExpressionSyntax or ElementBindingExpressionSyntax
+                    when this.region.Symbols.DeclaresIndexers => this.region.SymbolOf(node),
+                BinaryExpressionSyntax
+                    or PrefixUnaryExpressionSyntax
+                    or PostfixUnaryExpressionSyntax
+                    or AssignmentExpressionSyntax
+                    or CastExpressionSyntax
+                    or BaseObjectCreationExpressionSyntax when declared.CanRunCode(node) => this.region.SymbolOf(node),
+                // No syntax shows an implicit conversion. This check reads it on a name only, as DeclaredCode does.
+                IdentifierNameSyntax name when declared.CanRunCode(name) =>
+                    this.region.ModelFor(name).GetConversion(name).MethodSymbol,
+                _ => null
+            };
+
+        return member is IMethodSymbol or IPropertySymbol
+               && SymbolEqualityComparer.Default.Equals(x: member.ContainingAssembly, y: this.region.Assembly);
+
+        static bool Calls(ExpressionSyntax used) =>
+            used.Parent is InvocationExpressionSyntax call && call.Expression == used;
+    }
+
+    // True when a name in a lambda names a parameter or a local of the lambda. A name of a nested part can
+    // also be a capture, thus the compiler gives the symbol of such a name.
+    private bool IsOwn(SimpleNameSyntax name, AnonymousFunctionExpressionSyntax lambda, DeclaredNames own)
+    {
+        string text = name.Identifier.ValueText;
+
+        return own.Everywhere.Contains(text)
+               || (own.InAPart.Contains(text)
+                   && (this.region.SymbolOf(name) is not { } symbol
+                       || symbol.DeclaringSyntaxReferences.Any(reference =>
+                           reference.SyntaxTree == lambda.SyntaxTree && lambda.Span.Contains(reference.Span))));
     }
 
     /// <summary>
@@ -211,10 +265,30 @@ internal sealed partial class LoopStateEvaluator
     private bool CanHoldState(ITypeSymbol type) =>
         this.region.Symbols.CanHoldState(type: type, compilation: this.region.Assembly);
 
-    // The names of the parameters and the locals that a lambda declares, with those of each function in it.
-    private static HashSet<string> NamesDeclaredIn(AnonymousFunctionExpressionSyntax lambda)
+    // The names of the parameters and the locals that a lambda declares, with those of each function in it. A
+    // parameter, or a local of the top block, hides a capture with its name in all of the lambda. Each other name
+    // hides a capture only in a part of the lambda.
+    private static DeclaredNames NamesDeclaredIn(AnonymousFunctionExpressionSyntax lambda)
     {
-        HashSet<string> names = [.. ParametersOf(lambda).Select(static parameter => parameter.Identifier.ValueText)];
+        HashSet<string> everywhere =
+            [.. ParametersOf(lambda).Select(static parameter => parameter.Identifier.ValueText)];
+
+        HashSet<string> names = [];
+
+        foreach (StatementSyntax statement in lambda.Block?.Statements ?? default)
+        {
+            switch (statement)
+            {
+                case LocalDeclarationStatementSyntax local:
+                    everywhere.UnionWith(local.Declaration.Variables.Select(static each => each.Identifier.ValueText));
+
+                    break;
+                case LocalFunctionStatementSyntax function:
+                    everywhere.Add(function.Identifier.ValueText);
+
+                    break;
+            }
+        }
 
         foreach (SyntaxNode node in lambda.Body.DescendantNodesAndSelf())
         {
@@ -231,13 +305,13 @@ internal sealed partial class LoopStateEvaluator
                     _ => default
                 };
 
-            if (declared.IsKind(SyntaxKind.IdentifierToken))
+            if (declared.IsKind(SyntaxKind.IdentifierToken) && !everywhere.Contains(declared.ValueText))
             {
                 names.Add(declared.ValueText);
             }
         }
 
-        return names;
+        return new DeclaredNames(everywhere: everywhere, inAPart: names);
 
         static SyntaxToken IdentifierOf(SyntaxNode clause) =>
             clause switch
@@ -331,5 +405,12 @@ internal sealed partial class LoopStateEvaluator
         return origin is IParameterSymbol parameter
             ? state.WithPending(true).From(parameter)
             : state.WithPending(true).FromIfUnknown(origin);
+    }
+
+    private sealed class DeclaredNames(in HashSet<string> everywhere, in HashSet<string> inAPart)
+    {
+        public HashSet<string> Everywhere { get; } = everywhere;
+
+        public HashSet<string> InAPart { get; } = inAPart;
     }
 }

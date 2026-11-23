@@ -271,8 +271,10 @@ is quiet.
   is thus harmless in a cell that you only keep. If you sample that cell in the block, or close the
   loop with it, the analyzer reports the sample or the close. It reads the function at that first
   read, with the values that the function reads then, so a capture or a member that becomes pending
-  after you build the cell counts too, and what the function writes there counts for the code after
-  the read. A second read of the cell does not run the function again, when the analyzer knows that
+  after you build the cell counts too. That includes a static member that the function reaches only
+  through code of yours that it runs, such as a method, a getter, an indexer, an operator, a
+  conversion, or a constructor, also one called on its parameter. What the function writes there
+  counts for the code after the read. A second read of the cell does not run the function again, when the analyzer knows that
   the first read ran (see the limits below). Collection views work the
   same way. Their predicates, selectors, sort orders, and comparers run when something reads the
   view. The eviction handler of a `Map` on a collection runs when a key leaves the view, and in a
