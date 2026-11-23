@@ -807,7 +807,8 @@ Some reads that throw it does not see:
   to a `Map` or a `Lazy<T>`, such as `new Lazy<int>(holder.Factory)` for a `holder` that the
   constructor gets, where a different method of your object reads the value. A delegate that your
   object keeps in a local or in a member of its own, such as `this.factory = this.Read;` and then
-  `new Lazy<int>(this.factory)`, is seen.
+  `new Lazy<int>(this.factory)`, is seen, and so is a delegate made from one function, such as
+  `new Func<int>(this.Read)` or `new(this.Read)`, which counts as that function.
 - The objects of a task for a `catch` around `Task.WaitAll`, `Task.WaitAny`, or a wait of a task
   from `Task.Factory.StartNew`. The analyzer gives such a `catch` no object.
 - A write through a `ref` local of a conditional `ref` whose condition is not a constant, or through

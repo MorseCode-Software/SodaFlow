@@ -59584,6 +59584,218 @@ public static class Shapes
     public static Cell<int> Ab427GetterThatAnOverrideChanges() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab427Overrides().SetAndRead(l.Map(v => v))));
 
+    // S14416. AB351. One method makes a delegate with new Func of a method group of this in a local, builds a map with it, sets the member that the method samples to a pending cell, and samples the map.
+    public static Cell<int> R6FuAb351OneMethodDelegateCreationInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6FuAb351One m = new(); return S.Hold(m.BuildLocalSetAndRead(l.Map(v => v))); });
+
+    // S14417. AB351. The same, with the delegate creation written in the call of Map.
+    public static Cell<int> R6FuAb351OneMethodDelegateCreationInTheMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6FuAb351One m = new(); return S.Hold(m.BuildInlineSetAndRead(l.Map(v => v))); });
+
+    // S14418. AB351. A constructor builds a map with a delegate creation of a method group of this. A method sets the member that the method samples to a pending cell and samples the map.
+    public static Cell<int> R6FuAb351CtorDelegateCreationInTheMap() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuAb351Ctor().SetAndRead(l.Map(v => v))));
+
+    // S14419. AB351. A constructor builds a lazy value with a delegate creation of a method group of this. A method sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> R6FuAb351CtorDelegateCreationInALazy() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuAb351LazyCtor().SetAndRead(l.Map(v => v))));
+
+    // S14420. AB351. A constructor builds a map with a delegate creation of a lambda that samples a member of this. A method sets the member to a pending cell and samples the map.
+    public static Cell<int> R6FuAb351CtorDelegateCreationOfALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuAb351LambdaCtor().SetAndRead(l.Map(v => v))));
+
+    // S14421. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate creation of a method group (AB351).
+    public static Cell<int> R6PairNDelegateCreationMapCtorSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewMapCtor().SetAndRead(l.Map(v => v))));
+
+    // S14422. A constructor builds the member. One method sets the sampled member to a pending cell, and a second method reads the build. The function of the Map is a delegate creation of a method group (AB351).
+    public static Cell<int> R6PairNDelegateCreationMapCtorSetThenReadInTwoCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBNewMapCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Read()); return S.Hold(0); });
+
+    // S14423. A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Map is a delegate creation of a method group (AB351).
+    public static Cell<int> R6PairNDelegateCreationMapCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBNewMapCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Sample()); return S.Hold(0); });
+
+    // S14424. A method builds the member. A second method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate creation of a method group (AB351).
+    public static Cell<int> R6PairNDelegateCreationMapMethodBuildThenSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBNewMapMethod m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14425. One method builds the member, sets the sampled member to a pending cell, and reads the build. The function of the Map is a delegate creation of a method group (AB351).
+    public static Cell<int> R6PairNDelegateCreationMapOneMethodBuildsSetsAndReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBNewMapMethod m = new(); return S.Hold(m.BuildSetAndRead(l.Map(v => v))); });
+
+    // S14426. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate creation of a method group (AB351).
+    public static Cell<int> R6PairNDelegateCreationLazyCtorSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewLazyCtor().SetAndRead(l.Map(v => v))));
+
+    // S14427. A constructor builds the member. One method sets the sampled member to a pending cell, and a second method reads the build. The function of the Lazy is a delegate creation of a method group (AB351).
+    public static Cell<int> R6PairNDelegateCreationLazyCtorSetThenReadInTwoCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBNewLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Read()); return S.Hold(0); });
+
+    // S14428. A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a delegate creation of a method group (AB351).
+    public static Cell<int> R6PairNDelegateCreationLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBNewLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14429. A method builds the member. A second method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate creation of a method group (AB351).
+    public static Cell<int> R6PairNDelegateCreationLazyMethodBuildThenSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBNewLazyMethod m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14430. One method builds the member, sets the sampled member to a pending cell, and reads the build. The function of the Lazy is a delegate creation of a method group (AB351).
+    public static Cell<int> R6PairNDelegateCreationLazyOneMethodBuildsSetsAndReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBNewLazyMethod m = new(); return S.Hold(m.BuildSetAndRead(l.Map(v => v))); });
+
+    // S14431. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lift is a delegate creation of a method group (AB351).
+    public static Cell<int> R6PairNDelegateCreationLiftCtorSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewLiftCtor().SetAndRead(l.Map(v => v))));
+
+    // S14432. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate local of a delegate creation (AB351).
+    public static Cell<int> R6PairNLocalOfADelegateCreationMapCtorSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewMapCtor().SetAndRead(l.Map(v => v))));
+
+    // S14433. A constructor builds the member. One method sets the sampled member to a pending cell, and a second method reads the build. The function of the Map is a delegate local of a delegate creation (AB351).
+    public static Cell<int> R6PairNLocalOfADelegateCreationMapCtorSetThenReadInTwoCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLocNewMapCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Read()); return S.Hold(0); });
+
+    // S14434. A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Map is a delegate local of a delegate creation (AB351).
+    public static Cell<int> R6PairNLocalOfADelegateCreationMapCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLocNewMapCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Sample()); return S.Hold(0); });
+
+    // S14435. A method builds the member. A second method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate local of a delegate creation (AB351).
+    public static Cell<int> R6PairNLocalOfADelegateCreationMapMethodBuildThenSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLocNewMapMethod m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14436. One method builds the member, sets the sampled member to a pending cell, and reads the build. The function of the Map is a delegate local of a delegate creation (AB351).
+    public static Cell<int> R6PairNLocalOfADelegateCreationMapOneMethodBuildsSetsAndReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLocNewMapMethod m = new(); return S.Hold(m.BuildSetAndRead(l.Map(v => v))); });
+
+    // S14437. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate local of a delegate creation (AB351).
+    public static Cell<int> R6PairNLocalOfADelegateCreationLazyCtorSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewLazyCtor().SetAndRead(l.Map(v => v))));
+
+    // S14438. A constructor builds the member. One method sets the sampled member to a pending cell, and a second method reads the build. The function of the Lazy is a delegate local of a delegate creation (AB351).
+    public static Cell<int> R6PairNLocalOfADelegateCreationLazyCtorSetThenReadInTwoCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLocNewLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Read()); return S.Hold(0); });
+
+    // S14439. A constructor builds the member. A method sets the sampled member to a pending cell, and the block reads the build. The function of the Lazy is a delegate local of a delegate creation (AB351).
+    public static Cell<int> R6PairNLocalOfADelegateCreationLazyCtorReadInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLocNewLazyCtor m = new(); m.Set(l.Map(v => v)); Kept.Add(m.Built.Value); return S.Hold(0); });
+
+    // S14440. A method builds the member. A second method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate local of a delegate creation (AB351).
+    public static Cell<int> R6PairNLocalOfADelegateCreationLazyMethodBuildThenSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLocNewLazyMethod m = new(); m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S14441. One method builds the member, sets the sampled member to a pending cell, and reads the build. The function of the Lazy is a delegate local of a delegate creation (AB351).
+    public static Cell<int> R6PairNLocalOfADelegateCreationLazyOneMethodBuildsSetsAndReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLocNewLazyMethod m = new(); return S.Hold(m.BuildSetAndRead(l.Map(v => v))); });
+
+    // S14442. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lift is a delegate local of a delegate creation (AB351).
+    public static Cell<int> R6PairNLocalOfADelegateCreationLiftCtorSetAndRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewLiftCtor().SetAndRead(l.Map(v => v))));
+
+    // S14443. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate creation of a method group (AB351). The read has no this.
+    public static Cell<int> R6PairNDelegateCreationMapCtorSetAndReadReadWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewMapCtorR1().SetAndRead(l.Map(v => v))));
+
+    // S14444. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate creation of a method group (AB351). The read goes through a getter.
+    public static Cell<int> R6PairNDelegateCreationMapCtorSetAndReadReadThroughAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewMapCtorR2().SetAndRead(l.Map(v => v))));
+
+    // S14445. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate creation of a method group (AB351). The read goes through a local of the method.
+    public static Cell<int> R6PairNDelegateCreationMapCtorSetAndReadReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewMapCtorR3().SetAndRead(l.Map(v => v))));
+
+    // S14446. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate creation of a method group (AB351). The read is in a third method.
+    public static Cell<int> R6PairNDelegateCreationMapCtorSetAndReadReadInAThirdMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewMapCtorR4().SetAndRead(l.Map(v => v))));
+
+    // S14447. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate creation of a method group (AB351). The write has no this.
+    public static Cell<int> R6PairNDelegateCreationMapCtorSetAndReadWriteWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewMapCtorW1().SetAndRead(l.Map(v => v))));
+
+    // S14448. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate creation of a method group (AB351). The write goes through a local that gets this.
+    public static Cell<int> R6PairNDelegateCreationMapCtorSetAndReadWriteThroughALocalOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewMapCtorW4().SetAndRead(l.Map(v => v))));
+
+    // S14449. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate creation of a method group (AB351). The read has no this.
+    public static Cell<int> R6PairNDelegateCreationLazyCtorSetAndReadReadWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewLazyCtorR1().SetAndRead(l.Map(v => v))));
+
+    // S14450. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate creation of a method group (AB351). The read goes through a getter.
+    public static Cell<int> R6PairNDelegateCreationLazyCtorSetAndReadReadThroughAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewLazyCtorR2().SetAndRead(l.Map(v => v))));
+
+    // S14451. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate creation of a method group (AB351). The read goes through a local of the method.
+    public static Cell<int> R6PairNDelegateCreationLazyCtorSetAndReadReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewLazyCtorR3().SetAndRead(l.Map(v => v))));
+
+    // S14452. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate creation of a method group (AB351). The read is in a third method.
+    public static Cell<int> R6PairNDelegateCreationLazyCtorSetAndReadReadInAThirdMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewLazyCtorR4().SetAndRead(l.Map(v => v))));
+
+    // S14453. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate creation of a method group (AB351). The write has no this.
+    public static Cell<int> R6PairNDelegateCreationLazyCtorSetAndReadWriteWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewLazyCtorW1().SetAndRead(l.Map(v => v))));
+
+    // S14454. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate creation of a method group (AB351). The write goes through a local that gets this.
+    public static Cell<int> R6PairNDelegateCreationLazyCtorSetAndReadWriteThroughALocalOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBNewLazyCtorW4().SetAndRead(l.Map(v => v))));
+
+    // S14455. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate local of a delegate creation (AB351). The read has no this.
+    public static Cell<int> R6PairNLocalOfADelegateCreationMapCtorSetAndReadReadWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewMapCtorR1().SetAndRead(l.Map(v => v))));
+
+    // S14456. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate local of a delegate creation (AB351). The read goes through a getter.
+    public static Cell<int> R6PairNLocalOfADelegateCreationMapCtorSetAndReadReadThroughAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewMapCtorR2().SetAndRead(l.Map(v => v))));
+
+    // S14457. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate local of a delegate creation (AB351). The read goes through a local of the method.
+    public static Cell<int> R6PairNLocalOfADelegateCreationMapCtorSetAndReadReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewMapCtorR3().SetAndRead(l.Map(v => v))));
+
+    // S14458. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate local of a delegate creation (AB351). The read is in a third method.
+    public static Cell<int> R6PairNLocalOfADelegateCreationMapCtorSetAndReadReadInAThirdMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewMapCtorR4().SetAndRead(l.Map(v => v))));
+
+    // S14459. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate local of a delegate creation (AB351). The write has no this.
+    public static Cell<int> R6PairNLocalOfADelegateCreationMapCtorSetAndReadWriteWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewMapCtorW1().SetAndRead(l.Map(v => v))));
+
+    // S14460. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Map is a delegate local of a delegate creation (AB351). The write goes through a local that gets this.
+    public static Cell<int> R6PairNLocalOfADelegateCreationMapCtorSetAndReadWriteThroughALocalOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewMapCtorW4().SetAndRead(l.Map(v => v))));
+
+    // S14461. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate local of a delegate creation (AB351). The read has no this.
+    public static Cell<int> R6PairNLocalOfADelegateCreationLazyCtorSetAndReadReadWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewLazyCtorR1().SetAndRead(l.Map(v => v))));
+
+    // S14462. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate local of a delegate creation (AB351). The read goes through a getter.
+    public static Cell<int> R6PairNLocalOfADelegateCreationLazyCtorSetAndReadReadThroughAGetter() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewLazyCtorR2().SetAndRead(l.Map(v => v))));
+
+    // S14463. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate local of a delegate creation (AB351). The read goes through a local of the method.
+    public static Cell<int> R6PairNLocalOfADelegateCreationLazyCtorSetAndReadReadThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewLazyCtorR3().SetAndRead(l.Map(v => v))));
+
+    // S14464. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate local of a delegate creation (AB351). The read is in a third method.
+    public static Cell<int> R6PairNLocalOfADelegateCreationLazyCtorSetAndReadReadInAThirdMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewLazyCtorR4().SetAndRead(l.Map(v => v))));
+
+    // S14465. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate local of a delegate creation (AB351). The write has no this.
+    public static Cell<int> R6PairNLocalOfADelegateCreationLazyCtorSetAndReadWriteWithNoThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewLazyCtorW1().SetAndRead(l.Map(v => v))));
+
+    // S14466. A constructor builds the member. A method sets the sampled member to a pending cell and reads the build. The function of the Lazy is a delegate local of a delegate creation (AB351). The write goes through a local that gets this.
+    public static Cell<int> R6PairNLocalOfADelegateCreationLazyCtorSetAndReadWriteThroughALocalOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6PairBLocNewLazyCtorW4().SetAndRead(l.Map(v => v))));
+
+    // S14467. A constructor builds a Lazy with a delegate creation of a delegate creation of a method group. A method sets the member that the method samples to a pending cell and reads the value.
+    public static Cell<int> Ab351LazyOfADelegateCreationOfADelegateCreation() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab351TwoCreations().SetAndRead(l.Map(v => v))));
+
+    // S14468. Control: a constructor builds a map with a delegate creation of a method group that does not sample. A method sets a member to a pending cell and samples the map.
+    public static Cell<int> Ab351MapOfADelegateCreationThatDoesNotSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab351PlainCreation().SetAndRead(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -110641,6 +110853,48 @@ public static class Shapes
     public sealed class Ab427Overrides : Ab427VirtualGetter
     {
         protected override Cell<int> Out => Cell.Constant(0);
+    }
+
+    public sealed class Ab351TwoCreations
+    {
+        private readonly Lazy<int> value;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab351TwoCreations()
+        {
+            this.value = new Lazy<int>(new Func<int>(new Func<int>(this.Read)));
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.value.Value;
+        }
+
+        private int Read() => this.share.Sample();
+    }
+
+    public sealed class Ab351PlainCreation
+    {
+        private readonly Cell<int> map;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab351PlainCreation()
+        {
+            this.map = Cell.Constant(1).Map(new Func<int, int>(this.Plus));
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private int Plus(int v) => v + 1;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
