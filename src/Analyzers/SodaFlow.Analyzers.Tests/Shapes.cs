@@ -60996,6 +60996,38 @@ public static class Shapes
     public static Cell<int> Ab367CancelInALambdaAfterAThrowInATry() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); Action stop = () => t.Cancel(); try { Ab364Fail(); stop(); } finally { clock.RunTimersTo(0); } return S.Hold(0); });
 
+    // S14776. The same, with the Cancel in a method that the block calls.
+    public static Cell<int> R6FuTimerCancelledInACallee() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); R6FuCancel(t); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14777. A method of this code cancels the timer that it gets. Thus, RunTimersTo runs no callback.
+    public static Cell<int> R6PathCancelInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); R6PathCancel(t); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14778. A helper cancels a timer before the clock runs the timers.
+    public static Cell<int> R6ApiCancelInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); SodaFlow.Time.ITimer t = clock.SetTimer(0, () => Kept.Add(l.Sample())); R6ApiCancel(t); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14779. A timer in a list is cancelled before the clock runs the timers.
+    public static Cell<int> R6ApiCancelOfATimerInAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); List<SodaFlow.Time.ITimer> timers = [clock.SetTimer(0, () => Kept.Add(l.Sample()))]; timers[0].Cancel(); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14780. A local of a timer from a list cancels it before the clock runs the timers.
+    public static Cell<int> R6ApiCancelOfALocalFromAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); List<SodaFlow.Time.ITimer> timers = [clock.SetTimer(0, () => Kept.Add(l.Sample()))]; SodaFlow.Time.ITimer t = timers[0]; t.Cancel(); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14781. A local is one of two timers. The block cancels it, and the timer that it does not name samples at RunTimersTo.
+    public static Cell<int> Ab434CancelOfOneOfTwoTimers() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer a = clock.SetTimer(0, () => Kept.Add(l.Sample())); SodaFlow.Time.ITimer b = clock.SetTimer(0, () => Kept.Add(0)); SodaFlow.Time.ITimer t = Kept.Count < 0 ? a : b; t.Cancel(); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14782. A loop sets a timer in each of two turns, and a local keeps the last one. The block cancels it, and the timer of the first turn samples at RunTimersTo.
+    public static Cell<int> Ab434CancelOfTheTimerOfTheLastTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer? t = null; for (int i = 0; i < 2; i++) { t = clock.SetTimer(0, () => Kept.Add(l.Sample())); } t!.Cancel(); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S14783. A local is a timer or null, and it is null at run time. The block cancels it only when it is not null, thus the timer samples at RunTimersTo.
+    public static Cell<int> Ab434CancelOfANullableTimerUnderATest() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); SodaFlow.Time.ITimer a = clock.SetTimer(0, () => Kept.Add(l.Sample())); SodaFlow.Time.ITimer? t = Kept.Count < 0 ? a : null; if (t != null) { t.Cancel(); } clock.RunTimersTo(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

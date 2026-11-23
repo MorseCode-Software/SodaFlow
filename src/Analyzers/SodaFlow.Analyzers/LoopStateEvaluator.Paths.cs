@@ -51,6 +51,14 @@ internal sealed partial class LoopStateEvaluator
         return parameter.HasExplicitDefaultValue ? new Optional<object?>(parameter.ExplicitDefaultValue) : default;
     }
 
+    // The result of SetTimer of a clock of the library base is a timer of the store. A Cancel
+    // through a parameter, an element, or a second local then finds the call that set it.
+    private LoopState ATimerOfAClock(InvocationExpressionSyntax call, LoopState state) =>
+        call.Expression is MemberAccessExpressionSyntax { Expression: var clock }
+        && this.IsAClockOfTheLibraryBase(clock)
+            ? this.MadeHere(place: call, state: state, exact: false)
+            : state;
+
     /// <summary>
     ///     True for a value that has an object of the store. A run counts where
     ///     a test for null of such a value permits it.

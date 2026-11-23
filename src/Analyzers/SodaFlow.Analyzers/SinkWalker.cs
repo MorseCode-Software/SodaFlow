@@ -3726,6 +3726,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                         callback: callback,
                         functions: this.evaluator.Eval(callback),
                         keeper: this));
+
+                foreach (MadeObject made in this.evaluator.Eval(call as ExpressionSyntax).Objects)
+                {
+                    this.region.Objects.IsATimerOf(made: made, set: call);
+                }
             }
 
             return;
@@ -3794,12 +3799,24 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     // A Cancel or a Dispose of a timer takes it from its clock, which then does not run its
     // callback. The timer is the result of a call of SetTimer, or a local that no code writes and
-    // that has that result.
+    // that has that result. A value that is one timer of the store is that timer also, as a
+    // parameter or an element can be. A timer of a turn before is two or more timers.
     private void CancelsATimer(ExpressionSyntax timer)
     {
-        if (this.evaluator.CallOfSetTimer(timer) is { } set)
+        if ((this.evaluator.CallOfSetTimer(timer) ?? SetOfTheOneTimer()) is { } set)
         {
             this.region.Objects.TakesTheTimer(set);
+        }
+
+        return;
+
+        SyntaxNode? SetOfTheOneTimer()
+        {
+            ImmutableArray<MadeObject> objects = this.region.Objects.Now(this.evaluator.Eval(timer).Objects);
+
+            return (objects.Length == 1 ? objects[0] : null) is { IsOfTurnsBefore: false } one
+                ? this.region.Objects.SetOfATimer(one)
+                : null;
         }
     }
 

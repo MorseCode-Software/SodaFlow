@@ -569,7 +569,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   the timers in the `finally` block still runs it. A `Cancel` under a condition that is not a
   constant keeps the timer. A `Cancel` in a lambda, a local function, or a method of yours takes the
   timer away only where each call of that code, up to the block, runs on every path too, and not in
-  a `try` block.
+  a `try` block. The timer can be a parameter, an element of a list, or a local that holds one,
+  where the analyzer knows that the value is that one timer.
   A `TimerSystem` calls `Start` and `Now` of its implementation when you construct it. Disposing it
   inside a transaction calls `Stop` only after the transaction releases its lock, so a `Dispose` in
   the block runs no `Stop` there, and the analyzer does not read it. The construction of a
@@ -806,7 +807,8 @@ careful side, so it can report a read that does not throw:
   and the remove. An event of such an object can too, as long as no code before the remove uses the
   object other than to add or remove handlers, and no constructor that `new` runs passes `this` on.
   Otherwise, nothing can come between the add and the remove. An event of `this`, of a field, or of
-  a parameter never qualifies.
+  a parameter never qualifies, and neither does a remove in a lambda, a local function, or a method
+  of yours.
 - A sample of a hold gives only the initial value where the hold is made and sampled in the
   transaction of the block: in the block's own code, in a function that `Transaction.Run` runs, in
   the function of a `Map` of a `Cell.Constant`, or in a local function, lambda, or method that such

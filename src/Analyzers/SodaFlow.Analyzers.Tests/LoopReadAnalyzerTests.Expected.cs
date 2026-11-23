@@ -8642,6 +8642,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6PathCancelInALambdaOfAnArm"] = ["SF1001"],
             ["R6PathCancelInALambdaOfANullDelegate"] = ["SF1001"],
             ["R6PathCancelInALambdaAfterAnEarlyExit"] = ["SF1001"],
-            ["Ab367CancelInALambdaAfterAThrowInATry"] = ["SF1001"]
+            ["Ab367CancelInALambdaAfterAThrowInATry"] = ["SF1001"],
+            ["Ab434CancelOfOneOfTwoTimers"] = ["SF1001"],
+            ["Ab434CancelOfTheTimerOfTheLastTurn"] = ["SF1001"],
+            ["Ab434CancelOfANullableTimerUnderATest"] = ["SF1001"]
         };
 }

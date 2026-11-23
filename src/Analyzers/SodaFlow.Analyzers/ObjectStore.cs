@@ -355,6 +355,19 @@ internal sealed class ObjectStore
             .SelectMany(static pair => pair.Value)
             .Distinct();
 
+    // The call of SetTimer that made each timer of the store.
+    private readonly Dictionary<MadeObject, SyntaxNode> setsOfTimers = [];
+
+    /// <summary>Records that an object is the timer that a call of <c>SetTimer</c> gave.</summary>
+    public void IsATimerOf(MadeObject made, SyntaxNode set) => this.setsOfTimers[made] = set;
+
+    /// <summary>
+    ///     The call of <c>SetTimer</c> that gave a timer of the store. Null for
+    ///     each other object.
+    /// </summary>
+    public SyntaxNode? SetOfATimer(MadeObject made) =>
+        this.setsOfTimers.TryGetValue(key: made, value: out SyntaxNode? set) ? set : null;
+
     /// <summary>
     ///     Takes each timer of a call of <c>SetTimer</c> from its clock, which
     ///     then does not run it.

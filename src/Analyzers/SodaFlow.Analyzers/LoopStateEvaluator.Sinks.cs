@@ -444,6 +444,7 @@ internal sealed partial class LoopStateEvaluator
         {
             "CreateTwoWay" => this.ATwoWayBindable(creation: call, method: method, state: state),
             "Construct" => this.AConstructedResult(construct: call, state: state),
+            "SetTimer" => this.ATimerOfAClock(call: call, state: state),
             _ => this.AMapWithAHandler(map: call, method: method, state: state)
         };
 
