@@ -396,7 +396,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   `ref d` or `new Span<T>(ref d)`, is no such name, because the `ref` can give it a new object at
   any time. A write through an expression that is no such name, such as a conditional expression,
   reaches a later read through each name whose object the analyzer cannot tell apart from the object
-  of the write. A write in a method that the block calls counts as well, where the block always
+  of the write. It tells two objects apart where the write goes to an object that the code creates
+  after the name got its object, through the creation itself or through a local that only that
+  creation gives a value, and where it goes through a private `static readonly` field that a
+  creation fills and whose object your code never hands on: each use of the field reads or writes a
+  field or a property with no body. A write in a method that the block calls counts as well, where the block always
   calls the method one time and the method writes through a static field, an element of an array in
   one, or a parameter whose argument is such a name. So does a write through one of the names in a
   lambda or a local function that the block itself calls. So does a write through `this` in a method

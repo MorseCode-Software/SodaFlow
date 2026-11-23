@@ -8163,6 +8163,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6FuCFuArrPutThroughACallResult"] = ["SF1001"],
             ["R6FuCFuArrPutThroughASecondField"] = ["SF1001"],
             ["R6FuCFuRefReturnWriteSeenThroughASecondName"] = ["SF1001"],
-            ["Ab421PutThroughTheFieldThatTheInitializerNames"] = ["SF1001"]
+            ["Ab421PutThroughTheFieldThatTheInitializerNames"] = ["SF1001"],
+            ["R6NmAb341WriteToANewObjectBetweenTheCallAndTheRead"] = ["SF1001"],
+            ["R6NmAb341WriteToASecondLocalBetweenTheCallAndTheRead"] = ["SF1001"],
+            ["R6NmAb341ACreationWithAnInitializerBetween"] = ["SF1001"],
+            ["R6NmAb341AWriteToASecondStaticFieldBetween"] = ["SF1001"],
+            ["Ab341ANameThatGotTheNewObjectThroughAMethod"] = ["SF1001"]
         };
 }

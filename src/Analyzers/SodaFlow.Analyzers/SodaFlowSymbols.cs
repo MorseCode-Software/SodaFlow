@@ -103,6 +103,9 @@ internal sealed class SodaFlowSymbols
     // The constructors whose code uses this as a value, as in a put of this into a name.
     private readonly ConcurrentDictionary<IMethodSymbol, bool> givesThisAway = new(SymbolEqualityComparer.Default);
 
+    // The fields whose object no second name can hold.
+    private readonly ConcurrentDictionary<IFieldSymbol, bool> holdsItsObjectAlone = new(SymbolEqualityComparer.Default);
+
     private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
         new(SymbolEqualityComparer.Default);
 
@@ -1129,6 +1132,14 @@ internal sealed class SodaFlowSymbols
                     .OfType<ThisExpressionSyntax>()
                     .Any(static used => used.Parent is not MemberAccessExpressionSyntax { Expression: var owner }
                                         || owner != used));
+
+    /// <summary>
+    ///     True for a field whose object no second name can hold, as the given
+    ///     function finds. The answer for a field is the same in each region, and
+    ///     the function reads the code of the type of the field.
+    /// </summary>
+    public bool HoldsItsObjectAlone(IFieldSymbol field, Func<IFieldSymbol, bool> read) =>
+        this.holdsItsObjectAlone.GetOrAdd(key: field, valueFactory: read);
 
     /// <summary>
     ///     True for a method that has a parameter whose type is a delegate. Most

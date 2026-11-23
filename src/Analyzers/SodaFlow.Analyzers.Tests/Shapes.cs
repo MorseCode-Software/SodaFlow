@@ -58516,6 +58516,34 @@ public static class Shapes
     public static Cell<int> Ab421RefReturnWriteIntoANewArrayOfTheField() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab421Renewed h = new(); Cell<int>[] cells = h.Cells; h.Renew(); h.At(0) = l.Map(v => v); Kept.Add(cells[0].Sample()); return S.Hold(0); });
 
+    // S14149. Names of one object, Round 6, AB341: a method writes a plain cell through its parameter and a pending cell through a writable static field of the same object. A write to a member of a new object comes before the read through the local.
+    public static Cell<int> R6NmAb341WriteToANewObjectBetweenTheCallAndTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R6NmW341; R6NmSet341(d, Plain, l.Map(v => v)); new SettableSlot().Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S14150. Names of one object, Round 6, AB341: the same, with a write to a member of a second local object between.
+    public static Cell<int> R6NmAb341WriteToASecondLocalBetweenTheCallAndTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R6NmW341; SettableSlot other = new(); R6NmSet341(d, Plain, l.Map(v => v)); other.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S14151. Names of one object, Round 6, AB341: the same, with a creation that has an object initializer between.
+    public static Cell<int> R6NmAb341ACreationWithAnInitializerBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R6NmW341; R6NmSet341(d, Plain, l.Map(v => v)); Kept.Add(new SettableSlot { Share = Plain }); return S.Hold(d.Share!.Sample()); });
+
+    // S14152. Names of one object, Round 6, AB341: the same, with a write to a member of a second static field between.
+    public static Cell<int> R6NmAb341AWriteToASecondStaticFieldBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = R6NmW341; R6NmSet341(d, Plain, l.Map(v => v)); R6NmOther341.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S14153. AB341, an edge. A method gives a local the object of a local that a creation made before. A plain cell goes in through the second local, and a pending cell through the first. The read is through the second local.
+    public static Cell<int> Ab341ANameThatGotTheNewObjectThroughAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot other = new(); SettableSlot d = Ab341Same(other); d.Share = Plain; other.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S14154. AB341, a control. A local gets a new object and a plain cell. A pending cell goes in through a new object of a creation, and the read is through the local.
+    public static Cell<int> Ab341APendingCellThroughANewObjectBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); d.Share = Plain; new SettableSlot().Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S14155. AB341, a control. The same, with the pending cell through a second local that a creation gave a new object after the first local.
+    public static Cell<int> Ab341APendingCellThroughASecondNewLocalBetween() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot other = new(); d.Share = Plain; other.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109079,6 +109107,8 @@ public static class Shapes
 
         public ref Cell<int> At(int index) => ref this.Cells[index];
     }
+
+    private static SettableSlot Ab341Same(SettableSlot slot) => slot;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

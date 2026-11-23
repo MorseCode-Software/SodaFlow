@@ -1993,11 +1993,13 @@ internal sealed partial class LoopStateEvaluator
             IdentifierNameSyntax
                 or MemberAccessExpressionSyntax
                 or MemberBindingExpressionSyntax
-                or GenericNameSyntax => this.WithTheSendsBefore(
-                    name: expression,
-                    state: this.WithItsInitializer(
-                        expression: expression,
-                        state: this.WithTheResultOfATask(read: expression, state: this.EvalName(expression)))),
+                or GenericNameSyntax => this.WithARecordOfNames(
+                    read: expression,
+                    state: this.WithTheSendsBefore(
+                        name: expression,
+                        state: this.WithItsInitializer(
+                            expression: expression,
+                            state: this.WithTheResultOfATask(read: expression, state: this.EvalName(expression))))),
             _ when expression.RawKind == SodaFlowSymbols.FieldKeywordKind => this.EvalFieldKeyword(expression),
             // An operator of this compilation gives what it returns.
             _ => this.FollowExpression(expression) is { } result
