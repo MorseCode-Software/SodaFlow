@@ -61620,6 +61620,62 @@ public static class Shapes
     public static Cell<int> Ab392RefFieldThatAConstructorSetsUnderACondition() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> x = Plain; Cell<int> y = Plain; Ab392OneOfTwo r = new(ref x, ref y, true); r.Target = l.Map(v => v); Kept.Add(y.Sample()); return S.Hold(0); });
 
+    // S14932. A write of a pending cell through a ref local of a conditional ref whose condition is not a constant. The condition is false, and the read is of the second location.
+    public static Cell<int> R6LimWriteThroughAConditionalRefReadTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6LimRefs3.A = Plain; R6LimRefs3.B = Plain; ref Cell<int>? r = ref (Never ? ref R6LimRefs3.A : ref R6LimRefs3.B); r = l.Map(v => v); Kept.Add(R6LimRefs3.B!.Sample()); return S.Hold(0); });
+
+    // S14933. A local function gives a conditional ref on a condition that is not a constant. The block writes a pending cell through it. The condition is false, and the block reads the second location.
+    public static Cell<int> Ab374WriteThroughAConditionalRefOfALocalFunctionReadTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab374Conditional.A = Plain; Ab374Conditional.B = Plain; Pick() = l.Map(v => v); Kept.Add(Ab374Conditional.B!.Sample()); static ref Cell<int>? Pick() => ref (Never ? ref Ab374Conditional.A : ref Ab374Conditional.B); return S.Hold(0); });
+
+    // S14934. A local function gives a conditional ref on a condition that is not a constant. The block writes a pending cell through it. The condition is false, and the block reads the first location. The analyzer cannot tell the two locations apart.
+    public static Cell<int> Ab374WriteThroughAConditionalRefOfALocalFunctionReadTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab374Conditional.C = Plain; Ab374Conditional.D = Plain; Pick() = l.Map(v => v); Kept.Add(Ab374Conditional.C!.Sample()); static ref Cell<int>? Pick() => ref (Never ? ref Ab374Conditional.C : ref Ab374Conditional.D); return S.Hold(0); });
+
+    // S14935. A write of a pending cell through a ref local of a conditional ref of two locals. The condition is not a constant and is false. The block reads the second local.
+    public static Cell<int> Ab374WriteThroughAConditionalRefOfTwoLocalsReadTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? a = Plain; Cell<int>? b = Plain; ref Cell<int>? r = ref (Never ? ref a : ref b); r = l.Map(v => v); Kept.Add(b!.Sample()); return S.Hold(0); });
+
+    // S14936. A write of a pending cell through a ref local of a conditional ref whose condition is not a constant. Then the block gives the second location a plain cell and reads it.
+    public static Cell<int> Ab374WriteThroughAConditionalRefThenAPlainWriteOfTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab374Conditional.E = Plain; Ab374Conditional.F = Plain; ref Cell<int>? r = ref (Never ? ref Ab374Conditional.E : ref Ab374Conditional.F); r = l.Map(v => v); Ab374Conditional.F = Plain; Kept.Add(Ab374Conditional.F!.Sample()); return S.Hold(0); });
+
+    // S14937. A write of a pending cell through a ref local of a conditional ref whose condition is not a constant. The block reads the ref local.
+    public static Cell<int> Ab374WriteThroughAConditionalRefReadTheRefLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab374Conditional.G = Plain; Ab374Conditional.H = Plain; ref Cell<int>? r = ref (Never ? ref Ab374Conditional.G : ref Ab374Conditional.H); r = l.Map(v => v); Kept.Add(r!.Sample()); return S.Hold(0); });
+
+    // S14938. A method of an object gives a conditional ref to one of two fields of the object. The condition is not a constant. The block writes a pending cell through the call and reads the second field.
+    public static Cell<int> Ab374WriteThroughAConditionalRefOfAMethodReadTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab374Pair p = new() { A = Plain, B = Plain }; p.Pick(Never) = l.Map(v => v); Kept.Add(p.B!.Sample()); return S.Hold(0); });
+
+    // S14939. A write of a pending cell through a ref local of a conditional ref whose second branch is a conditional ref also. The conditions are not constants. The block reads the third location.
+    public static Cell<int> Ab374WriteThroughANestedConditionalRefReadTheThird() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? a = Plain; Cell<int>? b = Plain; Cell<int>? c = Plain; ref Cell<int>? r = ref (Never ? ref a : ref (Never ? ref b : ref c)); r = l.Map(v => v); Kept.Add(c!.Sample()); return S.Hold(0); });
+
+    // S14940. A write of a pending cell through a ref local of a conditional ref on a local condition. The block gives the condition a new value before the write. The ref keeps the second location, and the block reads it.
+    public static Cell<int> Ab374WriteThroughAConditionalRefAfterANewValueOfTheCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { bool c = Never; Cell<int>? a = Plain; Cell<int>? b = Plain; ref Cell<int>? r = ref (c ? ref a : ref b); c = true; r = l.Map(v => v); Kept.Add(b!.Sample()); Kept.Add(c); return S.Hold(0); });
+
+    // S14941. A write of a pending cell through a ref local of a conditional ref of two locals. The block gives the second local a plain cell before the write, and then reads it.
+    public static Cell<int> Ab374WriteThroughAConditionalRefAfterANewValueOfALocation() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? a = Plain; Cell<int>? b = Plain; ref Cell<int>? r = ref (Never ? ref a : ref b); b = Plain; r = l.Map(v => v); Kept.Add(b!.Sample()); return S.Hold(0); });
+
+    // S14942. A conditional ref selects an element of an array in a static field. The block gives the field a new array before the write through the ref local. The write goes to the first array, and the block reads the second array.
+    public static Cell<int> Ab374WriteThroughAConditionalRefOfAnElementOfAStaticArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab374Conditional.Array = [Plain]; Cell<int>? a = Plain; ref Cell<int>? r = ref (Never ? ref a : ref Ab374Conditional.Array[0]); Ab374Conditional.Array = [Plain]; r = l.Map(v => v); Kept.Add(Ab374Conditional.Array[0]!.Sample()); return S.Hold(0); });
+
+    // S14943. A ref local gets a conditional ref in a branch, after a ref to a third local. The branch runs, and the write through the ref goes to the second location. The block reads the first location.
+    public static Cell<int> Ab374WriteThroughAConditionalRefOfABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? x = Plain; Cell<int>? a = Plain; Cell<int>? b = Plain; ref Cell<int>? r = ref x; if (!Never) { r = ref (Never ? ref a : ref b); } r = l.Map(v => v); Kept.Add(a!.Sample()); return S.Hold(0); });
+
+    // S14944. A method of an object gives a conditional ref on the constant true. The block writes a pending cell through the call and reads the first field.
+    public static Cell<int> Ab374WriteThroughAConstantConditionalRefOfAMethodReadTheTaken() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab374Pair p = new() { A = Plain, B = Plain }; p.PickTheFirst() = l.Map(v => v); Kept.Add(p.A!.Sample()); return S.Hold(0); });
+
+    // S14945. A method of an object gives a conditional ref on the constant true. The block writes a pending cell through the call and reads the second field, which the constant rules out.
+    public static Cell<int> Ab374WriteThroughAConstantConditionalRefOfAMethodReadTheOther() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab374Pair p = new() { A = Plain, B = Plain }; p.PickTheFirst() = l.Map(v => v); Kept.Add(p.B!.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -113519,6 +113575,31 @@ public static class Shapes
                 this.Target = ref second;
             }
         }
+    }
+
+    // Helpers of the shapes of AB374 with a condition that is not a constant.
+    public static class Ab374Conditional
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+        public static Cell<int>? C;
+        public static Cell<int>? D;
+        public static Cell<int>? E;
+        public static Cell<int>? F;
+        public static Cell<int>? G;
+        public static Cell<int>? H;
+        public static Cell<int>?[] Array = [];
+    }
+
+    // A helper of the shapes of AB374: a method that gives a ref to one of two fields.
+    public sealed class Ab374Pair
+    {
+        public Cell<int>? A;
+        public Cell<int>? B;
+
+        public ref Cell<int>? Pick(bool first) => ref first ? ref this.A : ref this.B;
+
+        public ref Cell<int>? PickTheFirst() => ref true ? ref this.A : ref this.B;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

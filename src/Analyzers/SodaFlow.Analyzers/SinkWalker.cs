@@ -2531,6 +2531,12 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     state: this.evaluator.Eval(value),
                     value: value);
             }
+
+            // The walk does not know which location a conditional ref selects. Each can get the value.
+            if (this.evaluator.TheConditionalLocationOf(aliased) is { } either)
+            {
+                this.Assign(target: either, value: value, replaces: false, turn: null);
+            }
         }
 
         // A ref field of a ref struct in a local refers to a local: see TheLocalOfARefField.

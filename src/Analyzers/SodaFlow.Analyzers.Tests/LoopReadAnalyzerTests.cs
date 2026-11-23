@@ -96,7 +96,11 @@ internal sealed partial class LoopReadAnalyzerTests
         "Ab285AwaitInTheSectionsOfASwitchOnTrueAndFalse",
         // A call that gets this can give a delegate member of this a new value. The analyzer does
         // not read that call. Thus, it counts each value that the code of the class gives the member.
-        "Ab352CallWithThisThatDoesNotSetTheMember"
+        "Ab352CallWithThisThatDoesNotSetTheMember",
+        // A conditional ref on a condition that is not a constant selects one of two locations. The
+        // analyzer does not know which. Thus, a write through the ref goes to the two locations.
+        "R6LimWriteThroughAConditionalRefReadTheFirst",
+        "Ab374WriteThroughAConditionalRefOfALocalFunctionReadTheFirst"
     ];
 
     private static readonly Assembly[] ShapeLibraries =

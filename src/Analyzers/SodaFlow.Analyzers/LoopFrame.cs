@@ -226,6 +226,14 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     public Dictionary<ISymbol, ExpressionSyntax> LocationOf { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     For a local with ref of this code: the conditional ref of its
+    ///     location, where the condition is not a constant. Each branch is a
+    ///     location that <see cref="LocationOf" /> can have.
+    /// </summary>
+    public Dictionary<ISymbol, ExpressionSyntax> ConditionalLocationOf { get; } =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>
     ///     For a loop of this code: each member that a write of its turn
     ///     replaced, with the state that the member had before the loop. The
     ///     write is to an object or through a name that is older than the turn.

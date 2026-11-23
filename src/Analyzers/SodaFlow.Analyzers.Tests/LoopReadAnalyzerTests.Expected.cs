@@ -8744,6 +8744,17 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab382UsingDeclarationInABlockWithALabel"] = ["SF1005"],
             ["R6CsWriteThroughARefFieldWritesTheLocal"] = ["SF1001"],
             ["R6CsReadThroughARefFieldSeesALaterWrite"] = ["SF1001"],
-            ["Ab392WriteThroughARefFieldInALambda"] = ["SF1001"]
+            ["Ab392WriteThroughARefFieldInALambda"] = ["SF1001"],
+            ["R6LimWriteThroughAConditionalRefReadTheFirst"] = ["SF1001"],
+            ["R6LimWriteThroughAConditionalRefReadTheSecond"] = ["SF1001"],
+            ["Ab374WriteThroughAConditionalRefOfALocalFunctionReadTheSecond"] = ["SF1001"],
+            ["Ab374WriteThroughAConditionalRefOfALocalFunctionReadTheFirst"] = ["SF1001"],
+            ["Ab374WriteThroughAConditionalRefOfTwoLocalsReadTheSecond"] = ["SF1001"],
+            ["Ab374WriteThroughAConditionalRefReadTheRefLocal"] = ["SF1001"],
+            ["Ab374WriteThroughAConditionalRefOfAMethodReadTheSecond"] = ["SF1001"],
+            ["Ab374WriteThroughANestedConditionalRefReadTheThird"] = ["SF1001"],
+            ["Ab374WriteThroughAConditionalRefAfterANewValueOfTheCondition"] = ["SF1001"],
+            ["Ab374WriteThroughAConditionalRefAfterANewValueOfALocation"] = ["SF1001"],
+            ["Ab374WriteThroughAConstantConditionalRefOfAMethodReadTheTaken"] = ["SF1001"]
         };
 }

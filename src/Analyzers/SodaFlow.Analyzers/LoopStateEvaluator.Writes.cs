@@ -124,13 +124,19 @@ internal sealed partial class LoopStateEvaluator
     ///     change to the location itself. A function can run at a different time,
     ///     thus the code of a function gets no location.
     /// </remarks>
-    public ExpressionSyntax? TheLocationOf(ExpressionSyntax written)
+    public ExpressionSyntax? TheLocationOf(ExpressionSyntax written) =>
+        this.TheLocationIn(locations: this.Frame.LocationOf, written: written);
+
+    // The location of a name with ref in the given record, when the walk can read it again.
+    private ExpressionSyntax? TheLocationIn(
+        Dictionary<ISymbol, ExpressionSyntax> locations,
+        ExpressionSyntax written)
     {
         if (this.function != null
-            || this.Frame.LocationOf.Count == 0
+            || locations.Count == 0
             || Unwrapped(written) is not IdentifierNameSyntax use
             || this.region.SymbolOf(use) is not ILocalSymbol name
-            || !this.Frame.LocationOf.TryGetValue(key: name, value: out ExpressionSyntax? location)
+            || !locations.TryGetValue(key: name, value: out ExpressionSyntax? location)
             || FunctionOf(use) is not { } code
             || FunctionOf(location) != code
             || use.SpanStart <= location.Span.End)
@@ -138,12 +144,7 @@ internal sealed partial class LoopStateEvaluator
             return null;
         }
 
-        ExpressionSyntax target = Unwrapped(location);
-
-        IEnumerable<IdentifierNameSyntax> parts =
-            target is IdentifierNameSyntax ? [] : target.DescendantNodes().OfType<IdentifierNameSyntax>();
-
-        return parts.Any(part =>
+        return PartsOf(location).Any(part =>
             this.region.SymbolOf(part) is { } symbol and (ILocalSymbol or IParameterSymbol)
             && this.GetsAValue(
                 name: symbol,
@@ -153,6 +154,19 @@ internal sealed partial class LoopStateEvaluator
                 orAFunctionUsesIt: false))
             ? null
             : location;
+
+        // A new value of a name in a part can move the location. A local that is the location
+        // itself does not move it. The condition of a conditional ref does not move it either.
+        static IEnumerable<IdentifierNameSyntax> PartsOf(ExpressionSyntax location) =>
+            Unwrapped(location) switch
+            {
+                IdentifierNameSyntax => [],
+                ConditionalExpressionSyntax
+                {
+                    WhenTrue: RefExpressionSyntax whenTrue, WhenFalse: RefExpressionSyntax whenFalse
+                } => PartsOf(whenTrue.Expression).Concat(PartsOf(whenFalse.Expression)),
+                var target => target.DescendantNodes().OfType<IdentifierNameSyntax>()
+            };
     }
 
     /// <summary>
@@ -1053,7 +1067,9 @@ internal sealed partial class LoopStateEvaluator
 
         List<(ExpressionSyntax Argument, bool IsAnElement)> locations = [];
 
-        foreach (ExpressionSyntax returned in body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+        foreach (ExpressionSyntax returned in
+                 (body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+                 .SelectMany(this.LocationsOfAConditionalRef))
         {
             (ExpressionSyntax name, bool isAnElement) =
                 Unwrapped(this.SelectedLocation(returned)) is ElementAccessExpressionSyntax element
@@ -1112,7 +1128,9 @@ internal sealed partial class LoopStateEvaluator
 
         List<(ISymbol Member, bool IsAnElement)> members = [];
 
-        foreach (ExpressionSyntax returned in body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+        foreach (ExpressionSyntax returned in
+                 (body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+                 .SelectMany(this.LocationsOfAConditionalRef))
         {
             (ExpressionSyntax name, bool isAnElement) =
                 Unwrapped(returned) is ElementAccessExpressionSyntax element

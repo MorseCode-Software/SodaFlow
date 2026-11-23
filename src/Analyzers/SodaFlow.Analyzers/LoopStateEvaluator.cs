@@ -890,12 +890,7 @@ internal sealed partial class LoopStateEvaluator
         {
             location = this.SelectedLocation(location);
 
-            if (replaces
-                && local is ILocalSymbol
-                && (this.IsALocationThatTheWalkCanReadAgain(location)
-                    || this.IsAStaticField(location)
-                    || this.IsARefIndexerOfALocal(location)
-                    || this.IsAFieldOfAnElementOfAStaticArray(location)))
+            if (replaces && local is ILocalSymbol && this.IsALocationOfARefLocal(location))
             {
                 this.Frame.LocationOf[local] = location;
             }
@@ -903,6 +898,8 @@ internal sealed partial class LoopStateEvaluator
             {
                 this.Frame.LocationOf.Remove(local);
             }
+
+            this.NotesAConditionalLocation(local: local, location: location, replaces: replaces);
         }
 
         // The value says if its object can be one that the store does not know. An element at a

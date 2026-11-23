@@ -398,7 +398,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   that member. So does a write through a `ref` local of such an indexer, and a write through a
   conditional `ref` goes to both of its locations. A write through a `ref` local of a conditional
   `ref`, or through a conditional `ref` that a method or a local function returns, goes to the
-  location that a constant condition selects. A write through a `ref` that a method returns, to a
+  location that a constant condition selects, and to both locations where the condition is not a
+  constant. A write through a `ref` that a method returns, to a
   static field or to an element of an array parameter, adds its value to what the location held and
   does not replace it, so a plain cell written that way over a pending one still counts as pending.
   A write through a `ref` local of a static field replaces what the field held, as a write to the
@@ -717,6 +718,10 @@ careful side, so it can report a read that does not throw:
   keeps the exception and the code after the call goes on. Only a later `Wait` or `Result` throws.
   The same holds for a sample before the first `await` of an `async` method, local function, or
   lambda whose task nothing waits for.
+- A write through a conditional `ref` whose condition is not a constant, directly or through a
+  `ref` local or a returned `ref`, goes to both of its locations and replaces the value of neither.
+  So a pending cell written that way makes a read of either location report, also a read of the
+  location that the condition rules out.
 - A `finally` block that throws a different object replaces the object of its `try` block and of
   its `catch` clauses. The analyzer knows that only for a `throw` statement at the first level of
   the `finally` block. A call there that throws, or a `Dispose` that throws at the end of a
@@ -930,10 +935,6 @@ Some reads that throw it does not see:
   counts as that function.
 - The objects of a task for a `catch` around `Task.WaitAll`, `Task.WaitAny`, or a wait of a task
   from `Task.Factory.StartNew`. The analyzer gives such a `catch` no object.
-- A write through a `ref` local of a conditional `ref` whose condition is not a constant, or through
-  such a conditional `ref` that a method or a local function returns. The analyzer gives the value to
-  neither location. Where it gave the value to both, a read of the location that the condition
-  rules out would get a report, and the analyzer cannot tell the two reads apart.
 - A static initializer of a class with no static constructor. The runtime can run such initializers
   at any time before the first read of a field. The analyzer reads them at the first read of a
   static field, or of a static property with no code, through the name of the class or in the code
