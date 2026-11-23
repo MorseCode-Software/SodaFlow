@@ -412,11 +412,9 @@ internal sealed partial class LoopStateEvaluator
         {
             this.Frame.PutsBeforeAnAssignment[local] = this.Frame.PutsIntoLocations.Count;
 
-            // A function can run at a different time from its code.
-            if (this.function == null)
-            {
-                this.Frame.PositionsAtASureAssignment[local] = this.region.Objects.PositionChanges;
-            }
+            // C# lets no function capture a ref or out parameter of the code around it. Thus, the
+            // parameter is of this code, and the assignment runs in the run that the call reads.
+            this.Frame.PositionsAtASureAssignment[local] = this.region.Objects.PositionChanges;
         }
     }
 

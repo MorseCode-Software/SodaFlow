@@ -420,8 +420,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   write is the one that counts. Where the analyzer cannot tell that the second name holds the same
   object, both writes count. A new object that goes into a name with an object initializer, as in
   `slots[0] = new Slot { Cell = value }`, gives the name only the values that the initializer sets,
-  also where such a method puts it and keeps it there to its end. A method that always gives its
-  `ref` or `out` parameter a value replaces what a local, or a field of the object in a local, held
+  also where such a method puts it and keeps it there to its end. A method or a local function that
+  always gives its `ref` or `out` parameter a value replaces what a local, or a field of the object
+  in a local, held
   before, where the block always calls it and passes no second `ref` or `out` argument. A
   constructor that puts `this` into a name makes that name a name of the new object, as a registry
   does with a static field or a static property. So does a constructor that does this through a

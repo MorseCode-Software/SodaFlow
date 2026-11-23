@@ -58792,6 +58792,30 @@ public static class Shapes
     public static Cell<int> Ab380BlockInALocalGivenByATupleLocalThatGetsASecondValue() =>
         ((Func<Cell<int>>)(() => { var pair = ((Func<LoopedCell<int>, Cell<int>>)(l => { Kept.Add(l.Sample()); return S.Hold(0); }), 1); pair = ((Func<LoopedCell<int>, Cell<int>>)(l => S.Hold(0)), 2); Func<LoopedCell<int>, Cell<int>> block = l => S.Hold(0); int n; (block, n) = pair; Kept.Add(n); return Cell.Loop<int>().WithoutCaptures(block); }))();
 
+    // S14218. An out parameter of a local function replaces a pending local with a plain cell.
+    public static Cell<int> R6LimOutParameterOfALocalFunctionReplacesALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c = l.Map(v => v); Give(out c); Kept.Add(c!.Sample()); static void Give(out Cell<int>? x) => x = Plain; return S.Hold(0); });
+
+    // S14219. An out parameter of a local function with a block body replaces a pending local with a plain cell.
+    public static Cell<int> Ab381OutParameterOfALocalFunctionWithABlockBodyReplacesALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c = l.Map(v => v); Give(out c); Kept.Add(c!.Sample()); static void Give(out Cell<int>? x) { x = Plain; } return S.Hold(0); });
+
+    // S14220. An out parameter of a local function that is not static replaces a pending local with a plain cell.
+    public static Cell<int> Ab381OutParameterOfALocalFunctionThatIsNotStaticReplacesALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c = l.Map(v => v); Give(out c); Kept.Add(c!.Sample()); void Give(out Cell<int>? x) => x = Plain; return S.Hold(0); });
+
+    // S14221. An out parameter of a local function replaces a pending field of an object in a local with a plain cell.
+    public static Cell<int> Ab381OutParameterOfALocalFunctionReplacesAFieldOfAnObjectInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6LimFieldBox b = new() { Cell = l.Map(v => v) }; Give(out b.Cell); Kept.Add(b.Cell!.Sample()); static void Give(out Cell<int>? x) => x = Plain; return S.Hold(0); });
+
+    // S14222. A ref parameter of a local function gets a plain cell only under a condition that is false. The local stays pending.
+    public static Cell<int> Ab381RefParameterOfALocalFunctionSetUnderAConditionKeepsTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c = l.Map(v => v); Give(ref c); Kept.Add(c!.Sample()); static void Give(ref Cell<int>? x) { if (Never) { x = Plain; } } return S.Hold(0); });
+
+    // S14223. A local function sets its ref parameter to a plain cell and then to the pending cell that it gets. The local stays pending.
+    public static Cell<int> Ab381RefParameterOfALocalFunctionSetTwoTimesKeepsTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>? c = l.Map(v => v); Cell<int> p = c; Give(ref c, p); Kept.Add(c!.Sample()); static void Give(ref Cell<int>? x, Cell<int> y) { x = Plain; x = y; } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
