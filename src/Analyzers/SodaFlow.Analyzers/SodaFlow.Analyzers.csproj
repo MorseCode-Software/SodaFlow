@@ -98,6 +98,7 @@
         <Compile Include="LoopStateEvaluator.Reflection.cs"/>
         <Compile Include="LoopStateEvaluator.Recursion.cs"/>
         <Compile Include="LoopStateEvaluator.RefsOfOneLocation.cs"/>
+        <Compile Include="LoopStateEvaluator.RemovesThroughACall.cs"/>
         <Compile Include="LoopStateEvaluator.ReturnedFunctions.cs"/>
         <Compile Include="LoopStateEvaluator.SecondNames.cs"/>
         <Compile Include="LoopStateEvaluator.StructCollections.cs"/>
@@ -137,6 +138,7 @@
         <Compile Include="SinkWalker.Nodes.cs"/>
         <Compile Include="SinkWalker.Sequences.cs"/>
         <Compile Include="SinkWalker.Paths.cs"/>
+        <Compile Include="SinkWalker.Removes.cs"/>
         <Compile Include="SinkWalker.Serializers.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
         <Compile Include="WriteThroughAName.cs"/>

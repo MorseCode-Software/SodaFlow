@@ -856,8 +856,13 @@ careful side, so it can report a read that does not throw:
   and the remove. An event of such an object can too, as long as no code before the remove uses the
   object other than to add or remove handlers, and no constructor that `new` runs passes `this` on.
   Otherwise, nothing can come between the add and the remove. An event of `this`, of a field, or of
-  a parameter never qualifies, and neither does a remove in a lambda, a local function, or a method
-  of yours.
+  a parameter never qualifies. A remove in a lambda in a local, a local function, or a method of
+  yours that is not virtual counts as a remove at the call, where the call runs on every path, the
+  remove is the first statement of that function, and the function names the handler nowhere else.
+  A parameter of the function stands for its argument, which must be a local, and any other name
+  is the local of the code that calls it. A remove from a delegate parameter changes only the copy
+  that the function got, so it does not count, and neither does a call of a function that calls
+  such a function.
 - A sample of a hold gives only the initial value where the hold is made and sampled in the
   transaction of the block: in the block's own code, in a function that `Transaction.Run` runs, in
   the function of a `Map` of a `Cell.Constant`, or in a local function, lambda, or method that such

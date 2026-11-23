@@ -8757,6 +8757,19 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab374WriteThroughAConditionalRefAfterANewValueOfALocation"] = ["SF1001"],
             ["Ab374WriteThroughAConstantConditionalRefOfAMethodReadTheTaken"] = ["SF1001"],
             ["R6LimEvictionHandlerAtADisposeInListForEach"] = ["SF1001"],
-            ["Ab364EvictionHandlerOfTheSecondMapAtADisposeInListForEach"] = ["SF1001"]
+            ["Ab364EvictionHandlerOfTheSecondMapAtADisposeInListForEach"] = ["SF1001"],
+            ["Ab434HandlerRemovedInAHelperUnderACondition"] = ["SF1001"],
+            ["Ab434HandlerAddedTwoTimesAndRemovedInAHelper"] = ["SF1001"],
+            ["Ab434DifferentHandlerRemovedInAHelper"] = ["SF1001"],
+            ["Ab434HandlerRemovedFromADifferentObjectInAHelper"] = ["SF1001"],
+            ["Ab434HandlerRemovedAndAddedAgainInAHelper"] = ["SF1001"],
+            ["Ab434HandlerRemovedAndAddedAgainInALambda"] = ["SF1001"],
+            ["Ab434HandlerRemovedInAHelperAfterTheRing"] = ["SF1001"],
+            ["Ab434HandlerRemovedInAHelperAfterARing"] = ["SF1001"],
+            ["Ab434HandlerKeptByTheOverrideOfAVirtualMethod"] = ["SF1001"],
+            ["Ab434HandlerKeptByALaterOverride"] = ["SF1001"],
+            ["Ab434HandlerRemovedFromTheSecondBellInAHelper"] = ["SF1001"],
+            ["Ab434HandlerKeptByALambdaThatTheLocalGetsLater"] = ["SF1001"],
+            ["Ab434HandlerRemovedFromACopyInAHelper"] = ["SF1001"]
         };
 }

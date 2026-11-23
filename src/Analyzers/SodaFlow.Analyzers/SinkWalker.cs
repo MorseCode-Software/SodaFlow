@@ -183,10 +183,16 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
             if (model.GetDeclaredSymbol(declarator) is { } local)
             {
-                this.evaluator.Declare(
-                    local: local,
-                    state: this.evaluator.Eval(declarator.Initializer.Value),
-                    from: declarator.Initializer.Value);
+                LoopState initial = this.evaluator.Eval(declarator.Initializer.Value);
+
+                // A delegate that starts with a function that it did not make can lose it in a call.
+                if (declarator.Initializer.Value is not AnonymousFunctionExpressionSyntax
+                    && !initial.Functions.IsEmpty)
+                {
+                    this.addsAHandler = true;
+                }
+
+                this.evaluator.Declare(local: local, state: initial, from: declarator.Initializer.Value);
 
                 this.evaluator.HoldsValueOf(local: local, value: declarator.Initializer.Value, replaces: true);
                 this.evaluator.NotesNamesOfOneObject(local: local, declarator: declarator);
@@ -2019,6 +2025,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             if (node.IsKind(SyntaxKind.AddAssignmentExpression)
                 && this.evaluator.Eval(node.Right) is { Functions.IsEmpty: false } added)
             {
+                this.addsAHandler = true;
                 this.AssignState(target: node.Left, state: added, replaces: false, turn: null);
             }
 

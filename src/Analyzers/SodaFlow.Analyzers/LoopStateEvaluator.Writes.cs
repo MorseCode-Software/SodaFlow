@@ -1467,22 +1467,34 @@ internal sealed partial class LoopStateEvaluator
     ///     </para>
     /// </remarks>
     /// <param name="remove">The assignment with <c>-=</c>.</param>
-    public LoopState? AfterTheLastRemove(AssignmentExpressionSyntax remove)
+    public LoopState? AfterTheLastRemove(AssignmentExpressionSyntax remove) =>
+        !this.quiet
+        && FunctionOf(remove) is { } code
+        && this.NamedLocation(remove.Left) is { } location
+        && this.TheLambdaOfTheLastRemove(code: code, at: remove, handler: remove.Right, location: location, ran: [])
+            is { } lambda
+            ? this.Eval(remove.Left).WithoutFunctionsOf(lambda)
+            : null;
+
+    // The lambda whose last occurrence a remove takes away, for AfterTheLastRemove. The remove is at
+    // the given node of the code, or a call at that node runs it. The uses of the names in what the
+    // call ran are uses of the remove. Null when the walk is not sure.
+    private AnonymousFunctionExpressionSyntax? TheLambdaOfTheLastRemove(
+        SyntaxNode code,
+        SyntaxNode at,
+        ExpressionSyntax handler,
+        (ISymbol Variable, ISymbol? Member) location,
+        IReadOnlyCollection<SyntaxNode> ran)
     {
-        if (this.quiet
-            || Unwrapped(remove.Right) is not IdentifierNameSyntax handler
-            || this.region.SymbolOf(handler) is not ILocalSymbol local
+        if (Unwrapped(handler) is not IdentifierNameSyntax name
+            || this.region.SymbolOf(name) is not ILocalSymbol local
             || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax { Initializer.Value: { } value } declarator
             || Unwrapped(value) is not AnonymousFunctionExpressionSyntax lambda
-            || FunctionOf(remove) is not { } code
             || code.DescendantNodes().OfType<LabeledStatementSyntax>().Any()
-            || !this.RunsStraightIn(
-                node: declarator,
-                code: code,
-                names: [local.Name, .. NameOfTheOwner(remove.Left)])
+            || !this.RunsStraightIn(node: declarator, code: code, names: [local.Name, location.Variable.Name])
             || this.GetsASecondValue(local: local, scope: code)
-            || this.UsesOfTheLocation(location: remove.Left, code: code) is not (var changes, var start))
+            || this.UsesOfTheLocation(location: location, code: code, ran: ran) is not (var changes, var start))
         {
             return null;
         }
@@ -1497,6 +1509,11 @@ internal sealed partial class LoopStateEvaluator
                          use.Identifier.ValueText == local.Name
                          && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local)))
         {
+            if (IsInAny(nodes: ran, use: use))
+            {
+                continue;
+            }
+
             if (FunctionOf(use) != code)
             {
                 return null;
@@ -1511,14 +1528,14 @@ internal sealed partial class LoopStateEvaluator
                     if (!this.RunsStraightIn(
                             node: change,
                             code: code,
-                            names: [local.Name, .. NameOfTheOwner(remove.Left)]))
+                            names: [local.Name, location.Variable.Name]))
                     {
                         return null;
                     }
 
                     ofTheLambda.Add(change);
 
-                    if (change.SpanStart < remove.SpanStart)
+                    if (change.SpanStart < at.SpanStart)
                     {
                         count += change.IsKind(SyntaxKind.AddAssignmentExpression) ? 1 : -1;
                         first ??= change;
@@ -1557,7 +1574,7 @@ internal sealed partial class LoopStateEvaluator
                         node == code || node is not AnonymousFunctionExpressionSyntax)
                     .Any(node =>
                         node.SpanStart >= first.Span.End
-                        && node.Span.End <= remove.SpanStart
+                        && node.Span.End <= at.SpanStart
                         && !node.AncestorsAndSelf().Any(ofTheLambda.Contains)
                         && node is InvocationExpressionSyntax
                             or BaseObjectCreationExpressionSyntax
@@ -1567,33 +1584,37 @@ internal sealed partial class LoopStateEvaluator
                             or PostfixUnaryExpressionSyntax
                             or ElementAccessExpressionSyntax
                             or MemberAccessExpressionSyntax)
-                && !this.OnlyTheEventReaches(remove: remove, changes: changes)))
+                && !this.OnlyTheEventReaches(location: location, code: code, at: at, changes: changes, ran: ran)))
         {
             return null;
         }
 
-        return this.Eval(remove.Left).WithoutFunctionsOf(lambda);
+        return lambda;
     }
 
     // True when code before a remove from an event of a local object gets to the object only to add
     // or remove a handler. Thus, no code between the add and the remove can copy the handlers. The
     // constructor must keep the object: see KeepsItsObject.
-    private bool OnlyTheEventReaches(AssignmentExpressionSyntax remove, ICollection<SyntaxNode> changes)
+    private bool OnlyTheEventReaches(
+        (ISymbol Variable, ISymbol? Member) location,
+        SyntaxNode code,
+        SyntaxNode at,
+        ICollection<SyntaxNode> changes,
+        IReadOnlyCollection<SyntaxNode> ran)
     {
-        if (Unwrapped(remove.Left) is not MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner }
-            || this.region.SymbolOf(owner) is not ILocalSymbol local
+        if (location is not (ILocalSymbol local, not null)
             || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax { Initializer.Value: BaseObjectCreationExpressionSyntax made }
             || this.region.SymbolOf(made) is not IMethodSymbol constructor
-            || !this.KeepsItsObject(constructor)
-            || FunctionOf(remove) is not { } code)
+            || !this.KeepsItsObject(constructor))
         {
             return false;
         }
 
         return code.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
-            .Where(use => use.SpanStart < remove.SpanStart
+            .Where(use => use.SpanStart < at.SpanStart
+                          && !IsInAny(nodes: ran, use: use)
                           && use.Identifier.ValueText == local.Name
                           && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local))
             .All(use => use.Parent is MemberAccessExpressionSyntax { Parent: AssignmentExpressionSyntax change }
@@ -1698,30 +1719,35 @@ internal sealed partial class LoopStateEvaluator
         return false;
     }
 
+    // The variable of the delegate location that a remove changes, with the event for an event of the
+    // variable. The event keeps its handlers in a field, and the remove is not in the type of the
+    // event. The owner of an event can be a parameter of a callee. Null for each other location.
+    private (ISymbol Variable, ISymbol? Member)? NamedLocation(ExpressionSyntax location) =>
+        Unwrapped(location) switch
+        {
+            IdentifierNameSyntax name when this.region.SymbolOf(name) is ILocalSymbol own => (own, null),
+            MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner } access
+                when this.region.SymbolOf(owner) is (ILocalSymbol or IParameterSymbol) and var own
+                     && this.region.SymbolOf(access) is IEventSymbol happening
+                     && SodaFlowSymbols.IsFieldLikeEvent(happening)
+                     && !happening.ContainingType.DeclaringSyntaxReferences.Any(reference =>
+                         reference.SyntaxTree == location.SyntaxTree
+                         && reference.Span.Contains(location.Span)) => (own, happening),
+            _ => null
+        };
+
     // The assignments with += and -= of a delegate location of this run of the code, and, for a
     // local, its declarator. The location is a local, or an event of a local whose value is a new
     // object. Null when a use of the location can copy the delegate, or when the location can be
-    // of a different run.
+    // of a different run. A use in what a call ran is a use of the remove.
     private (HashSet<SyntaxNode> Changes, VariableDeclaratorSyntax? Start)? UsesOfTheLocation(
-        ExpressionSyntax location,
-        SyntaxNode code)
+        (ISymbol Variable, ISymbol? Member) location,
+        SyntaxNode code,
+        IReadOnlyCollection<SyntaxNode> ran)
     {
-        (ISymbol Variable, ISymbol? Member)? named =
-            Unwrapped(location) switch
-            {
-                IdentifierNameSyntax name when this.region.SymbolOf(name) is ILocalSymbol own => (own, null),
-                MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner } access
-                    when this.region.SymbolOf(owner) is ILocalSymbol own
-                         && this.region.SymbolOf(access) is IEventSymbol happening
-                         && SodaFlowSymbols.IsFieldLikeEvent(happening)
-                         && !happening.ContainingType.DeclaringSyntaxReferences.Any(reference =>
-                             reference.SyntaxTree == location.SyntaxTree
-                             && reference.Span.Contains(location.Span)) => (own, happening),
-                _ => null
-            };
+        (ISymbol variable, ISymbol? member) = location;
 
-        if (named is not (var variable, var member)
-            || variable.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+        if (variable.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax declarator
             || FunctionOf(declarator) != code
             || !this.RunsStraightIn(node: declarator, code: code, names: [variable.Name])
@@ -1740,6 +1766,11 @@ internal sealed partial class LoopStateEvaluator
                          use.Identifier.ValueText == variable.Name
                          && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: variable)))
         {
+            if (IsInAny(nodes: ran, use: use))
+            {
+                continue;
+            }
+
             if (FunctionOf(use) != code)
             {
                 return null;

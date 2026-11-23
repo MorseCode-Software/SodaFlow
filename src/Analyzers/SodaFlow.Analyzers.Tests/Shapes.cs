@@ -61688,6 +61688,94 @@ public static class Shapes
     public static Cell<int> Ab364EvictionHandlerAtADisposeInListForEachOfAnEmptyList() =>
         Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; List<IDisposable> all = []; all.ForEach(d => d.Dispose()); return S.Hold(n); });
 
+    // S14949. A method of this code removes the handler that it gets. Thus, Ring runs no handler.
+    public static Cell<int> R6PathHandlerRemovedInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; R6PathUnhook(b, h); b.Ring(); return S.Hold(0); });
+
+    // S14950. Control: the block calls the lambda that removes the handler on every path.
+    public static Cell<int> R6PathHandlerRemovedInALambdaOnEveryPath() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Action off = () => b.Rang -= h; off(); b.Ring(); return S.Hold(0); });
+
+    // S14951. The block calls a local function that removes the handler on every path. Thus, Ring runs no handler.
+    public static Cell<int> Ab434HandlerRemovedInALocalFunctionOnEveryPath() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Off(); b.Ring(); return S.Hold(0); void Off() => b.Rang -= h; });
+
+    // S14952. A method of this code with a block body removes the handler that it gets, and then does a different thing. Thus, Ring runs no handler.
+    public static Cell<int> Ab434HandlerRemovedInAHelperWithABlockBody() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Ab434UnhookAndKeep(b, h); b.Ring(); return S.Hold(0); });
+
+    // S14953. The block calls the method that removes the handler only under a condition that is false. Ring runs the handler, which samples.
+    public static Cell<int> Ab434HandlerRemovedInAHelperUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; if (Kept.Count < 0) { R6PathUnhook(b, h); } b.Ring(); return S.Hold(0); });
+
+    // S14954. The block adds the handler two times, and a method of this code removes it one time. Ring runs the handler that is left, which samples.
+    public static Cell<int> Ab434HandlerAddedTwoTimesAndRemovedInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Rang += h; R6PathUnhook(b, h); b.Ring(); return S.Hold(0); });
+
+    // S14955. A method of this code removes a different handler. Ring runs the handler that samples.
+    public static Cell<int> Ab434DifferentHandlerRemovedInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); Action other = () => Kept.Add(0); b.Rang += h; b.Rang += other; R6PathUnhook(b, other); b.Ring(); return S.Hold(0); });
+
+    // S14956. A method of this code removes the handler from a different object. Ring runs the handler that samples.
+    public static Cell<int> Ab434HandlerRemovedFromADifferentObjectInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Ab95Bell c = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; c.Rang += h; R6PathUnhook(c, h); b.Ring(); return S.Hold(0); });
+
+    // S14957. A method of this code removes the handler and then adds it again. Ring runs the handler, which samples.
+    public static Cell<int> Ab434HandlerRemovedAndAddedAgainInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Ab434UnhookAndHook(b, h); b.Ring(); return S.Hold(0); });
+
+    // S14958. A lambda removes the handler and then adds it again. The block calls the lambda, and Ring runs the handler, which samples.
+    public static Cell<int> Ab434HandlerRemovedAndAddedAgainInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Action off = () => { b.Rang -= h; b.Rang += h; }; off(); b.Ring(); return S.Hold(0); });
+
+    // S14959. The block calls the method that removes the handler after Ring. Ring runs the handler, which samples.
+    public static Cell<int> Ab434HandlerRemovedInAHelperAfterTheRing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Ring(); R6PathUnhook(b, h); return S.Hold(0); });
+
+    // S14960. A method of this code rings the bell before it removes the handler. The handler samples.
+    public static Cell<int> Ab434HandlerRemovedInAHelperAfterARing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Ab434RingAndUnhook(b, h); b.Ring(); return S.Hold(0); });
+
+    // S14961. A local delegate starts with the handler. A lambda removes it on every path. Thus, the call of the delegate runs no handler.
+    public static Cell<int> Ab434HandlerRemovedFromALocalThatStartsWithItInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action h = () => Kept.Add(l.Sample()); Action? all = h; Action off = () => all -= h; off(); all?.Invoke(); return S.Hold(0); });
+
+    // S14962. An extension method of this code removes the handler from the bell that it extends. Thus, Ring runs no handler.
+    public static Cell<int> Ab434HandlerRemovedInAnExtensionMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; b.Ab434Unhook(h); b.Ring(); return S.Hold(0); });
+
+    // S14963. A local function removes the handler that it gets from the bell that it gets. Thus, Ring runs no handler.
+    public static Cell<int> Ab434HandlerRemovedInALocalFunctionWithParameters() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Off(b, h); b.Ring(); return S.Hold(0); static void Off(Ab95Bell bell, Action handler) => bell.Rang -= handler; });
+
+    // S14964. A virtual method removes the handler, but the object is of a type whose override keeps it. Ring runs the handler, which samples.
+    public static Cell<int> Ab434HandlerKeptByTheOverrideOfAVirtualMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Ab434Unhooker u = new Ab434KeepingUnhooker(); u.Unhook(b, h); b.Ring(); return S.Hold(0); });
+
+    // S14965. An override removes the handler, but the object is of a type whose later override keeps it. Ring runs the handler, which samples.
+    public static Cell<int> Ab434HandlerKeptByALaterOverride() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Ab434RemovingUnhooker u = new Ab434LastUnhooker(); u.Unhook(b, h); b.Ring(); return S.Hold(0); });
+
+    // S14966. A method of this code gives its bell parameter the second bell, and then removes the handler from it. Ring of the first bell runs the handler, which samples.
+    public static Cell<int> Ab434HandlerRemovedFromTheSecondBellInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Ab95Bell c = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Ab434UnhookTheOther(b, c, h); b.Ring(); return S.Hold(0); });
+
+    // S14967. The local of the lambda that removes the handler gets a different lambda before the call. Ring runs the handler, which samples.
+    public static Cell<int> Ab434HandlerKeptByALambdaThatTheLocalGetsLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Action off = () => b.Rang -= h; off = () => Kept.Add(0); off(); b.Ring(); return S.Hold(0); });
+
+    // S14968. A local delegate gets the handler with +=, and a lambda removes it on every path. Thus, the call of the delegate runs no handler.
+    public static Cell<int> Ab434HandlerRemovedFromALocalInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action h = () => Kept.Add(l.Sample()); Action? all = null; all += h; Action off = () => all -= h; off(); all?.Invoke(); return S.Hold(0); });
+
+    // S14969. A call of a different method comes between the add and the call of the lambda that removes the handler. Ring runs no handler.
+    public static Cell<int> Ab434HandlerRemovedInALambdaAfterADifferentCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab95Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; Action off = () => b.Rang -= h; Kept.Add(0); off(); b.Ring(); return S.Hold(0); });
+
+    // S14970. A method of this code gets the handler as a value of its own, removes it from its parameter, and the caller keeps its delegate. The call of the delegate runs the handler, which samples.
+    public static Cell<int> Ab434HandlerRemovedFromACopyInAHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Action h = () => Kept.Add(l.Sample()); Action? all = null; all += h; Ab434RemoveFromACopy(all, h); all?.Invoke(); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -113614,6 +113702,65 @@ public static class Shapes
         public ref Cell<int>? PickTheFirst() => ref true ? ref this.A : ref this.B;
     }
 
+    // Helpers of the shapes of AB434: methods that remove a handler that they get.
+    private static void Ab434UnhookAndKeep(Ab95Bell bell, Action handler)
+    {
+        bell.Rang -= handler;
+        Kept.Add(0);
+    }
+
+    private static void Ab434UnhookAndHook(Ab95Bell bell, Action handler)
+    {
+        bell.Rang -= handler;
+        bell.Rang += handler;
+    }
+
+    private static void Ab434RingAndUnhook(Ab95Bell bell, Action handler)
+    {
+        bell.Ring();
+        bell.Rang -= handler;
+    }
+
+    // Helpers of the shapes of AB434: methods that a call does not run, and a parameter that gets a new value.
+    public class Ab434Unhooker
+    {
+        public virtual void Unhook(Ab95Bell bell, Action handler) => bell.Rang -= handler;
+    }
+
+    public sealed class Ab434KeepingUnhooker : Ab434Unhooker
+    {
+        public override void Unhook(Ab95Bell bell, Action handler)
+        {
+        }
+    }
+
+    public class Ab434KeepingBase
+    {
+        public virtual void Unhook(Ab95Bell bell, Action handler)
+        {
+        }
+    }
+
+    public class Ab434RemovingUnhooker : Ab434KeepingBase
+    {
+        public override void Unhook(Ab95Bell bell, Action handler) => bell.Rang -= handler;
+    }
+
+    public sealed class Ab434LastUnhooker : Ab434RemovingUnhooker
+    {
+        public override void Unhook(Ab95Bell bell, Action handler)
+        {
+        }
+    }
+
+    private static void Ab434UnhookTheOther(Ab95Bell bell, Ab95Bell other, Action handler)
+    {
+        bell = other;
+        bell.Rang -= handler;
+    }
+
+    private static void Ab434RemoveFromACopy(Action? all, Action handler) => all -= handler;
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -113622,6 +113769,9 @@ public static class Shapes
 
 file static class Helpers
 {
+    // An extension method of the AB434 shapes that removes a handler.
+    public static void Ab434Unhook(this Shapes.Ab95Bell bell, Action handler) => bell.Rang -= handler;
+
     // An extension method of the AB400 shapes that samples nothing.
     public static int Ab400Same(this int v) => v;
 

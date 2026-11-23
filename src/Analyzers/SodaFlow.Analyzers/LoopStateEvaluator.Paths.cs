@@ -144,13 +144,4 @@ internal sealed partial class LoopStateEvaluator
 
         return true;
     }
-
-    // The name of the local whose delegate or event a remove changes.
-    private static IEnumerable<string> NameOfTheOwner(ExpressionSyntax location) =>
-        Unwrapped(location) switch
-        {
-            IdentifierNameSyntax name => [name.Identifier.ValueText],
-            MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner } => [owner.Identifier.ValueText],
-            _ => []
-        };
 }
