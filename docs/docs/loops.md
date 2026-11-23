@@ -363,7 +363,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   its locations. A write through a `ref` that a method returns, to a static field or to an element
   of an array parameter, adds its value to what the location held and does not replace it, so a
   plain cell written that way over a pending one still counts as pending. A write through a `ref`
-  local of a static field replaces what the field held, as a write to the field itself does. A write
+  local of a static field replaces what the field held, as a write to the field itself does. Two
+  `ref` or `in` arguments of one call that are one location, such as `ref c` twice or `ref a[0]` and
+  `in a[0]`, are one location in the method too, so a write through one parameter is a write through
+  the other. A write
   to a member through an element of a local array, `List<T>`, or `Dictionary` created with no
   comparer, at a constant index or key or at an index in a local, replaces what an earlier write
   gave that member. So does a write through a local that got that element, and a write through any

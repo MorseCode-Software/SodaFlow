@@ -995,10 +995,10 @@ internal sealed partial class LoopStateEvaluator
                     || this.ConstantIndexOf(indexes[0]) is not { } one
                     || this.ConstantIndexOf(index) is not { } other
                     || one == other),
-            MemberAccessExpressionSyntax access =>
+            MemberAccessExpressionSyntax or IdentifierNameSyntax =>
                 field != null
                 && SymbolEqualityComparer.Default.Equals(
-                    x: this.region.SymbolOf(access)?.OriginalDefinition,
+                    x: this.region.SymbolOf(location)?.OriginalDefinition,
                     y: field),
             _ => false
         };

@@ -8142,6 +8142,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6NmAb339AddThroughALocalOfASettableStaticPropertyList"] = ["SF1001"],
             ["R6NmAb339AddThroughAStaticPropertyReadThroughTheLocal"] = ["SF1001"],
             ["R6NmAb339SetAtAnIndexThroughALocalOfAStaticPropertyList"] = ["SF1001"],
-            ["Ab339SetAtAnIndexThroughAStaticPropertyReadThroughTheLocal"] = ["SF1001"]
+            ["Ab339SetAtAnIndexThroughAStaticPropertyReadThroughTheLocal"] = ["SF1001"],
+            ["R6NmTwoRefParametersOfOneLocal"] = ["SF1004"],
+            ["R6NmTwoRefParametersOfOneElement"] = ["SF1004"],
+            ["R6NmTwoRefParametersOfOneStaticField"] = ["SF1004"],
+            ["R6NmRefAndInParametersOfOneLocal"] = ["SF1004"],
+            ["Ab409TwoRefParametersOfOneLocalWriteInABranch"] = ["SF1004"],
+            ["Ab409TwoRefParametersOfOneStaticFieldByTwoSpellings"] = ["SF1004"]
         };
 }

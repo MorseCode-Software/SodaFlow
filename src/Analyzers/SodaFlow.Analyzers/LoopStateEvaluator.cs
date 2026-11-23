@@ -295,6 +295,8 @@ internal sealed partial class LoopStateEvaluator
             this.IsOneCollection(local: local, state: state, from: from);
             this.locals[local] = state;
         }
+
+        this.WritesTheOtherRefsOf(parameter: local, state: state, replaces: false);
     }
 
     // The state that a name keeps for the value of an expression. A value that can be an object
@@ -402,6 +404,7 @@ internal sealed partial class LoopStateEvaluator
         this.IsOneCollection(local: local, state: state, from: this.function == null ? from : null);
         this.locals[local] = state;
         this.assigned.Add(local);
+        this.WritesTheOtherRefsOf(parameter: local, state: state, replaces: true);
 
         // The parameter is the value of this assignment until this code puts a value into a
         // location after it.
@@ -4177,8 +4180,9 @@ internal sealed partial class LoopStateEvaluator
 
     // The location of a parameter with ref, out, or in of a callee, for a call in this code. The
     // result has the locations of the parameters before it also. The argument is a location that
-    // this code can read again, or such a parameter of this code that has a location. The argument
-    // for a parameter with in is a copy when it has a different type, and a copy is no location.
+    // this code can read again, or such a parameter of this code that has a location. A static field
+    // is one also. The argument for a parameter with in is a copy when it has a different type, and a
+    // copy is no location.
     private Locations WithTheLocationFor(Locations all, Binding binding)
     {
         if (binding.Parameter.RefKind == RefKind.None
@@ -4210,7 +4214,7 @@ internal sealed partial class LoopStateEvaluator
             return all.SetItem(key: binding.Parameter, value: (this, location));
         }
 
-        return this.IsALocationThatTheWalkCanReadAgain(binding.Argument)
+        return this.IsALocationThatTheWalkCanReadAgain(binding.Argument) || this.IsAStaticField(binding.Argument)
             ? all.SetItem(key: binding.Parameter, value: (this, binding.Argument))
             : all;
     }

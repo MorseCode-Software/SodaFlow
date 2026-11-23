@@ -87,6 +87,7 @@
         <Compile Include="LoopStateEvaluator.ReadBack.cs"/>
         <Compile Include="LoopStateEvaluator.Reflection.cs"/>
         <Compile Include="LoopStateEvaluator.Recursion.cs"/>
+        <Compile Include="LoopStateEvaluator.RefsOfOneLocation.cs"/>
         <Compile Include="LoopStateEvaluator.SecondNames.cs"/>
         <Compile Include="LoopStateEvaluator.Sinks.cs"/>
         <Compile Include="LoopStateEvaluator.Together.cs"/>

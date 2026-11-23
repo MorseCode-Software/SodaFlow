@@ -58384,6 +58384,54 @@ public static class Shapes
     public static Cell<int> Ab339AddThroughALocalOfAStaticPropertyThatAlternates() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab339Turn = 0; List<Cell<int>> xs = Ab339Alternate; xs.Add(l.Map(v => v)); return S.Hold(Ab339Alternate[^1].Sample()); });
 
+    // S14116. Names of one object, Round 6: a control: the same method gets a second static field by ref.
+    public static Cell<int> R6NmRefParameterOfADifferentStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmRefF = Plain; R6NmRefOther = Plain; return S.Hold(R6NmSetFieldReadRef(ref R6NmRefOther, l.Map(v => v))); });
+
+    // S14117. Names of one object, Round 6: a method gets one local by two ref parameters. It writes a pending cell through the first and samples the second.
+    public static Cell<int> R6NmTwoRefParametersOfOneLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; return S.Hold(R6NmTwoRefs(ref c, ref c, l.Map(v => v))); });
+
+    // S14118. Names of one object, Round 6: a method gets element 0 of an array by two ref parameters.
+    public static Cell<int> R6NmTwoRefParametersOfOneElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain]; return S.Hold(R6NmTwoRefs(ref a[0], ref a[0], l.Map(v => v))); });
+
+    // S14119. Names of one object, Round 6: a method gets a static field by two ref parameters.
+    public static Cell<int> R6NmTwoRefParametersOfOneStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmRefTwice = Plain; return S.Hold(R6NmTwoRefs(ref R6NmRefTwice, ref R6NmRefTwice, l.Map(v => v))); });
+
+    // S14120. Names of one object, Round 6: a method gets one local by a ref parameter and an in parameter. It writes through the ref and samples the in parameter.
+    public static Cell<int> R6NmRefAndInParametersOfOneLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; return S.Hold(R6NmRefThenIn(ref c, in c, l.Map(v => v))); });
+
+    // S14121. AB409. The method gets one local by two ref parameters. It writes a pending cell through the first in a branch, and samples the second.
+    public static Cell<int> Ab409TwoRefParametersOfOneLocalWriteInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; return S.Hold(Ab409WriteInABranchReadSecond(ref c, ref c, l.Map(v => v))); });
+
+    // S14122. AB409 control. The method writes a pending cell through the first parameter and then a plain cell through the second. Both are one local, thus the read through the first gets the plain cell.
+    public static Cell<int> Ab409TwoRefParametersOfOneLocalTheSecondWriteReplaces() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; return S.Hold(Ab409WriteBothReadFirst(ref c, ref c, l.Map(v => v))); });
+
+    // S14123. AB409 control. The method gets two elements of one array at two constant indexes.
+    public static Cell<int> Ab409TwoRefParametersOfTwoElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; return S.Hold(R6NmTwoRefs(ref a[0], ref a[1], l.Map(v => v))); });
+
+    // S14124. AB409 control. The method gets two static fields by ref.
+    public static Cell<int> Ab409TwoRefParametersOfTwoStaticFields() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab409First = Plain; Ab409Second = Plain; return S.Hold(R6NmTwoRefs(ref Ab409First, ref Ab409Second, l.Map(v => v))); });
+
+    // S14125. AB409. The method gets one static field by ref, and writes a pending cell into a second static field by its name. It then samples the first field by its name.
+    public static Cell<int> Ab409RefParameterOfAStaticFieldThenTheFieldByName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab409First = Plain; Ab409Second = Plain; return S.Hold(Ab409SetTheSecondReadTheFirst(ref Ab409First, l.Map(v => v))); });
+
+    // S14126. AB409. The method gets one static field by two ref parameters, with the name of the class before the second name.
+    public static Cell<int> Ab409TwoRefParametersOfOneStaticFieldByTwoSpellings() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmRefTwice = Plain; return S.Hold(R6NmTwoRefs(ref R6NmRefTwice, ref Shapes.R6NmRefTwice, l.Map(v => v))); });
+
+    // S14127. AB409 control. A method gets a local of the block by ref, and gives it and a local of its own with the same name to a second method by ref. The two are two locations.
+    public static Cell<int> Ab409TwoRefParametersOfTwoLocalsWithOneName() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; return S.Hold(Ab409PassWithALocal(ref c, l.Map(v => v))); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -108883,6 +108931,42 @@ public static class Shapes
     public sealed class Ab339Holder
     {
         public List<Cell<int>> Items { get; } = [Plain];
+    }
+
+    private static Cell<int> Ab409First = Plain;
+    private static Cell<int> Ab409Second = Plain;
+
+    private static int Ab409WriteInABranchReadSecond(ref Cell<int> x, ref Cell<int> y, Cell<int> p)
+    {
+        if (Kept.Count >= 0)
+        {
+            x = p;
+        }
+
+        return y.Sample();
+    }
+
+    private static int Ab409WriteBothReadFirst(ref Cell<int> x, ref Cell<int> y, Cell<int> p)
+    {
+        x = p;
+        y = Plain;
+
+        return x.Sample();
+    }
+
+    private static int Ab409PassWithALocal(ref Cell<int> x, Cell<int> p)
+    {
+        Cell<int> c = Plain;
+
+        return R6NmTwoRefs(ref x, ref c, p);
+    }
+
+    private static int Ab409SetTheSecondReadTheFirst(ref Cell<int> c, Cell<int> p)
+    {
+        Ab409Second = p;
+        _ = c;
+
+        return Ab409First.Sample();
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
