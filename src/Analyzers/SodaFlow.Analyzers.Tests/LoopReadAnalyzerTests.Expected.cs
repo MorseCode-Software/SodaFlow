@@ -8676,6 +8676,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab400MapPrefixOperatorAlone"] = ["SF1001"],
             ["Ab400MapPostfixOperatorAlone"] = ["SF1001"],
             ["Ab400MapCompoundOperatorAlone"] = ["SF1001"],
-            ["Ab400MapTargetTypedCreationAlone"] = ["SF1001"]
+            ["Ab400MapTargetTypedCreationAlone"] = ["SF1001"],
+            ["R6FuAb342FunctionFromTheCallerSampledByAThirdHelper"] = ["SF1004"],
+            ["R6FuAb342BlockLambdaSampledByAThirdHelper"] = ["SF1001"],
+            ["R6FuAb342FunctionFromTheCallerSampledByTheSecondHelper"] = ["SF1004"],
+            ["R6FuAb342BlockLambdaSampledByTheSecondHelper"] = ["SF1001"],
+            ["Ab342BlockLambdaOfACaptureSetPendingBeforeTheHelper"] = ["SF1001"]
         };
 }

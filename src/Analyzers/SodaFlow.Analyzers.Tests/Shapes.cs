@@ -61160,6 +61160,34 @@ public static class Shapes
     public static Cell<int> Ab400MapTargetTypedCreationAlone() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab400S.C6 = Plain; Cell<int> w = Plain.Map(v => { Ab400Box b = new(); return v + b.GetHashCode(); }); Ab400S.C6 = l.Map(v => v); return S.Hold(w.Sample()); });
 
+    // S14817. AB342. A helper gives a second helper a function that samples its parameter. The second helper builds a map with it and gives the map to a third helper, which samples it.
+    public static Cell<int> R6FuAb342FunctionFromTheCallerSampledByAThirdHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R6FuGivesAFunction(l.Map(v => v))));
+
+    // S14818. AB342. The block gives the second helper a lambda that samples the placeholder. The second helper builds a map with it and gives the map to a third helper, which samples it.
+    public static Cell<int> R6FuAb342BlockLambdaSampledByAThirdHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R6FuMapsAFunction(v => v + l.Sample())));
+
+    // S14819. AB342 control. The second helper samples the map itself.
+    public static Cell<int> R6FuAb342FunctionFromTheCallerSampledByTheSecondHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R6FuGivesAFunctionToASampler(l.Map(v => v))));
+
+    // S14820. AB342. The block gives a helper a lambda that samples the placeholder. The helper builds a map with it and samples the map.
+    public static Cell<int> R6FuAb342BlockLambdaSampledByTheSecondHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(R6FuMapsAFunctionAndSamples(v => v + l.Sample())));
+
+    // S14821. Control: the block gives a helper a lambda that samples a plain capture. The helper builds a map with it and samples the map.
+    public static Cell<int> Ab342BlockLambdaOfAPlainCaptureSampledByTheHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; return S.Hold(R6FuMapsAFunctionAndSamples(v => v + c.Sample())); });
+
+    // S14822. Control: the block gives a helper a lambda that samples the placeholder. The helper builds a map with it and keeps the map in a local, with no sample.
+    public static Cell<int> Ab342BlockLambdaMappedAndKeptByTheHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab342MapsAndKeeps(v => v + l.Sample())));
+
+    // S14823. The block gives a helper a lambda that samples a capture. The block sets the capture pending, and then the helper builds a map with the lambda and samples it.
+    public static Cell<int> Ab342BlockLambdaOfACaptureSetPendingBeforeTheHelper() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; Func<int, int> f = v => v + c.Sample(); c = l.Map(v => v); return S.Hold(R6FuMapsAFunctionAndSamples(f)); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112999,6 +113027,13 @@ public static class Shapes
         public static Ab400Unary operator -(Ab400Unary a) => new(C9.Sample());
 
         public static Ab400Unary operator ++(Ab400Unary a) => new(C10.Sample());
+    }
+
+    private static int Ab342MapsAndKeeps(Func<int, int> f)
+    {
+        Cell<int> built = Plain.Map(f);
+
+        return built == Plain ? 1 : 0;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

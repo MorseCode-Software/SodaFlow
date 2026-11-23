@@ -5192,7 +5192,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     read: node,
                     state: state,
                     marks: this.MarksOfAFirstRead(node),
-                    heldIn: heldIn);
+                    heldIn: heldIn,
+                    ofACaller: this.sink);
         }
 
         if (!state.Pending)

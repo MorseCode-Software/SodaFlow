@@ -347,13 +347,20 @@ internal sealed partial class LoopStateEvaluator
     ///     The expression of the cell at the read, for a cell in a member. Null
     ///     for a read with no such expression.
     /// </param>
+    /// <param name="ofACaller">
+    ///     What gets a read of a function whose code is in a caller of this code,
+    ///     such as a lambda that the caller gave. That read is a finding of the
+    ///     caller. Null where no frame of a caller can have the function.
+    /// </param>
     public LoopState AtTheFirstRead(
         SyntaxNode read,
         LoopState state,
         Action<ComputedValue>? marks,
-        ExpressionSyntax? heldIn = null)
+        ExpressionSyntax? heldIn = null,
+        Action<Finding>? ofACaller = null)
     {
         List<Finding> found = [];
+        List<Finding>? ofCallers = null;
 
         foreach (ComputedValue cell in state.Computed.Where(static cell => !cell.HasRunNow))
         {
@@ -373,6 +380,8 @@ internal sealed partial class LoopStateEvaluator
                 continue;
             }
 
+            int from = found.Count;
+
             foreach ((ExpressionSyntax written, LoopState functions) in cell.Functions)
             {
                 foreach (FunctionValue function in functions.Functions)
@@ -391,11 +400,32 @@ internal sealed partial class LoopStateEvaluator
                         ?? []);
                 }
             }
+
+            // The call that made this frame drops a finding of this frame with no origin. Thus, a finding of
+            // a caller goes back to that caller as it is. A cell from the frame of that finding came here
+            // through an argument, and the caller reports the read at that argument.
+            if (ofACaller != null)
+            {
+                for (int i = from; i < found.Count; i++)
+                {
+                    if (found[i].Home != this.Frame
+                        && found[i].Home != cell.Builder.Frame
+                        && this.Frame.IsWithin(found[i].Home))
+                    {
+                        (ofCallers ??= []).Add(found[i]);
+                    }
+                }
+            }
         }
 
         if (found.Count == 0)
         {
             return state;
+        }
+
+        foreach (Finding finding in ofCallers ?? [])
+        {
+            ofACaller?.Invoke(finding);
         }
 
         ISymbol? origin = found.FirstOrDefault(finding => finding.Home == this.Frame && finding.Origin != null)?.Origin;
