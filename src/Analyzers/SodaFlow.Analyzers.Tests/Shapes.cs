@@ -61524,6 +61524,26 @@ public static class Shapes
     public static Cell<int> Ab386ParamsArrayReadsThePlainArgumentFromTheEnd() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab386LastOfAnArray(l.Map(v => v), Plain)); return S.Hold(0); });
 
+    // S14908. An indexer initializer writes a pending cell through the setter, and the block samples it through the getter.
+    public static Cell<int> R6CsIndexerInitializerWritesTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSlots s = new() { [0] = l.Map(v => v) }; Kept.Add(s[0].Sample()); return S.Hold(0); });
+
+    // S14909. AB394. An indexer initializer writes the plain cell through the setter, and the block samples it through the getter.
+    public static Cell<int> Ab394IndexerInitializerWritesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSlots s = new() { [0] = Plain }; Kept.Add(s[0].Sample()); return S.Hold(0); });
+
+    // S14910. AB394. An indexer initializer gives a pending cell to a setter that samples its value.
+    public static Cell<int> Ab394IndexerInitializerRunsASetterThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab394Reads r = new() { [0] = l.Map(v => v) }; return S.Hold(0); });
+
+    // S14911. AB394. An assignment through an indexer gives a pending cell to a setter that samples its value.
+    public static Cell<int> Ab394IndexerAssignmentRunsASetterThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab394Reads r = new(); r[0] = l.Map(v => v); return S.Hold(0); });
+
+    // S14912. AB394. An indexer initializer gives the plain cell to a setter that samples its value.
+    public static Cell<int> Ab394IndexerInitializerRunsASetterThatSamplesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab394Reads r = new() { [0] = Plain }; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -113396,6 +113416,16 @@ public static class Shapes
     private static int Ab386SecondOfASpan(params ReadOnlySpan<Cell<int>> all) => all[1].Sample();
 
     private static int Ab386LastOfAnArray(params Cell<int>[] all) => all[^1].Sample();
+
+    // Helpers of the shapes of AB394.
+    public sealed class Ab394Reads
+    {
+        public Cell<int> this[int i]
+        {
+            get => Plain;
+            set => Kept.Add(value.Sample() + i);
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

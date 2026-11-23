@@ -8732,6 +8732,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab385RefForeachOverASliceWritesItsElement"] = ["SF1001"],
             ["Ab385RefForeachGivesTheVariableByRef"] = ["SF1001"],
             ["Ab386ParamsSpanReadsThePendingSecondArgument"] = ["SF1004"],
-            ["Ab386ParamsArrayReadsThePendingArgumentFromTheEnd"] = ["SF1004"]
+            ["Ab386ParamsArrayReadsThePendingArgumentFromTheEnd"] = ["SF1004"],
+            ["R6CsIndexerInitializerWritesTheElement"] = ["SF1001"],
+            ["Ab394IndexerInitializerRunsASetterThatSamples"] = ["SF1004"],
+            ["Ab394IndexerAssignmentRunsASetterThatSamples"] = ["SF1004"]
         };
 }

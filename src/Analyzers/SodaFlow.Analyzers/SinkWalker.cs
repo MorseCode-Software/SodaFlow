@@ -1955,6 +1955,12 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 MemberBindingExpressionSyntax binding => (LoopStateEvaluator.ConditionalReceiver(binding), null),
                 ElementBindingExpressionSyntax binding =>
                     (LoopStateEvaluator.ConditionalReceiver(binding), binding.ArgumentList),
+                // An index in an object initializer is an element of the new object.
+                ImplicitElementAccessSyntax
+                {
+                    Parent.Parent.Parent: (BaseObjectCreationExpressionSyntax or WithExpressionSyntax)
+                    and ExpressionSyntax made
+                } element => (made, element.ArgumentList),
                 _ => ((ExpressionSyntax?)null, (BracketedArgumentListSyntax?)null)
             };
 

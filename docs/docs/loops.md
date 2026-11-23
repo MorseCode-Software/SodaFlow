@@ -505,7 +505,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   sends into the sink of results. The analyzer reads what the operation returns, also through a
   method that it calls, with each value that the source fires as its input. A value that `Execute`
   of the status gives the operation is such an input too, where a local holds that status.
-- Members that C# calls with no call syntax: an indexer, an operator, a conversion, also of each
+- Members that C# calls with no call syntax: an indexer, also its setter in an object initializer
+  such as `new Slots { [0] = value }`, an operator, a conversion, also of each
   element of a spread, of each element of a tuple that the code converts to a different tuple type,
   also with a cast or to a nullable tuple type, or deconstructs, and of each part that a
   `Deconstruct` method gives to a variable of a different type, `operator true` or `operator false`
