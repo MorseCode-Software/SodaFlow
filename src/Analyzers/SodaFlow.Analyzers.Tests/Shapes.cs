@@ -59908,7 +59908,7 @@ public static class Shapes
     public static Cell<int> R6FuAb352CallOfAHelperObjectWithThisSetsTheMember() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuAb352HelperCall().SetAndRead(l.Map(v => v))));
 
-    // S14497. A constructor gives a delegate member a function that does not sample, calls a static method with this that does not change the member, and builds a Lazy with the member. A different method of the class gives the member a method group that samples, but no code calls it. A method sets the member that the method group samples to a pending cell and reads the value. The report is on the careful side.
+    // S14497. A constructor gives a delegate member a function that does not sample. It calls a static method with this that does not change the member, and builds a Lazy with the member. A different method of the class gives the member a method group that samples, but no code calls it. A method sets the member that the method group samples to a pending cell and reads the value. The report is on the careful side.
     public static Cell<int> Ab352CallWithThisThatDoesNotSetTheMember() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab352Registered().SetAndRead(l.Map(v => v))));
 

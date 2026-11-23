@@ -97,12 +97,12 @@ internal sealed partial class LoopStateEvaluator
 
     // The state of this in the code of a constructor: the members that the walk knows now, and the
     // object of the store.
-    private LoopState ThisInTheStore(MadeObject built, ExpressionSyntax at) =>
+    private LoopState ThisInTheStore(MadeObject built, SyntaxNode at) =>
         this.ThisWithItsMembers(at).WithObjects(ImmutableArray.Create(built));
 
     // The state of this with the members that the walk knows now. A call that gets this can change
     // them: see GivesThisToACall.
-    private LoopState ThisWithItsMembers(ExpressionSyntax at)
+    private LoopState ThisWithItsMembers(SyntaxNode at)
     {
         this.GivesThisToACall(at);
 
@@ -114,7 +114,7 @@ internal sealed partial class LoopStateEvaluator
     // then give a delegate member of this a different value. The walk does not read that code when
     // the call gets no state. Thus, after such a call, each such member also has each value that the
     // code of the class gives it.
-    private void GivesThisToACall(ExpressionSyntax at)
+    private void GivesThisToACall(SyntaxNode at)
     {
         if (at.Parent is not ArgumentSyntax
             {
