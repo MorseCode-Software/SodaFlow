@@ -326,11 +326,14 @@ The analyzer follows a value made from the placeholder through the code of your 
   object that a `throw` in its `try` block, or in a method or a lambda that the block calls, can
   send to that clause. That includes a lambda that a method of the platform, such as
   `List<T>.ForEach`, runs in the call. `ExceptionDispatchInfo.Throw` of an object, and `Throw` of
-  `ExceptionDispatchInfo.Capture` of an object, count as a `throw` of that object. An `async` method, local function, or lambda puts the object
-  into its task instead, so the clause gets it only around an `await` of the call, around an
-  `await foreach` over the sequence that an async iterator gives, or around an `await using` whose
-  `DisposeAsync` throws it. A task that `RunSynchronously` runs keeps the object
-  as well. The runtime throws a `TypeInitializationException` in place of an object that a static
+  `ExceptionDispatchInfo.Capture` of an object, count as a `throw` of that object. An `async`
+  method, local function, or lambda puts the object into its task instead, so the clause gets it only where the code waits for that task: around an
+  `await` of the task, also of a local that holds it, in parentheses, or through `ConfigureAwait`,
+  `AsTask`, `WaitAsync`, `WhenAll`, or the task that an `await` of `WhenAny` gives, around
+  `GetResult` of its awaiter, around an `await foreach` over the sequence that an async iterator
+  gives, or around an `await using` whose `DisposeAsync` throws it. An `await` of `WhenAny` itself
+  gives the task and throws nothing. A task that `RunSynchronously` runs keeps the object as well.
+  The runtime throws a `TypeInitializationException` in place of an object that a static
   constructor throws, and a `TargetInvocationException` in place of one that a method throws through
   `MethodInfo.Invoke` or a constructor through `Activator.CreateInstance` or `new T()` of a type
   parameter. The `InnerException` of

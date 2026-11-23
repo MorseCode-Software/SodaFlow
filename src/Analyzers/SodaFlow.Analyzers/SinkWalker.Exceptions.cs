@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -21,6 +22,35 @@ internal sealed partial class SinkWalker
     /// <param name="call">The call in the caller.</param>
     public IEnumerable<(ITypeSymbol? Type, LoopState State)> ThrownTo(SyntaxNode call) =>
         this.intoTheTask.Count == 0 || !AwaitsTheTaskOf(call) ? this.thrown : this.thrown.Concat(this.intoTheTask);
+
+    /// <summary>
+    ///     Each object that the async function of this walk keeps in its task,
+    ///     where the caller does not await the task at the call. The state of
+    ///     the task has them, and an await of the task throws them after the
+    ///     call.
+    /// </summary>
+    /// <param name="call">The call in the caller.</param>
+    public ImmutableArray<(ITypeSymbol? Type, LoopState State)> KeptInTheTaskOf(SyntaxNode call) =>
+        this.intoTheTask.Count == 0 || AwaitsTheTaskOf(call)
+            ? ImmutableArray<(ITypeSymbol? Type, LoopState State)>.Empty
+            : this.intoTheTask.ToImmutableArray();
+
+    // An await of a task throws each object that the task keeps. The await of a task whose result is a task, as the
+    // task of WhenAny is, gives that second task and throws nothing.
+    private void ThrowsTheFaultsOf(ExpressionSyntax task, SyntaxNode at)
+    {
+        LoopState awaited = this.evaluator.Eval(task);
+
+        if (awaited.Faults.IsEmpty || LoopStateEvaluator.GivesATask(this.region.TypeOf(task)))
+        {
+            return;
+        }
+
+        foreach ((ITypeSymbol? type, LoopState state) in awaited.Faults)
+        {
+            this.Sends(from: at, type: type, state: state);
+        }
+    }
 
     // True for an async method, local function, or lambda.
     private static bool IsAsync(SyntaxNode? function) =>

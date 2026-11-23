@@ -71,14 +71,16 @@ internal sealed partial class LoopStateEvaluator
 
     /// <summary>
     ///     The state of what a method of code that cannot know the library
-    ///     returns. A method of the platform that gives an exception has a rule
-    ///     of its own.
+    ///     returns. A method of the platform that gives an exception or a task
+    ///     can have a rule of its own. Each other method gives a value that has
+    ///     no object of a task that it got. A continuation is such a value.
     /// </summary>
     /// <param name="invocation">The call.</param>
     /// <param name="method">The method of the call.</param>
     private LoopState ResultOfAPlatformCall(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
         this.ExceptionOfACall(invocation: invocation, method: method)
-        ?? this.MovedResult(invocation: invocation, method: method);
+        ?? this.TaskOfACall(invocation: invocation, method: method)
+        ?? this.MovedResult(invocation: invocation, method: method).WithoutFaults;
 
     /// <summary>
     ///     The state of a call that gives one exception of an exception of the
@@ -207,23 +209,75 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     /// <param name="invocation">The call of <c>GetResult</c>.</param>
     /// <param name="method">The method of the call.</param>
-    private Followed? FaultOfATask(InvocationExpressionSyntax invocation, IMethodSymbol method) =>
-        invocation.Expression is MemberAccessExpressionSyntax
-        {
-            Expression: InvocationExpressionSyntax
+    private Followed? FaultOfATask(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax
             {
-                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "GetAwaiter" } awaiter
-            } awaited
+                Expression: InvocationExpressionSyntax
+                {
+                    Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "GetAwaiter" } awaiter
+                } awaited
+            }
+            || this.TheTaskOfAnAwaiter(awaited: awaited, awaitable: awaiter.Expression) is not { } task)
+        {
+            return null;
         }
-        && this.TheTaskOfAnAwaiter(awaited: awaited, awaitable: awaiter.Expression) is { } task
-        && this.FollowLazy(
+
+        LoopState state = this.Eval(task);
+
+        Followed? followed =
+            this.FollowLazy(
                 access: invocation,
                 written: task,
-                lazy: this.Eval(task).AsOneOfItsElements,
-                value: method.ReturnType)
-            is { } followed
-            ? WithThrown(followed: Followed.Nothing, thrown: followed.Thrown)
-            : null;
+                lazy: state.AsOneOfItsElements,
+                value: method.ReturnType);
+
+        // A task whose result is a task gives that second task, and does not throw its objects.
+        ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)> kept =
+            GivesATask(this.region.TypeOf(task))
+                ? ImmutableArray<(SyntaxNode Call, ITypeSymbol? Type, LoopState State)>.Empty
+                : state.Faults.Select(fault => ((SyntaxNode)invocation, fault.Type, fault.State)).ToImmutableArray();
+
+        return followed == null && kept.IsEmpty
+            ? null
+            : WithThrown(followed: Followed.Nothing, thrown: followed == null ? kept : followed.Thrown.AddRange(kept));
+    }
+
+    /// <summary>
+    ///     True for a task whose result is a task, as the task of
+    ///     <c>WhenAny</c> is. An await of it gives the second task.
+    /// </summary>
+    /// <param name="type">The type of the awaited value.</param>
+    public static bool GivesATask(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { TypeArguments: { Length: 1 } arguments }
+        && SodaFlowSymbols.IsTask(arguments[0] as INamedTypeSymbol);
+
+    // WhenAll throws the objects of each task that it gets, and the task of WhenAny is one of the tasks that it gets.
+    // ConfigureAwait, AsTask, and WaitAsync give the same task. Only a task has objects of a task, so the walk does not
+    // ask for the type of the method.
+    private static bool PassesTheFaults(IMethodSymbol method) =>
+        method.Name is "WhenAll" or "WhenAny" or "ConfigureAwait" or "AsTask" or "WaitAsync";
+
+    /// <summary>
+    ///     The state of a call of the platform that gives a task with objects
+    ///     in it. A method that gives a task with the objects of the tasks that
+    ///     it gets, as <c>WhenAll</c> does, keeps those objects. Null for each
+    ///     other call, and where no task has an object.
+    /// </summary>
+    /// <param name="invocation">The call.</param>
+    /// <param name="method">The method of the call.</param>
+    private LoopState? TaskOfACall(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (!PassesTheFaults(method))
+        {
+            return null;
+        }
+
+        ImmutableArray<(ITypeSymbol? Type, LoopState State)> faults =
+            this.Moved(invocation: invocation, method: method, withReceiver: true).Faults;
+
+        return faults.IsEmpty ? null : this.MovedResult(invocation: invocation, method: method).WithFaults(faults);
+    }
 
     /// <summary>
     ///     The result of the function of a task that the call runs. The task

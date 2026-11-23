@@ -58980,6 +58980,118 @@ public static class Shapes
     public static Cell<int> Ab358StaticFirstOfTheInnerExceptions() =>
         Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(((R4CsFault)Enumerable.First(e.InnerExceptions)).Share.Sample()); } return S.Hold(0); });
 
+    // S14265. An async lambda keeps the task of an async method that throws in a local, and awaits the local in a try. The catch samples the object.
+    public static Cell<int> R6ExcAwaitOfATaskInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Task t = R6ExcThrowInItsTask(l.Map(v => v)); try { await t; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14266. An async lambda makes the call of an async method that throws, and awaits it later in the same try. The catch samples the object.
+    public static Cell<int> R6ExcAwaitOfATaskInALocalInTheTry() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { Task t = R6ExcThrowInItsTask(l.Map(v => v)); Kept.Add(1); await t; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14267. An async lambda awaits the call of an async method in parentheses. The catch samples the object.
+    public static Cell<int> R6ExcAwaitOfACallInParentheses() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await (R6ExcThrowInItsTask(l.Map(v => v))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14268. An async lambda awaits Task.WhenAll of the task of an async method that throws. The await throws the object again, and the catch samples it.
+    public static Cell<int> R6ExcAwaitOfWhenAll() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await Task.WhenAll(R6ExcThrowInItsTask(l.Map(v => v))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14269. An async lambda awaits Task.WhenAll of a complete task and the task of an async method that throws. The catch samples the object.
+    public static Cell<int> R6ExcAwaitOfWhenAllOfTwo() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await Task.WhenAll(Task.CompletedTask, R6ExcThrowInItsTask(l.Map(v => v))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14270. An async lambda awaits the task that an await of Task.WhenAny gives. The second await throws the object, and the catch samples it.
+    public static Cell<int> R6ExcAwaitOfTheTaskThatWhenAnyGives() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await await Task.WhenAny(R6ExcThrowInItsTask(l.Map(v => v))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14271. GetResult of the awaiter of the task of an async method that throws, in the block. The catch samples the object.
+    public static Cell<int> R6ExcGetResultOfAnAsyncMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { R6ExcThrowInItsTask(l.Map(v => v)).GetAwaiter().GetResult(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14272. GetResult of the awaiter of ConfigureAwait of the task of an async method that throws. The catch samples the object.
+    public static Cell<int> R6ExcGetResultOfConfigureAwaitOfAnAsyncMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { R6ExcThrowInItsTask(l.Map(v => v)).ConfigureAwait(false).GetAwaiter().GetResult(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14273. An async lambda awaits AsTask of an async ValueTask method that throws. The catch samples the object.
+    public static Cell<int> R6ExcAwaitOfAsTaskOfAValueTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await R6ExcValueTaskThrow(l.Map(v => v)).AsTask(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14274. GetResult of the awaiter of an async ValueTask method that throws, in the block. The catch samples the object.
+    public static Cell<int> R6ExcGetResultOfAValueTask() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { R6ExcValueTaskThrow(l.Map(v => v)).GetAwaiter().GetResult(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14275. An async local function keeps the task of an async local function that throws in a local, and awaits it in a try. The catch samples the object.
+    public static Cell<int> R6ExcAwaitOfALocalFunctionTaskInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { async Task Fail(Cell<int> c) { await Task.CompletedTask; throw new R4CsFault(c); } async Task Run() { Task t = Fail(l.Map(v => v)); try { await t; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } } Run().Wait(0); return S.Hold(0); });
+
+    // S14276. The block keeps the task of an async method that throws in a local, and GetResult of its awaiter throws the object. The catch samples it.
+    public static Cell<int> R6ExcGetResultOfATaskInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Task t = R6ExcThrowInItsTask(l.Map(v => v)); try { t.GetAwaiter().GetResult(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14277. An async lambda keeps the task of an async method that throws in a local, and awaits ConfigureAwait of the local. The catch samples the object.
+    public static Cell<int> R6ExcAwaitOfConfigureAwaitOfATaskInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Task t = R6ExcThrowInItsTask(l.Map(v => v)); try { await t.ConfigureAwait(false); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14278. An async lambda keeps the task of an async method that throws in a local, and awaits the local in a try. The catch samples the pending member of the object.
+    public static Cell<int> R6LimCatchAroundAnAwaitOfATaskInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Task t = R6LimThrowInItsTask(l.Map(v => v)); try { await t; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14279. A try calls GetResult of the awaiter of the task of an async method that throws. The catch samples the pending member of the object.
+    public static Cell<int> R6LimCatchAroundGetResultOfAnAsyncCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { R6LimThrowInItsTask(l.Map(v => v)).GetAwaiter().GetResult(); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14280. GetResult of the awaiter of the task of WhenAny gives the task, and does not throw. Thus, the catch never runs.
+    public static Cell<int> Ab354GetResultOfWhenAnyGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(Task.WhenAny(R6ExcThrowInItsTask(l.Map(v => v))).GetAwaiter().GetResult()); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S14281. An await of a continuation of a task that throws completes, because the continuation does not throw. Thus, the catch never runs.
+    public static Cell<int> Ab354AwaitOfAContinuationGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await R6ExcThrowInItsTask(l.Map(v => v)).ContinueWith(_ => Kept.Add(1), TaskContinuationOptions.ExecuteSynchronously); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14282. An async lambda awaits WaitAsync of the task of an async method that throws. The catch samples the object.
+    public static Cell<int> Ab354AwaitOfWaitAsync() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await R6ExcThrowInItsTask(l.Map(v => v)).WaitAsync(TimeSpan.FromSeconds(10)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14283. An await of an async method that can throw gives a task. The method does not throw, so the second await of that task completes, and its catch never runs.
+    public static Cell<int> Ab354TaskThatAnAwaitGivesHasNoObjectOfTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Task inner = Task.CompletedTask; try { inner = await Ab354TaskOrThrow(l.Map(v => v), Kept.Count < 0); } catch (R4CsFault) { Kept.Add(1); } try { await inner; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14284. An async lambda awaits WhenAll of a list with the task of an async method that throws. The catch samples the object.
+    public static Cell<int> Ab354AwaitOfWhenAllOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { List<Task> all = [R6ExcThrowInItsTask(l.Map(v => v))]; try { await Task.WhenAll(all); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14285. A method of the code gives back the task that it gets, and the caller awaits it. The catch samples the object.
+    public static Cell<int> Ab354AwaitOfATaskThatAMethodGivesBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await Ab354Same(R6ExcThrowInItsTask(l.Map(v => v))); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14286. The task of an async method that throws an object of a different type goes to the catch of that type only.
+    public static Cell<int> Ab354ObjectOfADifferentTypeGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Task t = R6ExcThrowInItsTask(l.Map(v => v)); try { await t; } catch (ArgumentException e) { Kept.Add(e.Message); } catch (R4CsFault) { Kept.Add(1); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14287. An await of a continuation that gives a cell completes, because the continuation does not throw the object of the first task. Thus, the catch never runs.
+    public static Cell<int> Ab354AwaitOfAContinuationWithAValueGetsNothing() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { Kept.Add(await R6ExcThrowInItsTask(l.Map(v => v)).ContinueWith(_ => Plain, TaskContinuationOptions.ExecuteSynchronously)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14288. Add puts the task of an async method that throws into a list, and an await of the element of the list throws the object. The catch samples it.
+    public static Cell<int> Ab354AwaitOfATaskThatAListHolds() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { List<Task> all = new(); all.Add(R6ExcThrowInItsTask(l.Map(v => v))); try { await all[0]; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14289. A conditional gives a local a complete task or the task of an async method that throws, and the code awaits the local. The catch samples the object.
+    public static Cell<int> Ab354AwaitOfATaskOfAConditional() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Task t = Kept.Count < 0 ? Task.CompletedTask : R6ExcThrowInItsTask(l.Map(v => v)); try { await t; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14290. A conditional gives a local a task of a cell or the task of an async method that throws, and the code awaits the local. The catch samples the object.
+    public static Cell<int> Ab354AwaitOfATaskOfAConditionalWithAValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Task t = Kept.Count < 0 ? Task.FromResult(l.Map(v => v + 1)) : R6ExcThrowInItsTask(l.Map(v => v)); try { await t; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14291. A loop awaits the task that its turn before gave a local. The second turn awaits the task of an async method that throws, and the catch samples the object.
+    public static Cell<int> Ab354AwaitInALoopOfTheTaskOfTheTurnBefore() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { Task f = R6ExcThrowInItsTask(l.Map(v => v)); Task t = Task.CompletedTask; for (int i = 0; i < 2; i++) { try { await t; } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } t = f; } }; run().Wait(0); return S.Hold(0); });
+
+    // S14292. A method of the code awaits the task that it gets, and its catch samples the object. The block gives it the task of an async method that throws.
+    public static Cell<int> Ab354ACalleeAwaitsATaskAndSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab354AwaitAndSample(R6ExcThrowInItsTask(l.Map(v => v))).Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109812,6 +109924,33 @@ public static class Shapes
 
     private static ExceptionDispatchInfo Ab360InfoOfAnother(Exception e) =>
         ExceptionDispatchInfo.Capture(new InvalidOperationException(e.Message));
+
+    // Helpers of the shapes of AB354.
+    private static async Task<Task> Ab354TaskOrThrow(Cell<int> c, bool fail)
+    {
+        await Task.CompletedTask;
+
+        if (fail)
+        {
+            throw new R4CsFault(c);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static Task Ab354Same(Task task) => task;
+
+    private static async Task Ab354AwaitAndSample(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (R4CsFault e)
+        {
+            Kept.Add(e.Share.Sample());
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

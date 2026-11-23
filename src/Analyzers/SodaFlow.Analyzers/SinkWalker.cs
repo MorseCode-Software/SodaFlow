@@ -382,6 +382,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     {
         base.VisitAwaitExpression(node);
         this.Report(this.evaluator.FollowAwaiter(node));
+        this.ThrowsTheFaultsOf(task: node.Expression, at: node);
 
         if (this.LaterAfter(node) is { } part)
         {

@@ -312,7 +312,7 @@ internal sealed partial class LoopStateEvaluator
                 lexical: definer != null,
                 receiver: receiver,
                 target: target,
-                result: result,
+                result: result.WithFaults(walker.KeptInTheTaskOf(call)),
                 found: found,
                 leaving: leaving,
                 thrown: walker.ThrownTo(call));
