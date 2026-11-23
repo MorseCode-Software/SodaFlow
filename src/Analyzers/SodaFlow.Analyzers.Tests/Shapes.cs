@@ -58848,6 +58848,66 @@ public static class Shapes
     public static Cell<int> Ab355ForeachWithNoAwaitOfAnAsyncMethodGetsNothing() =>
         Cell.Loop<int>().WithoutCaptures(l => { try { try { foreach (int n in Ab355ListInItsTask(l.Map(v => v))) { Kept.Add(n); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } } catch (AggregateException) { Kept.Add(0); } return S.Hold(0); });
 
+    // S14232. await foreach over WithCancellation of an enumerable object of the code whose enumerator gives one item now. The body samples. (Left out in Round 5 as R5FuAwaitForeachWithCancellationOfAnObject, AG97.)
+    public static Cell<int> R6FuCFuAwaitForeachWithCancellationOfAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new Ab258OneNow().WithCancellation(CancellationToken.None)) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14233. An async lambda runs an await foreach over ConfigureAwait of an async iterator that throws. The catch around the loop samples the object.
+    public static Cell<int> R6ExcAwaitForeachOfConfigureAwaitOfAnIteratorThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await foreach (int n in R6ExcThrowWhenEnumerated(l.Map(v => v)).ConfigureAwait(false)) { Kept.Add(n); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14234. An async lambda runs an await foreach over ConfigureAwait of an async iterator that samples its parameter after a complete await.
+    public static Cell<int> R6ExcAwaitForeachOfConfigureAwaitOfAnIteratorThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in R6ExcSamplesWhenEnumerated(l.Map(v => v)).ConfigureAwait(false)) { Kept.Add(n); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14235. An async lambda runs an await foreach over WithCancellation of an async iterator that samples its parameter after a complete await.
+    public static Cell<int> R6ExcAwaitForeachOfWithCancellationOfAnIteratorThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in R6ExcSamplesWhenEnumerated(l.Map(v => v)).WithCancellation(CancellationToken.None)) { Kept.Add(n); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14236. An async lambda runs an await foreach over WithCancellation of an async iterator that throws. The catch around the loop samples the object.
+    public static Cell<int> Ab356AwaitForeachOfWithCancellationOfAnIteratorThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { try { await foreach (int n in R6ExcThrowWhenEnumerated(l.Map(v => v)).WithCancellation(CancellationToken.None)) { Kept.Add(n); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14237. An async lambda runs an await foreach over WithCancellation and then ConfigureAwait of an async iterator that samples its parameter.
+    public static Cell<int> Ab356AwaitForeachOfWithCancellationAndConfigureAwaitOfAnIteratorThatSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in R6ExcSamplesWhenEnumerated(l.Map(v => v)).WithCancellation(CancellationToken.None).ConfigureAwait(false)) { Kept.Add(n); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14238. An await foreach over ConfigureAwait of an enumerable object whose enumerator gives one item now runs its body in the call, and the body samples.
+    public static Cell<int> Ab356AwaitForeachOfConfigureAwaitOfAnObjectRunsTheBodyNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new Ab258OneNow().ConfigureAwait(false)) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14239. An await foreach over ConfigureAwait of an enumerable object whose MoveNextAsync never completes runs no body, and the body samples.
+    public static Cell<int> Ab356AwaitForeachOfConfigureAwaitOfAnObjectThatNeverMovesRunsLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new Ab258NeverMoves().ConfigureAwait(false)) { Kept.Add(n + l.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14240. The enumerator of an await foreach over WithCancellation of an object moves and disposes with complete tasks, and the code after the loop samples now.
+    public static Cell<int> Ab356CodeAfterAnAwaitForeachOfWithCancellationOfAnObjectRunsNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new Ab258OneNow().WithCancellation(CancellationToken.None)) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14241. The DisposeAsync of the enumerator of an await foreach over ConfigureAwait of an object never completes, and the code after the loop samples later.
+    public static Cell<int> Ab356CodeAfterADisposeAsyncThroughConfigureAwaitThatNeverCompletesRunsLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new Ab258NeverDisposed().ConfigureAwait(false)) { Kept.Add(n); } Kept.Add(l.Sample()); }; run().Wait(0); return S.Hold(0); });
+
+    // S14242. An await foreach over WithCancellation of an enumerable object calls its GetAsyncEnumerator in the call, and GetAsyncEnumerator samples a pending member.
+    public static Cell<int> Ab356AwaitForeachOfWithCancellationGetsTheEnumeratorNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new R4CsAsyncWalk(l.Map(v => v)).WithCancellation(CancellationToken.None)) { Kept.Add(n); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14243. An await foreach over ConfigureAwait of a sequence with no item disposes its enumerator in the call, and DisposeAsync samples a pending member.
+    public static Cell<int> Ab356AwaitForeachOfConfigureAwaitDisposesAsyncNow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (int n in new R4CsAsyncEmpty(l.Map(v => v)).ConfigureAwait(false)) { Kept.Add(n); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14244. An await foreach over ConfigureAwait of an enumerable object gives the body the cell that Current of its enumerator returns, and the body samples it.
+    public static Cell<int> Ab356AwaitForeachOfConfigureAwaitGivesTheCurrentOfTheEnumerator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (Cell<int> n in new Ab356OneCell(l.Map(v => v)).ConfigureAwait(false)) { Kept.Add(n.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S14245. A foreach with no await enumerates ConfigureAwait of an async iterator through an extension GetEnumerator that gives a list. Thus, the iterator never runs and never samples.
+    public static Cell<int> Ab356ForeachWithNoAwaitOfConfigureAwaitRunsNoIterator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (int n in R6ExcSamplesWhenEnumerated(l.Map(v => v)).ConfigureAwait(false)) { Kept.Add(n); } return S.Hold(0); });
+
+    // S14246. A WithCancellation of the code gives a different sequence and never enumerates the async iterator that it gets. Thus, the iterator never samples.
+    public static Cell<int> Ab356WithCancellationOfTheCodeRunsNoIterator() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (long n in Ab356SamplesLongs(l.Map(v => v)).WithCancellation(CancellationToken.None)) { Kept.Add(n); } }; run().Wait(0); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -109622,6 +109682,45 @@ public static class Shapes
         throw new R4CsFault(c);
     }
 
+    // Helpers of the shapes of AB356.
+    public sealed class Ab356OneCell : IAsyncEnumerable<Cell<int>>
+    {
+        private readonly Cell<int> share;
+
+        public Ab356OneCell(Cell<int> share) => this.share = share;
+
+        public IAsyncEnumerator<Cell<int>> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            new Ab356OneCellWalker(this.share);
+    }
+
+    public sealed class Ab356OneCellWalker : IAsyncEnumerator<Cell<int>>
+    {
+        private readonly Cell<int> share;
+
+        private bool done;
+
+        public Ab356OneCellWalker(Cell<int> share) => this.share = share;
+
+        public Cell<int> Current => this.share;
+
+        public ValueTask<bool> MoveNextAsync()
+        {
+            bool more = !this.done;
+            this.done = true;
+
+            return ValueTask.FromResult(more);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private static async IAsyncEnumerable<long> Ab356SamplesLongs(Cell<int> c)
+    {
+        await Task.CompletedTask;
+
+        yield return c.Sample();
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -109630,6 +109729,10 @@ public static class Shapes
 
 file static class Helpers
 {
+    // Extension methods of the shapes of AB356.
+    public static IEnumerator<int> GetEnumerator(this ConfiguredCancelableAsyncEnumerable<int> items) =>
+        new List<int> { 1 }.GetEnumerator();
+
     // Extension methods of the shapes of AB355.
     public static IEnumerator<int> GetEnumerator(this Task<List<int>> task) => task.Result.GetEnumerator();
 

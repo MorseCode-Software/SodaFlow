@@ -121,6 +121,7 @@
         <Compile Include="SinkWalker.Exceptions.cs"/>
         <Compile Include="SinkWalker.Scopes.cs"/>
         <Compile Include="SinkWalker.Nodes.cs"/>
+        <Compile Include="SinkWalker.Sequences.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
         <Compile Include="WriteThroughAName.cs"/>
         <Compile Include="WritesThroughEach.cs"/>

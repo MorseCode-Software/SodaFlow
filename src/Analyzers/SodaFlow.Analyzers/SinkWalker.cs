@@ -433,16 +433,14 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     // that it can run gives only complete tasks.
     private (bool First, bool Each) EnumeratorGivesAtOnce(CommonForEachStatementSyntax loop, LoopState enumerator)
     {
-        ForEachStatementInfo calls = this.region.ModelFor(loop).GetForEachStatementInfo(loop);
+        (_, IMethodSymbol? next, _, IMethodSymbol? dispose) =
+            this.CallsOf(node: loop, sequence: this.SequenceOf(loop));
 
-        bool each =
-            calls.MoveNextMethod is { } next && this.evaluator.GivesOnlyCompleteTasks(owner: enumerator, member: next);
+        bool each = next != null && this.evaluator.GivesOnlyCompleteTasks(owner: enumerator, member: next);
 
         return (
             each,
-            each
-            && (calls.DisposeMethod is not { } dispose
-                || this.evaluator.GivesOnlyCompleteTasks(owner: enumerator, member: dispose)));
+            each && (dispose == null || this.evaluator.GivesOnlyCompleteTasks(owner: enumerator, member: dispose)));
     }
 
     // The largest block or switch section that always runs the statement of the await to its end.
@@ -673,7 +671,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     public override void VisitForEachStatement(ForEachStatementSyntax node)
     {
         this.Visit(node.Expression);
-        this.RunQueries(node.Expression);
+        this.RunQueries(this.SequenceOf(node));
 
         // The collection has the state of all its elements, thus each element has that state. An
         // enumerator of this compilation gives what its Current returns also.
@@ -784,7 +782,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     public override void VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
     {
         this.Visit(node.Expression);
-        this.RunQueries(node.Expression);
+        this.RunQueries(this.SequenceOf(node));
 
         LoopState ofTheCollection = this.evaluator.Eval(node.Expression).AsElement;
         LoopState enumerated = this.Enumerate(node: node, enumeratorState: out LoopState? enumeratorState);
@@ -1187,17 +1185,18 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     private LoopState Enumerate(CommonForEachStatementSyntax node, out LoopState? enumeratorState)
     {
         enumeratorState = null;
+        ExpressionSyntax sequence = this.SequenceOf(node);
 
         if (!(node.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword)
                 ? this.region.Symbols.DeclaresAsyncEnumerators
                 : this.region.Symbols.DeclaresEnumerators)
-            || this.region.ModelFor(node).GetForEachStatementInfo(node) is not { GetEnumeratorMethod: { } start } calls)
+            || this.CallsOf(node: node, sequence: sequence) is not { Start: { } start } calls)
         {
             return LoopState.None;
         }
 
         // The collection itself, and not one of its elements, has the enumerator.
-        LoopState collection = this.evaluator.Self(node.Expression);
+        LoopState collection = this.evaluator.Self(sequence);
 
         // An extension method gets the collection as its argument.
         Followed? enumerator =
@@ -1233,7 +1232,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         enumeratorState = enumerator.State;
 
-        if (calls.MoveNextMethod is { } next)
+        if (calls.Next is { } next)
         {
             this.Report(
                 this.evaluator.FollowImplied(
@@ -1243,7 +1242,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     arguments: []));
         }
 
-        if (calls.CurrentProperty?.GetMethod is not { } getter)
+        if (calls.Current?.GetMethod is not { } getter)
         {
             return LoopState.None;
         }
@@ -1269,7 +1268,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             || !(node.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword)
                 ? this.region.Symbols.DeclaresDisposeAsync
                 : this.region.Symbols.DeclaresDispose)
-            || this.region.ModelFor(node).GetForEachStatementInfo(node).DisposeMethod is not { } dispose)
+            || this.CallsOf(node: node, sequence: this.SequenceOf(node)).Dispose is not { } dispose)
         {
             return;
         }

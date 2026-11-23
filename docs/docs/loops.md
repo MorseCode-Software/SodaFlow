@@ -574,7 +574,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   can leave before its `await`, or no section can run. An
   `await foreach` runs its body in the block only for an item that the sequence gives at once, and
   the code after it only when every item comes at once. An async iterator runs nothing until
-  something enumerates it. A method of `SodaFlow.Functional` that gets a task and returns one, such
+  something enumerates it. An `await foreach` over `ConfigureAwait` or `WithCancellation` of the
+  platform enumerates the sequence inside them, so the iterator or the enumerator object of yours
+  runs as it does without them. A method of `SodaFlow.Functional` that gets a task and returns one, such
   as the `Map` of a `Task<Maybe<T>>`, awaits that task first, so its function runs in the block only
   when the analyzer knows that the task is complete.
 - The serializers of `System.Text.Json`, Json.NET (also `FromObject` of `JToken`, `JObject`, and
@@ -846,8 +848,8 @@ Some reads that throw it does not see:
 - Code after an `await` of a task that is already complete when the analyzer cannot tell that it
   is. That code runs in the block, and the analyzer reads it as code that runs later. The same
   goes for the body of an `await foreach` over a sequence other than a call of your own async
-  iterator, also through `WithCancellation` or `ConfigureAwait`, or an enumerator object of yours
-  whose `MoveNextAsync` returns only complete tasks, and over an iterator whose first
+  iterator or an enumerator object of yours whose `MoveNextAsync` returns only complete tasks, each
+  also through `WithCancellation` or `ConfigureAwait`, and over an iterator whose first
   `yield return` is not at the top level of its body. The analyzer reads the `DisposeAsync` of the
   enumerator at the end of such a loop as code that runs later too. The analyzer knows the complete
   tasks that the platform makes, such as `Task.CompletedTask` and `Task.FromResult`, a local, a

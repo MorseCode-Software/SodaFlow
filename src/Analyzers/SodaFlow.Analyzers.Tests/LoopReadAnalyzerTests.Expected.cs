@@ -8221,6 +8221,17 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab374WriteThroughAConditionalRefOnFalseReadTheTaken"] = ["SF1001"],
             ["Ab374WriteThroughARefOfAStaticFieldThatALocalFunctionReturns"] = ["SF1001"],
             ["R6ExcAwaitForeachOfAnIteratorThatThrows"] = ["SF1001"],
-            ["R6ExcAwaitForeachOfAnIteratorThatThrowsAtOnce"] = ["SF1001"]
+            ["R6ExcAwaitForeachOfAnIteratorThatThrowsAtOnce"] = ["SF1001"],
+            ["R6FuCFuAwaitForeachWithCancellationOfAnObject"] = ["SF1001"],
+            ["R6ExcAwaitForeachOfConfigureAwaitOfAnIteratorThatThrows"] = ["SF1001"],
+            ["R6ExcAwaitForeachOfConfigureAwaitOfAnIteratorThatSamples"] = ["SF1004"],
+            ["R6ExcAwaitForeachOfWithCancellationOfAnIteratorThatSamples"] = ["SF1004"],
+            ["Ab356AwaitForeachOfWithCancellationOfAnIteratorThatThrows"] = ["SF1001"],
+            ["Ab356AwaitForeachOfWithCancellationAndConfigureAwaitOfAnIteratorThatSamples"] = ["SF1004"],
+            ["Ab356AwaitForeachOfConfigureAwaitOfAnObjectRunsTheBodyNow"] = ["SF1001"],
+            ["Ab356CodeAfterAnAwaitForeachOfWithCancellationOfAnObjectRunsNow"] = ["SF1001"],
+            ["Ab356AwaitForeachOfWithCancellationGetsTheEnumeratorNow"] = ["SF1005"],
+            ["Ab356AwaitForeachOfConfigureAwaitDisposesAsyncNow"] = ["SF1005"],
+            ["Ab356AwaitForeachOfConfigureAwaitGivesTheCurrentOfTheEnumerator"] = ["SF1001"]
         };
 }

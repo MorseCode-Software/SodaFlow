@@ -46,15 +46,21 @@ internal sealed partial class SinkWalker
 
     // True when the caller awaits the task of a call at the call. That is an await of the call, also through
     // ConfigureAwait, and an await using whose resource the call disposes. An await foreach awaits each MoveNextAsync
-    // of the sequence that the call gives, and an async iterator throws its objects there.
+    // of the sequence that the call gives. That is also true through ConfigureAwait and WithCancellation. An async
+    // iterator throws its objects there.
     private static bool AwaitsTheTaskOf(SyntaxNode call)
     {
+        SyntaxNode awaited = call;
         SyntaxNode? task = call.Parent;
 
-        if (task is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ConfigureAwait" } configure
-            && configure.Expression == call)
+        while (task is MemberAccessExpressionSyntax
+               {
+                   Name.Identifier.ValueText: "ConfigureAwait" or "WithCancellation", Parent: { } configured
+               } configure
+               && configure.Expression == awaited)
         {
-            task = configure.Parent?.Parent;
+            awaited = configured;
+            task = configured.Parent;
         }
 
         return task switch
