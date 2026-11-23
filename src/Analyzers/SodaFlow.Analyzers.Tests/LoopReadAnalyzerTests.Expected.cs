@@ -8879,6 +8879,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6FuAb350LazyOfADelegatePropertyThroughAField"] = ["SF1004"],
             ["Ab350MapOfAGetterOfThisThroughALocal"] = ["SF1004"],
             ["Ab350MapOfAGetterOfThis"] = ["SF1004"],
-            ["Ab350MapOfAGetterOfTheBase"] = ["SF1004"]
+            ["Ab350MapOfAGetterOfTheBase"] = ["SF1004"],
+            ["R6SmpTwoMapsOfOneHelperSecondReadAfterTheSet"] = ["SF1001"],
+            ["Ab401HelperCalledOneTimeReadAfterTheSet"] = ["SF1001"],
+            ["Ab401StaticGetterReadAfterTheSet"] = ["SF1001"]
         };
 }

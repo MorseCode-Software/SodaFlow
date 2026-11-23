@@ -54,6 +54,8 @@ internal sealed class LoopRegion(
     // True when a key of the fields is a property of an interface: see FieldState.
     private bool hasInterfaceFields;
 
+    private bool? writesAStaticMember;
+
     // The results of calls whose callee the walk read, and which no creation gave.
     private readonly HashSet<MadeObject> olderObjects = [];
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
@@ -197,6 +199,18 @@ internal sealed class LoopRegion(
 
     /// <summary>True when the code set a field to a value with a state.</summary>
     public bool HasFields => this.fields.Count > 0;
+
+    /// <summary>
+    ///     True when the body of the block writes a static field or a static
+    ///     property.
+    /// </summary>
+    public bool WritesAStaticMember =>
+        this.writesAStaticMember ??=
+            this.Root.DescendantNodes()
+                .OfType<AssignmentExpressionSyntax>()
+                .Any(assignment =>
+                    this.SymbolOf(assignment.Left)
+                        is IFieldSymbol { IsStatic: true } or IPropertySymbol { IsStatic: true });
 
     /// <summary>
     ///     Records that the walk reads the static constructor of a type. False

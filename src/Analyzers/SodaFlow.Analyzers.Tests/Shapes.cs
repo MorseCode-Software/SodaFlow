@@ -62340,6 +62340,26 @@ public static class Shapes
     public static Cell<int> Ab350MapOfAGetterOfTheBase() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab350DerivedGetter().SetAndRead(l.Map(v => v))));
 
+    // S15112. A static method builds a map whose function samples a static field, and the block calls it two times. The block samples the first map, sets the field pending, and samples the second map.
+    public static Cell<int> R6SmpTwoMapsOfOneHelperSecondReadAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.K4 = Plain; Cell<int> a = R6SmpMakeK4(); Cell<int> b = R6SmpMakeK4(); int x = a.Sample(); R6SmpS.K4 = l.Map(v => v); int y = b.Sample(); R6SmpS.K4 = Plain; return S.Hold(x + y); });
+
+    // S15113. The block calls a static method one time. The method builds a map whose function samples a static field. The block sets the field pending and then samples the map.
+    public static Cell<int> Ab401HelperCalledOneTimeReadAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.K4 = Plain; Cell<int> a = R6SmpMakeK4(); R6SmpS.K4 = l.Map(v => v); int y = a.Sample(); R6SmpS.K4 = Plain; return S.Hold(y); });
+
+    // S15114. Control: the block calls a static method one time. The method builds a map whose function samples a static field. The block samples the map, and then it sets the field pending.
+    public static Cell<int> Ab401HelperCalledOneTimeReadBeforeTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.K4 = Plain; Cell<int> a = R6SmpMakeK4(); int y = a.Sample(); R6SmpS.K4 = l.Map(v => v); R6SmpS.K4 = Plain; return S.Hold(y); });
+
+    // S15115. A static property builds a map whose function samples a static field. The block reads the property, sets the field pending, and then samples the map.
+    public static Cell<int> Ab401StaticGetterReadAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.K4 = Plain; Cell<int> a = Ab401MapOfK4; R6SmpS.K4 = l.Map(v => v); int y = a.Sample(); R6SmpS.K4 = Plain; return S.Hold(y); });
+
+    // S15116. Control: a static method builds a map whose function does not sample. The block calls it, sets a static field pending, and samples the map.
+    public static Cell<int> Ab401HelperOfAPlainMapReadAfterTheSet() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6SmpS.K4 = Plain; Cell<int> a = Ab401MakePlain(); R6SmpS.K4 = l.Map(v => v); int y = a.Sample(); R6SmpS.K4 = Plain; return S.Hold(y); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -115142,6 +115162,10 @@ public static class Shapes
             return this.map.Sample();
         }
     }
+
+    private static Cell<int> Ab401MapOfK4 => Plain.Map(v => v + R6SmpS.K4.Sample());
+
+    private static Cell<int> Ab401MakePlain() => Plain.Map(v => v + 1);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
