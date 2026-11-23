@@ -2308,18 +2308,17 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     turn = body;
 
                     return false;
+                // An if runs the part that RunsThePartOf finds, and each other construct here runs the
+                // code that AlwaysRunsItsCode finds. The finally block runs each time that the try
+                // statement runs.
                 case IfStatementSyntax branch
                     when this.RunsThePartOf(branch: branch, part: child, forACall: forACall, forARun: forARun):
-                    continue;
                 case ElseClauseSyntax
                     or SwitchSectionSyntax
                     or SwitchStatementSyntax
                     or LabeledStatementSyntax
                     when this.AlwaysRunsItsCode(construct: ancestor, place: place):
-                    continue;
-                // The finally block runs each time that the try statement runs.
                 case FinallyClauseSyntax:
-                    continue;
                 case TryStatementSyntax when child is FinallyClauseSyntax:
                     continue;
                 // The code after a try with no catch clause runs only when the block runs to its end.
@@ -2330,7 +2329,6 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     continue;
                 case SwitchSectionSyntax section
                     when this.IsTheSectionOfEachValue(section: section, at: place.SpanStart):
-                    continue;
                 case SwitchStatementSyntax when child is SwitchSectionSyntax:
                     continue;
                 // A call of the function that ends at a statement before the assignment does not
@@ -2345,12 +2343,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                         place: place.SpanStart,
                         forACall: forACall,
                         forARun: forARun);
-                // The if around an else clause tells if the clause runs.
-                case ElseClauseSyntax:
-                    continue;
                 // A block, and a statement that always runs what is in it. Also the call that
-                // runs a lambda, and the statement that the call is in.
+                // runs a lambda, and the statement that the call is in. The if around an else clause
+                // tells if the clause runs.
                 case BlockSyntax
+                    or ElseClauseSyntax
                     or LabeledStatementSyntax
                     or UsingStatementSyntax
                     or LockStatementSyntax

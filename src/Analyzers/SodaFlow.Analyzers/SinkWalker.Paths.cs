@@ -97,7 +97,7 @@ internal sealed partial class SinkWalker
     // True when each run of the function of a remove of a handler runs it. AlwaysRuns finds it with
     // no turn, or the remove runs as a call runs. AfterTheLastRemove asks that each add and the remove
     // run one time: see RunsStraightIn.
-    private bool RemovesOnEachPath(AssignmentExpressionSyntax remove) =>
+    private bool RemovesOnEachPath(SyntaxNode remove) =>
         (this.AlwaysRuns(assignment: remove, turn: out SyntaxNode? turn) && turn == null)
         || (remove.Parent is ExpressionStatementSyntax statement
             && this.SurelyRunsAt(place: statement, forARun: false, after: out _));
@@ -110,7 +110,7 @@ internal sealed partial class SinkWalker
 
     // The call of ForEach whose one argument is a lambda, where the receiver has an element. The walk
     // read the lambda where it is, thus the callee runs it for each element. Null for each other call.
-    private InvocationExpressionSyntax? ForEachOfAnElement(AnonymousFunctionExpressionSyntax lambda) =>
+    private InvocationExpressionSyntax? ForEachOfAnElement(SyntaxNode lambda) =>
         lambda.Parent is ArgumentSyntax
         {
             Parent: ArgumentListSyntax
@@ -219,12 +219,12 @@ internal sealed partial class SinkWalker
     /// </remarks>
     /// <param name="condition">The condition.</param>
     /// <param name="forARun">True for a run of the timers or a Dispose.</param>
-    private bool? ValueOf(ExpressionSyntax condition, bool forARun) =>
+    private bool? ValueOf(SyntaxNode condition, bool forARun) =>
         this.KnownValueOf(expression: condition, forARun: forARun) is { HasValue: true, Value: bool value }
             ? value
             : null;
 
-    private Optional<object?> KnownValueOf(ExpressionSyntax expression, bool forARun) =>
+    private Optional<object?> KnownValueOf(SyntaxNode expression, bool forARun) =>
         expression switch
         {
             PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } not =>
@@ -307,7 +307,7 @@ internal sealed partial class SinkWalker
     // True for the section that each value of its switch statement selects, where no break of the
     // switch comes before the position. That is the one section of a default label, or the section
     // that a constant value selects.
-    private bool IsTheSectionOfEachValue(SwitchSectionSyntax section, int at) =>
+    private bool IsTheSectionOfEachValue(SyntaxNode section, int at) =>
         section.Parent is SwitchStatementSyntax switching
         && this.SectionOfEachValue(switching) == section
         && !JumpsOutBefore(construct: switching, code: section, at: at);
