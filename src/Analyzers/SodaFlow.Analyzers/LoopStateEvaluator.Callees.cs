@@ -546,7 +546,7 @@ internal sealed partial class LoopStateEvaluator
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
 
-        if (range is var (variable, argument))
+        if (range is (var variable, var argument))
         {
             parameters[variable] = argument;
         }

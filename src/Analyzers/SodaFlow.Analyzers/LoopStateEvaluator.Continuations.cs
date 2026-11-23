@@ -62,7 +62,7 @@ internal sealed partial class LoopStateEvaluator
 
         LoopState functions = this.Eval(function);
 
-        ImmutableArray<LoopState> parameters = ImmutableArray.Create(this.Eval(task), this.Eval(given));
+        ImmutableArray<LoopState> parameters = ImmutableArray.Create(item1: this.Eval(task), item2: this.Eval(given));
 
         Followed? followed =
             functions.Functions.Aggregate(
@@ -115,7 +115,7 @@ internal sealed partial class LoopStateEvaluator
 
     // True for a constant value of TaskContinuationOptions with ExecuteSynchronously. A different enumeration has no
     // such member.
-    private bool HasTheOption(INamedTypeSymbol options, ExpressionSyntax written) =>
+    private bool HasTheOption(INamespaceOrTypeSymbol options, SyntaxNode written) =>
         options.GetMembers("ExecuteSynchronously").FirstOrDefault() is IFieldSymbol { ConstantValue: int flag }
         && this.region.ModelFor(written).GetConstantValue(written) is { HasValue: true, Value: int value }
         && (value & flag) != 0;

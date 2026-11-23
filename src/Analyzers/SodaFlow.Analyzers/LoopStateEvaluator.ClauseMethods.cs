@@ -94,13 +94,18 @@ internal sealed partial class LoopStateEvaluator
                 ? (written, parameter.Type.TypeKind == TypeKind.Delegate ? LoopState.None : this.Eval(written))
                 : (body,
                     LoopState.OfFunction(
-                        new FunctionValue(declaration: body, definer: this, receiver: null, ofThis: null, owner: null)));
+                        new FunctionValue(
+                            declaration: body,
+                            definer: this,
+                            receiver: null,
+                            ofThis: null,
+                            owner: null)));
         }
     }
 
     // The expression of the select clause that the compiler puts into the method of a from or a join clause. That is so
     // where the select clause comes next. Otherwise, the method gets a lambda that makes an object of the variables.
-    private static ExpressionSyntax? SelectPutInto(QueryClauseSyntax clause) =>
+    private static ExpressionSyntax? SelectPutInto(SyntaxNode clause) =>
         clause.Parent is QueryBodySyntax { SelectOrGroup: SelectClauseSyntax select } body
         && body.Clauses.Last() == clause
             ? select.Expression
@@ -112,7 +117,7 @@ internal sealed partial class LoopStateEvaluator
     ///     Null where the lambda gets two or more variables, which is so after a
     ///     clause that declares a variable.
     /// </summary>
-    private static ISymbol? TheRangeVariableOf(ExpressionSyntax clause, SemanticModel model)
+    private static ISymbol? TheRangeVariableOf(SyntaxNode clause, SemanticModel model)
     {
         if (clause.Parent is JoinClauseSyntax { RightExpression: var right } join && right == clause)
         {
