@@ -8587,6 +8587,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6CsPartialPropertyGetterReads"] = ["SF1005"],
             ["Ab391PartialVoidMethodWithABodyRuns"] = ["SF1005"],
             ["R6CsGenericMathOperatorReads"] = ["SF1004"],
-            ["Ab393GenericMathOperatorOfAPendingSecondValue"] = ["SF1004"]
+            ["Ab393GenericMathOperatorOfAPendingSecondValue"] = ["SF1004"],
+            ["R6CsAssignmentToThisOfAStructWritesTheVariable"] = ["SF1001"],
+            ["Ab399AssignmentToThisThroughARefParameter"] = ["SF1001"]
         };
 }

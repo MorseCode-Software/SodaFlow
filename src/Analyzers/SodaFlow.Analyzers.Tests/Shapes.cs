@@ -60700,6 +60700,22 @@ public static class Shapes
     public static Cell<int> Ab393GenericMathOperatorOfAPendingSecondValue() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(R6CsAddOf(new R6CsNumber(Plain), new R6CsNumber(l.Map(v => v)))); return S.Hold(0); });
 
+    // S14695. A method of a struct assigns this, which writes the variable of the caller, and the block samples its field.
+    public static Cell<int> R6CsAssignmentToThisOfAStructWritesTheVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSpot s = new() { Share = Plain }; s.Reset(l.Map(v => v)); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S14696. Control: a method of a struct assigns this with a plain cell over a pending one, and the block samples its field.
+    public static Cell<int> Ab399AssignmentToThisWritesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSpot s = new() { Share = l.Map(v => v) }; s.Reset(Plain); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S14697. A method gets a struct by ref and calls a method that assigns this, which writes the variable of the block.
+    public static Cell<int> Ab399AssignmentToThisThroughARefParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSpot s = new() { Share = Plain }; Ab399ResetRef(ref s, l.Map(v => v)); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S14698. Control: a method gets a struct by value and calls a method that assigns this, which writes only the copy.
+    public static Cell<int> Ab399AssignmentToThisOfACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsSpot s = new() { Share = Plain }; Ab399ResetCopy(s, l.Map(v => v)); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -112260,6 +112276,10 @@ public static class Shapes
 
         public void LogNow() => this.Log(share.Sample());
     }
+
+    private static void Ab399ResetRef(ref R6CsSpot s, Cell<int> c) => s.Reset(c);
+
+    private static void Ab399ResetCopy(R6CsSpot s, Cell<int> c) => s.Reset(c);
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

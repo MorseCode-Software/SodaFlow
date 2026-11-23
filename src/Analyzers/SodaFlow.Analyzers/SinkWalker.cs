@@ -2623,6 +2623,11 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 this.DeclareDesignation(designation: declaration.Designation, state: state);
 
                 return;
+            // A method of a struct can give this a new value, which replaces the variable of the caller.
+            case ThisExpressionSyntax when state.Members is { } written:
+                this.evaluator.SetEachMemberOfThis(written: written, replaces: replaces);
+
+                return;
             // A value that is not a tuple expression: each part gets the state of all of it.
             case TupleExpressionSyntax parts:
                 foreach (ArgumentSyntax part in parts.Arguments)

@@ -15,6 +15,18 @@ internal sealed partial class LoopStateEvaluator
     private ExpressionSyntax? readForAUse;
 
     /// <summary>
+    ///     An assignment to <c>this</c> in a method of a struct. Each member of
+    ///     the object gets the value that the new value has for it.
+    /// </summary>
+    public void SetEachMemberOfThis(Construction written, bool replaces)
+    {
+        foreach (KeyValuePair<ISymbol, LoopState> member in written.Members)
+        {
+            this.SetMember(member: member.Key, state: member.Value, replaces: replaces);
+        }
+    }
+
+    /// <summary>
     ///     Records the state of a member of the object that the code is in, at
     ///     its initializer or assignment.
     /// </summary>

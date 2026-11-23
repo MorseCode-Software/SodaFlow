@@ -405,47 +405,47 @@ The analyzer follows a value made from the placeholder through the code of your 
   `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
   from there. A name is a local, a parameter, a static field or a static property with no body, a
   field or such a property of the object in a local, a property whose get accessor only returns one
-  field and whose set accessor, where it has one, only writes it, the result of a method of yours with
-  no parameters that only returns a field, or an element of a local collection or of an array in a
-  static field, at a constant index or key or at an index in a local. A static property whose get
-  accessor only returns such an element of a static array is that element. A local that a method of
-  yours gives a field of its object through an `out` parameter is a name of that field, where each
-  statement of the method only gives an `out` parameter a field or a literal. A `Deconstruct` method
-  of yours of that form gives each part in the same way. An element of a second local that got the collection from
-  the first is the same element, as long as neither local gets another value. A local that a lambda
-  uses is a name as long as no lambda assigns it, and a `ref` local that code gives no other
-  location, and assigns only with `=`, is a name of the location that it refers to. A write to a
-  field or a property with no body through any of the names replaces what earlier writes through all
-  of them gave that member, and a read through any of them sees the last value, while each name
-  keeps the object. A virtual or abstract property counts as having no body only where no override
-  in your project gives it one. A local that code takes a `ref` to anywhere in its function, as in
-  `ref d` or `new Span<T>(ref d)`, is no such name, because the `ref` can give it a new object at
-  any time. A write through an expression that is no such name, such as a conditional expression,
-  reaches a later read through each name whose object the analyzer cannot tell apart from the object
-  of the write. It tells two objects apart where the write goes to an object that the code creates
-  after the name got its object, through the creation itself or through a local that only that
-  creation gives a value, and where it goes through a private `static readonly` field that a
-  creation fills and whose object your code never hands on: each use of the field reads or writes a
-  field or a property with no body. A write in a method that the block calls counts as well, where the block always
-  calls the method one time and the method writes through a static field, an element of an array in
-  one, or a parameter whose argument is such a name. So does a write through one of the names in a
-  lambda or a local function that the block itself calls. So does a write through `this` in a method
-  that the block calls on one of the names, and a read through `this` in such a method sees the last
-  value too. Where such a method writes a member through `this` and then through a second name of
-  the same object, such as a static field, an element of an array in one, or a parameter, the later
-  write is the one that counts. Where the analyzer cannot tell that the second name holds the same
-  object, both writes count. A new object that goes into a name with an object initializer, as in
-  `slots[0] = new Slot { Cell = value }`, gives the name only the values that the initializer sets,
-  also where such a method puts it and keeps it there to its end. A method or a local function that
-  always gives its `ref` or `out` parameter a value replaces what a local, or a field of the object
-  in a local, held
-  before, where the block always calls it and passes no second `ref` or `out` argument. A
-  constructor that puts `this` into a name makes that name a name of the new object, as a registry
-  does with a static field or a static property. So does a constructor that does this through a
-  method of the object that it calls on `this`, also by its name alone or through a second such
-  method, to the depth that the analyzer reads calls. The name can also be an element of an array or a
-  list that the constructor gets, a value of a dictionary that it gets, or a field of an object that
-  it gets.
+  field and whose set accessor, where it has one, only writes it, the result of a method of yours
+  with no parameters that only returns a field, or an element of a local collection or of an array
+  in a static field, at a constant index or key or at an index in a local. A static property whose
+  get accessor only returns such an element of a static array is that element. A local that a method
+  of yours gives a field of its object through an `out` parameter is a name of that field, where
+  each statement of the method only gives an `out` parameter a field or a literal. A `Deconstruct`
+  method of yours of that form gives each part in the same way. An element of a second local that
+  got the collection from the first is the same element, as long as neither local gets another
+  value. A local that a lambda uses is a name as long as no lambda assigns it, and a `ref` local
+  that code gives no other location, and assigns only with `=`, is a name of the location that it
+  refers to. A write to a field or a property with no body through any of the names replaces what
+  earlier writes through all of them gave that member, and a read through any of them sees the last
+  value, while each name keeps the object. A virtual or abstract property counts as having no body
+  only where no override in your project gives it one. A local that code takes a `ref` to anywhere
+  in its function, as in `ref d` or `new Span<T>(ref d)`, is no such name, because the `ref` can
+  give it a new object at any time. A write through an expression that is no such name, such as a
+  conditional expression, reaches a later read through each name whose object the analyzer cannot
+  tell apart from the object of the write. It tells two objects apart where the write goes to an
+  object that the code creates after the name got its object, through the creation itself or through
+  a local that only that creation gives a value, and where it goes through a private
+  `static readonly` field that a creation fills and whose object your code never hands on: each use
+  of the field reads or writes a field or a property with no body. A write in a method that the
+  block calls counts as well, where the block always calls the method one time and the method writes
+  through a static field, an element of an array in one, or a parameter whose argument is such a
+  name. So does a write through one of the names in a lambda or a local function that the block
+  itself calls. So does a write through `this` in a method that the block calls on one of the names,
+  also an assignment to `this` in a method of a struct, and a read through `this` in such a method
+  sees the last value too. Where such a method writes a member through `this` and then through a
+  second name of the same object, such as a static field, an element of an array in one, or a
+  parameter, the later write is the one that counts. Where the analyzer cannot tell that the second
+  name holds the same object, both writes count. A new object that goes into a name with an object
+  initializer, as in `slots[0] = new Slot { Cell = value }`, gives the name only the values that the
+  initializer sets, also where such a method puts it and keeps it there to its end. A method or a
+  local function that always gives its `ref` or `out` parameter a value replaces what a local, or a
+  field of the object in a local, held before, where the block always calls it and passes no second
+  `ref` or `out` argument. A constructor that puts `this` into a name makes that name a name of the
+  new object, as a registry does with a static field or a static property. So does a constructor
+  that does this through a method of the object that it calls on `this`, also by its name alone or
+  through a second such method, to the depth that the analyzer reads calls. The name can also be an
+  element of an array or a list that the constructor gets, a value of a dictionary that it gets, or
+  a field of an object that it gets.
 - Your helpers, constructors, property getters, records, and object initializers, and a call
   through an interface to an object that the block built, or to one that a `readonly` field or a
   get-only property creates in its initializer. That includes the `Equals`, `GetHashCode`,
