@@ -37,6 +37,10 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
     // events can get to this set in a different sequence from their times.
     private readonly SortedSet<Event> eventQueue;
 
+    // Gets each exception of a send in the start hook. That send runs at the start of a
+    // transaction that some other code opened, and has nothing to do with it.
+    private readonly Action<Exception> handleException;
+
     private readonly ITimerSystemImplementationInternal<T, TTimer> implementation;
 
     // The transaction hook. Dispose removes it, and the hook then runs in no transaction after that.
@@ -68,6 +72,7 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
     {
         this.implementation = implementation;
         this.comparer = comparer;
+        this.handleException = handleException;
         this.eventQueue = new SortedSet<Event>(new EventComparer(comparer));
         this.implementation.Start(handleException);
         this.lastTime = this.implementation.Now;
@@ -135,17 +140,26 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
             // Time does not go back. An event at the time that Time holds sends nothing.
             if (this.comparer.Compare(x: eventTime, y: this.lastTime) > 0)
             {
-                this.time.SendImpl(eventTime);
-                this.lastTime = eventTime;
+                this.SendTime(eventTime);
             }
 
-            TransactionInternal.RunVoidImpl(() =>
+            // A listener of an alarm that throws fails the transaction of the alarm, and the
+            // alarm goes, as the sends of each failed transaction go. The exception goes to the
+            // handler. Before, it left the hook, and failed the transaction that started.
+            try
             {
-                foreach (Event ev in events)
+                TransactionInternal.RunVoidImpl(() =>
                 {
-                    ev.Alarm.SendImpl(ev.Time);
-                }
-            });
+                    foreach (Event ev in events)
+                    {
+                        ev.Alarm.SendImpl(ev.Time);
+                    }
+                });
+            }
+            catch (Exception e)
+            {
+                this.handleException(e);
+            }
         }
 
         // The clock itself can go back, for example at the end of daylight saving time. Time
@@ -155,8 +169,23 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
         // with the value that Time held.
         if (this.comparer.Compare(x: t, y: this.lastTime) != 0)
         {
+            this.SendTime(t);
+        }
+    }
+
+    // A listener of Time that throws fails the send, and Time keeps its value. The exception goes
+    // to the handler, and the transaction that started continues. The last time stays as it was,
+    // thus the next transaction sends the time again.
+    private void SendTime(T t)
+    {
+        try
+        {
             this.time.SendImpl(t);
             this.lastTime = t;
+        }
+        catch (Exception e)
+        {
+            this.handleException(e);
         }
     }
 

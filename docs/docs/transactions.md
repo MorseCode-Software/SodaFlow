@@ -79,7 +79,8 @@ The atomicity holds on the way out too. If the block throws, the transaction fai
 sent reaches the graph, every cell keeps its previous value, and the exception continues to the
 caller. A throw from a listener during propagation fails the transaction the same way. So a
 block that sends twice and then throws leaves the graph as it found it, rather than with the
-first send applied and the second lost.
+first send applied and the second lost. What the block built is kept, though: a stream, a cell,
+or a listener that it made works in the next transaction. Only its sends are undone.
 
 ### Building a graph that must be observed from its first moment
 

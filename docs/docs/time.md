@@ -30,7 +30,9 @@ not move, so `UtcClockTimerSystem` is the one to wait on; convert a value from i
 `TimerSystem<DateTime>`.
 
 All of them take an exception handler, because timer callbacks run outside your call stack and an
-exception there has nowhere else to go:
+exception there has nowhere else to go. That includes a listener of an alarm or of `Time` that
+throws: the alarm is delivered at the start of whichever transaction comes first after its time,
+and a throw there goes to the handler rather than failing that unrelated transaction.
 
 ```csharp
 SecondsTimerSystem timers = new SecondsTimerSystem(ex => Log.Error(ex));
@@ -68,7 +70,8 @@ A disposed timer system also refuses a new alarm. `At` throws `ObjectDisposedExc
 transaction that gives it a time, whether that is the construction or a later send, and `SetTimer`
 on a stopped `TimerSystemImplementationBase` throws the same, so a timer that could never come is
 an error at the call rather than silence. A cell with no time sets nothing and passes. A custom
-implementation should do the same after its `Stop`.
+implementation should do the same after its `Stop`. A time of NaN is refused the same way, with
+`ArgumentOutOfRangeException`, because it is not in order with any other time.
 
 A disposal inside a transaction, from a listener or a `Transaction.Run` block, removes the
 timer system's hook at once, so no alarm reaches the graph after it. The timer thread itself, and
