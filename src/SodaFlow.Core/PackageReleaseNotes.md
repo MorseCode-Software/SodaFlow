@@ -403,6 +403,14 @@ ran, and it never reached the handler. A listener of Time that always threw fail
 gives each such exception to the handler of the timer system. The failed alarm is dropped, as the sends of any failed
 transaction are; a failed send of Time leaves Time as it was, and the next transaction sends the time again.
 
+Fixed: disposing a timer system inside a transaction no longer deadlocks while an alarm fires. The disposal waits for
+the timer thread to end, and the thread, having fired an alarm, waits for the transaction lock to deliver it. Inside a
+transaction, the disposing thread holds that lock, so the two waited for each other. Dispose now removes the start
+hook at once and stops the timer thread after the transaction releases its lock; with no transaction open it stops it
+at once, as before. No alarm reaches the graph after Dispose returns in either case, because the hook that delivers
+alarms is gone. A clock's Stop, which the disposal calls, therefore runs after a transaction that disposes it, and not
+inside it.
+
 Fixed: a posted action that throws delivers none of its sends. A posted action runs in a transaction of its own after
 the transaction that posted it closes, and a throw from it now fails that transaction, as a throw from the body of a
 transaction does: the sends it made before the throw do not reach the graph, and a cell it sent into keeps its value.

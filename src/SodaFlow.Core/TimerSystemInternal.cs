@@ -87,11 +87,21 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
     ///     Removes the transaction hook, and stops the implementation. This drops an
     ///     event that is due and not sent. A second call does nothing.
     /// </summary>
+    /// <remarks>
+    ///     In a transaction, the stop occurs when the transaction releases its
+    ///     lock. The removal of the hook occurs at once. Thus, no alarm gets to the
+    ///     graph after this call, also before the stop.
+    /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage - This says what a disposal of a timer system stops.
     public void Dispose()
     {
         this.startHook.Dispose();
-        this.implementation.Stop();
+
+        // The stop waits for the timer thread to end, and an alarm on that thread opens a
+        // transaction. In a transaction, that wait occurs while this thread holds the lock that
+        // the timer thread waits for, and the two threads stop. Thus, the stop waits for the
+        // release of the lock. With no transaction open, it occurs at once.
+        TransactionInternal.AfterReleaseImpl(this.implementation.Stop);
     }
 
     /// <summary>
