@@ -342,6 +342,92 @@ public sealed class KeyEqualityComparerTests
     }
 
     /// <summary>
+    ///     A removal and an add of one key in different spellings replaces the item.
+    ///     The new item keeps the spelling of the add. The removal names the spelling
+    ///     of the previous item, which is the spelling that a consumer got with its
+    ///     insert. The same score keeps the key at its position in the sort. Thus, the
+    ///     slice reports the replacement itself and does not get it from the sort.
+    /// </summary>
+    /// <remarks>
+    ///     Before, the root, each view, and the item change of each view reported the
+    ///     removal in the spelling of the add.
+    /// </remarks>
+    [Test]
+    public async Task AReplacementInAnotherSpellingRemovesTheSpellingOfThePreviousItem()
+    {
+        StreamSink<CollectionEdit<string, NamedIdentity, NamedState>> edits =
+            Stream.CreateSink<CollectionEdit<string, NamedIdentity, NamedState>>();
+
+        ReactiveCollection<string, NamedIdentity, NamedState> collection =
+            Create(
+                edits: edits,
+                Item(name: "ABC", score: 1),
+                Item(name: "DEF", score: 2),
+                Item(name: "GHI", score: 3));
+
+        ReactiveCollection<string, NamedIdentity, NamedState> sorted =
+            collection.SortBy(static (_, state) => state.Score);
+
+        ReactiveCollection<string, NamedIdentity, NamedState> slice = sorted.Slice(offset: 0, limit: 2);
+
+        ReactiveCollection<string, NamedIdentity, NamedState>[] collections = [collection, sorted, slice];
+        List<string>[] removals = [[], [], []];
+        List<string>[] inserts = [[], [], []];
+        List<string>[] removedKeys = [[], [], []];
+        List<IListener> listeners = [];
+
+        for (int index = 0; index < collections.Length; index++)
+        {
+            List<string> removed = removals[index];
+            List<string> inserted = inserts[index];
+            List<string> keys = removedKeys[index];
+
+            listeners.Add(
+                collections[index].KeyChangesStream.Listen(change =>
+                {
+                    removed.AddRange(
+                        change.Operations.OfType<ViewRemove<string>>().Select(static operation => operation.Key));
+
+                    inserted.AddRange(
+                        change.Operations.OfType<ViewInsert<string>>().Select(static operation => operation.Key));
+                }));
+
+            listeners.Add(collections[index].ItemChangesStream.Listen(change => keys.AddRange(change.Removed)));
+        }
+
+        edits.Send(
+            CollectionEdit<string, NamedIdentity, NamedState>.Remove("ABC")
+                .CombineWith(CollectionEdit<string, NamedIdentity, NamedState>.Add(Item(name: "abc", score: 1))));
+
+        foreach (IListener listener in listeners)
+        {
+            listener.Dispose();
+        }
+
+        for (int index = 0; index < collections.Length; index++)
+        {
+            await Assert.That(removals[index])
+                .IsEquivalentTo(expected: ["ABC"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+            await Assert.That(inserts[index])
+                .IsEquivalentTo(expected: ["abc"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+        }
+
+        // The root reports a replacement as an add alone. A view reports the removal and the
+        // insert that it got.
+        await Assert.That(removedKeys[0]).IsEmpty();
+
+        await Assert.That(removedKeys[1])
+            .IsEquivalentTo(expected: ["ABC"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+        await Assert.That(removedKeys[2])
+            .IsEquivalentTo(expected: ["ABC"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+        await Assert.That(slice.KeysCell.Sample())
+            .IsEquivalentTo(expected: ["abc", "DEF"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
     ///     The same delta, from a view and not from the collection.
     /// </summary>
     /// <remarks>

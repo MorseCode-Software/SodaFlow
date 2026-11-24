@@ -981,7 +981,10 @@ internal static class CollectionViewUtility
 
                 if (replaced >= 0)
                 {
-                    operations.Add(new ViewRemove<TKey>(key: key, index: replaced));
+                    // The removal names the key that leaves, in the spelling that a consumer got
+                    // with its insert. A comparer that ignores case lets the add use a different
+                    // spelling, and the new item keeps the spelling of the add.
+                    operations.Add(new ViewRemove<TKey>(key: keys[replaced], index: replaced));
                     keys = keys.Remove(key);
                 }
 
@@ -1754,10 +1757,11 @@ internal static class CollectionViewUtility
         bool changesMembership = false;
 
         int common = -1;
+        List<TKey>? before = null;
 
         if (change.MovesKeys || change.ChangesMembership)
         {
-            List<TKey> before = [.. state];
+            before = [.. state];
             List<TKey> after = [.. keys];
 
             common = 0;
@@ -1804,7 +1808,11 @@ internal static class CollectionViewUtility
 
             if (operation is ViewInsert<TKey>)
             {
-                operations.Add(new ViewRemove<TKey>(key: operation.Key, index: index));
+                // The key stays at its position. Thus, the window before this change has the key
+                // that leaves at that position, in its previous spelling. An insert above changes
+                // membership, thus the code above made the list.
+                before ??= [.. state];
+                operations.Add(new ViewRemove<TKey>(key: before[index], index: index));
                 operations.Add(new ViewInsert<TKey>(key: operation.Key, index: index));
                 changesMembership = true;
             }
