@@ -8997,6 +8997,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab431WriteThroughASetterInASecondMethod"] = ["SF1004"],
             ["Ab431ConstructorWritesThroughAMethodAndReads"] = ["SF1004"],
             ["Ab431WriteThroughASetterThenReadInTwoCalls"] = ["SF1005"],
-            ["Ab431LambdaThatAMethodOfAGetterOfAGivenObjectMakes"] = ["SF1004"]
+            ["Ab431LambdaThatAMethodOfAGetterOfAGivenObjectMakes"] = ["SF1004"],
+            ["Ab415TryGetValueInAnIfPendingThenPlain"] = ["SF1001"],
+            ["Ab415TryGetValueOfASecondKeyPendingThenPlain"] = ["SF1001"],
+            ["Ab415TryGetValueAfterAPutOfASecondObject"] = ["SF1001"],
+            ["Ab415TryGetValueOfAGivenDictionary"] = ["SF1001"],
+            ["Ab415TryGetValueThroughAnInterface"] = ["SF1001"],
+            ["Ab415TryGetValuePlainThenPending"] = ["SF1001"],
+            ["Ab415TryGetValueIntoAnOlderLocal"] = ["SF1001"]
         };
 }

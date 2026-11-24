@@ -62922,6 +62922,58 @@ public static class Shapes
     public static Cell<int> Ab431LambdaThatAMethodOfAGetterOfAGivenObjectMakes() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab431GivenMadeLambda(new Ab431MakingGetterHolder()).SetAndRead(l.Map(v => v))));
 
+    // S15258. Names of one object, Round 6: a pending cell goes in through the first local. Then a plain cell goes in through the local of TryGetValue.
+    public static Cell<int> R6NmClassThroughTryGetValuePendingThenPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Dictionary<string, SettableSlot> m = new() { ["a"] = d }; d.Share = l.Map(v => v); m.TryGetValue("a", out SettableSlot? e); e!.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15259. Ab415. Control: the same, but a read by the key gives the second local.
+    public static Cell<int> Ab415IndexerPendingThenPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Dictionary<string, SettableSlot> m = new() { ["a"] = d }; d.Share = l.Map(v => v); SettableSlot e = m["a"]; e.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15260. Ab415. Control: the plain cell goes in through the local of TryGetValue in an if on the result. The analyzer does not know that the if runs.
+    public static Cell<int> Ab415TryGetValueInAnIfPendingThenPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Dictionary<string, SettableSlot> m = new() { ["a"] = d }; d.Share = l.Map(v => v); if (m.TryGetValue("a", out SettableSlot? e)) { e.Share = Plain; } return S.Hold(d.Share!.Sample()); });
+
+    // S15261. Ab415. TryGetValue gives the local the object of a second key, thus the plain cell goes into that object.
+    public static Cell<int> Ab415TryGetValueOfASecondKeyPendingThenPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot f = new(); Dictionary<string, SettableSlot> m = new() { ["a"] = d, ["b"] = f }; d.Share = l.Map(v => v); m.TryGetValue("b", out SettableSlot? e); e!.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15262. Ab415. A put gives the key a second object before TryGetValue, thus the plain cell goes into that object.
+    public static Cell<int> Ab415TryGetValueAfterAPutOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Dictionary<string, SettableSlot> m = new() { ["a"] = d }; d.Share = l.Map(v => v); m["a"] = new SettableSlot(); m.TryGetValue("a", out SettableSlot? e); e!.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15263. Ab415. TryGetValue of a dictionary in a static field gives the local, and the analyzer does not know the object of the key.
+    public static Cell<int> Ab415TryGetValueOfAGivenDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Dictionary<string, SettableSlot> m = Ab415Given.Slots; d.Share = l.Map(v => v); m.TryGetValue("a", out SettableSlot? e); e!.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15264. Ab415. Control: TryGetValue of IReadOnlyDictionary gives the local. The analyzer does not read the method of the interface.
+    public static Cell<int> Ab415TryGetValueThroughAnInterface() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); IReadOnlyDictionary<string, SettableSlot> m = new Dictionary<string, SettableSlot> { ["a"] = d }; d.Share = l.Map(v => v); m.TryGetValue("a", out SettableSlot? e); e!.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15265. Ab415. A plain cell goes in through the first local, and then a pending cell goes in through the local of TryGetValue.
+    public static Cell<int> Ab415TryGetValuePlainThenPending() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; Dictionary<string, SettableSlot> m = new() { ["a"] = d }; m.TryGetValue("a", out SettableSlot? e); d.Share = Plain; e!.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15266. Ab415. Control: TryGetValue gives its value to a local that had a different object. The analyzer adds that value to the local.
+    public static Cell<int> Ab415TryGetValueIntoAnOlderLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SettableSlot? e = new(); Dictionary<string, SettableSlot> m = new() { ["a"] = d }; d.Share = l.Map(v => v); m.TryGetValue("a", out e); e!.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15267. Ab415. The same as the shape of the item, with a ConcurrentDictionary.
+    public static Cell<int> Ab415TryGetValueOfAConcurrentDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); ConcurrentDictionary<string, SettableSlot> m = new() { ["a"] = d }; d.Share = l.Map(v => v); m.TryGetValue("a", out SettableSlot? e); e!.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15268. Ab415. The same as the shape of the item, with a SortedDictionary.
+    public static Cell<int> Ab415TryGetValueOfASortedDictionary() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SortedDictionary<string, SettableSlot> m = new() { ["a"] = d }; d.Share = l.Map(v => v); m.TryGetValue("a", out SettableSlot? e); e!.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15269. Ab415. The same as the shape of the item, with a SortedList.
+    public static Cell<int> Ab415TryGetValueOfASortedList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); SortedList<string, SettableSlot> m = new() { ["a"] = d }; d.Share = l.Map(v => v); m.TryGetValue("a", out SettableSlot? e); e!.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15270. Ab415. A put gives the key a second object after TryGetValue. The local keeps the first object, thus the plain cell goes into it.
+    public static Cell<int> Ab415TryGetValueThenAPutBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Dictionary<string, SettableSlot> m = new() { ["a"] = d }; d.Share = l.Map(v => v); m.TryGetValue("a", out SettableSlot? e); m["a"] = new SettableSlot(); e!.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -116397,6 +116449,11 @@ public static class Shapes
 
             return this.map.Sample();
         }
+    }
+
+    public static class Ab415Given
+    {
+        public static readonly Dictionary<string, SettableSlot> Slots = new() { ["a"] = new SettableSlot() };
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

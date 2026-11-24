@@ -628,6 +628,24 @@ internal sealed class SodaFlowSymbols
             : null;
 
     /// <summary>
+    ///     True for <c>TryGetValue</c> of a dictionary class of the platform.
+    ///     The method only reads the dictionary. It gives its out argument the
+    ///     value at the key, or the default value where the dictionary does not
+    ///     have the key.
+    /// </summary>
+    public static bool IsTryGetValueOfADictionary(ISymbol method) =>
+        method is IMethodSymbol
+        {
+            Name: "TryGetValue",
+            ContainingType:
+            {
+                Name: "Dictionary" or "ConcurrentDictionary" or "SortedDictionary" or "SortedList",
+                Arity: 2
+            } dictionary
+        }
+        && IsPlatform(dictionary);
+
+    /// <summary>
     ///     True for a property with a backing field and a setter with code. The
     ///     setter gives the field its value, which can be different from the
     ///     value that the property gets. Thus, a write of such a property does

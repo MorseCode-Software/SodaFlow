@@ -429,7 +429,12 @@ The analyzer follows a value made from the placeholder through the code of your 
   get accessor only returns such an element of a static array is that element. A local that a method
   of yours gives a field of its object through an `out` parameter is a name of that field, where
   each statement of the method only gives an `out` parameter a field or a literal. A `Deconstruct`
-  method of yours of that form gives each part in the same way. An element of a second local that
+  method of yours of that form gives each part in the same way. The local that `TryGetValue` of a
+  `Dictionary`, `ConcurrentDictionary`, `SortedDictionary`, or `SortedList` declares for its `out`
+  argument holds one of the objects of the dictionary, as a read by the key would, and a write
+  through it is a write to that object. Where that local was declared before the call, or the call
+  is through an interface such as `IReadOnlyDictionary`, a write through it adds to what the object
+  had, and a write inside an `if` on the result adds too. An element of a second local that
   got the collection from the first is the same element, as long as neither local gets another
   value. A local that a lambda uses is a name as long as no lambda assigns it, and a `ref` local
   that code gives no other location, and assigns only with `=`, is a name of the location that it
