@@ -881,12 +881,12 @@ public static class StringExtensionMethods
     /// </remarks>
     [Pure]
     public static Maybe<TEnum> TryParseEnum<TEnum>(this string? value)
-        where TEnum : struct =>
+        where TEnum : struct, Enum =>
         Enum.TryParse(value: value, result: out TEnum result) ? Maybe.Some(result) : Maybe.None;
 
     /// <summary>
     ///     Parses a value of the given enumeration type from this string, if it holds
-    ///     one, The compare can be case-insensitive.
+    ///     one, and the compare can be case-insensitive.
     /// </summary>
     /// <typeparam name="TEnum">The enumeration type to parse.</typeparam>
     /// <param name="value">
@@ -909,7 +909,7 @@ public static class StringExtensionMethods
     /// </remarks>
     [Pure]
     public static Maybe<TEnum> TryParseEnum<TEnum>(this string? value, bool ignoreCase)
-        where TEnum : struct =>
+        where TEnum : struct, Enum =>
         Enum.TryParse(value: value, ignoreCase: ignoreCase, result: out TEnum result)
             ? Maybe.Some(result)
             : Maybe.None;
@@ -939,8 +939,8 @@ public static class StringExtensionMethods
     /// </remarks>
     [Pure]
     public static Maybe<TEnum> TryParseDefinedEnum<TEnum>(this string? value)
-        where TEnum : struct =>
-        value.TryParseEnum<TEnum>().Where(static v => Enum.IsDefined(enumType: typeof(TEnum), value: v));
+        where TEnum : struct, Enum =>
+        value.TryParseEnum<TEnum>().Where(static v => IsDeclared(v));
 
     /// <summary>
     ///     Parses a declared member of the given enumeration type from this string, if
@@ -965,6 +965,16 @@ public static class StringExtensionMethods
     /// </remarks>
     [Pure]
     public static Maybe<TEnum> TryParseDefinedEnum<TEnum>(this string? value, bool ignoreCase)
-        where TEnum : struct =>
-        value.TryParseEnum<TEnum>(ignoreCase).Where(static v => Enum.IsDefined(enumType: typeof(TEnum), value: v));
+        where TEnum : struct, Enum =>
+        value.TryParseEnum<TEnum>(ignoreCase).Where(static v => IsDeclared(v));
+
+    // Only .NET 5 and higher have the generic Enum.IsDefined, which does not box the value. The
+    // other targets use the overload that takes an object, and box the value for each call.
+    private static bool IsDeclared<TEnum>(TEnum value)
+        where TEnum : struct, Enum =>
+#if NET
+        Enum.IsDefined(value: value);
+#else
+        Enum.IsDefined(enumType: typeof(TEnum), value: value);
+#endif
 }
