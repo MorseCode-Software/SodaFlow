@@ -950,6 +950,23 @@ internal sealed class TransactionInternal
         // different thread reads the correct answer.
         this.outcome?.MarkFailed();
 
+        // A failure discards the sends of this transaction, and not the graph that it made. A link
+        // that the body made is inactive until Close activates it, and Close does not run after a
+        // throw from the body. Thus, this activates those links, as Close does first. Otherwise, a
+        // stream or a cell that this transaction made never fires. A cache that keeps such an
+        // object, as a collection keeps its router, then fails for each later transaction.
+        if (this.targetsToActivate != null)
+        {
+            foreach (Node.Target target in this.targetsToActivate)
+            {
+                target.IsActivated = true;
+            }
+
+            this.targetsToActivate = null;
+        }
+
+        this.ActivatedTargets = true;
+
         // The releases come first. Each entry that remains here kept no promise, because this
         // transaction stops before it runs, and the queues below hold that deferred work. An
         // entry that ran, and an entry that threw, are out of the queue and are not here.

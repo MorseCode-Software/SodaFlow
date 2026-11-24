@@ -57,6 +57,7 @@
         <Compile Include="CollectionFoldShapeTests.cs"/>
         <Compile Include="CollectionFoldTests.cs"/>
         <Compile Include="CollectionViewTests.cs"/>
+        <Compile Include="FailedTransactionTests.cs"/>
         <Compile Include="KeyEqualityComparerTests.cs"/>
         <Compile Include="PerItemCellTests.cs"/>
         <Compile Include="PerKeyRoutingTests.cs"/>

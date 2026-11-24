@@ -273,3 +273,31 @@ type ``Transaction Tests``() =
             do! Expect.Sequence([ 2 ], out)
             do! Expect.Equal(2, held |> sampleC)
         }
+
+    // A failed transaction discards its sends, but not the graph that it built. A stream that the
+    // body of a failed transaction made must fire in a later transaction.
+    [<Test>]
+    member _.``a stream that a body that throws made fires in a later transaction``() =
+        task {
+            let s = sinkS ()
+            let made = List<Stream<int>>()
+
+            let thrown =
+                try
+                    runT (fun () ->
+                        made.Add(s |> mapS (fun x -> x + 100))
+                        raise (InvalidOperationException "body"))
+
+                    None
+                with :? InvalidOperationException as e ->
+                    Some e
+
+            do! Expect.Equal(Some "body", thrown |> Option.map (fun e -> e.Message))
+
+            let out = List<int>()
+            let l = made[0] |> listenS out.Add
+            s |> sendS 5
+            l |> unlistenL
+
+            do! Expect.Sequence([ 105 ], out)
+        }
