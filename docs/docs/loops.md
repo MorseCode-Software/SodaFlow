@@ -460,7 +460,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   any of them sees the last value, while each name keeps the object. A virtual or abstract property
   counts as having no body only where no override in your project gives it one. A local that code
   takes a `ref` to anywhere in its function, as in `ref d` or `new Span<T>(ref d)`, is no such name,
-  because the `ref` can give it a new object at any time. A write through an expression that is no
+  because the `ref` can give it a new object at any time. A local of a struct type is no second
+  name either, because it gets a copy, also from a cast that takes the struct out of an `object`
+  that holds it, so a write through the copy does not reach the box. A write through an expression
+  that is no
   such name, such as a conditional expression, reaches a later read through each name whose object
   the analyzer cannot tell apart from the object of the write. It tells two objects apart where the
   write goes to an object that the code creates after the name got its object, through the creation

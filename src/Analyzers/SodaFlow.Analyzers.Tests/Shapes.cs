@@ -63078,6 +63078,30 @@ public static class Shapes
     public static Cell<int> Ab336AnArrayOfAnObjectGetsACellAtAConstantIndex() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab336Box b = new(); b.Cells[1] = l.Map(v => v); Cell<int>[] c = b.Cells; return S.Hold(c[1].Sample()); });
 
+    // S15297. Names of one object, Round 6: a struct goes into an object local and comes out with a cast, which is a copy. A pending cell goes into the copy, and the read is through a second cast of the object.
+    public static Cell<int> R6NmStructUnboxedCopyKeepsTheBox() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new R6NmMut { Share = Plain }; R6NmMut u = (R6NmMut)o; u.Set(l.Map(v => v)); return S.Hold(((R6NmMut)o).Share!.Sample()); });
+
+    // S15298. Names of one object, Round 6: a cast copies a boxed struct into a local. A pending cell goes into the field of the local, and a cast of the box gives the read.
+    public static Cell<int> R6NmStructUnboxedCopyFieldWriteKeepsTheBox() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new R6NmMut { Share = Plain }; R6NmMut u = (R6NmMut)o; u.Share = l.Map(v => v); Kept.Add(u); return S.Hold(((R6NmMut)o).Share!.Sample()); });
+
+    // S15299. AB412: a boxed struct comes out with a cast into a local, and a pending cell goes into the local. The block reads the local.
+    public static Cell<int> Ab412TheCopyOfAnUnboxedStructHasThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new R6NmMut { Share = Plain }; R6NmMut u = (R6NmMut)o; u.Set(l.Map(v => v)); return S.Hold(u.Share!.Sample()); });
+
+    // S15300. AB412: a struct with a pending cell goes into an object local. A cast gives a copy, and the block reads the copy.
+    public static Cell<int> Ab412TheCopyOfABoxWithAPendingCellHasIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new R6NmMut { Share = l.Map(v => v) }; R6NmMut u = (R6NmMut)o; return S.Hold(u.Share!.Sample()); });
+
+    // S15301. AB412: a cast of a boxed struct to an interface of the struct is the box itself. A pending cell goes in through the interface, and a cast of the box gives the read.
+    public static Cell<int> Ab412ACastToAnInterfaceIsTheBox() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new Ab412Mut { Share = Plain }; IAb412Set i = (IAb412Set)o; i.Set(l.Map(v => v)); return S.Hold(((Ab412Mut)o).Share!.Sample()); });
+
+    // S15302. AB412: a cast in parentheses copies a boxed struct into a local, and a pending cell goes into the local. A cast of the box gives the read.
+    public static Cell<int> Ab412ACastInParenthesesIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object o = new R6NmMut { Share = Plain }; R6NmMut u = ((R6NmMut)o); u.Set(l.Map(v => v)); return S.Hold(((R6NmMut)o).Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -116674,6 +116698,19 @@ public static class Shapes
     public sealed class Ab336Box
     {
         public readonly Cell<int>[] Cells = [Plain, Plain];
+    }
+
+    // Helpers of AB412: a struct that a box holds, and an interface of it.
+    public interface IAb412Set
+    {
+        void Set(Cell<int> c);
+    }
+
+    public struct Ab412Mut : IAb412Set
+    {
+        public Cell<int>? Share;
+
+        public void Set(Cell<int> c) => this.Share = c;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

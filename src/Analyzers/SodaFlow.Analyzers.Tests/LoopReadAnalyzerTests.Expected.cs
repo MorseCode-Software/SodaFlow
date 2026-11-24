@@ -9023,6 +9023,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab336ALoopReadsThenPutsCellAtElementZero"] = ["SF1001"],
             ["Ab336AnInternalArrayThatADifferentClassChangesReadElementZero"] = ["SF1001"],
             ["Ab336AnIncrementChangesAnElementReadElementZero"] = ["SF1001"],
-            ["Ab336AnArrayOfAnObjectGetsACellAtAConstantIndex"] = ["SF1001"]
+            ["Ab336AnArrayOfAnObjectGetsACellAtAConstantIndex"] = ["SF1001"],
+            ["Ab412TheCopyOfAnUnboxedStructHasThePendingCell"] = ["SF1001"],
+            ["Ab412TheCopyOfABoxWithAPendingCellHasIt"] = ["SF1001"],
+            ["Ab412ACastToAnInterfaceIsTheBox"] = ["SF1001"]
         };
 }

@@ -363,7 +363,10 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
+        // A local of a value type gets a copy, also from a cast that takes a struct out of its box. Thus, it
+        // is not a second name of the box.
         if (!KeepsItsObject(local)
+            || HasACopy(local)
             || Unwrapped(value) is not IdentifierNameSyntax name
             || this.region.SymbolOf(name) is not ((ILocalSymbol or IParameterSymbol) and { } from)
             || !KeepsItsObject(from)
