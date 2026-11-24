@@ -2011,6 +2011,200 @@ internal static class AsyncConcurrencyStrategyFactory
 }
 
 /// <summary>
+///     Runs the steps of the MapAsync pipelines on one thread in a loop, and not
+///     as calls in calls. A step is the start of an operation or the flush of an
+///     end.
+///     <para>
+///         An operation that completes synchronously ends in its start. The flush
+///         of that end starts the next item of a Queue strategy, and that start
+///         ends the next item again. Before, each item of a long queue added
+///         approximately ten frames to the stack. A queue of 1,000 items then
+///         stopped the process with a stack overflow. Now, the first step on a
+///         thread runs each step that comes from it, one at a time.
+///     </para>
+///     <para>
+///         The sequence does not change. The steps that one step adds run after
+///         that step and before each step that waited before it. That is the
+///         sequence that calls in calls make. Thus, each operation starts on the
+///         same thread, and in the same sequence, as before.
+///     </para>
+///     <para>
+///         The fields are thread-static, in a class that is not generic. Pipelines
+///         of different types can send values to each other on one thread, and a
+///         generic class has a different field for each type argument. This is not
+///         state that a caller must get from an argument. No caller gives it or
+///         reads it, it is only for the thread that runs the steps, and it is empty
+///         after the last step.
+///     </para>
+/// </summary>
+internal static class AsyncMapTrampoline
+{
+    // True while this thread runs a step from Run, and false while it runs the code of a user. See
+    // RunUserCode.
+    [ThreadStatic] private static bool running;
+
+    // The steps that wait on this thread, with the newest step at the end. It is null until Run
+    // adds a step, and Run clears it before it returns.
+    [ThreadStatic] private static List<Waiting>? waiting;
+
+    /// <summary>
+    ///     Runs the step now, or after the step that this thread runs now.
+    /// </summary>
+    /// <remarks>
+    ///     A throw from a step that runs now goes to the caller, after each step
+    ///     that waited for it. A throw from a step that waited goes to
+    ///     <paramref name="report" />, because its caller returned before it ran.
+    /// </remarks>
+    /// <param name="step">The step to run with no transaction open.</param>
+    /// <param name="state">The state of the step.</param>
+    /// <param name="report">Gets a throw from the step when the step waited.</param>
+    internal static void Run<TState>(Action<TState> step, TState state, Action<TState, Exception> report)
+    {
+        if (running)
+        {
+            (waiting ??= []).Add(new Waiting<TState>(step: step, state: state, report: report));
+
+            return;
+        }
+
+        running = true;
+
+        ExceptionDispatchInfo? failure = null;
+        List<Exception>? reportFailures = null;
+
+        try
+        {
+            try
+            {
+                step(state);
+            }
+            catch (Exception e)
+            {
+                failure = ExceptionDispatchInfo.Capture(e);
+            }
+
+            Drain(ref reportFailures);
+        }
+        finally
+        {
+            // This also runs when Drain cannot continue. Then, the next step on this thread runs
+            // now, and it does not wait for a step that never runs.
+            running = false;
+            waiting = null;
+        }
+
+        if (reportFailures is null)
+        {
+            failure?.Throw();
+
+            return;
+        }
+
+        if (failure != null)
+        {
+            reportFailures.Insert(index: 0, item: failure.SourceException);
+        }
+
+        ExceptionDispatchInfo
+            .Capture(reportFailures.Count == 1 ? reportFailures[0] : new AggregateException(reportFailures))
+            .Throw();
+    }
+
+    /// <summary>
+    ///     Runs the code of a user, such as an operation, as if no step runs on this
+    ///     thread.
+    /// </summary>
+    /// <remarks>
+    ///     The code can start a step of a pipeline and then wait for it. For example,
+    ///     an operation can call Execute and read the result of its Task. That step
+    ///     must not wait for the step below the code on the stack, because that step
+    ///     cannot continue before the code returns. Thus, a call of Run in the code
+    ///     runs its step immediately, as before.
+    /// </remarks>
+    internal static TResult RunUserCode<TState, TResult>(Func<TState, TResult> code, TState state)
+    {
+        bool wasRunning = running;
+        List<Waiting>? wasWaiting = waiting;
+
+        running = false;
+        waiting = null;
+
+        try
+        {
+            return code(state);
+        }
+        finally
+        {
+            running = wasRunning;
+            waiting = wasWaiting;
+        }
+    }
+
+    // Runs the steps that wait. The newest step is at the end of the list. After each step, this
+    // code puts the part of the list that the step added in the opposite sequence. Thus, the first
+    // step that it added is at the end, and that step runs next.
+    private static void Drain(ref List<Exception>? reportFailures)
+    {
+        List<Waiting>? list = waiting;
+
+        if (list is null)
+        {
+            return;
+        }
+
+        list.Reverse();
+
+        while (list.Count > 0)
+        {
+            int last = list.Count - 1;
+            Waiting next = list[last];
+
+            list.RemoveAt(last);
+
+            // Each step gives its throw to its report. A throw from a report is a defect. It must
+            // not stop the steps after it, because each of them is the end of a different item.
+            try
+            {
+                next.Run();
+            }
+            catch (Exception e)
+            {
+                (reportFailures ??= []).Add(e);
+            }
+
+            list.Reverse(index: last, count: list.Count - last);
+        }
+    }
+
+    private abstract class Waiting
+    {
+        public abstract void Run();
+    }
+
+    private sealed class Waiting<TState>(
+        in Action<TState> step,
+        in TState state,
+        in Action<TState, Exception> report) : Waiting
+    {
+        private readonly Action<TState, Exception> report = report;
+        private readonly TState state = state;
+        private readonly Action<TState> step = step;
+
+        public override void Run()
+        {
+            try
+            {
+                this.step(this.state);
+            }
+            catch (Exception e)
+            {
+                this.report(arg1: this.state, arg2: e);
+            }
+        }
+    }
+}
+
+/// <summary>
 ///     Runs one MapAsync pipeline. It starts the operations, catches the
 ///     exceptions, sends the results and the errors, tracks the Queued items and
 ///     the Running items, connects the external cancellation, and controls the
@@ -2492,12 +2686,19 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // Gives an exception with no caller to handleException. A throw from that action is a defect
     // of the caller. It goes to the thread pool, where it ends the process, as a throw from the
     // handler of a timer system does. It must not come back into this class, where a Task holds it
-    // and no code observes it.
+    // and no code observes it. The handler is the code of a user. See RunUserCode.
     private void Report(Exception error)
     {
         try
         {
-            this.handleException(error);
+            AsyncMapTrampoline.RunUserCode(
+                code: static state =>
+                {
+                    state.Handle(state.Error);
+
+                    return UnitInternal.Value;
+                },
+                state: (Handle: this.handleException, Error: error));
         }
         catch (Exception handlerFailure)
         {
@@ -2800,17 +3001,22 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         // the code of an operation before its first await must not run with the lock. Code there
         // that blocks stops each thread from opening a transaction, and code that waits for a
         // transaction on a different thread never ends. AfterReleaseImpl runs the call on this
-        // thread, thus the operation starts inline, as before, and not on the thread pool.
-        // StartOperation is a usual async Task method. FireAndForget is the one position where this
-        // code does not await its Task, and that is explicit and not a discard in an async void
-        // method.
+        // thread, thus the operation starts inline, as before, and not on the thread pool. The
+        // trampoline keeps the sequence of the starts and the flushes on this thread. See
+        // AsyncMapTrampoline. StartOperation is a usual async Task method. FireAndForget is the one
+        // position where this code does not await its Task, and that is explicit and not a discard
+        // in an async void method.
         TransactionInternal.PostImpl(() =>
             TransactionInternal.AfterReleaseImpl(() =>
-                this.FireAndForget(
-                    this.StartOperation(
-                        toStart: toStart,
-                        value: value,
-                        trackedCell: trackedCell))));
+                AsyncMapTrampoline.Run(
+                    step: static state =>
+                        state.Self.FireAndForget(
+                            state.Self.StartOperation(
+                                toStart: state.ToStart,
+                                value: state.Value,
+                                trackedCell: state.TrackedCell)),
+                    state: (Self: this, ToStart: toStart, Value: value, TrackedCell: trackedCell),
+                    report: static (state, failure) => state.Self.Report(failure))));
     }
 
     private async Task StartOperation(
@@ -2857,12 +3063,16 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 // operation ends before this await, the await continues synchronously and there is
                 // no continuation on a different thread. `value` is the initial TInput at the
                 // admission of this item. PromoteAndLaunch gives it to this method, as the class
-                // remarks give, and no code calculates it again from TStrategyInput.
+                // remarks give, and no code calculates it again from TStrategyInput. The operation is
+                // the code of a user, and it can wait for a different pipeline. See RunUserCode.
                 MapAsyncResult<TResult> operationResult =
-                    await this.operation(
-                            input: value,
-                            resultFactory: ResultFactory<TResult>.Instance,
-                            token: linked.Token)
+                    await AsyncMapTrampoline.RunUserCode(
+                            code: static state =>
+                                state.Operation(
+                                    input: state.Value,
+                                    resultFactory: ResultFactory<TResult>.Instance,
+                                    token: state.Token),
+                            state: (Operation: this.operation, Value: value, linked.Token))
                         .ConfigureAwait(false);
 
                 pending = AsyncOutcome<MapAsyncResult<TResult>>.Succeeded(operationResult);
@@ -3003,8 +3213,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // in the queue. The strategy and the pipeline disagreed from that moment.
     //
     // A test for a transaction covers each path to here. A continuation on a thread from the pool
-    // has none and calls Flush. A continuation on the thread of a cancellation has one, and
-    // AfterReleaseImpl gives the end its own transaction after that one releases the lock.
+    // has none, and an operation that completes synchronously in its start has none. There, this
+    // code flushes through the trampoline. A continuation on the thread of a cancellation has one,
+    // and AfterReleaseImpl gives the end its own transaction after that one releases the lock.
     private void EndItem(
         AsyncQueuedItem<TStrategyInput> item,
         AsyncOutcome<MapAsyncResult<TResult>> pending,
@@ -3036,10 +3247,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         if (current is null)
         {
-            // A continuation on a thread from the pool. This end is the only one of its
-            // transaction, and Flush opens that transaction.
+            // This end is the only one of its transaction, and Flush opens that transaction.
             List<PendingEnd> alone = [end];
-            this.Flush(ends: alone, sends: sends, trackedCell: trackedCell);
+            this.FlushOnTheTrampoline(ends: alone, sends: sends, trackedCell: trackedCell);
 
             return;
         }
@@ -3054,7 +3264,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         {
             List<PendingEnd> alone = [end];
 
-            TransactionInternal.AfterReleaseImpl(() => this.Flush(ends: alone, sends: true, trackedCell: trackedCell));
+            TransactionInternal.AfterReleaseImpl(() =>
+                this.FlushOnTheTrampoline(ends: alone, sends: true, trackedCell: trackedCell));
 
             return;
         }
@@ -3069,11 +3280,21 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             List<PendingEnd> ends = this.pendingCancellations.Value.Ends;
 
             TransactionInternal.AfterReleaseImpl(() =>
-                this.Flush(ends: ends, sends: false, trackedCell: trackedCell));
+                this.FlushOnTheTrampoline(ends: ends, sends: false, trackedCell: trackedCell));
         }
 
         this.pendingCancellations.Value.Ends.Add(end);
     }
+
+    // Flushes now, or after the step that this thread runs now. A throw goes to the caller when the
+    // flush runs now, as before. When the flush waits, its caller returned, and the throw goes to
+    // Report. See AsyncMapTrampoline.
+    private void FlushOnTheTrampoline(IReadOnlyList<PendingEnd> ends, bool sends, Cell<Entry[]> trackedCell) =>
+        AsyncMapTrampoline.Run(
+            step: static state =>
+                state.Self.Flush(ends: state.Ends, sends: state.Sends, trackedCell: state.TrackedCell),
+            state: (Self: this, Ends: ends, Sends: sends, TrackedCell: trackedCell),
+            report: static (state, failure) => state.Self.Report(failure));
 
     /// <summary>
     ///     The one method that makes the effects of each item at its end. An item with
@@ -3110,9 +3331,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///         see the entry at all, from after this transaction.
     ///     </para>
     ///     <para>
-    ///         EndItem gives this method each end, and never from a callback. Thus, a
-    ///         long queue with a cancellation on each item does not make a depth of
-    ///         calls.
+    ///         EndItem gives this method each end, never from a callback, and always
+    ///         through <see cref="AsyncMapTrampoline" />. A cancellation on each item
+    ///         of a long queue thus does not make a depth of calls. The loop of the
+    ///         trampoline runs the flush and the start of each item. Thus, operations
+    ///         that complete synchronously also do not make a depth of calls. Before,
+    ///         each item started the next in a call, and a queue of 1,000 such items
+    ///         stopped the process with a stack overflow.
     ///     </para>
     /// </summary>
     /// <param name="ends">
