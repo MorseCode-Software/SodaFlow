@@ -67,6 +67,11 @@ internal sealed class LoopRegion(
     // A read of the block after the first one reports only what the reads before did not.
     private readonly HashSet<(string Id, Location Location)> reported = readBefore?.reported ?? [];
 
+    // The reads of a run in the branch of a condition whose value the walk does not know. Each read of
+    // the block adds to them. The last read reports each one whose location has no other report: see
+    // ReportTheUndecidedReads.
+    private readonly Dictionary<Location, Diagnostic> undecided = readBefore?.undecided ?? [];
+
     // The walk and the evaluator get the symbol and the type of one node many times. The compiler
     // computes them again at each call, thus the region keeps them.
     private readonly Dictionary<ExpressionSyntax, Conversion> conversionOf = [];
@@ -609,6 +614,49 @@ internal sealed class LoopRegion(
         }
     }
 
+    // A read of such a run becomes an SF1007 at the location of its report.
+    // A value that goes to unseen code from such a run gets no report.
+    private void Report(Finding finding)
+    {
+        if (!finding.Undecided)
+        {
+            this.Report(finding.Diagnostic);
+
+            return;
+        }
+
+        if (!finding.Escape)
+        {
+            Location location = finding.Diagnostic.Location;
+
+            this.undecided[location] =
+                Diagnostic.Create(
+                    descriptor: Diagnostics.UndecidedRun,
+                    location: location,
+                    location.SourceTree?.GetText().ToString(location.SourceSpan) ?? string.Empty,
+                    this.PlaceholderName);
+        }
+    }
+
+    // A report at the location of the same read wins. The walk can find a warning there in a read of
+    // the block after this one, thus only the last read reports.
+    private void ReportTheUndecidedReads()
+    {
+        foreach (Diagnostic diagnostic in this.undecided.Values
+                     .Where(diagnostic => this.reported.All(reported => reported.Location != diagnostic.Location))
+                     .ToList())
+        {
+            this.Report(diagnostic);
+        }
+    }
+
+    /// <summary>
+    ///     True while the walk tests a run of the timers or a Dispose in a
+    ///     callee. The test then counts each condition whose value the walk does
+    ///     not know as true.
+    /// </summary>
+    public bool CountsAnUndecidedCondition { get; set; }
+
     /// <summary>
     ///     Counts one more callee body that the walk reads. False when the block
     ///     is at its limit, and the callee is then code that the analyzer does not
@@ -859,12 +907,12 @@ internal sealed class LoopRegion(
         LoopStateEvaluator evaluator = new(this);
 
         evaluator.ReadBy(
-                new SinkWalker(region: this, evaluator: evaluator, sink: finding => this.Report(finding.Diagnostic)))
+                new SinkWalker(region: this, evaluator: evaluator, sink: this.Report))
             .Visit(this.Root);
 
         foreach (Finding unread in evaluator.Frame.TakeUnread())
         {
-            this.Report(unread.Diagnostic);
+            this.Report(unread);
         }
 
         if (canReadAgain && this.Sent.SaysMoreThan(this.SentBefore))
@@ -911,6 +959,8 @@ internal sealed class LoopRegion(
                         this.PlaceholderName));
             }
         }
+
+        this.ReportTheUndecidedReads();
 
         return true;
     }

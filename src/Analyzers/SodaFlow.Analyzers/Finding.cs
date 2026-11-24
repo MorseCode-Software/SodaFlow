@@ -23,13 +23,19 @@ namespace SodaFlow.Analyzers;
 ///     For a read, the members of the object of a forward reference that the
 ///     value reads back. See <see cref="LoopState.ReadBack" />.
 /// </param>
+/// <param name="undecided">
+///     True for a read in a run of the timers or a Dispose in a callee. The
+///     run is in the branch of a condition whose value the walk does not
+///     know. See <see cref="Undecided" />.
+/// </param>
 internal sealed class Finding(
     in LoopFrame home,
     in ISymbol? origin,
     in bool escape,
     in Diagnostic diagnostic,
     in string subject,
-    in ImmutableArray<ISymbol> readBack = default)
+    in ImmutableArray<ISymbol> readBack = default,
+    in bool undecided = false)
 {
     public LoopFrame Home { get; } = home;
 
@@ -42,4 +48,25 @@ internal sealed class Finding(
     public string Subject { get; } = subject;
 
     public ImmutableArray<ISymbol> ReadBack { get; } = readBack.IsDefault ? ImmutableArray<ISymbol>.Empty : readBack;
+
+    /// <summary>
+    ///     True for a read of a run that maybe does not occur. The region
+    ///     reports it as an info, and only where no warning has its location.
+    ///     The walk gives such a read to no decision about a state.
+    /// </summary>
+    public bool Undecided { get; } = undecided;
+
+    /// <summary>True for a read that the walk is sure of, and not a value that goes to unseen code.</summary>
+    public bool IsASureRead => !this.Escape && !this.Undecided;
+
+    /// <summary>The same <see cref="Finding" />, for a read of a run that maybe does not occur.</summary>
+    public Finding AsUndecided() =>
+        new(
+            home: this.Home,
+            origin: this.Origin,
+            escape: this.Escape,
+            diagnostic: this.Diagnostic,
+            subject: this.Subject,
+            readBack: this.ReadBack,
+            undecided: true);
 }

@@ -2,11 +2,12 @@
 
 Added: a Roslyn analyzer, inside this package under analyzers/dotnet/cs, that reports a read of a looped cell or
 behavior before its loop closes, a loop closed with a value linked to its own placeholder, and the other shapes that
-throw at run time; rules SF1001 to SF1006, all warnings but the escape to unknown code, which is an info. It reads the
+throw at run time; rules SF1001 to SF1007, all warnings but two infos: the escape to unknown code, and a read in a run
+of timers or a Dispose that a method of yours makes only under a condition that the analyzer cannot decide. It reads the
 block and the code of your own project that the block calls. A C# project that references SodaFlow runs it with no step
-of its own, and ExcludeAssets="analyzers" on the reference removes it. F# is not covered, because a Roslyn analyzer
-runs in the C# compiler only. The loops page describes the rules, the mark that silences the escape, and what the
-analyzer does not see.
+of its own, and ExcludeAssets="analyzers" on the reference removes it. F# is not covered, because a Roslyn analyzer runs
+in the C# compiler only. The loops page describes the rules, the mark that silences the escape, and what the analyzer
+does not see.
 
 Added: rule SF2001 in the same analyzer, a warning. It reports a call to Listen or ListenOnce whose listener nothing
 holds: a statement of the call alone, a discard, or a local that no later code reads. Such a listener stops at a garbage

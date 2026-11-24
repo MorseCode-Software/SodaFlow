@@ -247,8 +247,8 @@ getters, the analyzer reads them too.
 
 ### The rules
 
-Each rule is a warning, except `SF1003`, which is an info: you see it in the editor, and the build
-is quiet.
+Each rule is a warning, except `SF1003` and `SF1007`, which are infos: you see them in the editor,
+and the build is quiet.
 
 | Rule | Reports | What to do |
 | --- | --- | --- |
@@ -258,6 +258,7 @@ is quiet.
 | `SF1004` | A method, constructor, local function, or lambda of your project that reads a value it gets from the block. Reported at the argument. | As for `SF1001`, in that code. |
 | `SF1005` | A call that reads a pending member of an object built in the block. Also a helper that reads a field the block set, or a lambda that your code kept and the block runs. Reported at the call. | Make the call after the block, or in a callback. |
 | `SF1006` | A loop whose initial value reads the loop, through a lazy sample of it or a `Map` whose function samples it. With `ForwardReference`, a member that is read back while it is still pending, so that the first read of the member needs its own value. | Give the loop an initial value that does not read the loop. |
+| `SF1007` | A read in a run of the timers, or in an eviction handler that a `Dispose` runs, where a method of yours makes that run only under a condition that the analyzer cannot decide, such as one on a field. | Make sure that the condition is false while the loop is open, or make the run after the block. |
 
 ### What is not reported
 
@@ -604,7 +605,12 @@ The analyzer follows a value made from the placeholder through the code of your 
   leaves out, unless the method writes the parameter. A test for `null` of a value that the analyzer
   saw made counts as not `null`, so `if (clock == null) return;` and `clock?.RunTimersTo(0)` run the
   timers. A condition that the arguments do not decide, such as one on a field, keeps the call from
-  counting.
+  counting as a run. Each read that such a run makes gets `SF1007`, an info, unless the same read
+  gets a warning another way, and the analyzer does not follow what the run changes, so later code
+  sees nothing from it. A read in the block itself under a condition is a warning, because it is
+  plainly in the code that runs. A method that runs the timers or disposes only under a condition
+  that its arguments do not decide is a weaker sign: such a method is often written so that this
+  caller never reaches that branch.
   A `Cancel` or a `Dispose` of the timer before the run, or the end of a `using` statement of it,
   takes the timer away when it runs on every path, by the same rule, also in a loop that always
   runs at least once. In a `try` block it takes the timer away at the end of the `try`, so a run of
@@ -933,6 +939,10 @@ careful side, so it can report a read that does not throw:
 
 Some reads that throw it does not see:
 
+- What a run of the timers or a `Dispose` under a condition that the analyzer cannot decide leaves
+  for later code, such as a pending cell that the callback puts into a field. The reads of the run
+  itself get `SF1007`. A run like that inside a function whose result the analyzer reads only to
+  find its state, such as the function of a `Map`, gets no `SF1007` either.
 - A first read of a cell that one call builds two or more times, through a name that a method, a
   `ref` or `out` argument, or a lambda gives a different cell after an earlier read through that
   name. The analyzer clears the record of the name only at an assignment in the code that it

@@ -183,7 +183,8 @@ internal sealed partial class SinkWalker
         {
             if (around is IfStatementSyntax branch
                 && (child == branch.Statement || child == branch.Else)
-                && this.ValueOf(condition: branch.Condition, forARun: forARun) == (child == branch.Else))
+                && this.ValueOf(condition: branch.Condition, forARun: forARun) is var value
+                && (value == (child == branch.Else) || (value == null && this.CountsUndecided(forARun))))
             {
                 return true;
             }
@@ -198,13 +199,15 @@ internal sealed partial class SinkWalker
     // statement of an if on the constant true, and only the else clause of an if on the constant
     // false. For a call, the walk knows the value of more conditions: see ValueOf.
     private bool RunsThePartOf(IfStatementSyntax branch, SyntaxNode part, bool forACall, bool forARun) =>
-        part == branch.Else
-            ? this.alwaysTaken.Contains(branch)
-              || (forACall && this.ValueOf(condition: branch.Condition, forARun: forARun) == false)
-            : this.alwaysTaken.Contains(branch)
-              || (forACall
-                  && part == branch.Statement
-                  && this.ValueOf(condition: branch.Condition, forARun: forARun) == true);
+        this.alwaysTaken.Contains(branch)
+        || (forACall
+            && (part == branch.Else || part == branch.Statement)
+            && this.ValueOf(condition: branch.Condition, forARun: forARun) is var value
+            && (value == (part == branch.Statement) || (value == null && this.CountsUndecided(forARun))));
+
+    // The walk does not know the value of some conditions. A test of a run of the timers or a Dispose
+    // in a callee can count each of them as true: see SinkWalker.UndecidedRuns.
+    private bool CountsUndecided(bool forARun) => forARun && this.region.CountsAnUndecidedCondition;
 
     /// <summary>
     ///     The value of a condition, where the walk knows it for a call. Null

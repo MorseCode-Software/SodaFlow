@@ -401,7 +401,7 @@ internal sealed partial class LoopStateEvaluator
                                 each: (written, cell.Given, cell.ManyTimes),
                                 heldIn: heldIn)
                             ?.Findings
-                            .Where(static finding => !finding.Escape)
+                            .Where(static finding => finding.IsASureRead)
                         ?? []);
                 }
             }

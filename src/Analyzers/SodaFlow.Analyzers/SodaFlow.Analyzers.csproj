@@ -110,6 +110,7 @@
         <Compile Include="LoopStateEvaluator.Together.cs"/>
         <Compile Include="LoopStateEvaluator.Windows.cs"/>
         <Compile Include="LoopStateEvaluator.Tasks.cs"/>
+        <Compile Include="LoopStateEvaluator.UndecidedRuns.cs"/>
         <Compile Include="LoopStateEvaluator.Continuations.cs"/>
         <Compile Include="LoopStateEvaluator.ThisOfAConstructor.cs"/>
         <Compile Include="LoopStateEvaluator.TypeInitializers.cs"/>
@@ -144,6 +145,7 @@
         <Compile Include="SinkWalker.Paths.cs"/>
         <Compile Include="SinkWalker.Removes.cs"/>
         <Compile Include="SinkWalker.Serializers.cs"/>
+        <Compile Include="SinkWalker.UndecidedRuns.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
         <Compile Include="WriteThroughAName.cs"/>
         <Compile Include="WritesThroughEach.cs"/>

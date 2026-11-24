@@ -344,7 +344,7 @@ internal sealed partial class LoopReadAnalyzerTests
             IReadOnlyList<Outcome> permitted =
                 rules.Length == 0 || ReportsOnTheCarefulSide.Contains(reportedIn)
                     ? [Outcome.Returns]
-                    : [.. rules.Where(static rule => rule != "SF1003").Select(OutcomeOf).Distinct()];
+                    : [.. rules.Where(static rule => rule != "SF1003").SelectMany(OutcomesOf).Distinct()];
 
             if (permitted.Count == 0)
             {
@@ -1862,6 +1862,12 @@ internal sealed partial class LoopReadAnalyzerTests
         await Assert.That(mismatches.Count)
             .IsEqualTo(0)
             .Because(string.Join(separator: Environment.NewLine, values: mismatches));
+
+    // SF1007 is an info about a read in a run that a callee makes in the branch of a condition. The
+    // analyzer does not know the value of that condition. The read throws when the run occurs, and
+    // the shape returns otherwise.
+    private static IEnumerable<Outcome> OutcomesOf(string rule) =>
+        rule == "SF1007" ? [Outcome.ReadsEarly, Outcome.Returns] : [OutcomeOf(rule)];
 
     private static Outcome OutcomeOf(string rule) =>
         rule switch

@@ -54,7 +54,7 @@ internal sealed partial class LoopStateEvaluator
                                    arguments: default,
                                    each: (argument.Written, given, ManyTimes: true))
                                ?.Findings
-                               .Where(static finding => !finding.Escape)
+                               .Where(static finding => finding.IsASureRead)
                                .ToArray()
                            ?? [])
                        .FirstOrDefault(static found => found.Length > 0)

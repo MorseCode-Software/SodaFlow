@@ -890,7 +890,8 @@ internal sealed partial class LoopStateEvaluator
                                     finding.Origin.Name,
                                     this.region.PlaceholderName),
                             subject: finding.Subject,
-                            readBack: finding.ReadBack));
+                            readBack: finding.ReadBack,
+                            undecided: finding.Undecided));
 
                     continue;
                 }
@@ -914,7 +915,8 @@ internal sealed partial class LoopStateEvaluator
                             escape: finding.Escape,
                             diagnostic: finding.Diagnostic,
                             subject: finding.Subject,
-                            readBack: finding.ReadBack));
+                            readBack: finding.ReadBack,
+                            undecided: finding.Undecided));
 
                     continue;
                 }
@@ -944,7 +946,8 @@ internal sealed partial class LoopStateEvaluator
                                 finding.Origin.Name,
                                 this.region.PlaceholderName),
                         subject: finding.Subject,
-                        readBack: finding.ReadBack));
+                        readBack: finding.ReadBack,
+                        undecided: finding.Undecided));
             }
 
             return changed.ToImmutable();
@@ -1154,7 +1157,7 @@ internal sealed partial class LoopStateEvaluator
                 .Any(value =>
                     compareTo.Any(member =>
                         this.FollowImplied(call: written, member: member, owner: value, arguments: [(written, value)])
-                            ?.Findings.Any(static finding => !finding.Escape) == true));
+                            ?.Findings.Any(static finding => finding.IsASureRead) == true));
         }
     }
 

@@ -3704,11 +3704,15 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 case "Dispose" when method.ReducedFrom == null:
                     this.CancelsATimerAt(call: node, timer: receiver);
 
+                    Func<bool> runsOnEachPath = () => this.SurelyRuns(call: node, forARun: true, after: out _);
+
                     this.Report(
                         this.evaluator.FollowEvictionsOfADispose(
                             map: receiver,
                             dispose: node,
-                            runsOnEachPath: () => this.SurelyRuns(call: node, forARun: true, after: out _)));
+                            runsOnEachPath: runsOnEachPath));
+
+                    this.DisposesTheUndecided(map: receiver, dispose: node, runsOnEachPath: runsOnEachPath);
 
                     break;
                 // A clock of the library base keeps the callback of SetTimer. Its RunTimersTo runs
@@ -3792,21 +3796,28 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         // different code.
         bool always = this.SurelyRuns(call: call, forARun: true, after: out _);
 
-        foreach (KeptTimer timer in this.region.Objects.TimersOf(this.region.Objects.Now(clocks))
-                     .Where(timer =>
-                         (timer.Keeper.evaluator.Frame.IsWithin(this.evaluator.Frame)
-                          || (always
-                              && this.evaluator.CallsRunFor(
-                                  owns: timer.Keeper.evaluator.Frame.IsWithin,
-                                  forARun: true)))
-                         && !this.IsAfter(time: timer.Time, now: now))
-                     .ToList())
+        List<KeptTimer> due =
+        [
+            .. this.region.Objects.TimersOf(this.region.Objects.Now(clocks))
+                .Where(timer => !this.IsAfter(time: timer.Time, now: now))
+        ];
+
+        List<KeptTimer> runs =
+        [
+            .. due.Where(timer =>
+                timer.Keeper.evaluator.Frame.IsWithin(this.evaluator.Frame)
+                || (always && this.evaluator.CallsRunFor(owns: timer.Keeper.evaluator.Frame.IsWithin, forARun: true)))
+        ];
+
+        foreach (KeptTimer timer in runs)
         {
             this.region.Objects.TakesTheTimer(timer.Set);
 
             this.Report(
                 this.evaluator.FollowCallback(call: call, callback: timer.Callback, functions: timer.Functions));
         }
+
+        this.RunsTheUndecidedTimers(call: call, timers: due.Except(runs));
 
         return;
 

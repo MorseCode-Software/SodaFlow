@@ -62406,6 +62406,46 @@ public static class Shapes
     public static Cell<int> Ag104TheHashOfAQueryRunsNoQuery() =>
         Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new[] { l.Map(v => v) }.Select(c => c.Sample()); int n = q.GetHashCode(); foreach (int x in Enumerable.Repeat(n, 1)) { Kept.Add(x); } return S.Hold(0); });
 
+    // S15129. A method runs the timers of a clock of the library base in the branch of a condition that is true at run time. The block sets a timer that samples the placeholder and calls the method.
+    public static Cell<int> R6FuTimersRunByACalleeUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6FuRunTimersIf(clock, !Never); return S.Hold(0); });
+
+    // S15130. A method of this code disposes the map only when its argument is true. The block gives a condition on a static field, which is true at run time.
+    public static Cell<int> Ag100MapHelperDisposesUnderAFieldCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; R6PathDisposeIf(m, !Never); return S.Hold(n); });
+
+    // S15131. A method runs the timers in the branch of a condition on a static field. Then the block runs the timers itself. The read of the callback gets the warning of the run in the block, and no info.
+    public static Cell<int> Ag100TimerRunUnderAFieldConditionAndThenInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); R6FuRunTimersIf(clock, !Never); clock.RunTimersTo(0); return S.Hold(0); });
+
+    // S15132. A method disposes the map in the branch of a condition on a static field. Then the block disposes the map itself. The read of the handler gets the warning of the Dispose in the block, and no info.
+    public static Cell<int> Ag100MapDisposedUnderAFieldConditionAndThenInTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Kept.Add(l.Sample())); int n = m.Items.Sample().Count; R6PathDisposeIf(m, !Never); m.Dispose(); return S.Hold(n); });
+
+    // S15133. A method runs the timers in the branch of a condition on a static field. The callback samples a plain cell. No read of the run is of the placeholder.
+    public static Cell<int> Ag100TimerRunUnderAFieldConditionWithAPlainRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(Plain.Sample())); R6FuRunTimersIf(clock, !Never); return S.Hold(0); });
+
+    // S15134. A method runs the timers in the branch of a condition on a static field. The callback gives the placeholder to code with no body to read. That code keeps the placeholder and does not sample it.
+    public static Cell<int> Ag100TimerRunUnderAFieldConditionGivesThePlaceholderToUnseenCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); clock.SetTimer(0, () => NoBody.Bag<Cell<int>>().Put(l)); R6FuRunTimersIf(clock, !Never); return S.Hold(0); });
+
+    // S15135. ContinueWith runs a continuation in the call. The continuation calls a method that runs the timers in the branch of a condition on a static field. The block waits for the continuation.
+    public static Cell<int> Ag100ContinuationRunsTheTimersUnderAFieldCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Task.CompletedTask.ContinueWith(_ => R6FuRunTimersIf(clock, !Never), TaskContinuationOptions.ExecuteSynchronously).Wait(1000); return S.Hold(0); });
+
+    // S15136. A method runs the timers in the branch of a condition on a static field, which is false at run time. The callback puts a pending cell into a static field, and the block samples the field after the call. The run changes no state that the block reads.
+    public static Cell<int> Ag100TimerRunUnderAFalseFieldConditionLeavesNoPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag100Box.Cell = Plain; R5ApiStepClock clock = new(); clock.SetTimer(0, () => Ag100Box.Cell = l.Map(v => v)); R6FuRunTimersIf(clock, Never); Kept.Add(Ag100Box.Cell!.Sample()); return S.Hold(0); });
+
+    // S15137. A method disposes the map in the branch of a condition on a static field, which is false at run time. The handler puts a pending cell into a static field, and the block samples the field after the call. The run changes no state that the block reads.
+    public static Cell<int> Ag100MapDisposedUnderAFalseFieldConditionLeavesNoPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag100Box.Cell = Plain; MappedItems<int> m = Items().Map(project: k => k, onEvicted: _ => Ag100Box.Cell = l.Map(v => v)); int n = m.Items.Sample().Count; R6PathDisposeIf(m, Never); Kept.Add(Ag100Box.Cell!.Sample()); return S.Hold(n); });
+
+    // S15138. The function of a Map calls a method that runs the timers in the branch of a condition on a static field. The condition is false at run time. The block samples the result of the Map. The result is not pending.
+    public static Cell<int> Ag100MapFunctionRunsTheTimersUnderAFalseFieldCondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Cell<int> m = Plain.Map(v => { R6FuRunTimersIf(clock, Never); return v; }); Kept.Add(m.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -115235,6 +115275,12 @@ public static class Shapes
     public sealed class Ag104SlotHolder
     {
         public readonly SettableSlot Slot = new();
+    }
+
+    // A helper of the shapes of SF1007: a static field that a callback can give a pending cell.
+    public static class Ag100Box
+    {
+        public static Cell<int>? Cell;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

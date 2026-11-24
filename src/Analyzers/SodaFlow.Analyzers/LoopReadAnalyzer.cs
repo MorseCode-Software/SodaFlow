@@ -39,7 +39,8 @@ public sealed class LoopReadAnalyzer : DiagnosticAnalyzer
             Diagnostics.Escape,
             Diagnostics.ReadInCallee,
             Diagnostics.MemberReadInCallee,
-            Diagnostics.PendingClose);
+            Diagnostics.PendingClose,
+            Diagnostics.UndecidedRun);
 
     public override void Initialize(AnalysisContext context)
     {

@@ -8887,6 +8887,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag104AnInnerLoopWithNoTurnKeepsTheValueOfTheOuterTurn"] = ["SF1001"],
             ["Ag104AThrowOfABaseTypeGoesPastACatchOfADifferentType"] = ["SF1001"],
             ["Ag104AHandlerGoesInAgainThroughANameOfTheObjectThatTheWalkDoesNotKnow"] = ["SF1001"],
-            ["Ag104AReflectedCallSetsAMemberOfAnObjectFromAnArray"] = ["SF1001"]
+            ["Ag104AReflectedCallSetsAMemberOfAnObjectFromAnArray"] = ["SF1001"],
+            ["R6FuTimersRunByACalleeUnderACondition"] = ["SF1007"],
+            ["Ag100MapHelperDisposesUnderAFieldCondition"] = ["SF1007"],
+            ["Ag100TimerRunUnderAFieldConditionAndThenInTheBlock"] = ["SF1001"],
+            ["Ag100MapDisposedUnderAFieldConditionAndThenInTheBlock"] = ["SF1001"],
+            ["Ab364TimerHelperSkipsAfterAGotoPastTheCall"] = ["SF1007"],
+            ["Ag100TimerHelperSkipsAfterAWriteOfTheParameter"] = ["SF1007"],
+            ["Ag100ContinuationRunsTheTimersUnderAFieldCondition"] = ["SF1007"]
         };
 }
