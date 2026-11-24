@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 
 namespace SodaFlow.Analyzers;
@@ -105,19 +106,14 @@ internal sealed partial class LoopStateEvaluator
             return members;
         }
 
-        foreach (MadeObject made in this.region.Objects.Now(this.objectsOfThis))
+        foreach (KeyValuePair<ISymbol, LoopState> member in this.region.Objects.Now(this.objectsOfThis)
+                     .SelectMany(made => this.region.Objects.StateOf(made)?.Members?.Members ?? [])
+                     .Where(member => !but.ContainsKey(member.Key)))
         {
-            foreach (KeyValuePair<ISymbol, LoopState> member in
-                     this.region.Objects.StateOf(made)?.Members?.Members ?? [])
-            {
-                if (!but.ContainsKey(member.Key))
-                {
-                    members[member.Key] =
-                        members.TryGetValue(key: member.Key, value: out LoopState? other)
-                            ? other.Join(member.Value)
-                            : member.Value;
-                }
-            }
+            members[member.Key] =
+                members.TryGetValue(key: member.Key, value: out LoopState? other)
+                    ? other.Join(member.Value)
+                    : member.Value;
         }
 
         return members;

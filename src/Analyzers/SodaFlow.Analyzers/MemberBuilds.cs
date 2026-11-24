@@ -98,7 +98,7 @@ internal static class MemberBuilds
 
     // A framework in a library can call a private method by its name with no code that names it, as
     // Unity does for Start. Such a framework calls a method of a type that derives from its own type.
-    private static bool HasOnlyBasesOfThisCode(INamedTypeSymbol type)
+    private static bool HasOnlyBasesOfThisCode(ITypeSymbol type)
     {
         for (INamedTypeSymbol? each = type.BaseType;
              each is { SpecialType: not (SpecialType.System_Object or SpecialType.System_ValueType) };
@@ -351,19 +351,19 @@ internal static class MemberBuilds
         in ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> names,
         in Part? ofUncalledMethods)
     {
-        public ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> Values { get; } = values;
+        private readonly ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> values = values;
 
-        public ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> Names { get; } = names;
+        private readonly ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> names = names;
 
         public Part? OfUncalledMethods { get; } = ofUncalledMethods;
 
         public ImmutableArray<ExpressionSyntax> Of(string member, bool takesNames) =>
-            (this.Values.TryGetValue(key: member, value: out ImmutableArray<ExpressionSyntax> values)
-                ? values
+            (this.values.TryGetValue(key: member, value: out ImmutableArray<ExpressionSyntax> given)
+                ? given
                 : ImmutableArray<ExpressionSyntax>.Empty)
             .AddRange(
-                takesNames && this.Names.TryGetValue(key: member, value: out ImmutableArray<ExpressionSyntax> names)
-                    ? names
+                takesNames && this.names.TryGetValue(key: member, value: out ImmutableArray<ExpressionSyntax> named)
+                    ? named
                     : ImmutableArray<ExpressionSyntax>.Empty);
     }
 }

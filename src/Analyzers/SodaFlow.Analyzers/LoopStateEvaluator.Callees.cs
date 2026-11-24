@@ -228,7 +228,7 @@ internal sealed partial class LoopStateEvaluator
                 self: self,
                 itsObject: receiver?.Members,
                 range: range,
-                objectsOfThis: receiver?.Objects ?? default);
+                objectsOfThis: receiver?.Objects);
 
         if (owner != null && definer == null)
         {
@@ -291,7 +291,7 @@ internal sealed partial class LoopStateEvaluator
                         self: self,
                         itsObject: receiver?.Members,
                         range: range,
-                        objectsOfThis: receiver?.Objects ?? default);
+                        objectsOfThis: receiver?.Objects);
 
                 if (started != null)
                 {
@@ -545,7 +545,7 @@ internal sealed partial class LoopStateEvaluator
         MadeObject? self,
         Construction? itsObject = null,
         (ISymbol Variable, LoopState State)? range = null,
-        ImmutableArray<MadeObject> objectsOfThis = default)
+        ImmutableArray<MadeObject>? objectsOfThis = null)
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
 
@@ -706,10 +706,10 @@ internal sealed partial class LoopStateEvaluator
             : null;
 
         inner.objectsOfThis =
-            definer != null ? definer.objectsOfThis
-            : ReferenceEquals(objA: members, objB: this.thisMembers) ? this.objectsOfThis
-            : objectsOfThis.IsDefault ? ImmutableArray<MadeObject>.Empty
-            : objectsOfThis;
+            definer?.objectsOfThis
+            ?? (ReferenceEquals(objA: members, objB: this.thisMembers)
+                ? this.objectsOfThis
+                : objectsOfThis ?? ImmutableArray<MadeObject>.Empty);
 
         // The code of a function does not read this record: see TheOneCollectionOf.
         foreach (KeyValuePair<ISymbol, MadeObject> one in collections)
