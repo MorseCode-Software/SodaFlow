@@ -1757,13 +1757,17 @@ internal static class CollectionViewUtility
         bool changesMembership = false;
 
         int common = -1;
-        List<TKey>? before = null;
+
+        // An empty collection expression of this type allocates nothing, thus a change with no
+        // move costs no list.
+        IReadOnlyList<TKey> windowBefore = [];
 
         if (change.MovesKeys || change.ChangesMembership)
         {
-            before = [.. state];
+            List<TKey> before = [.. state];
             List<TKey> after = [.. keys];
 
+            windowBefore = before;
             common = 0;
 
             while (common < before.Count
@@ -1811,8 +1815,7 @@ internal static class CollectionViewUtility
                 // The key stays at its position. Thus, the window before this change has the key
                 // that leaves at that position, in its previous spelling. An insert above changes
                 // membership, thus the code above made the list.
-                before ??= [.. state];
-                operations.Add(new ViewRemove<TKey>(key: before[index], index: index));
+                operations.Add(new ViewRemove<TKey>(key: windowBefore[index], index: index));
                 operations.Add(new ViewInsert<TKey>(key: operation.Key, index: index));
                 changesMembership = true;
             }
