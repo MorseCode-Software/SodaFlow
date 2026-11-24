@@ -258,6 +258,9 @@ internal sealed class SodaFlowSymbols
         this.Implementations = new ImplementationIndex(compilation);
     }
 
+    /// <summary>The private static arrays whose elements no code changes.</summary>
+    public UnchangedStatics Unchanged { get; } = new();
+
     /// <summary>
     ///     True when the compilation declares a method with the name <c>Add</c>.
     ///     A collection initializer can call it.

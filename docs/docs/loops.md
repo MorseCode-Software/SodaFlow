@@ -370,10 +370,20 @@ The analyzer follows a value made from the placeholder through the code of your 
   inside a list pattern knows the positions of the inner collection wherever a read such as
   `cells[0][1]` knows them, also after a write through two indexes or through a second name of the
   inner collection. Otherwise, it gives each of its variables every element of the inner collection.
-  An element of a range with constant bounds, as `cells[1..][0]`, is one element too. The arguments
-  that a call that runs one time gives one by one to a `params` parameter keep their positions in
-  the same way. A positional pattern on a tuple gives each part its own item. A `Dictionary` that
-  you write with constant keys and no comparer, and that the code then only reads, keeps the value
+  An element of a range with constant bounds, as `cells[1..][0]`, is one element too. An array in a
+  static field keeps each element apart from a value that the code puts in at a constant index, as
+  in `Cells[1] = value`, also in a method that the block calls, so a read of `Cells[0]` does not get
+  that value. A value put in at any other index reaches every element. Each element of a `private`
+  static array is also its own object where the initializer makes every element with `new` and no
+  code of the class gives the field or one of its elements a different value, with an assignment,
+  an increment, or a `ref`, `out`, or `in` argument, or uses the array other than through an element
+  or a local that only reads its elements. A `ref` local of an element counts as a read where the
+  code only reads or writes members through it. A write to a member through one such element at a
+  constant index then does not reach a different element, also in a method that the block calls.
+  The arguments that a call that runs one time gives one by one to a `params` parameter keep their
+  positions in the same way. A positional pattern on a tuple gives each part its own item. A
+  `Dictionary` that you write with constant keys and no comparer, and that the code then only
+  reads, keeps the value
   of each key apart, so `cells["total"]` is that one value. A key of the type `object` has the type
   of its constant too, so the `int` 1 and the `long` 1 are two keys. `Array.Fill` puts its value
   into each element that it fills, as an assignment to that element would, and `Array.Reverse` of a
@@ -805,13 +815,13 @@ careful side, so it can report a read that does not throw:
 - The `Result` of a task that you create with `new` has the value that its function returns even
   where no code runs the task. Such a `Result` waits forever, and the code after it does not run.
 - A method that writes a member through an object that the analyzer does not know, such as an
-  element of an array in a static field, can have written that member of any such object. So a
-  read of the member through an element whose object the analyzer does not know, or through a
-  local that got such an element, after a call that wrote that member, also gets what the call
-  wrote. That is so even when the call wrote a different object. In the same way, a write into a
-  member of an object of your class through an element of an array, a static field, an element of an
-  array in a static field, or a field of a holder object reaches a read of that member through any
-  other object of the class, also one that the code made with `new` itself.
+  element of an array in a static field whose objects it does not know, can have written that member
+  of any such object. So a read of the member through an element whose object the analyzer does not
+  know, or through a local that got such an element, after a call that wrote that member, also gets
+  what the call wrote. That is so even when the call wrote a different object. In the same way, a
+  write into a member of an object of your class through an element of an array, a static field, an
+  element of an array in a static field, or a field of a holder object reaches a read of that member
+  through any other object of the class, also one that the code made with `new` itself.
 - A local that gets a field of `this` that is not `readonly`, with a call between that can give the
   field a different object, as in `var slot = this.slot; this.Renew(); slot.Share = value;`. The
   analyzer does not read whether the call did, so a write through the local still reaches a read

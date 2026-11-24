@@ -51,6 +51,16 @@ internal sealed class LoopRegion(
     private readonly Dictionary<ISymbol, List<(int Index, LoopState Held)>> putsThroughLocals =
         new(SymbolEqualityComparer.Default);
 
+    // For a static field that holds an array: each put into an element through the field at a constant index. A
+    // put at one index does not change a different element. See PutsAtAnIndexOf.
+    private readonly Dictionary<ISymbol, List<(int Index, LoopState Held)>> putsAtIndexes =
+        new(SymbolEqualityComparer.Default);
+
+    // The fields that the code set through an owner whose object the walk knows, with that owner for each write. A read
+    // through a different owner does not get such a write. See SetFieldOfAnOwner.
+    private readonly Dictionary<ISymbol, List<(object Owner, LoopState State)>> ownedFields =
+        new(SymbolEqualityComparer.Default);
+
     // True when a key of the fields is a property of an interface: see FieldState.
     private bool hasInterfaceFields;
 
@@ -201,7 +211,19 @@ internal sealed class LoopRegion(
     public INamedTypeSymbol? TypeOfThePlatform(string name) => this.compilation.GetTypeByMetadataName(name);
 
     /// <summary>True when the code set a field to a value with a state.</summary>
-    public bool HasFields => this.fields.Count > 0;
+    public bool HasFields => this.fields.Count > 0 || this.putsAtIndexes.Count > 0 || this.ownedFields.Count > 0;
+
+    /// <summary>
+    ///     True when the code set a field through an owner that the walk knows:
+    ///     see <see cref="SetFieldOfAnOwner" />.
+    /// </summary>
+    public bool HasOwnedFields => this.ownedFields.Count > 0;
+
+    /// <summary>
+    ///     True when the code put a value into an element of the array of a
+    ///     static field: see <see cref="AddAPutAtAnIndex" />.
+    /// </summary>
+    public bool HasPutsAtIndexes => this.putsAtIndexes.Count > 0;
 
     /// <summary>
     ///     Records that the walk reads the static constructor of a type. False
@@ -277,10 +299,26 @@ internal sealed class LoopRegion(
 
     /// <summary>A number for what the fields say, from <see cref="LoopState.Shape" />.</summary>
     public int ShapeOfFields =>
-        this.fields.Aggregate(
-            seed: 0,
-            func: static (sum, one) => unchecked(
-                sum + ShapeNumber.Of(location: ShapeNumber.Of(one.Key.Name), state: one.Value.Shape)));
+        unchecked(
+            this.fields.Aggregate(
+                seed: 0,
+                func: static (sum, one) => unchecked(
+                    sum + ShapeNumber.Of(location: ShapeNumber.Of(one.Key.Name), state: one.Value.Shape)))
+            + this.putsAtIndexes.Aggregate(
+                seed: 0,
+                func: static (sum, one) => unchecked(
+                    sum
+                    + one.Value.Aggregate(
+                        seed: ShapeNumber.Of(one.Key.Name),
+                        func: static (all, put) => unchecked(
+                            all + ShapeNumber.Of(location: put.Index + 1, state: put.Held.Shape)))))
+            + this.ownedFields.Aggregate(
+                seed: 0,
+                func: static (sum, one) => unchecked(
+                    sum
+                    + one.Value.Aggregate(
+                        seed: ShapeNumber.Of(one.Key.Name) * 7,
+                        func: static (all, write) => unchecked(all + write.State.Shape)))));
 
     /// <summary>
     ///     The state of a field that the code set while the loop is open. The
@@ -292,12 +330,42 @@ internal sealed class LoopRegion(
     ///     <see cref="Construction.StateWithTheAliases" /> and
     ///     <see cref="Construction.StateImplementedTogether" />.
     /// </param>
-    public LoopState FieldState(ISymbol field, Func<ISymbol, bool>? canHave = null)
+    /// <param name="owner">
+    ///     The owner of the read, from <see cref="SetFieldOfAnOwner" />, or null
+    ///     when the walk does not know it. A read through a known owner does not
+    ///     get a write through a different known owner.
+    /// </param>
+    public LoopState FieldState(ISymbol field, Func<ISymbol, bool>? canHave = null, object? owner = null)
     {
-        LoopState own = this.OwnFieldState(field: field, canHave: canHave);
+        LoopState own = this.OwnFieldState(states: this.fields, field: field, canHave: canHave);
         ImmutableArray<ISymbol> named = this.FieldsNamedByTheInitializerOf(field);
 
+        if (this.ownedFields.Count > 0)
+        {
+            own = own.Join(this.OwnFieldState(states: this.OwnedFieldsFor(owner), field: field, canHave: canHave));
+        }
+
         return named.IsEmpty ? own : this.WithTheFieldsNamed(state: own, named: named, canHave: canHave);
+    }
+
+    // The state of each field from the writes through an owner that can be the owner of a read. Null is each owner.
+    private Dictionary<ISymbol, LoopState> OwnedFieldsFor(object? owner)
+    {
+        Dictionary<ISymbol, LoopState> visible = new(SymbolEqualityComparer.Default);
+
+        foreach (KeyValuePair<ISymbol, List<(object Owner, LoopState State)>> field in this.ownedFields)
+        {
+            foreach ((object writer, LoopState state) in field.Value)
+            {
+                if (owner == null || owner.Equals(writer))
+                {
+                    visible[field.Key] =
+                        visible.TryGetValue(key: field.Key, value: out LoopState? before) ? before.Join(state) : state;
+                }
+            }
+        }
+
+        return visible;
     }
 
     // Most fields have no named field. Thus, only this method makes the function that it gives Aggregate.
@@ -305,17 +373,22 @@ internal sealed class LoopRegion(
         LoopState state,
         ImmutableArray<ISymbol> named,
         Func<ISymbol, bool>? canHave) =>
-        named.Aggregate(seed: state, func: (all, one) => all.Join(this.OwnFieldState(field: one, canHave: canHave)));
+        named.Aggregate(
+            seed: state,
+            func: (all, one) => all.Join(this.OwnFieldState(states: this.fields, field: one, canHave: canHave)));
 
-    private LoopState OwnFieldState(ISymbol field, Func<ISymbol, bool>? canHave) =>
+    private LoopState OwnFieldState(
+        IReadOnlyDictionary<ISymbol, LoopState> states,
+        ISymbol field,
+        Func<ISymbol, bool>? canHave) =>
         Construction.StateWithTheAliases(
-                states: this.fields,
+                states: states,
                 key: field.OriginalDefinition,
                 stateOf: static (key, state) => state.From(key),
                 canHave: canHave)
             .Join(
                 Construction.StateImplementedTogether(
-                    states: this.fields,
+                    states: states,
                     key: field.OriginalDefinition,
                     stateOf: static (key, state) => state.From(key),
                     implementations: this.Symbols.Implementations,
@@ -367,6 +440,39 @@ internal sealed class LoopRegion(
             this.lastWrites[named] = this.MemberWrites;
         }
 
+        this.hasInterfaceFields |= key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
+    }
+
+    /// <summary>
+    ///     Records a value that the code gives to a member of one owner that the
+    ///     walk knows. Other names of that object can have no record of the
+    ///     write. A read through a different known owner does not get it, and each
+    ///     other read does, as for <see cref="SetField" />.
+    /// </summary>
+    /// <param name="field">The member.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="owner">
+    ///     The owner: an object of the store, or a <see cref="StaticOwner" />. Two
+    ///     owners that are not equal are two different objects.
+    /// </param>
+    public void SetFieldOfAnOwner(ISymbol field, LoopState state, object owner)
+    {
+        ISymbol key = field.OriginalDefinition;
+
+        if (state is { IsNone: true, HoldsAnObject: false }
+            && !state.Objects.Any(made => this.Objects.HandlersOfAMap(made).Count > 0))
+        {
+            return;
+        }
+
+        if (!this.ownedFields.TryGetValue(key: key, value: out List<(object Owner, LoopState State)>? writes))
+        {
+            writes = [];
+            this.ownedFields[key] = writes;
+        }
+
+        writes.Add((owner, state));
+        this.lastWrites[key] = this.MemberWrites;
         this.hasInterfaceFields |= key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
     }
 
@@ -780,6 +886,65 @@ internal sealed class LoopRegion(
             key: field.OriginalDefinition,
             value: out List<(int Index, LoopState Held)>? puts)
             ? puts.Aggregate(seed: LoopState.None, func: static (all, put) => all.Join(put.Held))
+            : LoopState.None;
+
+    /// <summary>
+    ///     Records a put into an element of the array of a static field, through
+    ///     the field, at a constant index. A second field that holds the same
+    ///     array gets the put also, as in <see cref="SetField" />.
+    /// </summary>
+    /// <param name="field">The field.</param>
+    /// <param name="index">The constant index.</param>
+    /// <param name="held">The state of the array with the value in it.</param>
+    public void AddAPutAtAnIndex(ISymbol field, int index, LoopState held)
+    {
+        ISymbol key = field.OriginalDefinition;
+        this.AddAPutAtAnIndexOf(key: key, index: index, held: held);
+
+        foreach (ISymbol named in this.FieldsNamedByTheInitializerOf(key))
+        {
+            this.AddAPutAtAnIndexOf(key: named, index: index, held: held);
+        }
+    }
+
+    private void AddAPutAtAnIndexOf(ISymbol key, int index, LoopState held)
+    {
+        if (!this.putsAtIndexes.TryGetValue(key: key, value: out List<(int Index, LoopState Held)>? puts))
+        {
+            puts = [];
+            this.putsAtIndexes[key] = puts;
+        }
+
+        puts.Add((index, held));
+        this.lastWrites[key] = this.MemberWrites;
+    }
+
+    /// <summary>
+    ///     The state of the array of a static field from the puts at a constant
+    ///     index, from <see cref="AddAPutAtAnIndex" />. A read of one element gets
+    ///     only the puts at its index. Each other read gets all of them.
+    /// </summary>
+    /// <param name="field">The field.</param>
+    /// <param name="index">The constant index of the element that the code reads, or null.</param>
+    public LoopState PutsAtAnIndexOf(ISymbol field, int? index)
+    {
+        if (this.putsAtIndexes.Count == 0)
+        {
+            return LoopState.None;
+        }
+
+        ISymbol key = field.OriginalDefinition;
+
+        return this.FieldsNamedByTheInitializerOf(key)
+            .Aggregate(
+                seed: this.PutsAtAnIndexIn(key: key, index: index),
+                func: (all, named) => all.Join(this.PutsAtAnIndexIn(key: named, index: index)));
+    }
+
+    private LoopState PutsAtAnIndexIn(ISymbol key, int? index) =>
+        this.putsAtIndexes.TryGetValue(key: key, value: out List<(int Index, LoopState Held)>? puts)
+            ? puts.Where(put => index == null || put.Index == index)
+                .Aggregate(seed: LoopState.None, func: (all, put) => all.Join(put.Held.From(key)))
             : LoopState.None;
 
     /// <summary>

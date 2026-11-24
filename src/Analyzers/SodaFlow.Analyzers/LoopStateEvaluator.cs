@@ -1114,6 +1114,11 @@ internal sealed partial class LoopStateEvaluator
                     ? state.AsContainer
                     : state.AsContainer.HoldingAnUnknownObject;
 
+            if (this.PutsIntoAnElementOfItsOwnObject(target: target, state: state))
+            {
+                return;
+            }
+
             target = collection;
         }
     }
@@ -2301,9 +2306,13 @@ internal sealed partial class LoopStateEvaluator
                 // field also.
                 LoopState field =
                     (this.region.HasFields
-                        ? this.region.FieldState(field: symbol, canHave: this.KeysOfTheResult(expression))
+                        ? this.region.FieldState(
+                            field: symbol,
+                            canHave: this.KeysOfTheResult(expression),
+                            owner: this.region.HasOwnedFields ? this.OwnerOfARead(expression) : null)
                         : LoopState.None)
-                    .Join(this.region.PutsThroughLocalsOf(symbol));
+                    .Join(this.region.PutsThroughLocalsOf(symbol))
+                    .Join(this.PutsAtTheIndexOfARead(field: symbol, read: expression));
 
                 // A member of this object, in a constructor the evaluator follows, has the state the
                 // constructor gave it.

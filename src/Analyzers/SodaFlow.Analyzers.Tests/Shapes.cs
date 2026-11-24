@@ -62974,6 +62974,110 @@ public static class Shapes
     public static Cell<int> Ab415TryGetValueThenAPutBeforeTheWrite() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new(); Dictionary<string, SettableSlot> m = new() { ["a"] = d }; d.Share = l.Map(v => v); m.TryGetValue("a", out SettableSlot? e); m["a"] = new SettableSlot(); e!.Share = Plain; return S.Hold(d.Share!.Sample()); });
 
+    // S15271. Names of one object, Round 6, AB336: a method puts a pending cell into the member of element 1 of a static field array. The block reads element 0, which keeps its plain cell.
+    public static Cell<int> R6NmAb336CalleeWritesElementOneReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmArrA[0].Share = Plain; R6NmWriteSecondA(l.Map(v => v)); return S.Hold(R6NmArrA[0].Share!.Sample()); });
+
+    // S15272. Names of one object, Round 6, AB336: the same, with the write in the method through a ref local of element 1.
+    public static Cell<int> R6NmAb336CalleeWritesElementOneByARefLocalReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmArrB[0].Share = Plain; R6NmWriteSecondByRefB(l.Map(v => v)); return S.Hold(R6NmArrB[0].Share!.Sample()); });
+
+    // S15273. Names of one object, Round 6, AB336: a method writes element 1 of a static array of cells. The block reads element 0.
+    public static Cell<int> R6NmAb336CalleeWritesCellElementOneReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmCellsD[0] = Plain; R6NmWriteCellSecondD(l.Map(v => v)); return S.Hold(R6NmCellsD[0].Sample()); });
+
+    // S15274. AB336: a method puts a pending cell into the member of element 1 of a static field array. The block reads element 1.
+    public static Cell<int> Ab336CalleeWritesElementOneReadElementOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336ArrE[0].Share = Plain; Ab336WriteSecondE(l.Map(v => v)); return S.Hold(Ab336ArrE[1].Share!.Sample()); });
+
+    // S15275. AB336: a method writes element 1 of a static array of cells. The block reads element 1.
+    public static Cell<int> Ab336CalleeWritesCellElementOneReadElementOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336CellsF[0] = Plain; Ab336WriteCellSecondF(l.Map(v => v)); return S.Hold(Ab336CellsF[1].Sample()); });
+
+    // S15276. AB336: a method writes the element at the index that it gets. The call gives index 0, and the block reads element 0.
+    public static Cell<int> Ab336CalleeWritesAtAnArgumentIndexReadThatIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336ArrG[0].Share = Plain; Ab336WriteAtG(0, l.Map(v => v)); return S.Hold(Ab336ArrG[0].Share!.Sample()); });
+
+    // S15277. AB336: a method writes element 1 and then element 0 of a static field array. The block reads element 0.
+    public static Cell<int> Ab336CalleeWritesElementOneThenZeroReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336ArrH[0].Share = Plain; Ab336WriteBothH(l.Map(v => v)); return S.Hold(Ab336ArrH[0].Share!.Sample()); });
+
+    // S15278. AB336: the two elements of a static field array are one object. A method writes element 1, and the block reads element 0.
+    public static Cell<int> Ab336CalleeWritesElementOneOfOneObjectTwiceReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336ArrJ[0].Share = Plain; Ab336WriteSecondJ(l.Map(v => v)); return S.Hold(Ab336ArrJ[0].Share!.Sample()); });
+
+    // S15279. AB336: a method writes element 1 of a static field array through a local of the array. The block reads element 0.
+    public static Cell<int> Ab336CalleeWritesElementOneThroughALocalReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336ArrK[0].Share = Plain; Ab336WriteSecondThroughALocalK(l.Map(v => v)); return S.Hold(Ab336ArrK[0].Share!.Sample()); });
+
+    // S15280. AB336: a method writes element 1 of a static field array through a local of the array. The block reads element 1.
+    public static Cell<int> Ab336CalleeWritesElementOneThroughALocalReadElementOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336ArrL[0].Share = Plain; Ab336WriteSecondThroughALocalL(l.Map(v => v)); return S.Hold(Ab336ArrL[1].Share!.Sample()); });
+
+    // S15281. AB336: a method writes element 1 of a static field array in a branch. The block reads element 1.
+    public static Cell<int> Ab336CalleeWritesElementOneInABranchReadElementOne() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336ArrM[0].Share = Plain; Ab336WriteSecondIfM(Kept.Count >= 0, l.Map(v => v)); return S.Hold(Ab336ArrM[1].Share!.Sample()); });
+
+    // S15282. AB336: the block puts a pending cell into element 1 of a static array of cells and reads element 0.
+    public static Cell<int> Ab336BlockPutsCellElementOneReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336CellsN[0] = Plain; Ab336CellsN[1] = l.Map(v => v); return S.Hold(Ab336CellsN[0].Sample()); });
+
+    // S15283. AB336: the block puts a pending cell into the member of element 1 of a static field array and reads element 0.
+    public static Cell<int> Ab336BlockWritesElementOneReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336ArrO[0].Share = Plain; Ab336ArrO[1].Share = l.Map(v => v); return S.Hold(Ab336ArrO[0].Share!.Sample()); });
+
+    // S15284. AB336: a method puts a cell at the index that it gets. The call gives index 0, and the block reads element 0.
+    public static Cell<int> Ab336CalleePutsCellAtAnArgumentIndexReadThatIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336CellsP[0] = Plain; Ab336PutCellAtP(0, l.Map(v => v)); return S.Hold(Ab336CellsP[0].Sample()); });
+
+    // S15285. AB336: a second static field gets the array of cells in its initializer. A method puts a pending cell into element 0 through the second field, and the block reads element 0 through the first.
+    public static Cell<int> Ab336CalleePutsCellThroughASecondFieldReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336CellsQ[1] = Plain; Ab336PutCellThroughQ2(l.Map(v => v)); return S.Hold(Ab336CellsQ[0].Sample()); });
+
+    // S15286. AB336: a method copies element 1 of a static field array into element 0. Then a method writes element 1, and the block reads element 0.
+    public static Cell<int> Ab336AMethodCopiesAnElementReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336CopyR(); Ab336ArrR[0].Share = Plain; Ab336WriteSecondR(l.Map(v => v)); return S.Hold(Ab336ArrR[0].Share!.Sample()); });
+
+    // S15287. AB336: a method gives element 1 of a static field array the object of element 0 through a ref local. Then a method writes element 1, and the block reads element 0.
+    public static Cell<int> Ab336ARefLocalCopiesAnElementReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336CopyByRefT(); Ab336ArrT[0].Share = Plain; Ab336WriteSecondT(l.Map(v => v)); return S.Hold(Ab336ArrT[0].Share!.Sample()); });
+
+    // S15288. AB336: a method gets element 0 of a static field array as a ref argument and gives it the object of element 1. Then the block writes element 1 and reads element 0.
+    public static Cell<int> Ab336ARefArgumentCopiesAnElementReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336CopyIntoU(ref Ab336ArrU[0]); Ab336ArrU[0].Share = Plain; Ab336ArrU[1].Share = l.Map(v => v); return S.Hold(Ab336ArrU[0].Share!.Sample()); });
+
+    // S15289. AB336: the block writes an element of a static field array at an index that is not a constant, and reads element 0.
+    public static Cell<int> Ab336BlockWritesAtAnIndexInALocalReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { int i = Kept.Count >= 0 ? 0 : 1; Ab336ArrW[0].Share = Plain; Ab336ArrW[i].Share = l.Map(v => v); return S.Hold(Ab336ArrW[0].Share!.Sample()); });
+
+    // S15290. AB336: a local of a method gets a static field array and then a second array with element 0 two times. The method writes element 1 of the local, and the block reads element 0 of the field.
+    public static Cell<int> Ab336ACalleeLocalOfTheArrayGetsADifferentArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336ArrX[0].Share = Plain; Ab336WriteThroughAnAliasX(l.Map(v => v)); return S.Hold(Ab336ArrX[0].Share!.Sample()); });
+
+    // S15291. AB336: the block puts a pending cell into element 1 of a static array of cells, and a method reads element 1.
+    public static Cell<int> Ab336BlockPutsCellCalleeReadsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336CellsV[1] = l.Map(v => v); Kept.Add(Ab336ReadSecondV()); return S.Hold(0); });
+
+    // S15292. AB336: each turn of a loop reads element 0 of a static array of cells and then puts a pending cell there.
+    public static Cell<int> Ab336ALoopReadsThenPutsCellAtElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { Kept.Add(Ab336CellsW[0].Sample()); Ab336CellsW[0] = l.Map(v => v); } return S.Hold(0); });
+
+    // S15293. AB336: a static array that is not private gets the object of element 1 in element 0 through code of a different class. A method writes element 1, and the block reads element 0.
+    public static Cell<int> Ab336AnInternalArrayThatADifferentClassChangesReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336CopyInTheHolder(); Ab336Holder.Slots[0].Share = Plain; Ab336WriteSecondOfTheHolder(l.Map(v => v)); return S.Hold(Ab336Holder.Slots[0].Share!.Sample()); });
+
+    // S15294. AB336: an increment operator gives element 0 of a static field array the object of element 1. A method writes element 1, and the block reads element 0.
+    public static Cell<int> Ab336AnIncrementChangesAnElementReadElementZero() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336StepZ(); Ab336ArrZ[0].Share = Plain; Ab336WriteSecondZ(l.Map(v => v)); return S.Hold(Ab336ArrZ[0].Share!.Sample()); });
+
+    // S15295. AB336: a local gets a copy of element 0 of a static array of structs and gets a pending cell. The block reads element 0 of the array.
+    public static Cell<int> Ab336ACopyOfAStructElementGetsAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmMut s = Ab336StructsY[0]; s.Share = l.Map(v => v); Kept.Add(s); return S.Hold(Ab336StructsY[0].Share!.Sample()); });
+
+    // S15296. AB336: the block puts a pending cell into element 1 of an array in a field of a new object. A local gets the array, and the block reads element 1 through the local.
+    public static Cell<int> Ab336AnArrayOfAnObjectGetsACellAtAConstantIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab336Box b = new(); b.Cells[1] = l.Map(v => v); Cell<int>[] c = b.Cells; return S.Hold(c[1].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -116454,6 +116558,122 @@ public static class Shapes
     public static class Ab415Given
     {
         public static readonly Dictionary<string, SettableSlot> Slots = new() { ["a"] = new SettableSlot() };
+    }
+
+    // Helpers of AB336: static field arrays that a method writes at a constant index.
+    private static readonly SettableSlot[] Ab336ArrE = [new SettableSlot(), new SettableSlot()];
+    private static readonly Cell<int>[] Ab336CellsF = [Plain, Plain];
+    private static readonly SettableSlot[] Ab336ArrG = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab336ArrH = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot Ab336OneJ = new();
+    private static readonly SettableSlot[] Ab336ArrJ = [Ab336OneJ, Ab336OneJ];
+    private static readonly SettableSlot[] Ab336ArrK = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab336ArrL = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab336ArrM = [new SettableSlot(), new SettableSlot()];
+
+    private static void Ab336WriteSecondE(Cell<int> c) => Ab336ArrE[1].Share = c;
+
+    private static void Ab336WriteCellSecondF(Cell<int> c) => Ab336CellsF[1] = c;
+
+    private static void Ab336WriteAtG(int i, Cell<int> c) => Ab336ArrG[i].Share = c;
+
+    private static void Ab336WriteBothH(Cell<int> c)
+    {
+        Ab336ArrH[1].Share = c;
+        Ab336ArrH[0].Share = c;
+    }
+
+    private static void Ab336WriteSecondJ(Cell<int> c) => Ab336ArrJ[1].Share = c;
+
+    private static void Ab336WriteSecondThroughALocalK(Cell<int> c)
+    {
+        SettableSlot[] a = Ab336ArrK;
+        a[1].Share = c;
+    }
+
+    private static void Ab336WriteSecondThroughALocalL(Cell<int> c)
+    {
+        SettableSlot[] a = Ab336ArrL;
+        a[1].Share = c;
+    }
+
+    private static void Ab336WriteSecondIfM(bool write, Cell<int> c)
+    {
+        if (write)
+        {
+            Ab336ArrM[1].Share = c;
+        }
+    }
+
+    // More helpers of AB336.
+    private static readonly Cell<int>[] Ab336CellsN = [Plain, Plain];
+    private static readonly SettableSlot[] Ab336ArrO = [new SettableSlot(), new SettableSlot()];
+    private static readonly Cell<int>[] Ab336CellsP = [Plain, Plain];
+    private static readonly Cell<int>[] Ab336CellsQ = [Plain, Plain];
+    private static readonly Cell<int>[] Ab336CellsQ2 = Ab336CellsQ;
+    private static readonly SettableSlot[] Ab336ArrR = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab336ArrT = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab336ArrU = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab336ArrW = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab336ArrX = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab336AliasX = [Ab336ArrX[0], Ab336ArrX[0]];
+
+    private static void Ab336PutCellAtP(int i, Cell<int> c) => Ab336CellsP[i] = c;
+
+    private static void Ab336PutCellThroughQ2(Cell<int> c) => Ab336CellsQ2[0] = c;
+
+    private static void Ab336CopyR() => Ab336ArrR[0] = Ab336ArrR[1];
+
+    private static void Ab336WriteSecondR(Cell<int> c) => Ab336ArrR[1].Share = c;
+
+    private static void Ab336CopyByRefT()
+    {
+        ref SettableSlot r = ref Ab336ArrT[1];
+        r = Ab336ArrT[0];
+    }
+
+    private static void Ab336WriteSecondT(Cell<int> c) => Ab336ArrT[1].Share = c;
+
+    private static void Ab336CopyIntoU(ref SettableSlot slot) => slot = Ab336ArrU[1];
+
+    private static void Ab336WriteThroughAnAliasX(Cell<int> c)
+    {
+        SettableSlot[] a = Ab336ArrX;
+        a = Ab336AliasX;
+        a[1].Share = c;
+    }
+
+    // Helpers of the edges of AB336.
+    private static readonly Cell<int>[] Ab336CellsV = [Plain, Plain];
+    private static readonly Cell<int>[] Ab336CellsW = [Plain];
+    private static readonly Ab336Step[] Ab336ArrZ = [new Ab336Step(), new Ab336Step()];
+    private static readonly R6NmMut[] Ab336StructsY = [new R6NmMut { Share = Plain }, new R6NmMut { Share = Plain }];
+
+    private static int Ab336ReadSecondV() => Ab336CellsV[1].Sample();
+
+    private static void Ab336CopyInTheHolder() => Ab336Holder.Slots[0] = Ab336Holder.Slots[1];
+
+    private static void Ab336WriteSecondOfTheHolder(Cell<int> c) => Ab336Holder.Slots[1].Share = c;
+
+    private static void Ab336StepZ() => Ab336ArrZ[0]++;
+
+    private static void Ab336WriteSecondZ(Cell<int> c) => Ab336ArrZ[1].Share = c;
+
+    public sealed class Ab336Step
+    {
+        public Cell<int>? Share { get; set; }
+
+        public static Ab336Step operator ++(Ab336Step step) => Ab336ArrZ[1];
+    }
+
+    public static class Ab336Holder
+    {
+        internal static readonly SettableSlot[] Slots = [new SettableSlot(), new SettableSlot()];
+    }
+
+    public sealed class Ab336Box
+    {
+        public readonly Cell<int>[] Cells = [Plain, Plain];
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

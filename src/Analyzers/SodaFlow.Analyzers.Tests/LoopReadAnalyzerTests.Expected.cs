@@ -9004,6 +9004,25 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab415TryGetValueOfAGivenDictionary"] = ["SF1001"],
             ["Ab415TryGetValueThroughAnInterface"] = ["SF1001"],
             ["Ab415TryGetValuePlainThenPending"] = ["SF1001"],
-            ["Ab415TryGetValueIntoAnOlderLocal"] = ["SF1001"]
+            ["Ab415TryGetValueIntoAnOlderLocal"] = ["SF1001"],
+            ["Ab336CalleeWritesElementOneReadElementOne"] = ["SF1001"],
+            ["Ab336CalleeWritesCellElementOneReadElementOne"] = ["SF1001"],
+            ["Ab336CalleeWritesAtAnArgumentIndexReadThatIndex"] = ["SF1001"],
+            ["Ab336CalleeWritesElementOneThenZeroReadElementZero"] = ["SF1001"],
+            ["Ab336CalleeWritesElementOneOfOneObjectTwiceReadElementZero"] = ["SF1001"],
+            ["Ab336CalleeWritesElementOneThroughALocalReadElementOne"] = ["SF1001"],
+            ["Ab336CalleeWritesElementOneInABranchReadElementOne"] = ["SF1001"],
+            ["Ab336CalleePutsCellAtAnArgumentIndexReadThatIndex"] = ["SF1001"],
+            ["Ab336CalleePutsCellThroughASecondFieldReadElementZero"] = ["SF1001"],
+            ["Ab336AMethodCopiesAnElementReadElementZero"] = ["SF1001"],
+            ["Ab336ARefLocalCopiesAnElementReadElementZero"] = ["SF1001"],
+            ["Ab336ARefArgumentCopiesAnElementReadElementZero"] = ["SF1001"],
+            ["Ab336BlockWritesAtAnIndexInALocalReadElementZero"] = ["SF1001"],
+            ["Ab336ACalleeLocalOfTheArrayGetsADifferentArray"] = ["SF1001"],
+            ["Ab336BlockPutsCellCalleeReadsIt"] = ["SF1005"],
+            ["Ab336ALoopReadsThenPutsCellAtElementZero"] = ["SF1001"],
+            ["Ab336AnInternalArrayThatADifferentClassChangesReadElementZero"] = ["SF1001"],
+            ["Ab336AnIncrementChangesAnElementReadElementZero"] = ["SF1001"],
+            ["Ab336AnArrayOfAnObjectGetsACellAtAConstantIndex"] = ["SF1001"]
         };
 }
