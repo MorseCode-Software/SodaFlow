@@ -330,9 +330,13 @@ dotnet_diagnostic.SF1003.severity = warning
 The analyzer follows a value made from the placeholder through the code of your project:
 
 - Locals, tuples, deconstructions, patterns, `out` and `ref` arguments, and the fields that the
-  block sets. A write to a static field of a class that is not generic replaces what the field held,
-  where the write always runs: in the block, in a method that the block always calls, or in the
-  function of a `Map` at a first read that always runs. The variable of a `catch` clause gets each
+  block sets. Each closed type of a generic class, such as `Cache<int>` and `Cache<long>`, has
+  static fields of its own, also where a call of a generic method or of a member of a generic class
+  gives the type argument. A write through a type argument that the analyzer does not know, as in a
+  method that an interface call runs, reaches the field of every closed type. A write to a static
+  field of a class that is not generic, or of a closed type, replaces what the field held, where the
+  write always runs: in the block, in a method that the block always calls, or in the function of a
+  `Map` at a first read that always runs. The variable of a `catch` clause gets each
   object that a `throw` in its `try` block, or in a method or a lambda that the block calls, can
   send to that clause. That includes a lambda that a method of the platform, such as
   `List<T>.ForEach`, runs in the call. An object that the code of a LINQ query or of an iterator

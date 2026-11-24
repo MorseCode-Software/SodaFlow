@@ -1020,7 +1020,10 @@ internal sealed partial class LoopStateEvaluator
         if (!this.quiet)
         {
             // The owner of the field is not known, thus it is new in no turn.
-            this.region.SetField(field: field, state: this.InAnOldLocation(state), replaces: replaces);
+            this.region.SetField(
+                field: this.InTheTypeOfTheCall(field),
+                state: this.InAnOldLocation(state),
+                replaces: replaces);
         }
     }
 
@@ -2307,7 +2310,7 @@ internal sealed partial class LoopStateEvaluator
                 LoopState field =
                     (this.region.HasFields
                         ? this.region.FieldState(
-                            field: symbol,
+                            field: this.InTheTypeOfTheCall(symbol),
                             canHave: this.KeysOfTheResult(expression),
                             owner: this.region.HasOwnedFields ? this.OwnerOfARead(expression) : null)
                         : LoopState.None)

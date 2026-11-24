@@ -9026,6 +9026,15 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab336AnArrayOfAnObjectGetsACellAtAConstantIndex"] = ["SF1001"],
             ["Ab412TheCopyOfAnUnboxedStructHasThePendingCell"] = ["SF1001"],
             ["Ab412TheCopyOfABoxWithAPendingCellHasIt"] = ["SF1001"],
-            ["Ab412ACastToAnInterfaceIsTheBox"] = ["SF1001"]
+            ["Ab412ACastToAnInterfaceIsTheBox"] = ["SF1001"],
+            ["Ab413AMethodWritesTheFieldOfTheSameType"] = ["SF1001"],
+            ["Ab413ATypeParameterGoesToASecondMethod"] = ["SF1001"],
+            ["Ab413AMethodOfTheClassWritesItsField"] = ["SF1001"],
+            ["Ab413AMethodReadsTheFieldOfTheSameType"] = ["SF1005"],
+            ["Ab413ALocalFunctionWritesTheFieldOfTheSameType"] = ["SF1001"],
+            ["Ab413ALambdaInAGenericMethodWritesTheField"] = ["SF1001"],
+            ["Ab413AnOpenTypeParameterWritesTheField"] = ["SF1001"],
+            ["Ab413AnOpenTypeParameterReadsTheField"] = ["SF1005"],
+            ["Ab413ALoopReadsThenWritesTheField"] = ["SF1001"]
         };
 }

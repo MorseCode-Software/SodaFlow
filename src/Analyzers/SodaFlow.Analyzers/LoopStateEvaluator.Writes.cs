@@ -3006,9 +3006,9 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
-        // A static field of a type that is not generic has one location. Thus, a write that always
-        // runs in the block replaces the value before it. A write through an owner that the walk knows
-        // reaches no read through a different known owner.
+        // A static field of a type that is not generic, or of a closed type, has one location. Thus, a
+        // write that always runs in the block replaces the value before it. A write through an owner that
+        // the walk knows reaches no read through a different known owner.
         if (!this.quiet && this.KnownOwnerOf(owner) is { } one)
         {
             this.region.SetFieldOfAnOwner(field: member, state: this.InAnOldLocation(state), owner: one);
@@ -3021,13 +3021,8 @@ internal sealed partial class LoopStateEvaluator
             state: state,
             replaces: replaces
                       && (this.call?.AlwaysRuns ?? true)
-                      && member is IFieldSymbol { IsStatic: true, ContainingType: var type }
-                      && !IsGeneric(type));
-
-        return;
-
-        static bool IsGeneric(INamedTypeSymbol? type) =>
-            type != null && (type.IsGenericType || IsGeneric(type.ContainingType));
+                      && member is IFieldSymbol { IsStatic: true }
+                      && this.HasOneLocation(member));
     }
 
     // True for a name of a value with no object that has a second name, or had one.

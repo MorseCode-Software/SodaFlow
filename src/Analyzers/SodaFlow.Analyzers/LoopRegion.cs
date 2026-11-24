@@ -61,6 +61,11 @@ internal sealed class LoopRegion(
     private readonly Dictionary<ISymbol, List<(object Owner, LoopState State)>> ownedFields =
         new(SymbolEqualityComparer.Default);
 
+    // The static members of a generic type that the code set through a type whose type arguments have no type
+    // parameter. Each such type has its own location. A write through a type with an open type argument goes to the
+    // fields, and each read of the member gets it. See ClosedKeyOf.
+    private readonly Dictionary<ISymbol, LoopState> closedFields = new(SymbolEqualityComparer.Default);
+
     // True when a key of the fields is a property of an interface: see FieldState.
     private bool hasInterfaceFields;
 
@@ -211,7 +216,11 @@ internal sealed class LoopRegion(
     public INamedTypeSymbol? TypeOfThePlatform(string name) => this.compilation.GetTypeByMetadataName(name);
 
     /// <summary>True when the code set a field to a value with a state.</summary>
-    public bool HasFields => this.fields.Count > 0 || this.putsAtIndexes.Count > 0 || this.ownedFields.Count > 0;
+    public bool HasFields =>
+        this.fields.Count > 0
+        || this.closedFields.Count > 0
+        || this.putsAtIndexes.Count > 0
+        || this.ownedFields.Count > 0;
 
     /// <summary>
     ///     True when the code set a field through an owner that the walk knows:
@@ -312,6 +321,13 @@ internal sealed class LoopRegion(
                         seed: ShapeNumber.Of(one.Key.Name),
                         func: static (all, put) => unchecked(
                             all + ShapeNumber.Of(location: put.Index + 1, state: put.Held.Shape)))))
+            + this.closedFields.Aggregate(
+                seed: 0,
+                func: static (sum, one) => unchecked(
+                    sum
+                    + ShapeNumber.Of(
+                        location: SymbolEqualityComparer.Default.GetHashCode(one.Key),
+                        state: one.Value.Shape)))
             + this.ownedFields.Aggregate(
                 seed: 0,
                 func: static (sum, one) => unchecked(
@@ -345,8 +361,59 @@ internal sealed class LoopRegion(
             own = own.Join(this.OwnFieldState(states: this.OwnedFieldsFor(owner), field: field, canHave: canHave));
         }
 
+        if (this.closedFields.Count > 0)
+        {
+            own = own.Join(this.ClosedFieldState(field));
+        }
+
         return named.IsEmpty ? own : this.WithTheFieldsNamed(state: own, named: named, canHave: canHave);
     }
+
+    // The state of a static member from the writes through a closed type. A read through a closed type gets the writes
+    // through that type. Each other read gets the writes through each closed type.
+    private LoopState ClosedFieldState(ISymbol field)
+    {
+        if (ClosedKeyOf(field) is { } closed)
+        {
+            return this.closedFields.TryGetValue(key: closed, value: out LoopState? state)
+                ? state.From(closed)
+                : LoopState.None;
+        }
+
+        ISymbol definition = field.OriginalDefinition;
+
+        return this.closedFields
+            .Where(one => SymbolEqualityComparer.Default.Equals(x: one.Key.OriginalDefinition, y: definition))
+            .Aggregate(seed: LoopState.None, func: static (all, one) => all.Join(one.Value.From(one.Key)));
+    }
+
+    /// <summary>
+    ///     The member itself, for a static member of a generic type whose type
+    ///     arguments have no type parameter. Null for each other member.
+    /// </summary>
+    /// <remarks>
+    ///     Each closed type of a generic type has its own static members. A type
+    ///     parameter can be each type. Thus, a member through an open type has
+    ///     the key of its definition, as each other member has.
+    /// </remarks>
+    public static ISymbol? ClosedKeyOf(ISymbol member) =>
+        member is { IsStatic: true, ContainingType: { } type }
+        && !SymbolEqualityComparer.Default.Equals(x: member, y: member.OriginalDefinition)
+        && IsClosed(type)
+            ? member
+            : null;
+
+    // True for a type with no type parameter in it, also in the type that contains it.
+    private static bool IsClosed(ITypeSymbol type) =>
+        type switch
+        {
+            ITypeParameterSymbol or IErrorTypeSymbol => false,
+            IArrayTypeSymbol array => IsClosed(array.ElementType),
+            IPointerTypeSymbol pointer => IsClosed(pointer.PointedAtType),
+            INamedTypeSymbol named => named.TypeArguments.All(IsClosed)
+                                      && (named.ContainingType == null || IsClosed(named.ContainingType)),
+            _ => true
+        };
 
     // The state of each field from the writes through an owner that can be the owner of a read. Null is each owner.
     private Dictionary<ISymbol, LoopState> OwnedFieldsFor(object? owner)
@@ -408,6 +475,13 @@ internal sealed class LoopRegion(
     /// </param>
     public void SetField(ISymbol field, LoopState state, bool replaces)
     {
+        if (ClosedKeyOf(field) is { } closed)
+        {
+            this.SetAClosedField(field: closed, state: state, replaces: replaces);
+
+            return;
+        }
+
         ISymbol key = field.OriginalDefinition;
 
         // A state that only holds objects of the store says what the owner of the field holds. A map of a
@@ -441,6 +515,29 @@ internal sealed class LoopRegion(
         }
 
         this.hasInterfaceFields |= key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
+    }
+
+    // The same as SetField, for a member of a closed type. The last write has the key of the definition, as a read of
+    // LastWriteOf has it.
+    private void SetAClosedField(ISymbol field, LoopState state, bool replaces)
+    {
+        if (state is { IsNone: true, HoldsAnObject: false }
+            && !state.Objects.Any(made => this.Objects.HandlersOfAMap(made).Count > 0))
+        {
+            if (replaces)
+            {
+                this.closedFields.Remove(field);
+            }
+
+            return;
+        }
+
+        this.closedFields[field] =
+            !replaces && this.closedFields.TryGetValue(key: field, value: out LoopState? existing)
+                ? existing.Join(state)
+                : state;
+
+        this.lastWrites[field.OriginalDefinition] = this.MemberWrites;
     }
 
     /// <summary>

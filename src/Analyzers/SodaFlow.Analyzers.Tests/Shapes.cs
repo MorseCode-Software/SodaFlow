@@ -63102,6 +63102,70 @@ public static class Shapes
     public static Cell<int> Ab412ACastInParenthesesIsACopy() =>
         Cell.Loop<int>().WithoutCaptures(l => { object o = new R6NmMut { Share = Plain }; R6NmMut u = ((R6NmMut)o); u.Set(l.Map(v => v)); return S.Hold(((R6NmMut)o).Share!.Sample()); });
 
+    // S15303. Names of one object, Round 6: two closed types of one generic class have two static fields. The field of one type gets a pending cell, and the read is through the field of the other type.
+    public static Cell<int> R6NmGenericStaticFieldOfADifferentTypeArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmGen<int>.C = l.Map(v => v); R6NmGen<long>.C = Plain; return S.Hold(R6NmGen<long>.C.Sample()); });
+
+    // S15304. Names of one object, Round 6: the field of one closed type gets a plain cell. The field of a second closed type gets a pending cell, and the read is through the first.
+    public static Cell<int> R6NmGenericStaticFieldOfADifferentTypeArgumentLater() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmGen<short>.C = Plain; R6NmGen<byte>.C = l.Map(v => v); return S.Hold(R6NmGen<short>.C.Sample()); });
+
+    // S15305. Names of one object, Round 6: two closed types of one generic class with a static field that is a list. A pending cell goes into the list of one type, and the read is of the list of the other type.
+    public static Cell<int> R6NmGenericStaticListOfADifferentTypeArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmGenList<int>.Items.Clear(); R6NmGenList<long>.Items.Clear(); R6NmGenList<int>.Items.Add(l.Map(v => v)); R6NmGenList<long>.Items.Add(Plain); return S.Hold(R6NmGenList<long>.Items[0].Sample()); });
+
+    // S15306. Names of one object, Round 6: a method puts a pending cell into a static field of a generic class through one closed type. The read is through a second closed type.
+    public static Cell<int> R6NmGenericStaticFieldWrittenInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6NmGen<char>.C = Plain; R6NmSetGen<sbyte>(l.Map(v => v)); return S.Hold(R6NmGen<char>.C.Sample()); });
+
+    // S15307. The block puts a pending cell into a static field of a generic class and then a plain cell. The page says that only a class that is not generic replaces.
+    public static Cell<int> R6LimStaticFieldOfAGenericClassSetPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6LimGenericStatic<int>.Cell = l.Map(v => v); R6LimGenericStatic<int>.Cell = Plain; Kept.Add(R6LimGenericStatic<int>.Cell!.Sample()); return S.Hold(0); });
+
+    // S15308. AB413: a generic method puts a pending cell into a static field of a generic class. The call gives the type of the read, and the block reads the field.
+    public static Cell<int> Ab413AMethodWritesTheFieldOfTheSameType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab413GenA<int>.C = Plain; Ab413SetA<int>(l.Map(v => v)); return S.Hold(Ab413GenA<int>.C.Sample()); });
+
+    // S15309. AB413: a generic method calls a second generic method with its own type parameter, and the second method puts a pending cell into the field. The block reads the field of the same type.
+    public static Cell<int> Ab413ATypeParameterGoesToASecondMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab413GenB<int>.C = Plain; Ab413OuterB<int>(l.Map(v => v)); return S.Hold(Ab413GenB<int>.C.Sample()); });
+
+    // S15310. AB413: a static method of a generic class puts a pending cell into a static field of its own class. The block reads the field of the same closed type.
+    public static Cell<int> Ab413AMethodOfTheClassWritesItsField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab413BoxC<int>.C = Plain; Ab413BoxC<int>.Set(l.Map(v => v)); return S.Hold(Ab413BoxC<int>.C.Sample()); });
+
+    // S15311. AB413: a static method of a generic class puts a pending cell into a static field of its own class. The block reads the field of a different closed type.
+    public static Cell<int> Ab413AMethodOfTheClassWritesItsFieldReadADifferentType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab413BoxD<long>.C = Plain; Ab413BoxD<int>.Set(l.Map(v => v)); return S.Hold(Ab413BoxD<long>.C.Sample()); });
+
+    // S15312. AB413: the block puts a pending cell into a static field of a closed type. A generic method reads the field with the same type.
+    public static Cell<int> Ab413AMethodReadsTheFieldOfTheSameType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab413GenE<int>.C = l.Map(v => v); Kept.Add(Ab413ReadE<int>()); return S.Hold(0); });
+
+    // S15313. AB413: a generic local function puts a pending cell into a static field of a generic class. The call gives the type of the read, and the block reads the field.
+    public static Cell<int> Ab413ALocalFunctionWritesTheFieldOfTheSameType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab413GenF<int>.C = Plain; void Put<T>(Cell<int> c) => Ab413GenF<T>.C = c; Put<int>(l.Map(v => v)); return S.Hold(Ab413GenF<int>.C.Sample()); });
+
+    // S15314. AB413: a lambda in a generic method puts a pending cell into a static field of a generic class, and the method runs the lambda. The block reads the field of the same type.
+    public static Cell<int> Ab413ALambdaInAGenericMethodWritesTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab413GenG<int>.C = Plain; Ab413SetThroughALambdaG<int>(l.Map(v => v)); return S.Hold(Ab413GenG<int>.C.Sample()); });
+
+    // S15315. AB413: a call through an interface runs a method of a generic class. The method puts a pending cell into a static field through its own type parameter, and the block reads the field of a closed type.
+    public static Cell<int> Ab413AnOpenTypeParameterWritesTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab413GenH<int>.C = Plain; IAb413Put put = new Ab413PutH<int>(); put.Put(l.Map(v => v)); return S.Hold(Ab413GenH<int>.C.Sample()); });
+
+    // S15316. AB413: the block puts a pending cell into a static field of a closed type. A call through an interface runs a method of a generic class, which reads the field with its own type parameter.
+    public static Cell<int> Ab413AnOpenTypeParameterReadsTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab413GenI<int>.C = l.Map(v => v); IAb413Read read = new Ab413ReadI<int>(); Kept.Add(read.Read()); return S.Hold(0); });
+
+    // S15317. AB413: each turn of a loop reads a static field of a closed type and then puts a pending cell there.
+    public static Cell<int> Ab413ALoopReadsThenWritesTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { for (int i = 0; i < 2; i++) { Kept.Add(Ab413GenJ<int>.C.Sample()); Ab413GenJ<int>.C = l.Map(v => v); } return S.Hold(0); });
+
+    // S15318. AB413: a method puts a pending cell into a static field of a closed type, and a second call puts a plain cell there. The block reads the field.
+    public static Cell<int> Ab413ASecondCallPutsAPlainCellIntoTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab413SetK(l.Map(v => v)); Ab413SetK(Plain); return S.Hold(Ab413GenK<int>.C.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -116712,6 +116776,103 @@ public static class Shapes
 
         public void Set(Cell<int> c) => this.Share = c;
     }
+
+    // Helpers of AB413: static fields of generic classes, and generic methods that write or read them.
+    public static class Ab413GenA<T>
+    {
+        public static Cell<int> C = Plain;
+    }
+
+    public static class Ab413GenB<T>
+    {
+        public static Cell<int> C = Plain;
+    }
+
+    public static class Ab413BoxC<T>
+    {
+        public static Cell<int> C = Plain;
+
+        public static void Set(Cell<int> c) => C = c;
+    }
+
+    public static class Ab413BoxD<T>
+    {
+        public static Cell<int> C = Plain;
+
+        public static void Set(Cell<int> c) => C = c;
+    }
+
+    public static class Ab413GenE<T>
+    {
+        public static Cell<int> C = Plain;
+    }
+
+    public static class Ab413GenF<T>
+    {
+        public static Cell<int> C = Plain;
+    }
+
+    public static class Ab413GenG<T>
+    {
+        public static Cell<int> C = Plain;
+    }
+
+    private static void Ab413SetA<T>(Cell<int> c) => Ab413GenA<T>.C = c;
+
+    private static void Ab413SetB<T>(Cell<int> c) => Ab413GenB<T>.C = c;
+
+    private static void Ab413OuterB<T>(Cell<int> c) => Ab413SetB<T>(c);
+
+    private static int Ab413ReadE<T>() => Ab413GenE<T>.C.Sample();
+
+    private static void Ab413SetThroughALambdaG<T>(Cell<int> c)
+    {
+        Action set = () => Ab413GenG<T>.C = c;
+        set();
+    }
+
+    // More helpers of AB413: a type parameter that the walk does not know at the call.
+    public interface IAb413Put
+    {
+        void Put(Cell<int> c);
+    }
+
+    public interface IAb413Read
+    {
+        int Read();
+    }
+
+    public static class Ab413GenH<T>
+    {
+        public static Cell<int> C = Plain;
+    }
+
+    public static class Ab413GenI<T>
+    {
+        public static Cell<int> C = Plain;
+    }
+
+    public static class Ab413GenJ<T>
+    {
+        public static Cell<int> C = Plain;
+    }
+
+    public sealed class Ab413PutH<T> : IAb413Put
+    {
+        public void Put(Cell<int> c) => Ab413GenH<T>.C = c;
+    }
+
+    public sealed class Ab413ReadI<T> : IAb413Read
+    {
+        public int Read() => Ab413GenI<T>.C.Sample();
+    }
+
+    public static class Ab413GenK<T>
+    {
+        public static Cell<int> C = Plain;
+    }
+
+    private static void Ab413SetK(Cell<int> c) => Ab413GenK<int>.C = c;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
