@@ -2099,6 +2099,9 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         // A deconstruction of a value that is not a tuple calls a Deconstruct method. The compiler
         // gives no such method for a tuple expression, thus the test for a tuple is only for speed.
+        // Without a Deconstruct or a record in the compilation, a value with no parts gets a method
+        // with no body. That method gives nothing, and FollowPartConversions finds nothing for it.
+        // A target with no parts is no deconstruction. Thus, the other tests are only for speed also.
         IMethodSymbol? deconstruct =
             (this.region.Symbols.DeclaresDeconstruct
              || this.region.Symbols.DeclaresRecords

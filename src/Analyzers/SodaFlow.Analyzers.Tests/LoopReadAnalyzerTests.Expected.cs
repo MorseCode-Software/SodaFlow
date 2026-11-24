@@ -8883,6 +8883,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["R6SmpTwoMapsOfOneHelperSecondReadAfterTheSet"] = ["SF1001"],
             ["Ab401HelperCalledOneTimeReadAfterTheSet"] = ["SF1001"],
             ["Ab401StaticGetterReadAfterTheSet"] = ["SF1001"],
-            ["Ab401HelperReadAfterAMethodSetsTheField"] = ["SF1001"]
+            ["Ab401HelperReadAfterAMethodSetsTheField"] = ["SF1001"],
+            ["Ag104AnInnerLoopWithNoTurnKeepsTheValueOfTheOuterTurn"] = ["SF1001"],
+            ["Ag104AThrowOfABaseTypeGoesPastACatchOfADifferentType"] = ["SF1001"],
+            ["Ag104AHandlerGoesInAgainThroughANameOfTheObjectThatTheWalkDoesNotKnow"] = ["SF1001"],
+            ["Ag104AReflectedCallSetsAMemberOfAnObjectFromAnArray"] = ["SF1001"]
         };
 }

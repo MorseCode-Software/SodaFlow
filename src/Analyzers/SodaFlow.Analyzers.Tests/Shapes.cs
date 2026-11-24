@@ -62362,6 +62362,50 @@ public static class Shapes
     public static Cell<int> Ab401HelperReadAfterAMethodSetsTheField() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> a = R6SmpMakeK4(); Ab401SetK4(l.Map(v => v)); int y = a.Sample(); Ab401SetK4(Plain); return S.Hold(y); });
 
+    // S15118. AG104. Each turn of a loop gives an element of a local array a pending cell and then a plain cell. The block samples the element after the loop.
+    public static Cell<int> Ag104AnElementGetsTwoValuesInEachTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain]; for (int i = 0; i < 2; i++) { a[0] = l.Map(v => v); a[0] = Plain; } return S.Hold(a[0].Sample()); });
+
+    // S15119. AG104. Each turn of a loop gives an element a pending cell. An inner loop with no first turn gives it a plain cell, and the outer turn samples the element.
+    public static Cell<int> Ag104AnInnerLoopWithNoTurnKeepsTheValueOfTheOuterTurn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain]; for (int i = 0; i < 2; i++) { a[0] = l.Map(v => v); for (int j = 0; j < i; j++) { a[0] = Plain; } Kept.Add(a[0].Sample()); } return S.Hold(0); });
+
+    // S15120. AG104. A local of type Exception holds a fault with a pending cell. A catch of a different type does not stop the throw, and an outer catch samples the cell.
+    public static Cell<int> Ag104AThrowOfABaseTypeGoesPastACatchOfADifferentType() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Exception x = new R4CsFault(l.Map(v => v)); try { try { throw x; } catch (InvalidOperationException) { Kept.Add(1); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S15121. AG104. A catch with no type stops a fault with a pending cell. An outer catch samples the cell, but it does not run.
+    public static Cell<int> Ag104ACatchWithNoTypeStopsTheThrow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch { Kept.Add(1); } } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } return S.Hold(0); });
+
+    // S15122. AG104. An event of a new object gets a handler that samples. A call through a name that code with no body gives back adds the handler again. The remove takes away one of the two, and Ring runs the other.
+    public static Cell<int> Ag104AHandlerGoesInAgainThroughANameOfTheObjectThatTheWalkDoesNotKnow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab120Bell b = new(); Action h = () => Kept.Add(l.Sample()); b.Rang += h; IEcho e = NoBody.Echo(); ((Ab120Bell)e.Back(b)).Twice(); b.Rang -= h; b.Ring(); return S.Hold(0); });
+
+    // S15123. AG104. A call through reflection gives a pending cell to a member of an object from a static array. The block then samples the member.
+    public static Cell<int> Ag104AReflectedCallSetsAMemberOfAnObjectFromAnArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag104Box b = Ag104Boxes[0]; b.Share = Plain; typeof(Ag104Box).GetMethod("Put")!.Invoke(b, [l.Map(v => v)]); return S.Hold(b.Share!.Sample()); });
+
+    // S15124. AG104. A call through reflection gives a plain cell to a member of an object from a static array. The member had a pending cell before the call.
+    public static Cell<int> Ag104AReflectedCallReplacesAPendingMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag104Box b = Ag104Boxes[1]; b.Share = l.Map(v => v); typeof(Ag104Box).GetMethod("Put")!.Invoke(b, [Plain]); return S.Hold(b.Share!.Sample()); });
+
+    // S15125. AG104. A local gets the field of an object, and then the local of the object gets a new object. A write through the first local goes to the first object, and a lambda reads the field of the new object.
+    public static Cell<int> Ag104ALinkToAFieldEndsWhenItsOwnerGetsANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ag104SlotHolder h = Ag104MakeSlotHolder(); SettableSlot q = h.Slot; h = new Ag104SlotHolder(); h.Slot.Share = Plain; q.Share = l.Map(v => v); Func<int> read = () => h.Slot.Share!.Sample(); Kept.Add(read()); return S.Hold(0); });
+
+    // S15126. AG104. Two locals get one static field. The first local gives the object a plain cell, and a different object gets a pending cell. The block samples the cell through the second local.
+    public static Cell<int> Ag104ASecondReadOfAFieldGetsTheMembersOfTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ag104FieldSlot; c.Share = Plain; SettableSlot q = Ag104FieldSlot; Ag104OtherSlots[1].Share = l.Map(v => v); return S.Hold(q.Share!.Sample()); });
+
+    // S15127. AG104. A list holds a query that samples a pending cell. The count of the list goes into a sequence that a foreach reads, and no code runs the query.
+    public static Cell<int> Ag104TheCountOfAListOfQueriesRunsNoQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<IEnumerable<int>> all = [new[] { l.Map(v => v) }.Select(c => c.Sample())]; foreach (int x in Enumerable.Repeat(all.Count, 1)) { Kept.Add(x); } return S.Hold(0); });
+
+    // S15128. AG104. The hash of a query that samples a pending cell goes into a sequence that a foreach reads. No code runs the query.
+    public static Cell<int> Ag104TheHashOfAQueryRunsNoQuery() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new[] { l.Map(v => v) }.Select(c => c.Sample()); int n = q.GetHashCode(); foreach (int x in Enumerable.Repeat(n, 1)) { Kept.Add(x); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -115170,6 +115214,28 @@ public static class Shapes
     private static Cell<int> Ab401MakePlain() => Plain.Map(v => v + 1);
 
     private static void Ab401SetK4(Cell<int> value) => R6SmpS.K4 = value;
+
+    private static readonly Ag104Box[] Ag104Boxes = [new(), new()];
+
+    private static readonly SettableSlot[] Ag104SlotsOfAField = [new(), new()];
+
+    private static readonly SettableSlot[] Ag104OtherSlots = [new(), new()];
+
+    private static readonly SettableSlot Ag104FieldSlot = Ag104SlotsOfAField[1];
+
+    private static Ag104SlotHolder Ag104MakeSlotHolder() => new();
+
+    public sealed class Ag104Box
+    {
+        public Cell<int>? Share;
+
+        public void Put(Cell<int> share) => this.Share = share;
+    }
+
+    public sealed class Ag104SlotHolder
+    {
+        public readonly SettableSlot Slot = new();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
