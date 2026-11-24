@@ -8894,6 +8894,20 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ag100MapDisposedUnderAFieldConditionAndThenInTheBlock"] = ["SF1001"],
             ["Ab364TimerHelperSkipsAfterAGotoPastTheCall"] = ["SF1007"],
             ["Ag100TimerHelperSkipsAfterAWriteOfTheParameter"] = ["SF1007"],
-            ["Ag100ContinuationRunsTheTimersUnderAFieldCondition"] = ["SF1007"]
+            ["Ag100ContinuationRunsTheTimersUnderAFieldCondition"] = ["SF1007"],
+            ["Ab417PublicMethodThatNothingCalls"] = ["SF1004"],
+            ["Ab417PrivateMethodThatADelegateRuns"] = ["SF1004"],
+            ["Ab417PrivateMethodThatReflectionRuns"] = ["SF1004"],
+            ["Ab417PrivateMethodThatReflectionRunsByNameof"] = ["SF1004"],
+            ["Ab417PrivateMethodThatReflectionFindsWithNoName"] = ["SF1004"],
+            ["Ab417PrivateMethodThatANestedTypeCalls"] = ["SF1004"],
+            ["Ab417PrivateMethodThatASecondPartCalls"] = ["SF1004"],
+            ["Ab417PrivateMethodOfAPartialClassThatNothingCalls"] = ["SF1004"],
+            ["Ab417PrivateMethodWithAnAttribute"] = ["SF1004"],
+            ["Ab417PrivateMethodOfALibraryBase"] = ["SF1004"],
+            ["Ab417ExplicitImplementationThatAnInterfaceCallRuns"] = ["SF1004"],
+            ["Ab417PrivateMethodThatAMethodOfTheSameNameCalls"] = ["SF1004"],
+            ["Ab417PrivateProtectedMethodThatADerivedClassCalls"] = ["SF1004"],
+            ["Ab417PrivateMethodThatAHelperRunsByItsName"] = ["SF1004"]
         };
 }

@@ -62446,6 +62446,70 @@ public static class Shapes
     public static Cell<int> Ag100MapFunctionRunsTheTimersUnderAFalseFieldCondition() =>
         Cell.Loop<int>().WithoutCaptures(l => { R5ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(l.Sample())); Cell<int> m = Plain.Map(v => { R6FuRunTimersIf(clock, Never); return v; }); Kept.Add(m.Sample()); return S.Hold(0); });
 
+    // S15139. A constructor builds a map that does not sample into a member. A private method that no code calls builds a map that samples a second member into it. A method sets the second member to a pending cell and samples the map.
+    public static Cell<int> R6FuMemberBuildOfAMethodThatNothingCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new R6FuNeverRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15140. Ab417. Control: the same, but the method that builds is public. Code of a different type can call it, thus the analyzer counts the build.
+    public static Cell<int> Ab417PublicMethodThatNothingCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417PublicNeverRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15141. Ab417. A constructor runs a private method through a delegate local. The method builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab417PrivateMethodThatADelegateRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417DelegateRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15142. Ab417. A constructor runs a private method through reflection with its name in a string. The method builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab417PrivateMethodThatReflectionRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab417Made.Reflected.SetAndRead(l.Map(v => v))));
+
+    // S15143. Ab417. A constructor runs a private method through reflection with its name in a nameof. The method builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab417PrivateMethodThatReflectionRunsByNameof() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab417Made.Named.SetAndRead(l.Map(v => v))));
+
+    // S15144. Ab417. A constructor runs each private method that reflection finds with no name. One method builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab417PrivateMethodThatReflectionFindsWithNoName() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab417Made.Found.SetAndRead(l.Map(v => v))));
+
+    // S15145. Ab417. A private method that only calls itself builds a map that samples a member. No other code calls it. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab417PrivateMethodThatOnlyItselfCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417SelfRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15146. Ab417. A method of a nested type calls a private method of the type that contains it. That method builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab417PrivateMethodThatANestedTypeCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab417Made.Nested.SetAndRead(l.Map(v => v))));
+
+    // S15147. Ab417. The constructor in a second part of a partial class calls a private method. That method builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab417PrivateMethodThatASecondPartCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417PartRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15148. Ab417. Control: no code calls a private method of a partial class that builds a map that samples a member. Code that the compiler does not read can call it, thus the analyzer counts the build.
+    public static Cell<int> Ab417PrivateMethodOfAPartialClassThatNothingCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417PartialNeverRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15149. Ab417. Control: no code calls a private method with an attribute that builds a map that samples a member. A framework can call it, thus the analyzer counts the build.
+    public static Cell<int> Ab417PrivateMethodWithAnAttribute() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417MarkedRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15150. Ab417. Control: no code calls a private method that builds a map that samples a member, and the base class is in a library. A framework can call it, thus the analyzer counts the build.
+    public static Cell<int> Ab417PrivateMethodOfALibraryBase() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417LibraryBaseRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15151. Ab417. A call through an interface runs an explicit implementation that builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab417ExplicitImplementationThatAnInterfaceCallRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab417Rebuilder.Rebuilt(new Ab417ExplicitRebuilt()).SetAndRead(l.Map(v => v))));
+
+    // S15152. Ab417. A public method calls a private method that has the same name. The private method builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab417PrivateMethodThatAMethodOfTheSameNameCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417OverloadRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15153. Ab417. The constructor of a derived class calls a private protected method of its base class. That method builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab417PrivateProtectedMethodThatADerivedClassCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417DerivedRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15154. Ab417. A constructor gives a helper of a different type the name of a private method in a string, and the helper runs it through reflection. That method builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab417PrivateMethodThatAHelperRunsByItsName() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab417Made.ByName.SetAndRead(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -82839,14 +82903,14 @@ public static class Shapes
 
         private Cell<int> share = Cell.Constant(0);
 
-        public void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
-
         public int SetAndRead(Cell<int> pending)
         {
             this.share = pending;
 
             return this.map.Sample();
         }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
     }
 
     public sealed class R6FuRebuiltInTheConstructor
@@ -115281,6 +115345,349 @@ public static class Shapes
     public static class Ag100Box
     {
         public static Cell<int>? Cell;
+    }
+
+    public sealed class Ab417PublicNeverRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+    }
+
+    public sealed class Ab417DelegateRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab417DelegateRebuilt()
+        {
+            Action rebuild = this.Rebuild;
+            rebuild();
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab417ReflectionRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab417ReflectionRebuilt() =>
+            typeof(Ab417ReflectionRebuilt)
+                .GetMethod("Rebuild", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .Invoke(this, null);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab417NameofRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab417NameofRebuilt() =>
+            typeof(Ab417NameofRebuilt)
+                .GetMethod(nameof(Rebuild), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .Invoke(this, null);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab417FoundRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab417FoundRebuilt()
+        {
+            foreach (System.Reflection.MethodInfo method in typeof(Ab417FoundRebuilt).GetMethods(
+                         System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly))
+            {
+                if (method.ReturnType == typeof(void) && method.GetParameters().Length == 0)
+                {
+                    method.Invoke(this, null);
+                }
+            }
+        }
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab417SelfRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild(int times)
+        {
+            if (times > 0)
+            {
+                this.Rebuild(times - 1);
+            }
+
+            this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+        }
+    }
+
+    public sealed class Ab417NestedRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab417NestedRebuilt() => Runner.Run(this);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+
+        private static class Runner
+        {
+            public static void Run(Ab417NestedRebuilt made) => made.Rebuild();
+        }
+    }
+
+    public sealed partial class Ab417PartRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed partial class Ab417PartRebuilt
+    {
+        public Ab417PartRebuilt() => this.Rebuild();
+    }
+
+    public sealed partial class Ab417PartialNeverRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab417MarkedRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        [System.Runtime.Serialization.OnDeserialized]
+        private void Rebuild(System.Runtime.Serialization.StreamingContext context) =>
+            this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab417LibraryBaseRebuilt : EventArgs
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public interface IAb417Rebuilt
+    {
+        void Rebuild();
+    }
+
+    public static class Ab417Rebuilder
+    {
+        public static T Rebuilt<T>(T made) where T : IAb417Rebuilt
+        {
+            made.Rebuild();
+
+            return made;
+        }
+    }
+
+    public sealed class Ab417ExplicitRebuilt : IAb417Rebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        void IAb417Rebuilt.Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab417OverloadRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab417OverloadRebuilt() => this.Rebuild(1);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        public void Rebuild(int times)
+        {
+            if (times > 0)
+            {
+                this.Rebuild();
+            }
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public static class Ab417Made
+    {
+        public static readonly Ab417ReflectionRebuilt Reflected = new();
+
+        public static readonly Ab417NameofRebuilt Named = new();
+
+        public static readonly Ab417FoundRebuilt Found = new();
+
+        public static readonly Ab417NestedRebuilt Nested = new();
+
+        public static readonly Ab417ByNameRebuilt ByName = new();
+    }
+
+    public class Ab417BaseRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private protected void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab417DerivedRebuilt : Ab417BaseRebuilt
+    {
+        public Ab417DerivedRebuilt() => this.Rebuild();
+    }
+
+    public static class Ab417Runner
+    {
+        public static void Run(object made, string name) =>
+            made.GetType()
+                .GetMethod(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .Invoke(made, null);
+    }
+
+    public sealed class Ab417ByNameRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab417ByNameRebuilt() => Ab417Runner.Run(made: this, name: "Rebuild");
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

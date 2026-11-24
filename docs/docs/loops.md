@@ -787,8 +787,15 @@ careful side, so it can report a read that does not throw:
   `Interlocked.Exchange` or `CompareExchange` of it count as such assignments, and a value counts
   whatever its form, such as a cast or a conditional of a method group. A read through a local that
   only ever holds the member, or through a getter of the object that only returns it, counts as a
-  read of the member. It does not know whether that code ran, so a read can get a report from an
-  assignment in a method that you never called.
+  read of the member. An assignment in a `private` method that no code of the class names, whether
+  by a call, a delegate, a `nameof`, or a string, does not count, because nothing can call that
+  method. That holds only where the class is not `partial`, has no base class from a library, and
+  uses no reflection that can find a method without its name, and where the method has no
+  attribute, because the XAML of a view, a framework, or such reflection can call a method that no
+  code names. A call from outside the class that the code does not name, such as reflection on the
+  class in a different class, is not seen. For each other assignment, the analyzer does not know
+  whether that code ran, so a read can get a report from an assignment in a method that you never
+  called.
 - The `Result` of a task that you create with `new` has the value that its function returns even
   where no code runs the task. Such a `Result` waits forever, and the code after it does not run.
 - A method that writes a member through an object that the analyzer does not know, such as an

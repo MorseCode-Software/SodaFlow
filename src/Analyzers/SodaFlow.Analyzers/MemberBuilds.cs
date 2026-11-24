@@ -30,6 +30,23 @@ internal static class MemberBuilds
     // one compilation to the next. The table holds a part only while something else holds the tree.
     private static readonly ConditionalWeakTable<TypeDeclarationSyntax, Part> Parts = new();
 
+    // The members of reflection that can find a method with no name of it. See Uncalled.
+    private static readonly ImmutableHashSet<string> ReflectionNames =
+        ImmutableHashSet.Create(
+            "CreateDelegate",
+            "DeclaredMembers",
+            "DeclaredMethods",
+            "FindMembers",
+            "GetDeclaredMethod",
+            "GetDeclaredMethods",
+            "GetMember",
+            "GetMembers",
+            "GetMethod",
+            "GetMethods",
+            "GetRuntimeMethod",
+            "GetRuntimeMethods",
+            "InvokeMember");
+
     /// <summary>
     ///     The values that the code of a type gives a member of this, where the
     ///     value can be a function. The code of a derived type can give a value
@@ -62,16 +79,11 @@ internal static class MemberBuilds
                 }
 
                 Part part = Parts.GetValue(key: code, createValueCallback: static part => PartOf(part));
+                all = all.AddRange(part.Of(member: member.Name, takesNames: takesNames));
 
-                if (part.Values.TryGetValue(key: member.Name, value: out ImmutableArray<ExpressionSyntax> values))
+                if (part.OfUncalledMethods is { } uncalled && !HasOnlyBasesOfThisCode(each))
                 {
-                    all = all.AddRange(values);
-                }
-
-                if (takesNames
-                    && part.Names.TryGetValue(key: member.Name, value: out ImmutableArray<ExpressionSyntax> names))
-                {
-                    all = all.AddRange(names);
+                    all = all.AddRange(uncalled.Of(member: member.Name, takesNames: takesNames));
                 }
             }
 
@@ -84,20 +96,56 @@ internal static class MemberBuilds
         return all;
     }
 
+    // A framework in a library can call a private method by its name with no code that names it, as
+    // Unity does for Start. Such a framework calls a method of a type that derives from its own type.
+    private static bool HasOnlyBasesOfThisCode(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? each = type.BaseType;
+             each is { SpecialType: not (SpecialType.System_Object or SpecialType.System_ValueType) };
+             each = each.BaseType)
+        {
+            if (each.DeclaringSyntaxReferences.IsEmpty)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     // Reads the code of the members of one type declaration, and not that of a nested type.
     private static Part PartOf(TypeDeclarationSyntax type)
     {
         Dictionary<string, ImmutableArray<ExpressionSyntax>.Builder> values = [];
         Dictionary<string, ImmutableArray<ExpressionSyntax>.Builder> names = [];
+        Dictionary<string, ImmutableArray<ExpressionSyntax>.Builder>? valuesOfUncalled = null;
+        Dictionary<string, ImmutableArray<ExpressionSyntax>.Builder>? namesOfUncalled = null;
+        HashSet<MethodDeclarationSyntax>? uncalled = null;
 
         // A nested type has members of its own, with names that can be the same.
         foreach (MemberDeclarationSyntax code in type.Members.Where(static member =>
                      member is not BaseTypeDeclarationSyntax))
         {
-            foreach ((string name, ExpressionSyntax given) in WritesIn(code))
+            List<(string Name, ExpressionSyntax Value)> writes = [.. WritesIn(code)];
+
+            // The search for the names of a type reads all of its code. Thus, it runs only for a method that writes.
+            bool isUncalled =
+                writes.Count > 0
+                && code is MethodDeclarationSyntax method
+                && (uncalled ??= Uncalled(type)).Contains(method);
+
+            foreach ((string name, ExpressionSyntax given) in writes)
             {
                 (ExpressionSyntax value, bool onlyAName) = ValueOf(code: code, value: given);
-                Dictionary<string, ImmutableArray<ExpressionSyntax>.Builder> to = onlyAName ? names : values;
+
+                Dictionary<string, ImmutableArray<ExpressionSyntax>.Builder> to =
+                    (isUncalled, onlyAName) switch
+                    {
+                        (false, false) => values,
+                        (false, true) => names,
+                        (true, false) => valuesOfUncalled ??= [],
+                        (true, true) => namesOfUncalled ??= []
+                    };
 
                 if (!to.TryGetValue(key: name, value: out ImmutableArray<ExpressionSyntax>.Builder? of))
                 {
@@ -109,7 +157,80 @@ internal static class MemberBuilds
             }
         }
 
-        return new Part(values: Built(values), names: Built(names));
+        return new Part(
+            values: Built(values),
+            names: Built(names),
+            ofUncalledMethods: valuesOfUncalled != null || namesOfUncalled != null
+                ? new Part(
+                    values: Built(valuesOfUncalled ?? []),
+                    names: Built(namesOfUncalled ?? []),
+                    ofUncalledMethods: null)
+                : null);
+    }
+
+    /// <summary>
+    ///     The methods of a type that only the code of the type can call, and
+    ///     that no code of the type names. A name in a <c>nameof</c>, in a
+    ///     delegate, or in a string, as reflection uses it, counts.
+    /// </summary>
+    /// <remarks>
+    ///     A partial type can get a call from code that the compiler does not
+    ///     read, as the XAML of a view does. An attribute can tell a framework
+    ///     to call the method. Reflection can find a method with no name. Thus,
+    ///     the result is empty for each of these. A call from a method of the
+    ///     same name does not count, because nothing can call that method first.
+    /// </remarks>
+    private static HashSet<MethodDeclarationSyntax> Uncalled(TypeDeclarationSyntax type)
+    {
+        if (type.Modifiers.Any(SyntaxKind.PartialKeyword))
+        {
+            return [];
+        }
+
+        List<MethodDeclarationSyntax> candidates =
+        [
+            .. type.Members.OfType<MethodDeclarationSyntax>().Where(static method =>
+                method.AttributeLists.Count == 0
+                && method.Modifiers.Any(SyntaxKind.PrivateKeyword)
+                && !method.Modifiers.Any(SyntaxKind.ProtectedKeyword))
+        ];
+
+        HashSet<string> notNamed = [.. candidates.Select(static method => method.Identifier.ValueText)];
+
+        foreach (SyntaxToken token in type.DescendantTokens())
+        {
+            if (notNamed.Count == 0)
+            {
+                return [];
+            }
+
+            if (token.IsKind(SyntaxKind.IdentifierToken) && token.Parent is SimpleNameSyntax)
+            {
+                if (ReflectionNames.Contains(token.ValueText))
+                {
+                    return [];
+                }
+
+                if (notNamed.Contains(token.ValueText)
+                    && !candidates.Any(method =>
+                        method.Identifier.ValueText == token.ValueText && method.Span.Contains(token.Span)))
+                {
+                    notNamed.Remove(token.ValueText);
+                }
+            }
+            else if (token.IsKind(SyntaxKind.StringLiteralToken)
+                     || token.IsKind(SyntaxKind.InterpolatedStringTextToken)
+                     || token.IsKind(SyntaxKind.SingleLineRawStringLiteralToken)
+                     || token.IsKind(SyntaxKind.MultiLineRawStringLiteralToken)
+                     || token.IsKind(SyntaxKind.Utf8StringLiteralToken)
+                     || token.IsKind(SyntaxKind.Utf8SingleLineRawStringLiteralToken)
+                     || token.IsKind(SyntaxKind.Utf8MultiLineRawStringLiteralToken))
+            {
+                notNamed.RemoveWhere(name => token.ValueText.Contains(name));
+            }
+        }
+
+        return [.. candidates.Where(method => notNamed.Contains(method.Identifier.ValueText))];
     }
 
     // Each member of this that the code of a member writes, with the value of the write. An
@@ -223,13 +344,26 @@ internal static class MemberBuilds
     }
 
     // The assignments of one type declaration, by the name of the member. A value that is only a
-    // name is in Names, because only a delegate member takes it.
+    // name is in Names, because only a delegate member takes it. The assignments of the methods that
+    // Uncalled gives are in OfUncalledMethods.
     private sealed class Part(
         in ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> values,
-        in ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> names)
+        in ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> names,
+        in Part? ofUncalledMethods)
     {
         public ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> Values { get; } = values;
 
         public ImmutableDictionary<string, ImmutableArray<ExpressionSyntax>> Names { get; } = names;
+
+        public Part? OfUncalledMethods { get; } = ofUncalledMethods;
+
+        public ImmutableArray<ExpressionSyntax> Of(string member, bool takesNames) =>
+            (this.Values.TryGetValue(key: member, value: out ImmutableArray<ExpressionSyntax> values)
+                ? values
+                : ImmutableArray<ExpressionSyntax>.Empty)
+            .AddRange(
+                takesNames && this.Names.TryGetValue(key: member, value: out ImmutableArray<ExpressionSyntax> names)
+                    ? names
+                    : ImmutableArray<ExpressionSyntax>.Empty);
     }
 }
