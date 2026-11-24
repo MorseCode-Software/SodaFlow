@@ -227,7 +227,8 @@ internal sealed partial class LoopStateEvaluator
                 eachRun: manyTimes ? body : null,
                 self: self,
                 itsObject: receiver?.Members,
-                range: range);
+                range: range,
+                objectsOfThis: receiver?.Objects ?? default);
 
         if (owner != null && definer == null)
         {
@@ -289,7 +290,8 @@ internal sealed partial class LoopStateEvaluator
                         eachRun: body,
                         self: self,
                         itsObject: receiver?.Members,
-                        range: range);
+                        range: range,
+                        objectsOfThis: receiver?.Objects ?? default);
 
                 if (started != null)
                 {
@@ -542,7 +544,8 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode? eachRun,
         MadeObject? self,
         Construction? itsObject = null,
-        (ISymbol Variable, LoopState State)? range = null)
+        (ISymbol Variable, LoopState State)? range = null,
+        ImmutableArray<MadeObject> objectsOfThis = default)
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
 
@@ -702,6 +705,12 @@ internal sealed partial class LoopStateEvaluator
             : ReferenceEquals(objA: members, objB: this.thisMembers) ? this.thisInTheStore
             : null;
 
+        inner.objectsOfThis =
+            definer != null ? definer.objectsOfThis
+            : ReferenceEquals(objA: members, objB: this.thisMembers) ? this.objectsOfThis
+            : objectsOfThis.IsDefault ? ImmutableArray<MadeObject>.Empty
+            : objectsOfThis;
+
         // The code of a function does not read this record: see TheOneCollectionOf.
         foreach (KeyValuePair<ISymbol, MadeObject> one in collections)
         {
@@ -758,6 +767,7 @@ internal sealed partial class LoopStateEvaluator
         if (!lexical)
         {
             inner.Frame.Return();
+            this.TakesTheOriginsOfACallee(inner: inner, byParameter: byParameter);
         }
 
         foreach ((QueryValue query, IReadOnlyList<Finding> foundInIt) in leaving)

@@ -977,16 +977,17 @@ Some reads that throw it does not see:
   the method makes itself or that a call inside it puts there, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
-- A delegate that a constructor of your object reads from a member or a getter of a different
-  object and gives to a `Map` or a `Lazy<T>`, where a different method of your object reads the
-  value, and the code of that object gives the delegate a lambda, as in
-  `this.Factory = () => this.Share.Sample();`. Such a read gets `SF1005` at the call where
-  `SF1004` at the argument is right. The same holds for a `Lazy<T>` that a getter of the other
-  object makes, and for an object that the constructor makes in a local. A method of that object,
-  as in `this.Factory = this.Read;` in its constructor or `Func<int> Factory => this.Read;`, is
-  seen, for `new Lazy<int>(holder.Factory)` and for `this.holder.Factory` alike: the analyzer reads
-  the value that the code of the other object gives the member, as it does for a member that holds
-  a cell. A delegate that your object keeps in a local or in a member of its own, such as
+- A delegate that a constructor of your object reads from a member of a different object that the
+  constructor makes in a local and keeps, and gives to a `Map` or a `Lazy<T>`, where a different
+  method of your object sets a member of that object and reads the value. Such a read gets
+  `SF1005` at the call where `SF1004` at the argument is right. The same delegate of an object that
+  the constructor gets is seen, from a member or a getter of that object, whether the code of that
+  object gives it a lambda, as in `this.Factory = () => this.Share.Sample();`, or a method, as in
+  `this.Factory = this.Read;` in its constructor or `Func<int> Factory => this.Read;`, and so is a
+  `Lazy<T>` that a getter of that object makes. That holds for `new Lazy<int>(holder.Factory)` and
+  for `this.holder.Factory` alike: the analyzer reads the value that the code of the other object
+  gives the member, as it does for a member that holds a cell, and the function reads the members
+  that the object has at the read. A delegate that your object keeps in a local or in a member of its own, such as
   `this.factory = this.Read;` and then `new Lazy<int>(this.factory)`, is seen. So is a member of a
   different object that the constructor writes before the build, such as `this.box.F = this.Add;`
   and then `Map(this.box.F)`, and a delegate made from one function, such as

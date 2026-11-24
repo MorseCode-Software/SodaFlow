@@ -118,7 +118,8 @@ internal sealed partial class LoopStateEvaluator
                     function: null,
                     eachRun: null,
                     self: null,
-                    itsObject: ofTheOwner.Members);
+                    itsObject: ofTheOwner.Members,
+                    objectsOfThis: ofTheOwner.Objects);
 
         // The evaluator keeps the value of each expression. Thus, a second read of a member of this
         // gets the same cell, and does not run its functions again.
@@ -214,6 +215,15 @@ internal sealed partial class LoopStateEvaluator
         foreach (KeyValuePair<ISymbol, LoopState> pair in atTheRead)
         {
             record[pair.Key] = pair.Value;
+        }
+
+        // The function can be of the code of a different object. The record then keeps what it had, and gets what
+        // the store has now: see MembersOfItsObjectNow.
+        foreach (KeyValuePair<ISymbol, LoopState> pair in definer.MembersOfItsObjectNow(but: atTheRead))
+        {
+            LoopState? old = record.TryGetValue(key: pair.Key, value: out LoopState? had) ? had : null;
+            changed.Add((pair.Key, old));
+            record[pair.Key] = old?.Join(pair.Value) ?? pair.Value;
         }
 
         Followed? followed = walk();
