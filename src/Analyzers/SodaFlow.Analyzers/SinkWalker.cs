@@ -2787,6 +2787,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         {
             assigned = property;
         }
+        else if (assigned is IPropertySymbol written && SodaFlowSymbols.SetterWritesTheField(written))
+        {
+            return;
+        }
 
         switch (assigned)
         {

@@ -8908,6 +8908,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab417ExplicitImplementationThatAnInterfaceCallRuns"] = ["SF1004"],
             ["Ab417PrivateMethodThatAMethodOfTheSameNameCalls"] = ["SF1004"],
             ["Ab417PrivateProtectedMethodThatADerivedClassCalls"] = ["SF1004"],
-            ["Ab417PrivateMethodThatAHelperRunsByItsName"] = ["SF1004"]
+            ["Ab417PrivateMethodThatAHelperRunsByItsName"] = ["SF1004"],
+            ["Ab395SetterThatWritesTheValue"] = ["SF1001"],
+            ["Ab395AutoSetterWithAGetterOfField"] = ["SF1001"],
+            ["Ab395SetterThatWritesTheValueUnderACondition"] = ["SF1001"],
+            ["Ab395SetterThatWritesTheValueThroughASecondLocal"] = ["SF1001"],
+            ["Ab395StaticSetterThatWritesTheValue"] = ["SF1001"]
         };
 }

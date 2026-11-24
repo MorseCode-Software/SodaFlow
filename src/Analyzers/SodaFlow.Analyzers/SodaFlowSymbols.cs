@@ -628,6 +628,24 @@ internal sealed class SodaFlowSymbols
             : null;
 
     /// <summary>
+    ///     True for a property with a backing field and a setter with code. The
+    ///     setter gives the field its value, which can be different from the
+    ///     value that the property gets. Thus, a write of such a property does
+    ///     not give the property its value. The walk reads the setter for that.
+    /// </summary>
+    /// <remarks>
+    ///     The walk keeps the state of the backing field on the property: see
+    ///     <see cref="PropertyOfTheFieldKeyword" />. An automatic accessor, or
+    ///     the <c>field</c> keyword, shows that the property has a backing field.
+    /// </remarks>
+    public static bool SetterWritesTheField(IPropertySymbol property) =>
+        property.SetMethod is { DeclaringSyntaxReferences: { Length: 1 } references }
+        && references[0].GetSyntax() is AccessorDeclarationSyntax { Parent: AccessorListSyntax accessors } setter
+        && (setter.Body != null || setter.ExpressionBody != null)
+        && (accessors.Accessors.Any(static accessor => accessor is { Body: null, ExpressionBody: null })
+            || accessors.DescendantNodes().Any(static node => node.RawKind == FieldKeywordKind));
+
+    /// <summary>
     ///     True for an event of this compilation with no accessors in its
     ///     declaration. Such an event keeps its handlers in a field of its own.
     ///     The code of its type can call it as a delegate.

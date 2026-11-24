@@ -62510,6 +62510,74 @@ public static class Shapes
     public static Cell<int> Ab417PrivateMethodThatAHelperRunsByItsName() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(Ab417Made.ByName.SetAndRead(l.Map(v => v))));
 
+    // S15155. A setter writes the plain cell to field and not its value. Thus, the getter gives the plain cell.
+    public static Cell<int> R6CsFieldSetterThatWritesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsReplacingShare s = new(); s.Share = l.Map(v => v); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15156. Ab395. The same, but the getter is automatic.
+    public static Cell<int> Ab395AutoGetterWithASetterThatWritesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395AutoGetterShare s = new(); s.Share = l.Map(v => v); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15157. Ab395. A setter writes its value to field, and the getter gives the pending cell.
+    public static Cell<int> Ab395SetterThatWritesTheValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395CopyShare s = new(); s.Share = l.Map(v => v); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15158. Ab395. A setter writes its value to field. The code sets the pending cell and then the plain cell, and reads the property.
+    public static Cell<int> Ab395SetterThatWritesTheValuePendingThenPlain() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395CopyShare s = new(); s.Share = l.Map(v => v); s.Share = Plain; Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15159. Ab395. A setter writes the plain cell to field. The code sets the plain cell and then the pending cell, and reads the property.
+    public static Cell<int> Ab395SetterThatWritesThePlainCellAfterAPlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsReplacingShare s = new(); s.Share = Plain; s.Share = l.Map(v => v); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15160. Ab395. A setter with a block keeps its value in a list and writes the plain cell to field.
+    public static Cell<int> Ab395SetterThatKeepsTheValueAndWritesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395KeepingShare s = new(); s.Share = l.Map(v => v); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15161. Ab395. An object initializer sets the pending cell through a setter that writes the plain cell to field.
+    public static Cell<int> Ab395InitializerOfASetterThatWritesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsReplacingShare s = new() { Share = l.Map(v => v) }; Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15162. Ab395. Control: the setter is automatic, thus the getter of field gives the pending cell.
+    public static Cell<int> Ab395AutoSetterWithAGetterOfField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395AutoSetterShare s = new(); s.Share = l.Map(v => v); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15163. Ab395. An init accessor writes the plain cell to field, and an object initializer gives it the pending cell.
+    public static Cell<int> Ab395InitAccessorThatWritesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395ReplacingInitShare s = new() { Share = l.Map(v => v) }; Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15164. Ab395. A method of the object sets the pending cell through a setter that writes the plain cell to field, and reads the property.
+    public static Cell<int> Ab395SetterThatWritesThePlainCellInAMethodOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395SelfSettingShare s = new(); s.SetAndKeep(l.Map(v => v)); return S.Hold(0); });
+
+    // S15165. Ab395. A setter writes its value to field when the value is not null.
+    public static Cell<int> Ab395SetterThatWritesTheValueUnderACondition() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395CheckedShare s = new(); s.Share = l.Map(v => v); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15166. Ab395. A compound assignment sets the pending cell through a setter that writes the plain cell to field.
+    public static Cell<int> Ab395CompoundWriteOfASetterThatWritesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395NullableReplacingShare s = new(); s.Share ??= l.Map(v => v); Kept.Add(s.Share!.Sample()); return S.Hold(0); });
+
+    // S15167. Ab395. A second local of the object sets the pending cell through a setter that writes the plain cell to field. The read is through the first local.
+    public static Cell<int> Ab395SetterThatWritesThePlainCellThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6CsReplacingShare s = new(); R6CsReplacingShare t = s; t.Share = l.Map(v => v); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15168. Ab395. A second local of the object sets the pending cell through a setter that writes its value to field. The read is through the first local.
+    public static Cell<int> Ab395SetterThatWritesTheValueThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395CopyShare s = new(); Ab395CopyShare t = s; t.Share = l.Map(v => v); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15169. Ab395. The getter is automatic, and the setter keeps its value in a list and does not write field.
+    public static Cell<int> Ab395AutoGetterWithASetterThatDoesNotWriteTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395DroppingShare s = new(); s.Share = l.Map(v => v); Kept.Add(s.Share.Sample()); return S.Hold(0); });
+
+    // S15170. Ab395. A static setter writes the plain cell to field.
+    public static Cell<int> Ab395StaticSetterThatWritesThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395StaticReplacingShare.Share = l.Map(v => v); Kept.Add(Ab395StaticReplacingShare.Share.Sample()); return S.Hold(0); });
+
+    // S15171. Ab395. A static setter writes its value to field, and the getter gives the pending cell.
+    public static Cell<int> Ab395StaticSetterThatWritesTheValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab395StaticCopyShare.Share = l.Map(v => v); Kept.Add(Ab395StaticCopyShare.Share.Sample()); Ab395StaticCopyShare.Share = Plain; return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -115688,6 +115756,85 @@ public static class Shapes
         }
 
         private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab395AutoGetterShare
+    {
+        public Cell<int> Share { get; set => field = Plain; } = Plain;
+    }
+
+    public sealed class Ab395CopyShare
+    {
+        public Cell<int> Share { get => field; set => field = value; } = Plain;
+    }
+
+    public sealed class Ab395KeepingShare
+    {
+        public Cell<int> Share
+        {
+            get => field;
+            set
+            {
+                Kept.Add(value);
+                field = Plain;
+            }
+        } = Plain;
+    }
+
+    public sealed class Ab395AutoSetterShare
+    {
+        public Cell<int> Share { get => field; set; } = Plain;
+    }
+
+    public sealed class Ab395ReplacingInitShare
+    {
+        public required Cell<int> Share { get => field; init => field = Plain; }
+    }
+
+    public sealed class Ab395SelfSettingShare
+    {
+        public Cell<int> Share { get => field; set => field = Plain; } = Plain;
+
+        public void SetAndKeep(Cell<int> pending)
+        {
+            this.Share = pending;
+            Kept.Add(this.Share.Sample());
+        }
+    }
+
+    public sealed class Ab395CheckedShare
+    {
+        public Cell<int> Share
+        {
+            get => field;
+            set
+            {
+                if (value != null)
+                {
+                    field = value;
+                }
+            }
+        } = Plain;
+    }
+
+    public sealed class Ab395NullableReplacingShare
+    {
+        public Cell<int>? Share { get => field; set => field = Plain; }
+    }
+
+    public sealed class Ab395DroppingShare
+    {
+        public Cell<int> Share { get; set => Kept.Add(value); } = Plain;
+    }
+
+    public static class Ab395StaticReplacingShare
+    {
+        public static Cell<int> Share { get => field; set => field = Plain; } = Plain;
+    }
+
+    public static class Ab395StaticCopyShare
+    {
+        public static Cell<int> Share { get => field; set => field = value; } = Plain;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
