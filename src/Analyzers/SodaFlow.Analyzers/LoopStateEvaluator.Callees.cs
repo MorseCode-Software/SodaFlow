@@ -1370,19 +1370,19 @@ internal sealed partial class LoopStateEvaluator
     }
 
     /// <summary>
-    ///     The run of the members of its implementation that a timer system
-    ///     calls in a call. Its constructor calls <c>Start</c> and <c>Now</c>, and
-    ///     its <c>Dispose</c> calls <c>Stop</c>.
+    ///     The run of the members of its implementation that the constructor of
+    ///     a timer system calls in the call: <c>Start</c> and <c>Now</c>.
     /// </summary>
+    /// <remarks>
+    ///     The <c>Dispose</c> of a timer system calls <c>Stop</c> after the
+    ///     transaction releases its lock. A loop block runs in a transaction.
+    ///     Thus, that <c>Stop</c> does not run in the block, and the walk does
+    ///     not follow it.
+    /// </remarks>
     /// <param name="system">The constructor that made the timer system.</param>
     /// <param name="arguments">The arguments of that constructor.</param>
     /// <param name="call">The node that calls the members.</param>
-    /// <param name="members">The names of the members of the implementation.</param>
-    public Followed? FollowClock(
-        IMethodSymbol system,
-        SeparatedSyntaxList<ArgumentSyntax> arguments,
-        SyntaxNode call,
-        IEnumerable<string> members)
+    public Followed? FollowClock(IMethodSymbol system, SeparatedSyntaxList<ArgumentSyntax> arguments, SyntaxNode call)
     {
         if (system.ContainingType is not { Name: "TimerSystem" or "SystemClockTimerSystem" } type
             || !this.region.Symbols.IsSodaFlow(type))
@@ -1394,8 +1394,7 @@ internal sealed partial class LoopStateEvaluator
         // time.
         if (type.Name == "SystemClockTimerSystem")
         {
-            return members.Contains("Now")
-                   && ArgumentFor(method: system, arguments: arguments, parameter: "now") is { } now
+            return ArgumentFor(method: system, arguments: arguments, parameter: "now") is { } now
                 ? this.FollowCallback(call: call, callback: now, functions: this.Eval(now))
                 : null;
         }
@@ -1415,6 +1414,8 @@ internal sealed partial class LoopStateEvaluator
                 ? [(given, this.Eval(given))]
                 : [];
 
+        string[] members = ["Start", "Now"];
+
         return members
             .SelectMany(name => contract.GetMembers(name))
             .Select(static member => member is IPropertySymbol property ? property.GetMethod : member as IMethodSymbol)
@@ -1431,47 +1432,6 @@ internal sealed partial class LoopStateEvaluator
                             arguments: member.Parameters.IsEmpty ? [] : handler)));
     }
 
-    /// <summary>
-    ///     The run of <c>Stop</c> of the implementation of a timer system, at its
-    ///     <c>Dispose</c>. The timer system is a local that no code writes, and that
-    ///     a constructor made, or the call of that constructor itself.
-    /// </summary>
-    /// <param name="system">The expression of the timer system.</param>
-    /// <param name="dispose">The call of <c>Dispose</c>, or the resource of a <c>using</c>.</param>
-    /// <param name="runsOnEachPath">
-    ///     True when the <c>Dispose</c> runs on all paths of its function. The
-    ///     walk asks only for a timer system that a different code made.
-    /// </param>
-    public Followed? FollowClockOfADispose(ExpressionSyntax system, SyntaxNode dispose, Func<bool> runsOnEachPath)
-    {
-        if (this.MadeValueOf(system) is BaseObjectCreationExpressionSyntax { ArgumentList: { } arguments } creation
-            && this.region.SymbolOf(creation) is IMethodSymbol constructor)
-        {
-            return this.FollowClock(
-                system: constructor,
-                arguments: arguments.Arguments,
-                call: dispose,
-                members: ["Stop"]);
-        }
-
-        // A field or a list of IDisposable can have the timer system. The store has the clock of
-        // its object.
-        (IMethodSymbol Stop, LoopState Clock)[] clocks =
-        [
-            .. this.ObjectsOfADispose(value: system, runsOnEachPath: runsOnEachPath)
-                .Select(made => this.region.Objects.ClockOfATimerSystem(made))
-                .OfType<(IMethodSymbol Stop, LoopState Clock)>()
-        ];
-
-        return clocks.Length == 0
-            ? null
-            : this.FollowImplied(
-                call: dispose,
-                member: clocks[0].Stop,
-                owner: clocks.Aggregate(seed: LoopState.None, func: static (all, each) => all.Join(each.Clock)),
-                arguments: []);
-    }
-
     // The objects that a Dispose of a value disposes. A callee can get an object from its caller,
     // and the walk does not know the path that the arguments of the callee select. Thus, the callee
     // disposes such an object only where its Dispose runs on all paths.
@@ -1481,36 +1441,6 @@ internal sealed partial class LoopStateEvaluator
 
         return this.region.Objects.Now(this.Eval(value).Objects)
             .Where(made => made.IsFrom(this.Frame) || (onEachPath ??= runsOnEachPath()));
-    }
-
-    /// <summary>
-    ///     Records the clock of a timer system that a constructor made, for its
-    ///     <c>Dispose</c>. The Dispose calls <c>Stop</c> of that clock.
-    /// </summary>
-    /// <param name="creation">The creation of the timer system.</param>
-    /// <param name="system">The constructor.</param>
-    /// <param name="arguments">The arguments of the constructor.</param>
-    public void NotesATimerSystem(
-        SyntaxNode creation,
-        IMethodSymbol system,
-        SeparatedSyntaxList<ArgumentSyntax> arguments)
-    {
-        // Only the constructor of TimerSystem has a parameter of that name.
-        if (creation is not BaseObjectCreationExpressionSyntax made
-            || system.Parameters.FirstOrDefault(static parameter => parameter.Name == "implementation")
-                is not { Type: var contract }
-            || contract.GetMembers("Stop").OfType<IMethodSymbol>().FirstOrDefault() is not { } stop
-            || ArgumentFor(method: system, arguments: arguments, parameter: "implementation") is not { } implementation)
-        {
-            return;
-        }
-
-        LoopState clock = this.Eval(implementation);
-
-        foreach (MadeObject each in this.Eval(made).Objects)
-        {
-            this.region.Objects.IsATimerSystemOf(made: each, stop: stop, clock: clock);
-        }
     }
 
     /// <summary>

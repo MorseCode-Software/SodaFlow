@@ -178,6 +178,17 @@ the transaction commits, and a transaction that fails takes back the timer it se
 the timer thread. A disposed timer system still refuses a new deadline by failing the transaction that sends it, as
 before. The fix is in SodaFlow.Core, so it reaches an implementation you write as well.
 
+Fixed: a deadline at infinity, at double.MaxValue, or more than about 29,000 years ahead no longer makes every
+transaction in the process throw, and a NaN deadline is now refused with ArgumentOutOfRangeException in the
+transaction that gives it. Such a deadline, or one at DateTime.MaxValue, also no longer makes the timer thread spin and
+flood the handler. A listener of an alarm, or of Time, that throws no longer fails whichever unrelated
+transaction delivered the alarm; the exception goes to the handler of the timer system. The fixes are in SodaFlow.Core,
+so they reach an implementation you write as well.
+
+Fixed: disposing a timer system inside a transaction, from a listener or a Transaction.run block, no longer deadlocks while
+the timer thread fires an alarm. The timer thread now stops when that transaction ends, and no alarm reaches the graph
+after Dispose returns. The fix is in SodaFlow.Core.
+
 Fixed: SecondsTimerSystem counted its seconds as DateTime.Now minus the DateTime.Now at construction, so the count
 jumped by an hour when daylight saving time began or ended, and moved with any correction of the system clock. It now
 counts with a Stopwatch, which only measures time going by.
