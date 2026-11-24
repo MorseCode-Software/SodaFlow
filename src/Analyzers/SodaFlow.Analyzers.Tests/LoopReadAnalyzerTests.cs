@@ -1769,6 +1769,56 @@ internal sealed partial class LoopReadAnalyzerTests
             .IsEquivalentTo(["SF1001", "SF1001"]);
     }
 
+    /// <summary>
+    ///     A read of a static field in the code of its class runs the static
+    ///     initializers of the class. That is also true in a different part of a
+    ///     partial class. The analyzer reads them also in a compilation that
+    ///     declares no static constructor. The shapes file declares one, thus it
+    ///     cannot show this case. The initializer samples the pending cell.
+    /// </summary>
+    [Test]
+    public async Task AStaticInitializerIsReadFromASecondPartInACompilationThatDeclaresNoStaticConstructor()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> InASecondPart() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Shared.A = l.Map(v => v);
+                        Kept.Add(new Parted().Get());
+
+                        return S.Hold(0);
+                    });
+
+                public static class Shared
+                {
+                    public static Cell<int>? A;
+                }
+
+                public sealed partial class Parted
+                {
+                    private static readonly int Value = Shared.A!.Sample();
+                }
+
+                public sealed partial class Parted
+                {
+                    public int Get() => Value;
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyStaticInitializers", images: []))
+            .IsEquivalentTo(["SF1005"]);
+    }
+
     // The rules that the analyzer reports for a source that is a compilation of its own.
     private static async Task<IReadOnlyList<string>> RulesIn(
         string source,

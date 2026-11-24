@@ -47,6 +47,8 @@ internal sealed partial class LoopStateEvaluator
         // Most names are locals and types. The syntax and a test of the declarations come before
         // the question to the compiler. A type with initializers only gives the compilation no name
         // of a static constructor. Thus, the test for it is the declaration of the type of the code.
+        // With no static constructor and no initializer in a part of that type, the walk has no code
+        // to read for the name. Thus, that test also only saves time.
         // A name in a MemberBindingExpressionSyntax, a QualifiedNameSyntax, a NameColonSyntax, or a
         // NameEqualsSyntax is no static member that StaticMemberOf gives. Thus, that test only saves time.
         if (this.quiet

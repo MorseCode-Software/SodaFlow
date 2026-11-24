@@ -228,27 +228,35 @@ internal sealed class LoopRegion(
 
     /// <summary>
     ///     True when a type declaration has an initializer of a static field or
-    ///     of a static property.
+    ///     of a static property. Each part of a partial type counts.
     /// </summary>
     public bool HasStaticInitializers(TypeDeclarationSyntax type)
     {
         if (!this.hasStaticInitializers.TryGetValue(key: type, value: out bool has))
         {
-            has = type.Members.Any(static member =>
-                member.Modifiers.Any(SyntaxKind.StaticKeyword)
-                && member switch
-                {
-                    FieldDeclarationSyntax field =>
-                        field.Declaration.Variables.Any(static one => one.Initializer != null),
-                    PropertyDeclarationSyntax property => property.Initializer != null,
-                    _ => false
-                });
+            // A read in one part of a type runs the initializers of the type. Only a partial type
+            // needs the compiler to find its other parts.
+            has = type.Modifiers.Any(SyntaxKind.PartialKeyword)
+                  && this.ModelFor(type).GetDeclaredSymbol(type) is { } declared
+                ? declared.DeclaringSyntaxReferences.Any(static reference =>
+                    reference.GetSyntax() is TypeDeclarationSyntax part && DeclaresStaticInitializers(part))
+                : DeclaresStaticInitializers(type);
 
             this.hasStaticInitializers[type] = has;
         }
 
         return has;
     }
+
+    private static bool DeclaresStaticInitializers(TypeDeclarationSyntax type) =>
+        type.Members.Any(static member =>
+            member.Modifiers.Any(SyntaxKind.StaticKeyword)
+            && member switch
+            {
+                FieldDeclarationSyntax field => field.Declaration.Variables.Any(static one => one.Initializer != null),
+                PropertyDeclarationSyntax property => property.Initializer != null,
+                _ => false
+            });
 
     /// <summary>
     ///     Keeps the objects as results of calls that a second call can give
