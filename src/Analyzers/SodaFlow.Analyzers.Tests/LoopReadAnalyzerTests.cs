@@ -1705,6 +1705,70 @@ internal sealed partial class LoopReadAnalyzerTests
             .IsEquivalentTo(["SF1001"]);
     }
 
+    /// <summary>
+    ///     A function of a map can call a method of this compilation through a
+    ///     member access or a member binding. The walk reads such a function
+    ///     also in a compilation that declares no implicit conversion. The shapes
+    ///     file declares one, thus each name there can run code, and the shapes
+    ///     cannot show the call alone. Each method samples a static field that
+    ///     the block sets pending after the build.
+    /// </summary>
+    [Test]
+    public async Task ACallInAFunctionIsReadInACompilationThatDeclaresNoConversion()
+    {
+        const string source =
+            """
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> ByAMemberAccess() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Shared.A = Plain;
+                        Cell<int> w = Plain.Map(v => v.ReadAfter());
+                        Shared.A = l.Map(v => v);
+
+                        return S.Hold(w.Sample());
+                    });
+
+                public static Cell<int> ByAMemberBinding() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Shared.B = Plain;
+                        Cell<int> w = Cell.Constant((Count?)new Count(1)).Map(n => n?.Read() ?? 0);
+                        Shared.B = l.Map(v => v);
+
+                        return S.Hold(w.Sample());
+                    });
+
+                public static class Shared
+                {
+                    public static Cell<int>? A;
+                    public static Cell<int>? B;
+                }
+
+                public readonly struct Count(int start)
+                {
+                    private readonly int start = start;
+
+                    public int Read() => this.start + Shared.B!.Sample();
+                }
+            }
+
+            public static class OnlyExtensions
+            {
+                public static int ReadAfter(this int v) => v + Only.Shared.A!.Sample();
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyACall", images: []))
+            .IsEquivalentTo(["SF1001", "SF1001"]);
+    }
+
     // The rules that the analyzer reports for a source that is a compilation of its own.
     private static async Task<IReadOnlyList<string>> RulesIn(
         string source,
