@@ -447,4 +447,87 @@ public sealed class FailedTransactionTests
         await Assert.That(ran).IsFalse();
         await Assert.That(cause).IsSameReferenceAs(thrown);
     }
+
+    // A failed transaction discards its sends, but not the graph that it built. A stream that the
+    // body of a failed transaction made must fire in a later transaction, as it does when a
+    // listener fails the transaction.
+    [Test]
+    public async Task AStreamThatABodyThatThrowsMadeFiresInALaterTransaction()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        List<Stream<int>> made = [];
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    made.Add(s.Map(static x => x + 100));
+                    throw new InvalidOperationException("body");
+                }))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("body");
+
+        List<int> @out = [];
+        IListener l = made[0].Listen(@out.Add);
+        s.Send(5);
+        l.Dispose();
+
+        await Assert.That(@out).IsEquivalentTo(expected: [105], ordering: CollectionOrdering.Matching);
+    }
+
+    // A cell makes its updates stream at the first request and keeps it. Thus, a first request in
+    // a body that throws must not leave that cell with a stream that never fires.
+    [Test]
+    public async Task UpdatesThatABodyThatThrowsAskedForFirstFireInALaterTransaction()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        Cell<int> held = s.Hold(0);
+        Cell<int> mapped = held.Map(static x => x + 100);
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    _ = held.Updates();
+                    _ = mapped.Updates();
+                    throw new InvalidOperationException("body");
+                }))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("body");
+
+        List<int> heldOut = [];
+        List<int> mappedOut = [];
+        IListener l1 = held.Updates().Listen(heldOut.Add);
+        IListener l2 = mapped.Updates().Listen(mappedOut.Add);
+        s.Send(5);
+        l1.Dispose();
+        l2.Dispose();
+
+        await Assert.That(heldOut).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
+        await Assert.That(mappedOut).IsEquivalentTo(expected: [105], ordering: CollectionOrdering.Matching);
+    }
+
+    // A posted action runs in a transaction of its own, and a throw from it fails that
+    // transaction. The graph that it built must work as the graph of a failed body does.
+    [Test]
+    public async Task AStreamThatAPostedActionThatThrowsMadeFiresInALaterTransaction()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        List<Stream<int>> made = [];
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                    Transaction.Post(() =>
+                    {
+                        made.Add(s.Map(static x => x + 100));
+                        throw new InvalidOperationException("posted");
+                    })))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("posted");
+
+        List<int> @out = [];
+        IListener l = made[0].Listen(@out.Add);
+        s.Send(5);
+        l.Dispose();
+
+        await Assert.That(@out).IsEquivalentTo(expected: [105], ordering: CollectionOrdering.Matching);
+    }
 }

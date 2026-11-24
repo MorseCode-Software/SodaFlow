@@ -141,6 +141,15 @@ result. This is the behavior that a throw from a listener during propagation alr
 promises; code that relied on the partial commit has to send before the code that can throw, in a transaction of its
 own.
 
+Fixed: a stream or a cell that a failed transaction built works in the transactions after it. The change above sends a
+throw from the body down the failure path, and that path left inactive every link the body had made, because only the
+close of a transaction activated them. A map, a hold, or a listener built in such a body then never fired. Neither did
+an object that is built at its first use and then kept: the updates stream of a cell, or the router of a collection's
+per-key cells and the change streams that its views read. A first use inside a body that threw broke that object for
+the life of the process. A posted action that throws had the same defect. A throw from a listener, which fails the
+transaction after its links are active, was not affected. The failure path now activates the links as the close
+does, so a failed transaction discards its sends and keeps the graph it built. No released version had this defect.
+
 Added: DependencyCycleException, an InvalidOperationException, is what a loop that closes on itself without a delay
 throws, where before it threw a bare System.Exception with the same message, which a caller could not catch apart from
 anything else and a test could only match by its text. The message is unchanged. The internal priority queue's
@@ -362,6 +371,45 @@ The listener still sets the new timer in the transaction, so a stopped timer sys
 nothing committed, but the old timer is now canceled only when the transaction commits. A transaction that fails revokes
 the timer it set instead. A revoked timer sends no alarm, even when the timer thread fired it while the transaction was
 open, or its callback runs after the failure.
+
+Fixed: a deadline that the clock cannot subtract no longer fails every transaction. The start hook of each
+transaction runs the timers that are due, and it found them by subtracting the current time from the earliest
+deadline, an interval that only the timer thread needs. For SecondsTimerSystem a deadline at infinity, at
+double.MaxValue, or more than about 29,000 years ahead has no interval in a TimeSpan, so that subtraction threw, and
+the throw failed each transaction in the process before its body ran, the one that would clear the deadline
+included; only disposing the timer system recovered. The hook now finds due timers by comparing the times, which
+cannot throw, and the seconds clock gives a far interval as TimeSpan.MaxValue instead of throwing. A custom clock
+whose subtraction throws now leaves the transactions working too; its timer thread still reports each throw to the
+handler.
+
+Changed: a NaN deadline is refused. NaN is not in order with other times; Comparer<double>.Default puts it before
+all of them, so it was always the earliest timer and was always due. At now throws ArgumentOutOfRangeException in the
+transaction that gives a NaN, for any timer system whose time is a double or a float, so that transaction fails and
+the cell keeps its deadline.
+
+Fixed: a deadline more than about 24.8 days ahead no longer makes the timer thread spin. The thread passed its wait
+straight to WaitOne, which throws above int.MaxValue milliseconds; the thread gave each throw to the handler and
+tried again at once, which used a core and called the handler about 220,000 times a second until the deadline was
+cleared. A deadline at DateTime.MaxValue, a natural spelling of "never", did it, and so did the TimeSpan.MaxValue that
+the seconds clock now gives for a far deadline. WaitOne also cut its wait to whole milliseconds, so under a clock
+resolution a deadline less than a millisecond past a step made waits of no time until the clock reached its next step.
+The wait is now rounded up to whole milliseconds and kept between one millisecond and the thread's longest wait of
+1,000 seconds; the worst case under a resolution is a wake each millisecond for one step.
+
+Fixed: a listener of an alarm, or of the updates of Time, that throws no longer fails an unrelated transaction. The
+start hook delivers a due alarm in a transaction of its own, at the start of whichever transaction comes first after the
+deadline, on any thread, and nothing caught a throw there: it left the hook and failed that transaction before its body
+ran, and it never reached the handler. A listener of Time that always threw failed every transaction. The hook now
+gives each such exception to the handler of the timer system. The failed alarm is dropped, as the sends of any failed
+transaction are; a failed send of Time leaves Time as it was, and the next transaction sends the time again.
+
+Fixed: disposing a timer system inside a transaction no longer deadlocks while an alarm fires. The disposal waits for
+the timer thread to end, and the thread, having fired an alarm, waits for the transaction lock to deliver it. Inside a
+transaction, the disposing thread holds that lock, so the two waited for each other. Dispose now removes the start
+hook at once and stops the timer thread after the transaction releases its lock; with no transaction open it stops it
+at once, as before. No alarm reaches the graph after Dispose returns in either case, because the hook that delivers
+alarms is gone. A clock's Stop, which the disposal calls, therefore runs after a transaction that disposes it, and not
+inside it.
 
 Fixed: a posted action that throws delivers none of its sends. A posted action runs in a transaction of its own after
 the transaction that posted it closes, and a throw from it now fails that transaction, as a throw from the body of a

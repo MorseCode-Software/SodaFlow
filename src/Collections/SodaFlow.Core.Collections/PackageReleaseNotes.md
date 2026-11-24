@@ -13,6 +13,25 @@ constant is almost always an arithmetic slip in the caller, and the view is buil
 overloads still clamp, because a throw there would fail whichever transaction moved the cell; the documentation now
 says so. An offset past the end still gives an empty page on both.
 
+BREAKING: two adds of one key in one transaction throw InvalidOperationException, whether they come in one edit or
+from two edit streams. Before, both were accepted: the add that the merge of the edit streams put last won, and the
+arrival counter skipped a number. SodaFlow gives no sequence to that merge, and the collection already refused every
+other edit whose result depends on it, such as two updates of one key; this one got through because an add was
+checked only against the items before the transaction. A remove and an add of one key in one transaction is still a
+re-key, as before. For the same reason, two updates of one key now throw when the collection's key comparer makes
+their keys one, as "a" and "A" are under StringComparer.OrdinalIgnoreCase: CombineWith compares the keys of two
+updates with the default comparer, the only one it has, so it let them through, and they composed in the order of the
+merge.
+
+Fixed: under a key comparer that makes several spellings one key, such as StringComparer.OrdinalIgnoreCase, an update
+or a removal that named a key in a spelling other than the one its item arrived with carried the spelling of the edit.
+The identity map kept the spelling of the arrival, but the state map, the item change, the operations of each view,
+and the keys of a sort view after a move took the spelling of the edit. The two maps of one snapshot then disagreed,
+and a sort built afresh gave a different string from the sort already built. A lookup through the comparer of the
+collection could not tell the difference, and no value was ever wrong. Now each key that an update or a removal names
+takes the spelling that the store already has. An update of a key that the same edit adds keeps the spelling of that
+add, because the add is the arrival.
+
 Fixed: disposing a MappedItems did not stop the projection. Dispose released every object the projection held and
 emptied its cache, but Items was still a map of the keys, so the next change of the keys ran the projection again for
 every key in the view and kept the new objects where nothing would release them. A list still bound to Items, such as

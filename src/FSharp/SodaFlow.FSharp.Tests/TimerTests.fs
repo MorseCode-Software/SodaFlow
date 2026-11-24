@@ -226,6 +226,34 @@ type ``Timer Tests``() =
                     new UtcClockTimerSystem(negative, (fun _ -> ())) |> ignore)
         }
 
+    /// The start hook of each transaction runs the timers that are due. A deadline at infinity has
+    /// no interval. A hook that asked for one failed each transaction in the process, the one that
+    /// clears the deadline included. The transaction that gives NaN fails, and only that one.
+    [<Test>]
+    member _.``A deadline at infinity leaves each transaction working, and NaN is refused``() =
+        task {
+            use timerSystem = new SecondsTimerSystem(fun _ -> ())
+            let timers = timerSystem :> ITimerSystem<float>
+            let deadline = sinkC None
+            let other = sinkS ()
+            let held = other |> holdS 0
+            let l = timers.At deadline |> Stream.listen ignore
+
+            deadline |> sendC (Some Double.PositiveInfinity)
+            other |> sendS 1
+            deadline |> sendC None
+            other |> sendS 2
+
+            do! Expect.Equal(2, held |> Cell.sample)
+            do! Expect.Throws<ArgumentOutOfRangeException>(fun () -> deadline |> sendC (Some Double.NaN))
+
+            other |> sendS 3
+            l |> Listener.unlisten
+
+            do! Expect.Equal(None, deadline |> Cell.sample)
+            do! Expect.Equal(3, held |> Cell.sample)
+        }
+
     [<Test>]
     member _.``Time follows a clock that goes back``() =
         task {

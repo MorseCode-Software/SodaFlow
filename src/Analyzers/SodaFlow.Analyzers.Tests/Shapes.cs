@@ -27609,7 +27609,7 @@ public static class Shapes
     public static Cell<int> Ab236SecondRunTimersToRunsNoCallbackAgain() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int> c = Plain; R4ApiStepClock clock = new(); clock.SetTimer(0, () => Kept.Add(c.Sample())); clock.RunTimersTo(0); c = l.Map(v => v); clock.RunTimersTo(1); return S.Hold(0); });
 
-    // S6423. Dispose of a timer system calls Stop of its implementation in the call. That Stop samples a cell made from the placeholder.
+    // S6423. Dispose of a timer system removes its hook in the call. It calls Stop of its implementation after the transaction releases its lock, thus not in the block. That Stop samples a cell made from the placeholder.
     public static Cell<int> R4ApiTimerSystemDisposeStopsAClockThatReads() =>
         Cell.Loop<int>().WithoutCaptures(l => { TimerSystem<int> timers = new(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { }); timers.Dispose(); return S.Hold(0); });
 
@@ -27625,11 +27625,11 @@ public static class Shapes
     public static Cell<int> Ab237TimerSystemThatNothingDisposesDoesNotStopItsClock() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(new TimerSystem<int>(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { })); return S.Hold(0); });
 
-    // S6427. The same as the Dispose of a timer system that stops a clock that reads, but through a local of IDisposable.
+    // S6427. The same as the Dispose of a timer system over a clock whose Stop reads, but through a local of IDisposable. The Dispose removes the hook. The Stop runs after the transaction releases its lock, thus not in the block.
     public static Cell<int> Ab237TimerSystemDisposedThroughIDisposable() =>
         Cell.Loop<int>().WithoutCaptures(l => { IDisposable timers = new TimerSystem<int>(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { }); timers.Dispose(); return S.Hold(0); });
 
-    // S6428. A using statement disposes a timer system at its end. That Dispose calls Stop of its implementation, which samples a cell made from the placeholder.
+    // S6428. A using statement disposes a timer system at its end. That Dispose removes the hook. The Stop of its implementation samples a cell made from the placeholder. That Stop runs after the transaction releases its lock, thus not in the block.
     public static Cell<int> Ab237UsingOfATimerSystemStopsAClockThatReads() =>
         Cell.Loop<int>().WithoutCaptures(l => { using (new TimerSystem<int>(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { })) { } return S.Hold(0); });
 
@@ -27641,7 +27641,7 @@ public static class Shapes
     public static Cell<int> Ab237SystemClockTimerSystemWithAFunctionThatReadsNoCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { using SystemClockTimerSystem timers = new(now: () => DateTime.MinValue, handleException: static _ => { }); return S.Hold(0); });
 
-    // S6431. The Dispose of a SystemClockTimerSystem calls Stop of its clock, and not the function of the time. That function can sample a local that has a cell made from the placeholder only after the constructor. It samples only when a flag is set, and nothing sets it, thus the timer thread reads no cell.
+    // S6431. The Dispose of a SystemClockTimerSystem calls Stop of its clock after the transaction releases its lock, and not the function of the time. That function can sample a local that has a cell made from the placeholder only after the constructor. It samples only when a flag is set, and nothing sets it, thus the timer thread reads no cell.
     public static Cell<int> Ab237SystemClockTimerSystemDisposeCallsNoFunctionOfTheTime() =>
         Cell.Loop<int>().WithoutCaptures(l => { bool late = Never; Cell<int> c = Plain; SystemClockTimerSystem timers = new(now: () => late ? DateTime.MinValue.AddTicks(c.Sample()) : DateTime.MinValue, handleException: static _ => { }); c = l.Map(v => v); timers.Dispose(); return S.Hold(0); });
 
@@ -29921,7 +29921,7 @@ public static class Shapes
     public static Cell<int> R5FuClockInALocalRunsItsTimer() =>
         Cell.Loop<int>().WithoutCaptures(l => { R4ApiStepClock clock = new(); clock.SetTimer(1, () => Kept.Add(l.Sample())); clock.RunTimersTo(2); return S.Hold(0); });
 
-    // S7001. Control: the timer system in a local, disposed through the local.
+    // S7001. Control: the timer system in a local, disposed through the local. The Dispose removes the hook. The Stop of its clock runs after the transaction releases its lock, thus not in the block.
     public static Cell<int> R5FuTimerSystemInALocalDisposed() =>
         Cell.Loop<int>().WithoutCaptures(l => { TimerSystem<int> timers = new(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { }); timers.Dispose(); return S.Hold(0); });
 
@@ -40673,11 +40673,11 @@ public static class Shapes
     public static Cell<int> Ab317DebounceCallsOnlyTheAtThatSamples() =>
         Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(S.Debounce(timers: new Ab317AtReadingTimers(l.Map(v => v)), deadline: n => n + 1)); return S.Hold(0); });
 
-    // S9689. A static field holds a timer system whose clock samples at Stop. The block disposes it through the field.
+    // S9689. A static field holds a timer system whose clock samples at Stop. The block disposes it through the field. The Dispose removes the hook. The Stop runs after the transaction releases its lock, thus not in the block.
     public static Cell<int> R5FuTimerSystemInAFieldDisposed() =>
         Cell.Loop<int>().WithoutCaptures(l => { R5FuTimers = new TimerSystem<int>(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { }); R5FuTimers.Dispose(); return S.Hold(0); });
 
-    // S9690. A list holds a timer system whose clock samples at Stop. A foreach disposes each item of the list.
+    // S9690. A list holds a timer system whose clock samples at Stop. A foreach disposes each item of the list. The Dispose removes the hook. The Stop runs after the transaction releases its lock, thus not in the block.
     public static Cell<int> R5FuTimerSystemInAListDisposed() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<IDisposable> all = [new TimerSystem<int>(implementation: new R4ApiStopReadingClock(l.Map(v => v)), handleException: static _ => { })]; foreach (IDisposable d in all) { d.Dispose(); } return S.Hold(0); });
 
@@ -48524,12 +48524,17 @@ public static class Shapes
     public sealed class Ab179PlainDerived : Ab179ReadingBase;
 
     // A clock that a shape moves by hand, with the timer system over it. A step of the clock opens a
-    // transaction, and the timer system runs each timer that is due at the start of it.
+    // transaction, and the timer system runs each timer that is due at the start of it. The timer
+    // system gives the exception of an alarm's transaction to its handler, and not to the transaction
+    // of the step. Thus, the step throws the first exception that the handler got, so that a shape
+    // whose alarm makes a cycle still throws.
     public sealed class Ag89Clock : IDisposable, ITimerSystemImplementation<int>
     {
+        private readonly List<Exception> handled = [];
+
         private readonly List<(int Time, Action Callback, Ag89Timer Timer)> timers = [];
 
-        public Ag89Clock() => this.Timers = new TimerSystem<int>(implementation: this, handleException: static _ => { });
+        public Ag89Clock() => this.Timers = new TimerSystem<int>(implementation: this, handleException: this.handled.Add);
 
         public TimerSystem<int> Timers { get; }
 
@@ -48539,6 +48544,7 @@ public static class Shapes
         {
             this.Now = now;
             Transaction.RunVoid(static () => { });
+            R4ApiRethrow(this.handled);
         }
 
         public void Dispose() => this.Timers.Dispose();
