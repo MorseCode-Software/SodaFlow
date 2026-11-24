@@ -810,33 +810,51 @@ public sealed class TimerTests
     // transaction. A disposal in a transaction thus waited for a thread that waited for its lock.
     // The stop now waits for the release of the lock, and no alarm gets to the graph after the
     // call.
+    //
+    // The test moves the clock only after the worker opens its transaction. Thus, the timer thread
+    // always fires the alarm while the worker holds the lock. With a real clock, a slow start of
+    // the worker let the start hook of its transaction give the alarm before the disposal.
     [Test]
     public async Task ADisposalInATransactionWhileAnAlarmFiresEnds()
     {
-        SecondsTimerSystem timers = new(Ignore);
+        TaskCompletionSource<bool> firing = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<bool> opened = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        FiringHandClock clock = new(firing);
+
+        // Not kept for a disposal at the end of the test. Without the fix, that disposal waits for
+        // the timer thread of the deadlock, and the run does not end.
+        TimerSystem<double> timers = new(implementation: clock, handleException: Ignore);
         CellSink<Maybe<double>> deadline = Cell.CreateSink<Maybe<double>>(Maybe.None);
         List<double> alarms = [];
         IListener l = timers.At(deadline).Listen(alarms.Add);
+        bool[] firedInTheTransaction = [false];
 
-        // Due in 100 ms. The timer thread fires it while the worker holds its transaction open, and
-        // then waits for that transaction.
-        deadline.Send(Maybe.Some(timers.Time.Sample() + 0.1));
+        deadline.Send(Maybe.Some(10.0));
 
         Thread worker =
             new(() =>
                 Transaction.RunVoid(() =>
                 {
-                    Thread.Sleep(500);
+                    opened.SetResult(true);
+
+                    // The timer thread fires the alarm, and then waits for the lock of this
+                    // transaction.
+                    firedInTheTransaction[0] = firing.Task.Wait(TimeSpan.FromSeconds(10));
                     timers.Dispose();
                 })) { IsBackground = true };
 
         worker.Start();
+
+        await Assert.That(opened.Task.Wait(TimeSpan.FromSeconds(10))).IsTrue();
+
+        clock.MoveTo(10.0);
 
         // Before the disposal of the listener, which needs the lock that a stopped worker holds.
         await Assert.That(worker.Join(TimeSpan.FromSeconds(10))).IsTrue();
 
         l.Dispose();
 
+        await Assert.That(firedInTheTransaction[0]).IsTrue();
         await Assert.That(alarms).IsEmpty();
     }
 
@@ -887,6 +905,46 @@ public sealed class TimerTests
 
         protected override TimeSpan SubtractTimes(double first, double second) =>
             throw new InvalidOperationException("The test clock gives no interval.");
+    }
+
+    // A clock in seconds that a test moves, on the timer thread of the base. While a timer waits,
+    // the thread reads the clock again after one millisecond. Thus, a move fires a due timer on that
+    // thread at once. The event is set when the callback of a timer starts.
+    private sealed class FiringHandClock(in TaskCompletionSource<bool> firing) : ITimerSystemImplementation<double>
+    {
+        private readonly PollingClock clock = new();
+        private readonly TaskCompletionSource<bool> firing = firing;
+
+        public double Now => this.clock.Now;
+
+        public void Start(Action<Exception> handleException) => this.clock.Start(handleException);
+
+        public void Stop() => this.clock.Stop();
+
+        public ITimer SetTimer(double time, Action callback) =>
+            this.clock.SetTimer(
+                time: time,
+                callback: () =>
+                {
+                    this.firing.TrySetResult(true);
+                    callback();
+                });
+
+        public void RunTimersTo(double now) => this.clock.RunTimersTo(now);
+
+        internal void MoveTo(double now) => this.clock.MoveTo(now);
+
+        private sealed class PollingClock : TimerSystemImplementationBase<double>
+        {
+            private double now;
+
+            public override double Now => Volatile.Read(ref this.now);
+
+            internal void MoveTo(double now) => Volatile.Write(location: ref this.now, value: now);
+
+            protected override TimeSpan SubtractTimes(double first, double second) =>
+                first > second ? TimeSpan.FromMilliseconds(1) : TimeSpan.Zero;
+        }
     }
 
     // A clock on the base, with the thread of the base, for the tests of that thread.
