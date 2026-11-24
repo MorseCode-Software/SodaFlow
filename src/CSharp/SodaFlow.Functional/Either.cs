@@ -1130,7 +1130,8 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// </summary>
     /// <returns>
     ///     The name of the case held, followed by the value it holds. A default
-    ///     instance holds no case, and gives <c>{No case}</c>.
+    ///     instance holds no case and is not a valid value. It gives
+    ///     <c>{Invalid: default Either}</c>, which no valid value gives.
     /// </returns>
     /// <remarks>
     ///     This does not throw for a default instance, where <c>Match</c> throws. A
@@ -1139,7 +1140,7 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// </remarks>
     public override string ToString() =>
         this.valueType == 0
-            ? "{No case}"
+            ? "{Invalid: default Either}"
             : this.Match(onFirst: static v1 => $"First: {v1}", onSecond: static v2 => $"Second: {v2}");
 }
 
@@ -1769,7 +1770,8 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     /// </summary>
     /// <returns>
     ///     The name of the case held, followed by the value it holds. A default
-    ///     instance holds no case, and gives <c>{No case}</c>.
+    ///     instance holds no case and is not a valid value. It gives
+    ///     <c>{Invalid: default Either}</c>, which no valid value gives.
     /// </returns>
     /// <remarks>
     ///     This does not throw for a default instance, where <c>Match</c> throws. A
@@ -1778,7 +1780,7 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     /// </remarks>
     public override string ToString() =>
         this.valueType == 0
-            ? "{No case}"
+            ? "{Invalid: default Either}"
             : this.Match(
                 onFirst: static v1 => $"First: {v1}",
                 onSecond: static v2 => $"Second: {v2}",
@@ -2579,7 +2581,8 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
     /// </summary>
     /// <returns>
     ///     The name of the case held, followed by the value it holds. A default
-    ///     instance holds no case, and gives <c>{No case}</c>.
+    ///     instance holds no case and is not a valid value. It gives
+    ///     <c>{Invalid: default Either}</c>, which no valid value gives.
     /// </returns>
     /// <remarks>
     ///     This does not throw for a default instance, where <c>Match</c> throws. A
@@ -2588,7 +2591,7 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
     /// </remarks>
     public override string ToString() =>
         this.valueType == 0
-            ? "{No case}"
+            ? "{Invalid: default Either}"
             : this.Match(
                 onFirst: static v1 => $"First: {v1}",
                 onSecond: static v2 => $"Second: {v2}",
@@ -3571,7 +3574,8 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
     /// </summary>
     /// <returns>
     ///     The name of the case held, followed by the value it holds. A default
-    ///     instance holds no case, and gives <c>{No case}</c>.
+    ///     instance holds no case and is not a valid value. It gives
+    ///     <c>{Invalid: default Either}</c>, which no valid value gives.
     /// </returns>
     /// <remarks>
     ///     This does not throw for a default instance, where <c>Match</c> throws. A
@@ -3580,7 +3584,7 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
     /// </remarks>
     public override string ToString() =>
         this.valueType == 0
-            ? "{No case}"
+            ? "{Invalid: default Either}"
             : this.Match(
                 onFirst: static v1 => $"First: {v1}",
                 onSecond: static v2 => $"Second: {v2}",
@@ -4746,7 +4750,8 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
     /// </summary>
     /// <returns>
     ///     The name of the case held, followed by the value it holds. A default
-    ///     instance holds no case, and gives <c>{No case}</c>.
+    ///     instance holds no case and is not a valid value. It gives
+    ///     <c>{Invalid: default Either}</c>, which no valid value gives.
     /// </returns>
     /// <remarks>
     ///     This does not throw for a default instance, where <c>Match</c> throws. A
@@ -4755,7 +4760,7 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
     /// </remarks>
     public override string ToString() =>
         this.valueType == 0
-            ? "{No case}"
+            ? "{Invalid: default Either}"
             : this.Match(
                 onFirst: static v1 => $"First: {v1}",
                 onSecond: static v2 => $"Second: {v2}",
@@ -6108,7 +6113,8 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     /// </summary>
     /// <returns>
     ///     The name of the case held, followed by the value it holds. A default
-    ///     instance holds no case, and gives <c>{No case}</c>.
+    ///     instance holds no case and is not a valid value. It gives
+    ///     <c>{Invalid: default Either}</c>, which no valid value gives.
     /// </returns>
     /// <remarks>
     ///     This does not throw for a default instance, where <c>Match</c> throws. A
@@ -6117,7 +6123,7 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     /// </remarks>
     public override string ToString() =>
         this.valueType == 0
-            ? "{No case}"
+            ? "{Invalid: default Either}"
             : this.Match(
                 onFirst: static v1 => $"First: {v1}",
                 onSecond: static v2 => $"Second: {v2}",
@@ -7671,7 +7677,8 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// </summary>
     /// <returns>
     ///     The name of the case held, followed by the value it holds. A default
-    ///     instance holds no case, and gives <c>{No case}</c>.
+    ///     instance holds no case and is not a valid value. It gives
+    ///     <c>{Invalid: default Either}</c>, which no valid value gives.
     /// </returns>
     /// <remarks>
     ///     This does not throw for a default instance, where <c>Match</c> throws. A
@@ -7680,7 +7687,7 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// </remarks>
     public override string ToString() =>
         this.valueType == 0
-            ? "{No case}"
+            ? "{Invalid: default Either}"
             : this.Match(
                 onFirst: static v1 => $"First: {v1}",
                 onSecond: static v2 => $"Second: {v2}",
