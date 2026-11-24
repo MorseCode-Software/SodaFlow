@@ -53,6 +53,7 @@
         <Compile Include="NodeTests.cs"/>
         <Compile Include="OnceTests.cs"/>
         <Compile Include="PrioritizedTests.cs"/>
+        <Compile Include="SecondsClockTests.cs"/>
         <Compile Include="SnapshotLatestTests.cs"/>
         <Compile Include="TransactionIdSequenceTests.cs"/>
         <Compile Include="TransactionTests.cs"/>

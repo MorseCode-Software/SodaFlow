@@ -493,8 +493,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   caller set only where its call of `RunTimersTo` runs on every path of that method.
   A `Cancel` or a `Dispose` of the timer before the run, or the end of a `using` statement of it,
   takes the timer away when it runs on every path, outside a loop.
-  A `TimerSystem` calls `Start` and `Now` of its implementation when you construct it, and `Stop`
-  when you dispose it, also through a field or an element of a list. The construction of a
+  A `TimerSystem` calls `Start` and `Now` of its implementation when you construct it. Disposing it
+  inside a transaction calls `Stop` only after the transaction releases its lock, so a `Dispose` in
+  the block runs no `Stop` there, and the analyzer does not read it. The construction of a
   `SystemClockTimerSystem` calls its `now` function.
   `Debounce` reads the `Time` of its timer system, and calls its `At`, when you call it.
 - Code that waits. The analyzer reads a LINQ query or an iterator where something enumerates it, the
