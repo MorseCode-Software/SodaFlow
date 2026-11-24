@@ -200,7 +200,7 @@ internal sealed class PlatformCallersTests
                         continue;
                     }
 
-                    // A method that makes text is not a comparison.
+                    // A method that makes text does not compare.
                     PlatformCallbacks more = own & ~row & ~PlatformCallbacks.Text;
 
                     if (more != PlatformCallbacks.None)

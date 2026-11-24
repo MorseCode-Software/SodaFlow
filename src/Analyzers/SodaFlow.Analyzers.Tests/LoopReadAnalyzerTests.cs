@@ -370,7 +370,7 @@ internal sealed partial class LoopReadAnalyzerTests
     /// <summary>
     ///     The analyzer skips the search for a member that the platform calls
     ///     when the compilation declares no such member. A comparer is one of
-    ///     them. The shapes file declares each kind, thus it cannot show that the
+    ///     them. The shapes file declares each type, thus it cannot show that the
     ///     search runs for a compilation that declares only a comparer. The
     ///     search has one gate for a call and one for an indexer, and the code has
     ///     the two. The first put into each empty collection calls nothing, thus
@@ -528,7 +528,7 @@ internal sealed partial class LoopReadAnalyzerTests
                         return S.Hold(0);
                     });
 
-                // The pair goes to a method, which gives each of its states an origin.
+                // The pair goes to a method, which gives each of its states a source.
                 public static Cell<int> PlainKeyInAMethod() =>
                     Cell.Loop<int>().WithoutCaptures(l =>
                     {
@@ -1742,8 +1742,8 @@ internal sealed partial class LoopReadAnalyzerTests
           }
           """;
 
-    // An assertion on a collection names ten of its items and counts the others. The reason names
-    // each mismatch, so that one run says all that changed.
+    // An assertion on a collection names ten of its items and counts the others. The message of the failure names each
+    // mismatch, so that one run shows all that changed.
     private static async Task NoMismatches(IReadOnlyCollection<string> mismatches) =>
         await Assert.That(mismatches.Count)
             .IsEqualTo(0)
@@ -1818,7 +1818,7 @@ internal sealed partial class LoopReadAnalyzerTests
         /// <summary>The shape samples a looped value before the loop closes.</summary>
         ReadsEarly,
 
-        /// <summary>The shape closes a loop with a value that is linked to the loop.</summary>
+        /// <summary>The shape closes a loop with a value that links to the loop.</summary>
         MakesCycle,
 
         /// <summary>

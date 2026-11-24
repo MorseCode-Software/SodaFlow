@@ -1011,7 +1011,7 @@ internal sealed class ListenerCodeFixTests
                 .Select(static offer => offer.Key ?? string.Empty)
         ];
 
-    // The sample after one fix of one report, with the line ends of the samples.
+    // The sample after one change of the CodeFixProvider for one report, with the line ends of the samples.
     private static async Task<string> Fixed(string source, string key, int at = 0) =>
         ((await Offers(source)).FirstOrDefault(offer => offer.Report == at && offer.Key == key)
          ?? throw new InvalidOperationException($"The provider offers no fix {key}."))
