@@ -308,21 +308,23 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
         {
             TKey key = keySelector(item.Identity);
 
-            if (before.ContainsKey(key) && !removed.Contains(key))
-            {
-                throw new InvalidOperationException(
-                    $"Key '{key}' already exists. Re-keying is a remove followed by an add.");
-            }
-
             // Two adds of one key in one transaction, in one edit or in the edits of two streams.
             // The removes of an edit come before its adds, thus no remove can come between the two.
             // The result then is the add that the merge puts last, and SodaFlow gives no sequence
-            // to that merge. Thus, this refuses it, as CombineWith refuses two updates.
+            // to that merge. Thus, this refuses it, as CombineWith refuses two updates. This check
+            // comes first. The first add takes its key out of the removals. The check below then
+            // gives an incorrect cause for a removal and two adds of one key in the store.
             if (!added.Add(key))
             {
                 throw new InvalidOperationException(
                     $"Key '{key}' is added twice in one transaction. Merge order is arbitrary, so the "
                     + "result has no defined value. Add each key once.");
+            }
+
+            if (before.ContainsKey(key) && !removed.Contains(key))
+            {
+                throw new InvalidOperationException(
+                    $"Key '{key}' already exists. Re-keying is a remove followed by an add.");
             }
 
             removed.Remove(key);
