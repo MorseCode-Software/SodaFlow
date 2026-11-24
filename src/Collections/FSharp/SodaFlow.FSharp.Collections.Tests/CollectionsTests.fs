@@ -304,6 +304,11 @@ type ``Collections Tests``() =
             edits |> sendS (updateEdit "aBc" (fun state -> { state with Score = 2 }))
 
             do! Expect.Equal(Some 2, scoreOf "ABC")
+
+            // The comparer of the collection cannot see a spelling. Thus, this compares the strings.
+            let stateKeys = (collection |> snapshotCell |> sampleC).States.Keys |> List.ofSeq
+
+            do! Expect.Sequence([ "ABC" ], stateKeys)
         }
 
     [<Test>]
