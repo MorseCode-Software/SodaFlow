@@ -21,7 +21,8 @@ checked only against the items before the transaction. A remove and an add of on
 re-key, as before. For the same reason, two updates of one key now throw when the collection's key comparer makes
 their keys one, as "a" and "A" are under StringComparer.OrdinalIgnoreCase: CombineWith compares the keys of two
 updates with the default comparer, the only one it has, so it let them through, and they composed in the order of the
-merge.
+merge. The check for two adds comes before the check for a key already in the store, so a remove and two adds of a key
+in the store now report the two adds and not that the key already exists.
 
 Fixed: under a key comparer that makes several spellings one key, such as StringComparer.OrdinalIgnoreCase, an update
 or a removal that named a key in a spelling other than the one its item arrived with carried the spelling of the edit.
@@ -30,7 +31,11 @@ and the keys of a sort view after a move took the spelling of the edit. The two 
 and a sort built afresh gave a different string from the sort already built. A lookup through the comparer of the
 collection could not tell the difference, and no value was ever wrong. Now each key that an update or a removal names
 takes the spelling that the store already has. An update of a key that the same edit adds keeps the spelling of that
-add, because the add is the arrival.
+add, because the add is the arrival. A replace, which is a remove and an add of one key in one transaction, is an
+arrival too, and its new item keeps the spelling of the add. But the removal of the old item also took the spelling of
+the add, in the operations of the root and of each view and in the Removed of each view's item change, so a consumer
+that kept the key it got with the insert could not match it. The removal now names the spelling of the item that
+leaves.
 
 Fixed: disposing a MappedItems did not stop the projection. Dispose released every object the projection held and
 emptied its cache, but Items was still a map of the keys, so the next change of the keys ran the projection again for

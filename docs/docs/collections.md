@@ -868,7 +868,9 @@ each key once. Both checks use the collection's key comparer, so under
 `StringComparer.OrdinalIgnoreCase` an update of `"a"` and an update of `"A"` are two transforms
 for one key. Whichever spelling an edit uses, a key keeps the spelling its item arrived with: an
 update or a removal of `"A"` for an item added as `"a"` reports `"a"` in the item change, in the
-snapshot, and in every view.
+snapshot, and in every view. A remove of `"a"` and an add of `"A"` in one transaction replaces the
+item, and the replacement is a new arrival: the new item is `"A"`, and the removal of the old one
+reports `"a"`.
 
 An update against a key that is not there throws `KeyNotFoundException`; an add of a key that
 is already there throws `InvalidOperationException`; and an edit that resolves to no change at
