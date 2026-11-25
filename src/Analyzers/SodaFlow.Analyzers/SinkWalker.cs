@@ -1287,7 +1287,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         this.Report(current);
 
-        return current?.State ?? LoopState.None;
+        return (current?.State ?? LoopState.None).Join(
+            this.ValueOfAnAutoProperty(
+                owner: this.evaluator.NowInTheStore(enumerator.State),
+                property: calls.Current));
     }
 
     // A foreach calls Dispose on an enumerator that has it, when the loop ends. An await in the body

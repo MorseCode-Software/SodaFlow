@@ -157,6 +157,7 @@
         <Compile Include="SinkWalker.UndecidedRuns.cs"/>
         <Compile Include="SinkWalker.ReplacedReads.cs"/>
         <Compile Include="SinkWalker.PatternTypes.cs"/>
+        <Compile Include="SinkWalker.AutoProperties.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
         <Compile Include="StaticOwner.cs"/>
         <Compile Include="UnchangedStatics.cs"/>

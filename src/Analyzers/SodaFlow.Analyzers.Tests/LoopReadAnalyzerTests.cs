@@ -118,7 +118,10 @@ internal sealed partial class LoopReadAnalyzerTests
         // is in a branch on the result, the local had a different object before, or the call is through an interface.
         "Ab415TryGetValueInAnIfPendingThenPlain",
         "Ab415TryGetValueThroughAnInterface",
-        "Ab415TryGetValueIntoAnOlderLocal"
+        "Ab415TryGetValueIntoAnOlderLocal",
+        // A foreach calls MoveNext of an enumerator of the code before it reads Current. The walk joins the value that
+        // MoveNext gives the auto-property Current with the value that the constructor gave it.
+        "Ab439SyncCurrentReplacedInMoveNext"
     ];
 
     private static readonly Assembly[] ShapeLibraries =

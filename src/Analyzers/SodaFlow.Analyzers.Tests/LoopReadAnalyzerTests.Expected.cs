@@ -9170,6 +9170,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab441FirstOfAnImmutableArrayOfTheCaughtObject"] = ["SF1001"],
             ["Ab441IndexOfToArray"] = ["SF1001"],
             ["Ab441ValueOfAPairFromCreate"] = ["SF1001"],
-            ["Ab441ItemOfATupleFromCreate"] = ["SF1001"]
+            ["Ab441ItemOfATupleFromCreate"] = ["SF1001"],
+            ["Ab439CurrentFromAPrimaryConstructor"] = ["SF1001"],
+            ["Ab439CurrentFromAnInParameterOfAPrimaryConstructor"] = ["SF1001"],
+            ["Ab439SyncCurrentFromAPrimaryConstructor"] = ["SF1001"],
+            ["Ab439DirectCurrentFromAPrimaryConstructor"] = ["SF1001"],
+            ["Ab439SyncCurrentSetInTheConstructor"] = ["SF1001"],
+            ["Ab439SyncCurrentSetInMoveNext"] = ["SF1001"],
+            ["Ab439SyncCurrentReplacedInMoveNext"] = ["SF1001"]
         };
 }

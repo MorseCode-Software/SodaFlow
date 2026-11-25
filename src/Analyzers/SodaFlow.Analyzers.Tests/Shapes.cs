@@ -64410,6 +64410,38 @@ public static class Shapes
     public static Cell<int> Ab441NumbersFromALinkedListOfCells() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; ImmutableArray<int> n = cells.Select(static c => 1).ToImmutableArray(); foreach (object o in n) { if (o is Cell<int> c) { Kept.Add(c.Sample()); } } return S.Hold(0); });
 
+    // S15630. An await foreach reads Current of an enumerator of the code. A parameter of the primary constructor gives Current its cell, and the body samples that cell.
+    public static Cell<int> Ab439CurrentFromAPrimaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (Cell<int> n in new Ab439OneCell(l.Map(v => v))) { Kept.Add(n.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S15631. The same, with an in parameter of the primary constructor.
+    public static Cell<int> Ab439CurrentFromAnInParameterOfAPrimaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (Cell<int> n in new Ab439OneCellIn(l.Map(v => v))) { Kept.Add(n.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S15632. A foreach reads Current of an enumerator of the code. A parameter of the primary constructor gives Current its cell, and the body samples that cell.
+    public static Cell<int> Ab439SyncCurrentFromAPrimaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (Cell<int> n in new Ab439OneSyncCell(l.Map(v => v))) { Kept.Add(n.Sample()); } return S.Hold(0); });
+
+    // S15633. The code reads Current of the enumerator of the code itself, after MoveNextAsync. The cell of Current comes from the primary constructor.
+    public static Cell<int> Ab439DirectCurrentFromAPrimaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab439OneCellWalker walker = new(l.Map(v => v)); Kept.Add(walker.Current.Sample()); return S.Hold(0); });
+
+    // S15634. An await foreach reads Current of an enumerator of the code whose primary constructor gets a plain cell. The body samples that cell, thus it returns.
+    public static Cell<int> Ab439CurrentFromAPrimaryConstructorWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (Cell<int> n in new Ab439OneCell(Plain)) { Kept.Add(n.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S15635. A foreach reads Current of an enumerator of the code. Its constructor gives Current the cell, and the body samples that cell.
+    public static Cell<int> Ab439SyncCurrentSetInTheConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (Cell<int> n in new Ab439SetCell(l.Map(v => v))) { Kept.Add(n.Sample()); } return S.Hold(0); });
+
+    // S15636. A foreach reads Current of an enumerator of the code. MoveNext gives Current the cell, and the body samples that cell.
+    public static Cell<int> Ab439SyncCurrentSetInMoveNext() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (Cell<int> n in new Ab439MovedCell(l.Map(v => v))) { Kept.Add(n.Sample()); } return S.Hold(0); });
+
+    // S15637. A foreach reads Current of an enumerator of the code. The constructor gives Current the linked cell, and MoveNext then gives it a plain cell. Thus, the body samples the plain cell.
+    public static Cell<int> Ab439SyncCurrentReplacedInMoveNext() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (Cell<int> n in new Ab439ReplacedCell(l.Map(v => v))) { Kept.Add(n.Sample()); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -118843,6 +118875,141 @@ public static class Shapes
         all = other;
 
         return all is R4CsFault f ? f.Share.Sample() : 0;
+    }
+
+    // Helpers of the shapes of AB439.
+    public sealed class Ab439OneCell(Cell<int> share) : IAsyncEnumerable<Cell<int>>
+    {
+        public IAsyncEnumerator<Cell<int>> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            new Ab439OneCellWalker(share);
+    }
+
+    public sealed class Ab439OneCellWalker(Cell<int> share) : IAsyncEnumerator<Cell<int>>
+    {
+        private bool done;
+
+        public Cell<int> Current { get; } = share;
+
+        public ValueTask<bool> MoveNextAsync()
+        {
+            bool more = !this.done;
+            this.done = true;
+
+            return ValueTask.FromResult(more);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    public sealed class Ab439OneCellIn(in Cell<int> share) : IAsyncEnumerable<Cell<int>>
+    {
+        private readonly Cell<int> share = share;
+
+        public IAsyncEnumerator<Cell<int>> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            new Ab439OneCellInWalker(this.share);
+    }
+
+    public sealed class Ab439OneCellInWalker(in Cell<int> share) : IAsyncEnumerator<Cell<int>>
+    {
+        private bool done;
+
+        public Cell<int> Current { get; } = share;
+
+        public ValueTask<bool> MoveNextAsync()
+        {
+            bool more = !this.done;
+            this.done = true;
+
+            return ValueTask.FromResult(more);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    public sealed class Ab439OneSyncCell(Cell<int> share)
+    {
+        public Ab439OneSyncCellWalker GetEnumerator() => new(share);
+    }
+
+    public sealed class Ab439OneSyncCellWalker(Cell<int> share)
+    {
+        private bool done;
+
+        public Cell<int> Current { get; } = share;
+
+        public bool MoveNext()
+        {
+            bool more = !this.done;
+            this.done = true;
+
+            return more;
+        }
+    }
+
+    public sealed class Ab439SetCell(Cell<int> share)
+    {
+        public Ab439SetCellWalker GetEnumerator() => new(share);
+    }
+
+    public sealed class Ab439SetCellWalker
+    {
+        private bool done;
+
+        public Ab439SetCellWalker(Cell<int> share) => this.Current = share;
+
+        public Cell<int> Current { get; }
+
+        public bool MoveNext()
+        {
+            bool more = !this.done;
+            this.done = true;
+
+            return more;
+        }
+    }
+
+    public sealed class Ab439MovedCell(Cell<int> share)
+    {
+        public Ab439MovedCellWalker GetEnumerator() => new(share);
+    }
+
+    public sealed class Ab439MovedCellWalker(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        private bool done;
+
+        public Cell<int> Current { get; private set; } = Plain;
+
+        public bool MoveNext()
+        {
+            bool more = !this.done;
+            this.done = true;
+            this.Current = this.share;
+
+            return more;
+        }
+    }
+
+    public sealed class Ab439ReplacedCell(Cell<int> share)
+    {
+        public Ab439ReplacedCellWalker GetEnumerator() => new(share);
+    }
+
+    public sealed class Ab439ReplacedCellWalker(Cell<int> share)
+    {
+        private bool done;
+
+        public Cell<int> Current { get; private set; } = share;
+
+        public bool MoveNext()
+        {
+            bool more = !this.done;
+            this.done = true;
+            this.Current = Plain;
+
+            return more;
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
