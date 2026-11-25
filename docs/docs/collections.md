@@ -337,7 +337,7 @@ The key still breaks the last tie, ascending, with the comparer the first level 
 order is over the identity alone only if every level is: one level that reads the state is enough
 for a state edit to re-file a key.
 
-## Three costs worth knowing
+## Costs worth knowing
 
 - **Changing a criteria** costs a pass over the stage's upstream however it is applied, because
   every key has to be tested against the new criteria. A *predicate* is the expensive end: the
