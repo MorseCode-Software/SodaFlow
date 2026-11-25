@@ -95,8 +95,10 @@ AsyncMapStatus<SaveRequest> status = saves.MapAsync(
         .Create(static request => request.DocumentId));
 ```
 
-The group key is compared with `EqualityComparer<TGroup>.Default`, so any type that equates
-sensibly will do.
+By default, the group key is compared with `EqualityComparer<TGroup>.Default`, so any type that
+equates sensibly will do. For a key that needs a different equality, such as a string compared
+without regard to case, pass it as `groupComparer`: `.Create(getGroup, groupComparer)` in C#, or
+`queuePerGroupStrategyWithComparer groupComparer getGroup` in F#.
 
 You can also write your own by subclassing `AsyncConcurrencyStrategy<TInput, TState>`, with the
 `AsyncConcurrencyStrategy<TState>` shorthand when the strategy does not read the input either.

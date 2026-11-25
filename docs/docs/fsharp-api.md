@@ -26,7 +26,7 @@ The F# surface is covered in the conceptual pages, which show C# and F# side by 
 start with [Getting started](getting-started.md). Beyond that, the source is short, documented and
 readable: one file per type under `src/FSharp/SodaFlow.FSharp`.
 
-Two spellings exist for every operation:
+Most operations have two spellings:
 
 ```fsharp
 // Qualified module functions.
@@ -39,8 +39,13 @@ let l = c |> listenC (printfn "%d")
 ```
 
 The suffix names the type operated on — `S` stream, `C` cell, `B` behavior, `L` listener,
-`T` transaction. `Shorthand.fs` is the single file listing every alias, and it doubles as the best
-available index of the F# API.
+`T` transaction. `Shorthand.fs` is the single file listing the aliases, and it doubles as an
+index of most of the F# API.
+
+Some functions have no alias and are spelled only the qualified way: the whole `Operational`
+module, `LazySample.map` and `LazySample.lift2` to `lift8`, `Listener.empty`, `Listener.fromList`,
+`Listener.fromSeq`, and `Listener.append`, and `Transaction.postWithFailureHandler`. For those,
+read the module's own file.
 
 ## What it would take to fix this
 

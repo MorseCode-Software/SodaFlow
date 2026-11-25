@@ -19,12 +19,15 @@ Two obvious shapes both scale with the collection rather than with the screen.
   from outside the graph.
 
 A reactive collection is neither. One cell holds the whole snapshot, one stream carries resolved
-changes, and a per-item observer is a filter over that stream. Watching one item costs one hash
-lookup per transaction no matter how large the collection is, and nothing is built for the items
-nobody is looking at.
+changes, and each collection keeps an index from key to the cells that watch that key. A change
+looks up only the keys it names, so a watched item that the change does not touch costs nothing,
+and nothing is built for the items nobody is looking at.
 
-That property is measured rather than asserted — see [Measuring it](#measuring-it), where an
-edit to an unwatched key costs 5.9 µs at a thousand items and 6.3 µs at ten thousand.
+That property is measured rather than asserted. One edit of one key in a collection of ten
+thousand items takes 1.6 to 1.8 µs on .NET 10 whether a hundred, a thousand, or ten thousand rows
+are bound, where each bound row used to filter every change and the same edit took 7.2 µs,
+61 µs, and 0.75 to 0.79 ms. `PerKeyEditBenchmarks` measures that, and
+[Measuring it](#measuring-it) compares the collection with the shapes people reach for instead.
 
 It lives in a separate package; see [Which package do I install?](packages.md).
 
@@ -221,12 +224,12 @@ It is only free because of how it is built. The natural implementation — lifti
 cell against the view's keys — costs about twice an ordinary edit, because every observer becomes
 a node the propagation walks whenever the view moves at all, and a reorder counts as moving.
 Holding membership per observer and calming it wins back about a quarter of that. This does
-neither. A view's per-item cell hangs off the view's own change stream, exactly as the
-collection's hangs off its item change stream, so an observer whose key was not named filters
-itself out and propagates no further.
+neither. A view keeps its own index from key to cell, exactly as the collection does, so a
+change of the view reaches only the cells of the keys it names and goes no further.
 
-An edit of many keys in one transaction is the other case. Every observer asks the change whether
-an operation names its key, and the change used to answer by scanning its operations, so a wide
+An edit of many keys in one transaction is the other case. Each cell that a change reaches asks
+the change whether an operation names its key, and a change that names more keys than have cells
+reaches every cell. The change used to answer by scanning its operations, so a wide
 edit against many observers paid for every observer against every operation, with almost every
 comparison finding nothing. A change with more than a few operations now builds a dictionary of
 its keys once it has answered more than a few observers, so a wide edit through a view costs
@@ -700,9 +703,9 @@ the same instance. A hand-rolled fold also has to handle `IsReset` itself, which
 operations: recompute from `change.Keys`.
 
 Use `StateMap`'s `Pairs` rather than `Keys` with a lookup for each. Both answer the same question; the second
-costs an O(log32 n) search per item and reads the trie in key order rather than in storage order,
-which measured three times slower at every size and made summing one field cost more than sorting
-the whole collection. That was found by writing this benchmark the wrong way first. `Fold` uses
+costs an O(log n) search of the tree from its root per item rather than one walk of it in storage
+order, which measured three times slower at every size and made summing one field cost more than
+sorting the whole collection. That was found by writing this benchmark the wrong way first. `Fold` uses
 `Pairs` for its first value for this reason.
 
 ## Measuring it
@@ -752,9 +755,13 @@ developer machine:
 | 10,000 | 0.71 µs | 3,010 µs | 6.3 µs |
 
 Ten times the items costs the stream-fed cells twenty-eight times the work and the collection
-seven percent. That is the property the design is for: the cost of an edit follows the number of
-bound rows, not the size of the collection. Sinks per field are flat too, and faster — they are
-also the shape you cannot feed from a stream.
+seven percent. That is the property the design is for: the cost of an edit does not follow the
+size of the collection. Sinks per field are flat too, and faster — they are also the shape you
+cannot feed from a stream.
+
+These figures predate the index from key to cell, when each of the twenty bound rows still tested
+every change, and they have not been taken again since. `PerKeyEditBenchmarks` measures what the
+index changed, as the opening of this page says.
 
 Standing the same collections up, on the same machine:
 
@@ -822,11 +829,12 @@ saving disappears into it. Subtract that floor and what is left is the chain's o
 
 Three to six percent of what the chain costs, consistently — the identity filter was ahead in
 every paired measurement, on both runtimes — and it does not grow with the collection. It is
-largest at ten thousand items and flat above that, because both things it skips are trie
-lookups costing O(log32 n), and log32 of a million is four where log32 of ten thousand is nearly
-three. There was never much room for the gap to open. Allocation is identical to the byte at
-every size, which is the row above's story again: what this skips is reading, and reading
-allocates nothing.
+largest at ten thousand items and flat above that. Both things it skips are lookups in an
+`ImmutableDictionary`, which is a balanced binary tree, so each costs O(log n): a depth of about
+fourteen at ten thousand items and twenty at a million. Six more nodes to read on each lookup are
+small beside an edit of seven microseconds, so there was never much room for the gap to open.
+Allocation is identical to the byte at every size, which is the row above's story again: what
+this skips is reading, and reading allocates nothing.
 
 The same table says something better about the collection than it does about `FilterByIdentity`. A
 hundred times the items costs an edit nineteen percent more — 2.77 µs to 3.36 µs with no chain,
@@ -841,7 +849,8 @@ a claim the signature keeps rather than one you make.
 times a re-derivation at ten thousand items. It was not always: the identity map used to be a
 plain dictionary, which can only produce its next version by being copied, so a structural edit
 was O(n) however cheaply the stages below it absorbed the change. This benchmark is what found
-that, and the map is a trie now.
+that, and the map is an `ImmutableDictionary` now, which writes O(log n) nodes for each key an
+edit adds or removes.
 
 **Changing the threshold** loses, by ten times at a thousand items and fifteen at ten
 thousand. A rebuild files every surviving key into a fresh ordered set, so the chain builds a
@@ -899,9 +908,9 @@ removal arrives as a value containing no value. The core says the same thing as 
 ## Storage
 
 `StateMap<TKey, TState>` is the seam where the storage strategy is chosen.
-`ImmutableStateMap` is the default: a hash array mapped trie, about O(log32 n) per update,
-allocating only the path from the root — roughly four nodes per edit at 100k items. Measure
-before replacing it.
+`ImmutableStateMap` is the default: an `ImmutableDictionary`, which is an AVL tree of hash
+buckets. An update is O(log n) and allocates only the path from the root — about seventeen nodes
+per edit at 100k items. Measure before replacing it.
 
 The contract an implementation must honor is that **a value returned by an instance never
 changes for the lifetime of that instance**. SodaFlow reads a cell's pre-transaction value

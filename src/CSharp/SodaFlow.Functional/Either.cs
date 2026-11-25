@@ -849,8 +849,9 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -1412,8 +1413,9 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -2100,8 +2102,9 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -2984,8 +2987,9 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -4032,8 +4036,9 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -5266,8 +5271,9 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,
@@ -6697,8 +6703,9 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     public Task<T> MatchAsync<T>(
         [InstantHandle] Func<T1, Task<T>> onFirst,

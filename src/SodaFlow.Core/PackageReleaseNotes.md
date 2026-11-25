@@ -82,7 +82,7 @@ merges, each a coalesce node, so a value crossed about log2 n nodes on its way o
 does not change: the value from the stream earlier in the list is the left argument of the function, whatever the
 order the inputs fired in, and a stream that fires more than once in a transaction folds its own firings first, in
 their order. Measured on an edit through the first of 1, 2, 8, and 32 edit streams of a collection, which merges them
-this way from SodaFlow.Core.Collections 3.0.0, .NET 10: 1.52, 1.71, 2.10, and 2.58 µs with the tree, and 1.51, 1.65,
+this way from SodaFlow.Collections.Core 3.0.0, .NET 10: 1.52, 1.71, 2.10, and 2.58 µs with the tree, and 1.51, 1.65,
 1.70, and 1.67 µs with the node.
 
 Lift of two to eight cells or behaviors, Lift of a list, Apply, SnapshotLatest, MergeMaybes, and Merge of two streams
@@ -501,7 +501,7 @@ one exception comes out as it is, and several come out together in an AggregateE
 posted, each followed by any throw from its own release. The code that ran the transaction gets the exception as before.
 A bindable value whose refresh was queued behind such an action was the visible casualty: with
 BindingScheduler.Immediate its refresh was dropped and it never refreshed again, which
-SodaFlow.Core.Bindable.ObjectModel 5.0.0 fixes on its side as well.
+SodaFlow.Bindable.ObjectModel.Core 5.0.0 fixes on its side as well.
 
 Fixed: MutableListener.SetListener stops the listener it replaces, and ClearListener stops the current one, as the
 documentation on both language surfaces said they did. Before, each only changed the field, so a caller who followed
@@ -573,7 +573,7 @@ a small object a transaction allocates on first request, with three states: unkn
 last actions or started its failure path, committed once the last actions have run, and failed from the start of the
 failure path, before any release or discard runs. Together they let an action that a transaction hands to another
 thread learn, when it runs there, whether the transaction committed, and read the cell when it cannot yet know.
-SodaFlow.Bindable.ObjectModel.Core 4.3.1 uses them so that a one-way bindable value never shows a value from a
+SodaFlow.Bindable.ObjectModel.Core 5.0.0 uses them so that a one-way bindable value never shows a value from a
 transaction that failed.
 
 Fixed: a step of the graph that threw could run again in a later transaction. The engine runs the queued steps of a
@@ -626,7 +626,7 @@ to 1,000 maps costs the same time and memory as before, within the noise of the 
 Added: the internal TransactionInternal.AfterReleaseImpl. It runs an action on the calling thread once the outermost
 transaction has released the transaction lock, including when that transaction failed. Outside a transaction it runs
 the action at once. Actions that throw do not stop the ones after them, and their exceptions come after the
-transaction's own, so no failure is lost. SodaFlow.Core.Async 5.0.2 uses it to start its operations outside the lock.
+transaction's own, so no failure is lost. SodaFlow.Async.Core 6.0.0 uses it to start its operations outside the lock.
 
 Every outermost transaction now checks for such actions as it releases the lock. On .NET 10 that has no measurable
 cost. On .NET Framework 4.7.2, measured back to back against the code before this change, an empty transaction went
@@ -635,7 +635,7 @@ TransactionBenchmarks in SodaFlow.Benchmarks measures it.
 
 Added: the internal ChooseImpl and ChooseInternal, which map and filter in one node where a map followed by a
 FilterSome built two. The language packages' Choose and choose use the first, and the per-key cells of
-SodaFlow.Core.Collections use the second, where it takes about a kilobyte off each cell. FilterSomeInternal, which
+SodaFlow.Collections.Core use the second, where it takes about a kilobyte off each cell. FilterSomeInternal, which
 takes this library's own optional type, no longer allocates a closure for every firing; the FilterSome of each language
 package is unchanged. The internal MaybeInternal.MatchSome, which that closure was the last use of, is removed.
 

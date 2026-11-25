@@ -95,12 +95,13 @@ you are reading before you copy an example.
 scope. Construction goes through static factories: `Stream.CreateSink<T>()`,
 `Cell.CreateSink(initial)`, `Cell.Constant(value)`.
 
-**F# offers two spellings of everything.** There are qualified module functions —
+**F# offers two spellings of most operations.** There are qualified module functions —
 `Stream.map`, `Cell.listen`, `StreamSink.send` — and a set of suffixed aliases in an
 `[<AutoOpen>]` module, so `open SodaFlow` alone gives you `mapS`, `listenC`, `sendS`,
 `sinkS`. The suffix names the type the function operates on: `S` for stream, `C` for cell,
 `B` for behavior, `L` for listener. They are the same functions; pick whichever reads better
-and stay consistent.
+and stay consistent. Some functions have no alias and are spelled only the qualified way;
+[F# and the API reference](fsharp-api.md) lists them.
 
 ## Build your graph inside a transaction
 

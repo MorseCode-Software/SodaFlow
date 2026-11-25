@@ -219,9 +219,9 @@ public sealed class AccountsViewModelOptimizedDrain : IAccountsViewModel
 
                 // This is each frozen account with a balance, across the full collection and not
                 // across the page or the filter, because a drain empties accounts that no user
-                // sees. This is a second view of the same accounts, and the graph keeps it current
-                // with the first view. The predicate reads only the state that it receives, thus
-                // an edit to one account costs this view one test of that account.
+                // sees. It is a set of keys, folded over the item changes of the collection, and
+                // not a second view. Thus, an edit to one account costs this fold one test of the
+                // new state and one lookup in the set.
                 Cell<ImmutableHashSet<int>> drainableAccountKeys =
                     accounts.ItemChangesStream.AccumLazy(
                         initialState: accounts.SnapshotCell.SampleLazy()

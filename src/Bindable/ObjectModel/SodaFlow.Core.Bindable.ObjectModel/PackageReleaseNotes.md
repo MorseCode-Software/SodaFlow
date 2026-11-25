@@ -22,7 +22,7 @@ value from a transaction that failed. The value's listener runs while the transa
 it saw; a transaction that failed after that point discarded the cell's update but the batch still reached the
 binding thread, so the screen showed a value the cell never took, until the next update. The two-way value was
 immune because it reads its cell on the binding thread. The posted action now asks the transaction how it ended, which
-SodaFlow.Core 5.0.1 records before any discard runs, and reads the cell only then; a transaction that commits costs
+SodaFlow.Core 6.0.0 records before any discard runs, and reads the cell only then; a transaction that commits costs
 one more reference in the closure the value already allocates and reads no cell on the binding thread. The
 scheduler sends its batch after every last action and every discard, so the answer is known before the batch leaves.
 Measured with 10,000 one-way values updated in one transaction and every notification delivered, the cost against

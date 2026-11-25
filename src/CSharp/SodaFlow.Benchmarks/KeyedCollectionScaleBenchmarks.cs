@@ -15,7 +15,7 @@ namespace SodaFlow.Benchmarks;
 ///         <see cref="KeyedCollectionViewBenchmarks" /> asks the same question at
 ///         a thousand items and ten thousand, with everything else it measures.
 ///         This asks only this question, and up to a million. The two paths are
-///         different by two trie lookups, a trie lookup costs <c>O(log32 n)</c>,
+///         different by two tree lookups, a tree lookup costs <c>O(log n)</c>,
 ///         and after a given size no structure stays in cache. If the difference
 ///         grows with the collection, this is where it shows.
 ///     </para>
@@ -27,7 +27,7 @@ namespace SodaFlow.Benchmarks;
 ///     <para>
 ///         The third arm has no chain at all, and it is here because the first run
 ///         of this benchmark is not readable without it. An edit pays for the
-///         transaction, the send operation, the trie write, and the change object
+///         transaction, the send operation, the tree write, and the change object
 ///         before it reads any stage. That floor is approximately two fifths of
 ///         what an excluded-key edit costs. Against the full number a stage-level
 ///         difference reads as noise, and the honest-looking result is that there

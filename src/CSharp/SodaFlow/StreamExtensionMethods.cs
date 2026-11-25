@@ -1994,21 +1994,21 @@ public static class StreamExtensionMethods
     public static Stream<T> Gate<T>(this Stream<T> s, Behavior<bool> b) => s.GateImpl(b);
 
     /// <summary>
-    ///     Return a stream that only outputs events which have a different value than
-    ///     the previous event.
+    ///     Return a stream that sends only the events whose value is different from
+    ///     the last value that it sent.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <returns>
-    ///     A stream that only outputs events which have a different value than
-    ///     the previous event.
+    ///     A stream that sends only the events whose value is different from the
+    ///     last value that it sent.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Calm<T>(this Stream<T> s) => s.CalmImpl(EqualityComparer<T>.Default.Equals);
 
     /// <summary>
-    ///     Return a stream that only outputs events which have a different value than
-    ///     the previous event.
+    ///     Return a stream that sends only the events whose value is different from
+    ///     the last value that it sent.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
@@ -2017,22 +2017,22 @@ public static class StreamExtensionMethods
     ///     equal.
     /// </param>
     /// <returns>
-    ///     A stream that only outputs events which have a different value than
-    ///     the previous event.
+    ///     A stream that sends only the events whose value is different from the
+    ///     last value that it sent.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Calm<T>(this Stream<T> s, IEqualityComparer<T> comparer) => s.CalmImpl(comparer.Equals);
 
     /// <summary>
-    ///     Return a stream that only outputs events which have a different value than
-    ///     the previous event.
+    ///     Return a stream that sends only the events whose value is different from
+    ///     the last value that it sent.
     /// </summary>
     /// <typeparam name="T">The type of the stream.</typeparam>
     /// <param name="s">The stream.</param>
     /// <param name="areEqual">The function that gives true when two items are equal.</param>
     /// <returns>
-    ///     A stream that only outputs events which have a different value than
-    ///     the previous event.
+    ///     A stream that sends only the events whose value is different from the
+    ///     last value that it sent.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<T> Calm<T>(this Stream<T> s, Func<T, T, bool> areEqual) => s.CalmImpl(areEqual);

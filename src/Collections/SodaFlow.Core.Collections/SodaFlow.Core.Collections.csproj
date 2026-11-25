@@ -32,7 +32,7 @@
     <ItemGroup>
         <PackageReference Include="System.ValueTuple" Version="4.6.2"/>
         <!--
-            The hash array mapped trie behind ImmutableStateMap, and the sorted set behind
+            The AVL tree of hash buckets behind ImmutableStateMap, and the sorted set behind
             SortedKeys. In the box on net6.0 and a real package on net472 and netstandard2.0, which
             is why this is unconditional: NuGet resolves the in-box implementation where there is
             one.

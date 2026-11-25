@@ -37,7 +37,7 @@ namespace SodaFlow.Benchmarks;
 ///         version only with a copy. Thus, a structural edit was <c>O(n)</c>, and
 ///         a low cost for the change in the stages below it made no difference.
 ///         That showed here as a chain that won by less as the collection grew,
-///         and not by more. The map is a trie now, and this is flat.
+///         and not by more. The map is an immutable tree now, and this is flat.
 ///     </para>
 ///     <para>
 ///         A <b>threshold change</b> is the condition the chain loses. A change to

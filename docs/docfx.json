@@ -10,8 +10,9 @@
         "compiled shape (modules as static classes, FSharpFunc in every signature), and those",
         "assemblies carry no /// comments to render anyway. See docs/fsharp-api.md.",
         "",
-        "TargetFramework is pinned because every project here multi-targets net472, net6.0 and",
-        "netstandard2.0. Without pinning, DocFX builds all three and emits duplicate members."
+        "TargetFramework is pinned because every project here multi-targets net472, net6.0,",
+        "net8.0, and netstandard2.0. Without pinning, DocFX builds each of them and emits",
+        "duplicate members."
       ],
       "src": [
         {

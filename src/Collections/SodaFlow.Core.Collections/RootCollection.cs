@@ -13,11 +13,11 @@ namespace SodaFlow.Collections;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         An observer of one item costs one hash lookup for each active observer
-///         and for each transaction, and that cost does not change with the size
-///         of the collection. This code makes an observer at the first read and
-///         keeps it in a weak cache. Thus, only the items with an observer have
-///         graph nodes.
+///         A change goes only to the observers of the keys that it names. Thus, an
+///         observer of one item costs nothing in a change of a different key. The
+///         size of the collection does not change that cost. This code makes an
+///         observer at the first read and keeps it in a weak cache. Thus, only the
+///         items with an observer have graph nodes.
 ///     </para>
 ///     <para>
 ///         No cell is in the value of a second cell. A
@@ -238,8 +238,9 @@ internal sealed class RootCollection<TKey, TIdentity, TState>
 
     /// <inheritdoc />
     /// <remarks>
-    ///     The cost is low, thus code can make one for each bound view. It filters on
-    ///     one hash lookup and does not read the other items.
+    ///     The cost is low, thus code can make one for each bound view. The router of
+    ///     this collection gives it only the changes that name its key, and it does
+    ///     not read the other items.
     ///     The key can be missing now. A removal sends <paramref name="onAbsent" />,
     ///     and a subsequent add with the same key sends <paramref name="onPresent" />
     ///     again. Thus, a view that binds to a key can continue after the item.

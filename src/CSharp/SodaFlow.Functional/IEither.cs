@@ -51,9 +51,9 @@ public interface IEitherOfTwo : IEither
     /// <param name="onSecond">Run with the value when the second case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -79,8 +79,9 @@ public interface IEitherOfTwo : IEither
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     Task<T> MatchAsync<T>(
         [InstantHandle] Func<object?, Task<T>> onFirst,
@@ -121,9 +122,9 @@ public interface IEitherOfThree : IEither
     /// <param name="onThird">Run with the value when the third case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -153,8 +154,9 @@ public interface IEitherOfThree : IEither
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     Task<T> MatchAsync<T>(
         [InstantHandle] Func<object?, Task<T>> onFirst,
@@ -199,9 +201,9 @@ public interface IEitherOfFour : IEither
     /// <param name="onFourth">Run with the value when the fourth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -235,8 +237,9 @@ public interface IEitherOfFour : IEither
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     Task<T> MatchAsync<T>(
         [InstantHandle] Func<object?, Task<T>> onFirst,
@@ -285,9 +288,9 @@ public interface IEitherOfFive : IEither
     /// <param name="onFifth">Run with the value when the fifth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -325,8 +328,9 @@ public interface IEitherOfFive : IEither
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     Task<T> MatchAsync<T>(
         [InstantHandle] Func<object?, Task<T>> onFirst,
@@ -379,9 +383,9 @@ public interface IEitherOfSix : IEither
     /// <param name="onSixth">Run with the value when the sixth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -423,8 +427,9 @@ public interface IEitherOfSix : IEither
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     Task<T> MatchAsync<T>(
         [InstantHandle] Func<object?, Task<T>> onFirst,
@@ -481,9 +486,9 @@ public interface IEitherOfSeven : IEither
     /// <param name="onSeventh">Run with the value when the seventh case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -529,8 +534,9 @@ public interface IEitherOfSeven : IEither
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     Task<T> MatchAsync<T>(
         [InstantHandle] Func<object?, Task<T>> onFirst,
@@ -591,9 +597,9 @@ public interface IEitherOfEight : IEither
     /// <param name="onEighth">Run with the value when the eighth case is held.</param>
     /// <returns>Whatever the function that was run returned.</returns>
     /// <remarks>
-    ///     This is the only member that reads the held value, and it expresses each
-    ///     other member here. This calls one function of the set, and it calls that
-    ///     function before this method returns.
+    ///     Each other member here agrees with this method. An implementation can read
+    ///     the held value in those members, and not call this method. This calls one
+    ///     function of the set, and it calls that function before this method returns.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onFirst,
@@ -643,8 +649,9 @@ public interface IEitherOfEight : IEither
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     Task<T> MatchAsync<T>(
         [InstantHandle] Func<object?, Task<T>> onFirst,
