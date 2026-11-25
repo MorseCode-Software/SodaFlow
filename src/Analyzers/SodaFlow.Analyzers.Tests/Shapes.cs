@@ -64654,6 +64654,22 @@ public static class Shapes
     public static Cell<int> Ab461TwoPutsOfTwoResults() =>
         Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot t = Ab447Make(1); t.Share = l.Map(v => v); line.Put(t); SettableSlot s = Ab447Make(0); s.Share = Plain; line.Put(s); s.Share = Plain; return S.Hold(line.All().First().Share!.Sample()); });
 
+    // S15691. AB463. The block gives a delegate member of a box a method group of an extension method of an object. A method of the object makes a map with that member. A different method sets the member that the extension method samples to a pending cell and samples the map.
+    public static Cell<int> Ab463AnExtensionGroupThatAMethodReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab463Box m = new(); m.Box.FMap = m.Ab463AddTo; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15692. AB463, an edge. The block names the extension method group through a second local of the same object.
+    public static Cell<int> Ab463AnExtensionGroupThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab463Box m = new(); Ab463Box k = m; m.Box.FMap = k.Ab463AddTo; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15693. AB463, a control. The extension method group is of a second object. The method of the first object sets its own member to a pending cell, and the group samples the member of the second object.
+    public static Cell<int> Ab463AnExtensionGroupOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab463Box m = new(); Ab463Box k = new(); m.Box.FMap = k.Ab463AddTo; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15694. AB463, an edge. The extension method group is of a second object, and the block sets the member of the second object to a pending cell. Then a method of the first object samples the map.
+    public static Cell<int> Ab463AnExtensionGroupOfASecondObjectWithAPendingMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab463Box m = new(); Ab463Box k = new(); m.Box.FMap = k.Ab463AddTo; m.Build(); k.Share = l.Map(v => v); return S.Hold(m.SetAndRead(Plain)); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119288,6 +119304,27 @@ public static class Shapes
     private static void Ab460PutThroughBoxZero(Cell<int> pending) => Ab460Box(0).Share = pending;
 
     private static void Ab460PutThroughANewBox(Cell<int> pending) => Ab447NewBox().Share = pending;
+
+    public sealed class Ab463Box
+    {
+        public readonly R6PairFnBox Box = new();
+
+        public Cell<int> Share = Cell.Constant(0);
+
+        private Cell<int> built = Cell.Constant(0);
+
+        public void Build() => this.built = Cell.Constant(1).Map(this.Box.FMap);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+            int r = this.built.Sample();
+
+            return r;
+        }
+    }
+
+    private static int Ab463AddTo(this Ab463Box box, int v) => v + box.Share.Sample();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

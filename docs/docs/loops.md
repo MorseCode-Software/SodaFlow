@@ -1082,8 +1082,8 @@ Some reads that throw it does not see:
   `this.factory = this.Read;` and then `new Lazy<int>(this.factory)`, is seen. So is a member of a
   different object that the constructor writes before the build, such as `this.box.F = this.Add;`
   and then `Map(this.box.F)`, such a member that the code which made your object writes, such as
-  `m.Box.F = m.Add;` before a method of `m` builds `Map(this.Box.F)`, and a delegate made from one
-  function, such as
+  `m.Box.F = m.Add;` or, with an extension method, `m.Box.F = m.AddTo;`, before a method of `m`
+  builds `Map(this.Box.F)`, and a delegate made from one function, such as
   `new Func<int>(this.Read)` or `new(this.Read)`, which counts as that function.
 - The objects of a task for a `catch` around `Task.WaitAll`, `Task.WaitAny`, or a wait of a task
   from `Task.Factory.StartNew`. The analyzer gives such a `catch` no object.

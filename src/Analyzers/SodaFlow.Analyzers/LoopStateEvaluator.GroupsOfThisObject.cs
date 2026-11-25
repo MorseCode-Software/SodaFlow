@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 
 namespace SodaFlow.Analyzers;
@@ -20,15 +21,31 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     /// <param name="function">The function that the read runs.</param>
     /// <param name="at">The expression of the value at the read.</param>
-    private FunctionValue AsAGroupOfThis(FunctionValue function, SyntaxNode at) =>
-        function is { OfThis: null, Extended: null }
-        && OwnerOfAGroup(function) is { } owner
-        && owner.Equals(this.OwnerOfThis(at))
+    private FunctionValue AsAGroupOfThis(FunctionValue function, SyntaxNode at)
+    {
+        if (function.OfThis != null
+            || OwnerOfAGroup(function) is not { } owner
+            || !owner.Equals(this.OwnerOfThis(at)))
+        {
+            return function;
+        }
+
+        // An extension method has no this. Its first parameter gets the receiver. Thus, the receiver is
+        // this, with the members of the record, as an argument of this is.
+        return function.Extended != null
             ? new FunctionValue(
+                declaration: function.Declaration,
+                definer: null,
+                receiver: LoopState.None.WithMembers(
+                    Construction.Of(this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default))),
+                ofThis: null,
+                owner: function.Owner,
+                extended: function.Extended)
+            : new FunctionValue(
                 declaration: function.Declaration,
                 definer: null,
                 receiver: null,
                 ofThis: this,
-                owner: null)
-            : function;
+                owner: null);
+    }
 }

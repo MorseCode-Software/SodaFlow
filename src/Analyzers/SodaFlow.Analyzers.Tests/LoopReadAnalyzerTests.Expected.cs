@@ -9210,6 +9210,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab460ASecondCallOfTheSameBoxInAMethod"] = ["SF1001"],
             ["Ab461ALineCopyWithAPlainCellOfItsOwn"] = ["SF1001"],
             ["Ab461ALineCopyThenASecondCallInAMethod"] = ["SF1001"],
-            ["Ab461TwoPutsOfTwoResults"] = ["SF1001"]
+            ["Ab461TwoPutsOfTwoResults"] = ["SF1001"],
+            ["Ab463AnExtensionGroupThatAMethodReads"] = ["SF1004"],
+            ["Ab463AnExtensionGroupThroughASecondLocal"] = ["SF1004"],
+            ["Ab463AnExtensionGroupOfASecondObjectWithAPendingMember"] = ["SF1005"]
         };
 }
