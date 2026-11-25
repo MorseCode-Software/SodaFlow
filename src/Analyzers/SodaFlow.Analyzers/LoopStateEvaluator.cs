@@ -182,9 +182,7 @@ internal sealed partial class LoopStateEvaluator
                     dictionary: this.locals,
                     comparer: SymbolEqualityComparer.Default),
                 assigned: new HashSet<ISymbol>(collection: this.assigned, comparer: SymbolEqualityComparer.Default),
-                thisMembers: new Dictionary<ISymbol, LoopState>(
-                    dictionary: this.thisMembers,
-                    comparer: SymbolEqualityComparer.Default),
+                thisMembers: this.ACopyOfTheRecordOfThis(),
                 setOnThis: new Dictionary<ISymbol, MadeObject?>(
                     dictionary: this.setOnThis,
                     comparer: SymbolEqualityComparer.Default),

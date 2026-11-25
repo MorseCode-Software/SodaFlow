@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
 
@@ -74,6 +75,31 @@ internal sealed partial class LoopStateEvaluator
 
         return found;
     }
+
+    // A copy of the record of the members of this, for a quiet evaluator. The copy has the start of the record. A write
+    // through a different name of the object is also a write for the reads of that evaluator.
+    private Dictionary<ISymbol, LoopState> ACopyOfTheRecordOfThis()
+    {
+        Dictionary<ISymbol, LoopState> copy =
+            new(dictionary: this.thisMembers, comparer: SymbolEqualityComparer.Default);
+
+        if (!this.region.Objects.IsEmpty
+            && this.region.StartsOfRecords.TryGetValue(key: this.thisMembers, value: out StartOfARecord? start))
+        {
+            this.region.StartsOfRecords.Add(key: copy, value: start);
+        }
+
+        return copy;
+    }
+
+    // The origin in this code of a read in a callee of a cell that came through a parameter. The argument has no
+    // origin, but a function of the cell can read a member of this. That member is then the origin, as for a read of
+    // the cell in this code. The cell ran in the callee, thus a quiet evaluator runs it again. Null where the
+    // argument has no cell to run.
+    private ISymbol? OriginOfACellArgument(ExpressionSyntax argument, LoopState given) =>
+        given.Computed.IsEmpty
+            ? null
+            : this.Quiet().AtTheFirstRead(read: argument, state: given, marks: null, again: true).Origin;
 
     /// <summary>
     ///     The objects of the store that a record of the members of this is

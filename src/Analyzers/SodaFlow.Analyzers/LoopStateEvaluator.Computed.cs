@@ -354,12 +354,17 @@ internal sealed partial class LoopStateEvaluator
     ///     such as a lambda that the caller gave. That read is a finding of the
     ///     caller. Null where no frame of a caller can have the function.
     /// </param>
+    /// <param name="again">
+    ///     True to run also each cell that a read before ran. Only a quiet
+    ///     evaluator can do this, because the run is not a read of the code.
+    /// </param>
     public LoopState AtTheFirstRead(
         SyntaxNode read,
         LoopState state,
         Action<ComputedValue, ReadKey?>? marks,
         ExpressionSyntax? heldIn = null,
-        Action<Finding>? ofACaller = null)
+        Action<Finding>? ofACaller = null,
+        bool again = false)
     {
         List<Finding> found = [];
         List<Finding>? ofCallers = null;
@@ -367,7 +372,7 @@ internal sealed partial class LoopStateEvaluator
         // A build that makes two or more cells has a record for each name of a read.
         ReadKey? key = state.Computed.Any(static cell => cell.ManyCells) ? this.ReadKeyOf(heldIn) : null;
 
-        foreach (ComputedValue cell in state.Computed.Where(cell => !cell.HasRunAt(key)))
+        foreach (ComputedValue cell in state.Computed.Where(cell => again || !cell.HasRunAt(key)))
         {
             // The mark comes before the walk of the functions. Thus, a function that reads its own
             // cell does not run again.

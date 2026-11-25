@@ -9228,6 +9228,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab458AWriteAtAnIndexThatIsNotAConstant"] = ["SF1001"],
             ["Ab459AListThatAMethodReturns"] = ["SF1001"],
             ["Ab459AnArrayThatAMethodReturns"] = ["SF1001"],
-            ["Ab459AListFromAStaticField"] = ["SF1001"]
+            ["Ab459AListFromAStaticField"] = ["SF1001"],
+            ["Ab466MapGivenToAReaderAfterAWriteThroughTheBlock"] = ["SF1005"],
+            ["Ab466MapGivenToAReaderAfterAWriteThroughAField"] = ["SF1005"],
+            ["Ab466MapGivenToAReaderThatGivesItOn"] = ["SF1005"],
+            ["Ab466MapGivenToAStaticReader"] = ["SF1005"],
+            ["Ab466MapGivenToAMethodOfThis"] = ["SF1005"],
+            ["Ab466MapGivenToAReaderWithAPendingMemberBeforeTheCall"] = ["SF1005"],
+            ["Ab466MapOfAHelperGivenToAReader"] = ["SF1005"],
+            ["Ab466MapOfALambdaGivenToAReader"] = ["SF1005"]
         };
 }

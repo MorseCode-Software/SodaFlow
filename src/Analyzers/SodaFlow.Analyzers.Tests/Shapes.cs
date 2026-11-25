@@ -64774,6 +64774,54 @@ public static class Shapes
     public static Cell<int> Ab459AListThatAMethodReturnsANewObjectKeepsItsCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> a = Ab459MakeE(); a[1].Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
 
+    // S15721. AB466. A method of an object maps with the group this.Add and runs a lambda of the block. The lambda sets the member that Add samples to a pending cell through the local of the block. Then the method gives the map to a method of a second object, and that method samples the map.
+    public static Cell<int> Ab466MapGivenToAReaderAfterAWriteThroughTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.MapThenGive(() => o.Share = l.Map(v => v), new Ab462Reader())); return S.Hold(0); });
+
+    // S15722. AB466. The same, but the lambda sets the member through a static field that holds the object.
+    public static Cell<int> Ab466MapGivenToAReaderAfterAWriteThroughAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Ab462Held = o; Kept.Add(o.MapThenGive(() => Ab462Held!.Share = l.Map(v => v), new Ab462Reader())); return S.Hold(0); });
+
+    // S15723. AB466. The same as the first shape, but the method of the second object gives the map to a second method. That method samples the map.
+    public static Cell<int> Ab466MapGivenToAReaderThatGivesItOn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapThenGiveOn(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
+    // S15724. AB466. The same as the first shape, but a static method samples the map.
+    public static Cell<int> Ab466MapGivenToAStaticReader() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapThenGiveToAStaticReader(() => o.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15725. AB466. The same as the first shape, but a second method of the same object samples the map.
+    public static Cell<int> Ab466MapGivenToAMethodOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapThenGiveToThis(() => o.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15726. AB466. The same as the first shape, but the block sets the member to a pending cell before the call, and the lambda does nothing.
+    public static Cell<int> Ab466MapGivenToAReaderWithAPendingMemberBeforeTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); o.Share = l.Map(v => v); Kept.Add(o.MapThenGive(() => { }, new Ab462Reader())); return S.Hold(0); });
+
+    // S15727. AB466. The same as the first shape, but a second method of the object makes the map and returns it.
+    public static Cell<int> Ab466MapOfAHelperGivenToAReader() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MakeMapThenGive(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
+    // S15728. AB466. The same as the first shape, but the map gets a lambda that samples the member through this.
+    public static Cell<int> Ab466MapOfALambdaGivenToAReader() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapWithALambdaThenGive(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
+    // S15729. AB466, a control. The same as the first shape, but the method of the second object does not sample the map.
+    public static Cell<int> Ab466MapGivenToAMethodThatDoesNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapThenGiveToAnIgnore(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
+    // S15730. AB466, a control. The same as the first shape, but the method gives the map to the second object before it runs the lambda.
+    public static Cell<int> Ab466MapGivenToAReaderBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapGiveThenRun(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
+    // S15731. AB466, a control. The same as the first shape, but the lambda sets the member to a plain cell.
+    public static Cell<int> Ab466MapGivenToAReaderAfterAPlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.MapThenGive(() => o.Share = Plain, new Ab462Reader())); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S15732. AB466, a control. The same as the first shape, but the method sets the member to a plain cell after the lambda runs.
+    public static Cell<int> Ab466MapGivenToAReaderAfterAPlainCellOfTheMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapRunSetPlainThenGive(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119610,6 +119658,94 @@ public static class Shapes
     private static List<SettableSlot> Ab459MakeD() => [new SettableSlot(), new SettableSlot()];
 
     private static List<SettableSlot> Ab459MakeE() => [Ab459ArrE[0], Ab459ArrE[0]];
+
+    public sealed class Ab466Class
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public int Add(int v) => v + this.Share.Sample();
+
+        public int MapThenGiveOn(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return reader.ReadThroughASecondMethod(map);
+        }
+
+        public int MapThenGiveToAStaticReader(Action write)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return Ab466Read(map);
+        }
+
+        public int MapThenGiveToThis(Action write)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return this.Read(map);
+        }
+
+        public int MapThenGiveToAnIgnore(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return reader.Ignore(map);
+        }
+
+        public int MapGiveThenRun(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            int value = reader.Read(map);
+            write();
+
+            return value;
+        }
+
+        public int MapRunSetPlainThenGive(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+            this.Share = Plain;
+
+            return reader.Read(map);
+        }
+
+        public int MakeMapThenGive(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = this.MakeMap();
+            write();
+
+            return reader.Read(map);
+        }
+
+        public int MapWithALambdaThenGive(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = Plain.Map(v => v + this.Share.Sample());
+            write();
+
+            return reader.Read(map);
+        }
+
+        private Cell<int> MakeMap() => Plain.Map(this.Add);
+
+        private int Read(Cell<int> cell) => cell.Sample();
+    }
+
+    public sealed class Ab466Reader
+    {
+        public int Read(Cell<int> cell) => cell.Sample();
+
+        public int ReadThroughASecondMethod(Cell<int> cell) => this.Read(cell);
+
+        public int Ignore(Cell<int> cell) => cell == Plain ? 1 : 0;
+    }
+
+    private static int Ab466Read(Cell<int> cell) => cell.Sample();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

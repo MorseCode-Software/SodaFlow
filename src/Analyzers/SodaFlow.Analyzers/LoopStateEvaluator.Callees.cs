@@ -897,7 +897,8 @@ internal sealed partial class LoopStateEvaluator
                     changed.Add(
                         new Finding(
                             home: this.Frame,
-                            origin: binding.State.AnyOrigin,
+                            origin: binding.State.AnyOrigin
+                                    ?? this.OriginOfACellArgument(argument: binding.Argument, given: binding.State),
                             escape: finding.Escape,
                             diagnostic: finding.Escape
                                 ? Diagnostic.Create(
