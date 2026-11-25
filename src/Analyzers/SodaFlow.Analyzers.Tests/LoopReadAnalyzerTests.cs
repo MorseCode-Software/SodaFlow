@@ -93,7 +93,32 @@ internal sealed partial class LoopReadAnalyzerTests
         // cannot know that a section runs before the code after the switch.
         "R5FuAwaitUsingInASwitchSectionStopsTheCodeAfter",
         "Ab285AwaitInTheOnlySectionOfASwitchWithNoDefault",
-        "Ab285AwaitInTheSectionsOfASwitchOnTrueAndFalse"
+        "Ab285AwaitInTheSectionsOfASwitchOnTrueAndFalse",
+        // A call that gets this can give a delegate member of this a new value. The analyzer does
+        // not read that call. Thus, it counts each value that the code of the class gives the member.
+        "Ab352CallWithThisThatDoesNotSetTheMember",
+        // A conditional ref on a condition that is not a constant selects one of two locations. The
+        // analyzer does not know which. Thus, a write through the ref goes to the two locations.
+        "R6LimWriteThroughAConditionalRefReadTheFirst",
+        "Ab374WriteThroughAConditionalRefOfALocalFunctionReadTheFirst",
+        // A call can give a field that is not readonly a new object. The analyzer does not read if the call did
+        // that. Thus, a read through the field gets each write through a local that got the field before the call.
+        "Ab430ACallGivesTheWritableFieldANewObjectBetween",
+        // The constructor puts this into the element only in a branch. The analyzer does not read if the branch
+        // runs. Thus, each element of the array can be the new object.
+        "Ab423AConstructorPutsThisInABranchThatDoesNotRun",
+        // No code calls the method that builds the member. Code that the analyzer does not read can call a public
+        // method, a method with an attribute, a method of a partial class, or a method of a class with a base class
+        // in a library. Thus, the analyzer counts the build of such a method.
+        "Ab417PublicMethodThatNothingCalls",
+        "Ab417PrivateMethodOfAPartialClassThatNothingCalls",
+        "Ab417PrivateMethodWithAnAttribute",
+        "Ab417PrivateMethodOfALibraryBase",
+        // The plain cell goes into the object of the key, but the analyzer does not replace the pending cell. The write
+        // is in a branch on the result, the local had a different object before, or the call is through an interface.
+        "Ab415TryGetValueInAnIfPendingThenPlain",
+        "Ab415TryGetValueThroughAnInterface",
+        "Ab415TryGetValueIntoAnOlderLocal"
     ];
 
     private static readonly Assembly[] ShapeLibraries =
@@ -331,7 +356,7 @@ internal sealed partial class LoopReadAnalyzerTests
             IReadOnlyList<Outcome> permitted =
                 rules.Length == 0 || ReportsOnTheCarefulSide.Contains(reportedIn)
                     ? [Outcome.Returns]
-                    : [.. rules.Where(static rule => rule != "SF1003").Select(OutcomeOf).Distinct()];
+                    : [.. rules.Where(static rule => rule != "SF1003").SelectMany(OutcomesOf).Distinct()];
 
             if (permitted.Count == 0)
             {
@@ -357,7 +382,7 @@ internal sealed partial class LoopReadAnalyzerTests
     /// <summary>
     ///     The analyzer skips the search for a member that the platform calls
     ///     when the compilation declares no such member. A comparer is one of
-    ///     them. The shapes file declares each kind, thus it cannot show that the
+    ///     them. The shapes file declares each type, thus it cannot show that the
     ///     search runs for a compilation that declares only a comparer. The
     ///     search has one gate for a call and one for an indexer, and the code has
     ///     the two. The first put into each empty collection calls nothing, thus
@@ -515,7 +540,7 @@ internal sealed partial class LoopReadAnalyzerTests
                         return S.Hold(0);
                     });
 
-                // The pair goes to a method, which gives each of its states an origin.
+                // The pair goes to a method, which gives each of its states a source.
                 public static Cell<int> PlainKeyInAMethod() =>
                     Cell.Loop<int>().WithoutCaptures(l =>
                     {
@@ -1692,6 +1717,120 @@ internal sealed partial class LoopReadAnalyzerTests
             .IsEquivalentTo(["SF1001"]);
     }
 
+    /// <summary>
+    ///     A function of a map can call a method of this compilation through a
+    ///     member access or a member binding. The walk reads such a function
+    ///     also in a compilation that declares no implicit conversion. The shapes
+    ///     file declares one, thus each name there can run code, and the shapes
+    ///     cannot show the call alone. Each method samples a static field that
+    ///     the block sets pending after the build.
+    /// </summary>
+    [Test]
+    public async Task ACallInAFunctionIsReadInACompilationThatDeclaresNoConversion()
+    {
+        const string source =
+            """
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly Cell<int> Plain = Cell.Constant(3);
+
+                public static Cell<int> ByAMemberAccess() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Shared.A = Plain;
+                        Cell<int> w = Plain.Map(v => v.ReadAfter());
+                        Shared.A = l.Map(v => v);
+
+                        return S.Hold(w.Sample());
+                    });
+
+                public static Cell<int> ByAMemberBinding() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Shared.B = Plain;
+                        Cell<int> w = Cell.Constant((Count?)new Count(1)).Map(n => n?.Read() ?? 0);
+                        Shared.B = l.Map(v => v);
+
+                        return S.Hold(w.Sample());
+                    });
+
+                public static class Shared
+                {
+                    public static Cell<int>? A;
+                    public static Cell<int>? B;
+                }
+
+                public readonly struct Count(int start)
+                {
+                    private readonly int start = start;
+
+                    public int Read() => this.start + Shared.B!.Sample();
+                }
+            }
+
+            public static class OnlyExtensions
+            {
+                public static int ReadAfter(this int v) => v + Only.Shared.A!.Sample();
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyACall", images: []))
+            .IsEquivalentTo(["SF1001", "SF1001"]);
+    }
+
+    /// <summary>
+    ///     A read of a static field in the code of its class runs the static
+    ///     initializers of the class. That is also true in a different part of a
+    ///     partial class. The analyzer reads them also in a compilation that
+    ///     declares no static constructor. The shapes file declares one, thus it
+    ///     cannot show this case. The initializer samples the pending cell.
+    /// </summary>
+    [Test]
+    public async Task AStaticInitializerIsReadFromASecondPartInACompilationThatDeclaresNoStaticConstructor()
+    {
+        const string source =
+            """
+            using System.Collections.Generic;
+            using SodaFlow;
+
+            public static class Only
+            {
+                private static readonly StreamSink<int> S = Stream.CreateSink<int>();
+                private static readonly List<object> Kept = [];
+
+                public static Cell<int> InASecondPart() =>
+                    Cell.Loop<int>().WithoutCaptures(l =>
+                    {
+                        Shared.A = l.Map(v => v);
+                        Kept.Add(new Parted().Get());
+
+                        return S.Hold(0);
+                    });
+
+                public static class Shared
+                {
+                    public static Cell<int>? A;
+                }
+
+                public sealed partial class Parted
+                {
+                    private static readonly int Value = Shared.A!.Sample();
+                }
+
+                public sealed partial class Parted
+                {
+                    public int Get() => Value;
+                }
+            }
+            """;
+
+        await Assert.That(await RulesIn(source: source, assemblyName: "OnlyStaticInitializers", images: []))
+            .IsEquivalentTo(["SF1005"]);
+    }
+
     // The rules that the analyzer reports for a source that is a compilation of its own.
     private static async Task<IReadOnlyList<string>> RulesIn(
         string source,
@@ -1729,12 +1868,18 @@ internal sealed partial class LoopReadAnalyzerTests
           }
           """;
 
-    // An assertion on a collection names ten of its items and counts the others. The reason names
-    // each mismatch, so that one run says all that changed.
+    // An assertion on a collection names ten of its items and counts the others. The message of the failure names each
+    // mismatch, so that one run shows all that changed.
     private static async Task NoMismatches(IReadOnlyCollection<string> mismatches) =>
         await Assert.That(mismatches.Count)
             .IsEqualTo(0)
             .Because(string.Join(separator: Environment.NewLine, values: mismatches));
+
+    // SF1007 is an info about a read in a run that a callee makes in the branch of a condition. The
+    // analyzer does not know the value of that condition. The read throws when the run occurs, and
+    // the shape returns otherwise.
+    private static IEnumerable<Outcome> OutcomesOf(string rule) =>
+        rule == "SF1007" ? [Outcome.ReadsEarly, Outcome.Returns] : [OutcomeOf(rule)];
 
     private static Outcome OutcomeOf(string rule) =>
         rule switch
@@ -1805,7 +1950,7 @@ internal sealed partial class LoopReadAnalyzerTests
         /// <summary>The shape samples a looped value before the loop closes.</summary>
         ReadsEarly,
 
-        /// <summary>The shape closes a loop with a value that is linked to the loop.</summary>
+        /// <summary>The shape closes a loop with a value that links to the loop.</summary>
         MakesCycle,
 
         /// <summary>

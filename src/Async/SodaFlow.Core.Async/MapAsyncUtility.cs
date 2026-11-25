@@ -361,6 +361,9 @@ public abstract class AsyncMapStatus : IDisposable
     ///     listener callback, the cancel occurs after the transaction, and no
     ///     transaction on a different thread occurs between the two. If that
     ///     transaction fails, a transaction on a different thread can occur first.
+    ///     The tokens of the items change after the release of the transaction lock.
+    ///     Thus, the code that their callbacks run has no transaction open, and a
+    ///     throw from a callback goes to handleException and not to the caller.
     ///     The same limits apply. A Running operation stops only if it monitors its
     ///     CancellationToken, and the pipeline removes a Queued item at the time of
     ///     its promotion, which is not always at the return of this call. This method
@@ -442,6 +445,118 @@ internal delegate MapAsyncDeliveryExceptionBase MapAsyncDeliveryExceptionFactory
     MaybeInternal<Exception> undeliveredError);
 
 /// <summary>
+///     The cancellation source of one tracked item, with a record of a cancel that
+///     committed. The two <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" />
+///     instances of one admitted value share one source.
+/// </summary>
+/// <remarks>
+///     <para>
+///         A cancel has two parts. First, the transaction that cancels writes the
+///         record while it holds the transaction lock. The start, the end, and the
+///         publish of an item read the record and not the token. Then, after that
+///         transaction releases the lock, the pipeline cancels the source.
+///     </para>
+///     <para>
+///         Cancel() of a source runs the callbacks of its token on the thread that
+///         calls it. A callback can complete the await of an operation, and the
+///         code after that await then runs on that thread also. Before, that code
+///         ran with the lock, and in a listener callback for a disposal. A send
+///         there threw, and a transaction on a different thread waited for the
+///         code to end. The token now changes after the decision, but the decision
+///         is in the record, and the record has the sequence of the transactions.
+///     </para>
+/// </remarks>
+// ReSharper disable once InheritdocConsiderUsage - This type adds a record and a rule for the disposal, and the
+// documentation of the base does not describe them.
+internal sealed class AsyncItemCancellationSource : CancellationTokenSource
+{
+    // The states of the source for CancelOnce and DisposeAtTheEnd. Cancel() runs out of the lock,
+    // thus the end of the item can come on a different thread while Cancel() runs. A disposal
+    // during Cancel() is not safe for this type.
+    private const int Free = 0;
+    private const int Canceling = 1;
+    private const int DisposalWaits = 2;
+    private const int Disposed = 3;
+
+    // True after a cancel of this item committed. A transaction writes it while it holds the lock,
+    // and a cancel with no transaction open writes it immediately. It never becomes false again.
+    private volatile bool cancelCommitted;
+
+    private int state;
+
+    /// <summary>
+    ///     Tells you if a cancel of this item committed. The token of the item can
+    ///     show the cancel after this record shows it.
+    /// </summary>
+    internal bool IsCancelCommitted => this.cancelCommitted;
+
+    /// <summary>Records that a cancel of this item committed.</summary>
+    internal void CommitCancel() => this.cancelCommitted = true;
+
+    /// <summary>
+    ///     Cancels the source, with no transaction lock. This does nothing after the
+    ///     disposal, and nothing while a different thread cancels the source.
+    /// </summary>
+    /// <remarks>
+    ///     A throw from a callback of the token goes to the caller. Where the end of
+    ///     the item comes during the call, this method disposes the source after
+    ///     Cancel().
+    /// </remarks>
+    internal void CancelOnce()
+    {
+        if (Interlocked.CompareExchange(location1: ref this.state, value: Canceling, comparand: Free) != Free)
+        {
+            return;
+        }
+
+        try
+        {
+            this.Cancel();
+        }
+        finally
+        {
+            if (Interlocked.CompareExchange(location1: ref this.state, value: Free, comparand: Canceling)
+                == DisposalWaits)
+            {
+                Volatile.Write(location: ref this.state, value: Disposed);
+                this.Dispose();
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Disposes the source at the end of the item. Where a different thread
+    ///     cancels the source now, that thread disposes it after its Cancel().
+    /// </summary>
+    internal void DisposeAtTheEnd()
+    {
+        while (true)
+        {
+            int seen = Interlocked.CompareExchange(location1: ref this.state, value: Disposed, comparand: Free);
+
+            if (seen == Free)
+            {
+                this.Dispose();
+
+                return;
+            }
+
+            if (seen != Canceling)
+            {
+                return;
+            }
+
+            // The cancel can end before this second test. The loop then reads the state again.
+            if (Interlocked.CompareExchange(location1: ref this.state, value: DisposalWaits, comparand: Canceling)
+                == Canceling)
+            {
+                return;
+            }
+        }
+    }
+}
+
+/// <summary>
 ///     The shared base of the two parts of a MapAsync pipeline: the strategy (
 ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" />) and the engine that
 ///     runs it (
@@ -496,15 +611,15 @@ public abstract class AsyncMapBase
         private readonly Action<Exception> reportCancelFailure;
 
         // The id of the transaction that asked for a cancel of this item, and zero for none. That
-        // cancel is a posted action of the transaction, thus the token does not show it before the
-        // commit. The pipeline reads this record in that transaction. A transaction that fails
-        // keeps its id here, and no subsequent transaction has that id.
+        // cancel is a posted action of the transaction, thus the record of the source does not show
+        // it before the commit. The pipeline reads this field in that transaction. A transaction
+        // that fails keeps its id here, and no subsequent transaction has that id.
         private long cancelAskedIn;
 
         internal AsyncQueuedItem(
             Guid id,
             TInput value,
-            CancellationTokenSource cancellation,
+            AsyncItemCancellationSource cancellation,
             Action<Exception> reportCancelFailure)
         {
             this.Id = id;
@@ -527,12 +642,13 @@ public abstract class AsyncMapBase
         public TInput Value { get; }
 
         /// <summary>
-        ///     The source of the cancellation of this item. <see cref="Cancel" /> cancels
-        ///     this source, and the execution engine links it into the token of the
-        ///     operation. It is internal, because a strategy cancels through
-        ///     <see cref="Cancel" /> and does not use this field.
+        ///     The source of the cancellation of this item, with the record of a cancel
+        ///     that committed. <see cref="Cancel" /> cancels this source, and the
+        ///     execution engine links it into the token of the operation. It is
+        ///     internal, because a strategy cancels through <see cref="Cancel" /> and
+        ///     does not use this field.
         /// </summary>
-        internal CancellationTokenSource Cancellation { get; }
+        internal AsyncItemCancellationSource Cancellation { get; }
 
         /// <summary>
         ///     Cancels this tracked item. It is the mechanism of a cancelAll stream and of
@@ -542,7 +658,7 @@ public abstract class AsyncMapBase
         ///     pipeline does not start a Queued item at its turn, and a Running operation
         ///     stops only if it monitors the CancellationToken that it got. In each
         ///     condition the item ends as Canceled, thus
-        ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCompleted" /> runs for
+        ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCanceled" /> runs for
         ///     it and can start the next operation.
         ///     A call on an item that ended, on an item that a previous call canceled, or
         ///     on an item at its end is safe. Those calls do nothing and are not errors,
@@ -555,8 +671,11 @@ public abstract class AsyncMapBase
         ///         is open on this thread, the cancel waits for the commit of that
         ///         transaction, and a transaction that fails cancels nothing. A strategy
         ///         calls this from Admit, OnCompleted, or OnCanceled, and each of those
-        ///         runs in a transaction. Thus, the token of the item changes after the
-        ///         commit, and not during the call.
+        ///         runs in a transaction. The pipeline records the cancel after the
+        ///         commit, before a transaction on a different thread can start. From
+        ///         that transaction, the item does not start and does not publish. The
+        ///         token of the item changes after the release of the lock. Thus, the
+        ///         code that the callbacks of the token run has no transaction open.
         ///     </para>
         ///     <para>
         ///         A callback on the token can throw. After a commit, that throw has no
@@ -576,7 +695,7 @@ public abstract class AsyncMapBase
             }
 
             this.cancelAskedIn = current.Id;
-            TransactionInternal.PostImpl(action: static item => item.CancelAfterCommit(), state: this);
+            TransactionInternal.PostImpl(action: static item => item.CommitTheCancel(), state: this);
         }
 
         /// <summary>
@@ -585,7 +704,7 @@ public abstract class AsyncMapBase
         /// </summary>
         internal bool IsCancelAsked()
         {
-            if (this.Cancellation.IsCancellationRequested)
+            if (this.Cancellation.IsCancelCommitted)
             {
                 return true;
             }
@@ -600,29 +719,41 @@ public abstract class AsyncMapBase
             return current != null && current.Id == this.cancelAskedIn;
         }
 
-        /// <summary>Cancels the source of this item now, with no test for a transaction.</summary>
-        internal void CancelNow()
+        // The cancel with no transaction open. It does not get the lock, because it must not wait
+        // for a transaction on a different thread. A flush on a different thread reads the record
+        // before this write or after it. Thus, the item publishes, or it ends as Canceled.
+        //
+        // The execution engine disposes the source of an item at its end, thus a stale reference
+        // can come here after that disposal. CancelOnce does nothing then.
+        private void CancelNow()
         {
-            // The execution engine disposes the CancellationTokenSource of an item at its end,
-            // thus a stale reference can come here after that disposal. Cancel() on a disposed CTS
-            // throws an exception, and a strategy must not have a test for an item that ended.
-            // Thus, this code catches only that exception.
-            try
-            {
-                this.Cancellation.Cancel();
-            }
-            catch (ObjectDisposedException)
-            {
-            }
+            this.Cancellation.CommitCancel();
+            this.Cancellation.CancelOnce();
         }
 
-        // The posted action of Cancel. The transaction that asked for the cancel is complete, thus
-        // a throw from a callback of the token has no caller.
-        private void CancelAfterCommit()
+        // The posted action of Cancel. It runs after the commit, while the transaction holds the
+        // lock, thus no transaction on a different thread comes between the commit and the record.
+        // The source cancels after the release of the lock. See AsyncItemCancellationSource.
+        private void CommitTheCancel()
+        {
+            this.Cancellation.CommitCancel();
+            TransactionInternal.AfterReleaseImpl(this.CancelAfterTheRelease);
+        }
+
+        // The transaction that asked for the cancel is complete, thus a throw from a callback of the
+        // token has no caller. The callbacks are the code of a user. See RunUserCode.
+        private void CancelAfterTheRelease()
         {
             try
             {
-                this.CancelNow();
+                AsyncMapTrampoline.RunUserCode(
+                    code: static cancellation =>
+                    {
+                        cancellation.CancelOnce();
+
+                        return UnitInternal.Value;
+                    },
+                    state: this.Cancellation);
             }
             catch (Exception failure)
             {
@@ -1371,10 +1502,10 @@ public abstract class AsyncConcurrencyStrategyBase<TInput>
 ///     <see cref="AsyncMapBase.AsyncQueuedItem{TInput}.Cancel" />, which cancels
 ///     an item that the strategy controls. It publishes nothing and starts
 ///     nothing. It goes to the cancellation path of an external cancelAll stream,
-///     thus the item ends through <see cref="OnCompleted" /> as each other item
-///     does. The identity of an item at its end is the item that the strategy got
-///     in <see cref="Admit" />. There is no second handle. Keep the item in
-///     <typeparamref name="TState" /> to identify it again after this.
+///     thus the item ends through <see cref="OnCanceled" /> as each other
+///     canceled item does. The identity of an item at its end is the item that
+///     the strategy got in <see cref="Admit" />. There is no second handle. Keep
+///     the item in <typeparamref name="TState" /> to identify it again after this.
 ///     <para>
 ///         The state follows the transactions of the pipeline. Each method runs in
 ///         a transaction, and a listener can make that transaction fail after the
@@ -2011,6 +2142,200 @@ internal static class AsyncConcurrencyStrategyFactory
 }
 
 /// <summary>
+///     Runs the steps of the MapAsync pipelines on one thread in a loop, and not
+///     as calls in calls. A step is the start of an operation or the flush of an
+///     end.
+///     <para>
+///         An operation that completes synchronously ends in its start. The flush
+///         of that end starts the next item of a Queue strategy, and that start
+///         ends the next item again. Before, each item of a long queue added
+///         approximately ten frames to the stack. A queue of 1,000 items then
+///         stopped the process with a stack overflow. Now, the first step on a
+///         thread runs each step that comes from it, one at a time.
+///     </para>
+///     <para>
+///         The sequence does not change. The steps that one step adds run after
+///         that step and before each step that waited before it. That is the
+///         sequence that calls in calls make. Thus, each operation starts on the
+///         same thread, and in the same sequence, as before.
+///     </para>
+///     <para>
+///         The fields are thread-static, in a class that is not generic. Pipelines
+///         of different types can send values to each other on one thread, and a
+///         generic class has a different field for each type argument. This is not
+///         state that a caller must get from an argument. No caller gives it or
+///         reads it, it is only for the thread that runs the steps, and it is empty
+///         after the last step.
+///     </para>
+/// </summary>
+internal static class AsyncMapTrampoline
+{
+    // True while this thread runs a step from Run, and false while it runs the code of a user. See
+    // RunUserCode.
+    [ThreadStatic] private static bool running;
+
+    // The steps that wait on this thread, with the newest step at the end. It is null until Run
+    // adds a step, and Run clears it before it returns.
+    [ThreadStatic] private static List<Waiting>? waiting;
+
+    /// <summary>
+    ///     Runs the step now, or after the step that this thread runs now.
+    /// </summary>
+    /// <remarks>
+    ///     A throw from a step that runs now goes to the caller, after each step
+    ///     that waited for it. A throw from a step that waited goes to
+    ///     <paramref name="report" />, because its caller returned before it ran.
+    /// </remarks>
+    /// <param name="step">The step to run with no transaction open.</param>
+    /// <param name="state">The state of the step.</param>
+    /// <param name="report">Gets a throw from the step when the step waited.</param>
+    internal static void Run<TState>(Action<TState> step, TState state, Action<TState, Exception> report)
+    {
+        if (running)
+        {
+            (waiting ??= []).Add(new Waiting<TState>(step: step, state: state, report: report));
+
+            return;
+        }
+
+        running = true;
+
+        ExceptionDispatchInfo? failure = null;
+        List<Exception>? reportFailures = null;
+
+        try
+        {
+            try
+            {
+                step(state);
+            }
+            catch (Exception e)
+            {
+                failure = ExceptionDispatchInfo.Capture(e);
+            }
+
+            Drain(ref reportFailures);
+        }
+        finally
+        {
+            // This also runs when Drain cannot continue. Then, the next step on this thread runs
+            // now, and it does not wait for a step that never runs.
+            running = false;
+            waiting = null;
+        }
+
+        if (reportFailures is null)
+        {
+            failure?.Throw();
+
+            return;
+        }
+
+        if (failure != null)
+        {
+            reportFailures.Insert(index: 0, item: failure.SourceException);
+        }
+
+        ExceptionDispatchInfo
+            .Capture(reportFailures.Count == 1 ? reportFailures[0] : new AggregateException(reportFailures))
+            .Throw();
+    }
+
+    /// <summary>
+    ///     Runs the code of a user, such as an operation, as if no step runs on this
+    ///     thread.
+    /// </summary>
+    /// <remarks>
+    ///     The code can start a step of a pipeline and then wait for it. For example,
+    ///     an operation can call Execute and read the result of its Task. That step
+    ///     must not wait for the step below the code on the stack, because that step
+    ///     cannot continue before the code returns. Thus, a call of Run in the code
+    ///     runs its step immediately, as before.
+    /// </remarks>
+    internal static TResult RunUserCode<TState, TResult>(Func<TState, TResult> code, TState state)
+    {
+        bool wasRunning = running;
+        List<Waiting>? wasWaiting = waiting;
+
+        running = false;
+        waiting = null;
+
+        try
+        {
+            return code(state);
+        }
+        finally
+        {
+            running = wasRunning;
+            waiting = wasWaiting;
+        }
+    }
+
+    // Runs the steps that wait. The newest step is at the end of the list. After each step, this
+    // code puts the part of the list that the step added in the opposite sequence. Thus, the first
+    // step that it added is at the end, and that step runs next.
+    private static void Drain(ref List<Exception>? reportFailures)
+    {
+        List<Waiting>? list = waiting;
+
+        if (list is null)
+        {
+            return;
+        }
+
+        list.Reverse();
+
+        while (list.Count > 0)
+        {
+            int last = list.Count - 1;
+            Waiting next = list[last];
+
+            list.RemoveAt(last);
+
+            // Each step gives its throw to its report. A throw from a report is a defect. It must
+            // not stop the steps after it, because each of them is the end of a different item.
+            try
+            {
+                next.Run();
+            }
+            catch (Exception e)
+            {
+                (reportFailures ??= []).Add(e);
+            }
+
+            list.Reverse(index: last, count: list.Count - last);
+        }
+    }
+
+    private abstract class Waiting
+    {
+        public abstract void Run();
+    }
+
+    private sealed class Waiting<TState>(
+        in Action<TState> step,
+        in TState state,
+        in Action<TState, Exception> report) : Waiting
+    {
+        private readonly Action<TState, Exception> report = report;
+        private readonly TState state = state;
+        private readonly Action<TState> step = step;
+
+        public override void Run()
+        {
+            try
+            {
+                this.step(this.state);
+            }
+            catch (Exception e)
+            {
+                this.report(arg1: this.state, arg2: e);
+            }
+        }
+    }
+}
+
+/// <summary>
 ///     Runs one MapAsync pipeline. It starts the operations, catches the
 ///     exceptions, sends the results and the errors, tracks the Queued items and
 ///     the Running items, connects the external cancellation, and controls the
@@ -2274,15 +2599,15 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         //
         // This listener removes the listeners, itself also. Dispose cannot remove them after its
         // send. In an open transaction, the send waits for the close, and a listener that is gone
-        // then cancels nothing. The removal comes before the cancel, thus a throw from a callback
-        // on a token cannot keep the listeners.
+        // then cancels nothing. The callbacks of the tokens run after the release of the lock, and
+        // not in this callback. See RecordTheCancel.
         this.disposeCancelListener =
             this.disposeCancelTrigger
                 .SnapshotImpl(b: trackedCell, f: static (_, entries) => entries)
                 .ListenImpl(entries =>
                 {
                     this.RemoveListeners();
-                    this.CancelTracked(entries: entries, trackedCell: trackedCell);
+                    this.RecordTheCancel(entries: entries, trackedCell: trackedCell);
                 });
 
         Cell<bool> isRunning =
@@ -2346,7 +2671,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                 return this.CurrentQueue(trackedCellLoop);
                             }
 
-                            CancellationTokenSource cancellation = new();
+                            AsyncItemCancellationSource cancellation = new();
 
                             Guid newEntryId = Guid.NewGuid();
 
@@ -2492,12 +2817,19 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // Gives an exception with no caller to handleException. A throw from that action is a defect
     // of the caller. It goes to the thread pool, where it ends the process, as a throw from the
     // handler of a timer system does. It must not come back into this class, where a Task holds it
-    // and no code observes it.
+    // and no code observes it. The handler is the code of a user. See RunUserCode.
     private void Report(Exception error)
     {
         try
         {
-            this.handleException(error);
+            AsyncMapTrampoline.RunUserCode(
+                code: static state =>
+                {
+                    state.Handle(state.Error);
+
+                    return UnitInternal.Value;
+                },
+                state: (Handle: this.handleException, Error: error));
         }
         catch (Exception handlerFailure)
         {
@@ -2776,7 +3108,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         TInput value,
         Cell<Entry[]> trackedCell)
     {
-        if (toStart.Item.Cancellation.IsCancellationRequested)
+        if (toStart.Item.Cancellation.IsCancelCommitted)
         {
             // A cancellation removed this item with the Queued status. This code ends it and does
             // not call the operation. It uses the usual end path, thus a strategy such as Queue in
@@ -2800,17 +3132,22 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         // the code of an operation before its first await must not run with the lock. Code there
         // that blocks stops each thread from opening a transaction, and code that waits for a
         // transaction on a different thread never ends. AfterReleaseImpl runs the call on this
-        // thread, thus the operation starts inline, as before, and not on the thread pool.
-        // StartOperation is a usual async Task method. FireAndForget is the one position where this
-        // code does not await its Task, and that is explicit and not a discard in an async void
-        // method.
+        // thread, thus the operation starts inline, as before, and not on the thread pool. The
+        // trampoline keeps the sequence of the starts and the flushes on this thread. See
+        // AsyncMapTrampoline. StartOperation is a usual async Task method. FireAndForget is the one
+        // position where this code does not await its Task, and that is explicit and not a discard
+        // in an async void method.
         TransactionInternal.PostImpl(() =>
             TransactionInternal.AfterReleaseImpl(() =>
-                this.FireAndForget(
-                    this.StartOperation(
-                        toStart: toStart,
-                        value: value,
-                        trackedCell: trackedCell))));
+                AsyncMapTrampoline.Run(
+                    step: static state =>
+                        state.Self.FireAndForget(
+                            state.Self.StartOperation(
+                                toStart: state.ToStart,
+                                value: state.Value,
+                                trackedCell: state.TrackedCell)),
+                    state: (Self: this, ToStart: toStart, Value: value, TrackedCell: trackedCell),
+                    report: static (state, failure) => state.Self.Report(failure))));
     }
 
     private async Task StartOperation(
@@ -2822,10 +3159,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         // FireAndForget.
         try
         {
-            // A cancel that the transaction of the promotion asked for runs at the commit, which is
-            // before this code. PromoteAndLaunch read the token before that. Thus, the item ends
-            // here as it ends there, and this code does not call the operation.
-            if (toStart.Item.Cancellation.IsCancellationRequested)
+            // A cancel that the transaction of the promotion asked for has its record at the commit,
+            // which is before this code. PromoteAndLaunch read the record before that. Thus, the item
+            // ends here as it ends there, and this code does not call the operation. The record is
+            // necessary, because the source cancels after the release of the lock, and this code
+            // can run before that.
+            if (toStart.Item.Cancellation.IsCancelCommitted)
             {
                 this.EndItem(
                     item: toStart.Item,
@@ -2857,12 +3196,16 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                 // operation ends before this await, the await continues synchronously and there is
                 // no continuation on a different thread. `value` is the initial TInput at the
                 // admission of this item. PromoteAndLaunch gives it to this method, as the class
-                // remarks give, and no code calculates it again from TStrategyInput.
+                // remarks give, and no code calculates it again from TStrategyInput. The operation is
+                // the code of a user, and it can wait for a different pipeline. See RunUserCode.
                 MapAsyncResult<TResult> operationResult =
-                    await this.operation(
-                            input: value,
-                            resultFactory: ResultFactory<TResult>.Instance,
-                            token: linked.Token)
+                    await AsyncMapTrampoline.RunUserCode(
+                            code: static state =>
+                                state.Operation(
+                                    input: state.Value,
+                                    resultFactory: ResultFactory<TResult>.Instance,
+                                    token: state.Token),
+                            state: (Operation: this.operation, Value: value, linked.Token))
                         .ConfigureAwait(false);
 
                 pending = AsyncOutcome<MapAsyncResult<TResult>>.Succeeded(operationResult);
@@ -2910,24 +3253,77 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
 
         TransactionInternal.PostImpl(
-            action: static state => state.Self.CancelCommitted(entries: state.Entries, trackedCell: state.TrackedCell),
+            action: static state => state.Self.RecordTheCancel(entries: state.Entries, trackedCell: state.TrackedCell),
             state: (Self: this, Entries: entries, TrackedCell: trackedCell));
     }
 
-    // Cancels each entry of a cancellation that committed, and ends the Queued ones.
+    // Records the cancel of each entry, ends the Queued ones, and cancels the sources after the
+    // release of the lock. Two paths come here. A cancellation stream comes here in a posted
+    // action, after its transaction committed. A disposal comes here in the listener of its
+    // trigger. A disposal does not wait for a commit, because the pipeline stays disposed after a
+    // transaction that fails. Where that transaction fails before this code runs, Dispose sends
+    // the trigger again after it.
+    //
+    // The record is the decision, and this code writes it while its transaction holds the lock.
+    // Thus, from the next transaction, an item of these entries does not start and does not
+    // publish. Before, the decision was the token. The end of an item read the token, and then its
+    // flush waited for the lock. A cancel that committed between the two did not stop the publish.
+    // See AsyncItemCancellationSource.
     //
     // The entries are from the start of the transaction that asked for the cancel. An item of
     // them can end in that same transaction, for example where the cancellation stream comes from
     // the results. The Flush of that end disposes the source of the item at the commit, which is
-    // before this code. Thus, this code uses CancelNow() of the item, which does nothing for a
-    // disposed source. Cancel() is not correct here: this code is a posted action, thus a
-    // transaction is open, and Cancel() waits for a second commit.
+    // before this code. CancelOnce does nothing for a disposed source. Cancel() of the item is not
+    // correct here: a transaction is open, and Cancel() waits for a second commit.
+    //
+    // A Running item observes its token and its operation ends, thus EndItem runs for it on the
+    // usual path. A Queued item runs no operation, thus nothing observes its token. Before this,
+    // the end of such an item at a disposal waited for a promotion. A promotion comes from the end
+    // of a different item. Where no other item ended, the item stayed in the queue with the Queued
+    // status, and no stream said that it ended.
+    //
+    // EndItem defers each end, because a transaction is open here. A disposal runs this code in a
+    // registered listener callback, where a send is not legal. A canceled end sends nothing. Thus,
+    // a cancellation of more than one Queued item gives the strategy one call, and not one call for
+    // each item. That call reads the queue that holds no item of those ends.
+    private void RecordTheCancel(IReadOnlyCollection<Entry> entries, Cell<Entry[]> trackedCell)
+    {
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        foreach (Entry e in entries)
+        {
+            e.Item.Cancellation.CommitCancel();
+
+            if (e.Status != AsyncItemStatus.Queued)
+            {
+                continue;
+            }
+
+            this.EndItem(
+                item: e.Tracked.Item,
+                pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
+                trackedCell: trackedCell,
+                tokenToCheck: null);
+        }
+
+        TransactionInternal.AfterReleaseImpl(() => this.CancelSources(entries));
+    }
+
+    // Cancels the source of each entry, with no transaction lock. Thus, the code after an await
+    // that a callback of a token completes runs with no transaction open, and it can send. Before,
+    // that code ran with the lock, and at a disposal it also ran in a listener callback.
     //
     // Cancel() of a source runs the callbacks on its token and throws what they throw. That throw
-    // must not stop the cancel of the entries after it, because the cancellation committed for
-    // each of them. It has no caller: the transaction that asked for the cancel is complete.
-    // Thus, each throw goes to handleException after the last entry.
-    private void CancelCommitted(IEnumerable<Entry> entries, Cell<Entry[]> trackedCell)
+    // must not stop the cancel of the entries after it, because the cancel committed for each of
+    // them. It has no caller: the transaction that asked for the cancel is complete, and a
+    // disposal must not throw for it. Thus, each throw goes to handleException after the last
+    // entry. Before, at a disposal, a throw stopped the loop and made the transaction of Dispose
+    // fail, and the subsequent items had no cancel. The callbacks are the code of a user. See
+    // RunUserCode.
+    private void CancelSources(IEnumerable<Entry> entries)
     {
         List<Exception>? failures = null;
 
@@ -2935,61 +3331,24 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         {
             try
             {
-                e.Item.CancelNow();
+                AsyncMapTrampoline.RunUserCode(
+                    code: static cancellation =>
+                    {
+                        cancellation.CancelOnce();
+
+                        return UnitInternal.Value;
+                    },
+                    state: e.Item.Cancellation);
             }
             catch (Exception failure)
             {
                 (failures ??= []).Add(failure);
             }
-
-            if (e.Status != AsyncItemStatus.Queued)
-            {
-                continue;
-            }
-
-            this.EndItem(
-                item: e.Tracked.Item,
-                pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
-                trackedCell: trackedCell,
-                tokenToCheck: null);
         }
 
         if (failures != null)
         {
             this.Report(failures.Count == 1 ? failures[0] : new AggregateException(failures));
-        }
-    }
-
-    // Cancels each entry at a disposal, and ends the Queued ones here. This does not wait for a
-    // commit, because the pipeline stays disposed after a transaction that fails. Where that
-    // transaction fails before this code runs, Dispose sends the trigger again after it.
-    //
-    // A Running item observes its token and its operation ends, thus EndItem runs for it on the
-    // usual path. A Queued item runs no operation, thus nothing observes its token. Before this,
-    // the end of such an item waited for a promotion, and a promotion comes from the end of a
-    // different item. Where no other item ended, the item stayed in the queue with the Queued
-    // status, and no stream said that it ended.
-    //
-    // EndItem defers each end, because this code runs in a registered listener callback and a
-    // send is not legal there. A canceled end sends nothing, thus a cancellation of more than one
-    // item gives the strategy one call and not one call for each item. That call reads the queue
-    // that holds no item of those ends.
-    private void CancelTracked(IEnumerable<Entry> entries, Cell<Entry[]> trackedCell)
-    {
-        foreach (Entry e in entries)
-        {
-            e.Item.Cancellation.Cancel();
-
-            if (e.Status != AsyncItemStatus.Queued)
-            {
-                continue;
-            }
-
-            this.EndItem(
-                item: e.Tracked.Item,
-                pending: AsyncOutcome<MapAsyncResult<TResult>>.Canceled(),
-                trackedCell: trackedCell,
-                tokenToCheck: null);
         }
     }
 
@@ -3003,8 +3362,11 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // in the queue. The strategy and the pipeline disagreed from that moment.
     //
     // A test for a transaction covers each path to here. A continuation on a thread from the pool
-    // has none and calls Flush. A continuation on the thread of a cancellation has one, and
-    // AfterReleaseImpl gives the end its own transaction after that one releases the lock.
+    // has none, and an operation that completes synchronously in its start has none. There, this
+    // code flushes through the trampoline. The pipeline cancels a source after the release of the
+    // lock, thus a continuation on the thread of that cancel also has none. A token that other code
+    // cancels in a transaction, such as the token of a strategy, gives one. There, AfterReleaseImpl
+    // gives the end its own transaction after that one releases the lock.
     private void EndItem(
         AsyncQueuedItem<TStrategyInput> item,
         AsyncOutcome<MapAsyncResult<TResult>> pending,
@@ -3012,9 +3374,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         CancellationToken? tokenToCheck)
     {
         // A cancellation that arrived while the operation ran makes the item Canceled, also when
-        // the operation gave a result or threw.
+        // the operation gave a result or threw. The record of the item shows a cancel that
+        // committed, also before its source cancels. The token also shows a cancel of the token of
+        // the strategy. A cancel that commits after this test and before the flush is possible
+        // also, and FlushInTransaction reads the record again for it.
         AsyncOutcome<MapAsyncResult<TResult>> outcome =
-            tokenToCheck is { IsCancellationRequested: true }
+            item.Cancellation.IsCancelCommitted || tokenToCheck is { IsCancellationRequested: true }
                 ? AsyncOutcome<MapAsyncResult<TResult>>.Canceled()
                 : pending;
 
@@ -3036,10 +3401,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         if (current is null)
         {
-            // A continuation on a thread from the pool. This end is the only one of its
-            // transaction, and Flush opens that transaction.
+            // This end is the only one of its transaction, and Flush opens that transaction.
             List<PendingEnd> alone = [end];
-            this.Flush(ends: alone, sends: sends, trackedCell: trackedCell);
+            this.FlushOnTheTrampoline(ends: alone, sends: sends, trackedCell: trackedCell);
 
             return;
         }
@@ -3054,7 +3418,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         {
             List<PendingEnd> alone = [end];
 
-            TransactionInternal.AfterReleaseImpl(() => this.Flush(ends: alone, sends: true, trackedCell: trackedCell));
+            TransactionInternal.AfterReleaseImpl(() =>
+                this.FlushOnTheTrampoline(ends: alone, sends: true, trackedCell: trackedCell));
 
             return;
         }
@@ -3069,11 +3434,21 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             List<PendingEnd> ends = this.pendingCancellations.Value.Ends;
 
             TransactionInternal.AfterReleaseImpl(() =>
-                this.Flush(ends: ends, sends: false, trackedCell: trackedCell));
+                this.FlushOnTheTrampoline(ends: ends, sends: false, trackedCell: trackedCell));
         }
 
         this.pendingCancellations.Value.Ends.Add(end);
     }
+
+    // Flushes now, or after the step that this thread runs now. A throw goes to the caller when the
+    // flush runs now, as before. When the flush waits, its caller returned, and the throw goes to
+    // Report. See AsyncMapTrampoline.
+    private void FlushOnTheTrampoline(IReadOnlyList<PendingEnd> ends, bool sends, Cell<Entry[]> trackedCell) =>
+        AsyncMapTrampoline.Run(
+            step: static state =>
+                state.Self.Flush(ends: state.Ends, sends: state.Sends, trackedCell: state.TrackedCell),
+            state: (Self: this, Ends: ends, Sends: sends, TrackedCell: trackedCell),
+            report: static (state, failure) => state.Self.Report(failure));
 
     /// <summary>
     ///     The one method that makes the effects of each item at its end. An item with
@@ -3110,9 +3485,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///         see the entry at all, from after this transaction.
     ///     </para>
     ///     <para>
-    ///         EndItem gives this method each end, and never from a callback. Thus, a
-    ///         long queue with a cancellation on each item does not make a depth of
-    ///         calls.
+    ///         EndItem gives this method each end, never from a callback, and always
+    ///         through <see cref="AsyncMapTrampoline" />. A cancellation on each item
+    ///         of a long queue thus does not make a depth of calls. The loop of the
+    ///         trampoline runs the flush and the start of each item. Thus, operations
+    ///         that complete synchronously also do not make a depth of calls. Before,
+    ///         each item started the next in a call, and a queue of 1,000 such items
+    ///         stopped the process with a stack overflow.
     ///     </para>
     /// </summary>
     /// <param name="ends">
@@ -3122,7 +3501,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     /// <param name="sends">
     ///     True for the one end that can send a result or an error, which OnCompleted
     ///     reads. False for the canceled ends of one transaction, which OnCanceled
-    ///     reads.
+    ///     reads. A true end goes to OnCanceled also, where a cancel of its item
+    ///     committed before this transaction.
     /// </param>
     /// <param name="trackedCell">The cell that holds the queue of this pipeline.</param>
     /// <remarks>
@@ -3240,7 +3620,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         foreach (PendingEnd end in live)
         {
-            end.Item.Cancellation.Dispose();
+            end.Item.Cancellation.DisposeAtTheEnd();
         }
     }
 
@@ -3305,7 +3685,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         IReadOnlyList<AsyncToStart<TStrategyInput>> next;
         bool publish;
 
-        if (sends)
+        // EndItem read the record of the cancel before this transaction got the lock. A cancel on
+        // a different thread can commit after that test and before this transaction. The record of
+        // that cancel is there now, because the lock puts the two transactions in sequence. Thus,
+        // the end goes to OnCanceled and publishes nothing, as a cancel that committed earlier does.
+        // Before, the test of EndItem was the only one, and that end published its result.
+        bool completes = sends && !live[0].Item.Cancellation.IsCancelCommitted;
+
+        if (completes)
         {
             // One end, because EndItem gives an end that can send a call of its own. The
             // strategy reads how the operation ended and not its result, thus this call comes

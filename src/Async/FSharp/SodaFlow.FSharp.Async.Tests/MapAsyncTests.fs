@@ -241,6 +241,48 @@ type ``MapAsync Tests``() =
             l |> unlistenL
         }
 
+    // The operation of each item behind item 0 completes synchronously. The release of item 0 then
+    // starts, ends, and flushes each item on the thread of the release. Before, each item did that in
+    // a call from the item before it, and the stack overflowed at fewer than 1,000 items.
+    [<Test>]
+    member _.``queueStrategy delivers 10,000 synchronous results in order without a stack overflow``() =
+        task {
+            let count = 10_000
+            let source = sinkS<int> ()
+            let results = sinkS<int> ()
+            let errors = sinkS<exn> ()
+            let gate = TaskCompletionSource<bool>()
+            let received = List<int>()
+            let l = results |> listenS received.Add
+
+            let operation (v: int) (factory: ResultFactory<int>) (_: CancellationToken) =
+                if v = 0 then
+                    task {
+                        let! _ = gate.Task.ConfigureAwait(false)
+                        return factory.FromValue v
+                    }
+                else
+                    Task.FromResult(factory.FromValue v)
+
+            let status =
+                source |> mapAsync results errors unexpected operation (queueStrategy ()) None None true
+
+            for i in 0..count do
+                source |> sendS i
+
+            let release = Thread(fun () -> gate.SetResult true)
+            release.Start()
+
+            // The limit only stops a hang. Under the load of a full test run, the work itself can
+            // take more than 30 s.
+            do! Expect.True(release.Join(TimeSpan.FromMinutes 5.0))
+            do! Expect.Sequence([ 0..count ], received)
+            do! Expect.Equal(0, (status.Items |> sampleC).Count)
+
+            status.Dispose()
+            l |> unlistenL
+        }
+
     [<Test>]
     member _.``switchLatestStrategy never publishes a superseded run``() =
         task {
@@ -512,6 +554,45 @@ type ``MapAsync Tests``() =
 
             status.Dispose()
             thrower |> unlistenL
+            l |> unlistenL
+        }
+
+    /// The operation returns in a transaction, thus its flush waits for the release of the lock. The
+    /// same transaction then sends cancelAll. Thus, the cancel commits after the end of the operation
+    /// and before its flush. The operation ignores its token, and the cancel must hold its result.
+    [<Test>]
+    member _.``a cancelAll that commits before the flush of an operation that returned publishes nothing``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let cancelAll = sinkS<unit> ()
+            let gate = TaskCompletionSource<string>()
+            let received = ConcurrentQueue<string>()
+            let l = results |> listenS received.Enqueue
+
+            let operation (_: string) (factory: ResultFactory<string>) (_: CancellationToken) =
+                task {
+                    let! value = gate.Task.ConfigureAwait(false)
+                    return factory.FromValue value
+                }
+
+            let status =
+                source
+                |> mapAsync results errors unexpected operation (parallelStrategy ()) (Some cancelAll) None true
+
+            let executed = status.Execute "a"
+
+            runT (fun () ->
+                // The continuation of the operation runs here, inline.
+                gate.SetResult "A"
+                cancelAll |> sendS ())
+
+            do! Expect.True(received.IsEmpty, "A canceled outcome must never be published.")
+            do! Expect.True(executed.IsCanceled)
+            do! Expect.Equal(0, (status.Items |> sampleC).Count)
+
+            status.Dispose()
             l |> unlistenL
         }
 

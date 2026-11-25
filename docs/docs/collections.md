@@ -861,9 +861,16 @@ offset is a criteria too and it goes the other way by three orders of magnitude 
 
 Edits arriving from different input streams in the same transaction merge into one change
 event and one cell update. Merge order is arbitrary in SodaFlow, which is safe here because
-the union is commutative and the one order-dependent case — two transforms for the same key in
-one transaction — throws rather than composing in an undefined order. Combine them into a
-single transform before firing.
+the union is commutative and the two order-dependent cases throw rather than resolving in an
+undefined order: two transforms for the same key in one transaction, and two adds of the same
+key in one transaction. Combine the transforms into a single transform before firing, and add
+each key once. Both checks use the collection's key comparer, so under
+`StringComparer.OrdinalIgnoreCase` an update of `"a"` and an update of `"A"` are two transforms
+for one key. Whichever spelling an edit uses, a key keeps the spelling its item arrived with: an
+update or a removal of `"A"` for an item added as `"a"` reports `"a"` in the item change, in the
+snapshot, and in every view. A remove of `"a"` and an add of `"A"` in one transaction replaces the
+item, and the replacement is a new arrival: the new item is `"A"`, and the removal of the old one
+reports `"a"`.
 
 An update against a key that is not there throws `KeyNotFoundException`; an add of a key that
 is already there throws `InvalidOperationException`; and an edit that resolves to no change at

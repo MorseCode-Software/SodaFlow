@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
@@ -25,13 +27,19 @@ namespace SodaFlow.Analyzers;
 /// <param name="given">The state that each parameter of a function gets.</param>
 /// <param name="manyTimes">True when the cell can run a function two or more times at the read.</param>
 /// <param name="writes">True when a lambda of the functions gives a location a value.</param>
+/// <param name="manyCells">
+///     True when the build can run two or more times for one run of the code
+///     that the walk reads. This object then stands for each cell that the
+///     build makes.
+/// </param>
 internal sealed class ComputedValue(
     in InvocationExpressionSyntax build,
     in LoopStateEvaluator builder,
     in ImmutableArray<(ExpressionSyntax Written, LoopState Functions)> functions,
     in LoopState given,
     in bool manyTimes,
-    in bool writes)
+    in bool writes,
+    in bool manyCells)
 {
     public InvocationExpressionSyntax Build { get; } = build;
 
@@ -45,6 +53,11 @@ internal sealed class ComputedValue(
 
     public bool Writes { get; } = writes;
 
+    public bool ManyCells { get; } = manyCells;
+
+    // For a build that makes two or more cells, each name through which a read ran the functions.
+    private List<ReadKey>? runsAt;
+
     // The number of turn marks of the loops that the walk reads now. See RunsInATurn.
     private int turns;
 
@@ -55,10 +68,25 @@ internal sealed class ComputedValue(
     ///     True after a read that the walk knows to run the functions. Also true
     ///     after such a read in each turn of a loop that the walk reads now.
     /// </summary>
-    public bool HasRunNow => this.hasRun || this.turns > 0;
+    private bool HasRunNow => this.hasRun || this.turns > 0;
 
     /// <summary>Records a read that runs the functions.</summary>
     public void Runs() => this.hasRun = true;
+
+    /// <summary>
+    ///     True after a read that the walk knows to run the functions. For a
+    ///     build that makes two or more cells, the read was through the given
+    ///     name.
+    /// </summary>
+    public bool HasRunAt(ReadKey? key) =>
+        this.ManyCells ? key != null && this.runsAt?.Exists(key.IsTheSameAs) == true : this.HasRunNow;
+
+    /// <summary>Records a read through a name that runs the functions of one of the cells.</summary>
+    public void RunsAt(ReadKey key) => (this.runsAt ??= []).Add(key);
+
+    /// <summary>Removes each record of a read through a name that now holds a different cell.</summary>
+    public void Forgets(ISymbol name) =>
+        this.runsAt?.RemoveAll(key => SymbolEqualityComparer.Default.Equals(x: key.Name, y: name));
 
     /// <summary>
     ///     Records a read that runs the functions in each turn of a loop. The

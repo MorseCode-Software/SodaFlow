@@ -38,21 +38,46 @@ internal sealed partial class LoopStateEvaluator
     /// <summary>
     ///     The same for a simple name of a static member of a different type,
     ///     such as a name that <c>using static</c> or a base type gives. The code
-    ///     of the type itself runs after its static constructor.
+    ///     of the type itself runs after its static constructor. A read of a
+    ///     static field in the code of a type with initializers only runs them.
     /// </summary>
     /// <param name="name">The simple name.</param>
-    public Followed? FollowTheStaticConstructor(SimpleNameSyntax name) =>
+    public Followed? FollowTheStaticConstructor(SimpleNameSyntax name)
+    {
         // Most names are locals and types. The syntax and a test of the declarations come before
-        // the question to the compiler.
-        this.quiet
-        || !this.region.Symbols.DeclaresStaticConstructors
-        || (name.Parent is MemberAccessExpressionSyntax access && access.Name == name)
-        || name.Parent is MemberBindingExpressionSyntax or QualifiedNameSyntax or NameColonSyntax or NameEqualsSyntax
-        || SyntaxFacts.IsInTypeOnlyContext(name)
-        || this.StaticMemberOf(name) is not { ContainingType: { } type }
-        || IsInTheCodeOf(node: name, type: type)
-            ? null
-            : this.FollowTheStaticConstructorOf(use: name, owner: type, atAFieldRead: false);
+        // the question to the compiler. A type with initializers only gives the compilation no name
+        // of a static constructor. Thus, the test for it is the declaration of the type of the code.
+        // With no static constructor and no initializer in a part of that type, the walk has no code
+        // to read for the name. Thus, that test also only saves time.
+        // A name in a MemberBindingExpressionSyntax, a QualifiedNameSyntax, a NameColonSyntax, or a
+        // NameEqualsSyntax is no static member that StaticMemberOf gives. Thus, that test only saves time.
+        if (this.quiet
+            || (name.Parent is MemberAccessExpressionSyntax access && access.Name == name)
+            || name.Parent
+                is MemberBindingExpressionSyntax or QualifiedNameSyntax or NameColonSyntax or NameEqualsSyntax
+            || SyntaxFacts.IsInTypeOnlyContext(name)
+            || (!this.region.Symbols.DeclaresStaticConstructors && !this.IsInCodeWithStaticInitializers(name))
+            || this.StaticMemberOf(name) is not { ContainingType: { } type } member)
+        {
+            return null;
+        }
+
+        if (!IsInTheCodeOf(node: name, type: type))
+        {
+            return this.FollowTheStaticConstructorOf(use: name, owner: type, atAFieldRead: false);
+        }
+
+        // An explicit static constructor ran before each code of its type. Code of the type around the
+        // block can have run the initializers before the block, and the walk does not know when.
+        return type.OriginalDefinition.StaticConstructors.All(static constructor => constructor.IsImplicitlyDeclared)
+               && this.IsAMemberLocation(member)
+               && !IsInTheCodeOf(node: this.region.Root, type: type)
+            ? this.FollowTheStaticConstructorOf(use: name, owner: type, atAFieldRead: true)
+            : null;
+    }
+
+    private bool IsInCodeWithStaticInitializers(SyntaxNode name) =>
+        name.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type && this.region.HasStaticInitializers(type);
 
     /// <summary>
     ///     The results of the static constructors that a creation runs: the one
@@ -69,8 +94,11 @@ internal sealed partial class LoopStateEvaluator
             return all;
         }
 
+        // A struct runs its static constructor only at a call of a constructor that its code declares.
+        // The default value of a struct calls no constructor.
         for (INamedTypeSymbol? type = constructor.ContainingType;
-             type is { TypeKind: TypeKind.Class, DeclaringSyntaxReferences.IsEmpty: false };
+             type is { TypeKind: TypeKind.Class or TypeKind.Struct, DeclaringSyntaxReferences.IsEmpty: false }
+             && (type.TypeKind == TypeKind.Class || !constructor.IsImplicitlyDeclared);
              type = type.BaseType)
         {
             all = Both(
@@ -78,7 +106,7 @@ internal sealed partial class LoopStateEvaluator
                 second: this.FollowTheStaticConstructorOf(use: creation, owner: type, atAFieldRead: false));
         }
 
-        return all;
+        return this.OfACreation(creation: creation, followed: all);
     }
 
     /// <summary>
@@ -105,6 +133,13 @@ internal sealed partial class LoopStateEvaluator
             ? member
             : null;
 
+    // True when each run of the block runs a use in the first turn of a loop of this code. The walker
+    // of a different frame knows the loops of its code. Thus, a loop of a caller does not count.
+    private bool RunsInEachFirstTurn(SyntaxNode use) =>
+        this.walker?.WhereACallRuns(use) is (_, { } turn)
+        && this.walker.AlwaysRunsTheFirstTurnOf(turn)
+        && (this.call?.AlwaysRuns ?? true);
+
     // True when a node is in the code of a type itself, and not in a type in it.
     private static bool IsInTheCodeOf(SyntaxNode node, INamedTypeSymbol type) =>
         node.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } code
@@ -121,14 +156,14 @@ internal sealed partial class LoopStateEvaluator
 
         // A use that the code can skip, as in a branch, runs the constructor only when it runs. Thus,
         // the walk reads the constructor there, and the next use reads it again. A use in each turn of
-        // a loop counts as sure.
+        // a loop counts as sure only when the first turn always runs. A loop can run no turn.
         if ((constructor?.Parent
                 ?? (atAFieldRead
                     ? owner.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                     : null)) is not TypeDeclarationSyntax type
             || !this.region.StartsTheType(
                 type: owner,
-                sure: this.WhereItRuns(use) is (true, _) or (_, not null)))
+                sure: this.WhereItRuns(use) is (true, _) || this.RunsInEachFirstTurn(use)))
         {
             return null;
         }

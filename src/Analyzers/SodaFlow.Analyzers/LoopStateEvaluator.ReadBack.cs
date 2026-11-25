@@ -102,7 +102,7 @@ internal sealed partial class LoopStateEvaluator
                             arguments: default,
                             each: (argument.Written, given, ManyTimes: true)))
                     .SelectMany(static followed =>
-                        followed?.Findings.Where(static finding => !finding.Escape) ?? []);
+                        followed?.Findings.Where(static finding => finding.IsASureRead) ?? []);
             })
             .SelectMany(static finding => finding.ReadBack)
             .Distinct(SymbolEqualityComparer.Default)

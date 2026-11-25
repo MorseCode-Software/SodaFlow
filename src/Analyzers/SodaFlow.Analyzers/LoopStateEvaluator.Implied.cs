@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -45,6 +46,25 @@ internal sealed partial class LoopStateEvaluator
             return known;
         }
 
+        Followed? result =
+            this.FollowImpliedOfTheObject(call: call, member: member, owner: owner, arguments: arguments);
+
+        this.implied[(call, member)] = result;
+
+        return result;
+    }
+
+    /// <summary>
+    ///     The same call as <see cref="FollowImplied" />, but the walk does not
+    ///     keep the result for the node. A serializer calls the same member of
+    ///     each object in its value at one node. Each object has its own state.
+    /// </summary>
+    public Followed? FollowImpliedOfTheObject(
+        SyntaxNode call,
+        IMethodSymbol member,
+        LoopState? owner,
+        IEnumerable<(ExpressionSyntax Written, LoopState State)> arguments)
+    {
         // The member of the object, when the code names one of an interface or a base type. A
         // value that is one of two objects has the member of each.
         IMethodSymbol[] actual =
@@ -52,8 +72,7 @@ internal sealed partial class LoopStateEvaluator
             .. owner?.Members?.Resolve(member.OriginalDefinition).OfType<IMethodSymbol>() ?? []
         ];
 
-        Followed? result =
-            (actual.Length == 0 ? [member] : actual)
+        return (actual.Length == 0 ? [member] : actual)
             .Select(static found => found.OriginalDefinition)
             .Aggregate(
                 seed: (Followed?)null,
@@ -65,11 +84,47 @@ internal sealed partial class LoopStateEvaluator
                             definition: definition,
                             owner: owner,
                             arguments: arguments)));
-
-        this.implied[(call, member)] = result;
-
-        return result;
     }
+
+    /// <summary>
+    ///     A call of a member that the compiler writes for a record. The member is
+    ///     an <c>Equals</c>, a <c>GetHashCode</c>, a <c>ToString</c>, or a
+    ///     <c>Deconstruct</c>, and it has no body. Thus, the walk reads it as the
+    ///     forms with no call syntax read it.
+    /// </summary>
+    private Followed? FollowRecordMemberCall(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (!IsWrittenForARecord(method)
+            || ReceiverOf(symbols: this.region.Symbols, invocation: invocation, method: method) is not { } receiver)
+        {
+            return null;
+        }
+
+        SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+
+        // The Equals of a record calls no Equals of a member for null or for the same object, as
+        // the == of a record does.
+        if (method.Name == "Equals"
+            && arguments.Count == 1
+            && this.ReturnsAtOnce(call: invocation, left: receiver, right: arguments[0].Expression))
+        {
+            return Followed.Nothing;
+        }
+
+        return this.FollowImplied(
+            call: invocation,
+            member: method,
+            owner: this.Self(receiver),
+            arguments: [.. arguments.Select(argument => (argument.Expression, this.Eval(argument.Expression)))]);
+    }
+
+    private static bool IsWrittenForARecord(IMethodSymbol method) =>
+        method is
+        {
+            IsImplicitlyDeclared: true,
+            ContainingType.IsRecord: true,
+            Name: "Equals" or "GetHashCode" or "ToString" or "Deconstruct"
+        };
 
     private Followed? FollowImpliedDefinition(
         SyntaxNode call,
@@ -121,13 +176,17 @@ internal sealed partial class LoopStateEvaluator
 
         if (!this.region.Symbols.IsSodaFlow(definition) && BodyOf(definition) is { } body)
         {
+            // Each argument after the last parameter is one more element of a params array, as a
+            // dynamic call can give it.
+            ImmutableArray<IParameterSymbol> parameters = definition.Parameters;
+
             IReadOnlyList<Binding> bindings =
             [
                 .. arguments
-                    .Take(definition.Parameters.Length)
+                    .Take(parameters.LastOrDefault() is { IsParams: true } ? int.MaxValue : parameters.Length)
                     .Select((argument, position) =>
                         new Binding(
-                            parameter: definition.Parameters[position],
+                            parameter: parameters[position < parameters.Length ? position : parameters.Length - 1],
                             argument: argument.Written,
                             state: argument.State))
             ];
@@ -1182,7 +1241,11 @@ internal sealed partial class LoopStateEvaluator
     ///     when the interpolated string formats it now. A handler of this
     ///     compilation gets the value in its <c>AppendFormatted</c>.
     /// </summary>
-    public Followed? FollowInterpolation(InterpolationSyntax interpolation)
+    /// <param name="interpolation">The interpolation.</param>
+    /// <param name="formatsNow">
+    ///     True for a format of a kept string, which formats each value now.
+    /// </param>
+    public Followed? FollowInterpolation(InterpolationSyntax interpolation, bool formatsNow = false)
     {
         // An interpolated string handler of this compilation gets the value in its AppendFormatted,
         // which formats it, and the platform does not. Only the string of a handler has a part for
@@ -1211,7 +1274,7 @@ internal sealed partial class LoopStateEvaluator
         if (this.region.Symbols is { ObjectToString: not null, DeclaresToString: true }
             && interpolation.Parent is InterpolatedStringExpressionSyntax printed
             && SodaFlowSymbols.HoldsParts(this.region.TypeOf(interpolation.Expression))
-            && this.FormatsNow(printed))
+            && (formatsNow || this.FormatsNow(printed)))
         {
             return this.FollowToStringOf(call: interpolation.Expression, value: this.Eval(interpolation.Expression));
         }
@@ -1220,7 +1283,7 @@ internal sealed partial class LoopStateEvaluator
             || !(symbols.DeclaresToString || symbols.DeclaresRecords)
             || this.Self(interpolation.Expression) is not { Members: { } members } owner
             || interpolation.Parent is not InterpolatedStringExpressionSyntax whole
-            || !this.FormatsNow(whole))
+            || !(formatsNow || this.FormatsNow(whole)))
         {
             return null;
         }
@@ -1575,10 +1638,46 @@ internal sealed partial class LoopStateEvaluator
         operation is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } method
             ? this.FollowImplied(
                 call: call,
-                member: method,
+                member: this.OperatorThroughATypeArgument(method) ?? method,
                 owner: null,
                 arguments: [.. operands.Select(operand => (operand, this.Eval(operand)))])
             : null;
+
+    /// <summary>
+    ///     The operator of the type argument that implements a static operator of
+    ///     an interface, for an operator on a value of a type parameter. Null when
+    ///     the call of this code does not say the type argument.
+    /// </summary>
+    /// <remarks>
+    ///     The interface has the type parameter as a type argument, as in
+    ///     <c>IAdditionOperators&lt;T, T, T&gt;</c>.
+    /// </remarks>
+    private IMethodSymbol? OperatorThroughATypeArgument(IMethodSymbol method)
+    {
+        if (method is not { IsStatic: true, ContainingType: { TypeKind: TypeKind.Interface } owner })
+        {
+            return null;
+        }
+
+        IMethodSymbol definition = method.OriginalDefinition;
+
+        return owner.TypeArguments
+            .Select(this.TypeArgumentFor)
+            .OfType<INamedTypeSymbol>()
+            .SelectMany(actual =>
+                actual.AllInterfaces
+                    .Where(candidate => SymbolEqualityComparer.Default.Equals(
+                        x: candidate.OriginalDefinition,
+                        y: definition.ContainingType))
+                    .SelectMany(candidate => candidate.GetMembers(definition.Name).OfType<IMethodSymbol>())
+                    .Where(candidate => SymbolEqualityComparer.Default.Equals(
+                        x: candidate.OriginalDefinition,
+                        y: definition))
+                    .Select(actual.FindImplementationForInterfaceMember))
+            .OfType<IMethodSymbol>()
+            .Select(static found => found.OriginalDefinition)
+            .FirstOrDefault();
+    }
 
     // The name of a member in a report: the property for an accessor, and the operator as the
     // code declares it.
@@ -1604,7 +1703,9 @@ internal sealed partial class LoopStateEvaluator
 
         Followed? result =
             this.region.SymbolOf(name) is IPropertySymbol written && !this.region.Symbols.IsSodaFlow(written)
-                ? this.FollowGetterOn(access: name, written: written, owner: owner)
+                ? this.ExtensionParameterOf(written.OriginalDefinition) is { } extended
+                    ? this.FollowTheGetterOfABlockMember(name: name, written: written, extended: extended, owner: owner)
+                    : this.FollowGetterOn(access: name, written: written, owner: owner)
                 : null;
 
         this.followed[name] = result;

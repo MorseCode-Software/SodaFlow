@@ -1464,3 +1464,33 @@ type ``Stream Tests``() =
             l |> unlistenL
             do! Expect.Sequence([ 3; 4; 5 ], out)
         }
+
+    // A stream that fires queues one firing for each of its listeners. The listener on the map is
+    // a rank above the listener on the sink. Thus, its firing waits in the queue when the first
+    // listener stops it. A stopped listener gets nothing.
+    [<Test>]
+    member _.``a listener that an earlier listener stops gets nothing``() =
+        task {
+            let s = sinkS ()
+            let calls = List<string>()
+            let mutable late = None
+
+            let early =
+                s
+                |> listenS (fun v ->
+                    calls.Add(sprintf "early%d" v)
+
+                    match late with
+                    | Some l ->
+                        l |> unlistenL
+                        late <- None
+                    | None -> ())
+
+            late <- Some(s |> mapS ((*) 10) |> listenS (fun v -> calls.Add(sprintf "late%d" v)))
+
+            s |> sendS 1
+            s |> sendS 2
+            early |> unlistenL
+
+            do! Expect.Sequence([ "early1"; "early2" ], calls)
+        }

@@ -2,11 +2,12 @@
 
 Added: a Roslyn analyzer, inside this package under analyzers/dotnet/cs, that reports a read of a looped cell or
 behavior before its loop closes, a loop closed with a value linked to its own placeholder, and the other shapes that
-throw at run time; rules SF1001 to SF1006, all warnings but the escape to unknown code, which is an info. It reads the
+throw at run time; rules SF1001 to SF1007, all warnings but two infos: the escape to unknown code, and a read in a run
+of timers or a Dispose that a method of yours makes only under a condition that the analyzer cannot decide. It reads the
 block and the code of your own project that the block calls. A C# project that references SodaFlow runs it with no step
-of its own, and ExcludeAssets="analyzers" on the reference removes it. F# is not covered, because a Roslyn analyzer
-runs in the C# compiler only. The loops page describes the rules, the mark that silences the escape, and what the
-analyzer does not see.
+of its own, and ExcludeAssets="analyzers" on the reference removes it. F# is not covered, because a Roslyn analyzer runs
+in the C# compiler only. The loops page describes the rules, the mark that silences the escape, and what the analyzer
+does not see.
 
 Added: rule SF2001 in the same analyzer, a warning. It reports a call to Listen or ListenOnce whose listener nothing
 holds: a statement of the call alone, a discard, or a local that no later code reads. Such a listener stops at a garbage
@@ -206,6 +207,17 @@ it fire early, late, or not at all. The old timer is now canceled only when the 
 that fails takes back the timer it set, even one that had already fired on the timer thread. A disposed timer system
 still refuses a new deadline by failing the transaction that sends it, as before. The fix is in SodaFlow.Core, so it
 reaches an implementation you write as well.
+
+Fixed: a deadline at infinity, at double.MaxValue, or more than about 29,000 years ahead no longer makes every
+transaction in the process throw, and a NaN deadline is now refused with ArgumentOutOfRangeException in the
+transaction that gives it. Such a deadline, or one at DateTime.MaxValue, also no longer makes the timer thread spin and
+flood the handler. A listener of an alarm, or of Time, that throws no longer fails whichever unrelated
+transaction delivered the alarm; the exception goes to the handler of the timer system. The fixes are in SodaFlow.Core,
+so they reach an implementation you write as well.
+
+Fixed: disposing a timer system inside a transaction, from a listener or a Transaction.Run block, no longer deadlocks while
+the timer thread fires an alarm. The timer thread now stops when that transaction ends, and no alarm reaches the graph
+after Dispose returns. The fix is in SodaFlow.Core.
 
 Fixed: SecondsTimerSystem counted its seconds as DateTime.Now minus the DateTime.Now at construction, so the count
 jumped by an hour when daylight saving time began or ended, and moved with any correction of the system clock. It now

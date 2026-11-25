@@ -635,6 +635,229 @@ public sealed class TimerTests
         await Assert.That(raw.Time.Sample()).IsGreaterThan(0.0);
     }
 
+    // The start hook of each transaction runs the timers that are due. A deadline that is far
+    // away, or at infinity, has no interval in a TimeSpan. A hook that asked for that interval
+    // failed each transaction in the process, the one that clears the deadline included.
+    [Test]
+    [Arguments(double.PositiveInfinity)]
+    [Arguments(double.MaxValue)]
+    [Arguments(1e15)]
+    public async Task AFarDeadlineLeavesEachTransactionWorking(double far)
+    {
+        SecondsTimerSystem timers = this.Keep(new SecondsTimerSystem(Ignore));
+        CellSink<Maybe<double>> deadline = Cell.CreateSink<Maybe<double>>(Maybe.None);
+        StreamSink<int> other = Stream.CreateSink<int>();
+        Cell<int> held = other.Hold(0);
+        List<double> alarms = [];
+
+        using IListener l = timers.At(deadline).Listen(alarms.Add);
+
+        deadline.Send(Maybe.Some(far));
+        other.Send(1);
+        deadline.Send(Maybe.None);
+        other.Send(2);
+
+        await Assert.That(held.Sample()).IsEqualTo(2);
+        await Assert.That(deadline.Sample()).IsEqualTo(Maybe<double>.None);
+        await Assert.That(alarms).IsEmpty();
+    }
+
+    // A far deadline is a wait of the longest interval on the timer thread. Before, the interval
+    // went to WaitOne as it was, and WaitOne threw above about 24.8 days. The thread gave each throw
+    // to the handler and tried again at once.
+    [Test]
+    [Arguments(double.PositiveInfinity)]
+    [Arguments(double.MaxValue)]
+    [Arguments(30.0 * 24 * 60 * 60)]
+    public async Task AFarDeadlineGivesTheHandlerNothing(double ahead)
+    {
+        int[] handled = [0];
+        SecondsTimerSystem timers = this.Keep(new SecondsTimerSystem(_ => Interlocked.Increment(ref handled[0])));
+        CellSink<Maybe<double>> deadline = Cell.CreateSink<Maybe<double>>(Maybe.None);
+
+        using IListener l = timers.At(deadline).Listen(static _ =>
+        {
+        });
+
+        deadline.Send(Maybe.Some(timers.Time.Sample() + ahead));
+        Thread.Sleep(300);
+
+        await Assert.That(Volatile.Read(ref handled[0])).IsEqualTo(0);
+    }
+
+    // NaN is not in order with other times: the comparer puts it first, thus it is always due.
+    // The transaction that gives it fails, and only that one.
+    [Test]
+    public async Task ANaNDeadlineIsRefusedInTheTransactionThatGivesIt()
+    {
+        SecondsTimerSystem timers = this.Keep(new SecondsTimerSystem(Ignore));
+        CellSink<Maybe<double>> deadline = Cell.CreateSink<Maybe<double>>(Maybe.None);
+        StreamSink<int> other = Stream.CreateSink<int>();
+        Cell<int> held = other.Hold(0);
+
+        using IListener l = timers.At(deadline).Listen(static _ =>
+        {
+        });
+
+        await Assert.That(() => deadline.Send(Maybe.Some(double.NaN))).ThrowsExactly<ArgumentOutOfRangeException>();
+
+        other.Send(1);
+
+        await Assert.That(deadline.Sample()).IsEqualTo(Maybe<double>.None);
+        await Assert.That(held.Sample()).IsEqualTo(1);
+    }
+
+    // The hook finds a due timer with the comparer. Thus, a clock whose subtraction throws still
+    // fires its alarms in a transaction, and the other transactions work. Its timer thread gives
+    // each throw to the handler.
+    [Test]
+    public async Task ADueTimerFiresInATransactionAlsoWhenTheSubtractionThrows()
+    {
+        HandSecondsClock clock = new();
+        int handled = 0;
+
+        TimerSystem<double> timers =
+            this.Keep(
+                new TimerSystem<double>(
+                    implementation: clock,
+                    handleException: _ => Interlocked.Increment(ref handled)));
+
+        StreamSink<int> other = Stream.CreateSink<int>();
+        Cell<int> held = other.Hold(0);
+        List<double> alarms = [];
+
+        using IListener l = timers.At(Cell.Constant(Maybe.Some(5.0))).Listen(alarms.Add);
+
+        clock.NowValue = 6;
+        other.Send(1);
+
+        await Assert.That(alarms).IsEquivalentTo(expected: [5.0], ordering: CollectionOrdering.Matching);
+        await Assert.That(held.Sample()).IsEqualTo(1);
+    }
+
+    // The start hook sends a due alarm in a transaction of its own, at the start of whichever
+    // transaction comes first after the deadline. A listener of the alarm that throws fails the
+    // transaction of the alarm, and the exception goes to the handler. The transaction that
+    // started has no relation to the alarm, and it commits.
+    [Test]
+    public async Task AnAlarmListenerThatThrowsGoesToTheHandlerAndNotToTheNextTransaction()
+    {
+        ScriptedClock clock = new();
+        List<Exception> handled = [];
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem(handled.Add));
+        InvalidOperationException thrown = new("The alarm listener throws.");
+
+        using IListener l = timers.At(Cell.Constant(Maybe.Some(5))).Listen(_ => throw thrown);
+
+        StreamSink<int> other = Stream.CreateSink<int>();
+        Cell<int> held = other.Hold(0);
+        List<int> seen = [];
+        using IListener o = other.Listen(seen.Add);
+
+        clock.MoveTo(6);
+        other.Send(42);
+
+        await Assert.That(held.Sample()).IsEqualTo(42);
+        await Assert.That(seen).IsEquivalentTo(expected: [42], ordering: CollectionOrdering.Matching);
+        await Assert.That(handled).HasSingleItem();
+        await Assert.That(handled[0]).IsSameReferenceAs(thrown);
+    }
+
+    // The same for a listener of the updates of Time. Time keeps its value when that send fails,
+    // and the next transaction sends the time again.
+    [Test]
+    public async Task ATimeListenerThatThrowsGoesToTheHandlerAndNotToTheNextTransaction()
+    {
+        ScriptedClock clock = new();
+        List<Exception> handled = [];
+        TimerSystem<int> timers = this.Keep(clock.CreateTimerSystem(handled.Add));
+        bool throwNext = true;
+        List<int> times = [];
+
+        using IListener l = Operational.Updates(timers.Time).Listen(t =>
+        {
+            if (throwNext)
+            {
+                throwNext = false;
+                throw new InvalidOperationException("The listener of Time throws.");
+            }
+
+            times.Add(t);
+        });
+
+        StreamSink<int> other = Stream.CreateSink<int>();
+        Cell<int> held = other.Hold(0);
+
+        clock.MoveTo(3);
+        other.Send(1);
+
+        // Before any other transaction: a sample opens one, and its hook sends the time again.
+        int[] timesAfterTheFailure = [.. times];
+        int handledAfterTheFailure = handled.Count;
+        int heldAfterTheFailure = held.Sample();
+
+        other.Send(2);
+
+        await Assert.That(heldAfterTheFailure).IsEqualTo(1);
+        await Assert.That(timesAfterTheFailure).IsEmpty();
+        await Assert.That(handledAfterTheFailure).IsEqualTo(1);
+        await Assert.That(held.Sample()).IsEqualTo(2);
+        await Assert.That(times).IsEquivalentTo(expected: [3], ordering: CollectionOrdering.Matching);
+        await Assert.That(timers.Time.Sample()).IsEqualTo(3);
+    }
+
+    // A disposal waits for the timer thread to end, and an alarm on that thread opens a
+    // transaction. A disposal in a transaction thus waited for a thread that waited for its lock.
+    // The stop now waits for the release of the lock, and no alarm gets to the graph after the
+    // call.
+    //
+    // The test moves the clock only after the worker opens its transaction. Thus, the timer thread
+    // always fires the alarm while the worker holds the lock. With a real clock, a slow start of
+    // the worker let the start hook of its transaction give the alarm before the disposal.
+    [Test]
+    public async Task ADisposalInATransactionWhileAnAlarmFiresEnds()
+    {
+        TaskCompletionSource<bool> firing = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<bool> opened = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        FiringHandClock clock = new(firing);
+
+        // Not kept for a disposal at the end of the test. Without the fix, that disposal waits for
+        // the timer thread of the deadlock, and the run does not end.
+        TimerSystem<double> timers = new(implementation: clock, handleException: Ignore);
+        CellSink<Maybe<double>> deadline = Cell.CreateSink<Maybe<double>>(Maybe.None);
+        List<double> alarms = [];
+        IListener l = timers.At(deadline).Listen(alarms.Add);
+        bool[] firedInTheTransaction = [false];
+
+        deadline.Send(Maybe.Some(10.0));
+
+        Thread worker =
+            new(() =>
+                Transaction.RunVoid(() =>
+                {
+                    opened.SetResult(true);
+
+                    // The timer thread fires the alarm, and then waits for the lock of this
+                    // transaction.
+                    firedInTheTransaction[0] = firing.Task.Wait(TimeSpan.FromSeconds(10));
+                    timers.Dispose();
+                })) { IsBackground = true };
+
+        worker.Start();
+
+        await Assert.That(opened.Task.Wait(TimeSpan.FromSeconds(10))).IsTrue();
+
+        clock.MoveTo(10.0);
+
+        // Before the disposal of the listener, which needs the lock that a stopped worker holds.
+        await Assert.That(worker.Join(TimeSpan.FromSeconds(10))).IsTrue();
+
+        l.Dispose();
+
+        await Assert.That(firedInTheTransaction[0]).IsTrue();
+        await Assert.That(alarms).IsEmpty();
+    }
+
     private static void Ignore(Exception e)
     {
     }
@@ -671,6 +894,57 @@ public sealed class TimerTests
     private sealed class HandClock
     {
         internal DateTime Now { get; set; }
+    }
+
+    // A clock in seconds that a test moves, whose subtraction always throws.
+    private sealed class HandSecondsClock : TimerSystemImplementationBase<double>
+    {
+        public override double Now => this.NowValue;
+
+        internal double NowValue { get; set; }
+
+        protected override TimeSpan SubtractTimes(double first, double second) =>
+            throw new InvalidOperationException("The test clock gives no interval.");
+    }
+
+    // A clock in seconds that a test moves, on the timer thread of the base. While a timer waits,
+    // the thread reads the clock again after one millisecond. Thus, a move fires a due timer on that
+    // thread at once. The event is set when the callback of a timer starts.
+    private sealed class FiringHandClock(in TaskCompletionSource<bool> firing) : ITimerSystemImplementation<double>
+    {
+        private readonly PollingClock clock = new();
+        private readonly TaskCompletionSource<bool> firing = firing;
+
+        public double Now => this.clock.Now;
+
+        public void Start(Action<Exception> handleException) => this.clock.Start(handleException);
+
+        public void Stop() => this.clock.Stop();
+
+        public ITimer SetTimer(double time, Action callback) =>
+            this.clock.SetTimer(
+                time: time,
+                callback: () =>
+                {
+                    this.firing.TrySetResult(true);
+                    callback();
+                });
+
+        public void RunTimersTo(double now) => this.clock.RunTimersTo(now);
+
+        internal void MoveTo(double now) => this.clock.MoveTo(now);
+
+        private sealed class PollingClock : TimerSystemImplementationBase<double>
+        {
+            private double now;
+
+            public override double Now => Volatile.Read(ref this.now);
+
+            internal void MoveTo(double now) => Volatile.Write(location: ref this.now, value: now);
+
+            protected override TimeSpan SubtractTimes(double first, double second) =>
+                first > second ? TimeSpan.FromMilliseconds(1) : TimeSpan.Zero;
+        }
     }
 
     // A clock on the base, with the thread of the base, for the tests of that thread.
@@ -738,6 +1012,12 @@ public sealed class TimerTests
                 handleException: static _ =>
                 {
                 });
+
+        internal TimerSystem<int> CreateTimerSystem(Action<Exception> handleException) =>
+            new(implementation: this, handleException: handleException);
+
+        /// <summary>Moves the clock and opens no transaction.</summary>
+        internal void MoveTo(int now) => this.Now = now;
 
         /// <summary>
         ///     Moves the clock, and opens a transaction. The timer system reads the clock

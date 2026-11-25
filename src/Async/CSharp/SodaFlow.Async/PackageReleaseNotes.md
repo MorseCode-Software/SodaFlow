@@ -48,6 +48,15 @@ package, and its notes have the details of each:
   committed, and the state of SwitchLatest goes back when the transaction fails, as the state of every strategy now
   does. An exception from a callback registered on the token of the replaced run goes to handleException, where a send
   to the pipeline used to throw it.
+- The code that a cancellation runs, such as a callback on an operation's token and the cleanup after an await that it
+  completes, now runs with no transaction open, so it can send and can wait on another thread that needs a transaction.
+  Before, it ran holding the transaction lock, and for a disposal inside the disposal's listener callback, where a send
+  threw. The cancellation still takes effect at the same point: the tokens change once the lock is released.
+- A cancellation that commits while a finished operation waits to deliver its result now stops that result, as the
+  documentation says it does for an operation that ignores its token. Before, the result was published, and an Execute
+  task completed with it.
+- A callback on an operation's token that throws during a disposal no longer makes Dispose throw or leaves the other
+  items running, and a queued item no longer starts after such a disposal. The exception goes to handleException.
 
 NuGet resolves the lowest version a range allows, so a fresh install of 5.1.0 would go on resolving
 SodaFlow.Core.Async 5.0.1. A consumer who references SodaFlow.Core.Async directly gets the changes either way.

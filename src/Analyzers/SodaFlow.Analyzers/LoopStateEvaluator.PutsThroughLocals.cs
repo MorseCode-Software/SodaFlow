@@ -29,14 +29,14 @@ internal sealed partial class LoopStateEvaluator
 
         switch (this.region.SymbolOf(Unwrapped(element.Expression)))
         {
-            case IFieldSymbol field when replaces && index >= 0 && this.function == null:
+            case { } field and (IFieldSymbol or IPropertySymbol) when replaces && index >= 0 && this.function == null:
                 this.region.ReplacesThePutsThroughLocals(field: field, index: index);
 
                 break;
             case ILocalSymbol local
                 when this.Frame.ReadFrom.Count > 0
                      && this.TheFieldThatItNames(local) is { } named
-                     && this.region.SymbolOf(named) is IFieldSymbol field
+                     && this.region.SymbolOf(named) is { } field and (IFieldSymbol or IPropertySymbol)
                      && this.IsStillTheLocationOf(name: local, location: named, use: element, aCallCounts: false):
                 this.region.AddAPutThroughALocal(
                     field: field,
@@ -70,7 +70,7 @@ internal sealed partial class LoopStateEvaluator
             && this.region.SymbolOf(name) is ILocalSymbol local
             && this.TheFieldThatItNames(local) is { } named
             && SinkWalker.PutsIntoAList(method)
-            && this.region.SymbolOf(named) is IFieldSymbol field
+            && this.region.SymbolOf(named) is { } field and (IFieldSymbol or IPropertySymbol)
             && this.IsStillTheLocationOf(name: local, location: named, use: call, aCallCounts: false))
         {
             this.region.AddAPutThroughALocal(

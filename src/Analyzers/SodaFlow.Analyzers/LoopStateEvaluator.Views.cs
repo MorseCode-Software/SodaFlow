@@ -45,12 +45,15 @@ internal sealed partial class LoopStateEvaluator
     /// <summary>
     ///     The local array of a view whose element the code reads or sets, as in
     ///     <c>view[0]</c>. The view is a local, or the <c>Span</c> of a local.
-    ///     Null for each other element.
+    ///     The code can also make the view in the same expression. It uses
+    ///     <c>AsSpan</c>, <c>AsMemory</c>, <c>Slice</c>, a range, or the
+    ///     <c>Span</c> of a memory. Null for each other element.
     /// </summary>
     /// <remarks>
     ///     Each element access of the code comes here. Thus, the test asks only
     ///     for the symbol of a name, which the walk of the collection asked for
-    ///     before.
+    ///     before. A view that the expression makes goes to the walk back to the
+    ///     array only after a test of its syntax.
     /// </remarks>
     public ExpressionSyntax? TheArrayOfAViewOf(ElementAccessExpressionSyntax element) =>
         Unwrapped(element.Expression) switch
@@ -59,9 +62,18 @@ internal sealed partial class LoopStateEvaluator
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Span", Expression: IdentifierNameSyntax name } =>
                 name,
             InvocationExpressionSyntax call when this.IsTheSpanOfAList(call) => (ExpressionSyntax)call,
+            InvocationExpressionSyntax
+                {
+                    Expression: MemberAccessExpressionSyntax
+                    {
+                        Name.Identifier.ValueText: "AsSpan" or "AsMemory" or "Slice"
+                    }
+                } call => call,
+            ElementAccessExpressionSyntax range when IsARange(range.ArgumentList.Arguments) => range,
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Span" } span => span,
             _ => null
         } is { } local
-        && (local is InvocationExpressionSyntax
+        && (local is InvocationExpressionSyntax or ElementAccessExpressionSyntax or MemberAccessExpressionSyntax
             || (this.region.SymbolOf(local) is ILocalSymbol { Type: var type } && IsAView(type)))
             ? this.TheArrayOfAView(element.Expression)
             : null;
@@ -85,6 +97,48 @@ internal sealed partial class LoopStateEvaluator
             } marshal
         }
         && SodaFlowSymbols.IsPlatform(marshal);
+
+    /// <summary>
+    ///     The local list that a <c>ReadOnlyCollection</c> of the platform is a
+    ///     view of. <c>AsReadOnly</c> of the list makes such a view, and so does
+    ///     the constructor that gets the list. Null for each other value.
+    /// </summary>
+    /// <remarks>
+    ///     The name of the call and the count of the arguments come first, thus
+    ///     the walk asks for no symbol of a different value.
+    /// </remarks>
+    private IdentifierNameSyntax? TheListOfAReadOnlyView(ExpressionSyntax value) =>
+        Unwrapped(value) switch
+        {
+            InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Name.Identifier.ValueText: "AsReadOnly", Expression: IdentifierNameSyntax list
+                },
+                ArgumentList.Arguments.Count: 0
+            } call when this.region.SymbolOf(call) is IMethodSymbol
+                         {
+                             ReducedFrom: null, ContainingType: { Name: "List" } owner
+                         }
+                         && SodaFlowSymbols.IsPlatform(owner) => list,
+            BaseObjectCreationExpressionSyntax creation
+                when TheOnlyArgumentOf(creation) is
+                     {
+                         RefKindKeyword.RawKind: (int)SyntaxKind.None, Expression: IdentifierNameSyntax list
+                     }
+                     && this.region.TypeOf(creation) is INamedTypeSymbol { Name: "ReadOnlyCollection", Arity: 1 } made
+                     && SodaFlowSymbols.IsPlatform(made) => list,
+            _ => null
+        } is { } viewed
+        && this.region.SymbolOf(viewed) is { } of
+        && KeepsItsObject(of)
+            ? viewed
+            : null;
+
+    // The one argument of a creation. Null for a creation with no argument or with more than one.
+    private static ArgumentSyntax? TheOnlyArgumentOf(BaseObjectCreationExpressionSyntax creation) =>
+        creation.ArgumentList is { Arguments.Count: 1 } arguments ? arguments.Arguments[0] : null;
 
     /// <summary>
     ///     The local that a span over it by ref names, as in
@@ -162,6 +216,8 @@ internal sealed partial class LoopStateEvaluator
                     value: null,
                     state: this.Eval(this.TheArrayOfAView(source) ?? source).AsOneOfItsElements);
             }
+
+            this.CopiesIntoAStaticField(method: method, arguments: arguments);
 
             return;
         }

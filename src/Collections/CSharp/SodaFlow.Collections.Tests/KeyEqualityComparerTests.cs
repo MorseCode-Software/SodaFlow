@@ -175,10 +175,12 @@ public sealed class KeyEqualityComparerTests
     }
 
     /// <summary>
-    ///     The delta with keys from a root edit. An update that names one spelling of
-    ///     a key goes into the store at the spelling from the arrival of the item.
-    ///     Thus, the delta must use that spelling, because it is the only spelling
-    ///     that a consumer of the collection reads.
+    ///     The delta with keys from a root edit. An edit that names a different
+    ///     spelling of a key changes that key in the delta. This test finds the key
+    ///     with the comparer of the collection, thus it cannot see a spelling.
+    ///     <see cref="AnUpdateInAnotherSpellingKeepsTheSpellingOfTheStore" /> and
+    ///     <see cref="ARemovalInAnotherSpellingReportsTheSpellingOfTheStore" /> make
+    ///     sure that the delta has the spelling in the store.
     /// </summary>
     [Test]
     public async Task ItemChangesMatchKeysWithTheGivenComparer()
@@ -209,6 +211,220 @@ public sealed class KeyEqualityComparerTests
 
         await Assert.That(removedHasCanonicalKey)
             .IsEquivalentTo(expected: [false, true], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     An update that names a key in a different spelling writes the state at the
+    ///     spelling in the store. The comparer of the collection cannot see a
+    ///     spelling, thus this test compares each key with an ordinal comparer.
+    /// </summary>
+    /// <remarks>
+    ///     Before, the state map, the item change, and the sort view had the spelling
+    ///     of the edit. The identity map had the spelling of the arrival, and a new
+    ///     build of the same sort also had it.
+    /// </remarks>
+    [Test]
+    public async Task AnUpdateInAnotherSpellingKeepsTheSpellingOfTheStore()
+    {
+        StreamSink<CollectionEdit<string, NamedIdentity, NamedState>> edits =
+            Stream.CreateSink<CollectionEdit<string, NamedIdentity, NamedState>>();
+
+        ReactiveCollection<string, NamedIdentity, NamedState> collection =
+            Create(edits: edits, Item(name: "ABC", score: 1), Item(name: "DEF", score: 2));
+
+        ReactiveCollection<string, NamedIdentity, NamedState> view =
+            collection.SortBy(static (_, state) => state.Score);
+
+        List<string> changedKeys = [];
+        List<string> operationKeys = [];
+
+        IListener changes = collection.ItemChangesStream.Listen(change => changedKeys.AddRange(change.ChangedKeys));
+
+        IListener operations =
+            view.KeyChangesStream.Listen(change =>
+                operationKeys.AddRange(change.Operations.Select(static operation => operation.Key)));
+
+        // The new score moves the item to the end of the view.
+        edits.Send(Score(key: "abc", score: 3));
+
+        changes.Dispose();
+        operations.Dispose();
+
+        CollectionSnapshot<string, NamedIdentity, NamedState> snapshot = collection.SnapshotCell.Sample();
+
+        await Assert.That(snapshot.States.Keys.OrderBy(keySelector: static key => key, comparer: StringComparer.Ordinal))
+            .IsEquivalentTo(expected: ["ABC", "DEF"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+        await Assert.That(changedKeys)
+            .IsEquivalentTo(expected: ["ABC"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+        await Assert.That(operationKeys)
+            .IsEquivalentTo(expected: ["ABC"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+        await Assert.That(view.KeysCell.Sample())
+            .IsEquivalentTo(expected: ["DEF", "ABC"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     A removal that names a key in a different spelling reports the spelling in
+    ///     the store. The item change and the operations of the collection both have
+    ///     that spelling.
+    /// </summary>
+    [Test]
+    public async Task ARemovalInAnotherSpellingReportsTheSpellingOfTheStore()
+    {
+        StreamSink<CollectionEdit<string, NamedIdentity, NamedState>> edits =
+            Stream.CreateSink<CollectionEdit<string, NamedIdentity, NamedState>>();
+
+        ReactiveCollection<string, NamedIdentity, NamedState> collection =
+            Create(edits: edits, Item(name: "ABC", score: 1), Item(name: "DEF", score: 2));
+
+        List<string> removedKeys = [];
+        List<string> operationKeys = [];
+
+        IListener changes = collection.ItemChangesStream.Listen(change => removedKeys.AddRange(change.Removed));
+
+        IListener operations =
+            collection.KeyChangesStream.Listen(change =>
+                operationKeys.AddRange(change.Operations.Select(static operation => operation.Key)));
+
+        edits.Send(CollectionEdit<string, NamedIdentity, NamedState>.Remove("aBc"));
+
+        changes.Dispose();
+        operations.Dispose();
+
+        await Assert.That(removedKeys)
+            .IsEquivalentTo(expected: ["ABC"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+        await Assert.That(operationKeys)
+            .IsEquivalentTo(expected: ["ABC"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     An update of a key that the same edit adds keeps the spelling of the add,
+    ///     because that add is the arrival. A removal of the earlier item in a
+    ///     different spelling does not change that.
+    /// </summary>
+    [Test]
+    public async Task AnUpdateOfAKeyThatTheEditAddsKeepsTheSpellingOfTheAdd()
+    {
+        StreamSink<CollectionEdit<string, NamedIdentity, NamedState>> edits =
+            Stream.CreateSink<CollectionEdit<string, NamedIdentity, NamedState>>();
+
+        ReactiveCollection<string, NamedIdentity, NamedState> collection =
+            Create(edits: edits, Item(name: "ABC", score: 1));
+
+        List<string> changedKeys = [];
+
+        IListener changes = collection.ItemChangesStream.Listen(change => changedKeys.AddRange(change.ChangedKeys));
+
+        edits.Send(
+            CollectionEdit<string, NamedIdentity, NamedState>.Add(Item(name: "GHI", score: 4))
+                .CombineWith(Score(key: "ghi", score: 5)));
+
+        edits.Send(
+            CollectionEdit<string, NamedIdentity, NamedState>.Remove("ABC")
+                .CombineWith(CollectionEdit<string, NamedIdentity, NamedState>.Add(Item(name: "abc", score: 6)))
+                .CombineWith(Score(key: "Abc", score: 7)));
+
+        changes.Dispose();
+
+        CollectionSnapshot<string, NamedIdentity, NamedState> snapshot = collection.SnapshotCell.Sample();
+
+        await Assert.That(changedKeys)
+            .IsEquivalentTo(expected: ["GHI", "abc"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+        await Assert.That(snapshot.States.Keys.OrderBy(keySelector: static key => key, comparer: StringComparer.Ordinal))
+            .IsEquivalentTo(expected: ["GHI", "abc"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+        await Assert.That(snapshot.Identities.Keys.OrderBy(keySelector: static key => key, comparer: StringComparer.Ordinal))
+            .IsEquivalentTo(expected: ["GHI", "abc"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     A removal and an add of one key in different spellings replaces the item.
+    ///     The new item keeps the spelling of the add. The removal names the spelling
+    ///     of the previous item, which is the spelling that a consumer got with its
+    ///     insert. The same score keeps the key at its position in the sort. Thus, the
+    ///     slice reports the replacement itself and does not get it from the sort.
+    /// </summary>
+    /// <remarks>
+    ///     Before, the root, each view, and the item change of each view reported the
+    ///     removal in the spelling of the add.
+    /// </remarks>
+    [Test]
+    public async Task AReplacementInAnotherSpellingRemovesTheSpellingOfThePreviousItem()
+    {
+        StreamSink<CollectionEdit<string, NamedIdentity, NamedState>> edits =
+            Stream.CreateSink<CollectionEdit<string, NamedIdentity, NamedState>>();
+
+        ReactiveCollection<string, NamedIdentity, NamedState> collection =
+            Create(
+                edits: edits,
+                Item(name: "ABC", score: 1),
+                Item(name: "DEF", score: 2),
+                Item(name: "GHI", score: 3));
+
+        ReactiveCollection<string, NamedIdentity, NamedState> sorted =
+            collection.SortBy(static (_, state) => state.Score);
+
+        ReactiveCollection<string, NamedIdentity, NamedState> slice = sorted.Slice(offset: 0, limit: 2);
+
+        ReactiveCollection<string, NamedIdentity, NamedState>[] collections = [collection, sorted, slice];
+        List<string>[] removals = [[], [], []];
+        List<string>[] inserts = [[], [], []];
+        List<string>[] removedKeys = [[], [], []];
+        List<IListener> listeners = [];
+
+        for (int index = 0; index < collections.Length; index++)
+        {
+            List<string> removed = removals[index];
+            List<string> inserted = inserts[index];
+            List<string> keys = removedKeys[index];
+
+            listeners.Add(
+                collections[index].KeyChangesStream.Listen(change =>
+                {
+                    removed.AddRange(
+                        change.Operations.OfType<ViewRemove<string>>().Select(static operation => operation.Key));
+
+                    inserted.AddRange(
+                        change.Operations.OfType<ViewInsert<string>>().Select(static operation => operation.Key));
+                }));
+
+            listeners.Add(collections[index].ItemChangesStream.Listen(change => keys.AddRange(change.Removed)));
+        }
+
+        edits.Send(
+            CollectionEdit<string, NamedIdentity, NamedState>.Remove("ABC")
+                .CombineWith(CollectionEdit<string, NamedIdentity, NamedState>.Add(Item(name: "abc", score: 1))));
+
+        foreach (IListener listener in listeners)
+        {
+            listener.Dispose();
+        }
+
+        for (int index = 0; index < collections.Length; index++)
+        {
+            await Assert.That(removals[index])
+                .IsEquivalentTo(expected: ["ABC"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+            await Assert.That(inserts[index])
+                .IsEquivalentTo(expected: ["abc"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+        }
+
+        // The root reports a replacement as an add alone. A view reports the removal and the
+        // insert that it got.
+        await Assert.That(removedKeys[0]).IsEmpty();
+
+        await Assert.That(removedKeys[1])
+            .IsEquivalentTo(expected: ["ABC"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+        await Assert.That(removedKeys[2])
+            .IsEquivalentTo(expected: ["ABC"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
+
+        await Assert.That(slice.KeysCell.Sample())
+            .IsEquivalentTo(expected: ["abc", "DEF"], comparer: StringComparer.Ordinal, ordering: CollectionOrdering.Matching);
     }
 
     /// <summary>
@@ -250,10 +466,11 @@ public sealed class KeyEqualityComparerTests
 
     /// <summary>
     ///     A projection keeps one object for each key, and it does the same with a
-    ///     comparer of the collection. The key of each cache is a key from the view,
-    ///     which is always the spelling in the store. Thus, a comparer that is more
-    ///     strict than the comparer of the store cannot give an incorrect result now.
-    ///     This test holds that rule and does not reproduce a defect.
+    ///     comparer of the collection. The key of each cache is a key from the view.
+    ///     The collection gives the spelling in the store to each key that an edit
+    ///     names. Thus, a key from the view always has that spelling. A comparer that
+    ///     is more strict than the comparer of the store cannot give an incorrect
+    ///     result now. This test holds that rule and does not reproduce a defect.
     /// </summary>
     [Test]
     public async Task AProjectionKeepsOneObjectPerKeyUnderTheGivenComparer()

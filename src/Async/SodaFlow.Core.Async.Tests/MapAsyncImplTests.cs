@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,11 +8,16 @@ using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
+using StackTrace = System.Diagnostics.StackTrace;
 
 namespace SodaFlow.Async.Tests;
 
 public sealed class MapAsyncImplTests
 {
+    // The stack tests wait for the thread that releases their queue. This limit only stops a hang.
+    // Under the load of a full test run, the work itself took more than 30 s.
+    private static readonly TimeSpan HangLimit = TimeSpan.FromMinutes(5);
+
     [Test]
     public async Task SuccessfulOperationPublishesToResults()
     {
@@ -758,6 +764,120 @@ public sealed class MapAsyncImplTests
         l.Dispose();
     }
 
+    // A disposal in a transaction that a listener fails. The first listener throws before the
+    // trigger comes, and the second one throws after it. The record of the cancel shows the side of
+    // the throw. The token reads as not canceled on each side, because it changes after the release
+    // of the lock. The disposal cancels the token in each condition.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task Dispose_InsideATransactionThatAListenerFails_RecordsTheCancelOnlyAfterTheTrigger(
+        bool throwAfterTheTrigger)
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+        ControlledOperation<int, int> op = new();
+        KeepItemsStrategy strategy = new();
+        List<(bool Recorded, bool Canceled)> atTheThrow = [];
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: strategy,
+                inputConverter: static v => v,
+                cancelOnDispose: true);
+
+        // A listener on the sink gets its firing when the transaction sends, which is before each
+        // listener below a node. Two maps put a listener after the listener of the trigger, which
+        // is one node below its sink.
+        Stream<int> throwsHere = throwAfterTheTrigger ? other.Map(static v => v).Map(static v => v) : other;
+
+        using IListener throws =
+            throwsHere.Listen(_ =>
+            {
+                AsyncItemCancellationSource cancellation = strategy.FirstItem.Cancellation;
+
+                atTheThrow.Add((cancellation.IsCancelCommitted, cancellation.IsCancellationRequested));
+
+                throw new InvalidOperationException("The test fails this transaction.");
+            });
+
+        source.Send(1);
+        TestUtil.WaitUntil(() => op.HasStarted(1));
+
+        await Assert.That(() => Transaction.RunVoid(() =>
+            {
+                status.Dispose();
+                other.Send(1);
+            }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(atTheThrow.SequenceEqual([(throwAfterTheTrigger, false)]))
+            .IsTrue()
+            .Because("the record shows the side of the trigger, and the token changes after the release");
+
+        await Assert.That(strategy.FirstItem.Cancellation.IsCancellationRequested).IsTrue();
+
+        TestUtil.WaitUntil(() => status.Items.Sample().Count == 0);
+    }
+
+    // A transaction that fails must cancel nothing: no token, and no record. A record that stays
+    // after the failure holds the result of the item, also with a token that no code canceled.
+    [Test]
+    public async Task ACancelAllInATransactionThatFailsRecordsNoCancel()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<UnitInternal> cancelAll = Stream.CreateSink<UnitInternal>();
+        ControlledOperation<int, int> op = new();
+        KeepItemsStrategy strategy = new();
+        List<int> received = [];
+
+        using IListener l = results.Listen(received.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: strategy,
+                inputConverter: static v => v,
+                cancelAll: cancelAll);
+
+        // The two maps put this listener after the listener of the pipeline on the stream. Thus, the
+        // pipeline gets the cancellation before the throw.
+        using IListener throws =
+            cancelAll.Map(static v => v)
+                .Map(static v => v)
+                .Listen(static _ => throw new InvalidOperationException("The test fails this transaction."));
+
+        source.Send(1);
+        TestUtil.WaitUntil(() => op.HasStarted(1));
+
+        await Assert.That(() => cancelAll.Send(UnitInternal.Value)).ThrowsExactly<InvalidOperationException>();
+
+        AsyncItemCancellationSource cancellation = strategy.FirstItem.Cancellation;
+
+        await Assert.That(cancellation.IsCancelCommitted).IsFalse();
+        await Assert.That(cancellation.IsCancellationRequested).IsFalse();
+
+        op.Release(input: 1, result: 10);
+        TestUtil.WaitUntil(() => received.Count == 1);
+
+        await Assert.That(received).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
     // The pipeline finds the items with a dictionary and a set where it ends more than a few items.
     // This test cancels half of a long queue. Then the release of the item that runs must start the
     // next item that remains.
@@ -808,6 +928,393 @@ public sealed class MapAsyncImplTests
 
         status.Dispose();
         l.Dispose();
+    }
+
+    // A Queue pipeline holds 10,000 items behind item 0, and the operation of each completes
+    // synchronously. The release of item 0 then starts, ends, and flushes each item on the thread of
+    // the release. Before, each item did that in a call from the item before it, and the stack
+    // overflowed at fewer than 1,000 items. That stopped the test host.
+    [Test]
+    public async Task AQueueOfSynchronousOperationsDeliversEachResultInOrderWithoutAStackOverflow()
+    {
+        const int count = 10_000;
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        TaskCompletionSource<bool> gate = new();
+        List<int> received = [];
+        HashSet<int> threads = [];
+
+        using IListener l = results.Listen(received.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: async (v, factory, _) =>
+                {
+                    if (v == 0)
+                    {
+                        await gate.Task.ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        threads.Add(Environment.CurrentManagedThreadId);
+                    }
+
+                    return factory.FromValue(v);
+                },
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        for (int i = 0; i <= count; i++)
+        {
+            source.Send(i);
+        }
+
+        Thread release = new(() => gate.SetResult(true));
+        release.Start();
+
+        await Assert.That(release.Join(HangLimit)).IsTrue();
+
+        await Assert.That(received)
+            .IsEquivalentTo(expected: Enumerable.Range(start: 0, count: count + 1), ordering: CollectionOrdering.Matching);
+
+        await Assert.That(threads)
+            .IsEquivalentTo(expected: [release.ManagedThreadId])
+            .Because("Each operation starts inline, on the thread of the release.");
+
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
+
+        status.Dispose();
+    }
+
+    // The same queue with fewer items, which do not overflow the stack without the trampoline. The
+    // stack at the operation of the last item is no deeper than at the first. Before, it was
+    // approximately ten frames deeper for each item.
+    [Test]
+    public async Task AQueueOfSynchronousOperationsStartsEachItemAtTheSameDepthOfStack()
+    {
+        const int count = 100;
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        TaskCompletionSource<bool> gate = new();
+        Dictionary<int, int> depths = [];
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: async (v, factory, _) =>
+                {
+                    if (v == 0)
+                    {
+                        await gate.Task.ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        depths[v] = new StackTrace().FrameCount;
+                    }
+
+                    return factory.FromValue(v);
+                },
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        for (int i = 0; i <= count; i++)
+        {
+            source.Send(i);
+        }
+
+        Thread release = new(() => gate.SetResult(true));
+        release.Start();
+
+        await Assert.That(release.Join(HangLimit)).IsTrue();
+        await Assert.That(depths.Count).IsEqualTo(count);
+        await Assert.That(depths[count]).IsLessThanOrEqualTo(depths[1]);
+
+        status.Dispose();
+    }
+
+    // Each result of one Queue pipeline goes into a second Queue pipeline of a different type, and
+    // the operations of the two complete synchronously. One trampoline on the thread serves the two
+    // pipelines. Thus, the stack does not overflow, and the second pipeline keeps the sequence.
+    [Test]
+    public async Task TwoPipelinesOfDifferentTypesInAChainDeliverEachResultInOrderWithoutAStackOverflow()
+    {
+        const int count = 10_000;
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<string> texts = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        TaskCompletionSource<bool> gate = new();
+        List<string> received = [];
+
+        using IListener l = texts.Listen(received.Add);
+
+        AsyncMapStatus<int> first =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: async (v, factory, _) =>
+                {
+                    if (v == 0)
+                    {
+                        await gate.Task.ConfigureAwait(false);
+                    }
+
+                    return factory.FromValue(v);
+                },
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        AsyncMapStatus<int> second =
+            results.MapAsyncImpl(
+                results: texts,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: static (v, factory, _) =>
+                    Task.FromResult(factory.FromValue(v.ToString(CultureInfo.InvariantCulture))),
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        for (int i = 0; i <= count; i++)
+        {
+            source.Send(i);
+        }
+
+        Thread release = new(() => gate.SetResult(true));
+        release.Start();
+
+        await Assert.That(release.Join(HangLimit)).IsTrue();
+
+        await Assert.That(received)
+            .IsEquivalentTo(
+                expected: Enumerable.Range(start: 0, count: count + 1)
+                    .Select(static i => i.ToString(CultureInfo.InvariantCulture)),
+                ordering: CollectionOrdering.Matching);
+
+        second.Dispose();
+        first.Dispose();
+    }
+
+    // A results listener throws at one item in the middle of a chain of synchronous operations. The
+    // flush of that item waited on the trampoline. Its failure goes to the errors in a
+    // TestDeliveryException, as it does for a flush that does not wait, and the chain continues.
+    // After the chain, a send on the same thread starts and delivers immediately, thus the
+    // trampoline is clear.
+    [Test]
+    public async Task AFailedDeliveryInAChainOfSynchronousOperationsDoesNotStopTheChain()
+    {
+        const int count = 1_000;
+        const int failing = 500;
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        InvalidOperationException thrown = new("results listener");
+        TaskCompletionSource<bool> gate = new();
+        List<int> received = [];
+        List<Exception> failures = [];
+        bool deliveredAtOnce = false;
+
+        using IListener l = results.Listen(v =>
+        {
+            if (v == failing)
+            {
+                throw thrown;
+            }
+
+            received.Add(v);
+        });
+
+        using IListener e = errors.Listen(failures.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: async (v, factory, _) =>
+                {
+                    if (v == 0)
+                    {
+                        await gate.Task.ConfigureAwait(false);
+                    }
+
+                    return factory.FromValue(v);
+                },
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        for (int i = 0; i <= count; i++)
+        {
+            source.Send(i);
+        }
+
+        Thread release = new(() =>
+        {
+            gate.SetResult(true);
+            source.Send(count + 1);
+            deliveredAtOnce = received.Contains(count + 1);
+        });
+
+        release.Start();
+
+        await Assert.That(release.Join(HangLimit)).IsTrue();
+
+        await Assert.That(received)
+            .IsEquivalentTo(
+                expected: Enumerable.Range(start: 0, count: count + 2).Where(static i => i != failing),
+                ordering: CollectionOrdering.Matching);
+
+        await Assert.That(failures.Count).IsEqualTo(1);
+        await Assert.That(failures[0]).IsTypeOf<TestDeliveryException>();
+        await Assert.That(failures[0].InnerException).IsSameReferenceAs(thrown);
+        await Assert.That(deliveredAtOnce).IsTrue();
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
+
+        status.Dispose();
+    }
+
+    // The operation of an item that a flush starts calls Execute on a second pipeline and waits for
+    // its Task. The start and the flush of that Execute must run in the call, and not after the
+    // operation returns. The operation cannot return before they run. The wait has a limit, thus a
+    // failure gives -1 and does not stop the test.
+    [Test]
+    public async Task AnOperationThatAFlushStartsCanWaitForExecuteOnADifferentPipeline()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<int> otherSource = Stream.CreateSink<int>();
+        StreamSink<int> otherResults = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        TaskCompletionSource<bool> gate = new();
+        List<int> received = [];
+
+        using IListener l = results.Listen(received.Add);
+
+        AsyncMapStatus<int, int> other =
+            otherSource.MapAsyncImpl(
+                results: otherResults,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: static (v, factory, _) => Task.FromResult(factory.FromValue(v * 10)),
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        Func<int, Task<int>> executeOther = other.Execute;
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: async (v, factory, token) =>
+                {
+                    if (v == 0)
+                    {
+                        await gate.Task.ConfigureAwait(false);
+
+                        return factory.FromValue(v);
+                    }
+
+                    Task<int> task = executeOther(v);
+
+                    return factory.FromValue(
+                        task.Wait(millisecondsTimeout: 5000, cancellationToken: token) ? task.Result : -1);
+                },
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(0);
+        source.Send(1);
+        source.Send(2);
+
+        Thread release = new(() => gate.SetResult(true));
+        release.Start();
+
+        await Assert.That(release.Join(HangLimit)).IsTrue();
+        await Assert.That(received).IsEquivalentTo(expected: [0, 10, 20], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        other.Dispose();
+    }
+
+    // One end starts more than one item, and the first of them starts one more. Each operation
+    // completes synchronously. The starts and the results come in the sequence that calls in calls
+    // give. That is the first item, then each item that it starts, then the second item. This test
+    // passes also before the trampoline, which shows that the trampoline keeps that sequence.
+    [Test]
+    public async Task AnEndThatStartsMoreThanOneItemKeepsTheSequenceOfTheStartsAndTheResults()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        TaskCompletionSource<bool> gate = new();
+        List<string> log = [];
+
+        using IListener l = results.Listen(v => log.Add("result " + v.ToString(CultureInfo.InvariantCulture)));
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: async (v, factory, _) =>
+                {
+                    if (v == 0)
+                    {
+                        await gate.Task.ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        log.Add("start " + v.ToString(CultureInfo.InvariantCulture));
+                    }
+
+                    return factory.FromValue(v);
+                },
+                strategy: new FanOutStrategy(),
+                inputConverter: static v => v);
+
+        for (int i = 0; i <= 4; i++)
+        {
+            source.Send(i);
+        }
+
+        Thread release = new(() => gate.SetResult(true));
+        release.Start();
+
+        await Assert.That(release.Join(HangLimit)).IsTrue();
+
+        await Assert.That(log)
+            .IsEquivalentTo(
+                expected:
+                [
+                    "result 0",
+                    "start 1",
+                    "result 1",
+                    "start 4",
+                    "result 4",
+                    "start 2",
+                    "result 2",
+                    "start 3",
+                    "result 3"
+                ],
+                ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
     }
 
     [Test]
@@ -1033,6 +1540,44 @@ public sealed class MapAsyncImplTests
     }
 
     /// <summary>
+    ///     Starts each item immediately and keeps each item that it admits. Thus, a
+    ///     test can read the cancellation of an item.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class KeepItemsStrategy : AsyncConcurrencyStrategy<int, object?>
+    {
+        // This state is global and is not the state of one MapAsync call, as in RecordingStrategy.
+        private readonly List<AsyncQueuedItem<int>> items = [];
+
+        public AsyncQueuedItem<int> FirstItem => this.items[0];
+
+        protected override object? CreateState() => null;
+
+        protected internal override AsyncStrategyStep<int, object?> Admit(
+            object? state,
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
+        {
+            this.items.Add(incoming);
+
+            return new AsyncStrategyStep<int, object?>(state: state, start: [new AsyncToStart<int>(incoming)]);
+        }
+
+        protected internal override AsyncStrategyResult<int, object?> OnCompleted(
+            object? state,
+            AsyncQueuedItem<int> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, publish: true, next: AsyncToStart<int>.None);
+
+        protected internal override AsyncStrategyStep<int, object?> OnCanceled(
+            object? state,
+            IReadOnlyList<AsyncQueuedItem<int>> canceled,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, start: AsyncToStart<int>.None);
+    }
+
+    /// <summary>
     ///     Starts each item immediately, and throws from each call of OnCompleted
     ///     after the first.
     /// </summary>
@@ -1098,6 +1643,55 @@ public sealed class MapAsyncImplTests
             AsyncCompletion completion,
             IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
             new(state: state, publish: true, next: AsyncToStart<int>.None);
+
+        protected internal override AsyncStrategyStep<int, object?> OnCanceled(
+            object? state,
+            IReadOnlyList<AsyncQueuedItem<int>> canceled,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, start: AsyncToStart<int>.None);
+    }
+
+    /// <summary>
+    ///     Starts 0 at its admission and holds each other value. The end of 0 starts
+    ///     1, 2, and 3, and the end of 1 starts 4.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class FanOutStrategy : AsyncConcurrencyStrategy<int, object?>
+    {
+        protected override object? CreateState() => null;
+
+        protected internal override AsyncStrategyStep<int, object?> Admit(
+            object? state,
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(
+                state: state,
+                start: incoming.Value == 0 ? [new AsyncToStart<int>(incoming)] : AsyncToStart<int>.None);
+
+        protected internal override AsyncStrategyResult<int, object?> OnCompleted(
+            object? state,
+            AsyncQueuedItem<int> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
+        {
+            int[] next =
+                item.Value switch
+                {
+                    0 => [1, 2, 3],
+                    1 => [4],
+                    _ => []
+                };
+
+            return new AsyncStrategyResult<int, object?>(
+                state: state,
+                publish: true,
+                next:
+                [
+                    .. tracked
+                        .Where(t => t.Status == AsyncItemStatus.Queued && next.Contains(t.Item.Value))
+                        .Select(static t => new AsyncToStart<int>(t.Item))
+                ]);
+        }
 
         protected internal override AsyncStrategyStep<int, object?> OnCanceled(
             object? state,
