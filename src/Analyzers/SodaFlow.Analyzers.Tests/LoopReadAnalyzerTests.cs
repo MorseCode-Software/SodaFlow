@@ -121,7 +121,9 @@ internal sealed partial class LoopReadAnalyzerTests
         "Ab415TryGetValueIntoAnOlderLocal",
         // A foreach calls MoveNext of an enumerator of the code before it reads Current. The walk joins the value that
         // MoveNext gives the auto-property Current with the value that the constructor gave it.
-        "Ab439SyncCurrentReplacedInMoveNext"
+        "Ab439SyncCurrentReplacedInMoveNext",
+        // The analyzer cannot read the coalesce function. Thus, the sink can fire the value of each send.
+        "Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheSecond"
     ];
 
     private static readonly Assembly[] ShapeLibraries =

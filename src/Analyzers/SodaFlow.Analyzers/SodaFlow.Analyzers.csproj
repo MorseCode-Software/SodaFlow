@@ -111,6 +111,7 @@
         <Compile Include="LoopStateEvaluator.SecondNames.cs"/>
         <Compile Include="LoopStateEvaluator.PatternTypes.cs"/>
         <Compile Include="LoopStateEvaluator.ExceptionHolders.cs"/>
+        <Compile Include="LoopStateEvaluator.CoalescedSinks.cs"/>
         <Compile Include="LoopStateEvaluator.SentFunctions.cs"/>
         <Compile Include="LoopStateEvaluator.Sinks.cs"/>
         <Compile Include="LoopStateEvaluator.StaticElements.cs"/>

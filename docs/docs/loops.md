@@ -929,12 +929,14 @@ careful side, so it can report a read that does not throw:
 - The coalesce function of a sink runs only when two sends go into the sink in one transaction. The
   analyzer counts the sends that are statements of the block itself, with no `return` or `goto`
   before them: one such send does not run the function, and two or more fire only what it returns.
-  With exactly two such sends into a sink of a stream, the first parameter of the function gets the
-  value of the first send and the second parameter that of the second. With more, and for a sink of
-  a cell, each parameter gets the value of each send.
+  With exactly two such sends into a sink, the first parameter of the function gets the value of the
+  first send and the second parameter that of the second. With more, each parameter gets the value
+  of each send.
   Any other send, such as one under a condition, in a loop, or in a function, counts as a send that
   can run the function, and its own value counts as well. A value that you make from the sink after
-  the sends also gets the value of each send.
+  the sends also gets the value of each send, unless two or more such sends of the block always run
+  and the function is a lambda or a method of your code: such a sink fires only what the function
+  returns, so the value gets only that.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
   one. An element counts as one object from a write through it to a read through it only in a
   straight line: in one function, with no loop, `goto` label, or `switch` section around the read

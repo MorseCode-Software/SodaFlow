@@ -303,3 +303,11 @@ public static class Ag99NoBodyCounter
         return count;
     }
 }
+
+// The coalesce functions of the shapes of AB437. The analyzer has no body to read for them.
+public static class Ab437Unread
+{
+    public static Func<T, T, T> KeepTheFirst<T>() => static (first, _) => first;
+
+    public static Func<T, T, T> KeepTheSecond<T>() => static (_, second) => second;
+}

@@ -3367,7 +3367,12 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 {
                     LoopState sent = this.evaluator.Eval(arguments[0].Expression).AsContent;
 
-                    this.evaluator.Merge(target: receiver, state: sent);
+                    // A sink that fires only what its coalesce function returns has that value from its creation.
+                    if (!this.evaluator.FiresOnlyWhatItsFunctionReturns(receiver))
+                    {
+                        this.evaluator.Merge(target: receiver, state: sent);
+                    }
+
                     this.evaluator.Sends(sink: receiver, content: sent);
                 }
 

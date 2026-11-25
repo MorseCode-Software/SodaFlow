@@ -9177,6 +9177,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab439DirectCurrentFromAPrimaryConstructor"] = ["SF1001"],
             ["Ab439SyncCurrentSetInTheConstructor"] = ["SF1001"],
             ["Ab439SyncCurrentSetInMoveNext"] = ["SF1001"],
-            ["Ab439SyncCurrentReplacedInMoveNext"] = ["SF1001"]
+            ["Ab439SyncCurrentReplacedInMoveNext"] = ["SF1001"],
+            ["Ab437CellSinkCoalesceReturnsTheFirstLinkedSend"] = ["SF1002"],
+            ["Ab437CellSinkCoalesceOfAMethodGroupReturnsTheFirstLinkedSend"] = ["SF1002"],
+            ["Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheFirst"] = ["SF1002"],
+            ["Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheSecond"] = ["SF1002"],
+            ["Ab437CellSinkSecondSendInABranchThatDoesNotRun"] = ["SF1002"]
         };
 }

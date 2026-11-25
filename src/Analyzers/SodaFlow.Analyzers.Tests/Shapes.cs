@@ -64442,6 +64442,38 @@ public static class Shapes
     public static Cell<int> Ab439SyncCurrentReplacedInMoveNext() =>
         Cell.Loop<int>().WithoutCaptures(l => { foreach (Cell<int> n in new Ab439ReplacedCell(l.Map(v => v))) { Kept.Add(n.Sample()); } return S.Hold(0); });
 
+    // S15638. A cell sink has a coalesce function that keeps the second send. The block sends a linked cell and then a plain cell, thus the switch of the sink gets the plain cell.
+    public static Cell<int> Ab437CellSinkCoalesceReturnsTheSecondPlainSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, (_, b) => b); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15639. A cell sink has a coalesce function that keeps the first send. The block sends a linked cell and then a plain cell, thus the switch of the sink gets the linked cell.
+    public static Cell<int> Ab437CellSinkCoalesceReturnsTheFirstLinkedSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, (a, _) => a); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15640. A cell sink has a coalesce function of the code, as a method group, that keeps the second send. The switch of the sink gets the plain cell.
+    public static Cell<int> Ab437CellSinkCoalesceOfAMethodGroupReturnsTheSecondPlainSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, Ab437KeepTheSecond); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15641. A cell sink has a coalesce function of the code, as a method group, that keeps the first send. The switch of the sink gets the linked cell.
+    public static Cell<int> Ab437CellSinkCoalesceOfAMethodGroupReturnsTheFirstLinkedSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, Ab437KeepTheFirst); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15642. A cell sink has a coalesce function that the analyzer cannot read, and the function keeps the first send. The switch of the sink gets the linked cell.
+    public static Cell<int> Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, Ab437Unread.KeepTheFirst<Cell<int>>()); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15643. A cell sink has a coalesce function that the analyzer cannot read, and the function keeps the second send. The switch of the sink gets the plain cell.
+    public static Cell<int> Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, Ab437Unread.KeepTheSecond<Cell<int>>()); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15644. A cell sink gets a linked cell, and a plain cell only in a branch that does not run. The switch of the sink gets the linked cell.
+    public static Cell<int> Ab437CellSinkSecondSendInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, (_, b) => b); s.Send(l.Map(v => v)); if (Kept.Count < 0) { s.Send(Plain); } return s.SwitchC(); });
+
+    // S15645. A stream sink has a coalesce function that keeps the second send, and the block holds the stream after the sends. The switch of the hold gets the plain cell.
+    public static Cell<int> Ab437StreamSinkHeldAfterTheSendsReturnsTheSecondPlainSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, b) => b); s.Send(l.Map(v => v)); s.Send(Plain); Cell<Cell<int>> h = s.Hold(Plain); return h.SwitchC(); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119011,6 +119043,11 @@ public static class Shapes
             return more;
         }
     }
+
+    // Helpers of the shapes of AB437.
+    private static Cell<int> Ab437KeepTheFirst(Cell<int> first, Cell<int> second) => first;
+
+    private static Cell<int> Ab437KeepTheSecond(Cell<int> first, Cell<int> second) => second;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
