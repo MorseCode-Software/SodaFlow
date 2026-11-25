@@ -5,9 +5,11 @@ behavior before its loop closes, a loop closed with a value linked to its own pl
 throw at run time; rules SF1001 to SF1007, all warnings but two infos: the escape to unknown code, and a read in a run
 of timers or a Dispose that a method of yours makes only under a condition that the analyzer cannot decide. It reads the
 block and the code of your own project that the block calls. A C# project that references SodaFlow runs it with no step
-of its own, and ExcludeAssets="analyzers" on the reference removes it. F# is not covered, because a Roslyn analyzer runs
-in the C# compiler only. The loops page describes the rules, the mark that silences the escape, and what the analyzer
-does not see.
+of its own, and ExcludeAssets="analyzers" on the reference removes it. It needs the C# compiler of the .NET 8 SDK or
+of Visual Studio 2022 17.8, or a later one. An earlier compiler does not run it and gives warning CS9057, which fails a
+build that treats warnings as errors, so a project on such a compiler removes the analyzer as above. F# is not covered,
+because a Roslyn analyzer runs in the C# compiler only. The loops page describes the rules, the mark that silences the
+escape, and the common cases that the analyzer does not report.
 
 Added: rule SF2001 in the same analyzer, a warning. It reports a call to Listen or ListenOnce whose listener nothing
 holds: a statement of the call alone, a discard, or a local that no later code reads. Such a listener stops at a garbage
