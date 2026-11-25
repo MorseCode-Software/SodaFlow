@@ -2510,8 +2510,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         }
 
         // No name holds the new array of a range of an array. Thus, no read can see a put into it.
-        if (target is ElementAccessExpressionSyntax { Expression: var copy }
-            && this.evaluator.IsANewArrayOfARange(copy))
+        if (this.evaluator.IsAnElementOfANewArrayOfARange(target))
         {
             return;
         }

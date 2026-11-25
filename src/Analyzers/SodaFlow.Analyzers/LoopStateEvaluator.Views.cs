@@ -521,12 +521,13 @@ internal sealed partial class LoopStateEvaluator
         arguments.Count == 1 && arguments.First() is { Expression: RangeExpressionSyntax };
 
     /// <summary>
-    ///     True for a range of an array, as in <c>cells[1..]</c>. The range is a
-    ///     new array with the elements of the range. A range of a view is a view
-    ///     of the same elements.
+    ///     True for an element of a range of an array, as in
+    ///     <c>cells[1..][0]</c>. The range is a new array with the elements of
+    ///     the range. A range of a view is a view of the same elements.
     /// </summary>
-    public bool IsANewArrayOfARange(ExpressionSyntax collection) =>
-        Unwrapped(collection) is ElementAccessExpressionSyntax range
+    public bool IsAnElementOfANewArrayOfARange(SyntaxNode target) =>
+        target is ElementAccessExpressionSyntax { Expression: var collection }
+        && Unwrapped(collection) is ElementAccessExpressionSyntax range
         && IsARange(range.ArgumentList.Arguments)
         && this.region.TypeOf(range.Expression) is IArrayTypeSymbol;
 
