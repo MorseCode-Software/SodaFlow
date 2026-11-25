@@ -2245,6 +2245,10 @@ internal sealed partial class LoopStateEvaluator
                 {
                     named = named.Join(before);
                 }
+                else if (symbol is ILocalSymbol local && this.BeforeItsPatternIsRead(local) is { } matched)
+                {
+                    named = named.Join(matched);
+                }
 
                 named = this.WithItsField(local: symbol, use: expression, state: named);
 

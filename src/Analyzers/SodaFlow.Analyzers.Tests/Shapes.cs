@@ -64474,6 +64474,50 @@ public static class Shapes
     public static Cell<int> Ab437StreamSinkHeldAfterTheSendsReturnsTheSecondPlainSend() =>
         Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, b) => b); s.Send(l.Map(v => v)); s.Send(Plain); Cell<Cell<int>> h = s.Hold(Plain); return h.SwitchC(); });
 
+    // S15646. A conditional in an argument tests an object with a pattern of its type. The true branch samples the member of the variable.
+    public static Cell<int> Ab455ConditionalInAnArgumentSamplesThePatternVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(l.Map(v => v)); Kept.Add(all is R4CsFault f ? f.Share.Sample() : 0); return S.Hold(0); });
+
+    // S15647. A conditional in an argument tests the first of the InnerExceptions with a pattern of its type. The true branch samples the member of the variable.
+    public static Cell<int> Ab455ConditionalOnTheFirstInnerException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { object all = e.InnerExceptions[0]; Kept.Add(all is R4CsFault f ? f.Share.Sample() : 0); } return S.Hold(0); });
+
+    // S15648. A switch expression in an argument has an arm with a pattern of the type of the object. The arm samples the member of its variable.
+    public static Cell<int> Ab455SwitchArmInAnArgumentSamplesThePatternVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(l.Map(v => v)); Kept.Add(all switch { R4CsFault f => f.Share.Sample(), _ => 0 }); return S.Hold(0); });
+
+    // S15649. A conditional in an argument tests an object with a property pattern. The true branch samples the variable of the property.
+    public static Cell<int> Ab455PropertyPatternInAnArgumentSamplesItsVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(l.Map(v => v)); Kept.Add(all is R4CsFault { Share: var s } ? s.Sample() : 0); return S.Hold(0); });
+
+    // S15650. A conditional in an argument tests a local of the type of the object with an empty property pattern. The true branch samples the member of the variable.
+    public static Cell<int> Ab455EmptyPropertyPatternInAnArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsFault all = new R4CsFault(l.Map(v => v)); Kept.Add(all is { } f ? f.Share.Sample() : 0); return S.Hold(0); });
+
+    // S15651. A conditional in an argument tests an object with a pattern of a cell. The true branch samples the variable, which is the linked cell.
+    public static Cell<int> Ab455ConditionalInAnArgumentSamplesACellVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = l.Map(v => v); Kept.Add(all is Cell<int> c ? c.Sample() : 0); return S.Hold(0); });
+
+    // S15652. A conditional in an argument tests a parenthesized pattern with an and pattern. The true branch samples the member of the variable.
+    public static Cell<int> Ab455AndPatternInAnArgumentSamplesThePatternVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(l.Map(v => v)); Kept.Add(all is (R4CsFault f and not null) ? f.Share.Sample() : 0); return S.Hold(0); });
+
+    // S15653. A conditional in an argument tests an object with a var pattern. The true branch casts the variable and samples its member.
+    public static Cell<int> Ab455VarPatternInAnArgumentSamplesItsVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(l.Map(v => v)); Kept.Add(all is var f && f is not null ? ((R4CsFault)f).Share.Sample() : 0); return S.Hold(0); });
+
+    // S15654. A conditional in an argument tests an object that has a plain cell. The true branch samples the plain cell, thus the code returns.
+    public static Cell<int> Ab455ConditionalInAnArgumentOnAnObjectWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(Plain); Kept.Add(all is R4CsFault f ? f.Share.Sample() : 0); return S.Hold(0); });
+
+    // S15655. A conditional in an argument tests the InnerExceptions with a pattern of the type of the object. The pattern fails, thus the code never samples.
+    public static Cell<int> Ab455ConditionalOnTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { object all = e.InnerExceptions; Kept.Add(all is R4CsFault f ? f.Share.Sample() : 0); } return S.Hold(0); });
+
+    // S15656. A switch expression in an argument tests the InnerExceptions with an arm of the type of the object. The arm never runs.
+    public static Cell<int> Ab455SwitchArmOnTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { object all = e.InnerExceptions; Kept.Add(all switch { R4CsFault f => f.Share.Sample(), _ => 0 }); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

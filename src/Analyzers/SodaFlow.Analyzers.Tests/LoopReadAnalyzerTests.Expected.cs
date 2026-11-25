@@ -9182,6 +9182,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab437CellSinkCoalesceOfAMethodGroupReturnsTheFirstLinkedSend"] = ["SF1002"],
             ["Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheFirst"] = ["SF1002"],
             ["Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheSecond"] = ["SF1002"],
-            ["Ab437CellSinkSecondSendInABranchThatDoesNotRun"] = ["SF1002"]
+            ["Ab437CellSinkSecondSendInABranchThatDoesNotRun"] = ["SF1002"],
+            ["Ab455ConditionalInAnArgumentSamplesThePatternVariable"] = ["SF1001"],
+            ["Ab455ConditionalOnTheFirstInnerException"] = ["SF1001"],
+            ["Ab455SwitchArmInAnArgumentSamplesThePatternVariable"] = ["SF1001"],
+            ["Ab455PropertyPatternInAnArgumentSamplesItsVariable"] = ["SF1001"],
+            ["Ab455EmptyPropertyPatternInAnArgument"] = ["SF1001"],
+            ["Ab455ConditionalInAnArgumentSamplesACellVariable"] = ["SF1001"],
+            ["Ab455AndPatternInAnArgumentSamplesThePatternVariable"] = ["SF1001"],
+            ["Ab455VarPatternInAnArgumentSamplesItsVariable"] = ["SF1001"]
         };
 }
