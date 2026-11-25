@@ -26,26 +26,37 @@ internal sealed partial class LoopStateEvaluator
 
     private ITypeSymbol? TypeOfTheValue(ExpressionSyntax value)
     {
-        ITypeSymbol? type = this.TypeBeforeObject(value);
+        LoopStateEvaluator reader = this;
 
-        if (!Construction.SaysNothing(type))
+        while (true)
         {
-            return type;
+            ITypeSymbol? type = reader.TypeBeforeObject(value);
+
+            if (!Construction.SaysNothing(type))
+            {
+                return type;
+            }
+
+            ExpressionSyntax unwrapped = Unwrapped(value);
+
+            if (reader.ValueOfALocalThatNoCodeWrites(unwrapped) is var initial && initial != unwrapped)
+            {
+                value = initial;
+
+                continue;
+            }
+
+            if (unwrapped is not IdentifierNameSyntax name
+                || reader.region.SymbolOf(name) is not IParameterSymbol parameter
+                || IsWrittenIn(parameter: parameter, region: reader.region)
+                || reader.call is not { } call
+                || call.Caller.ArgumentOf(parameter: parameter, site: call.Site) is not { } argument)
+            {
+                return type;
+            }
+
+            reader = call.Caller;
+            value = argument;
         }
-
-        ExpressionSyntax unwrapped = Unwrapped(value);
-
-        if (this.ValueOfALocalThatNoCodeWrites(unwrapped) is var initial && initial != unwrapped)
-        {
-            return this.TypeOfTheValue(initial);
-        }
-
-        return unwrapped is IdentifierNameSyntax name
-               && this.region.SymbolOf(name) is IParameterSymbol parameter
-               && !IsWrittenIn(parameter: parameter, region: this.region)
-               && this.call is { } call
-               && call.Caller.ArgumentOf(parameter: parameter, site: call.Site) is { } argument
-            ? call.Caller.TypeOfTheValue(argument)
-            : type;
     }
 }
