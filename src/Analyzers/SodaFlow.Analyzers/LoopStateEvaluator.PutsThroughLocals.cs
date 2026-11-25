@@ -1,5 +1,8 @@
+using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace SodaFlow.Analyzers;
 
@@ -37,7 +40,7 @@ internal sealed partial class LoopStateEvaluator
                 when this.Frame.ReadFrom.Count > 0
                      && this.TheFieldThatItNames(local) is { } named
                      && this.region.SymbolOf(named) is { } field and (IFieldSymbol or IPropertySymbol)
-                     && this.IsStillTheLocationOf(name: local, location: named, use: element, aCallCounts: false):
+                     && this.StillHasTheValueOf(local: local, location: named, use: element):
                 this.region.AddAPutThroughALocal(
                     field: field,
                     index: index,
@@ -71,7 +74,7 @@ internal sealed partial class LoopStateEvaluator
             && this.TheFieldThatItNames(local) is { } named
             && SinkWalker.PutsIntoAList(method)
             && this.region.SymbolOf(named) is { } field and (IFieldSymbol or IPropertySymbol)
-            && this.IsStillTheLocationOf(name: local, location: named, use: call, aCallCounts: false)
+            && this.StillHasTheValueOf(local: local, location: named, use: call)
             && !this.ACallGivesANewObjectTo(location: field, local: local, read: named, use: call))
         {
             this.region.AddAPutThroughALocal(
@@ -80,4 +83,84 @@ internal sealed partial class LoopStateEvaluator
                 held: LoopState.None.HoldingWhatCameWith(state).Join(state.AsContainer.WithNoObjects));
         }
     }
+
+    // True when a put through a local can go into the value that a read through a location gets. The local is a name
+    // of the location, or it keeps the value that it got there. A write to the location after the read changes only
+    // the location. Thus, a different name of the first value can keep that value. The walk supposes no such name only
+    // where the code gives the location a new object between the read and the put. Also, no code before the read
+    // gives the location a value that a different name can have.
+    private bool StillHasTheValueOf(ISymbol local, ExpressionSyntax location, SyntaxNode use)
+    {
+        if (this.IsStillTheLocationOf(name: local, location: location, use: use, aCallCounts: false))
+        {
+            return true;
+        }
+
+        if (FunctionOf(location) is not { } code
+            || FunctionOf(use) != code
+            || location.Span.End > use.SpanStart
+            || this.LocationKeyOf(location) is not { } key
+            || this.GetsAValue(
+                name: local,
+                code: code,
+                after: location.Span.End,
+                before: use.SpanStart,
+                orAFunctionUsesIt: false))
+        {
+            return false;
+        }
+
+        return code.DescendantNodes(TextSpan.FromBounds(start: code.SpanStart, end: location.SpanStart))
+                   .OfType<AssignmentExpressionSyntax>()
+                   .Any(assignment => assignment.Span.End <= location.SpanStart
+                                      && this.IsAnAssignmentTo(assignment: assignment, key: key)
+                                      && !IsANewObject(assignment.Right))
+               || !this.GetsANewObjectBetween(code: code, key: key, read: location, use: use);
+    }
+
+    // True when a statement gives the location a new object between a read and a use, and always runs there. The
+    // statement is in a block around the use, with no loop between the block and the use.
+    private bool GetsANewObjectBetween(
+        SyntaxNode code,
+        (ISymbol Of, ISymbol? Owner, int Index) key,
+        ExpressionSyntax read,
+        SyntaxNode use)
+    {
+        foreach (BlockSyntax block in use.Ancestors().TakeWhile(around => around != code).OfType<BlockSyntax>())
+        {
+            if (use.Ancestors()
+                .TakeWhile(around => around != block)
+                .Any(static around => around is ForStatementSyntax
+                                          or CommonForEachStatementSyntax
+                                          or WhileStatementSyntax
+                                          or DoStatementSyntax))
+            {
+                return false;
+            }
+
+            if (block.Statements.Any(statement =>
+                    statement.SpanStart > read.Span.End
+                    && statement.Span.End <= use.SpanStart
+                    && statement is ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assignment }
+                    && this.IsAnAssignmentTo(assignment: assignment, key: key)
+                    && IsANewObject(assignment.Right)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // True for a simple assignment to the location of the key.
+    private bool IsAnAssignmentTo(AssignmentExpressionSyntax assignment, (ISymbol Of, ISymbol? Owner, int Index) key) =>
+        assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+        && IsTheSameLocation(one: this.LocationKeyOf(assignment.Left), other: key);
+
+    // True for an expression that makes a new object, which no different name can have.
+    private static bool IsANewObject(ExpressionSyntax value) =>
+        Unwrapped(value) is BaseObjectCreationExpressionSyntax
+            or CollectionExpressionSyntax
+            or ArrayCreationExpressionSyntax
+            or ImplicitArrayCreationExpressionSyntax;
 }

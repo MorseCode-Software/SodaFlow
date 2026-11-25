@@ -9236,6 +9236,15 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab466MapGivenToAMethodOfThis"] = ["SF1005"],
             ["Ab466MapGivenToAReaderWithAPendingMemberBeforeTheCall"] = ["SF1005"],
             ["Ab466MapOfAHelperGivenToAReader"] = ["SF1005"],
-            ["Ab466MapOfALambdaGivenToAReader"] = ["SF1005"]
+            ["Ab466MapOfALambdaGivenToAReader"] = ["SF1005"],
+            ["Ab467ASecondObjectGetsTheListOfThisAndThenANewList"] = ["SF1004"],
+            ["Ab467ThisGetsANewListAndTheCodeReadsTheSecondObject"] = ["SF1004"],
+            ["Ab467ThisGetsANewListAndTheCodeReadsThis"] = ["SF1004"],
+            ["Ab467TheLocalGetsTheListOfThisAndTheSecondObjectGetsANewList"] = ["SF1004"],
+            ["Ab467ASecondObjectOfAParameterGetsTheListOfThisAndThenANewList"] = ["SF1004"],
+            ["Ab467APutAtAnIndexAfterTheSecondObjectGetsANewList"] = ["SF1004"],
+            ["Ab467ASecondObjectGetsTheListOfThisAndThenANewListByAnAssignment"] = ["SF1004"],
+            ["Ab467TheFieldGetsANewListOnlyInABranch"] = ["SF1001"],
+            ["Ab467TheLocalGetsTheFieldAgainInALoop"] = ["SF1001"]
         };
 }

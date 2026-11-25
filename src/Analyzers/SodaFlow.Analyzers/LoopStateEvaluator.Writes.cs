@@ -2678,7 +2678,9 @@ internal sealed partial class LoopStateEvaluator
     ///         That is true while no code changes the member or the name. Thus, no
     ///         write to a member came after that write, no code gave the name a
     ///         value, and no function uses the name. The value has no members and
-    ///         is no object, thus no change after the write is a change to it.
+    ///         is no object of the store. Thus, only a put through a local that
+    ///         got the value through a different name can change it. The read
+    ///         gets each put of the region through a local of the member.
     ///     </para>
     /// </remarks>
     private LoopState? WrittenThroughItsName(MemberAccessExpressionSyntax read) =>
@@ -2700,7 +2702,7 @@ internal sealed partial class LoopStateEvaluator
             after: last.Position,
             before: owner.SpanStart,
             orAFunctionUsesIt: true)
-            ? last.State.Join(this.TypeState(read))
+            ? last.State.Join(this.region.PutsThroughLocalsOf(last.Member)).Join(this.TypeState(read))
             : null;
 
     // The function that has a node in its code.

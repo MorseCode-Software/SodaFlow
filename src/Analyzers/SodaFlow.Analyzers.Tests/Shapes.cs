@@ -64822,6 +64822,58 @@ public static class Shapes
     public static Cell<int> Ab466MapGivenToAReaderAfterAPlainCellOfTheMethod() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapRunSetPlainThenGive(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
 
+    // S15733. AB467. A method gives a second object the list field of this, and reads that field of the second object into a local. The second object then gets a new list. The method adds a pending cell through the local and samples the last element of the field of this.
+    public static Cell<int> Ab467ASecondObjectGetsTheListOfThisAndThenANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunOnASecondHolder(l.Map(v => v))));
+
+    // S15734. AB467, a control. The same, but the method samples the last element of the field of the second object.
+    public static Cell<int> Ab467ASecondObjectGetsANewListAndTheCodeReadsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().ReadTheSecondObject(l.Map(v => v))));
+
+    // S15735. AB467. The same as the first shape, but this gets the new list. The method samples the last element of the field of the second object.
+    public static Cell<int> Ab467ThisGetsANewListAndTheCodeReadsTheSecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().RenewThisAndReadTheSecondObject(l.Map(v => v))));
+
+    // S15736. AB467, a report on the careful side. The same as the first shape, but this gets the new list.
+    public static Cell<int> Ab467ThisGetsANewListAndTheCodeReadsThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().RenewThisAndReadThis(l.Map(v => v))));
+
+    // S15737. AB467. The same as the first shape, but the local gets the list through the field of this.
+    public static Cell<int> Ab467TheLocalGetsTheListOfThisAndTheSecondObjectGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().ReadThroughThis(l.Map(v => v))));
+
+    // S15738. AB467. The same as the first shape, but the second object is a parameter.
+    public static Cell<int> Ab467ASecondObjectOfAParameterGetsTheListOfThisAndThenANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().ReadWithAParameter(new Ab467Holder(), l.Map(v => v))));
+
+    // S15739. AB467. The same as the first shape, but the method puts the pending cell into the first element through the local. Then it samples the first element of the field of this.
+    public static Cell<int> Ab467APutAtAnIndexAfterTheSecondObjectGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().PutAtAnIndex(l.Map(v => v))));
+
+    // S15740. AB467, a control. The same as the first shape, but the local gets a new list before the add.
+    public static Cell<int> Ab467TheLocalGetsANewListBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().RenewTheLocal(l.Map(v => v))));
+
+    // S15741. AB467, a control. The method reads the list field of this into a local and gives the field a new list. Then it adds a pending cell through the local and samples the last element of the field.
+    public static Cell<int> Ab467TheFieldGetsANewListBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().AssignBeforeTheAdd(l.Map(v => v))));
+
+    // S15742. AB467. The same as the first shape, but the method gives the field of the second object a new list through an assignment.
+    public static Cell<int> Ab467ASecondObjectGetsTheListOfThisAndThenANewListByAnAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().AssignTheSecondObject(l.Map(v => v))));
+
+    // S15743. AB467. A local gets the list of a static field. The field gets a new list only in a branch that does not run. A pending cell goes in through the local, and the block samples the last element through the field.
+    public static Cell<int> Ab467TheFieldGetsANewListOnlyInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab467List = [Plain]; List<Cell<int>> xs = Ab467List; if (Never) { Ab467List = [Plain]; } xs.Add(l.Map(v => v)); return S.Hold(Ab467List[^1].Sample()); });
+
+    // S15744. AB467, a control. The same as the first shape, but the local gets a new list through an out argument before the add.
+    public static Cell<int> Ab467TheLocalGetsANewListThroughAnOutArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().RenewTheLocalThroughAnOutArgument(l.Map(v => v))));
+
+    // S15745. AB467. A local gets the list of a static field, and the field then gets a new list. A loop adds a pending cell through the local and then gives the local the list of the field. The second add goes into the new list.
+    public static Cell<int> Ab467TheLocalGetsTheFieldAgainInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab467List = [Plain]; List<Cell<int>> xs = Ab467List; Ab467List = [Plain]; for (int i = 0; i < 2; i++) { xs.Add(l.Map(v => v)); xs = Ab467List; } return S.Hold(Ab467List[^1].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119746,6 +119798,126 @@ public static class Shapes
     }
 
     private static int Ab466Read(Cell<int> cell) => cell.Sample();
+
+    public sealed class Ab467Holder
+    {
+        public List<Cell<int>> Items = [Plain];
+
+        public void Renew() => this.Items = [Plain];
+
+        public int ReadTheSecondObject(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            xs.Add(pending);
+
+            return second.Items[^1].Sample();
+        }
+
+        public int RenewThisAndReadTheSecondObject(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            this.Renew();
+            xs.Add(pending);
+
+            return second.Items[^1].Sample();
+        }
+
+        public int RenewThisAndReadThis(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            this.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int ReadThroughThis(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = this.Items;
+            second.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int PutAtAnIndex(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            xs[0] = pending;
+
+            return this.Items[0].Sample();
+        }
+
+        public int RenewTheLocal(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            xs = [Plain];
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int AssignBeforeTheAdd(Cell<int> pending)
+        {
+            List<Cell<int>> xs = this.Items;
+            this.Items = [Plain];
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int AssignTheSecondObject(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Items = [Plain];
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int RenewTheLocalThroughAnOutArgument(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            Ab467Fresh(out xs);
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int ReadWithAParameter(Ab467Holder second, Cell<int> pending)
+        {
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+    }
+
+    private static List<Cell<int>> Ab467List = [Plain];
+
+    private static void Ab467Fresh(out List<Cell<int>> xs) => xs = [Plain];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

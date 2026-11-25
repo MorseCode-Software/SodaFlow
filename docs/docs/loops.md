@@ -464,7 +464,12 @@ The analyzer follows a value made from the placeholder through the code of your 
   override can replace and whose last statement gives a static field or such a property a new list,
   such as `Items = [];`. The same holds for a field of `this` that a method of `this` gives a new
   list, as in `this.Renew()`. After that call, an `Add`, an `Insert`, or an `AddRange` through the
-  old local does not reach the field.
+  old local does not reach the field. A new array or list that the code writes to the field itself
+  between the two, such as `Items = [];`, also stops it, unless the code gave the field the list of
+  a different name before the read, as in `second.Items = this.Items`. The old list then still has
+  that name, and a read through the field sees the put. This holds for a field of a second object
+  too, also where a method of that object gives it a new list. A read through a different field
+  that got the same list, as in `B = A;`, does not see the put.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
   from there. An array or list literal that a local or a field gets, such as `a = [d, d]` or
