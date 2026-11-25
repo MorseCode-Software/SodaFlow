@@ -272,7 +272,11 @@ and the build is quiet.
   is thus harmless in a cell that you only keep. If you sample that cell in the block, or close the
   loop with it, the analyzer reports the sample or the close. It reads the function at that first
   read, with the values that the function reads then, so a capture or a member that becomes pending
-  after you build the cell counts too. That includes a static member that the function reaches only
+  after you build the cell counts too. So does a member of an object whose method built the cell on
+  `this` and returned it, with a method of the object given by name or a lambda that calls one, also
+  in a default method of an interface, where the block sets that member through its own name for the
+  object after the call. A delegate on `this` that such a method returns, and that the block calls,
+  reads the member in the same way. That includes a static member that the function reaches only
   through code of yours that it runs, such as a method, a getter, an indexer, an operator, a
   conversion, or a constructor, also one called on its parameter. What the function writes there
   counts for the code after the read. A second read of the cell does not run the function again, when the analyzer knows that

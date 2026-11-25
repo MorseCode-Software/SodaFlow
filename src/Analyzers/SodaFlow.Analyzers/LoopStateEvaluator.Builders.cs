@@ -15,6 +15,9 @@ internal sealed partial class LoopStateEvaluator
     // WithTheBuildOfAMember.
     private const int MaxNamesOfABuild = 4;
 
+    private static readonly IReadOnlyDictionary<ISymbol, LoopState> NoMembers =
+        new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default);
+
     /// <summary>
     ///     The state of a member that holds a cell or a <c>Lazy</c>, at a read of
     ///     its value. The walk can know nothing of the member. Then, the state
@@ -192,14 +195,20 @@ internal sealed partial class LoopStateEvaluator
     ///     time. Thus, the walk gives the record the members of the object that
     ///     holds the value. Then, it gives the record its own members again.
     /// </remarks>
-    /// <param name="heldIn">The expression of the value at the read.</param>
+    /// <param name="heldIn">
+    ///     The expression of the value at the read, or null where the read has
+    ///     none. For a value that no member holds, the function gets only what
+    ///     the store has now for the object of its code: see
+    ///     RunsAfterTheCodeOfItsObject.
+    /// </param>
     /// <param name="function">The function.</param>
     /// <param name="walk">The walk of the function.</param>
-    private Followed? WithTheMembersAtTheRead(ExpressionSyntax heldIn, FunctionValue function, Func<Followed?> walk)
+    private Followed? WithTheMembersAtTheRead(ExpressionSyntax? heldIn, FunctionValue function, Func<Followed?> walk)
     {
         if ((function.Definer ?? function.OfThis) is not { } definer
             || ReferenceEquals(objA: definer.thisMembers, objB: this.thisMembers)
-            || this.MembersAtTheRead(heldIn) is not { } atTheRead)
+            || ((heldIn == null ? null : this.MembersAtTheRead(heldIn))
+                ?? (RunsAfterTheCodeOfItsObject(function) ? NoMembers : null)) is not { } atTheRead)
         {
             return walk();
         }
@@ -218,12 +227,14 @@ internal sealed partial class LoopStateEvaluator
         }
 
         // The function can be of the code of a different object. The record then keeps what it had, and gets what
-        // the store has now: see MembersOfItsObjectNow.
+        // the store has now: see MembersOfItsObjectNow. Each such state names its member, as a member of a callee
+        // does. Without that name, the caller does not report what the function reads: see Leave.
         foreach (KeyValuePair<ISymbol, LoopState> pair in definer.MembersOfItsObjectNow(but: atTheRead))
         {
             LoopState? old = record.TryGetValue(key: pair.Key, value: out LoopState? had) ? had : null;
             changed.Add((pair.Key, old));
-            record[pair.Key] = old?.Join(pair.Value) ?? pair.Value;
+            LoopState now = pair.Value.FromIfUnknown(pair.Key);
+            record[pair.Key] = old?.Join(now) ?? now;
         }
 
         Followed? followed = walk();
@@ -242,6 +253,12 @@ internal sealed partial class LoopStateEvaluator
 
         return followed;
     }
+
+    // True for a function of a method on an object of the store, where that method returned. The
+    // function reads the members of this through the record of that method. A write to the object
+    // after the return goes to the store and not to the record.
+    private static bool RunsAfterTheCodeOfItsObject(FunctionValue function) =>
+        (function.Definer ?? function.OfThis) is { objectsOfThis.IsEmpty: false, Frame.HasReturned: true };
 
     // The members of the object that holds a value at a read of the value. The value is a member of
     // this, or a member of a different object. The state of each member of a different object names

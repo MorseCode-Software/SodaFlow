@@ -4063,9 +4063,10 @@ internal sealed partial class LoopStateEvaluator
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         (ExpressionSyntax Written, LoopState Given, bool ManyTimes)? each,
         ImmutableArray<LoopState> byPosition = default,
-        ExpressionSyntax? heldIn = null)
+        ExpressionSyntax? heldIn = null,
+        bool withTheMembersNow = false)
     {
-        if (heldIn != null)
+        if (heldIn != null || (!withTheMembersNow && RunsAfterTheCodeOfItsObject(function)))
         {
             return this.WithTheMembersAtTheRead(
                 heldIn: heldIn,
@@ -4077,7 +4078,8 @@ internal sealed partial class LoopStateEvaluator
                     target: target,
                     arguments: arguments,
                     each: each,
-                    byPosition: byPosition));
+                    byPosition: byPosition,
+                    withTheMembersNow: true));
         }
 
         SemanticModel model = this.region.ModelFor(function.Declaration);

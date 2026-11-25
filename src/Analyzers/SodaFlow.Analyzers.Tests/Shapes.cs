@@ -63758,6 +63758,54 @@ public static class Shapes
     public static Cell<int> Ab438APlainCellThroughTheLocalThenAMethodWritesElsewhere() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); d.Share = Plain; Ab438PutPlain(Ab438Fifth); return S.Hold(d.Share!.Sample()); });
 
+    // S15467. AB443. A method of a class maps with the group this.Add and returns the map. The block then sets a member that Add samples to a pending cell through its local, and samples the map.
+    public static Cell<int> Ab443GroupOnThisInAClassMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Cell<int> w = o.MapOfAdd(); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S15468. AB443. The same, but the method maps with a lambda that calls this.Add.
+    public static Cell<int> Ab443LambdaOnThisInAClassMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Cell<int> w = o.MapOfAddByLambda(); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S15469. AB443. The same as the first shape, but a default method of an interface maps with the group, and Add is a method of the class.
+    public static Cell<int> Ab443GroupOnThisInADefaultMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Adder o = new(); Cell<int> w = ((IAb443Adder)o).MapOfAdd(); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S15470. AB443. The same, but the default method maps with a lambda that calls this.Add.
+    public static Cell<int> Ab443LambdaOnThisInADefaultMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Adder o = new(); Cell<int> w = ((IAb443Adder)o).MapOfAddByLambda(); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S15471. AB443, an edge. The same as the first shape, but a method of the object sets the member to the pending cell.
+    public static Cell<int> Ab443GroupOnThisThenAMethodSetsTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Cell<int> w = o.MapOfAdd(); o.Set(l.Map(v => v)); return S.Hold(w.Sample()); });
+
+    // S15472. AB443, an edge. The same as the first shape, but the block sets the member to a plain cell after the pending cell. Thus, the map reads the plain cell.
+    public static Cell<int> Ab443GroupOnThisThenAPlainCellAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Cell<int> w = o.MapOfAdd(); o.Share = l.Map(v => v); o.Share = Plain; return S.Hold(w.Sample()); });
+
+    // S15473. AB443, an edge. The same as the first shape, but the pending cell goes into a member of a second object of the class.
+    public static Cell<int> Ab443GroupOnThisThenAPendingCellInASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Ab443Class p = new(); Cell<int> w = o.MapOfAdd(); p.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S15474. AB443, an edge. The method sets the member to a plain cell before it maps with the group. The block set the member to a pending cell before the call.
+    public static Cell<int> Ab443APlainCellInTheMethodAfterAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); o.Share = l.Map(v => v); Cell<int> w = o.SetPlainAndMap(); return S.Hold(w.Sample()); });
+
+    // S15475. AB443, an edge. The block sets the member to a pending cell before the method maps with the group, and the block samples the map.
+    public static Cell<int> Ab443APendingCellBeforeTheMethodMaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); o.Share = l.Map(v => v); Cell<int> w = o.MapOfAdd(); return S.Hold(w.Sample()); });
+
+    // S15476. AB443, an edge. A method returns a lambda that samples a member through this. The block sets the member to a pending cell through its local, and calls the lambda.
+    public static Cell<int> Ab443ALambdaOnThisThatAMethodReturnsIsCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Func<int> f = o.Reader(); o.Share = l.Map(v => v); Kept.Add(f()); return S.Hold(0); });
+
+    // S15477. AB443, an edge. The same, but the method returns the group this.Add, and the block calls it with an argument.
+    public static Cell<int> Ab443AGroupOnThisThatAMethodReturnsIsCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Func<int, int> f = o.AddGroup(); o.Share = l.Map(v => v); Kept.Add(f(1)); return S.Hold(0); });
+
+    // S15478. AB443, an edge. The same as the lambda edge, but the block sets the member to a plain cell after the pending cell.
+    public static Cell<int> Ab443ALambdaOnThisThenAPlainCellAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Func<int> f = o.Reader(); o.Share = l.Map(v => v); o.Share = Plain; Kept.Add(f()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -117594,6 +117642,46 @@ public static class Shapes
     }
 
     private static void Ab438PutPlain(SettableSlot slot) => slot.Share = Plain;
+
+    public sealed class Ab443Class
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public int Add(int v) => v + this.Share.Sample();
+
+        public Cell<int> MapOfAdd() => Plain.Map(this.Add);
+
+        public Cell<int> MapOfAddByLambda() => Plain.Map(v => this.Add(v));
+
+        public void Set(Cell<int> share) => this.Share = share;
+
+        public Func<int> Reader() => () => this.Share.Sample();
+
+        public Func<int, int> AddGroup() => this.Add;
+
+        public Cell<int> SetPlainAndMap()
+        {
+            this.Share = Plain;
+
+            return Plain.Map(this.Add);
+        }
+    }
+
+    public interface IAb443Adder
+    {
+        int Add(int v);
+
+        Cell<int> MapOfAdd() => Plain.Map(this.Add);
+
+        Cell<int> MapOfAddByLambda() => Plain.Map(v => this.Add(v));
+    }
+
+    public sealed class Ab443Adder : IAb443Adder
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public int Add(int v) => v + this.Share.Sample();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

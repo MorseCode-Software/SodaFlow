@@ -9054,6 +9054,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab438AReadonlyFieldThatGetsASecondField"] = ["SF1001"],
             ["Ab438APublicReadonlyFieldThatADifferentTypeGivesAway"] = ["SF1001"],
             ["Ab438TwoWritableFieldsThatAMethodJoins"] = ["SF1001"],
-            ["Ab438ASecondLocalOfTheReadonlyField"] = ["SF1001"]
+            ["Ab438ASecondLocalOfTheReadonlyField"] = ["SF1001"],
+            ["Ab443GroupOnThisInAClassMethod"] = ["SF1001"],
+            ["Ab443LambdaOnThisInAClassMethod"] = ["SF1001"],
+            ["Ab443GroupOnThisInADefaultMethod"] = ["SF1001"],
+            ["Ab443LambdaOnThisInADefaultMethod"] = ["SF1001"],
+            ["Ab443GroupOnThisThenAMethodSetsTheMember"] = ["SF1001"],
+            ["Ab443APendingCellBeforeTheMethodMaps"] = ["SF1001"],
+            ["Ab443ALambdaOnThisThatAMethodReturnsIsCalled"] = ["SF1005"],
+            ["Ab443AGroupOnThisThatAMethodReturnsIsCalled"] = ["SF1005"]
         };
 }
