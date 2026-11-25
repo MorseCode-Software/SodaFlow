@@ -5051,7 +5051,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     ofACaller: this.sink);
         }
 
-        if (!state.Pending)
+        if (!state.Pending || IsReplacedByAFinally(node))
         {
             return;
         }

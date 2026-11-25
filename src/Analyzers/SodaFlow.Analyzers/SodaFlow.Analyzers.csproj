@@ -153,6 +153,7 @@
         <Compile Include="SinkWalker.Removes.cs"/>
         <Compile Include="SinkWalker.Serializers.cs"/>
         <Compile Include="SinkWalker.UndecidedRuns.cs"/>
+        <Compile Include="SinkWalker.ReplacedReads.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
         <Compile Include="StaticOwner.cs"/>
         <Compile Include="UnchangedStatics.cs"/>

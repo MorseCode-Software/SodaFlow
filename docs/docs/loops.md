@@ -370,7 +370,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   `Task.Run` whose function throws it and `Parallel.Invoke` of such a function. The `Exception` of
   the task has the object the same way. The filter of the `catch` clause gets the object too, and a
   local that the filter sets keeps it. The analyzer reports no read in a filter, because an
-  exception there is lost and makes the filter false.
+  exception there is lost and makes the filter false. For the same reason, it reports no read in a
+  `try` block or a `catch` clause whose `finally` block has a `throw` statement at its first level:
+  that `throw` replaces the exception of the read. A read still gets its report where a `catch`
+  clause with a variable sits between it and the `finally` block, because that clause can keep the
+  exception, and where the read is in a lambda or a local function, which can run later.
 - Collections, arrays, and dictionaries. A list, an array, or a span that you write as a literal
   keeps each element apart, also where the literal spreads a second such local, so `cells[0]`,
   `cells?[0]`, `cells[^1]`, `cells.ElementAt(1)`, and each element of a list pattern in an `is` or a
@@ -810,7 +814,7 @@ careful side, so it can report a read that does not throw:
   its `catch` clauses. The analyzer knows that only for a `throw` statement at the first level of
   the `finally` block. A call there that throws, or a `Dispose` that throws at the end of a
   `using`, leaves the first object going on, so a `catch` of it further out can get `SF1001`
-  although it never runs.
+  although it never runs. A read in the `try` block keeps its report there the same way.
 - A `catch` that takes the exception of an early read, such as a `catch (InvalidOperationException)`
   or a `catch (Exception)` around a `Sample` of the looped value, does not clear the report of that
   read. The code still reads the value before the loop closes, and the `catch` only hides it. The

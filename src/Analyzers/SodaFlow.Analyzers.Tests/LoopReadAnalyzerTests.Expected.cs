@@ -9140,6 +9140,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab453ACalleeGivesTheFieldOfASecondObjectANewList"] = ["SF1004"],
             ["Ab453ACalleeGivesANewListForADifferentTypeArgument"] = ["SF1001"],
             ["Ab453ACalleeThatGivesTheFirstListAfterANewList"] = ["SF1001"],
-            ["Ab453ASecondCallGivesTheFirstListBack"] = ["SF1001"]
+            ["Ab453ASecondCallGivesTheFirstListBack"] = ["SF1001"],
+            ["Ab440FinallyThatThrowsInABranchLetsTheSampleThrow"] = ["SF1001"],
+            ["Ab440GotoPastTheThrowInAFinallyLetsTheSampleThrow"] = ["SF1001"],
+            ["Ab440CatchKeepsTheExceptionOfTheSample"] = ["SF1001"],
+            ["Ab440InnerCatchKeepsTheExceptionOfTheSample"] = ["SF1001"],
+            ["Ab440LambdaOfATryBeforeAFinallyThatThrows"] = ["SF1001"],
+            ["Ab440SampleInAFinallyBeforeItsThrow"] = ["SF1001"],
+            ["Ab440CalleeSamplesInATryBeforeAFinallyThatDoesNotThrow"] = ["SF1004"],
+            ["Ab440LocalFunctionOfATryBeforeAFinallyThatThrows"] = ["SF1001"]
         };
 }

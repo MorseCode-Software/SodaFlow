@@ -64246,6 +64246,54 @@ public static class Shapes
     public static Cell<int> Ag105GettersThatReadEachOtherWithNoPendingValue() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab427GetterCycle().SetAndRead(Plain, read: false)));
 
+    // S15589. A catch clause samples the member of its object, and the finally block then throws. That exception replaces the exception of the sample, and the outer catch gets it.
+    public static Cell<int> Ab440SampleInACatchBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15590. A try block samples the looped cell, and its finally block then throws. That exception replaces the exception of the sample, and the outer catch gets it.
+    public static Cell<int> Ab440SampleInATryBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { Kept.Add(l.Sample()); } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15591. An inner try samples the looped cell, and the finally block of the outer try throws. That exception replaces the exception of the sample.
+    public static Cell<int> Ab440SampleInAnInnerTryBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { try { Kept.Add(l.Sample()); } finally { Kept.Add(1); } } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15592. The finally block throws only in a branch that does not run. Thus, the exception of the sample goes on.
+    public static Cell<int> Ab440FinallyThatThrowsInABranchLetsTheSampleThrow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { Kept.Add(l.Sample()); } finally { if (Kept.Count < 0) { throw new ArgumentException("x"); } } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15593. A goto in the finally block skips its throw statement. Thus, the exception of the sample goes on.
+    public static Cell<int> Ab440GotoPastTheThrowInAFinallyLetsTheSampleThrow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { Kept.Add(l.Sample()); } finally { if (Kept.Count >= 0) { goto done; } throw new ArgumentException("x"); done: Kept.Add(1); } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15594. A catch clause keeps the exception of the sample before the finally block throws. The code throws that exception again after the outer catch.
+    public static Cell<int> Ab440CatchKeepsTheExceptionOfTheSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Exception? kept = null; try { try { Kept.Add(l.Sample()); } catch (InvalidOperationException e) { kept = e; } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } if (kept != null) { throw kept; } return S.Hold(0); });
+
+    // S15595. An inner catch clause keeps the exception of the sample, and the outer finally block then throws. The code throws that exception again after the outer catch.
+    public static Cell<int> Ab440InnerCatchKeepsTheExceptionOfTheSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Exception? kept = null; try { try { try { Kept.Add(l.Sample()); } catch (InvalidOperationException e) { kept = e; throw; } } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } if (kept != null) { throw kept; } return S.Hold(0); });
+
+    // S15596. A lambda of the try block samples the looped cell. The code calls the lambda after the try statement, thus the finally block does not replace its exception.
+    public static Cell<int> Ab440LambdaOfATryBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int>? read = null; try { try { read = () => l.Sample(); } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } Kept.Add(read!()); return S.Hold(0); });
+
+    // S15597. The finally block samples the looped cell before its throw statement. The exception of that sample leaves the finally block.
+    public static Cell<int> Ab440SampleInAFinallyBeforeItsThrow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { Kept.Add(1); } finally { Kept.Add(l.Sample()); throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15598. A method of the code samples the cell that it gets in a try block, and its finally block then throws. That exception replaces the exception of the sample.
+    public static Cell<int> Ab440CalleeSamplesInATryBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(Ab440SampleInATry(l.Map(v => v))); } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15599. A method of the code samples the cell in a try block. Its finally block throws only in a branch that does not run.
+    public static Cell<int> Ab440CalleeSamplesInATryBeforeAFinallyThatDoesNotThrow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(Ab440SampleInATryOrNot(l.Map(v => v))); } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15600. A local function of the try block samples the looped cell. The code calls it after the try statement, thus the finally block does not replace its exception.
+    public static Cell<int> Ab440LocalFunctionOfATryBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int>? read = null; try { try { read = Read; int Read() => l.Sample(); } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } Kept.Add(read!()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -118586,6 +118634,34 @@ public static class Shapes
     {
         Ab453ListI = [Plain];
         Ab453ListI = list;
+    }
+
+    // Helpers of the shapes of AB440.
+    private static int Ab440SampleInATry(Cell<int> c)
+    {
+        try
+        {
+            return c.Sample();
+        }
+        finally
+        {
+            throw new ArgumentException("x");
+        }
+    }
+
+    private static int Ab440SampleInATryOrNot(Cell<int> c)
+    {
+        try
+        {
+            return c.Sample();
+        }
+        finally
+        {
+            if (Kept.Count < 0)
+            {
+                throw new ArgumentException("x");
+            }
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>
