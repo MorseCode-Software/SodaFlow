@@ -439,7 +439,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   of a `List<T>`.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
-  from there. A name is a local, a parameter, a static field or a static property with no body, a
+  from there. An array or list literal that a local or a field gets, such as `a = [d, d]` or
+  `new[] { d, d }`, makes each element a name of the object at its position. A name is a local, a parameter, a static field or a static property with no body, a
   field or such a property of the object in a local, a property whose get accessor only returns one
   field and whose set accessor, where it has one, only writes it, the result of a method of yours
   with no parameters that only returns a field, or an element of a local collection or of an array

@@ -63886,6 +63886,66 @@ public static class Shapes
     public static Cell<int> Ab449PrivateMethodThatReflectionRunsBuildsALazy() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab449LazyRebuilt().SetAndRead(l.Map(v => v))));
 
+    // S15499. AB450: a local gets a static array and then a literal with element 0 of the array two times. A read of element 0 of the field gets the write through element 1 of the local.
+    public static Cell<int> Ab450ALocalOfTheArrayGetsADifferentArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab450ArrA; a = [Ab450ArrA[0], Ab450ArrA[0]]; Ab450ArrA[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrA[0].Share!.Sample()); });
+
+    // S15500. AB450: the declaration of a local gives it a literal with element 0 of a static array two times. A read of element 0 gets the write through element 1 of the local.
+    public static Cell<int> Ab450ALiteralHasOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab450ArrB[0], Ab450ArrB[0]]; Ab450ArrB[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrB[0].Share!.Sample()); });
+
+    // S15501. AB450: the literal has element 1 of the field first and element 0 second. A read of element 0 gets the write through element 1 of the local.
+    public static Cell<int> Ab450TheSecondElementOfTheLiteralIsTheFirstOfTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab450ArrC; a = [Ab450ArrC[1], Ab450ArrC[0]]; Ab450ArrC[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrC[0].Share!.Sample()); });
+
+    // S15502. AB450: the same with a public static array, which has no owner for each element.
+    public static Cell<int> Ab450ALiteralHasAnElementOfAPublicArrayTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab450PublicArr; a = [Ab450PublicArr[0], Ab450PublicArr[0]]; Ab450PublicArr[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450PublicArr[0].Share!.Sample()); });
+
+    // S15503. AB450: an array creation with an initializer has element 0 of a static array two times. A read of element 0 gets the write through element 1.
+    public static Cell<int> Ab450AnArrayCreationHasOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = new SettableSlot[] { Ab450ArrE[0], Ab450ArrE[0] }; Ab450ArrE[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrE[0].Share!.Sample()); });
+
+    // S15504. AB450: an implicit array creation that a local gets after a static array has element 0 of that array two times.
+    public static Cell<int> Ab450AnImplicitArrayCreationHasOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab450ArrF; a = new[] { Ab450ArrF[0], Ab450ArrF[0] }; Ab450ArrF[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrF[0].Share!.Sample()); });
+
+    // S15505. AB450: a literal of a list has element 0 of a static array two times. A read of element 0 gets the write through item 1 of the list.
+    public static Cell<int> Ab450AListLiteralHasOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [Ab450ArrG[0], Ab450ArrG[0]]; Ab450ArrG[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrG[0].Share!.Sample()); });
+
+    // S15506. AB450: the initializer of a new list adds element 0 of a static array two times. A read of element 0 gets the write through item 1 of the list.
+    public static Cell<int> Ab450AListInitializerAddsOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = new() { Ab450ArrH[0], Ab450ArrH[0] }; Ab450ArrH[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrH[0].Share!.Sample()); });
+
+    // S15507. AB450: a local gets element 0 of a static array, and a literal has that local two times. A read through the local gets the write through element 1 of the literal.
+    public static Cell<int> Ab450ALiteralHasALocalOfAnUnknownObjectTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab450ArrJ[0]; SettableSlot[] a = [c, c]; c.Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S15508. AB450: a static field gets a literal with element 0 of a second static array two times. A read of element 0 of the second array gets the write through element 1 of the field.
+    public static Cell<int> Ab450AStaticFieldGetsALiteralWithOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab450TargetK = [Ab450ArrK[0], Ab450ArrK[0]]; Ab450ArrK[0].Share = Plain; Ab450TargetK[1].Share = l.Map(v => v); return S.Hold(Ab450ArrK[0].Share!.Sample()); });
+
+    // S15509. AB450: the literal has element 0 and element 1 of a static array. A read of element 0 does not get the write through element 1 of the literal.
+    public static Cell<int> Ab450ALiteralHasTwoElementsWriteTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab450ArrM[0], Ab450ArrM[1]]; Ab450ArrM[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrM[0].Share!.Sample()); });
+
+    // S15510. AB450: the local gets a second literal of new objects before the write. Thus, element 1 of the local is not element 0 of the field.
+    public static Cell<int> Ab450TheLocalGetsANewLiteralBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab450ArrN[0], Ab450ArrN[0]]; a = [new SettableSlot(), new SettableSlot()]; Ab450ArrN[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrN[0].Share!.Sample()); });
+
+    // S15511. AB450: element 1 of the local gets a new object before the write. Thus, element 1 is not element 0 of the field.
+    public static Cell<int> Ab450AnElementGetsANewObjectBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab450ArrP[0], Ab450ArrP[0]]; a[1] = new SettableSlot(); Ab450ArrP[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrP[0].Share!.Sample()); });
+
+    // S15512. AB450: a field of a holder local gets a literal with a local two times. A method of a second holder writes its own element 1, and a read through the local gets the plain cell.
+    public static Cell<int> Ab450AHolderFieldGetsALiteralASecondHolderWritesItsElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = Ab450ArrQ[0]; Ab450Box h = new(); h.Items = [x, x]; x.Share = Plain; Ab450OtherQ.WriteSecond(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S15513. AB450: the same with element 0 of a static array in the literal, and a read of that element.
+    public static Cell<int> Ab450AHolderFieldGetsALiteralOfAnElementASecondHolderWritesItsElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab450Box h = new(); h.Items = [Ab450ArrR[0], Ab450ArrR[0]]; Ab450ArrR[0].Share = Plain; Ab450OtherR.WriteSecond(l.Map(v => v)); return S.Hold(Ab450ArrR[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -117849,6 +117909,38 @@ public static class Shapes
         }
 
         private void Rebuild() => this.lazy = new Lazy<int>(() => this.share.Sample());
+    }
+
+    private static readonly SettableSlot[] Ab450ArrA = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrB = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrC = [new SettableSlot(), new SettableSlot()];
+    public static readonly SettableSlot[] Ab450PublicArr = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrE = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrF = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrG = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrH = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrJ = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrK = [new SettableSlot(), new SettableSlot()];
+    private static SettableSlot[] Ab450TargetK = [];
+    private static readonly SettableSlot[] Ab450ArrM = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrN = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrP = [new SettableSlot(), new SettableSlot()];
+
+    private static readonly SettableSlot[] Ab450ArrQ = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrR = [new SettableSlot(), new SettableSlot()];
+    private static readonly Ab450Box Ab450OtherQ = new() { Items = [new SettableSlot(), new SettableSlot()] };
+    private static readonly Ab450Box Ab450OtherR = new() { Items = [new SettableSlot(), new SettableSlot()] };
+
+    public sealed class Ab450Box
+    {
+        public SettableSlot[] Items = [];
+
+        public void WriteSecond(Cell<int> share)
+        {
+            // The shape tests a write through the field by its simple name, which has a key of its own.
+            // ReSharper disable once ArrangeThisQualifier
+            Items[1].Share = share;
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

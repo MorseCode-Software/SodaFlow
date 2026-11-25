@@ -50,6 +50,7 @@ internal sealed partial class LoopStateEvaluator
             && this.NameKeyOf((ExpressionSyntax)location) is { } name)
         {
             this.NotesALink(name: name, value: value, replaces: replaces);
+            this.NotesTheLinksOfALiteral(name: name, value: value);
         }
     }
 

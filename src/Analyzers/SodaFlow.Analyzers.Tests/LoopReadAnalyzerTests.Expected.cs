@@ -9075,6 +9075,16 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab449PrivateMethodThatReflectionFindsWithNoName"] = ["SF1004"],
             ["Ab449PrivateMethodThatANestedTypeCalls"] = ["SF1004"],
             ["Ab449PrivateMethodThatAHelperRunsByItsName"] = ["SF1004"],
-            ["Ab449PrivateMethodThatReflectionRunsBuildsALazy"] = ["SF1004"]
+            ["Ab449PrivateMethodThatReflectionRunsBuildsALazy"] = ["SF1004"],
+            ["Ab450ALocalOfTheArrayGetsADifferentArray"] = ["SF1001"],
+            ["Ab450ALiteralHasOneElementTwoTimes"] = ["SF1001"],
+            ["Ab450TheSecondElementOfTheLiteralIsTheFirstOfTheField"] = ["SF1001"],
+            ["Ab450ALiteralHasAnElementOfAPublicArrayTwoTimes"] = ["SF1001"],
+            ["Ab450AnArrayCreationHasOneElementTwoTimes"] = ["SF1001"],
+            ["Ab450AnImplicitArrayCreationHasOneElementTwoTimes"] = ["SF1001"],
+            ["Ab450AListLiteralHasOneElementTwoTimes"] = ["SF1001"],
+            ["Ab450AListInitializerAddsOneElementTwoTimes"] = ["SF1001"],
+            ["Ab450ALiteralHasALocalOfAnUnknownObjectTwoTimes"] = ["SF1001"],
+            ["Ab450AStaticFieldGetsALiteralWithOneElementTwoTimes"] = ["SF1001"]
         };
 }

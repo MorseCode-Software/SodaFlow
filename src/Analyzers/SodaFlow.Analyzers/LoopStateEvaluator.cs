@@ -879,7 +879,9 @@ internal sealed partial class LoopStateEvaluator
 
         if (KeepsItsObject(local))
         {
-            this.NotesALink(name: new NameKey(of: local, owner: null, index: -1), value: value, replaces: replaces);
+            NameKey name = new(of: local, owner: null, index: -1);
+            this.NotesALink(name: name, value: value, replaces: replaces);
+            this.NotesTheLinksOfALiteral(name: name, value: value);
         }
 
         this.NotesANameOfThis(local: local, location: null, value: value, replaces: replaces);
