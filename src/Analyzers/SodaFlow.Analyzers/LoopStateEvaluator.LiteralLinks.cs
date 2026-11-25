@@ -57,4 +57,16 @@ internal sealed partial class LoopStateEvaluator
             }
         }
     }
+
+    // Records an Add of a list whose index the store does not give, for NotesAnAdd. A list that holds an object that
+    // the store does not know has no positions in the store. ElementsOf gives the values of a local that only a
+    // literal and Add statements at the first level of its block fill. The values before this use of the local are
+    // the values before this Add.
+    private void NotesAnAddOfALiteral(ExpressionSyntax collection, ExpressionSyntax item)
+    {
+        if (this.ElementsOf(collection) is { } before)
+        {
+            this.NotesAnAdd(collection: collection, item: item, index: before.Count);
+        }
+    }
 }

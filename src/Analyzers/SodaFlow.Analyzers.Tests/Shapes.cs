@@ -64074,6 +64074,30 @@ public static class Shapes
     public static Cell<int> Ab448ASecondLocalGetsANewArray() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab448ArrQ; SettableSlot[] b = [new SettableSlot()]; SettableSlot q = a[0]; b = [new SettableSlot { Share = Plain }]; q.Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
 
+    // S15546. AB454: a list gets element 0 of a static array with two calls of Add. A read of element 0 gets the write through item 1 of the list.
+    public static Cell<int> Ab454TwoAddsOfOneElementOfAStaticArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; a.Add(Ab454ArrA[0]); a.Add(Ab454ArrA[0]); Ab454ArrA[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab454ArrA[0].Share!.Sample()); });
+
+    // S15547. AB454: a list gets a local of an unknown object with two calls of Add. A read through the local gets the write through item 1.
+    public static Cell<int> Ab454TwoAddsOfALocalOfAnUnknownObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab454ArrB[0]; List<SettableSlot> a = []; a.Add(c); a.Add(c); c.Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S15548. AB454: a literal of a list has element 1 of a static array, and an Add puts element 0 at index 1. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab454AnAddAfterALiteralOfAnUnknownObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [Ab454ArrC[1]]; a.Add(Ab454ArrC[0]); Ab454ArrC[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab454ArrC[0].Share!.Sample()); });
+
+    // S15549. AB454: a literal of a list has a new object, and an Add puts element 0 of a static array at index 1. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab454AnAddAfterALiteralOfANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [new SettableSlot()]; a.Add(Ab454ArrD[0]); Ab454ArrD[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab454ArrD[0].Share!.Sample()); });
+
+    // S15550. AB454: the two calls of Add put element 0 and element 1 of a static array. A read of element 0 does not get the write through item 1.
+    public static Cell<int> Ab454TwoAddsOfTwoElementsWriteTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; a.Add(Ab454ArrE[0]); a.Add(Ab454ArrE[1]); Ab454ArrE[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab454ArrE[0].Share!.Sample()); });
+
+    // S15551. AB454: the first Add puts element 1 and the second puts element 0. A read of element 0 does not get the write through item 0.
+    public static Cell<int> Ab454TwoAddsInTheOtherOrderWriteTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; a.Add(Ab454ArrF[1]); a.Add(Ab454ArrF[0]); Ab454ArrF[0].Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(Ab454ArrF[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -118095,6 +118119,13 @@ public static class Shapes
     private static SettableSlot[] Ab448ArrN = [new()];
     private static SettableSlot[] Ab448ArrP = [new()];
     private static SettableSlot[] Ab448ArrQ = [new()];
+
+    private static readonly SettableSlot[] Ab454ArrA = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab454ArrB = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab454ArrC = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab454ArrD = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab454ArrE = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab454ArrF = [new SettableSlot(), new SettableSlot()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

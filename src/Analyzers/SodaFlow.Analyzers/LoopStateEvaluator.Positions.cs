@@ -645,6 +645,14 @@ internal sealed partial class LoopStateEvaluator
 
         this.ForgetsThePositionsOf(collection);
 
+        // The store has no positions for a list that holds an object that it does not know. The tests only make the
+        // walk shorter. Where the store has the positions, it gives the same index. Each use of a local that
+        // ElementsOf permits is an Add or a read.
+        if (before == null && method.Name == "Add" && arguments.Count == 1)
+        {
+            this.NotesAnAddOfALiteral(collection: collection, item: arguments[0].Expression);
+        }
+
         // The object with the positions is a list. The code can name it by an interface.
         if (before is not (var made, var all)
             || method.ContainingType is not { Name: "List" or "IList" or "ICollection" } owner

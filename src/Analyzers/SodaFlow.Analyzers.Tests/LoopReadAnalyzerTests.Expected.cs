@@ -9105,6 +9105,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab448ALocalWithTwoValuesWritesTheSecond"] = ["SF1001"],
             ["Ab448ALocalOfASecondElementReachesAForeach"] = ["SF1001"],
             ["Ab448ASecondFieldGetsANewArray"] = ["SF1001"],
-            ["Ab448ASecondLocalGetsANewArray"] = ["SF1001"]
+            ["Ab448ASecondLocalGetsANewArray"] = ["SF1001"],
+            ["Ab454TwoAddsOfOneElementOfAStaticArray"] = ["SF1001"],
+            ["Ab454TwoAddsOfALocalOfAnUnknownObject"] = ["SF1001"],
+            ["Ab454AnAddAfterALiteralOfAnUnknownObject"] = ["SF1001"],
+            ["Ab454AnAddAfterALiteralOfANewObject"] = ["SF1001"]
         };
 }
