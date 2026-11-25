@@ -74,6 +74,7 @@
         <Compile Include="TimerSystemBenchmarks.cs"/>
         <Compile Include="TransactionBenchmarks.cs"/>
         <Compile Include="ViewChangeProjectionBenchmarks.cs"/>
+        <None Include="README.md"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -493,9 +493,8 @@ both ends of the window anyway, and that is `Slice`.
 ### What turning a page costs
 
 Turning a page is a criteria change, and a criteria change is where a chain has the least to
-work with. This one is the cheapest of them, measured by
-`KeyedCollectionPagingBenchmarks` against re-deriving the same page from a cell with
-`OrderByDescending`, `Skip` and `Take`, on .NET 10:
+work with. This one is the cheapest of them, measured against re-deriving the same page from a
+cell with `OrderByDescending`, `Skip`, and `Take`, on .NET 10:
 
 | Items | Re-derived | Chained | Chained allocates |
 | --- | --- | --- | --- |
@@ -708,22 +707,11 @@ the whole collection. That was found by writing this benchmark the wrong way fir
 ## Measuring it
 
 The claim above — that per-item observation is proportional to the number of bound rows and
-independent of the collection size — is what
-`src/CSharp/SodaFlow.Benchmarks/KeyedCollectionEditBenchmarks.cs` measures, against the two
-shapes people reach for instead: a cell sink per mutable value per object, and the same cells
-fed from one shared edit stream.
-`KeyedCollectionBuildBenchmarks` measures what each of them costs to stand up,
-`KeyedCollectionViewBenchmarks` measures the view chain — `Filter`, `SortBy` and `Take` — against
-re-deriving the same view from a cell holding the whole collection, and
-`KeyedCollectionPagingBenchmarks` measures turning a `Slice`'s page and editing within one
-against re-deriving those, and `KeyedCollectionAggregateBenchmarks` measures a total over the whole
-collection folded from the change stream against one re-read from the store.
-`KeyedCollectionScaleBenchmarks` takes one question — what a selective filter costs per edit — up
-to a million items.
-
-```bash
-dotnet run -c Release --project src/CSharp/SodaFlow.Benchmarks -- --filter *KeyedCollection*
-```
+independent of the collection size — is measured against the two shapes people reach for
+instead: a cell sink per mutable value per object, and the same cells fed from one shared edit
+stream. The benchmarks behind the tables on this page, and how to run them, are in
+[`src/CSharp/SodaFlow.Benchmarks`](https://github.com/MorseCode-Software/SodaFlow/tree/main/src/CSharp/SodaFlow.Benchmarks)
+in the repository.
 
 Sinks per field win on the time an individual edit takes, and the benchmark says so. What they
 cost is everything the build benchmark shows — `items × fields` graph nodes whether or not
@@ -809,10 +797,8 @@ place to look at it.
 
 Where it earns its place is a key the view does not hold. An update for one costs the ordinary
 filter a membership test and a predicate test to conclude there is nothing to do; the identity
-one settles it with a single failed index lookup. `KeyedCollectionScaleBenchmarks` measures that
-against a third arm with no view stages at all, because without one the question cannot be
-answered — most of what an edit costs is spent before any stage is consulted, and a stage-level
-saving disappears into it. Subtract that floor and what is left is the chain's own cost:
+one settles it with a single failed index lookup. The floor below is the same edit with no view
+stages at all, and the chain's own cost is each excluded column minus that floor:
 
 | Items | Floor, no chain | Excluded, state | Excluded, identity | Chain cost, state | Chain cost, identity |
 | --- | --- | --- | --- | --- | --- |
@@ -820,13 +806,8 @@ saving disappears into it. Subtract that floor and what is left is the chain's o
 | 100,000 | 3.16 µs | 6.85 µs | 6.74 µs | 3.69 µs | 3.57 µs |
 | 1,000,000 | 3.33 µs | 7.20 µs | 7.07 µs | 3.87 µs | 3.74 µs |
 
-Three to six percent of what the chain costs, consistently — the identity filter was ahead in
-every paired measurement, on both runtimes — and it does not grow with the collection. It is
-largest at ten thousand items and flat above that, because both things it skips are trie
-lookups costing O(log32 n), and log32 of a million is four where log32 of ten thousand is nearly
-three. There was never much room for the gap to open. Allocation is identical to the byte at
-every size, which is the row above's story again: what this skips is reading, and reading
-allocates nothing.
+The identity filter saves three to six percent of what the chain costs, and the saving does not
+grow with the collection.
 
 The same table says something better about the collection than it does about `FilterByIdentity`. A
 hundred times the items costs an edit nineteen percent more — 2.77 µs to 3.36 µs with no chain,
