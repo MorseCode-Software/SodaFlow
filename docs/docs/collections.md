@@ -750,8 +750,8 @@ The identity filter saves three to six percent of what the chain costs, and the 
 grow with the collection.
 
 The same table says something better about the collection than it does about `FilterByIdentity`. A
-hundred times the items costs an edit nineteen percent more — 2.77 µs to 3.36 µs with no chain,
-10.3 µs to 12.3 µs through a filter, a sort and a window.
+hundred times the items costs an edit nineteen percent more: 2.79 µs to 3.33 µs with no chain,
+from ten thousand items to a million.
 
 Do not read the column as a reason to sort or filter by identity when you meant to use the
 state. It is worth having when the view was going to be over the identity anyway, which is
