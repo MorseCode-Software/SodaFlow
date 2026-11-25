@@ -123,7 +123,7 @@ internal sealed partial class LoopStateEvaluator
     private bool GetsANewObjectBetween(
         SyntaxNode code,
         (ISymbol Of, ISymbol? Owner, int Index) key,
-        ExpressionSyntax read,
+        SyntaxNode read,
         SyntaxNode use)
     {
         foreach (BlockSyntax block in use.Ancestors().TakeWhile(around => around != code).OfType<BlockSyntax>())

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
 
@@ -96,7 +95,7 @@ internal sealed partial class LoopStateEvaluator
     // origin, but a function of the cell can read a member of this. That member is then the origin, as for a read of
     // the cell in this code. The cell ran in the callee, thus a quiet evaluator runs it again. Null where the
     // argument has no cell to run.
-    private ISymbol? OriginOfACellArgument(ExpressionSyntax argument, LoopState given) =>
+    private ISymbol? OriginOfACellArgument(SyntaxNode argument, LoopState given) =>
         given.Computed.IsEmpty
             ? null
             : this.Quiet().AtTheFirstRead(read: argument, state: given, marks: null, again: true).Origin;
