@@ -64694,6 +64694,26 @@ public static class Shapes
     public static Cell<int> Ab464AnInitializerWritesInAnArmThatDoesNotRun() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.F = l.Map(v => v); Kept.Add(Ab464WriteInAnArm.Value); return S.Hold(Ab464Shared.F!.Sample()); });
 
+    // S15701. AB465. A method reads a list field of this into a local. A method of this then gives the field a new list. The first method adds a pending cell through the local and samples the last element of the field.
+    public static Cell<int> Ab465ACalleeGivesTheFieldOfThisANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunThroughThis(l.Map(v => v))));
+
+    // S15702. AB465. The same with the simple names of the field and of the method.
+    public static Cell<int> Ab465ACalleeGivesTheFieldANewListBySimpleNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunBySimpleNames(l.Map(v => v))));
+
+    // S15703. AB465, an edge. The method of this gives the same field of a second object a new list.
+    public static Cell<int> Ab465ACalleeOnThisGivesTheFieldOfASecondObjectANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunThroughASecondObject(new Ab465Holder(), l.Map(v => v))));
+
+    // S15704. AB465, an edge. The method of this gives the field of this a new list only in a branch that does not run.
+    public static Cell<int> Ab465ACalleeGivesTheFieldOfThisANewListInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunWithABranch(l.Map(v => v))));
+
+    // S15705. AB465, an edge. The local gets the list field of a second object that a local keeps. A method of this gives the field of this a new list, and the code samples the field of the second object.
+    public static Cell<int> Ab465ACalleeOnThisAndALocalOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunOnALocalOfASecondObject(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119421,6 +119441,83 @@ public static class Shapes
         Ab464Shared.D = Plain;
 
         return 0;
+    }
+
+    public sealed class Ab465Holder
+    {
+        private static bool turn;
+
+        public List<Cell<int>> Items = [Plain];
+
+        public void Renew() => this.Items = [Plain];
+
+        public void RenewTheOther(Ab465Holder other) => other.Items = [Plain];
+
+        public void RenewInABranch()
+        {
+            if (turn)
+            {
+                this.Items = [Plain];
+            }
+        }
+
+        public int RunThroughThis(Cell<int> pending)
+        {
+            List<Cell<int>> xs = this.Items;
+            this.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int RunBySimpleNames(Cell<int> pending)
+        {
+            List<Cell<int>> xs = Items;
+            Renew();
+            xs.Add(pending);
+
+            return Items[^1].Sample();
+        }
+
+        public int RunThroughASecondObject(Ab465Holder other, Cell<int> pending)
+        {
+            other.Items = this.Items;
+            List<Cell<int>> xs = this.Items;
+            this.RenewTheOther(other);
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int RunOnASecondHolder(Cell<int> pending)
+        {
+            Ab465Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int RunOnALocalOfASecondObject(Cell<int> pending)
+        {
+            Ab465Holder second = new();
+            List<Cell<int>> xs = second.Items;
+            this.Renew();
+            xs.Add(pending);
+
+            return second.Items[^1].Sample();
+        }
+
+        public int RunWithABranch(Cell<int> pending)
+        {
+            List<Cell<int>> xs = this.Items;
+            this.RenewInABranch();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

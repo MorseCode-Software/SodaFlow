@@ -6,13 +6,14 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace SodaFlow.Analyzers;
 
-// The part of the evaluator for a call that gives a static location a new object. The call comes between the read of
-// the location into a local and a put through that local.
+// The part of the evaluator for a call that gives a location a new object. The call comes between the read of the
+// location into a local and a put through that local.
 internal sealed partial class LoopStateEvaluator
 {
     /// <summary>
-    ///     True when a call always runs between the read of a static location
-    ///     and a put. The callee always gives the location a new object. Thus,
+    ///     True when a call always runs between the read of a location and a
+    ///     put. The location is a static field, a static property, or a field of
+    ///     this. The callee always gives the location a new object. Thus,
     ///     the local keeps the first object, and the put through the local does
     ///     not go into the location.
     /// </summary>
@@ -23,18 +24,19 @@ internal sealed partial class LoopStateEvaluator
     ///     location a different value. Each other call can keep the first
     ///     object in the location, as the record of a put supposes.
     /// </remarks>
-    /// <param name="location">The static field or the static property.</param>
+    /// <param name="location">The field or the static property.</param>
     /// <param name="local">The local that got the object of the location.</param>
     /// <param name="read">The read of the location that gave the local its value.</param>
     /// <param name="use">The put through the local.</param>
     private bool ACallGivesANewObjectTo(ISymbol location, ISymbol local, ExpressionSyntax read, SyntaxNode use)
     {
-        // A static member of a generic type has a location for each type argument.
-        if (location is not (IFieldSymbol { IsStatic: true } or IPropertySymbol { IsStatic: true })
-            || IsInAGenericType(location.ContainingType)
+        // A static member of a generic type has a location for each type argument. A field of an object is
+        // a location of this code only through this.
+        if (location is not (IFieldSymbol or IPropertySymbol { IsStatic: true })
             || FunctionOf(use) is not { } code
             || code.DescendantNodes().Any(static node => node.IsKind(SyntaxKind.GotoStatement))
-            || this.LocationKeyOf(read) is not { } key)
+            || this.LocationKeyOf(read) is not { } key
+            || (location.IsStatic ? IsInAGenericType(location.ContainingType) : key.Owner != null))
         {
             return false;
         }
@@ -75,9 +77,17 @@ internal sealed partial class LoopStateEvaluator
     // True when a callee always gives a location a new object. No override can replace the callee. Its code
     // runs at the call, thus it is not async and not an iterator. The last statement of its code gives the
     // location the new object, and no return can come before it. A goto cannot go over the last statement.
+    // For a field of an object, the call is on this.
     private bool GivesANewObjectTo(SyntaxNode call, ISymbol location) =>
         this.region.SymbolOf(call)
             is IMethodSymbol { IsVirtual: false, IsOverride: false, IsAsync: false, ReturnsVoid: true } method
+        && (location.IsStatic
+            || call is InvocationExpressionSyntax
+            {
+                Expression: IdentifierNameSyntax
+                or GenericNameSyntax
+                or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax }
+            })
         && BodyOf(method.OriginalDefinition) switch
         {
             ExpressionSyntax body => this.IsANewObjectFor(expression: body, location: location),
@@ -99,7 +109,10 @@ internal sealed partial class LoopStateEvaluator
                 is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment
             || !SymbolEqualityComparer.Default.Equals(
                 x: this.region.SymbolOf(assignment.Left)?.OriginalDefinition,
-                y: location.OriginalDefinition))
+                y: location.OriginalDefinition)
+            || (!location.IsStatic
+                && Unwrapped(assignment.Left)
+                    is not (IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })))
         {
             return false;
         }

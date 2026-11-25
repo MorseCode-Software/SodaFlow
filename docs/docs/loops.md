@@ -461,8 +461,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   at an index or with `Add`, `Insert`, or `AddRange` of a `List<T>`. A call of your code between the
   two does not stop that, with one exception: a call that always runs there, of a method that no
   override can replace and whose last statement gives a static field or such a property a new list,
-  such as `Items = [];`. After that call, an `Add`, an `Insert`, or an `AddRange` through the old
-  local does not reach the field.
+  such as `Items = [];`. The same holds for a field of `this` that a method of `this` gives a new
+  list, as in `this.Renew()`. After that call, an `Add`, an `Insert`, or an `AddRange` through the
+  old local does not reach the field.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
   from there. An array or list literal that a local or a field gets, such as `a = [d, d]` or
