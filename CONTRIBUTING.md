@@ -5,6 +5,45 @@ how the packages are released. To use SodaFlow, start with the
 [documentation](https://morsecode-software.github.io/SodaFlow/) instead. How to build and test the repository is in the
 [README](README.md#building).
 
+## Listener lifetimes inside the library
+
+The [Listener lifetimes](docs/docs/lifetimes.md) page gives the rule a user follows. This is the machinery behind it.
+
+### The machinery behind a combinator
+
+`Listen` gives a handle that holds the stream, so the subscription lives exactly as long as the caller keeps the
+handle. `ListenOnceAsync` has no handle to give, so it roots its listener in the keep-alive set of each root the stream
+has, until the first firing or a cancellation. The listener holds the stream in turn, so the two form a cycle that the
+collector reclaims together when the roots go. Neither permanently roots a stream by itself.
+
+A combinator needs one more kind of subscription, and none of it is public. It binds *some other* listener to *a
+chosen* stream's lifetime, and has it actively unlistened, which disconnects its node from upstream, when that stream
+is collected, rather than merely becoming unreachable. That is how a combinator keeps its own wiring alive. `Switch`
+subscribes to the outer cell to learn when the branch changes, and to whichever inner stream is currently selected.
+The caller holds neither, only the stream `Switch` returns. Both subscriptions are therefore attached to that returned
+stream, so they live exactly as long as the result does. `Operational`, `LoopedStream`, and `TimerSystem` do the same
+thing.
+
+To stop those listeners after the stream is gone, the library keeps a weak view of each one, which can unlisten it
+without holding the stream. The inner subscription of `Switch` is replaced on every branch change, but attaching a
+fresh listener each time would grow the attached-listener list of the stream without bound, so one listener whose
+target can be re-pointed is attached once.
+
+Application code never gets into that situation, which is why this machinery is internal rather than merely
+discouraged: building a primitive this way needs the `Listen` overload taking a node, which is `internal`, and a
+handler that sends, which throws. Earlier versions exposed parts of it, `AttachListener`, the weak view through
+`GetListenerWithWeakReference`, `MutableListener`, and `Cleanup`, and SodaFlow.Core 6.0.0 removed the last of them from
+the public surface.
+
+### Verifying it
+
+These invariants are enforced by `SodaFlow.Tests.Memory`, which asserts them using weak references, the listener set
+of the node, and the registry count of the manager, with no profiler required for most of them. If you change cleanup
+behavior, those tests are the specification.
+
+A separate set in the same project counts live objects with dotMemory. Those carry `[Skip("Requires dotMemory.")]`, so
+every run skips them, CI included. Remove the attribute locally to run one with dotMemory installed.
+
 ## Reactive collections
 
 What the [Reactive collections](docs/docs/collections.md) page promises a user, and the costs it gives, rest on the
