@@ -24,10 +24,9 @@ looks up only the keys it names, so a watched item that the change does not touc
 and nothing is built for the items nobody is looking at.
 
 That property is measured rather than asserted. One edit of one key in a collection of ten
-thousand items takes 1.6 to 1.8 µs on .NET 10 whether a hundred, a thousand, or ten thousand rows
-are bound, where each bound row used to filter every change and the same edit took 7.2 µs,
-61 µs, and 0.75 to 0.79 ms. `PerKeyEditBenchmarks` measures that, and
-[Measuring it](#measuring-it) compares the collection with the shapes people reach for instead.
+thousand items takes 1.6 to 1.8 µs on .NET 10, whether a hundred, a thousand, or ten thousand rows
+are bound. [Measuring it](#measuring-it) compares the collection with the shapes people reach for
+instead.
 
 It lives in a separate package; see [Which package do I install?](packages.md).
 
@@ -142,8 +141,7 @@ you can see past; it *is* a collection, the way a `Where` is an `IEnumerable` an
 the sequence behind it. There is no `Root` to reach through, because there is nothing a view should
 need it for.
 
-Each stage pays for that with one graph node, to keep its own snapshot current, and one small
-object per change. The object holds the two maps behind that stage's visible keys; the items
+Each stage pays for that with one graph node and one small object per change. The items
 themselves are never copied.
 
 The last two rows are a pair, and picking the wrong one is the easy mistake:
@@ -158,7 +156,8 @@ The last two rows are a pair, and picking the wrong one is the easy mistake:
 
 Neither is the other rearranged. An item whose state changed without moving arrives on
 `KeyChangesStream` as an update carrying an index and nothing else; what the new state *is* has to
-be read from the snapshot.
+be read from the snapshot. A list can ignore an update, because the row's own `StateCell` already
+reports the value.
 
 `ItemChangesStream` answers for whichever collection you ask, the same way everything else here
 does. On a filtered view it reports that view's items: an edit to something the filter excludes is
@@ -171,20 +170,16 @@ and `Cell<'TState option>` in F#, and takes the new value straight off the chang
 than sampling `SnapshotCell` — a cell sampled *during* a transaction still holds its
 pre-transaction value, which is exactly wrong here.
 
-A change reaches only the cells of the keys it names. Each collection and each view keeps one
-index from key to cell, and a change looks its keys up there, so an edit of one row costs the
-same whether a hundred rows are bound or ten thousand. A cell that nothing holds any more is
-skipped, even before the garbage collector reclaims it. The index is paid for when a cell is
-made: a few hundred bytes for each cell.
+A change reaches only the cells of the keys it names, so an edit of one row costs the same
+whether a hundred rows are bound or ten thousand. Each cell costs a few hundred bytes when it is
+made.
 
 The key need not exist yet. A removal fires no value and a later add under the same key fires
 one again, so a view bound to a key can outlive its item and can be built before it. Feed it
 straight into `IOneWayBindableValue<T>` for the bound row; see [Data binding](bindable.md).
 
 `StateCell` caches weakly per key, so N observers of one key share a node and the node goes
-away when the last observer does. The cache is keyed by the projection as well as the key: each
-language surface holds one projection per cell type, and a cache belongs to the projection that
-filled it, so the C# and F# surfaces over one collection cannot be handed each other's cells.
+away when the last observer does.
 
 ## Views
 
@@ -216,25 +211,10 @@ ReactiveCollection<Guid, AccountId, AccountState> topTen = accounts
 filter excluded, and gains one the moment that key scores into the view. Observers of one key
 through one view share a cell; two views are two cells, because they are two answers.
 
-Observing through a view costs nothing over observing the collection directly. That was not
-obvious, and it had to be measured: at twenty observers and ten thousand items, 14.1 microseconds
-through a view against 14.2 without one.
-
-It is only free because of how it is built. The natural implementation — lifting the collection's
-cell against the view's keys — costs about twice an ordinary edit, because every observer becomes
-a node the propagation walks whenever the view moves at all, and a reorder counts as moving.
-Holding membership per observer and calming it wins back about a quarter of that. This does
-neither. A view keeps its own index from key to cell, exactly as the collection does, so a
-change of the view reaches only the cells of the keys it names and goes no further.
-
-An edit of many keys in one transaction is the other case. Each cell that a change reaches asks
-the change whether an operation names its key, and a change that names more keys than have cells
-reaches every cell. The change used to answer by scanning its operations, so a wide
-edit against many observers paid for every observer against every operation, with almost every
-comparison finding nothing. A change with more than a few operations now builds a dictionary of
-its keys once it has answered more than a few observers, so a wide edit through a view costs
-close to the same edit on the collection, where the item change always answered from a
-dictionary.
+Observing through a view costs nothing over observing the collection directly: at twenty
+observers and ten thousand items, 14.1 microseconds through a view against 14.2 without one. An
+edit of many keys in one transaction costs close to the same through a view as on the
+collection.
 
 `ItemCell` gives both parts as one `Maybe<Item<TIdentity, TState>>`. Reach for it when a value
 needs the identity *and* the state — a label built from an account number and its balance, say.
@@ -253,11 +233,6 @@ stays put, so only the key entering or leaving reaches it — on a view, that in
 deciding differently about an item the store never touched. A state edit never wakes one, which is
 what makes it near-free to hold for the life of a row, and holding twenty of them through a state
 edit measures the same as holding none. It is cached per key per view, as the state cell is.
-
-This used to be a map over the collection's shape cell, per observer and uncached, which meant
-every observer woke on every structural change anywhere in the collection. On an add and a remove
-touching nobody's key, at twenty observers and ten thousand items, that is 45.5 microseconds
-against 33.8 — a quarter of the cost, and all of it processor rather than allocation.
 
 Membership questions belong to `KeysCell`.
 
@@ -317,15 +292,15 @@ None of that has to be communicated downward. A filter files under its upstream'
 whatever that order has become, so a stage below re-files under the new one without being told
 anything about it.
 
-So a sort above a filter is cheaper to reorder than it used to be, but still not as cheap as a
-filter above a sort: the sort files every key in the collection under the new order, where below
-a filter it files only the ones the filter kept. At 100,000 items with a filter keeping 5%,
-reversing the order took 30 ms sorted first and under 1 ms filtered first.
+A sort above a filter is still not as cheap to reorder as a filter above a sort: the sort files
+every key in the collection under the new order, where below a filter it files only the ones the
+filter kept. At 100,000 items with a filter keeping 5%, reversing the order took 30 ms sorted
+first and under 1 ms filtered first.
 
 A change of order is always a reset, never a sequence of moves, however few keys it would move.
 `ViewMove` is kept for one thing: a key whose value changed, under an order that reads that
-value. The stages below depend on that distinction — see [How the chain stays
-incremental](#how-the-chain-stays-incremental).
+value. A move therefore carries a new value as an update does, and the row's `StateCell` fires on
+one.
 
 An order can have more than one level. `ThenBy`, `ThenByDescending`, `ThenByIdentity` and
 `ThenByIdentityDescending` return the order refined by another level, which decides only between
@@ -364,41 +339,7 @@ The key still breaks the last tie, ascending, with the comparer the first level 
 order is over the identity alone only if every level is: one level that reads the state is enough
 for a state edit to re-file a key.
 
-## How the chain stays incremental
-
-Each stage keeps its own ordered key set and applies the operations from above.
-
-| Stage | On upstream insert or remove | On upstream update | On upstream move |
-| --- | --- | --- | --- |
-| `Filter` | Test, add or drop | May enter, leave, or move | May enter, leave, or move |
-| `SortBy` | Add or drop | Re-file, O(log n) | Re-file, O(log n) |
-| `Take` | Re-window | Forwarded if inside the window | Re-window |
-
-`ViewUpdate` is what makes chaining work. A stage that saw no positional consequence still has
-to tell the stage below that an item changed, because that stage may sort or filter on exactly
-the state that just moved. UI consumers can ignore it — the row's own `StateCell` already
-reports the value.
-
-An upstream move says the same thing, which is why it is re-filed rather than ignored. A re-file
-that moves a key reports the move alone, so the move is the only operation carrying the key's new
-sort value, and a stage below has to file against it exactly as it would against an update. The
-row's `StateCell` fires on one too, for the same reason: the value is what moved the row.
-
-That is the only thing a move ever means. A move caused by the order itself changing would break
-a filter below it, which re-files a moved key under the order it already holds and so would keep
-the old one. It would also cost everything else below it: every stage would re-file each moved
-key, and every moved row's `StateCell` would fire, for values that did not change. So a stage whose
-order changes resets instead, and the stages below re-file what they hold under the new order.
-
-`Filter` preserves upstream order without tracking positions in the upstream list: it asks the
-upstream's key set for a new set under *the same order*, holding the members it kept.
-That keeps it O(log n) per changed key instead of needing rank queries over a subsequence.
-
-Re-filing a key on update stores the sort value it was filed under, so the old entry is
-removed with the comparison that placed it — otherwise you are hunting a sorted set for an
-entry whose sort position has already moved underneath it.
-
-## Three costs worth knowing
+## Costs worth knowing
 
 - **Changing a criteria** costs a pass over the stage's upstream however it is applied, because
   every key has to be tested against the new criteria. A *predicate* is the expensive end: the
@@ -496,9 +437,8 @@ both ends of the window anyway, and that is `Slice`.
 ### What turning a page costs
 
 Turning a page is a criteria change, and a criteria change is where a chain has the least to
-work with. This one is the cheapest of them, measured by
-`KeyedCollectionPagingBenchmarks` against re-deriving the same page from a cell with
-`OrderByDescending`, `Skip` and `Take`, on .NET 10:
+work with. This one is the cheapest of them, measured against re-deriving the same page from a
+cell with `OrderByDescending`, `Skip`, and `Take`, on .NET 10:
 
 | Items | Re-derived | Chained | Chained allocates |
 | --- | --- | --- | --- |
@@ -705,28 +645,16 @@ operations: recompute from `change.Keys`.
 Use `StateMap`'s `Pairs` rather than `Keys` with a lookup for each. Both answer the same question; the second
 costs an O(log n) search of the tree from its root per item rather than one walk of it in storage
 order, which measured three times slower at every size and made summing one field cost more than
-sorting the whole collection. That was found by writing this benchmark the wrong way first. `Fold` uses
-`Pairs` for its first value for this reason.
+sorting the whole collection.
 
 ## Measuring it
 
-The claim above — that per-item observation is proportional to the number of bound rows and
-independent of the collection size — is what
-`src/CSharp/SodaFlow.Benchmarks/KeyedCollectionEditBenchmarks.cs` measures, against the two
-shapes people reach for instead: a cell sink per mutable value per object, and the same cells
-fed from one shared edit stream.
-`KeyedCollectionBuildBenchmarks` measures what each of them costs to stand up,
-`KeyedCollectionViewBenchmarks` measures the view chain — `Filter`, `SortBy` and `Take` — against
-re-deriving the same view from a cell holding the whole collection, and
-`KeyedCollectionPagingBenchmarks` measures turning a `Slice`'s page and editing within one
-against re-deriving those, and `KeyedCollectionAggregateBenchmarks` measures a total over the whole
-collection folded from the change stream against one re-read from the store.
-`KeyedCollectionScaleBenchmarks` takes one question — what a selective filter costs per edit — up
-to a million items.
-
-```bash
-dotnet run -c Release --project src/CSharp/SodaFlow.Benchmarks -- --filter *KeyedCollection*
-```
+The claim above — that the cost of an edit follows neither the size of the collection nor the
+number of rows that watch other keys — is measured against the two shapes people reach for
+instead: a cell sink per mutable value per object, and the same cells fed from one shared edit
+stream. The benchmarks behind the tables on this page, and how to run them, are in
+[`src/CSharp/SodaFlow.Benchmarks`](https://github.com/MorseCode-Software/SodaFlow/tree/main/src/CSharp/SodaFlow.Benchmarks)
+in the repository.
 
 Sinks per field win on the time an individual edit takes, and the benchmark says so. What they
 cost is everything the build benchmark shows — `items × fields` graph nodes whether or not
@@ -759,9 +687,8 @@ seven percent. That is the property the design is for: the cost of an edit does 
 size of the collection. Sinks per field are flat too, and faster — they are also the shape you
 cannot feed from a stream.
 
-These figures predate the index from key to cell, when each of the twenty bound rows still tested
-every change, and they have not been taken again since. `PerKeyEditBenchmarks` measures what the
-index changed, as the opening of this page says.
+The collection's figures in this table are from before it kept an index from key to cell, so they
+overstate what an edit costs now. The opening of this page gives the current cost.
 
 Standing the same collections up, on the same machine:
 
@@ -795,10 +722,9 @@ An **edit** is what the chain is for, and it is flat: eleven microseconds at a t
 and thirteen at ten thousand, against a re-derivation that grows with the collection. At ten
 thousand that is fifty-six times.
 
-Part of that is a stage knowing it has nothing to do. A stage sitting directly on a collection
-inherits the root's order, which sorts by key — and a key cannot change, so a state edit can
-never move anything in it. Saying so rather than removing and re-adding the key to find out is
-worth about a tenth of an edit and a fifth of its allocation.
+Part of that is a stage knowing it has nothing to do. A state edit can never move a key in the
+root's own order, the order of arrival, so a stage sitting directly on a collection does not
+re-file the key at all.
 
 `SortByIdentity` and `FilterByIdentity` are how you say the same thing about a sort or a filter of your own:
 order or select by something in the identity — an account number, a code, a type — and a state
@@ -816,10 +742,8 @@ place to look at it.
 
 Where it earns its place is a key the view does not hold. An update for one costs the ordinary
 filter a membership test and a predicate test to conclude there is nothing to do; the identity
-one settles it with a single failed index lookup. `KeyedCollectionScaleBenchmarks` measures that
-against a third arm with no view stages at all, because without one the question cannot be
-answered — most of what an edit costs is spent before any stage is consulted, and a stage-level
-saving disappears into it. Subtract that floor and what is left is the chain's own cost:
+one settles it with a single failed index lookup. The floor below is the same edit with no view
+stages at all, and the chain's own cost is each excluded column minus that floor:
 
 | Items | Floor, no chain | Excluded, state | Excluded, identity | Chain cost, state | Chain cost, identity |
 | --- | --- | --- | --- | --- | --- |
@@ -827,30 +751,20 @@ saving disappears into it. Subtract that floor and what is left is the chain's o
 | 100,000 | 3.16 µs | 6.85 µs | 6.74 µs | 3.69 µs | 3.57 µs |
 | 1,000,000 | 3.33 µs | 7.20 µs | 7.07 µs | 3.87 µs | 3.74 µs |
 
-Three to six percent of what the chain costs, consistently — the identity filter was ahead in
-every paired measurement, on both runtimes — and it does not grow with the collection. It is
-largest at ten thousand items and flat above that. Both things it skips are lookups in an
-`ImmutableDictionary`, which is a balanced binary tree, so each costs O(log n): a depth of about
-fourteen at ten thousand items and twenty at a million. Six more nodes to read on each lookup are
-small beside an edit of seven microseconds, so there was never much room for the gap to open.
-Allocation is identical to the byte at every size, which is the row above's story again: what
-this skips is reading, and reading allocates nothing.
+The identity filter saves three to six percent of what the chain costs, and the saving does not
+grow with the collection.
 
 The same table says something better about the collection than it does about `FilterByIdentity`. A
-hundred times the items costs an edit nineteen percent more — 2.77 µs to 3.36 µs with no chain,
-10.3 µs to 12.3 µs through a filter, a sort and a window.
+hundred times the items costs an edit nineteen percent more: 2.79 µs to 3.33 µs with no chain,
+from ten thousand items to a million.
 
 Do not read the column as a reason to sort or filter by identity when you meant to use the
 state. It is worth having when the view was going to be over the identity anyway, which is
 common — and the selector and the predicate are handed the identity and not the state, so it is
 a claim the signature keeps rather than one you make.
 
-**Adding and removing** is flat too — twenty-nine microseconds and twenty-nine — which is fifty
-times a re-derivation at ten thousand items. It was not always: the identity map used to be a
-plain dictionary, which can only produce its next version by being copied, so a structural edit
-was O(n) however cheaply the stages below it absorbed the change. This benchmark is what found
-that, and the map is an `ImmutableDictionary` now, which writes O(log n) nodes for each key an
-edit adds or removes.
+**Adding and removing** is flat too — twenty-eight microseconds and thirty — which is fifty
+times a re-derivation at ten thousand items.
 
 **Changing the threshold** loses, by ten times at a thousand items and fifteen at ten
 thousand. A rebuild files every surviving key into a fresh ordered set, so the chain builds a
@@ -891,13 +805,8 @@ Never null, and each language gets its own optional type. In C# that is `Maybe<T
 `StateCell`, `IdentityCell`, `snapshot.Lookup`, `states.Lookup` and `IndexOf` all answer
 with one. See [Maybe, Either and Unit](functional.md). In F# it is `option`.
 
-That works because `SodaFlow.Collections.Core` has no optional type of its own. It answers in
-`TryGetItem`, `TryGetState`, `TryGetNewState` and an internal index lookup returning `-1`, and
-each language surface puts its own optional type back on top. The sentinel does not escape:
-the only `IndexOf` either surface exposes is the one answering `Maybe<int>` or `int option`. It
-is the same reason
-`SodaFlow.FSharp` does not depend on `SodaFlow.Functional`, applied one layer down: nothing
-that installs the F# collections package acquires `Maybe<T>` it has no use for.
+The shared `SodaFlow.Collections.Core` answers with `TryGet` methods such as `TryGetState`
+instead, so the F# collections package brings no `Maybe<T>` with it.
 
 `ChangeFor` returns `Maybe<Maybe<TState>>` in C# and `'TState option option` in F#, and the
 nesting carries real information. The outer level is whether the key moved at all — no value
@@ -907,16 +816,10 @@ removal arrives as a value containing no value. The core says the same thing as 
 
 ## Storage
 
-`StateMap<TKey, TState>` is the seam where the storage strategy is chosen.
-`ImmutableStateMap` is the default: an `ImmutableDictionary`, which is an AVL tree of hash
-buckets. An update is O(log n) and allocates only the path from the root — about seventeen nodes
-per edit at 100k items. Measure before replacing it.
-
-The contract an implementation must honor is that **a value returned by an instance never
-changes for the lifetime of that instance**. SodaFlow reads a cell's pre-transaction value
-during a transaction, so a snapshot that aliases storage you have since mutated will silently
-report the future. An in-place strategy therefore has to version its storage and serve older
-instances from a log, rather than handing back the live map.
+The states of a snapshot are a `StateMap<TKey, TState>`, an `ImmutableDictionary`, which is an AVL
+tree of hash buckets: an update costs O(log n) and allocates only the path from the root, about
+seventeen nodes per edit at 100k items. A `StateMap` never changes once you hold it, so a snapshot
+you keep, such as the `Before` of a change, reads the same later.
 
 ## F#
 

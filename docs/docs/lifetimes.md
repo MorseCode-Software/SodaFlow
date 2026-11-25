@@ -35,6 +35,10 @@ using (result.Listen(@out.Add))
 `ListenOnce` unsubscribes itself after the first firing, and follows the same rule. Hold its
 listener until the firing that you wait for.
 
+The library keeps its own wiring alive. A combinator such as [`Switch`](switch.md) holds the
+subscriptions it makes for as long as the stream it returns lives, so the only listener you hold
+is your own.
+
 > **Upgrading:** `ListenStrong` and `ListenOnceStrong` are gone, and so are `IStrongListener`
 > and `IWeakListener`. A strong listener kept firing after you dropped it, for as long as a
 > source of its stream lived, and then nothing could stop it. Each call to a strong form stops
@@ -172,43 +176,3 @@ IListener l = s.Listen(v => Transaction.Post(() => other.Send(v)));
 
 Handlers also carry no thread guarantee — the docs say to make no assumptions about which
 thread they run on, and not to block.
-
-## The machinery behind a combinator
-
-For ordinary subscriptions, `Listen` is all you need. It gives you a handle that holds the
-stream, so the subscription lives exactly as long as you keep the handle. `ListenOnceAsync` has
-no handle to give, so it roots its listener in the keep-alive set of each root the stream has,
-until the first firing or a cancellation. The listener holds the stream in turn, so the two form
-a cycle that the collector reclaims together when the roots go.
-Neither permanently roots a stream by itself.
-
-A combinator needs one more kind of subscription, and none of it is public. It binds *some
-other* listener to *a chosen* stream's lifetime, and has it actively unlistened — disconnecting
-its node from upstream — when that stream is collected, rather than merely becoming unreachable.
-That is how a combinator keeps its own wiring alive. [`Switch`](switch.md) subscribes to the outer
-cell to learn when the branch changes, and to whichever inner stream is currently selected; the
-caller holds neither, only the stream `Switch` returns. Both subscriptions are therefore attached
-to that returned stream, so they live exactly as long as the result does. `Operational`,
-`LoopedStream` and `TimerSystem` do the same thing.
-
-To stop those listeners after the stream is gone, the library keeps a weak view of each one, which
-can unlisten it without holding the stream. The inner subscription of `Switch` is replaced on every
-branch change, but attaching a fresh listener each time would grow the stream's attached-listener
-list without bound, so one listener whose target can be re-pointed is attached once.
-
-Application code never gets into that situation, which is why this machinery is internal rather
-than merely discouraged: building a primitive this way needs the `Listen` overload taking a
-node, which is `internal`, and a handler that sends, which throws. `Switch` has already done it
-for you. Earlier versions exposed parts of it — `AttachListener`, the weak view through
-`GetListenerWithWeakReference`, `MutableListener`, and `Cleanup` — and 6.0.0 removed the last of
-them from the public surface.
-
-## Verifying it
-
-These invariants are enforced by `SodaFlow.Tests.Memory`, which asserts them using weak
-references, the node's listener set, and the manager's registry count — no profiler required
-for most of them. If you change cleanup behavior, those tests are the specification.
-
-A separate set in the same project counts live objects with dotMemory. Those are tagged
-`[Ignore("Requires dotMemory.")]` so they skip on CI and run locally when you have it
-installed.

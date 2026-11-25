@@ -47,26 +47,9 @@ deliberately left alone.
 
 ## How conformance is checked
 
-The semantics are not just cited, they are executed. `DenotationalSemanticsTests`
-transcribes the Haskell reference cases into both language surfaces — the same
-cases in each, case for case — and asserts SodaFlow produces the specified
-occurrences:
-
-| | |
-| --- | --- |
-| C# | `src/CSharp/SodaFlow.Tests/DenotationalSemanticsTests.cs` |
-| F# | `src/FSharp/SodaFlow.FSharp.Tests/DenotationalSemanticsTests.fs` |
-
-They cover `Never`, `MapS`, `Snapshot`, `Merge`, `Filter`, `SwitchS`, `Updates`,
-`Split`, `Constant`, `Hold`, `MapC`, `Apply` and `Sample` — the primitives the
-paper defines — plus the .NET additions `Value`, `ListenC`, `ConstantLazy`,
-`SwitchC` and `SampleLazy`.
-
-Each test drives a simulated timeline: streams are given fixed occurrences at
-integer times, the transaction at each time is run, and the observed output list
-is compared against the value the specification requires. `Test_Merge_TestCase`,
-for instance, pins down exactly what simultaneous occurrences produce — the case
-most libraries leave undefined.
+The semantics are not just cited, they are executed: the Haskell reference cases
+are transcribed into both language surfaces, case for case, and the tests assert
+that SodaFlow produces the occurrences the specification requires.
 
 ## Reading further
 

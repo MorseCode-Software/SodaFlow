@@ -99,3 +99,13 @@ not `docs/loops.html`. Writing the built path instead is a warning, and CI build
 Add its `.csproj` to the `metadata.src.files` list in `docfx.json`, and make sure the project
 sets `GenerateDocumentationFile`. F# projects are deliberately excluded — see
 [`docs/fsharp-api.md`](docs/fsharp-api.md).
+
+### What an F# API reference would take
+
+Generate it with [`fsdocs`](https://fsprojects.github.io/FSharp.Formatting/) rather than DocFX, and
+publish it under its own path. `fsdocs` reads F# source and signatures rather than compiled
+metadata, so it renders modules as modules and curried functions in their F# form, and it picks up
+the same `///` comments already in the source.
+
+The prerequisite, writing those comments, is done. What remains is wiring the generator into the
+docs build.

@@ -15,7 +15,7 @@ not the F# one: modules appear as static classes, curried functions appear as me
 `FSharpFunc<_,_>`, and idiomatic pipelines are nowhere to be seen. The result actively misleads
 an F# reader.
 
-That is now the only reason. `SodaFlow.FSharp` and `SodaFlow.FSharp.Async` are fully documented
+The renderer is the whole reason, not a lack of comments. `SodaFlow.FSharp` and `SodaFlow.FSharp.Async` are fully documented
 with `///` comments, so the XML they emit is complete — every module, type and function carries a
 summary along with its parameters, return value and remarks. Your editor shows all of it today;
 what is missing is a renderer that presents the F# surface as F#.
@@ -46,13 +46,3 @@ Some functions have no alias and are spelled only the qualified way: the whole `
 module, `LazySample.map` and `LazySample.lift2` to `lift8`, `Listener.empty`, `Listener.fromList`,
 `Listener.fromSeq`, and `Listener.append`, and `Transaction.postWithFailureHandler`. For those,
 read the module's own file.
-
-## What it would take to fix this
-
-Generate with [`fsdocs`](https://fsprojects.github.io/FSharp.Formatting/) rather than DocFX, and
-publish it under its own path. `fsdocs` reads F# source and signatures rather than compiled
-metadata, so it renders modules as modules and curried functions in their F# form, and it picks up
-the same `///` comments already in the source.
-
-The prerequisite — writing those comments — is done. What remains is wiring the generator into the
-docs build.
