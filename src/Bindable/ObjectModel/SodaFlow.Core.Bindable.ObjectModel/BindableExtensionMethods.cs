@@ -155,26 +155,17 @@ public static partial class BindableCoreExtensionMethods
         TransactionInternal.AfterReleaseImpl(() => WriteInNewTransaction(write: write, state: state));
 
     // Each caller calls this only when no transaction is open. A write that runs in an open
-    // transaction is the error that PostWrite prevents. Thus, an open transaction here throws, and
-    // the write does not run in it. The test comes before Apply, thus it does not change the open
-    // transaction. The state goes to a static lambda, thus the call allocates no closure.
-    private static void WriteInNewTransaction<TState>(Action<TState> write, TState state)
-    {
-        if (TransactionInternal.HasCurrentTransaction())
-        {
-            throw new InvalidOperationException(
-                "A bindable write must run in a new transaction, but a transaction is open.");
-        }
-
-        TransactionInternal.Apply(
-            code: static (_, _, s) =>
+    // transaction is the error that PostWrite prevents. Thus, ApplyInNewTransaction throws there,
+    // and the write does not run in it.
+    private static void WriteInNewTransaction<TState>(Action<TState> write, TState state) =>
+        TransactionInternal.ApplyInNewTransaction(
+            code: static (_, s) =>
             {
                 s.Write(s.State);
 
                 return UnitInternal.Value;
             },
             state: (Write: write, State: state));
-    }
 
     /// <summary>
     ///     Throws when the caller is not on the binding thread.
