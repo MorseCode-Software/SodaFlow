@@ -66,6 +66,7 @@ internal sealed partial class LoopStateEvaluator
         if (replaces)
         {
             this.region.TakesAwayTheLinksOf(name);
+            this.ForgetsTheElementsOf(name: name, value: value);
         }
 
         if (this.region.TypeOf(value) is { } type && this.CanBeAnObject(type) && this.NameKeyOf(value) is { } from)

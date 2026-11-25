@@ -43,15 +43,13 @@ internal sealed partial class LoopStateEvaluator
 
     // Records a change to the object in an element of a static array whose objects no code changes, for that element
     // only: see StaticOwnerOf. Each other element has a different object. A local with ref of such an element names it at
-    // each use, because UnchangedStatics permits no other use of that local. False for each other expression.
+    // each use, because UnchangedStatics permits no other use of that local. A local that gets only the element holds
+    // its object. False for each other expression.
     private bool PutsIntoAnElementOfItsOwnObject(ExpressionSyntax target, LoopState state)
     {
         ExpressionSyntax element =
-            target is IdentifierNameSyntax
-            && this.region.SymbolOf(target) is ILocalSymbol { RefKind: not RefKind.None } local
-            && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                is VariableDeclaratorSyntax { Initializer.Value: RefExpressionSyntax { Expression: var location } }
-                ? Unwrapped(location)
+            target is IdentifierNameSyntax && this.region.SymbolOf(target) is ILocalSymbol local
+                ? this.ElementThatALocalNames(local) ?? target
                 : target;
 
         if (element is not ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } access
@@ -69,6 +67,21 @@ internal sealed partial class LoopStateEvaluator
 
         return true;
     }
+
+    // The element of a static array that a local names at each use. A local with ref names the location of its
+    // declaration. A local with no ref that gets only an element of a static array holds the object of that element.
+    // Null for each other local.
+    private ExpressionSyntax? ElementThatALocalNames(ILocalSymbol local) =>
+        local.RefKind != RefKind.None
+            ? local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is VariableDeclaratorSyntax { Initializer.Value: RefExpressionSyntax { Expression: var location } }
+                ? Unwrapped(location)
+                : null
+            : this.Frame.ElementOf.TryGetValue(key: local, value: out ExpressionSyntax? collection)
+              && this.TheArrayOfAStaticField(Unwrapped(collection)) != null
+              && this.OnlyValueOf(local) is { } value
+                ? Unwrapped(value)
+                : null;
 
     // The puts at a constant index into the array of a static field that a read of the field gets. A read that is the
     // collection of an element at a constant index gets only the puts at that index.

@@ -64022,6 +64022,58 @@ public static class Shapes
     public static Cell<int> Ab444APutIntoAnInnerArrayThroughARangeChangesIt() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] a = [[Plain], [Plain]]; a[1..][0][0] = l.Map(v => v); return S.Hold(a[1][0].Sample()); });
 
+    // S15533. AB448: a local gets element 0 of a static array, and then the field gets a new array. A write through the local does not change the new element, and a lambda reads it.
+    public static Cell<int> Ab448AFieldGetsANewArrayALambdaReadsTheNewElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab448ArrA[0]; Ab448ArrA = [new SettableSlot { Share = Plain }]; q.Share = l.Map(v => v); Func<int> read = () => Ab448ArrA[0].Share!.Sample(); Kept.Add(read()); return S.Hold(0); });
+
+    // S15534. AB448: the same with a read of the new element in the block.
+    public static Cell<int> Ab448AFieldGetsANewArrayTheBlockReadsTheNewElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab448ArrB[0]; Ab448ArrB = [new SettableSlot { Share = Plain }]; q.Share = l.Map(v => v); return S.Hold(Ab448ArrB[0].Share!.Sample()); });
+
+    // S15535. AB448: the same with a local array that gets a new array.
+    public static Cell<int> Ab448ALocalArrayGetsANewArrayTheBlockReadsTheNewElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab448ArrC; SettableSlot q = a[0]; a = [new SettableSlot { Share = Plain }]; q.Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S15536. AB448: the field keeps its array. Thus, the write through the local of element 0 reaches the read in the lambda.
+    public static Cell<int> Ab448AFieldKeepsItsArrayALambdaReadsTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab448ArrD[0]; q.Share = l.Map(v => v); Func<int> read = () => Ab448ArrD[0].Share!.Sample(); Kept.Add(read()); return S.Hold(0); });
+
+    // S15537. AB448: the new array of the field has the object of the local. Thus, the write through the local changes the new element.
+    public static Cell<int> Ab448AFieldGetsANewArrayWithTheObjectOfTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab448ArrE[0]; Ab448ArrE = [q]; q.Share = l.Map(v => v); return S.Hold(Ab448ArrE[0].Share!.Sample()); });
+
+    // S15538. AB448: the field gets the array that it had before, from a local. Thus, the write through the local changes element 0.
+    public static Cell<int> Ab448AFieldGetsItsOldArrayBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] g = Ab448ArrF; SettableSlot q = Ab448ArrF[0]; Ab448ArrF = g; q.Share = l.Map(v => v); return S.Hold(Ab448ArrF[0].Share!.Sample()); });
+
+    // S15539. AB448: a local of element 1 of a static array of new objects gets a pending cell. A read through a local of element 0 gets the plain cell.
+    public static Cell<int> Ab448ALocalOfASecondElementWritesOnlyThatElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab448ArrG[0]; c.Share = Plain; SettableSlot d = Ab448ArrG[1]; d.Share = l.Map(v => v); SettableSlot q = Ab448ArrG[0]; return S.Hold(q.Share!.Sample()); });
+
+    // S15540. AB448: the same with a read of element 0 through the field.
+    public static Cell<int> Ab448ALocalOfASecondElementTheFieldReadsTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab448ArrH[0].Share = Plain; SettableSlot d = Ab448ArrH[1]; d.Share = l.Map(v => v); return S.Hold(Ab448ArrH[0].Share!.Sample()); });
+
+    // S15541. AB448: the two locals have element 0. Thus, the write through the second local reaches the read through the third.
+    public static Cell<int> Ab448TwoLocalsOfTheFirstElementWriteOneObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab448ArrJ[0]; c.Share = Plain; SettableSlot d = Ab448ArrJ[0]; d.Share = l.Map(v => v); SettableSlot q = Ab448ArrJ[0]; return S.Hold(q.Share!.Sample()); });
+
+    // S15542. AB448: the local gets element 1 and then element 0. Thus, the write through it reaches the read of element 0.
+    public static Cell<int> Ab448ALocalWithTwoValuesWritesTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab448ArrK[0].Share = Plain; SettableSlot d = Ab448ArrK[1]; d = Ab448ArrK[0]; d.Share = l.Map(v => v); return S.Hold(Ab448ArrK[0].Share!.Sample()); });
+
+    // S15543. AB448: a read of each element in a foreach gets the write through the local of element 1.
+    public static Cell<int> Ab448ALocalOfASecondElementReachesAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab448ArrM[1]; d.Share = l.Map(v => v); foreach (SettableSlot s in Ab448ArrM) { Kept.Add(s.Share?.Sample() ?? 0); } return S.Hold(0); });
+
+    // S15544. AB448: a local gets element 0 of a static array, and a second field gets a new array. The write through the local reaches the read of element 0 of the first field.
+    public static Cell<int> Ab448ASecondFieldGetsANewArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab448ArrN[0]; Ab448ArrP = [new SettableSlot { Share = Plain }]; q.Share = l.Map(v => v); return S.Hold(Ab448ArrN[0].Share!.Sample()); });
+
+    // S15545. AB448: the same with a second local array that gets a new array.
+    public static Cell<int> Ab448ASecondLocalGetsANewArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab448ArrQ; SettableSlot[] b = [new SettableSlot()]; SettableSlot q = a[0]; b = [new SettableSlot { Share = Plain }]; q.Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -118027,6 +118079,22 @@ public static class Shapes
     }
 
     private static readonly Cell<int>[] Ab444Cells = [Plain, Plain];
+
+    private static SettableSlot[] Ab448ArrA = [new()];
+    private static SettableSlot[] Ab448ArrB = [new()];
+    private static readonly SettableSlot[] Ab448ArrC = [new()];
+    private static readonly SettableSlot[] Ab448ArrD = [new()];
+    private static SettableSlot[] Ab448ArrE = [new()];
+    private static SettableSlot[] Ab448ArrF = [new()];
+    private static readonly SettableSlot[] Ab448ArrG = [new(), new()];
+    private static readonly SettableSlot[] Ab448ArrH = [new(), new()];
+    private static readonly SettableSlot[] Ab448ArrJ = [new(), new()];
+    private static readonly SettableSlot[] Ab448ArrK = [new(), new()];
+    private static readonly SettableSlot[] Ab448ArrM = [new(), new()];
+
+    private static SettableSlot[] Ab448ArrN = [new()];
+    private static SettableSlot[] Ab448ArrP = [new()];
+    private static SettableSlot[] Ab448ArrQ = [new()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

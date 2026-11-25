@@ -9097,6 +9097,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab444AMemberWriteThroughARangeOfAnArrayChangesTheObject"] = ["SF1001"],
             ["Ab444ARangeOfASpanWritesTheArray"] = ["SF1001"],
             ["Ab444ARangeOfAMemoryWritesTheArray"] = ["SF1001"],
-            ["Ab444APutIntoAnInnerArrayThroughARangeChangesIt"] = ["SF1001"]
+            ["Ab444APutIntoAnInnerArrayThroughARangeChangesIt"] = ["SF1001"],
+            ["Ab448AFieldKeepsItsArrayALambdaReadsTheElement"] = ["SF1001"],
+            ["Ab448AFieldGetsANewArrayWithTheObjectOfTheLocal"] = ["SF1001"],
+            ["Ab448AFieldGetsItsOldArrayBack"] = ["SF1001"],
+            ["Ab448TwoLocalsOfTheFirstElementWriteOneObject"] = ["SF1001"],
+            ["Ab448ALocalWithTwoValuesWritesTheSecond"] = ["SF1001"],
+            ["Ab448ALocalOfASecondElementReachesAForeach"] = ["SF1001"],
+            ["Ab448ASecondFieldGetsANewArray"] = ["SF1001"],
+            ["Ab448ASecondLocalGetsANewArray"] = ["SF1001"]
         };
 }

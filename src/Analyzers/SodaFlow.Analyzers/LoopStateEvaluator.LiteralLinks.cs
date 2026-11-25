@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SodaFlow.Analyzers;
@@ -28,6 +31,30 @@ internal sealed partial class LoopStateEvaluator
                 name: new NameKey(of: name.Of, owner: null, index: index),
                 value: elements[index],
                 replaces: false);
+        }
+    }
+
+    // A name that gets a new collection does not hold the collection that it had before. Thus, a local that got an
+    // element of that collection is no element of the name: see HoldsOneOf. A change through the local does not go to
+    // the new collection. Where the new collection gets the local, Gets records that.
+    private void ForgetsTheElementsOf(NameKey name, ExpressionSyntax value)
+    {
+        if (this.Frame.ElementOf.Count == 0
+            || Unwrapped(value)
+                is not (CollectionExpressionSyntax
+                or ArrayCreationExpressionSyntax
+                or ImplicitArrayCreationExpressionSyntax
+                or BaseObjectCreationExpressionSyntax))
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<ISymbol, ExpressionSyntax> one in this.Frame.ElementOf.ToArray())
+        {
+            if (this.NameKeyOf(one.Value) is { } collection && collection.IsTheSameAs(name))
+            {
+                this.Frame.ElementOf.Remove(one.Key);
+            }
         }
     }
 }

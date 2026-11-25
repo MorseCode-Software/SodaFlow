@@ -389,7 +389,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   an increment, or a `ref`, `out`, or `in` argument, or uses the array other than through an element
   or a local that only reads its elements. A `ref` local of an element counts as a read where the
   code only reads or writes members through it. A write to a member through one such element at a
-  constant index then does not reach a different element, also in a method that the block calls.
+  constant index then does not reach a different element, also in a method that the block calls,
+  and neither does a write through a local whose only value is such an element, as `d` after
+  `var d = Slots[1];`.
   The arguments that a call that runs one time gives one by one to a `params` parameter keep their
   positions in the same way. A positional pattern on a tuple gives each part its own item. A
   `Dictionary` that you write with constant keys and no comparer, and that the code then only
@@ -436,7 +438,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   index. A local that gets the array or the list in a field, or in a static property with no body,
   sees each element that code puts in through the field later, also in a method and through a `ref`
   local of a field of such an element at a constant index or at an index in a local, until the local
-  or the field gets a different value. The other way also holds: a read through the field sees an
+  or the field gets a different value. A local that got an element of a collection stops being one
+  of its elements when the name of the collection gets a new array or list, so after
+  `var d = Slots[0]; Slots = [new Slot()];` a write through `d` does not reach `Slots[0]`. The other
+  way also holds: a read through the field sees an
   element that code puts in through such a local, at an index or with `Add`, `Insert`, or `AddRange`
   of a `List<T>`.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
