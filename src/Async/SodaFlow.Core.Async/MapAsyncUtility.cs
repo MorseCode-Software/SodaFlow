@@ -3092,9 +3092,22 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             state: this);
     }
 
-    private void SendTheTriggerAfterTheTransaction() => TransactionInternal.AfterReleaseImpl(this.SendTheTrigger);
+    // After the release, no transaction is open. Thus, the trigger opens a transaction of its own,
+    // and ApplyInNewTransaction throws where one is open.
+    private void SendTheTriggerAfterTheTransaction() =>
+        TransactionInternal.AfterReleaseImpl(this.SendTheTriggerInNewTransaction);
 
     private void SendTheTrigger() => this.disposeCancelTrigger.SendImpl(UnitInternal.Value);
+
+    private void SendTheTriggerInNewTransaction() =>
+        TransactionInternal.ApplyInNewTransaction(
+            code: static (_, self) =>
+            {
+                self.SendTheTrigger();
+
+                return UnitInternal.Value;
+            },
+            state: this);
 
     private void RemoveListeners()
     {
@@ -3526,8 +3539,9 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     ///         Thus, this method does not throw.
     ///     </para>
     ///     <para>
-    ///         This method runs only where no transaction is open. Thus, the Apply here
-    ///         opens a transaction, and a failure of that transaction comes back here.
+    ///         This method runs only where no transaction is open. Thus, each
+    ///         ApplyInNewTransaction here opens a transaction, and a failure of that
+    ///         transaction comes back here. Where a transaction is open, it throws.
     ///         See <see cref="EndItem" />.
     ///     </para>
     /// </remarks>
@@ -3569,8 +3583,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         try
         {
-            TransactionInternal.Apply(
-                code: static (_, _, state) =>
+            TransactionInternal.ApplyInNewTransaction(
+                code: static (_, state) =>
                 {
                     state.Errors.SendImpl(state.Report);
 
@@ -3592,8 +3606,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         bool sends,
         Cell<Entry[]> trackedCell,
         MapAsyncDeliveryExceptionBase? report) =>
-        TransactionInternal.Apply(
-            code: static (transaction, _, state) =>
+        TransactionInternal.ApplyInNewTransaction(
+            code: static (transaction, state) =>
             {
                 state.Self.FlushInTransaction(
                     transaction: transaction,
