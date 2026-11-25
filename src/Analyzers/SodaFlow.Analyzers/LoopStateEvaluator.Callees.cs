@@ -140,6 +140,10 @@ internal sealed partial class LoopStateEvaluator
     ///     For the expression of a query clause, the range variable that the
     ///     lambda of the clause gets as its parameter, with the argument.
     /// </param>
+    /// <param name="ownerOfThis">
+    ///     For a method group, the owner of this that the code which names the
+    ///     group knows: see OwnerOfAGroup. Null for each other callee.
+    /// </param>
     private Followed? Enter(
         SyntaxNode call,
         string name,
@@ -153,7 +157,8 @@ internal sealed partial class LoopStateEvaluator
         bool returnsAnObject = false,
         bool manyTimes = false,
         ExpressionSyntax? owner = null,
-        (ISymbol Variable, LoopState State)? range = null)
+        (ISymbol Variable, LoopState State)? range = null,
+        object? ownerOfThis = null)
     {
         // Take of no item gives an empty sequence and does not start the iterator.
         if (this.TakesNoItem(call) && IsAnIteratorBody(body))
@@ -230,6 +235,8 @@ internal sealed partial class LoopStateEvaluator
                 range: range,
                 objectsOfThis: receiver?.Objects);
 
+        inner.givenOwnerOfThis = ownerOfThis;
+
         if (owner != null && definer == null)
         {
             this.GivesTheCalleeTheWritesThroughAName(owner: owner, members: members, callee: inner.Frame);
@@ -292,6 +299,8 @@ internal sealed partial class LoopStateEvaluator
                         itsObject: receiver?.Members,
                         range: range,
                         objectsOfThis: receiver?.Objects);
+
+                inner.givenOwnerOfThis = ownerOfThis;
 
                 if (started != null)
                 {

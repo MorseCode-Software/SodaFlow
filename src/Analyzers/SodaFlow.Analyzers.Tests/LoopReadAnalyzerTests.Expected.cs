@@ -9035,6 +9035,19 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab413ALambdaInAGenericMethodWritesTheField"] = ["SF1001"],
             ["Ab413AnOpenTypeParameterWritesTheField"] = ["SF1001"],
             ["Ab413AnOpenTypeParameterReadsTheField"] = ["SF1005"],
-            ["Ab413ALoopReadsThenWritesTheField"] = ["SF1001"]
+            ["Ab413ALoopReadsThenWritesTheField"] = ["SF1001"],
+            ["Ab429AHolderFieldGetsTheObjectOfALocal"] = ["SF1005"],
+            ["Ab429AMethodGivesTheHolderFieldAnObject"] = ["SF1005"],
+            ["Ab429AStaticFieldGetsTheObjectOfASecondStaticField"] = ["SF1005"],
+            ["Ab429TwoObjectsGetOneObjectForAReadonlyField"] = ["SF1005"],
+            ["Ab429ALocalOfAStaticFieldThatGetsADifferentObject"] = ["SF1005"],
+            ["Ab429AHolderThatItsConstructorGivesAway"] = ["SF1005"],
+            ["Ab429AHolderThatItsBaseConstructorGivesAway"] = ["SF1005"],
+            ["Ab429AHolderFieldThatARefArgumentChanges"] = ["SF1005"],
+            ["Ab429AnInternalStaticFieldThatADifferentClassChanges"] = ["SF1005"],
+            ["Ab429AReadonlyStaticFieldThatAStaticConstructorChanges"] = ["SF1005"],
+            ["Ab429AnElementWithTheObjectOfAReadonlyStaticField"] = ["SF1005"],
+            ["Ab429AnElementWithTheObjectThatAMethodReturns"] = ["SF1005"],
+            ["Ab429TwoObjectsGetAStaticObjectForAReadonlyField"] = ["SF1005"]
         };
 }

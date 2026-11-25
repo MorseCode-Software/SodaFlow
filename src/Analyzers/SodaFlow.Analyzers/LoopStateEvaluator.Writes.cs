@@ -3009,7 +3009,7 @@ internal sealed partial class LoopStateEvaluator
         // A static field of a type that is not generic, or of a closed type, has one location. Thus, a
         // write that always runs in the block replaces the value before it. A write through an owner that
         // the walk knows reaches no read through a different known owner.
-        if (!this.quiet && this.KnownOwnerOf(owner) is { } one)
+        if (!this.quiet && this.KnownOwnerOf(owner: owner, has: has) is { } one)
         {
             this.region.SetFieldOfAnOwner(field: member, state: this.InAnOldLocation(state), owner: one);
 

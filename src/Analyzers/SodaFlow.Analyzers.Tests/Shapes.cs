@@ -63166,6 +63166,534 @@ public static class Shapes
     public static Cell<int> Ab413ASecondCallPutsAPlainCellIntoTheField() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab413SetK(l.Map(v => v)); Ab413SetK(Plain); return S.Hold(Ab413GenK<int>.C.Sample()); });
 
+    // S15319. Control: a constructor builds the member of each of two objects. The block sets the sampled member of one object to a pending cell, and reads the build of the other. The function of the Map is a method group of a kept object.
+    public static Cell<int> R6PairNMethodGroupOfAKeptObjectMapCtorTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBKeptMapCtor m = new(); R6PairBKeptMapCtor n = new(); m.Set(l.Map(v => v)); Kept.Add(n.Read()); Kept.Add(m); return S.Hold(0); });
+
+    // S15320. Control: a constructor builds the member of each of two objects. The block sets the sampled member of one object to a pending cell, and reads the build of the other. The function of the Lazy is a method group of a kept object.
+    public static Cell<int> R6PairNMethodGroupOfAKeptObjectLazyCtorTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBKeptLazyCtor m = new(); R6PairBKeptLazyCtor n = new(); m.Set(l.Map(v => v)); Kept.Add(n.Read()); Kept.Add(m); return S.Hold(0); });
+
+    // S15321. Control: a constructor builds the member of each of two objects. The block sets the sampled member of one object to a pending cell, and reads the build of the other. The function of the Map is a method group of a local that gets a kept object.
+    public static Cell<int> R6PairNMethodGroupOfALocalOfAKeptObjectMapCtorTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBKeptLocMapCtor m = new(); R6PairBKeptLocMapCtor n = new(); m.Set(l.Map(v => v)); Kept.Add(n.Read()); Kept.Add(m); return S.Hold(0); });
+
+    // S15322. Control: a constructor builds the member of each of two objects. The block sets the sampled member of one object to a pending cell, and reads the build of the other. The function of the Lazy is a method group of a local that gets a kept object.
+    public static Cell<int> R6PairNMethodGroupOfALocalOfAKeptObjectLazyCtorTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBKeptLocLazyCtor m = new(); R6PairBKeptLocLazyCtor n = new(); m.Set(l.Map(v => v)); Kept.Add(n.Read()); Kept.Add(m); return S.Hold(0); });
+
+    // S15323. Control: a constructor builds the member of each of two objects. The block sets the sampled member of one object to a pending cell, and reads the build of the other. The function of the Map is a lambda that samples a member of a kept object.
+    public static Cell<int> R6PairNLambdaOfAKeptObjectMapCtorTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBKeptLamMapCtor m = new(); R6PairBKeptLamMapCtor n = new(); m.Set(l.Map(v => v)); Kept.Add(n.Read()); Kept.Add(m); return S.Hold(0); });
+
+    // S15324. Control: a constructor builds the member of each of two objects. The block sets the sampled member of one object to a pending cell, and reads the build of the other. The function of the Lazy is a lambda that samples a member of a kept object.
+    public static Cell<int> R6PairNLambdaOfAKeptObjectLazyCtorTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBKeptLamLazyCtor m = new(); R6PairBKeptLamLazyCtor n = new(); m.Set(l.Map(v => v)); Kept.Add(n.Read()); Kept.Add(m); return S.Hold(0); });
+
+    // S15325. A constructor builds the member with a lambda written at the build. Control: a local holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughElementReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamMapCtor[] a = [new R6PairBLamMapCtor()]; R6PairBLamMapCtor d = new(); a[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15326. A constructor builds the member with a lambda written at the build. Control: an element of a static field array holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughElementReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamMapCtor[] a = [new R6PairBLamMapCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQFa14[0].Read()); return S.Hold(0); });
+
+    // S15327. A constructor builds the member with a lambda written at the build. Control: a static field holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughElementReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamMapCtor[] a = [new R6PairBLamMapCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf16.Read()); return S.Hold(0); });
+
+    // S15328. A constructor builds the member with a lambda written at the build. Control: a field of a local holder holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughElementReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamMapCtor[] a = [new R6PairBLamMapCtor()]; R6PairHold<R6PairBLamMapCtor> h = new(); a[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15329. A constructor builds the member with a lambda written at the build. Control: a local holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughFieldArrayReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamMapCtor d = new(); R6PairQFa20[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15330. A constructor builds the member with a lambda written at the build. Control: an element of a local array holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughFieldArrayReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamMapCtor[] a = [new R6PairBLamMapCtor()]; R6PairQFa22[0].Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15331. A constructor builds the member with a lambda written at the build. Control: a static field holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughFieldArrayReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQFa25[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf25.Read()); return S.Hold(0); });
+
+    // S15332. A constructor builds the member with a lambda written at the build. Control: a field of a local holder holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughFieldArrayReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamMapCtor> h = new(); R6PairQFa27[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15333. A constructor builds the member with a lambda written at the build. Control: a local holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughStaticFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamMapCtor d = new(); R6PairQSf29.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15334. A constructor builds the member with a lambda written at the build. Control: an element of a local array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughStaticFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamMapCtor[] a = [new R6PairBLamMapCtor()]; R6PairQSf31.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15335. A constructor builds the member with a lambda written at the build. Control: an element of a static field array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughStaticFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQSf33.Set(l.Map(v => v)); Kept.Add(R6PairQFa33[0].Read()); return S.Hold(0); });
+
+    // S15336. A constructor builds the member with a lambda written at the build. Control: a field of a local holder holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughStaticFieldReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamMapCtor> h = new(); R6PairQSf36.Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15337. A constructor builds the member with a lambda written at the build. Control: a local holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughInstanceFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamMapCtor> h = new(); R6PairBLamMapCtor d = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15338. A constructor builds the member with a lambda written at the build. Control: an element of a local array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughInstanceFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamMapCtor> h = new(); R6PairBLamMapCtor[] a = [new R6PairBLamMapCtor()]; h.Slot.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15339. A constructor builds the member with a lambda written at the build. Control: an element of a static field array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughInstanceFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamMapCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQFa42[0].Read()); return S.Hold(0); });
+
+    // S15340. A constructor builds the member with a lambda written at the build. Control: a static field holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaMapSetThroughInstanceFieldReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamMapCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQSf44.Read()); return S.Hold(0); });
+
+    // S15341. A constructor builds the member with a lambda written at the build. Control: a local holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughElementReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamLazyCtor[] a = [new R6PairBLamLazyCtor()]; R6PairBLamLazyCtor d = new(); a[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15342. A constructor builds the member with a lambda written at the build. Control: an element of a static field array holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughElementReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamLazyCtor[] a = [new R6PairBLamLazyCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQFa59[0].Read()); return S.Hold(0); });
+
+    // S15343. A constructor builds the member with a lambda written at the build. Control: a static field holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughElementReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamLazyCtor[] a = [new R6PairBLamLazyCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf61.Read()); return S.Hold(0); });
+
+    // S15344. A constructor builds the member with a lambda written at the build. Control: a field of a local holder holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughElementReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamLazyCtor[] a = [new R6PairBLamLazyCtor()]; R6PairHold<R6PairBLamLazyCtor> h = new(); a[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15345. A constructor builds the member with a lambda written at the build. Control: a local holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughFieldArrayReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamLazyCtor d = new(); R6PairQFa65[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15346. A constructor builds the member with a lambda written at the build. Control: an element of a local array holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughFieldArrayReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamLazyCtor[] a = [new R6PairBLamLazyCtor()]; R6PairQFa67[0].Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15347. A constructor builds the member with a lambda written at the build. Control: a static field holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughFieldArrayReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQFa70[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf70.Read()); return S.Hold(0); });
+
+    // S15348. A constructor builds the member with a lambda written at the build. Control: a field of a local holder holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughFieldArrayReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamLazyCtor> h = new(); R6PairQFa72[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15349. A constructor builds the member with a lambda written at the build. Control: a local holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughStaticFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamLazyCtor d = new(); R6PairQSf74.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15350. A constructor builds the member with a lambda written at the build. Control: an element of a local array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughStaticFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBLamLazyCtor[] a = [new R6PairBLamLazyCtor()]; R6PairQSf76.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15351. A constructor builds the member with a lambda written at the build. Control: an element of a static field array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughStaticFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQSf78.Set(l.Map(v => v)); Kept.Add(R6PairQFa78[0].Read()); return S.Hold(0); });
+
+    // S15352. A constructor builds the member with a lambda written at the build. Control: a field of a local holder holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughStaticFieldReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamLazyCtor> h = new(); R6PairQSf81.Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15353. A constructor builds the member with a lambda written at the build. Control: a local holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughInstanceFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamLazyCtor> h = new(); R6PairBLamLazyCtor d = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15354. A constructor builds the member with a lambda written at the build. Control: an element of a local array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughInstanceFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamLazyCtor> h = new(); R6PairBLamLazyCtor[] a = [new R6PairBLamLazyCtor()]; h.Slot.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15355. A constructor builds the member with a lambda written at the build. Control: an element of a static field array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughInstanceFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamLazyCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQFa87[0].Read()); return S.Hold(0); });
+
+    // S15356. A constructor builds the member with a lambda written at the build. Control: a static field holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQLambdaLazySetThroughInstanceFieldReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBLamLazyCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQSf89.Read()); return S.Hold(0); });
+
+    // S15357. A constructor builds the member with a method group of this. Control: a local holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughElementReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpMapCtor[] a = [new R6PairBGrpMapCtor()]; R6PairBGrpMapCtor d = new(); a[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15358. A constructor builds the member with a method group of this. Control: an element of a static field array holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughElementReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpMapCtor[] a = [new R6PairBGrpMapCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQFa104[0].Read()); return S.Hold(0); });
+
+    // S15359. A constructor builds the member with a method group of this. Control: a static field holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughElementReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpMapCtor[] a = [new R6PairBGrpMapCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf106.Read()); return S.Hold(0); });
+
+    // S15360. A constructor builds the member with a method group of this. Control: a field of a local holder holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughElementReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpMapCtor[] a = [new R6PairBGrpMapCtor()]; R6PairHold<R6PairBGrpMapCtor> h = new(); a[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15361. A constructor builds the member with a method group of this. Control: a local holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughFieldArrayReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpMapCtor d = new(); R6PairQFa110[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15362. A constructor builds the member with a method group of this. Control: an element of a local array holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughFieldArrayReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpMapCtor[] a = [new R6PairBGrpMapCtor()]; R6PairQFa112[0].Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15363. A constructor builds the member with a method group of this. Control: a static field holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughFieldArrayReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQFa115[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf115.Read()); return S.Hold(0); });
+
+    // S15364. A constructor builds the member with a method group of this. Control: a field of a local holder holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughFieldArrayReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpMapCtor> h = new(); R6PairQFa117[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15365. A constructor builds the member with a method group of this. Control: a local holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughStaticFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpMapCtor d = new(); R6PairQSf119.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15366. A constructor builds the member with a method group of this. Control: an element of a local array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughStaticFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpMapCtor[] a = [new R6PairBGrpMapCtor()]; R6PairQSf121.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15367. A constructor builds the member with a method group of this. Control: an element of a static field array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughStaticFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQSf123.Set(l.Map(v => v)); Kept.Add(R6PairQFa123[0].Read()); return S.Hold(0); });
+
+    // S15368. A constructor builds the member with a method group of this. Control: a field of a local holder holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughStaticFieldReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpMapCtor> h = new(); R6PairQSf126.Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15369. A constructor builds the member with a method group of this. Control: a local holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughInstanceFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpMapCtor> h = new(); R6PairBGrpMapCtor d = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15370. A constructor builds the member with a method group of this. Control: an element of a local array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughInstanceFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpMapCtor> h = new(); R6PairBGrpMapCtor[] a = [new R6PairBGrpMapCtor()]; h.Slot.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15371. A constructor builds the member with a method group of this. Control: an element of a static field array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughInstanceFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpMapCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQFa132[0].Read()); return S.Hold(0); });
+
+    // S15372. A constructor builds the member with a method group of this. Control: a static field holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupMapSetThroughInstanceFieldReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpMapCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQSf134.Read()); return S.Hold(0); });
+
+    // S15373. A constructor builds the member with a method group of this. Control: a local holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughElementReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpLazyCtor[] a = [new R6PairBGrpLazyCtor()]; R6PairBGrpLazyCtor d = new(); a[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15374. A constructor builds the member with a method group of this. Control: an element of a static field array holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughElementReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpLazyCtor[] a = [new R6PairBGrpLazyCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQFa149[0].Read()); return S.Hold(0); });
+
+    // S15375. A constructor builds the member with a method group of this. Control: a static field holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughElementReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpLazyCtor[] a = [new R6PairBGrpLazyCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf151.Read()); return S.Hold(0); });
+
+    // S15376. A constructor builds the member with a method group of this. Control: a field of a local holder holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughElementReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpLazyCtor[] a = [new R6PairBGrpLazyCtor()]; R6PairHold<R6PairBGrpLazyCtor> h = new(); a[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15377. A constructor builds the member with a method group of this. Control: a local holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughFieldArrayReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpLazyCtor d = new(); R6PairQFa155[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15378. A constructor builds the member with a method group of this. Control: an element of a local array holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughFieldArrayReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpLazyCtor[] a = [new R6PairBGrpLazyCtor()]; R6PairQFa157[0].Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15379. A constructor builds the member with a method group of this. Control: a static field holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughFieldArrayReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQFa160[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf160.Read()); return S.Hold(0); });
+
+    // S15380. A constructor builds the member with a method group of this. Control: a field of a local holder holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughFieldArrayReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpLazyCtor> h = new(); R6PairQFa162[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15381. A constructor builds the member with a method group of this. Control: a local holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughStaticFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpLazyCtor d = new(); R6PairQSf164.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15382. A constructor builds the member with a method group of this. Control: an element of a local array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughStaticFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBGrpLazyCtor[] a = [new R6PairBGrpLazyCtor()]; R6PairQSf166.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15383. A constructor builds the member with a method group of this. Control: an element of a static field array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughStaticFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQSf168.Set(l.Map(v => v)); Kept.Add(R6PairQFa168[0].Read()); return S.Hold(0); });
+
+    // S15384. A constructor builds the member with a method group of this. Control: a field of a local holder holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughStaticFieldReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpLazyCtor> h = new(); R6PairQSf171.Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15385. A constructor builds the member with a method group of this. Control: a local holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughInstanceFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpLazyCtor> h = new(); R6PairBGrpLazyCtor d = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15386. A constructor builds the member with a method group of this. Control: an element of a local array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughInstanceFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpLazyCtor> h = new(); R6PairBGrpLazyCtor[] a = [new R6PairBGrpLazyCtor()]; h.Slot.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15387. A constructor builds the member with a method group of this. Control: an element of a static field array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughInstanceFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpLazyCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQFa177[0].Read()); return S.Hold(0); });
+
+    // S15388. A constructor builds the member with a method group of this. Control: a static field holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMethodGroupLazySetThroughInstanceFieldReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBGrpLazyCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQSf179.Read()); return S.Hold(0); });
+
+    // S15389. A constructor builds the member with a delegate member of a method group. Control: a local holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughElementReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpMapCtor[] a = [new R6PairBMemGrpMapCtor()]; R6PairBMemGrpMapCtor d = new(); a[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15390. A constructor builds the member with a delegate member of a method group. Control: an element of a static field array holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughElementReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpMapCtor[] a = [new R6PairBMemGrpMapCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQFa194[0].Read()); return S.Hold(0); });
+
+    // S15391. A constructor builds the member with a delegate member of a method group. Control: a static field holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughElementReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpMapCtor[] a = [new R6PairBMemGrpMapCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf196.Read()); return S.Hold(0); });
+
+    // S15392. A constructor builds the member with a delegate member of a method group. Control: a field of a local holder holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughElementReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpMapCtor[] a = [new R6PairBMemGrpMapCtor()]; R6PairHold<R6PairBMemGrpMapCtor> h = new(); a[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15393. A constructor builds the member with a delegate member of a method group. Control: a local holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughFieldArrayReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpMapCtor d = new(); R6PairQFa200[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15394. A constructor builds the member with a delegate member of a method group. Control: an element of a local array holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughFieldArrayReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpMapCtor[] a = [new R6PairBMemGrpMapCtor()]; R6PairQFa202[0].Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15395. A constructor builds the member with a delegate member of a method group. Control: a static field holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughFieldArrayReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQFa205[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf205.Read()); return S.Hold(0); });
+
+    // S15396. A constructor builds the member with a delegate member of a method group. Control: a field of a local holder holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughFieldArrayReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpMapCtor> h = new(); R6PairQFa207[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15397. A constructor builds the member with a delegate member of a method group. Control: a local holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughStaticFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpMapCtor d = new(); R6PairQSf209.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15398. A constructor builds the member with a delegate member of a method group. Control: an element of a local array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughStaticFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpMapCtor[] a = [new R6PairBMemGrpMapCtor()]; R6PairQSf211.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15399. A constructor builds the member with a delegate member of a method group. Control: an element of a static field array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughStaticFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQSf213.Set(l.Map(v => v)); Kept.Add(R6PairQFa213[0].Read()); return S.Hold(0); });
+
+    // S15400. A constructor builds the member with a delegate member of a method group. Control: a field of a local holder holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughStaticFieldReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpMapCtor> h = new(); R6PairQSf216.Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15401. A constructor builds the member with a delegate member of a method group. Control: a local holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughInstanceFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpMapCtor> h = new(); R6PairBMemGrpMapCtor d = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15402. A constructor builds the member with a delegate member of a method group. Control: an element of a local array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughInstanceFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpMapCtor> h = new(); R6PairBMemGrpMapCtor[] a = [new R6PairBMemGrpMapCtor()]; h.Slot.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15403. A constructor builds the member with a delegate member of a method group. Control: an element of a static field array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughInstanceFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpMapCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQFa222[0].Read()); return S.Hold(0); });
+
+    // S15404. A constructor builds the member with a delegate member of a method group. Control: a static field holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupMapSetThroughInstanceFieldReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpMapCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQSf224.Read()); return S.Hold(0); });
+
+    // S15405. A constructor builds the member with a delegate member of a method group. Control: a local holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughElementReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpLazyCtor[] a = [new R6PairBMemGrpLazyCtor()]; R6PairBMemGrpLazyCtor d = new(); a[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15406. A constructor builds the member with a delegate member of a method group. Control: an element of a static field array holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughElementReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpLazyCtor[] a = [new R6PairBMemGrpLazyCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQFa239[0].Read()); return S.Hold(0); });
+
+    // S15407. A constructor builds the member with a delegate member of a method group. Control: a static field holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughElementReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpLazyCtor[] a = [new R6PairBMemGrpLazyCtor()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf241.Read()); return S.Hold(0); });
+
+    // S15408. A constructor builds the member with a delegate member of a method group. Control: a field of a local holder holds a different object from an element of a local array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughElementReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpLazyCtor[] a = [new R6PairBMemGrpLazyCtor()]; R6PairHold<R6PairBMemGrpLazyCtor> h = new(); a[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15409. A constructor builds the member with a delegate member of a method group. Control: a local holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughFieldArrayReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpLazyCtor d = new(); R6PairQFa245[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15410. A constructor builds the member with a delegate member of a method group. Control: an element of a local array holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughFieldArrayReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpLazyCtor[] a = [new R6PairBMemGrpLazyCtor()]; R6PairQFa247[0].Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15411. A constructor builds the member with a delegate member of a method group. Control: a static field holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughFieldArrayReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQFa250[0].Set(l.Map(v => v)); Kept.Add(R6PairQSf250.Read()); return S.Hold(0); });
+
+    // S15412. A constructor builds the member with a delegate member of a method group. Control: a field of a local holder holds a different object from an element of a static field array. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughFieldArrayReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpLazyCtor> h = new(); R6PairQFa252[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15413. A constructor builds the member with a delegate member of a method group. Control: a local holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughStaticFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpLazyCtor d = new(); R6PairQSf254.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15414. A constructor builds the member with a delegate member of a method group. Control: an element of a local array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughStaticFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairBMemGrpLazyCtor[] a = [new R6PairBMemGrpLazyCtor()]; R6PairQSf256.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15415. A constructor builds the member with a delegate member of a method group. Control: an element of a static field array holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughStaticFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairQSf258.Set(l.Map(v => v)); Kept.Add(R6PairQFa258[0].Read()); return S.Hold(0); });
+
+    // S15416. A constructor builds the member with a delegate member of a method group. Control: a field of a local holder holds a different object from a static field. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughStaticFieldReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpLazyCtor> h = new(); R6PairQSf261.Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15417. A constructor builds the member with a delegate member of a method group. Control: a local holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughInstanceFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpLazyCtor> h = new(); R6PairBMemGrpLazyCtor d = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15418. A constructor builds the member with a delegate member of a method group. Control: an element of a local array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughInstanceFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpLazyCtor> h = new(); R6PairBMemGrpLazyCtor[] a = [new R6PairBMemGrpLazyCtor()]; h.Slot.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15419. A constructor builds the member with a delegate member of a method group. Control: an element of a static field array holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughInstanceFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpLazyCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQFa267[0].Read()); return S.Hold(0); });
+
+    // S15420. A constructor builds the member with a delegate member of a method group. Control: a static field holds a different object from a field of a local holder. The block sets the sampled member through the first and reads the build through the second.
+    public static Cell<int> R6PairQMemberOfAMethodGroupLazySetThroughInstanceFieldReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairBMemGrpLazyCtor> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairQSf269.Read()); return S.Hold(0); });
+
+    // S15421. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughElementReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj[] a = [new R6PairPlainObj()]; R6PairPlainObj d = new(); a[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15422. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughElementReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj[] a = [new R6PairPlainObj()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairPFa12[0].Read()); return S.Hold(0); });
+
+    // S15423. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughElementReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj[] a = [new R6PairPlainObj()]; a[0].Set(l.Map(v => v)); Kept.Add(R6PairPSf14.Read()); return S.Hold(0); });
+
+    // S15424. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughElementReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj[] a = [new R6PairPlainObj()]; R6PairHold<R6PairPlainObj> h = new(); a[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15425. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughFieldArrayReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj d = new(); R6PairPFa18[0].Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15426. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughFieldArrayReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj[] a = [new R6PairPlainObj()]; R6PairPFa20[0].Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15427. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughFieldArrayReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPFa22[0].Set(l.Map(v => v)); Kept.Add(R6PairPSf22.Read()); return S.Hold(0); });
+
+    // S15428. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughFieldArrayReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairPlainObj> h = new(); R6PairPFa24[0].Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15429. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughStaticFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj d = new(); R6PairPSf26.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15430. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughStaticFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj[] a = [new R6PairPlainObj()]; R6PairPSf28.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15431. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughStaticFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPSf30.Set(l.Map(v => v)); Kept.Add(R6PairPFa30[0].Read()); return S.Hold(0); });
+
+    // S15432. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughStaticFieldReadThroughInstanceFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairPlainObj> h = new(); R6PairPSf32.Set(l.Map(v => v)); Kept.Add(h.Slot.Read()); return S.Hold(0); });
+
+    // S15433. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughInstanceFieldReadThroughLocalOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairPlainObj> h = new(); R6PairPlainObj d = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15434. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughInstanceFieldReadThroughElementOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairPlainObj> h = new(); R6PairPlainObj[] a = [new R6PairPlainObj()]; h.Slot.Set(l.Map(v => v)); Kept.Add(a[0].Read()); return S.Hold(0); });
+
+    // S15435. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughInstanceFieldReadThroughFieldArrayOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairPlainObj> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairPFa38[0].Read()); return S.Hold(0); });
+
+    // S15436. Probe with no build: a plain object has a method that samples a member. The block sets the member through one name and reads it through the other.
+    public static Cell<int> R6PairPNoBuildSetThroughInstanceFieldReadThroughStaticFieldOfADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairHold<R6PairPlainObj> h = new(); h.Slot.Set(l.Map(v => v)); Kept.Add(R6PairPSf40.Read()); return S.Hold(0); });
+
+    // S15437. Probe with no build: each of two objects keeps an object. The block sets one and reads the other.
+    public static Cell<int> R6PairPNoBuildKeptTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairKeptObj m = new(); R6PairKeptObj n = new(); m.Set(l.Map(v => v)); Kept.Add(n.Read()); Kept.Add(m); return S.Hold(0); });
+
+    // S15438. AB429: a holder local gets the object of a second local in its field. A write through the field reaches a read through the second local.
+    public static Cell<int> Ab429AHolderFieldGetsTheObjectOfALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj d = new(); R6PairHold<R6PairPlainObj> h = new(); h.Slot = d; h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15439. AB429: a method gets a holder and gives its field the object of a second local. A write through the field reaches a read through the second local.
+    public static Cell<int> Ab429AMethodGivesTheHolderFieldAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj d = new(); R6PairHold<R6PairPlainObj> h = new(); Ab429PutInto(h, d); h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15440. AB429: a method gives a static field the object of a second static field. A write through the second field reaches a read through the first.
+    public static Cell<int> Ab429AStaticFieldGetsTheObjectOfASecondStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab429CopyB(); Ab429SfB.Set(l.Map(v => v)); Kept.Add(Ab429SfA.Read()); return S.Hold(0); });
+
+    // S15441. AB429: two objects get one object for a readonly field from their constructors. A write through the field of one object reaches a read through the other.
+    public static Cell<int> Ab429TwoObjectsGetOneObjectForAReadonlyField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairSlot shared = new(); Ab429Kept m = new(shared); Ab429Kept n = new(shared); m.Set(l.Map(v => v)); Kept.Add(n.Read()); return S.Hold(0); });
+
+    // S15442. AB429: a local gets a static field that a method gives a different object. A write through the local reaches a read through the second object.
+    public static Cell<int> Ab429ALocalOfAStaticFieldThatGetsADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj d = new(); Ab429SfC = d; R6PairPlainObj c = Ab429SfC; c.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15443. AB429: the constructor of a holder class puts the holder into a static field, and a method gives its field the object of a local. A write through the field reaches a read through the local.
+    public static Cell<int> Ab429AHolderThatItsConstructorGivesAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj d = new(); Ab429LeakyHold h = new(); Ab429PutIntoTheLeaked(d); h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15444. AB429: the base constructor of a holder puts the holder into a static field. A method gives its field the object of a local, and a write through the field reaches a read through the local.
+    public static Cell<int> Ab429AHolderThatItsBaseConstructorGivesAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj d = new(); Ab429DerivedHold h = new(); Ab429PutIntoTheLeakedBase(d); h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15445. AB429: a method gets the field of a holder as a ref argument and gives it the object of a local. A write through the field reaches a read through the local.
+    public static Cell<int> Ab429AHolderFieldThatARefArgumentChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj d = new(); R6PairHold<R6PairPlainObj> h = new(); Ab429PutByRef(ref h.Slot, d); h.Slot.Set(l.Map(v => v)); Kept.Add(d.Read()); return S.Hold(0); });
+
+    // S15446. AB429: a static field that is not private gets the object of a second static field through code of a different class. A write through the second field reaches a read through the first.
+    public static Cell<int> Ab429AnInternalStaticFieldThatADifferentClassChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab429CopyInTheHolder(); Ab429StaticHolder.Second.Set(l.Map(v => v)); Kept.Add(Ab429StaticHolder.First.Read()); return S.Hold(0); });
+
+    // S15447. AB429: the static constructor of a class gives a readonly static field the object of a second static field. A write through the second field reaches a read through the first.
+    public static Cell<int> Ab429AReadonlyStaticFieldThatAStaticConstructorChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj first = Ab429WithACctor.First; Ab429WithACctor.Second.Set(l.Map(v => v)); Kept.Add(first.Read()); return S.Hold(0); });
+
+    // S15448. AB429: an array gets the object of a readonly static field. A write through the element reaches a read through the field.
+    public static Cell<int> Ab429AnElementWithTheObjectOfAReadonlyStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj[] a = [Ab429SfR]; a[0].Set(l.Map(v => v)); Kept.Add(Ab429SfR.Read()); return S.Hold(0); });
+
+    // S15449. AB429: an array gets the result of a method that returns a static field. A write through the element reaches a read through the field.
+    public static Cell<int> Ab429AnElementWithTheObjectThatAMethodReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R6PairPlainObj[] a = [Ab429GetQ()]; a[0].Set(l.Map(v => v)); Kept.Add(Ab429SfQ.Read()); return S.Hold(0); });
+
+    // S15450. AB429: the constructor of a class gives a readonly field the object of a static field. A write through the field of one object reaches a read through the field of a second object.
+    public static Cell<int> Ab429TwoObjectsGetAStaticObjectForAReadonlyField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab429KeptFromAStatic m = new(); Ab429KeptFromAStatic n = new(); m.Set(l.Map(v => v)); Kept.Add(n.Read()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -116873,6 +117401,86 @@ public static class Shapes
     }
 
     private static void Ab413SetK(Cell<int> c) => Ab413GenK<int>.C = c;
+
+    // Helpers of AB429: names whose object code can change.
+    private static R6PairPlainObj Ab429SfA = new();
+    private static R6PairPlainObj Ab429SfB = new();
+    private static R6PairPlainObj Ab429SfC = new();
+
+    private static void Ab429PutInto(R6PairHold<R6PairPlainObj> h, R6PairPlainObj d) => h.Slot = d;
+
+    private static void Ab429CopyB() => Ab429SfA = Ab429SfB;
+
+    public sealed class Ab429Kept
+    {
+        private readonly R6PairSlot slot = new();
+
+        public Ab429Kept(R6PairSlot shared) => this.slot = shared;
+
+        public void Set(Cell<int> pending) => this.slot.Share = pending;
+
+        public int Read() => this.slot.Share.Sample();
+    }
+
+    // More helpers of AB429: holders, static fields, and results whose object a second name has.
+    private static Ab429LeakyHold Ab429Leaked = null!;
+    private static Ab429BaseHold Ab429LeakedBase = null!;
+    private static readonly R6PairPlainObj Ab429SfR = new();
+    private static R6PairPlainObj Ab429SfQ = new();
+
+    private static void Ab429PutIntoTheLeaked(R6PairPlainObj d) => Ab429Leaked.Slot = d;
+
+    private static void Ab429PutIntoTheLeakedBase(R6PairPlainObj d) => ((Ab429DerivedHold)Ab429LeakedBase).Slot = d;
+
+    private static void Ab429PutByRef(ref R6PairPlainObj slot, R6PairPlainObj d) => slot = d;
+
+    private static void Ab429CopyInTheHolder() => Ab429StaticHolder.First = Ab429StaticHolder.Second;
+
+    private static R6PairPlainObj Ab429GetQ() => Ab429SfQ;
+
+    public sealed class Ab429LeakyHold
+    {
+        public R6PairPlainObj Slot = new();
+
+        public Ab429LeakyHold() => Ab429Leaked = this;
+    }
+
+    public class Ab429BaseHold
+    {
+        protected Ab429BaseHold() => Ab429LeakedBase = this;
+    }
+
+    public sealed class Ab429DerivedHold : Ab429BaseHold
+    {
+        public R6PairPlainObj Slot = new();
+    }
+
+    public static class Ab429StaticHolder
+    {
+        internal static R6PairPlainObj First = new();
+        internal static R6PairPlainObj Second = new();
+    }
+
+    public static class Ab429WithACctor
+    {
+        public static readonly R6PairPlainObj First = new();
+        public static readonly R6PairPlainObj Second = new();
+
+        static Ab429WithACctor() => First = Second;
+    }
+
+    private static readonly R6PairSlot Ab429SharedSlot = new();
+
+    public sealed class Ab429KeptFromAStatic
+    {
+        private readonly R6PairSlot slot = new();
+
+        public Ab429KeptFromAStatic() => this.slot = Ab429SharedSlot;
+
+        public void Set(Cell<int> pending) => this.slot.Share = pending;
+
+        public int Read() => this.slot.Share.Sample();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

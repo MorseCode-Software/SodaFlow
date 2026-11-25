@@ -9,10 +9,11 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace SodaFlow.Analyzers;
 
 /// <summary>
-///     The private static fields of a compilation that hold an array. No code
-///     gives such a field or an element a different object after the
-///     initializer. The search reads the names in the code of the type only,
-///     because only that code can use a private member.
+///     The fields of a compilation that no code gives a different object after
+///     the initializer. For an array in a static field, no code gives an element
+///     a different object either. The search reads the names in the code of the
+///     type only. Only that code can use a private member or give a readonly
+///     field a value.
 /// </summary>
 /// <remarks>
 ///     The search reads syntax only. A use of a different symbol with the same
@@ -41,6 +42,84 @@ internal sealed class UnchangedStatics
         field is { IsStatic: true, DeclaredAccessibility: Accessibility.Private, Type: IArrayTypeSymbol { Rank: 1 } }
             ? this.elements.GetOrAdd(key: field.OriginalDefinition, valueFactory: _ => this.FindTheCreationsIn(field))
             : ImmutableArray<BaseObjectCreationExpressionSyntax>.Empty;
+
+    private readonly ConcurrentDictionary<ISymbol, BaseObjectCreationExpressionSyntax?> objects =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     The creation in the initializer of a static field that is not an
+    ///     array, where no code gives the field a different object. Null for each
+    ///     other field.
+    /// </summary>
+    /// <remarks>
+    ///     A field with readonly gets a different object only in a static
+    ///     constructor. Thus, a static constructor must not name it. Each other
+    ///     field must be private, and each use of it must be a read.
+    /// </remarks>
+    public BaseObjectCreationExpressionSyntax? CreationOf(IFieldSymbol field) =>
+        field is { IsStatic: true, Type: not IArrayTypeSymbol }
+        && (field.IsReadOnly || field.DeclaredAccessibility == Accessibility.Private)
+            ? this.objects.GetOrAdd(key: field.OriginalDefinition, valueFactory: _ => this.FindTheCreationOf(field))
+            : null;
+
+    private BaseObjectCreationExpressionSyntax? FindTheCreationOf(IFieldSymbol field)
+    {
+        if (field.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is not VariableDeclaratorSyntax { Initializer.Value: BaseObjectCreationExpressionSyntax creation })
+        {
+            return null;
+        }
+
+        bool keepsIt =
+            field.IsReadOnly
+                ? field.ContainingType.StaticConstructors
+                    .SelectMany(static constructor => constructor.DeclaringSyntaxReferences)
+                    .SelectMany(static declared => declared.GetSyntax().DescendantNodes())
+                    .OfType<IdentifierNameSyntax>()
+                    .All(name => name.Identifier.ValueText != field.Name)
+                : this.UsesOf(field)
+                    .All(static use =>
+                    {
+                        ExpressionSyntax named =
+                            use.Parent is MemberAccessExpressionSyntax access && access.Name == use ? access : use;
+
+                        return named.Parent is not RefExpressionSyntax && !IsWritten(named);
+                    });
+
+        return keepsIt ? creation : null;
+    }
+
+    private readonly ConcurrentDictionary<ISymbol, bool> keepTheirObjects = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     True for a readonly field of an object whose initializer makes its
+    ///     object with <c>new</c>. No constructor of its type can give it a
+    ///     different value. Each object then keeps the object of its creation in
+    ///     the field.
+    /// </summary>
+    /// <remarks>
+    ///     Only a constructor of the type can give a readonly field a value. A
+    ///     constructor can read the field, as in a build from it.
+    /// </remarks>
+    public bool KeepsItsObject(IFieldSymbol field) =>
+        field is { IsStatic: false, IsReadOnly: true }
+        && this.keepTheirObjects.GetOrAdd(key: field.OriginalDefinition, valueFactory: _ => FindIfItKeeps(field));
+
+    private static bool FindIfItKeeps(ISymbol field) =>
+        field.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is VariableDeclaratorSyntax { Initializer.Value: BaseObjectCreationExpressionSyntax }
+        && field.ContainingType.InstanceConstructors
+            .SelectMany(static constructor => constructor.DeclaringSyntaxReferences)
+            .SelectMany(static declared => declared.GetSyntax().DescendantNodes())
+            .OfType<IdentifierNameSyntax>()
+            .Where(name => name.Identifier.ValueText == field.Name)
+            .All(static use =>
+            {
+                ExpressionSyntax named =
+                    use.Parent is MemberAccessExpressionSyntax access && access.Name == use ? access : use;
+
+                return named.Parent is not RefExpressionSyntax && !IsWritten(named);
+            });
 
     private ImmutableArray<BaseObjectCreationExpressionSyntax> FindTheCreationsIn(ISymbol field)
     {
@@ -150,9 +229,12 @@ internal sealed class UnchangedStatics
             .All(static name => name.Parent is MemberAccessExpressionSyntax owner && owner.Expression == name);
     }
 
-    // True for an expression that gets a value. It is the target of an assignment, also in a tuple, or of an increment.
-    // A ref or an out argument gets a value also.
-    private static bool IsWritten(SyntaxNode expression)
+    /// <summary>
+    ///     True for an expression that gets a value. It is the target of an
+    ///     assignment, also in a tuple, or of an increment. A ref or an out
+    ///     argument gets a value also.
+    /// </summary>
+    public static bool IsWritten(SyntaxNode expression)
     {
         SyntaxNode at = expression;
 

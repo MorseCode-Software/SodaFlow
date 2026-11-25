@@ -826,9 +826,16 @@ careful side, so it can report a read that does not throw:
   of any such object. So a read of the member through an element whose object the analyzer does not
   know, or through a local that got such an element, after a call that wrote that member, also gets
   what the call wrote. That is so even when the call wrote a different object. In the same way, a
-  write into a member of an object of your class through an element of an array, a static field, an
-  element of an array in a static field, or a field of a holder object reaches a read of that member
-  through any other object of the class, also one that the code made with `new` itself.
+  write into a member of an object of your class through a name whose object the analyzer does not
+  know reaches a read of that member through any other object of the class, also one that the code
+  made with `new` itself. The analyzer knows the object of a local, or of an element of a local
+  array, that holds one creation and no other value, of a `private` static field that no code of
+  the class assigns after its `new` initializer, or a `readonly` one that no static constructor
+  names, of an element of such a static array, and of a `readonly` field that its initializer makes
+  with `new` and that no constructor writes. It knows the object of a field of a holder too, where
+  the initializer makes it with `new`, a local gets the holder from `new` of a class with no
+  constructor of its own, and the code only reads fields through that local. A write through one of
+  these names does not reach a read through a different one.
 - A local that gets a field of `this` that is not `readonly`, with a call between that can give the
   field a different object, as in `var slot = this.slot; this.Renew(); slot.Share = value;`. The
   analyzer does not read whether the call did, so a write through the local still reaches a read

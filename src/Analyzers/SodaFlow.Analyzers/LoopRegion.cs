@@ -181,6 +181,13 @@ internal sealed class LoopRegion(
         }
     }
 
+    /// <summary>
+    ///     For each local that holds an object, true when no code can give a
+    ///     field of that object a different object. See
+    ///     KeepsTheObjectsOfItsFields.
+    /// </summary>
+    public Dictionary<ISymbol, bool> HoldersOfFields { get; } = new(SymbolEqualityComparer.Default);
+
     /// <summary>The body of the block.</summary>
     public SyntaxNode Root { get; } = root;
 

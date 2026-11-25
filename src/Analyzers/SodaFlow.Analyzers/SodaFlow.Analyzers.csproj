@@ -121,6 +121,7 @@
         <Compile Include="LoopStateEvaluator.Views.cs"/>
         <Compile Include="LoopStateEvaluator.Writes.cs"/>
         <Compile Include="MadeObject.cs"/>
+        <Compile Include="MemberOwner.cs"/>
         <Compile Include="MapHandler.cs"/>
         <Compile Include="MemberBuilds.cs"/>
         <Compile Include="NameOfAnObject.cs"/>

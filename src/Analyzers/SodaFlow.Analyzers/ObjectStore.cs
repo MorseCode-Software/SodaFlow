@@ -446,6 +446,18 @@ internal sealed class ObjectStore
         return found;
     }
 
+    /// <summary>True for the object of a static member: see <see cref="MakeInAStaticMember" />.</summary>
+    public bool IsInAStaticMember(MadeObject made) => this.ofStaticMembers.Contains(made);
+
+    /// <summary>
+    ///     The owner and the member of the object in a member, from
+    ///     <see cref="MakeInMember" />. Null for each other object.
+    /// </summary>
+    public (MadeObject Owner, ISymbol Member)? MemberOf(MadeObject made) =>
+        this.memberOf.TryGetValue(key: made, value: out (MadeObject Owner, ISymbol Member, ITypeSymbol Type) of)
+            ? (of.Owner, of.Member)
+            : null;
+
     /// <summary>
     ///     Makes the object in a member of an object of the store, with its first
     ///     state.

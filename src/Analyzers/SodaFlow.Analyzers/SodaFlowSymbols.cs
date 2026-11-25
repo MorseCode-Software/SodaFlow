@@ -258,7 +258,7 @@ internal sealed class SodaFlowSymbols
         this.Implementations = new ImplementationIndex(compilation);
     }
 
-    /// <summary>The private static arrays whose elements no code changes.</summary>
+    /// <summary>The fields whose objects no code changes after the initializer.</summary>
     public UnchangedStatics Unchanged { get; } = new();
 
     /// <summary>

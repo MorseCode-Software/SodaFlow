@@ -4182,7 +4182,8 @@ internal sealed partial class LoopStateEvaluator
                         receiver: owner,
                         target: null,
                         returnsAnObject: this.DoesNotSayItsClass(method.ReturnType),
-                        manyTimes: each is { ManyTimes: true }));
+                        manyTimes: each is { ManyTimes: true },
+                        ownerOfThis: OwnerOfAGroup(function)));
             }
             // A method group of a read of the library, such as x.Sample.
             case MemberAccessExpressionSyntax read when function.Definer != null:
