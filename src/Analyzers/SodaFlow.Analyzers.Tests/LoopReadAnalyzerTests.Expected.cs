@@ -9069,6 +9069,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab447AListThatKeepsTheFirstResult"] = ["SF1001"],
             ["Ab447ALocalOfTheSecondCall"] = ["SF1001"],
             ["Ab447APlainCellThenALocalOfTheSecondCall"] = ["SF1001"],
-            ["Ab447AHelperWhoseLocalGetsAnElement"] = ["SF1001"]
+            ["Ab447AHelperWhoseLocalGetsAnElement"] = ["SF1001"],
+            ["Ab449PrivateMethodThatReflectionRuns"] = ["SF1004"],
+            ["Ab449PrivateMethodThatReflectionRunsByNameof"] = ["SF1004"],
+            ["Ab449PrivateMethodThatReflectionFindsWithNoName"] = ["SF1004"],
+            ["Ab449PrivateMethodThatANestedTypeCalls"] = ["SF1004"],
+            ["Ab449PrivateMethodThatAHelperRunsByItsName"] = ["SF1004"],
+            ["Ab449PrivateMethodThatReflectionRunsBuildsALazy"] = ["SF1004"]
         };
 }

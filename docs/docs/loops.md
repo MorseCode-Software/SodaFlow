@@ -988,7 +988,10 @@ careful side, so it can report a read that does not throw:
   creation, or an assignment through a property setter with code between that value and the build
   makes each value that the code of the class gives the member count. So does a call or a creation
   before the build that gets `this` as an argument, in a constructor that the analyzer reads, even
-  when that call does not change the member. A build in a method, not in a constructor, also counts
+  when that call does not change the member. The same holds for a member that holds a cell or a
+  `Lazy<T>`: after such a call, for example one of reflection or of a method of a nested class, each
+  value that the code of the class gives the member counts, because that call can run a `private`
+  method that builds the member again. A build in a method, not in a constructor, also counts
   the value that the member has where the different method reads.
 
 Some reads that throw it does not see:

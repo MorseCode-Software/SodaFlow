@@ -63854,6 +63854,38 @@ public static class Shapes
     public static Cell<int> Ab447AHelperThatMakesANewObjectThenAReadOfTheFirst() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab447Box s = Ab447NewBox(); Ab447NewBox().Share = l.Map(v => v); return S.Hold(s.Share.Sample()); });
 
+    // S15491. AB449. The block makes an object whose constructor runs a private method through reflection with its name in a string. The method builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab449PrivateMethodThatReflectionRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417ReflectionRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15492. AB449. The same, but the name of the private method is in a nameof.
+    public static Cell<int> Ab449PrivateMethodThatReflectionRunsByNameof() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417NameofRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15493. AB449. The same, but the constructor runs each private method that reflection finds with no name.
+    public static Cell<int> Ab449PrivateMethodThatReflectionFindsWithNoName() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417FoundRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15494. AB449. The same, but the constructor gives this to a method of a nested type, and that method calls the private method.
+    public static Cell<int> Ab449PrivateMethodThatANestedTypeCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417NestedRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15495. AB449, an edge. The same, but the constructor gives this and the name of the private method to a helper of a different type. The helper runs the method through reflection.
+    public static Cell<int> Ab449PrivateMethodThatAHelperRunsByItsName() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417ByNameRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15496. AB449, an edge. The constructor gives this to a list. A private method that no code names builds a map that samples a member. Thus, no code can run that method.
+    public static Cell<int> Ab449APrivateMethodThatNoCodeNamesAfterAListGetsThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab449Given().SetAndRead(l.Map(v => v))));
+
+    // S15497. AB449, an edge. The constructor runs a private method through reflection. The method builds a map that does not sample a member. A method sets a member to a pending cell and samples the map.
+    public static Cell<int> Ab449PrivateMethodThatReflectionRunsBuildsNoRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab449QuietRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15498. AB449, an edge. The constructor runs a private method through reflection. The method gives a member a Lazy whose function samples a second member. A method sets that member to a pending cell and reads the Lazy.
+    public static Cell<int> Ab449PrivateMethodThatReflectionRunsBuildsALazy() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab449LazyRebuilt().SetAndRead(l.Map(v => v))));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -117758,6 +117790,66 @@ public static class Shapes
     }
 
     private static Ab447Box Ab447NewBox() => new();
+
+    public sealed class Ab449Given
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab449Given() => Kept.Add(this);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab449QuietRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab449QuietRebuilt() =>
+            typeof(Ab449QuietRebuilt)
+                .GetMethod("Rebuild", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .Invoke(this, null);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(static v => v + 1);
+    }
+
+    public sealed class Ab449LazyRebuilt
+    {
+        private Lazy<int> lazy = new(static () => 1);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab449LazyRebuilt() =>
+            typeof(Ab449LazyRebuilt)
+                .GetMethod("Rebuild", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .Invoke(this, null);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.lazy.Value;
+        }
+
+        private void Rebuild() => this.lazy = new Lazy<int>(() => this.share.Sample());
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
