@@ -4071,13 +4071,15 @@ internal sealed partial class LoopStateEvaluator
     {
         if (heldIn != null || (!withTheMembersNow && RunsAfterTheCodeOfItsObject(function)))
         {
+            FunctionValue read = heldIn == null ? function : this.AsAGroupOfThis(function: function, at: heldIn);
+
             return this.WithTheMembersAtTheRead(
                 heldIn: heldIn,
-                function: function,
+                function: read,
                 walk: () => this.FollowFunction(
                     call: call,
                     name: name,
-                    function: function,
+                    function: read,
                     target: target,
                     arguments: arguments,
                     each: each,

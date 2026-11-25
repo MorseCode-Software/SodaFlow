@@ -9113,6 +9113,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ad29AnInitializerInTheSecondPartSamples"] = ["SF1005"],
             ["Ad29AnInitializerInThePartWithNoStaticConstructorSamples"] = ["SF1005"],
             ["Ad29AnInitializerAfterThePartWithTheStaticConstructorSamples"] = ["SF1005"],
-            ["Ad29TheFirstPartSamplesBeforeTheSecondPartGivesAPlainCell"] = ["SF1005"]
+            ["Ad29TheFirstPartSamplesBeforeTheSecondPartGivesAPlainCell"] = ["SF1005"],
+            ["Ab452MethodBuildOfAMemberOfABoxThatTheBlockGives"] = ["SF1004"],
+            ["Ab452AMemberWithNoInitializer"] = ["SF1004"],
+            ["Ab452ASecondLocalOfTheObjectNamesTheGroup"] = ["SF1004"],
+            ["Ab452ALazyOfAMemberOfTheBox"] = ["SF1004"],
+            ["Ab452AGroupOfASecondObjectWithAPendingMember"] = ["SF1005"],
+            ["Ab452AnExtensionGroupAfterTheBlockSetsTheMember"] = ["SF1005"],
+            ["Ab452AGroupAfterTheBlockSetsTheMember"] = ["SF1005"]
         };
 }

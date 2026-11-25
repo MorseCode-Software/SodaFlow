@@ -64118,6 +64118,38 @@ public static class Shapes
     public static Cell<int> Ad29AnInstanceInitializerInTheSecondPartDoesNotRun() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ad29Shared.Fifth = l.Map(v => v); Kept.Add(Ad29InstanceInTheSecondPart.Value); return S.Hold(0); });
 
+    // S15557. AB452. The block gives a delegate member of a box a method group of an object. A method of the object then makes a map with that member. A different method sets the member that the method group samples to a pending cell and samples the map.
+    public static Cell<int> Ab452MethodBuildOfAMemberOfABoxThatTheBlockGives() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452BoxThatTheBlockGives m = new(); m.Box.FMap = m.Add; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15558. AB452, an edge. The same, but the member that holds the map has no initializer.
+    public static Cell<int> Ab452AMemberWithNoInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452NoInitializer m = new(); m.Box.FMap = m.Add; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15559. AB452, an edge. The block names the method group through a second local of the same object.
+    public static Cell<int> Ab452ASecondLocalOfTheObjectNamesTheGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452BoxThatTheBlockGives m = new(); Ab452BoxThatTheBlockGives k = m; m.Box.FMap = k.Add; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15560. AB452, an edge. A method of the object makes a Lazy with a delegate member of the box. A different method sets the member that the method group samples to a pending cell and reads the value.
+    public static Cell<int> Ab452ALazyOfAMemberOfTheBox() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452LazyBox m = new(); m.Box.FLazy = m.Get; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15561. AB452, a control. The method group is of a second object. The method of the first object sets its own member to a pending cell, and the group samples the member of the second object.
+    public static Cell<int> Ab452AGroupOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452BoxThatTheBlockGives m = new(); Ab452BoxThatTheBlockGives k = new(); m.Box.FMap = k.Add; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15562. AB452, an edge. The method group is of a second object, and a method of the second object sets its member to a pending cell. Then the first object samples the map.
+    public static Cell<int> Ab452AGroupOfASecondObjectWithAPendingMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452BoxThatTheBlockGives m = new(); Ab452BoxThatTheBlockGives k = new(); m.Box.FMap = k.Add; m.Build(); k.SetAndRead(l.Map(v => v)); return S.Hold(m.SetAndRead(Plain)); });
+
+    // S15563. AB452, an edge. The method group is of an extension method of the object. The block sets the member that the method samples to a pending cell after the build, and a method of the object samples the map.
+    public static Cell<int> Ab452AnExtensionGroupAfterTheBlockSetsTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452OpenBox m = new(); m.Box.FMap = m.Ab452AddTo; m.Build(); m.Share = l.Map(v => v); return S.Hold(m.Read()); });
+
+    // S15564. AB452, an edge. The same with a method group of the object.
+    public static Cell<int> Ab452AGroupAfterTheBlockSetsTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452OpenBox m = new(); m.Box.FMap = m.Add; m.Build(); m.Share = l.Map(v => v); return S.Hold(m.Read()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -118218,6 +118250,91 @@ public static class Shapes
 
         return 0;
     }
+
+    public sealed class Ab452BoxThatTheBlockGives
+    {
+        public readonly R6PairFnBox Box = new();
+
+        private Cell<int> built = Cell.Constant(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public void Build() => this.built = Cell.Constant(1).Map(this.Box.FMap);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+            int r = this.built.Sample();
+
+            return r;
+        }
+
+        public int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab452NoInitializer
+    {
+        public readonly R6PairFnBox Box = new();
+
+        private Cell<int>? built;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public void Build() => this.built = Cell.Constant(1).Map(this.Box.FMap);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+            int r = this.built!.Sample();
+
+            return r;
+        }
+
+        public int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab452LazyBox
+    {
+        public readonly R6PairFnBox Box = new();
+
+        private Lazy<int> built = new(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public void Build() => this.built = new Lazy<int>(this.Box.FLazy);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+            int r = this.built.Value;
+
+            return r;
+        }
+
+        public int Get() => this.share.Sample();
+    }
+
+    public sealed class Ab452OpenBox
+    {
+        public readonly R6PairFnBox Box = new();
+
+        public Cell<int> Share = Cell.Constant(0);
+
+        private Cell<int> built = Cell.Constant(0);
+
+        public void Build() => this.built = Cell.Constant(1).Map(this.Box.FMap);
+
+        public int Read()
+        {
+            int r = this.built.Sample();
+
+            return r;
+        }
+
+        public int Add(int v) => v + this.Share.Sample();
+    }
+
+    private static int Ab452AddTo(this Ab452OpenBox box, int v) => v + box.Share.Sample();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
