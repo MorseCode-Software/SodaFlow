@@ -59,9 +59,11 @@ makes an edit of one row cost the same whether a hundred rows are bound or ten t
 more is skipped, even before the garbage collector reclaims it. The index is paid for when a cell is made: a few
 hundred bytes for each cell.
 
-The weak cache of `StateCell` is keyed by the projection as well as the key. Each language surface holds one
-projection per cell type, and a cache belongs to the projection that filled it, so the C# and F# surfaces over one
-collection cannot be handed each other's cells.
+The weak cache of `StateCell` is the one member where the split between the core and the language surfaces could
+have cost something. The cache stays in the core and takes the projection from the wrapper, so neither surface pays
+for an extra graph node. It is keyed by the projection as well as the key. Each language surface holds one projection
+per cell type, and a cache belongs to the projection that filled it, so the C# and F# surfaces over one collection
+cannot be handed each other's cells.
 
 ### How the chain stays incremental
 
@@ -141,3 +143,47 @@ its storage and serve older instances from a log, rather than handing back the l
 
 `Fold` reads `Pairs` for its first value, not `Keys` with a lookup for each, which measured three times slower at every
 size.
+
+## Packages and releases
+
+The [Which package do I install?](docs/docs/packages.md) page tells a user which packages to take and how their
+versions relate. This is how the repository produces them.
+
+### Why a wrapper and its core move together
+
+`SodaFlow.Core` exposes its real work through `internal` members. Every wrapper, `SodaFlow` and `SodaFlow.FSharp`, all
+three async assemblies, all three bindable ones, and all three collections ones, reaches them through
+`InternalsVisibleTo`, which `src/SodaFlow.Core/AssemblyInfo.cs` lists. Thus, a change to those internals binds the
+wrappers to one particular core even when no public API moved. When that happens, the whole group takes a major
+version together. The emitted NuGet dependency is a minimum version rather than a range, so nothing but the version
+number stops an old wrapper being resolved against a newer core.
+
+### Versions and tags
+
+Each package versions independently from its own git tag prefix, via [MinVer](https://github.com/adamralph/minver).
+Each packable project sets its own `MinVerTagPrefix`. Pushing `sodaflow-async-1.1.0` releases `SodaFlow.Async` at 1.1.0
+and leaves every other package exactly where its own last tag put it.
+
+| Package | Tag prefix |
+| --- | --- |
+| `SodaFlow` | `sodaflow-` |
+| `SodaFlow.Core` | `sodaflow-core-` |
+| `SodaFlow.Functional` | `sodaflow-functional-` |
+| `SodaFlow.FSharp` | `sodaflow-fsharp-` |
+| `SodaFlow.Async` | `sodaflow-async-` |
+| `SodaFlow.Async.Core` | `sodaflow-async-core-` |
+| `SodaFlow.FSharp.Async` | `sodaflow-fsharp-async-` |
+| `SodaFlow.Bindable.ObjectModel` | `sodaflow-bindable-objectmodel-` |
+| `SodaFlow.Bindable.ObjectModel.Core` | `sodaflow-bindable-objectmodel-core-` |
+| `SodaFlow.FSharp.Bindable.ObjectModel` | `sodaflow-fsharp-bindable-objectmodel-` |
+| `SodaFlow.Collections` | `sodaflow-collections-` |
+| `SodaFlow.Collections.Core` | `sodaflow-collections-core-` |
+| `SodaFlow.FSharp.Collections` | `sodaflow-fsharp-collections-` |
+
+A package with no tag on the commit being built keeps the version its last tag gave it, so a release only publishes
+what actually moved.
+
+### Trimming and native AOT
+
+The `net8.0` build of each C# package runs the .NET trim, AOT, and single-file analyzers and fails on any warning, so
+code that needs reflection can't reach a release unnoticed.

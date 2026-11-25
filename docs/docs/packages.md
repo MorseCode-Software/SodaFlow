@@ -60,29 +60,14 @@ functions. Both are wrappers around the *same* core types, which is why a `Strea
 in a C# library can be consumed by F# code and vice versa.
 
 You never reference `SodaFlow.Core` directly, because you would get types with no usable
-operations on them — the core exposes its real work through `internal` members that the
-wrappers reach via `InternalsVisibleTo`.
+operations on them. The wrappers supply those operations.
 
 `SodaFlow.Functional` is a separate concern: it holds `Maybe<T>`, `Either<T1,T2>` and `Unit`,
 the small functional vocabulary the C# API needs and C# does not ship with. It has no FRP in
 it and can be used on its own. F# already has `option`, `Result` and `unit`, which is why
-`SodaFlow.FSharp` does not depend on it.
-
-## Where optionality lives in the collections packages
-
-`SodaFlow.Collections.Core` has no optional type of its own, and depends on neither
-`SodaFlow.Functional` nor anything else beyond `SodaFlow.Core`. It answers in `TryGetItem`,
-`TryGetState`, `TryGetNewState` and an internal index lookup returning `-1`.
-
-Each language surface puts its own optional type back on top: `SodaFlow.Collections` adds
-`Maybe<T>`, and `SodaFlow.FSharp.Collections` adds `option`. That is the rule two paragraphs
-up applied one layer down — nothing that installs the F# collections package acquires
-`Maybe<T>`, which F# has no use for.
-
-The one member where this could have cost something is `StateCell`, which caches its per-key
-cells weakly so that N observers of one key share a node. The cache stays in the core and
-takes the projection from the wrapper, keyed by the projection as well as the key, so
-neither surface pays for an extra graph node and neither can be handed the other's cells.
+`SodaFlow.FSharp` does not depend on it. The collections packages follow the same rule one layer
+down: `SodaFlow.Collections` adds `Maybe<T>` and `SodaFlow.FSharp.Collections` adds `option` over a
+shared core that has no optional type, so the F# package brings no `Maybe<T>` with it.
 
 ## The bindable object model
 
@@ -111,38 +96,16 @@ as the open transaction ends.
 
 ## Versioning
 
-Each package versions independently from its own git tag prefix, via
-[MinVer](https://github.com/adamralph/minver). Pushing `sodaflow-async-1.1.0` releases
-`SodaFlow.Async` at 1.1.0 and leaves every other package exactly where its own last tag put
-it. Do not expect the version numbers to move together — they are not meant to.
+Each package has its own version, and a release of one leaves the others where they were. Do not
+expect the version numbers to move together — they are not meant to.
 
-| Package | Tag prefix |
-| --- | --- |
-| `SodaFlow` | `sodaflow-` |
-| `SodaFlow.Core` | `sodaflow-core-` |
-| `SodaFlow.Functional` | `sodaflow-functional-` |
-| `SodaFlow.FSharp` | `sodaflow-fsharp-` |
-| `SodaFlow.Async` | `sodaflow-async-` |
-| `SodaFlow.Async.Core` | `sodaflow-async-core-` |
-| `SodaFlow.FSharp.Async` | `sodaflow-fsharp-async-` |
-| `SodaFlow.Bindable.ObjectModel` | `sodaflow-bindable-objectmodel-` |
-| `SodaFlow.Bindable.ObjectModel.Core` | `sodaflow-bindable-objectmodel-core-` |
-| `SodaFlow.FSharp.Bindable.ObjectModel` | `sodaflow-fsharp-bindable-objectmodel-` |
-| `SodaFlow.Collections` | `sodaflow-collections-` |
-| `SodaFlow.Collections.Core` | `sodaflow-collections-core-` |
-| `SodaFlow.FSharp.Collections` | `sodaflow-fsharp-collections-` |
-
-A package with no tag on the commit being built keeps the version its last tag gave it, so a
-release only publishes what actually moved.
-
-Independent numbering does not mean the packages are independently *installable*, though.
-Every wrapper — `SodaFlow` and `SodaFlow.FSharp`, all three async assemblies, all three
-bindable ones and all three collections ones — reaches `SodaFlow.Core` through
-`InternalsVisibleTo`, so a change to those
-internals binds them to one particular core even when no public API moved. When that happens
-the whole group takes a major version together — the emitted NuGet dependency is a minimum
-version rather than a range, so nothing but the version number stops an old wrapper being
-resolved against a newer core.
+Independent numbering does not mean the packages are independently *installable*, though. Every
+wrapper — `SodaFlow` and `SodaFlow.FSharp`, and the async, bindable, and collections packages —
+uses the internals of `SodaFlow.Core`, so a change to those internals binds it to one particular
+core even when no public API moved. Upgrade a wrapper and the core packages under it together.
+When a change binds the wrappers to a new core, the whole group takes a major version together.
+A wrapper's NuGet dependency is a minimum version rather than a range, so nothing but that version
+number stops an old wrapper being resolved against a newer core.
 
 ## Supported frameworks
 
@@ -152,9 +115,7 @@ or later gets the `net8.0` build, and a project on .NET 6 or .NET 7 gets the `ne
 ### Trimming and native AOT
 
 The `net8.0` builds of the C# packages are marked as compatible with trimming and native AOT. The
-build of each one runs the .NET trim, AOT, and single-file analyzers and fails on any warning, so
-code that needs reflection can't reach a release unnoticed. The other builds aren't marked, because
-those analyzers don't exist for them.
+other builds aren't marked, because the .NET trim and AOT analyzers don't exist for them.
 
 The F# packages aren't marked. The analyzers don't run on F#, and a native AOT publish that roots
 the F# packages reports warnings inside FSharp.Core.
