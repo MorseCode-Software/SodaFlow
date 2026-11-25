@@ -18,7 +18,8 @@ namespace SodaFlow.Collections;
 ///     <para>
 ///         The router has one link on the change stream, and a dictionary from each
 ///         key to its per-key streams. The dictionary holds each per-key action
-///         weakly, thus it keeps no cell alive. Each per-key action holds the
+///         through the weak reference of its link on the anchor, thus it keeps no
+///         cell alive. Each per-key action holds the
 ///         router, thus a cell keeps the router alive, as the filter kept the
 ///         change stream alive.
 ///     </para>
@@ -142,7 +143,9 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
         @out.UnsafeAttachListener(
             this.anchor.Listen(target: @out.Node, trans: trans, action: perKey, suppressEarlierFirings: true));
 
-        this.Register(key: key, route: perKey);
+        // The link on the anchor holds the action weakly. The router uses that reference, and does not
+        // make a second one, because each weak reference is a handle that each collection examines.
+        this.Register(key: key, route: ((Node<TChange>.Target)perKey.GetListenerWithWeakReference()).Action);
 
         if (this.routedTransactionId == trans.Id)
         {
@@ -166,7 +169,7 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
         }
     }
 
-    private void Register(TKey key, IRoute route)
+    private void Register(TKey key, WeakReference<object> route)
     {
         this.Prune();
 
@@ -176,7 +179,7 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
             this.buckets.Add(key: key, value: bucket);
         }
 
-        bucket.Routes.Add(new WeakReference<IRoute>(route));
+        bucket.Routes.Add(route);
     }
 
     private void RouteBucket(TransactionInternal trans, TChange change, TKey key, Bucket bucket)
@@ -187,14 +190,14 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
         }
 
         bucket.Generation = this.generation;
-        List<WeakReference<IRoute>> routes = bucket.Routes;
+        List<WeakReference<object>> routes = bucket.Routes;
 
         // The loop goes from the end, thus a removal does not move a route that the loop did not visit.
         for (int index = routes.Count - 1; index >= 0; index--)
         {
-            if (routes[index].TryGetTarget(out IRoute? route))
+            if (routes[index].TryGetTarget(out object? route))
             {
-                route.Route(trans: trans, change: change);
+                ((IRoute)route).Route(trans: trans, change: change);
             }
             else
             {
@@ -248,7 +251,7 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
     /// <summary>The routes of one key.</summary>
     private sealed class Bucket
     {
-        internal readonly List<WeakReference<IRoute>> Routes = [];
+        internal readonly List<WeakReference<object>> Routes = [];
 
         /// <summary>The generation of the last change that visited this bucket.</summary>
         internal long Generation = -1;
