@@ -64294,6 +64294,66 @@ public static class Shapes
     public static Cell<int> Ab440LocalFunctionOfATryBeforeAFinallyThatThrows() =>
         Cell.Loop<int>().WithoutCaptures(l => { Func<int>? read = null; try { try { read = Read; int Read() => l.Sample(); } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } Kept.Add(read!()); return S.Hold(0); });
 
+    // S15601. A method of the code gets the InnerExceptions as an object. A pattern of the type of the object on the collection fails, thus the method never samples.
+    public static Cell<int> Ab442MethodMatchesTheInnerExceptionsAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAFault(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15602. A method of the code gets the first of the InnerExceptions as an object. The pattern matches that object, and the method samples its member.
+    public static Cell<int> Ab442MethodMatchesTheFirstInnerExceptionAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAFault(e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15603. A method of the code gets the InnerExceptions as an object, and a pattern of a sequence matches them. The method samples the member of the first.
+    public static Cell<int> Ab442MethodMatchesTheInnerExceptionsAsASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfTheFirst(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15604. A method of the code gets the InnerException as an object. The pattern matches that object, and the method samples its member.
+    public static Cell<int> Ab442MethodMatchesTheInnerExceptionAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAFault(e.InnerException)); } return S.Hold(0); });
+
+    // S15605. An if tests the InnerExceptions in a local of the type object, with a pattern of the type of the object. The pattern fails, thus the code never samples.
+    public static Cell<int> Ab442IfMatchesTheInnerExceptionsAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { object all = e.InnerExceptions; if (all is R4CsFault f) { Kept.Add(f.Share.Sample()); } } return S.Hold(0); });
+
+    // S15606. A method of the code gets a list of exceptions as an object. A pattern of the type of the element on the list fails, thus the method never samples.
+    public static Cell<int> Ab442MethodMatchesAListAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Exception> all = [new R4CsFault(l.Map(v => v))]; Kept.Add(Ab442ShareOfAFault(all)); return S.Hold(0); });
+
+    // S15607. A method of the code gets the InnerExceptions as an object, and tests them with a property pattern of the type of the object. The pattern fails.
+    public static Cell<int> Ab442PropertyPatternOnTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAProperty(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15608. A method of the code gets the first of the InnerExceptions, and tests it with a property pattern of its type. The method samples the member.
+    public static Cell<int> Ab442PropertyPatternOnTheFirstInnerException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAProperty(e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15609. A method of the code gets a list of the code whose type is a subclass of the type of the pattern. The pattern matches, and the method samples the member.
+    public static Cell<int> Ab442PatternOfABaseTypeMatchesAListOfTheCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab442ShareOfAnOpenFault(new Ab442FaultList(l.Map(v => v)) { new R4CsFault(Plain) })); return S.Hold(0); });
+
+    // S15610. A method of the code gets a sealed list of the code, and a pattern of that type matches it. The method samples the member.
+    public static Cell<int> Ab442PatternOfASealedListOfTheCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab442ShareOfASealedList(new Ab442SealedFaultList(l.Map(v => v)) { new R4CsFault(Plain) })); return S.Hold(0); });
+
+    // S15611. A foreach over the InnerExceptions gives each object, and the catch samples its member.
+    public static Cell<int> Ab442ForeachOverTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { foreach (Exception one in e.InnerExceptions) { Kept.Add(((R4CsFault)one).Share.Sample()); } } return S.Hold(0); });
+
+    // S15612. A method of the code gets an exception of the platform with an inner object, and a pattern of its sealed type matches it. The method samples the member of the inner object.
+    public static Cell<int> Ab442PatternOfASealedTypeOfThePlatform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab442ShareOfAnInvocationFault(new System.Reflection.TargetInvocationException(new R4CsFault(l.Map(v => v))))); return S.Hold(0); });
+
+    // S15613. A method of the code gets a sealed list of the code that derives from a list of the platform. A pattern of that type matches it, and the method samples the member.
+    public static Cell<int> Ab442PatternOfASealedSubclassOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab442FaultBag bag = new(l.Map(v => v)); bag.Add(new R4CsFault(Plain)); Kept.Add(Ab442ShareOfABag(bag)); return S.Hold(0); });
+
+    // S15614. A method of the code gets the InnerExceptions as an object, and then gives the parameter the first of them. The pattern matches that object, and the method samples its member.
+    public static Cell<int> Ab442MethodWritesTheParameterBeforeThePattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareAfterAWrite(e.InnerExceptions, e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15615. A generic method of the code gives its parameter of a type parameter a second value. The pattern matches that object, and the method samples its member.
+    public static Cell<int> Ab442GenericMethodWritesItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAGeneric(e.InnerExceptions[0], e.InnerExceptions[0])); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -118662,6 +118722,71 @@ public static class Shapes
                 throw new ArgumentException("x");
             }
         }
+    }
+
+    // Helpers of the shapes of AB442.
+    private static int Ab442ShareOfAFault(object? all) => all is R4CsFault f ? f.Share.Sample() : 0;
+
+    private static int Ab442ShareOfTheFirst(object all) =>
+        all is IEnumerable<Exception> each && each.First() is R4CsFault f ? f.Share.Sample() : 0;
+
+    private static int Ab442ShareOfAProperty(object all) => all is R4CsFault { Share: var share } ? share.Sample() : 0;
+
+    private static int Ab442ShareOfAnOpenFault(object all) => all is Ab442OpenFault f ? f.Share.Sample() : 0;
+
+    private static int Ab442ShareOfASealedList(object all) => all is Ab442SealedFaultList f ? f.Share.Sample() : 0;
+
+    public class Ab442OpenFault(Cell<int> share) : Exception
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
+    public sealed class Ab442FaultList(Cell<int> share) : Ab442OpenFault(share), IEnumerable<Exception>
+    {
+        private readonly List<Exception> all = [];
+
+        public void Add(Exception one) => this.all.Add(one);
+
+        public IEnumerator<Exception> GetEnumerator() => this.all.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class Ab442SealedFaultList(Cell<int> share) : Exception, IEnumerable<Exception>
+    {
+        private readonly List<Exception> all = [];
+
+        public Cell<int> Share { get; } = share;
+
+        public void Add(Exception one) => this.all.Add(one);
+
+        public IEnumerator<Exception> GetEnumerator() => this.all.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    private static int Ab442ShareOfAnInvocationFault(object all) =>
+        all is System.Reflection.TargetInvocationException t ? ((R4CsFault)t.InnerException!).Share.Sample() : 0;
+
+    private static int Ab442ShareOfABag(object all) => all is Ab442FaultBag f ? f.Share.Sample() : 0;
+
+    public sealed class Ab442FaultBag(Cell<int> share) : List<Exception>
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
+    private static int Ab442ShareAfterAWrite(object all, Exception one)
+    {
+        all = one;
+
+        return all is R4CsFault f ? f.Share.Sample() : 0;
+    }
+
+    private static int Ab442ShareOfAGeneric<T>(T all, T other)
+    {
+        all = other;
+
+        return all is R4CsFault f ? f.Share.Sample() : 0;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

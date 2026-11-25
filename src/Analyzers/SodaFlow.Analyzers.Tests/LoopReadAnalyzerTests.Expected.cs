@@ -9148,6 +9148,17 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab440LambdaOfATryBeforeAFinallyThatThrows"] = ["SF1001"],
             ["Ab440SampleInAFinallyBeforeItsThrow"] = ["SF1001"],
             ["Ab440CalleeSamplesInATryBeforeAFinallyThatDoesNotThrow"] = ["SF1004"],
-            ["Ab440LocalFunctionOfATryBeforeAFinallyThatThrows"] = ["SF1001"]
+            ["Ab440LocalFunctionOfATryBeforeAFinallyThatThrows"] = ["SF1001"],
+            ["Ab442MethodMatchesTheFirstInnerExceptionAsAnObject"] = ["SF1004"],
+            ["Ab442MethodMatchesTheInnerExceptionsAsASequence"] = ["SF1004"],
+            ["Ab442MethodMatchesTheInnerExceptionAsAnObject"] = ["SF1004"],
+            ["Ab442PropertyPatternOnTheFirstInnerException"] = ["SF1004"],
+            ["Ab442PatternOfABaseTypeMatchesAListOfTheCode"] = ["SF1004"],
+            ["Ab442PatternOfASealedListOfTheCode"] = ["SF1004"],
+            ["Ab442ForeachOverTheInnerExceptions"] = ["SF1001"],
+            ["Ab442PatternOfASealedTypeOfThePlatform"] = ["SF1004"],
+            ["Ab442PatternOfASealedSubclassOfAList"] = ["SF1004"],
+            ["Ab442MethodWritesTheParameterBeforeThePattern"] = ["SF1004"],
+            ["Ab442GenericMethodWritesItsParameter"] = ["SF1004"]
         };
 }
