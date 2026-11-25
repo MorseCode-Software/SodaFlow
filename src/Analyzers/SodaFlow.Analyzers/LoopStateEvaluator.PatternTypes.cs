@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -50,7 +51,8 @@ internal sealed partial class LoopStateEvaluator
                 || reader.region.SymbolOf(name) is not IParameterSymbol parameter
                 || IsWrittenIn(parameter: parameter, region: reader.region)
                 || reader.call is not { } call
-                || call.Caller.ArgumentOf(parameter: parameter, site: call.Site) is not { } argument)
+                || (call.Caller.ArgumentOf(parameter: parameter, site: call.Site)
+                    ?? call.Caller.ArgumentOfADelegateCall(parameter: parameter, site: call.Site)) is not { } argument)
             {
                 return type;
             }
@@ -59,4 +61,20 @@ internal sealed partial class LoopStateEvaluator
             value = argument;
         }
     }
+
+    // The argument that a call of a delegate gives a parameter of the function that the call runs. Each function of the
+    // delegate gets the arguments of the call in their order. A method of a delegate can be an extension method whose
+    // first argument the delegate keeps. Thus, the function must be a lambda or a local function. A named argument
+    // can be at a different position. Null for each other call.
+    private ExpressionSyntax? ArgumentOfADelegateCall(IParameterSymbol parameter, SyntaxNode site) =>
+        parameter.ContainingSymbol is IMethodSymbol
+        {
+            MethodKind: MethodKind.AnonymousFunction or MethodKind.LocalFunction
+        }
+        && site is InvocationExpressionSyntax { ArgumentList.Arguments: var arguments } invocation
+        && this.region.SymbolOf(invocation) is IMethodSymbol { MethodKind: MethodKind.DelegateInvoke }
+        && parameter.Ordinal < arguments.Count
+        && arguments.All(static argument => argument.NameColon == null)
+            ? arguments[parameter.Ordinal].Expression
+            : null;
 }

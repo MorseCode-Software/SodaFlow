@@ -9193,6 +9193,14 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab455VarPatternInAnArgumentSamplesItsVariable"] = ["SF1001"],
             ["Ab456ResultOfFromResultOfAnException"] = ["SF1001"],
             ["Ab456ResultOfFromResultOfAnExceptionWithNoLocal"] = ["SF1001"],
-            ["Ab456ResultOfAValueTaskOfAnException"] = ["SF1001"]
+            ["Ab456ResultOfAValueTaskOfAnException"] = ["SF1001"],
+            ["Ab457LambdaMatchesTheFirstInnerException"] = ["SF1004"],
+            ["Ab457LambdaCalledWithTheCollectionAndThenTheObject"] = ["SF1004"],
+            ["Ab457LambdaWritesItsParameterBeforeThePattern"] = ["SF1001"],
+            ["Ab457LambdaOfSelectGetsEachElement"] = ["SF1001"],
+            ["Ab457MethodCallsTheLambdaWithTheObject"] = ["SF1004"],
+            ["Ab457NamedArgumentsOfADelegateCall"] = ["SF1004"],
+            ["Ab457DelegateOfAnExtensionMethodKeepsItsFirstArgument"] = ["SF1004"],
+            ["Ab457LambdaOfLiftGetsTheValueOfACell"] = ["SF1001"]
         };
 }

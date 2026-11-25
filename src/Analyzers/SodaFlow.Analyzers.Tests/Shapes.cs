@@ -64546,6 +64546,54 @@ public static class Shapes
     public static Cell<int> Ab456ExceptionOfFromResultIsNotItsResult() =>
         Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Task<Exception> t = Task.FromResult<Exception>(e); Kept.Add(t.Exception is object o && o is R4CsFault f ? f.Share.Sample() : 0); } return S.Hold(0); });
 
+    // S15664. A lambda gets the InnerExceptions as an object through a call of its delegate. A pattern of the type of the object on the collection fails, thus the lambda never samples.
+    public static Cell<int> Ab457LambdaMatchesTheInnerExceptionsAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15665. The same, with Invoke of the delegate.
+    public static Cell<int> Ab457LambdaThroughInvokeMatchesTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick.Invoke(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15666. A lambda gets the first of the InnerExceptions as an object through a call of its delegate. The pattern matches it, and the lambda samples its member.
+    public static Cell<int> Ab457LambdaMatchesTheFirstInnerException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick(e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15667. The block calls the delegate of a lambda with the InnerExceptions. Then it calls the delegate with the first of them, and that call samples the member.
+    public static Cell<int> Ab457LambdaCalledWithTheCollectionAndThenTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick(e.InnerExceptions)); Kept.Add(pick(e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15668. A lambda gets the InnerExceptions as an object, and then gives its parameter the first of them. The pattern matches that object, and the lambda samples its member.
+    public static Cell<int> Ab457LambdaWritesItsParameterBeforeThePattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Func<object, int> pick = all => { all = e.InnerExceptions[0]; return all is R4CsFault f ? f.Share.Sample() : 0; }; Kept.Add(pick(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15669. Select of the platform calls a lambda with each element of a list of objects. The element is the object, and the lambda samples its member.
+    public static Cell<int> Ab457LambdaOfSelectGetsEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { List<object> all = [e.InnerExceptions[0]]; Kept.Add(all.Select(o => o is R4CsFault f ? f.Share.Sample() : 0).ToList()); } return S.Hold(0); });
+
+    // S15670. A method of the code calls a delegate that it gets with a value that it also gets. The value is the first of the InnerExceptions, and the lambda samples its member.
+    public static Cell<int> Ab457MethodCallsTheLambdaWithTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab457Run(pick, e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15671. A method of the code calls a delegate that it gets with a value that it also gets. The value is the InnerExceptions, thus the pattern of the lambda fails.
+    public static Cell<int> Ab457MethodCallsTheLambdaWithTheCollection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab457Run(pick, e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15672. A delegate of a local function gets the InnerExceptions as an object. A pattern of the type of the object on the collection fails, thus the function never samples.
+    public static Cell<int> Ab457LocalFunctionThroughADelegateMatchesTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = Pick; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick(e.InnerExceptions)); } return S.Hold(0); static int Pick(object all) => all is R4CsFault f ? f.Share.Sample() : 0; });
+
+    // S15673. A delegate call gives its two arguments by name, in a different order. The first parameter of the lambda gets the object, and the lambda samples its member.
+    public static Cell<int> Ab457NamedArgumentsOfADelegateCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, object, int> pick = (a, b) => a is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick(arg2: e.InnerExceptions, arg1: e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15674. A delegate of an extension method keeps the object as the first argument. The call gives a list as the second argument, and the method samples the member of the object.
+    public static Cell<int> Ab457DelegateOfAnExtensionMethodKeepsItsFirstArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object fault = new R4CsFault(l.Map(v => v)); Func<object, int> pick = fault.Ab457ShareOfTheReceiver; Kept.Add(pick(new List<int>())); return S.Hold(0); });
+
+    // S15675. Lift runs a lambda with the values of two cells at the first sample. The first value is the object, and the lambda samples its member.
+    public static Cell<int> Ab457LambdaOfLiftGetsTheValueOfACell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<object> a = Cell.Constant<object>(new R4CsFault(l.Map(v => v))); Cell<int> m = a.Lift(Plain, (x, y) => x is R4CsFault f ? f.Share.Sample() : y); Kept.Add(m.Sample()); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119121,6 +119169,9 @@ public static class Shapes
 
     private static Cell<int> Ab437KeepTheSecond(Cell<int> first, Cell<int> second) => second;
 
+    // Helper of the shapes of AB457.
+    private static int Ab457Run(Func<object, int> pick, object value) => pick(value);
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -119129,6 +119180,10 @@ public static class Shapes
 
 file static class Helpers
 {
+    // A helper of the shapes of AB457.
+    public static int Ab457ShareOfTheReceiver(this object all, object other) =>
+        all is Shapes.R4CsFault f ? f.Share.Sample() : 0;
+
     // Code of a different type gives the object of a public readonly field to a second field: AB438.
     public static void Ab438ShareThePublicField() => Shapes.Ab438Writable2 = Shapes.Ab438Public;
 

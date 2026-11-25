@@ -365,7 +365,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   `all is MyFault f` on it matches nothing, and its variable has no object. The same holds for each
   pattern of a type that the value can never have. For a value of the type `object`, the analyzer
   reads the type before a cast to `object`, the value of a local that no code writes, and, in a
-  method of your code, the argument of the call for a parameter that the method does not write.
+  method, a local function, or a lambda of your code, the argument of the call for a parameter that
+  the function does not write. For a lambda, it reads only a call of its delegate with no named
+  argument, and not a call that a method of the platform makes.
   `Flatten` and `GetBaseException` of such an exception have the object too. So does a value that
   a method of the platform makes from the object, where an exception is the element type or a type
   argument of its type, such as the array of `ToArray`, an `ImmutableArray<Exception>` from
