@@ -273,7 +273,9 @@ type ``MapAsync Tests``() =
             let release = Thread(fun () -> gate.SetResult true)
             release.Start()
 
-            do! Expect.True(release.Join(TimeSpan.FromSeconds 30.0))
+            // The limit only stops a hang. Under the load of a full test run, the work itself can
+            // take more than 30 s.
+            do! Expect.True(release.Join(TimeSpan.FromMinutes 5.0))
             do! Expect.Sequence([ 0..count ], received)
             do! Expect.Equal(0, (status.Items |> sampleC).Count)
 

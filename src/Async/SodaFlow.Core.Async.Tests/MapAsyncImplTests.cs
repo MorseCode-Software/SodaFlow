@@ -14,6 +14,10 @@ namespace SodaFlow.Async.Tests;
 
 public sealed class MapAsyncImplTests
 {
+    // The stack tests wait for the thread that releases their queue. This limit only stops a hang.
+    // Under the load of a full test run, the work itself took more than 30 s.
+    private static readonly TimeSpan HangLimit = TimeSpan.FromMinutes(5);
+
     [Test]
     public async Task SuccessfulOperationPublishesToResults()
     {
@@ -973,7 +977,7 @@ public sealed class MapAsyncImplTests
         Thread release = new(() => gate.SetResult(true));
         release.Start();
 
-        await Assert.That(release.Join(TimeSpan.FromSeconds(30))).IsTrue();
+        await Assert.That(release.Join(HangLimit)).IsTrue();
 
         await Assert.That(received)
             .IsEquivalentTo(expected: Enumerable.Range(start: 0, count: count + 1), ordering: CollectionOrdering.Matching);
@@ -1030,7 +1034,7 @@ public sealed class MapAsyncImplTests
         Thread release = new(() => gate.SetResult(true));
         release.Start();
 
-        await Assert.That(release.Join(TimeSpan.FromSeconds(30))).IsTrue();
+        await Assert.That(release.Join(HangLimit)).IsTrue();
         await Assert.That(depths.Count).IsEqualTo(count);
         await Assert.That(depths[count]).IsLessThanOrEqualTo(depths[1]);
 
@@ -1090,7 +1094,7 @@ public sealed class MapAsyncImplTests
         Thread release = new(() => gate.SetResult(true));
         release.Start();
 
-        await Assert.That(release.Join(TimeSpan.FromSeconds(30))).IsTrue();
+        await Assert.That(release.Join(HangLimit)).IsTrue();
 
         await Assert.That(received)
             .IsEquivalentTo(
@@ -1165,7 +1169,7 @@ public sealed class MapAsyncImplTests
 
         release.Start();
 
-        await Assert.That(release.Join(TimeSpan.FromSeconds(30))).IsTrue();
+        await Assert.That(release.Join(HangLimit)).IsTrue();
 
         await Assert.That(received)
             .IsEquivalentTo(
@@ -1240,7 +1244,7 @@ public sealed class MapAsyncImplTests
         Thread release = new(() => gate.SetResult(true));
         release.Start();
 
-        await Assert.That(release.Join(TimeSpan.FromSeconds(30))).IsTrue();
+        await Assert.That(release.Join(HangLimit)).IsTrue();
         await Assert.That(received).IsEquivalentTo(expected: [0, 10, 20], ordering: CollectionOrdering.Matching);
 
         status.Dispose();
@@ -1292,7 +1296,7 @@ public sealed class MapAsyncImplTests
         Thread release = new(() => gate.SetResult(true));
         release.Start();
 
-        await Assert.That(release.Join(TimeSpan.FromSeconds(30))).IsTrue();
+        await Assert.That(release.Join(HangLimit)).IsTrue();
 
         await Assert.That(log)
             .IsEquivalentTo(
