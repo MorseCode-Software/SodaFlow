@@ -9291,6 +9291,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab469ASecondObjectGetsANewListBeforeALambdaAdds"] = ["SF1004"],
             ["Ab469ALambdaGivesTheLocalTheList"] = ["SF1001"],
             ["Ab469ALocalFunctionGivesTheLocalTheList"] = ["SF1001"],
-            ["Ab469TwoLambdasGiveTheListAndAdd"] = ["SF1001"]
+            ["Ab469TwoLambdasGiveTheListAndAdd"] = ["SF1001"],
+            ["Ab468ALocalKeepsTheListAfterTheFirstFieldGetsANewList"] = ["SF1001"],
+            ["Ab468ALocalKeepsTheListAfterTheSecondFieldGetsANewList"] = ["SF1001"],
+            ["Ab468ALocalKeepsTheListForAPutAtAnIndex"] = ["SF1001"]
         };
 }

@@ -65154,6 +65154,26 @@ public static class Shapes
     public static Cell<int> Ab469TwoLambdasGiveTheListAndAdd() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = [Plain]; Action get = () => xs = Ab469List; Action add = () => xs.Add(l.Map(v => v)); get(); add(); return S.Hold(Ab469List[^1].Sample()); });
 
+    // S15816. AB468. The first field gets the list of the second field, and a local gets the list of the first field. The first field then gets a new list. The code adds a pending cell through the local and samples the second field.
+    public static Cell<int> Ab468ALocalKeepsTheListAfterTheFirstFieldGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468List; Ab468List = [Plain]; xs.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15817. AB468. The same, but the second field gets the new list, and the code samples the first field.
+    public static Cell<int> Ab468ALocalKeepsTheListAfterTheSecondFieldGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468Other; Ab468Other = [Plain]; xs.Add(l.Map(v => v)); return S.Hold(Ab468List[^1].Sample()); });
+
+    // S15818. AB468. The same, but the code puts the pending cell into the first element through the local.
+    public static Cell<int> Ab468ALocalKeepsTheListForAPutAtAnIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468Other; Ab468Other = [Plain]; xs[0] = l.Map(v => v); return S.Hold(Ab468List[0].Sample()); });
+
+    // S15819. AB468, a control. The same as the first shape, but the local gets a new list before the add.
+    public static Cell<int> Ab468ALocalGetsANewListAfterTheFirstFieldGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468List; Ab468List = [Plain]; xs = [Plain]; xs.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15820. AB468, a control. The same as the first shape, but the local gets the list of a third field. Thus, the link of the first two fields goes when the first field gets a new list.
+    public static Cell<int> Ab468ALocalOfAThirdFieldKeepsNoLink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468Third; Ab468List = [Plain]; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample() + xs.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

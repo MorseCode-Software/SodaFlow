@@ -19,7 +19,9 @@ internal sealed partial class LoopStateEvaluator
     ///     static field of the link a different value. A static field has one
     ///     location. A field of an object can be in each object of its type, and
     ///     a callee can run in a branch. Thus, only that assignment removes a
-    ///     link. A link that stays gives a report and not a miss.
+    ///     link. A local that got the list of the field before keeps the list of
+    ///     each field of the link, thus the link stays then too. A link that
+    ///     stays gives a report and not a miss.
     /// </remarks>
     /// <param name="target">The target of the assignment.</param>
     /// <param name="value">The expression of the value.</param>
@@ -33,7 +35,11 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
-        if (replaces && this.call == null && this.LocationKeyOf((ExpressionSyntax)target) is { Of.IsStatic: true })
+        if (replaces
+            && this.call == null
+            && this.region.HasLinkedFields
+            && this.LocationKeyOf((ExpressionSyntax)target) is { Of.IsStatic: true }
+            && !this.ALocalNames(field))
         {
             this.region.TakesAwayTheLinksOfAField(field);
         }
@@ -46,6 +52,21 @@ internal sealed partial class LoopStateEvaluator
         foreach (ISymbol other in this.TheFieldsOfAList(value))
         {
             this.region.LinksTwoFields(one: field, other: other);
+        }
+    }
+
+    // Records a put through a local of a field. The local can keep the list that the field had before, which a second
+    // field of a link can also have. Thus, where the local is not sure to name the list of the field, only the second
+    // fields get the put.
+    private void PutsThroughALocalOf(ISymbol field, int index, LoopState held, bool namesTheList)
+    {
+        if (namesTheList)
+        {
+            this.region.AddAPutThroughALocal(field: field, index: index, held: held);
+        }
+        else
+        {
+            this.region.AddAPutThroughTheFieldsLinkedTo(field: field, index: index, held: held);
         }
     }
 
@@ -64,6 +85,13 @@ internal sealed partial class LoopStateEvaluator
                 held: LoopState.None.HoldingWhatCameWith(state).Join(state.AsContainer.WithNoObjects));
         }
     }
+
+    // True when a local of this code is a name of a field, as NotesANameOfALocation records it.
+    private bool ALocalNames(ISymbol field) =>
+        this.Frame.ReadFrom.Values.Any(read =>
+            SymbolEqualityComparer.Default.Equals(
+                x: this.region.SymbolOf(Unwrapped(read))?.OriginalDefinition,
+                y: field.OriginalDefinition));
 
     // The fields whose list or array a value can be. Each branch of a conditional value can be the value.
     private IEnumerable<ISymbol> TheFieldsOfAList(ExpressionSyntax value) =>

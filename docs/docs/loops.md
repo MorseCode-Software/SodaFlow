@@ -479,10 +479,12 @@ The analyzer follows a value made from the placeholder through the code of your 
   `Insert`, or `AddRange`. The assignment can be in a lambda or a method of yours that the analyzer
   follows, and the value can come through a local, a method that returns the field, a conditional
   expression, or `??`. The two fields stay joined until a statement of the block that always runs
-  gives one of them a different value, and only where that field is static. A field of an object, or
-  a static field that a lambda or a method gives a new list, stays joined, which can give a report
-  for a read that does not throw. An assignment in a method that the analyzer does not follow, such
-  as one that gets nothing from the block, is not seen.
+  gives one of them a different value, and only where that field is static and no local got the list
+  from it before. Such a local keeps the list of both fields, so a put through it still reaches the
+  other field. A field of an object, a static field that a lambda or a method gives a new list, and
+  a static field that such a local got its list from stay joined, which can give a report for a read
+  that does not throw. An assignment in a method that the analyzer does not follow, such as one that
+  gets nothing from the block, is not seen.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
   from there. An array or list literal that a local or a field gets, such as `a = [d, d]` or

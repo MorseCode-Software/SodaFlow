@@ -51,12 +51,12 @@ internal sealed partial class LoopStateEvaluator
             case ILocalSymbol local
                 when this.Frame.ReadFrom.Count > 0
                      && this.TheFieldThatItNames(local) is { } named
-                     && this.region.SymbolOf(named) is { } field and (IFieldSymbol or IPropertySymbol)
-                     && this.StillHasTheValueOf(local: local, location: named, use: element):
-                this.region.AddAPutThroughALocal(
+                     && this.region.SymbolOf(named) is { } field and (IFieldSymbol or IPropertySymbol):
+                this.PutsThroughALocalOf(
                     field: field,
                     index: index,
-                    held: LoopState.None.HoldingWhatCameWith(state).Join(state.AsContainer.WithNoObjects));
+                    held: LoopState.None.HoldingWhatCameWith(state).Join(state.AsContainer.WithNoObjects),
+                    namesTheList: this.StillHasTheValueOf(local: local, location: named, use: element));
 
                 break;
         }
@@ -85,14 +85,14 @@ internal sealed partial class LoopStateEvaluator
             && this.region.SymbolOf(name) is ILocalSymbol local
             && this.TheFieldThatItNames(local) is { } named
             && SinkWalker.PutsIntoAList(method)
-            && this.region.SymbolOf(named) is { } field and (IFieldSymbol or IPropertySymbol)
-            && this.StillHasTheValueOf(local: local, location: named, use: call)
-            && !this.ACallGivesANewObjectTo(location: field, local: local, read: named, use: call))
+            && this.region.SymbolOf(named) is { } field and (IFieldSymbol or IPropertySymbol))
         {
-            this.region.AddAPutThroughALocal(
+            this.PutsThroughALocalOf(
                 field: field,
                 index: -1,
-                held: LoopState.None.HoldingWhatCameWith(state).Join(state.AsContainer.WithNoObjects));
+                held: LoopState.None.HoldingWhatCameWith(state).Join(state.AsContainer.WithNoObjects),
+                namesTheList: this.StillHasTheValueOf(local: local, location: named, use: call)
+                              && !this.ACallGivesANewObjectTo(location: field, local: local, read: named, use: call));
         }
 
         this.AddsThroughALinkedField(list: list, method: method, state: state);
