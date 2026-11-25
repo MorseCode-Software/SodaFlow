@@ -2414,7 +2414,7 @@ internal sealed partial class LoopStateEvaluator
 
                         if (expression is MemberAccessExpressionSyntax named)
                         {
-                            through = through.Join(this.WrittenThroughASecondField(named));
+                            through = through.Join(this.WrittenThroughASecondName(named));
                         }
 
                         // The members are of each object that the owner can be. An owner that the

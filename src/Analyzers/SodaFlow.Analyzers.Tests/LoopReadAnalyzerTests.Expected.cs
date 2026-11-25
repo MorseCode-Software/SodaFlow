@@ -9062,6 +9062,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab443GroupOnThisThenAMethodSetsTheMember"] = ["SF1001"],
             ["Ab443APendingCellBeforeTheMethodMaps"] = ["SF1001"],
             ["Ab443ALambdaOnThisThatAMethodReturnsIsCalled"] = ["SF1005"],
-            ["Ab443AGroupOnThisThatAMethodReturnsIsCalled"] = ["SF1005"]
+            ["Ab443AGroupOnThisThatAMethodReturnsIsCalled"] = ["SF1005"],
+            ["Ab447FoundSameObjectOfTwoCalls"] = ["SF1001"],
+            ["Ab447AReadThroughALocalOfTheFirstCall"] = ["SF1001"],
+            ["Ab447APlainCellThroughALocalOfTheFirstCall"] = ["SF1001"],
+            ["Ab447AListThatKeepsTheFirstResult"] = ["SF1001"],
+            ["Ab447ALocalOfTheSecondCall"] = ["SF1001"],
+            ["Ab447APlainCellThenALocalOfTheSecondCall"] = ["SF1001"],
+            ["Ab447AHelperWhoseLocalGetsAnElement"] = ["SF1001"]
         };
 }

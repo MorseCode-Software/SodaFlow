@@ -481,7 +481,7 @@ internal sealed partial class LoopStateEvaluator
             {
                 held.Add(one);
                 one.Members.RemoveAll(each => each.Member.Name == member.Name);
-                one.ThroughASecondField.RemoveAll(each => each.Member.Name == member.Name);
+                one.ThroughASecondName.RemoveAll(each => each.Member.Name == member.Name);
             }
             else if (isOfIt
                          ? !one.Members.Any(each =>
@@ -504,11 +504,11 @@ internal sealed partial class LoopStateEvaluator
                     }
                 }
 
-                if (name is { } second
-                    && use != null
-                    && this.CanHoldTheObjectOf(names: one, second: second, use: use))
+                if (use != null
+                    && ((name is { } second && this.CanHoldTheObjectOf(names: one, second: second, use: use))
+                        || this.IsASecondCallOf(names: one, use: use)))
                 {
-                    one.ThroughASecondField.Add((member.OriginalDefinition, state));
+                    one.ThroughASecondName.Add((member.OriginalDefinition, state));
                 }
             }
         }
@@ -567,6 +567,34 @@ internal sealed partial class LoopStateEvaluator
             owner == null && index == null && of is IFieldSymbol { IsStatic: true } field ? field : null;
     }
 
+    // True when a write through the result of a call can be a write to the object of a record of
+    // names. The record has a local whose only value is the result of a call of the same method. The
+    // write is through such a call or such a local. Two calls of one method can give one object, and
+    // the walk does not know which: see NotesAnOlderResult.
+    private bool IsASecondCallOf(NamesOfOneObject names, SyntaxNode use) =>
+        use is ExpressionSyntax written
+        && this.CallThatGave(written) is { } second
+        && names.Names.Any(name =>
+            name is { Of: ILocalSymbol local, Owner: null, Index: null }
+            && this.OnlyValueOf(local) is { } value
+            && this.CallThatGave(value) is { } first
+            && this.CanGiveOneObject(one: first, other: second));
+
+    // The call that gives an expression. The call is the expression, or it is the only value of a
+    // local. Null for each other expression, and for a method whose each call makes a new object.
+    private InvocationExpressionSyntax? CallThatGave(ExpressionSyntax expression) =>
+        Unwrapped(expression) switch
+        {
+            InvocationExpressionSyntax call
+                when this.region.SymbolOf(call) is IMethodSymbol method
+                     && !this.region.Symbols.MakesItsResult(method.OriginalDefinition) => call,
+            IdentifierNameSyntax name
+                when this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None } local
+                     && this.OnlyValueOf(local) is { } value
+                     && Unwrapped(value) is InvocationExpressionSyntax => this.CallThatGave(value),
+            _ => null
+        };
+
     // True when two static fields can hold one object: see CanHoldTheObjectOf.
     private bool CanHoldOneObject(IFieldSymbol one, IFieldSymbol second) =>
         (this.region.Symbols.Unchanged.CreationOf(one) == null
@@ -574,11 +602,11 @@ internal sealed partial class LoopStateEvaluator
         && !this.HoldsItsObjectAlone(one);
 
     // The state of a read of a member through a name of a record, from the writes through a second
-    // static field. See CanHoldTheObjectOf. None where no record is for the read.
-    private LoopState WrittenThroughASecondField(MemberAccessExpressionSyntax read)
+    // name: see CanHoldTheObjectOf and IsASecondCallOf. None where no record is for the read.
+    private LoopState WrittenThroughASecondName(MemberAccessExpressionSyntax read)
     {
         if (this.quiet
-            || !this.Frame.NamesOfOneObject.Any(static one => one.ThroughASecondField.Count > 0)
+            || !this.Frame.NamesOfOneObject.Any(static one => one.ThroughASecondName.Count > 0)
             || this.region.SymbolOf(read) is not { } member
             || this.NameOfAnObjectIn(read.Expression) is not { } name)
         {
@@ -590,10 +618,10 @@ internal sealed partial class LoopStateEvaluator
 
         foreach (NamesOfOneObject one in this.Frame.NamesOfOneObject)
         {
-            if (one.ThroughASecondField.Count > 0
+            if (one.ThroughASecondName.Count > 0
                 && one.Names.Any(each => this.IsTheName(name: each, read: name, use: read.Expression)))
             {
-                found = one.ThroughASecondField
+                found = one.ThroughASecondName
                     .Where(each => SymbolEqualityComparer.Default.Equals(x: each.Member, y: definition))
                     .Aggregate(seed: found, func: static (all, each) => all.Join(each.State));
             }

@@ -27,11 +27,13 @@ internal sealed class NamesOfOneObject
     public List<(ISymbol Member, int End, LoopState State, bool Accurate, int At)> Members { get; } = [];
 
     /// <summary>
-    ///     The state of each member that a write through a second static field
-    ///     gave after the last sure write through one of the names. That field
-    ///     can hold the object of a static field of the names. A method can give
-    ///     the one field the object of the other. A sure write through one of the
-    ///     names removes the state of its member.
+    ///     The state of each member that a write through a second name gave
+    ///     after the last sure write through one of the names. The second name
+    ///     can hold the object of the names, where the walk cannot tell the two
+    ///     apart. It is a second static field, as when a method gives the one
+    ///     field the object of the other. It is also the result of a second call
+    ///     of the method whose call gave a local of the names. A sure write
+    ///     through one of the names removes the state of its member.
     /// </summary>
     /// <remarks>
     ///     A write that the frame did not see does not remove the states, as it
@@ -40,5 +42,5 @@ internal sealed class NamesOfOneObject
     ///     longer has, and a report is then on the careful side. Without the
     ///     state, a read can miss a pending value that the object has.
     /// </remarks>
-    public List<(ISymbol Member, LoopState State)> ThroughASecondField { get; } = [];
+    public List<(ISymbol Member, LoopState State)> ThroughASecondName { get; } = [];
 }

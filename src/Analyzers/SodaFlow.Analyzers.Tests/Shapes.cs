@@ -63806,6 +63806,54 @@ public static class Shapes
     public static Cell<int> Ab443ALambdaOnThisThenAPlainCellAfterThePendingCell() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Func<int> f = o.Reader(); o.Share = l.Map(v => v); o.Share = Plain; Kept.Add(f()); return S.Hold(0); });
 
+    // S15479. AB447. A helper gives an element of a static array. A local gets the result of a first call, and a line of a library keeps the local. A pending cell goes in through the result of a second call, and the block reads the last item of the line.
+    public static Cell<int> Ab447FoundSameObjectOfTwoCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); line.Put(s); Ab447Make(2).Share = l.Map(v => v); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15480. AB447, an edge. A local gets the result of a first call of the helper. A pending cell goes in through the result of a second call, and the block reads the local.
+    public static Cell<int> Ab447AReadThroughALocalOfTheFirstCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(2); Ab447Make(2).Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15481. AB447, an edge. The same, but the local gets a plain cell before the pending cell goes in through the second call.
+    public static Cell<int> Ab447APlainCellThroughALocalOfTheFirstCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(2); s.Share = Plain; Ab447Make(2).Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15482. AB447, an edge. A list keeps the result of a first call. A pending cell goes in through the result of a second call, and the block reads the first item of the list.
+    public static Cell<int> Ab447AListThatKeepsTheFirstResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> kept = []; SettableSlot s = Ab447Make(2); kept.Add(s); Ab447Make(2).Share = l.Map(v => v); return S.Hold(kept[0].Share!.Sample()); });
+
+    // S15483. AB447, an edge. The same as the first shape, but the pending cell goes in through a local of the second call.
+    public static Cell<int> Ab447ALocalOfTheSecondCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); line.Put(s); SettableSlot t = Ab447Make(2); t.Share = l.Map(v => v); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15484. AB447, a control. A helper gives a new object at each call. A local gets the first result and a plain cell. A pending cell goes in through the result of a second call.
+    public static Cell<int> Ab447AHelperThatMakesANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447New(); s.Share = Plain; Ab447New().Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15485. AB447, a control. The same, but the helper puts the new object into a local and returns the local.
+    public static Cell<int> Ab447AHelperThatMakesANewObjectInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447NewInALocal(); s.Share = Plain; Ab447NewInALocal().Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15486. AB447, a control. The same as the second edge, but the local gets a plain cell after the pending cell.
+    public static Cell<int> Ab447APlainCellAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(2); Ab447Make(2).Share = l.Map(v => v); s.Share = Plain; return S.Hold(s.Share!.Sample()); });
+
+    // S15487. AB447, a control. The two calls of the helper get two different constants, and they give two different elements. A pending cell goes into the second element.
+    public static Cell<int> Ab447TwoCallsOfTwoElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(1); s.Share = Plain; Ab447Make(0).Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15488. AB447, an edge. A local of a first call of the helper gets a plain cell. A local of a second call then gets a pending cell, and the block reads the first local.
+    public static Cell<int> Ab447APlainCellThenALocalOfTheSecondCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(2); s.Share = Plain; SettableSlot t = Ab447Make(2); t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15489. AB447, an edge. A helper gives a local a new object and then an element of a static array, and returns the local. A local of a first call gets a plain cell, and a pending cell goes in through a second call.
+    public static Cell<int> Ab447AHelperWhoseLocalGetsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447ElementInALocal(); s.Share = Plain; Ab447ElementInALocal().Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15490. AB447, a control. A helper gives a new object at each call. A local gets the first result. A pending cell goes in through the result of a second call, and the block reads the local.
+    public static Cell<int> Ab447AHelperThatMakesANewObjectThenAReadOfTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab447Box s = Ab447NewBox(); Ab447NewBox().Share = l.Map(v => v); return S.Hold(s.Share.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -117682,6 +117730,34 @@ public static class Shapes
 
         public int Add(int v) => v + this.Share.Sample();
     }
+
+    private static readonly SettableSlot[] Ab447Slots = [new(), new(), new()];
+
+    private static SettableSlot Ab447Make(int i) => Ab447Slots[i];
+
+    private static SettableSlot Ab447New() => new();
+
+    private static SettableSlot Ab447NewInALocal()
+    {
+        SettableSlot made = new();
+
+        return made;
+    }
+
+    private static SettableSlot Ab447ElementInALocal()
+    {
+        SettableSlot made = new();
+        made = Ab447Slots[0];
+
+        return made;
+    }
+
+    public sealed class Ab447Box
+    {
+        public Cell<int> Share { get; set; } = Plain;
+    }
+
+    private static Ab447Box Ab447NewBox() => new();
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

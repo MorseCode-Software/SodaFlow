@@ -923,10 +923,18 @@ careful side, so it can report a read that does not throw:
   what writes through other calls gave that member, and does not replace it, because the analyzer
   cannot tell whether two calls give the same object, even two calls with the same text. So a plain
   value written into `Find(id).Cell` after a pending one still reports a read of `Find(id).Cell`.
-  A local that holds the result is one object: writes through the local replace each other, and a
-  read through it sees only them. Such a write still goes into the shared state, so a read through a
-  second call, or through a local of a second call with no value of its own, sees it, even where the
-  two calls give different objects. The state is shared across the names of one property as well: a
+  A local that holds the result is one object: writes through the local replace each other. Such a
+  write still goes into the shared state, so a read through a second call, or through a local of a
+  second call with no value of its own, sees it, even where the two calls give different objects.
+  The other way also holds for a method that the analyzer does not read because nothing from the
+  placeholder goes in: a write through a second call of the same method in the same function, or
+  through a local of one, reaches a read through the local of the first call, also where the local
+  has a value of its own, and a read through a collection that keeps that local. It does not where
+  each `return` of the method gives an object that a `new` in it makes, because each call then gives
+  a new object, or where the two calls get two different constants, or two static fields that each
+  keep the object of their own initializer, at one position. A second call in a different method is
+  not seen this way, and neither is a copy that code with no source, such as a library, keeps of a
+  local with a value of its own. The state is shared across the names of one property as well: a
   property of a class and the interface properties that it implements, or two interface properties
   that one property of a class in your project implements. A pending value written through one name
   then reaches a read through another name on the result of any call. The exception is a call of a
