@@ -19,4 +19,13 @@ internal sealed partial class LoopStateEvaluator
                 argument is INamedTypeSymbol each && IsOfAnException(each)),
             _ => false
         };
+
+    // True for a member of a generic type whose type is an exception that a type argument names, as Result of a
+    // Task<Exception> is. The member gives one of the values that its owner holds. A member of an exception type of
+    // its own, as Exception of a task, is not such a member.
+    private static bool GivesAnExceptionThatItHolds(ISymbol member, ITypeSymbol type) =>
+        type is INamedTypeSymbol named
+        && IsOfAnException(named)
+        && member.OriginalDefinition is IPropertySymbol { Type: ITypeParameterSymbol }
+            or IFieldSymbol { Type: ITypeParameterSymbol };
 }

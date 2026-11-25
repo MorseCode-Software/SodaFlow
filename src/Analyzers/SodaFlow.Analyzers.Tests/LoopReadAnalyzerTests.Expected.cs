@@ -9190,6 +9190,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab455EmptyPropertyPatternInAnArgument"] = ["SF1001"],
             ["Ab455ConditionalInAnArgumentSamplesACellVariable"] = ["SF1001"],
             ["Ab455AndPatternInAnArgumentSamplesThePatternVariable"] = ["SF1001"],
-            ["Ab455VarPatternInAnArgumentSamplesItsVariable"] = ["SF1001"]
+            ["Ab455VarPatternInAnArgumentSamplesItsVariable"] = ["SF1001"],
+            ["Ab456ResultOfFromResultOfAnException"] = ["SF1001"],
+            ["Ab456ResultOfFromResultOfAnExceptionWithNoLocal"] = ["SF1001"],
+            ["Ab456ResultOfAValueTaskOfAnException"] = ["SF1001"]
         };
 }

@@ -369,7 +369,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   `Flatten` and `GetBaseException` of such an exception have the object too. So does a value that
   a method of the platform makes from the object, where an exception is the element type or a type
   argument of its type, such as the array of `ToArray`, an `ImmutableArray<Exception>` from
-  `ImmutableArray.Create`, or a pair from `KeyValuePair.Create`.
+  `ImmutableArray.Create`, or a pair from `KeyValuePair.Create`. A member whose type is that type
+  argument gives the object, as the `Result` of a `Task<Exception>` from `Task.FromResult` does.
   `GetResult` of the awaiter of a task throws the object that a function of the task threw. An
   `await` of the task of `Task.FromException` or `ValueTask.FromException`, and of the task of a
   `TaskCompletionSource` after `SetException` or `TrySetException`, throws that object too, and so

@@ -2444,9 +2444,10 @@ internal sealed partial class LoopStateEvaluator
                     // SyncRoot of a collection is an object to lock, and not a value in it.
                     if (symbol.ContainingType.IsTupleType
                         || (symbol.Name != "SyncRoot"
-                            && this.region.Symbols.CanHoldState(
-                                type: memberType,
-                                compilation: this.region.Assembly)))
+                            && (this.region.Symbols.CanHoldState(
+                                    type: memberType,
+                                    compilation: this.region.Assembly)
+                                || GivesAnExceptionThatItHolds(member: symbol, type: memberType))))
                     {
                         // A dictionary holds its values. Its keys are objects that the store does not
                         // know as objects of the dictionary, thus a key keeps what it has.

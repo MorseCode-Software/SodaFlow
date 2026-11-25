@@ -64518,6 +64518,34 @@ public static class Shapes
     public static Cell<int> Ab455SwitchArmOnTheInnerExceptions() =>
         Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { object all = e.InnerExceptions; Kept.Add(all switch { R4CsFault f => f.Share.Sample(), _ => 0 }); } return S.Hold(0); });
 
+    // S15657. Task.FromResult gives a task whose result is the object of a catch. The catch samples the member of that result.
+    public static Cell<int> Ab456ResultOfFromResultOfAnException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Task<Exception> t = Task.FromResult<Exception>(e); Kept.Add(((R4CsFault)t.Result).Share.Sample()); } return S.Hold(0); });
+
+    // S15658. The same, with no local for the task.
+    public static Cell<int> Ab456ResultOfFromResultOfAnExceptionWithNoLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(((R4CsFault)Task.FromResult<Exception>(e).Result).Share.Sample()); } return S.Hold(0); });
+
+    // S15659. ValueTask.FromResult gives a value task whose result is the object of a catch. The catch samples the member of that result.
+    public static Cell<int> Ab456ResultOfAValueTaskOfAnException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ValueTask<Exception> t = ValueTask.FromResult<Exception>(e); Kept.Add(((R4CsFault)t.Result).Share.Sample()); } return S.Hold(0); });
+
+    // S15660. Task.FromResult gives a task whose result is a second object with a plain cell. The sample of its member returns.
+    public static Cell<int> Ab456ResultOfFromResultOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault) { Task<Exception> t = Task.FromResult<Exception>(new R4CsFault(Plain)); Kept.Add(((R4CsFault)t.Result).Share.Sample()); } return S.Hold(0); });
+
+    // S15661. Task.FromResult gives a task whose result is the object of a catch. The Exception of that task is null, thus the code never samples.
+    public static Cell<int> Ab456ExceptionOfFromResultOfAnException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Task<Exception> t = Task.FromResult<Exception>(e); Kept.Add(t.Exception is { InnerException: R4CsFault f } ? f.Share.Sample() : 0); } return S.Hold(0); });
+
+    // S15662. A dictionary has a linked cell as its key and a number as its value. A lambda gets the value of each entry as an object, and a pattern of a cell on that number fails.
+    public static Cell<int> Ab456ValueOfAnEntryIsNotItsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Cell<int>, int> d = new() { [l.Map(v => v)] = 1 }; Func<object, int> pick = o => o is Cell<int> c ? c.Sample() : 0; foreach (KeyValuePair<Cell<int>, int> kv in d) { Kept.Add(pick(kv.Value)); } return S.Hold(0); });
+
+    // S15663. Task.FromResult gives a task whose result is the object of a catch. The Exception of that task is null, thus a pattern on it fails and the code never samples.
+    public static Cell<int> Ab456ExceptionOfFromResultIsNotItsResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Task<Exception> t = Task.FromResult<Exception>(e); Kept.Add(t.Exception is object o && o is R4CsFault f ? f.Share.Sample() : 0); } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
