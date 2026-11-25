@@ -15,7 +15,7 @@ not the F# one: modules appear as static classes, curried functions appear as me
 `FSharpFunc<_,_>`, and idiomatic pipelines are nowhere to be seen. The result actively misleads
 an F# reader.
 
-That is now the only reason. `SodaFlow.FSharp` and `SodaFlow.FSharp.Async` are fully documented
+The renderer is the whole reason, not a lack of comments. `SodaFlow.FSharp` and `SodaFlow.FSharp.Async` are fully documented
 with `///` comments, so the XML they emit is complete — every module, type and function carries a
 summary along with its parameters, return value and remarks. Your editor shows all of it today;
 what is missing is a renderer that presents the F# surface as F#.
