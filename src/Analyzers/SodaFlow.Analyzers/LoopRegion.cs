@@ -213,6 +213,12 @@ internal sealed class LoopRegion(
         get;
     } = new();
 
+    /// <summary>
+    ///     For each local collection, true when the walk knows which value
+    ///     went in at each index. See KeepsItsIndexes.
+    /// </summary>
+    public Dictionary<ISymbol, bool> KeepsItsIndexes { get; } = new(SymbolEqualityComparer.Default);
+
     /// <summary>The body of the block.</summary>
     public SyntaxNode Root { get; } = root;
 
@@ -957,7 +963,12 @@ internal sealed class LoopRegion(
     ///     Such a write can be through each name.
     /// </param>
     /// <param name="objects">The objects of the store that the owner can be.</param>
-    public void NotesAWriteThroughAName(ISymbol member, NameKey? name, ImmutableArray<MadeObject> objects)
+    /// <param name="canBeAnUnknownObject">See <see cref="NamedWrite.CanBeAnUnknownObject" />.</param>
+    public void NotesAWriteThroughAName(
+        ISymbol member,
+        NameKey? name,
+        ImmutableArray<MadeObject> objects,
+        bool canBeAnUnknownObject)
     {
         ISymbol key = member.OriginalDefinition;
 
@@ -972,7 +983,12 @@ internal sealed class LoopRegion(
             this.writesThroughNames[key] = writes;
         }
 
-        writes.Add(new NamedWrite(name: name, objects: objects, at: this.MemberWrites));
+        writes.Add(
+            new NamedWrite(
+                name: name,
+                objects: objects,
+                at: this.MemberWrites,
+                canBeAnUnknownObject: canBeAnUnknownObject));
     }
 
     /// <summary>

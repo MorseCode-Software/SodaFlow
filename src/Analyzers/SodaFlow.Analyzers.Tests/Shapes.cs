@@ -64714,6 +64714,46 @@ public static class Shapes
     public static Cell<int> Ab465ACalleeOnThisAndALocalOfASecondObject() =>
         Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunOnALocalOfASecondObject(l.Map(v => v))));
 
+    // S15706. AB458: an Add in a branch and an Add after it put element 0 of a static array into a list. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab458AnAddInABranchAndAnAddAfterIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; if (Kept.Count >= 0) { a.Add(Ab458ArrA[0]); } a.Add(Ab458ArrA[0]); Ab458ArrA[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab458ArrA[0].Share!.Sample()); });
+
+    // S15707. AB458: an Insert puts element 0 of a static array at the front of a list. A read of element 0 gets the write through item 0.
+    public static Cell<int> Ab458AnInsertAtTheFront() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; a.Add(Ab458ArrB[1]); a.Insert(0, Ab458ArrB[0]); Ab458ArrB[0].Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(Ab458ArrB[0].Share!.Sample()); });
+
+    // S15708. AB458: a loop adds element 0 of a static array two times. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab458TwoAddsInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; for (int i = 0; i < 2; i++) { a.Add(Ab458ArrC[0]); } Ab458ArrC[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab458ArrC[0].Share!.Sample()); });
+
+    // S15709. AB458: an Add in a branch puts a local of an unknown object into a list. A read through the local gets the write through item 1.
+    public static Cell<int> Ab458AnAddInABranchOfALocalOfAnUnknownObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab458ArrD[0]; List<SettableSlot> a = []; if (Kept.Count >= 0) { a.Add(c); } a.Add(c); c.Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S15710. AB458: an Add in a branch puts element 0 into a list, and the block makes a second object. A read through the second object does not get the write through item 1.
+    public static Cell<int> Ab458AnAddInABranchANewObjectKeepsItsCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> a = []; if (Kept.Count >= 0) { a.Add(Ab458ArrE[0]); } a.Add(Ab458ArrE[0]); a[1].Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
+
+    // S15711. AB458: a list holds only new objects that an Add in a branch puts in. A read of element 0 of a static array does not get the write through item 0.
+    public static Cell<int> Ab458AListOfNewObjectsKeepsTheElementOfTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [new SettableSlot()]; if (Kept.Count >= 0) { a.Add(new SettableSlot()); } Ab458ArrF[0].Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(Ab458ArrF[0].Share!.Sample()); });
+
+    // S15712. AB458: a ref local names element 1 of a local array, from an index that a call gives. The local d goes into element 0, and the ref local gives element 1 a different object. Thus, the write through element 0 reaches the read through d.
+    public static Cell<int> Ab458ARefLocalOfACallIndexGivesTheSecondElementADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab458ArrG[0], Ab458ArrG[1]]; SettableSlot d = Ab458ArrG[2]; ref SettableSlot r = ref a[Ab458One()]; a[0] = d; r = Ab458ArrG[3]; d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15713. AB458: a literal has element 0 of a static array two times. The write goes through an index in a local that is not a constant. A read of element 0 gets the write.
+    public static Cell<int> Ab458AWriteAtAnIndexThatIsNotAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [Ab458ArrH[0], Ab458ArrH[0]]; int i = Kept.Count >= 0 ? 1 : 0; Ab458ArrH[0].Share = Plain; a[i].Share = l.Map(v => v); return S.Hold(Ab458ArrH[0].Share!.Sample()); });
+
+    // S15714. AB458: the code reads the count of a literal of element 0 and element 1 of a static array. A read of element 0 does not get the write through item 1.
+    public static Cell<int> Ab458ACountOfALiteralKeepsEachIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [Ab458ArrJ[0], Ab458ArrJ[1]]; Kept.Add(a.Count); Ab458ArrJ[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab458ArrJ[0].Share!.Sample()); });
+
+    // S15715. AB458: a local gets a literal with element 0 of a static array two times, and then a literal with element 1 two times. A read of element 0 does not get the write through item 1.
+    public static Cell<int> Ab458ASecondLiteralOfASecondElementKeepsEachIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [Ab458ArrK[0], Ab458ArrK[0]]; a = [Ab458ArrK[1], Ab458ArrK[1]]; Ab458ArrK[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab458ArrK[0].Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119519,6 +119559,22 @@ public static class Shapes
             return this.Items[^1].Sample();
         }
     }
+
+    private static readonly SettableSlot[] Ab458ArrA = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrB = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrC = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrD = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrE = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrF = [new SettableSlot(), new SettableSlot()];
+
+    private static readonly SettableSlot[] Ab458ArrG = [new SettableSlot(), new SettableSlot(), new SettableSlot(), new SettableSlot()];
+
+    private static int Ab458One() => Ab458ArrG.Length - 3;
+
+    private static readonly SettableSlot[] Ab458ArrH = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrJ = [new SettableSlot(), new SettableSlot()];
+
+    private static readonly SettableSlot[] Ab458ArrK = [new SettableSlot(), new SettableSlot()];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

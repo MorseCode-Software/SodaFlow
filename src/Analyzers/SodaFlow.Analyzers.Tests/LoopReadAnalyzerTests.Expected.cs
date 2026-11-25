@@ -9218,6 +9218,13 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab464AnInitializerWritesInAnArmThatDoesNotRun"] = ["SF1001"],
             ["Ab465ACalleeOnThisGivesTheFieldOfASecondObjectANewList"] = ["SF1004"],
             ["Ab465ACalleeGivesTheFieldOfThisANewListInABranch"] = ["SF1004"],
-            ["Ab465ACalleeOnThisAndALocalOfASecondObject"] = ["SF1004"]
+            ["Ab465ACalleeOnThisAndALocalOfASecondObject"] = ["SF1004"],
+            ["Ab458AnAddInABranchAndAnAddAfterIt"] = ["SF1001"],
+            ["Ab458AnInsertAtTheFront"] = ["SF1001"],
+            ["Ab458TwoAddsInALoop"] = ["SF1001"],
+            ["Ab458AnAddInABranchOfALocalOfAnUnknownObject"] = ["SF1001"],
+            ["Ab458ARefLocalOfACallIndexGivesTheSecondElementADifferentObject"] = ["SF1001"],
+            ["Ab195ElementGetsALocalAndARefLocalOfAnUnknownIndexGivesItADifferentObject"] = ["SF1001"],
+            ["Ab458AWriteAtAnIndexThatIsNotAConstant"] = ["SF1001"]
         };
 }

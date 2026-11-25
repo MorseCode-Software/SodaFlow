@@ -126,7 +126,11 @@ internal sealed partial class LoopReadAnalyzerTests
         "Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheSecond",
         // A class with no static constructor can run its initializers before the block writes the field. Thus,
         // after the initializers, the field keeps the pending cell of the block also.
-        "Ab464AnInitializerWritesAndTheBlockReadsWithNoStaticConstructor"
+        "Ab464AnInitializerWritesAndTheBlockReadsWithNoStaticConstructor",
+        // A ref local names an element at an index that a call gives, and a put through it gives that element a
+        // different object. The analyzer does not read the index. Thus, each element can hold the object that
+        // went in before, as Ab458ARefLocalOfACallIndexGivesTheSecondElementADifferentObject shows for index 1.
+        "Ab195ElementGetsALocalAndARefLocalOfAnUnknownIndexGivesItADifferentObject"
     ];
 
     private static readonly Assembly[] ShapeLibraries =

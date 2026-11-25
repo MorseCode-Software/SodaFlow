@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
@@ -143,11 +144,12 @@ internal sealed partial class LoopStateEvaluator
         bool isKnown = AreKnown(has.Objects);
 
         return writes.Any(write => write.At > own
-                                   && (write.Name is { } through
-                                       ? name is { } read
-                                         && (!isKnown || !has.Objects.Any(write.Objects.Contains))
-                                         && this.AreLinked(one: read, other: through, use: owner)
-                                       : !isKnown || !AreKnown(write.Objects)))
+                                   && ((write.CanBeAnUnknownObject && !isKnown)
+                                       || (write.Name is { } through
+                                           ? name is { } read
+                                             && (!isKnown || !has.Objects.Any(write.Objects.Contains))
+                                             && this.AreLinked(one: read, other: through, use: owner)
+                                           : !isKnown || !AreKnown(write.Objects))))
             ? field
             : LoopState.None;
     }
@@ -165,7 +167,11 @@ internal sealed partial class LoopStateEvaluator
 
         if (name != null || !canBeADifferentObject)
         {
-            this.region.NotesAWriteThroughAName(member: member, name: name, objects: has.Objects);
+            this.region.NotesAWriteThroughAName(
+                member: member,
+                name: name,
+                objects: has.Objects,
+                canBeAnUnknownObject: !AreKnown(has.Objects) && this.IsAnElementWithNoKnownValue(written));
         }
     }
 
@@ -326,4 +332,60 @@ internal sealed partial class LoopStateEvaluator
             }
         }
     }
+
+    // True for an element of a local collection that its declaration makes. The walk does not know which value went in
+    // at each index: see KeepsItsIndexes. An element at an index that is not a constant is such a use itself. Thus,
+    // the element can be each object that went in, also one that the store does not know.
+    private bool IsAnElementWithNoKnownValue(ExpressionSyntax? written) =>
+        written != null
+        && Unwrapped(written) is ElementAccessExpressionSyntax { Expression: var of }
+        && Unwrapped(of) is IdentifierNameSyntax collection
+        && this.region.SymbolOf(collection) is ILocalSymbol { RefKind: RefKind.None } local
+        && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+            is VariableDeclaratorSyntax { Initializer.Value: var made }
+        && MakesANewCollection(made)
+        && !this.KeepsItsIndexes(local);
+
+    // True for a local collection that its declaration makes, where the walk knows the index of each value. Each use
+    // of the local is an element at a constant index, an Add at the first level of its block, or a read. See IsARead.
+    // An assignment of a new collection is such a use also. A put at a constant index and a literal have links: see
+    // NotesALinkOfALocation and NotesTheLinksOfALiteral.
+    private bool KeepsItsIndexes(ISymbol local)
+    {
+        if (this.region.KeepsItsIndexes.TryGetValue(key: local, value: out bool keeps))
+        {
+            return keeps;
+        }
+
+        keeps =
+            local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                is VariableDeclaratorSyntax { Initializer.Value: var made } declarator
+            && MakesANewCollection(made)
+            && declarator.FirstAncestorOrSelf<BlockSyntax>() is { } scope
+            && scope.DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Where(name => name.Identifier.ValueText == local.Name
+                               && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(name), y: local))
+                .All(name =>
+                    name.Parent switch
+                    {
+                        ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } at } element
+                            when element.Expression == name => this.ConstantIndexOf(at[0]) != null,
+                        AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment
+                            when assignment.Left == name => MakesANewCollection(assignment.Right),
+                        _ => this.AddedBy(use: name, scope: scope) != null || this.IsARead(name)
+                    });
+
+        this.region.KeepsItsIndexes[local] = keeps;
+
+        return keeps;
+    }
+
+    // True for a literal or a creation, which makes a new collection.
+    private static bool MakesANewCollection(ExpressionSyntax value) =>
+        Unwrapped(value)
+            is CollectionExpressionSyntax
+            or ArrayCreationExpressionSyntax
+            or ImplicitArrayCreationExpressionSyntax
+            or BaseObjectCreationExpressionSyntax;
 }
