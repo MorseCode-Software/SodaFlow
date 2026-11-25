@@ -44,6 +44,26 @@ behavior, those tests are the specification.
 A separate set in the same project counts live objects with dotMemory. Those carry `[Skip("Requires dotMemory.")]`, so
 every run skips them, CI included. Remove the attribute locally to run one with dotMemory installed.
 
+## Conformance with the denotational semantics
+
+The [Denotational semantics](docs/docs/semantics.md) page says that SodaFlow is tested against the specification.
+`DenotationalSemanticsTests` transcribes the Haskell reference cases into both language surfaces, the same cases in
+each, case for case, and asserts that SodaFlow produces the specified occurrences:
+
+| | |
+| --- | --- |
+| C# | `src/CSharp/SodaFlow.Tests/DenotationalSemanticsTests.cs` |
+| F# | `src/FSharp/SodaFlow.FSharp.Tests/DenotationalSemanticsTests.fs` |
+
+They cover `Never`, `MapS`, `Snapshot`, `Merge`, `Filter`, `SwitchS`, `Updates`, `Split`, `Constant`, `Hold`, `MapC`,
+`Apply`, and `Sample`, the primitives the paper defines, plus the .NET additions `Value`, `ListenC`, `ConstantLazy`,
+`SwitchC`, and `SampleLazy`.
+
+Each test drives a simulated timeline: streams are given fixed occurrences at integer times, the transaction at each
+time is run, and the observed output list is compared against the value the specification requires.
+`Test_Merge_TestCase` in C#, and `Merge: Test Case` in F#, for instance, pins down exactly what simultaneous
+occurrences produce, which is the case most libraries leave undefined.
+
 ## Reactive collections
 
 What the [Reactive collections](docs/docs/collections.md) page promises a user, and the costs it gives, rest on the
