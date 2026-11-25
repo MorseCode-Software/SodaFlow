@@ -9159,6 +9159,17 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab442PatternOfASealedTypeOfThePlatform"] = ["SF1004"],
             ["Ab442PatternOfASealedSubclassOfAList"] = ["SF1004"],
             ["Ab442MethodWritesTheParameterBeforeThePattern"] = ["SF1004"],
-            ["Ab442GenericMethodWritesItsParameter"] = ["SF1004"]
+            ["Ab442GenericMethodWritesItsParameter"] = ["SF1004"],
+            ["Ab441FirstOfAnImmutableArrayFromCreate"] = ["SF1001"],
+            ["Ab441IndexOfAnImmutableArrayFromCreate"] = ["SF1001"],
+            ["Ab441FirstOfAnImmutableArrayFromCreateOfANewObject"] = ["SF1001"],
+            ["Ab441FirstOfAnImmutableArrayFromCreateRange"] = ["SF1001"],
+            ["Ab441FirstOfToImmutableArray"] = ["SF1001"],
+            ["Ab441FirstOfAnImmutableListFromCreate"] = ["SF1001"],
+            ["Ab441ForeachOverAnImmutableArrayFromCreate"] = ["SF1001"],
+            ["Ab441FirstOfAnImmutableArrayOfTheCaughtObject"] = ["SF1001"],
+            ["Ab441IndexOfToArray"] = ["SF1001"],
+            ["Ab441ValueOfAPairFromCreate"] = ["SF1001"],
+            ["Ab441ItemOfATupleFromCreate"] = ["SF1001"]
         };
 }

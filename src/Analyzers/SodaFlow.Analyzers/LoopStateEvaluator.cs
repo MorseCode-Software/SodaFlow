@@ -3350,7 +3350,8 @@ internal sealed partial class LoopStateEvaluator
         // no type argument, but it keeps the value that it gets.
         bool holdsState =
             this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly)
-            || SodaFlowSymbols.KeepsAJsonValue(definition);
+            || SodaFlowSymbols.KeepsAJsonValue(definition)
+            || HoldsExceptions(method.ReturnType);
 
         // Reflection makes an object or calls a method that the analyzer cannot follow. Its
         // result is not one of the values that it got.

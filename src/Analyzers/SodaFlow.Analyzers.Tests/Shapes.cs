@@ -64354,6 +64354,62 @@ public static class Shapes
     public static Cell<int> Ab442GenericMethodWritesItsParameter() =>
         Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAGeneric(e.InnerExceptions[0], e.InnerExceptions[0])); } return S.Hold(0); });
 
+    // S15616. ImmutableArray.Create puts the object of a catch into an array of exceptions. First of the array is the object, and the catch samples its member.
+    public static Cell<int> Ab441FirstOfAnImmutableArrayFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(e); Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15617. ImmutableArray.Create puts the object of a catch into an array of exceptions. The element at index 0 is the object, and the catch samples its member.
+    public static Cell<int> Ab441IndexOfAnImmutableArrayFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(e); Kept.Add(((R4CsFault)all[0]).Share.Sample()); } return S.Hold(0); });
+
+    // S15618. ImmutableArray.Create puts a new object into an array of exceptions. First of the array is that object, and the code samples its member.
+    public static Cell<int> Ab441FirstOfAnImmutableArrayFromCreateOfANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(new R4CsFault(l.Map(v => v))); Kept.Add(((R4CsFault)all.First()).Share.Sample()); return S.Hold(0); });
+
+    // S15619. ImmutableArray.CreateRange copies a list that holds the object of a catch. First of the copy is the object, and the catch samples its member.
+    public static Cell<int> Ab441FirstOfAnImmutableArrayFromCreateRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { List<Exception> list = [e]; ImmutableArray<Exception> all = ImmutableArray.CreateRange(list); Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15620. ToImmutableArray copies a list that holds the object of a catch. First of the copy is the object, and the catch samples its member.
+    public static Cell<int> Ab441FirstOfToImmutableArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { List<Exception> list = [e]; ImmutableArray<Exception> all = list.ToImmutableArray(); Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15621. ImmutableList.Create puts the object of a catch into a list of exceptions. First of the list is the object, and the catch samples its member.
+    public static Cell<int> Ab441FirstOfAnImmutableListFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableList<Exception> all = ImmutableList.Create<Exception>(e); Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15622. A foreach over an array of exceptions from ImmutableArray.Create gives the object of the catch, and the catch samples its member.
+    public static Cell<int> Ab441ForeachOverAnImmutableArrayFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(e); foreach (Exception one in all) { Kept.Add(((R4CsFault)one).Share.Sample()); } } return S.Hold(0); });
+
+    // S15623. A catch puts its object into an ImmutableArray of exceptions with a collection expression. First of the array is the object, and the catch samples its member.
+    public static Cell<int> Ab441FirstOfAnImmutableArrayOfTheCaughtObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableArray<Exception> all = [e]; Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15624. ImmutableArray.Create puts a second object with a plain cell into an array of exceptions. First of the array is that object, thus the sample returns.
+    public static Cell<int> Ab441FirstOfAnImmutableArrayFromCreateOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault) { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(new R4CsFault(Plain)); Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15625. ImmutableArray.Create puts the object of a catch into an array of exceptions. The code samples only a plain cell, thus it returns.
+    public static Cell<int> Ab441ImmutableArrayFromCreateWithNoReadOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(e); Kept.Add(all.Length + Plain.Sample()); } return S.Hold(0); });
+
+    // S15626. ToArray copies a list that holds the object of a catch into an array of exceptions. The element at index 0 is the object, and the catch samples its member.
+    public static Cell<int> Ab441IndexOfToArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { List<Exception> list = [e]; Exception[] all = list.ToArray(); Kept.Add(((R4CsFault)all[0]).Share.Sample()); } return S.Hold(0); });
+
+    // S15627. KeyValuePair.Create puts the object of a catch into a pair. The value of the pair is the object, and the catch samples its member.
+    public static Cell<int> Ab441ValueOfAPairFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { KeyValuePair<string, Exception> p = KeyValuePair.Create<string, Exception>("a", e); Kept.Add(((R4CsFault)p.Value).Share.Sample()); } return S.Hold(0); });
+
+    // S15628. Tuple.Create puts the object of a catch into a tuple. The first item of the tuple is the object, and the catch samples its member.
+    public static Cell<int> Ab441ItemOfATupleFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Tuple<Exception> p = Tuple.Create<Exception>(e); Kept.Add(((R4CsFault)p.Item1).Share.Sample()); } return S.Hold(0); });
+
+    // S15629. A list of cells gives an ImmutableArray of numbers. A pattern of the type of a cell on a number is always false, thus the code never samples.
+    public static Cell<int> Ab441NumbersFromALinkedListOfCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; ImmutableArray<int> n = cells.Select(static c => 1).ToImmutableArray(); foreach (object o in n) { if (o is Cell<int> c) { Kept.Add(c.Sample()); } } return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
