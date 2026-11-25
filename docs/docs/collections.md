@@ -649,8 +649,8 @@ sorting the whole collection.
 
 ## Measuring it
 
-The claim above — that per-item observation is proportional to the number of bound rows and
-independent of the collection size — is measured against the two shapes people reach for
+The claim above — that the cost of an edit follows neither the size of the collection nor the
+number of rows that watch other keys — is measured against the two shapes people reach for
 instead: a cell sink per mutable value per object, and the same cells fed from one shared edit
 stream. The benchmarks behind the tables on this page, and how to run them, are in
 [`src/CSharp/SodaFlow.Benchmarks`](https://github.com/MorseCode-Software/SodaFlow/tree/main/src/CSharp/SodaFlow.Benchmarks)
