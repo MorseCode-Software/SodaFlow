@@ -481,6 +481,7 @@ internal sealed partial class LoopStateEvaluator
             {
                 held.Add(one);
                 one.Members.RemoveAll(each => each.Member.Name == member.Name);
+                one.ThroughASecondName.RemoveAll(each => each.Member.Name == member.Name);
             }
             else if (isOfIt
                          ? !one.Members.Any(each =>
@@ -501,6 +502,13 @@ internal sealed partial class LoopStateEvaluator
                                 At = this.region.MemberWrites
                             };
                     }
+                }
+
+                if (use != null
+                    && ((name is { } second && this.CanHoldTheObjectOf(names: one, second: second, use: use))
+                        || this.IsASecondCallOf(names: one, use: use)))
+                {
+                    one.ThroughASecondName.Add((member.OriginalDefinition, state));
                 }
             }
         }
@@ -525,6 +533,95 @@ internal sealed partial class LoopStateEvaluator
         {
             one.Members.Add((member.OriginalDefinition, end, state, true, this.region.MemberWrites));
         }
+    }
+
+    // True when a write through a name can be a write to the object of a record of names. The record
+    // has a static field, and the name is a second static field or a name of a record with one. The
+    // walk does not read each code that gives a static field a value. Thus, the two fields can hold
+    // one object. Two fields that each keep the object of their creation hold two objects, and so do
+    // two fields where one holds its object alone.
+    private bool CanHoldTheObjectOf(
+        NamesOfOneObject names,
+        (ISymbol Of, ISymbol? Owner, object? Index) second,
+        SyntaxNode use)
+    {
+        IFieldSymbol[] fields =
+        [
+            .. names.Names
+                .Select(static name => StaticFieldOf(of: name.Of, owner: name.Owner, index: name.Index))
+                .OfType<IFieldSymbol>()
+        ];
+
+        return fields.Length > 0
+               && this.Frame.NamesOfOneObject
+                   .Where(one => one.Names.Any(name => this.IsTheName(name: name, read: second, use: use)))
+                   .SelectMany(static one => one.Names)
+                   .Select(static name => StaticFieldOf(of: name.Of, owner: name.Owner, index: name.Index))
+                   .Append(StaticFieldOf(of: second.Of, owner: second.Owner, index: second.Index))
+                   .OfType<IFieldSymbol>()
+                   .Any(field =>
+                       !fields.Contains(value: field, comparer: SymbolEqualityComparer.Default)
+                       && fields.Any(other => this.CanHoldOneObject(one: other, second: field)));
+
+        static IFieldSymbol? StaticFieldOf(ISymbol of, ISymbol? owner, object? index) =>
+            owner == null && index == null && of is IFieldSymbol { IsStatic: true } field ? field : null;
+    }
+
+    // True when a write through the result of a call can be a write to the object of a record of
+    // names. The record has a local whose only value is the result of a call of the same method. The
+    // write is through such a call or such a local. Two calls of one method can give one object, and
+    // the walk does not know which: see NotesAnOlderResult.
+    private bool IsASecondCallOf(NamesOfOneObject names, SyntaxNode use) =>
+        use is ExpressionSyntax written
+        && this.CallThatGave(written) is { } second
+        && names.Names.Any(name =>
+            name is { Of: ILocalSymbol local, Owner: null, Index: null }
+            && this.OnlyValueOf(local) is { } value
+            && this.CallThatGave(value) is { } first
+            && this.CanGiveOneObject(one: first, other: second));
+
+    // The call that gives an expression. The call is the expression, or it is the only value of a
+    // local. Null for each other expression, and for a method whose each call makes a new object.
+    private InvocationExpressionSyntax? CallThatGave(ExpressionSyntax expression) =>
+        Unwrapped(expression) switch
+        {
+            InvocationExpressionSyntax call
+                when this.region.SymbolOf(call) is IMethodSymbol method
+                     && !this.region.Symbols.MakesItsResult(method.OriginalDefinition) => call,
+            IdentifierNameSyntax name
+                when this.region.SymbolOf(name) is ILocalSymbol { RefKind: RefKind.None } local
+                     && this.OnlyValueOf(local) is { } value
+                     && Unwrapped(value) is InvocationExpressionSyntax => this.CallThatGave(value),
+            _ => null
+        };
+
+    // True when two static fields can hold one object: see CanHoldTheObjectOf.
+    private bool CanHoldOneObject(IFieldSymbol one, IFieldSymbol second) =>
+        (this.region.Symbols.Unchanged.CreationOf(one) == null
+         || this.region.Symbols.Unchanged.CreationOf(second) == null)
+        && !this.HoldsItsObjectAlone(one);
+
+    // The state of a read of a member through a name of a record, from the writes through a second
+    // name: see CanHoldTheObjectOf and IsASecondCallOf. None where no record is for the read.
+    private LoopState WrittenThroughASecondName(MemberAccessExpressionSyntax read)
+    {
+        if (this.quiet
+            || !this.Frame.NamesOfOneObject.Any(static one => one.ThroughASecondName.Count > 0)
+            || this.region.SymbolOf(read) is not { } member
+            || this.NameOfAnObjectIn(read.Expression) is not { } name)
+        {
+            return LoopState.None;
+        }
+
+        ISymbol definition = member.OriginalDefinition;
+
+        return this.Frame.NamesOfOneObject
+            .Where(one =>
+                one.ThroughASecondName.Count > 0
+                && one.Names.Any(each => this.IsTheName(name: each, read: name, use: read.Expression)))
+            .SelectMany(static one => one.ThroughASecondName)
+            .Where(each => SymbolEqualityComparer.Default.Equals(x: each.Member, y: definition))
+            .Aggregate(seed: LoopState.None, func: static (all, each) => all.Join(each.State));
     }
 
     // The position of the creation that made the object of an expression. The expression is the

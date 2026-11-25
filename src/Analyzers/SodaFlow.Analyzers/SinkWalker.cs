@@ -1287,7 +1287,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         this.Report(current);
 
-        return current?.State ?? LoopState.None;
+        return (current?.State ?? LoopState.None).Join(
+            this.ValueOfAnAutoProperty(
+                owner: this.evaluator.NowInTheStore(enumerator.State),
+                property: calls.Current));
     }
 
     // A foreach calls Dispose on an enumerator that has it, when the loop ends. An await in the body
@@ -1310,7 +1313,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
     public override void VisitIsPatternExpression(IsPatternExpressionSyntax node)
     {
-        this.DeclarePattern(pattern: node.Pattern, state: this.evaluator.Eval(node.Expression));
+        this.DeclarePattern(pattern: node.Pattern, state: this.evaluator.Eval(node.Expression), value: node.Expression);
         base.VisitIsPatternExpression(node);
     }
 
@@ -1323,7 +1326,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                      .SelectMany(static section => section.Labels)
                      .OfType<CasePatternSwitchLabelSyntax>())
         {
-            this.DeclarePattern(pattern: label.Pattern, state: state);
+            this.DeclarePattern(pattern: label.Pattern, state: state, value: node.Expression);
         }
 
         // A goto case or a goto default to a section at or before its own runs that section again.
@@ -1405,7 +1408,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
 
         foreach (SwitchExpressionArmSyntax arm in node.Arms)
         {
-            this.DeclarePattern(pattern: arm.Pattern, state: state);
+            this.DeclarePattern(pattern: arm.Pattern, state: state, value: node.GoverningExpression);
         }
 
         this.VisitTheArmsThatCanRun(node);
@@ -1422,7 +1425,15 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
     ///     True when the value is the element at a position of a list pattern,
     ///     and the state is the state of that one position.
     /// </param>
-    private void DeclarePattern(PatternSyntax pattern, LoopState state, bool isAPosition = false)
+    /// <param name="value">
+    ///     The expression that the pattern tests. Null for a pattern of a part
+    ///     of that value.
+    /// </param>
+    private void DeclarePattern(
+        PatternSyntax pattern,
+        LoopState state,
+        bool isAPosition = false,
+        ExpressionSyntax? value = null)
     {
         // A getter that a pattern reads can read a field that the block set, on an object with no
         // state of its own.
@@ -1438,7 +1449,9 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             switch (pattern)
             {
                 case DeclarationPatternSyntax declaration:
-                    this.DeclareDesignation(designation: declaration.Designation, state: state);
+                    this.DeclareDesignation(
+                        designation: declaration.Designation,
+                        state: this.MatchedBy(type: declaration.Type, value: value, state: state));
 
                     return;
                 case VarPatternSyntax variable:
@@ -1447,6 +1460,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     return;
                 case RecursivePatternSyntax recursive:
                 {
+                    state = this.MatchedBy(type: recursive.Type, value: value, state: state);
                     this.DeclareDesignation(designation: recursive.Designation, state: state);
 
                     foreach (SubpatternSyntax part in recursive.PropertyPatternClause?.Subpatterns ?? default)
@@ -1463,7 +1477,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     return;
                 }
                 case BinaryPatternSyntax binary:
-                    this.DeclarePattern(pattern: binary.Left, state: state, isAPosition: isAPosition);
+                    this.DeclarePattern(pattern: binary.Left, state: state, isAPosition: isAPosition, value: value);
                     pattern = binary.Right;
 
                     continue;
@@ -2171,6 +2185,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 this.AlwaysRunsAt(place: statement, turn: out turn),
             // The expression that is the body of a function is the one statement of that function.
             ArrowExpressionClauseSyntax clause => this.AlwaysRunsAt(place: clause, turn: out turn),
+            EqualsValueClauseSyntax clause when IsTheInitializerOfAStaticMember(clause) =>
+                this.AlwaysRunsAt(place: clause, turn: out turn),
             AnonymousFunctionExpressionSyntax lambda when lambda.ExpressionBody == assignment =>
                 this.AlwaysRunsAt(place: assignment, turn: out turn),
             _ => false
@@ -2232,6 +2248,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     or IfStatementSyntax
                     or ArrowExpressionClauseSyntax:
                     return parent;
+                case EqualsValueClauseSyntax clause when IsTheInitializerOfAStaticMember(clause):
+                    return clause;
                 case AnonymousFunctionExpressionSyntax lambda:
                     return lambda.ExpressionBody == child ? child : null;
                 case StatementSyntax or SwitchExpressionArmSyntax or QueryClauseSyntax or SelectOrGroupClauseSyntax:
@@ -2509,6 +2527,12 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             target = around.Expression;
         }
 
+        // No name holds the new array of a range of an array. Thus, no read can see a put into it.
+        if (this.evaluator.IsAnElementOfANewArrayOfARange(target))
+        {
+            return;
+        }
+
         // A conditional ref is the location of one of its two branches, and the walk does not know which.
         if (target is ConditionalExpressionSyntax
             {
@@ -2597,6 +2621,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         this.evaluator.NotesALocalOfALocation(location: target, value: value, replaces: replaces);
         this.evaluator.NotesNamesOfOneObject(target: target, value: value, replaces: replaces);
         this.evaluator.NotesALinkOfALocation(location: target, value: value, replaces: replaces);
+        this.evaluator.NotesTwoFieldsOfOneList(target: target, value: value, replaces: replaces);
 
         if (target is ElementAccessExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax)
         {
@@ -3347,7 +3372,12 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 {
                     LoopState sent = this.evaluator.Eval(arguments[0].Expression).AsContent;
 
-                    this.evaluator.Merge(target: receiver, state: sent);
+                    // A sink that fires only what its coalesce function returns has that value from its creation.
+                    if (!this.evaluator.FiresOnlyWhatItsFunctionReturns(receiver))
+                    {
+                        this.evaluator.Merge(target: receiver, state: sent);
+                    }
+
                     this.evaluator.Sends(sink: receiver, content: sent);
                 }
 
@@ -5045,7 +5075,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     ofACaller: this.sink);
         }
 
-        if (!state.Pending)
+        if (!state.Pending || IsReplacedByAFinally(node))
         {
             return;
         }

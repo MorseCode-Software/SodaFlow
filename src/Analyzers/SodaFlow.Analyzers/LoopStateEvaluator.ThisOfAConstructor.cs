@@ -113,7 +113,9 @@ internal sealed partial class LoopStateEvaluator
     // In the walk of a constructor, a call or a creation can get this as an argument. Its code can
     // then give a delegate member of this a different value. The walk does not read that code when
     // the call gets no state. Thus, after such a call, each such member also has each value that the
-    // code of the class gives it.
+    // code of the class gives it. The same is true for a member that holds a cell or a Lazy, whose
+    // function runs at a read. The call can run a private method of the class through reflection or
+    // through a nested type, and that method can build the member again.
     private void GivesThisToACall(SyntaxNode at)
     {
         if (at.Parent is not ArgumentSyntax
@@ -130,12 +132,17 @@ internal sealed partial class LoopStateEvaluator
 
         foreach (ISymbol member in Construction.FieldsOf(type)
                      .Concat<ISymbol>(Construction.PropertiesOf(type))
-                     .Where(static member =>
-                         member is { IsStatic: false }
-                             and (IFieldSymbol { Type.TypeKind: TypeKind.Delegate }
-                             or IPropertySymbol { Type.TypeKind: TypeKind.Delegate })))
+                     .Where(member => member is { IsStatic: false } && this.CanHoldAFunction(member)))
         {
             ImmutableArray<ExpressionSyntax> values = MemberBuilds.Of(member: member, type: type);
+
+            // The walk reads a build in the code of this constructor where it runs, and keeps the value
+            // of each node. Thus, a read of that build here keeps the value from before that point.
+            if (!IsADelegate(member))
+            {
+                SyntaxNode? constructor = FunctionOf(at);
+                values = values.Where(value => FunctionOf(value) != constructor).ToImmutableArray();
+            }
 
             if (values.IsEmpty)
             {
@@ -151,6 +158,23 @@ internal sealed partial class LoopStateEvaluator
             this.WritesThisInTheStore(key);
         }
     }
+
+    // True for a field or a property whose value can be a function. That is a delegate, a cell whose
+    // function runs at a read, or a Lazy.
+    private bool CanHoldAFunction(ISymbol member) =>
+        IsADelegate(member)
+        || (TypeOfAMember(member) is { } type
+            && (SodaFlowSymbols.IsLazy(type) || this.region.Symbols.IsCarrierType(type)));
+
+    private static bool IsADelegate(ISymbol member) => TypeOfAMember(member)?.TypeKind == TypeKind.Delegate;
+
+    private static ITypeSymbol? TypeOfAMember(ISymbol member) =>
+        member switch
+        {
+            IFieldSymbol field => field.Type,
+            IPropertySymbol property => property.Type,
+            _ => null
+        };
 
     // Gives the object of the store the state that a write through this gave a member. A write
     // through a second name of the object changes the store only. Thus, the store has the last write

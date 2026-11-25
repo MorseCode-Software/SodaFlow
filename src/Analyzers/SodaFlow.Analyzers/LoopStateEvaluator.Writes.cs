@@ -71,6 +71,7 @@ internal sealed partial class LoopStateEvaluator
         if (only && !this.quiet)
         {
             this.Frame.OwnWriteOf[key] = this.region.MemberWrites;
+            this.NotesASureWriteThroughThis(key);
         }
 
         this.setOnThis[key] = only && from != null ? this.TheOneCollectionThatIs(from: from, state: state) : null;
@@ -411,7 +412,6 @@ internal sealed partial class LoopStateEvaluator
         this.Frame.GaveTo.Remove(local);
 
         if (replaces
-            && this.function == null
             && local is ILocalSymbol { RefKind: RefKind.None }
             && this.LocationKeyOf(value) != null
             && this.region.TypeOf(value) is { } type
@@ -2233,6 +2233,8 @@ internal sealed partial class LoopStateEvaluator
             from: from,
             sure: replaces && isKnown);
 
+        this.NotesAWriteThroughAResult(written: written, member: member);
+
         // A local with ref that keeps its location names that location at each use. The record of the names of one
         // object has the name of the location at this write.
         this.NotesAWriteThroughANameOfOneObject(
@@ -2675,7 +2677,9 @@ internal sealed partial class LoopStateEvaluator
     ///         That is true while no code changes the member or the name. Thus, no
     ///         write to a member came after that write, no code gave the name a
     ///         value, and no function uses the name. The value has no members and
-    ///         is no object, thus no change after the write is a change to it.
+    ///         is no object of the store. Thus, only a put through a local that
+    ///         got the value through a different name can change it. The read
+    ///         gets each put of the region through a local of the member.
     ///     </para>
     /// </remarks>
     private LoopState? WrittenThroughItsName(MemberAccessExpressionSyntax read) =>
@@ -2697,7 +2701,7 @@ internal sealed partial class LoopStateEvaluator
             after: last.Position,
             before: owner.SpanStart,
             orAFunctionUsesIt: true)
-            ? last.State.Join(this.TypeState(read))
+            ? last.State.Join(this.region.PutsThroughLocalsOf(last.Member)).Join(this.TypeState(read))
             : null;
 
     // The function that has a node in its code.

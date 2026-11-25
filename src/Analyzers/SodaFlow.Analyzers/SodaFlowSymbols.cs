@@ -106,6 +106,9 @@ internal sealed class SodaFlowSymbols
     // The fields whose object no second name can hold.
     private readonly ConcurrentDictionary<IFieldSymbol, bool> holdsItsObjectAlone = new(SymbolEqualityComparer.Default);
 
+    // The methods whose each return gives a new object of a creation.
+    private readonly ConcurrentDictionary<IMethodSymbol, bool> makesItsResult = new(SymbolEqualityComparer.Default);
+
     private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
         new(SymbolEqualityComparer.Default);
 
@@ -1223,6 +1226,73 @@ internal sealed class SodaFlowSymbols
         this.holdsItsObjectAlone.GetOrAdd(key: field, valueFactory: read);
 
     /// <summary>
+    ///     True for a method of this compilation whose each return gives an
+    ///     object that a creation in its code makes. Each call then gives a new
+    ///     object. The answer for a method is the same at each call.
+    /// </summary>
+    public bool MakesItsResult(IMethodSymbol definition) =>
+        this.makesItsResult.GetOrAdd(key: definition, valueFactory: static method => ReturnsOnlyCreations(method));
+
+    // A local function or a lambda in the body has returns of its own. A local that gets a creation in
+    // its declaration, and no other value, gives the object of that creation.
+    private static bool ReturnsOnlyCreations(ISymbol method)
+    {
+        if (method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not MethodDeclarationSyntax declared)
+        {
+            return false;
+        }
+
+        if (declared.ExpressionBody is { Expression: var only })
+        {
+            return IsACreation(expression: only, body: declared);
+        }
+
+        if (declared.Body is not { } body)
+        {
+            return false;
+        }
+
+        List<SyntaxNode> returns =
+        [
+            .. body.DescendantNodes(descendIntoChildren: static node =>
+                    node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+                .Where(static node => node is ReturnStatementSyntax or YieldStatementSyntax)
+        ];
+
+        return returns.Count > 0
+               && returns.All(each =>
+                   each is ReturnStatementSyntax { Expression: { } value }
+                   && IsACreation(expression: value, body: body));
+    }
+
+    private static bool IsACreation(ExpressionSyntax expression, SyntaxNode body) =>
+        expression switch
+        {
+            BaseObjectCreationExpressionSyntax => true,
+            ParenthesizedExpressionSyntax { Expression: var inner } => IsACreation(expression: inner, body: body),
+            ConditionalExpressionSyntax { WhenTrue: var first, WhenFalse: var second } =>
+                IsACreation(expression: first, body: body) && IsACreation(expression: second, body: body),
+            IdentifierNameSyntax { Identifier.ValueText: var name } =>
+                body.DescendantNodes()
+                    .OfType<VariableDeclaratorSyntax>()
+                    .Count(declarator => declarator.Identifier.ValueText == name) == 1
+                && body.DescendantNodes()
+                    .OfType<VariableDeclaratorSyntax>()
+                    .Single(declarator => declarator.Identifier.ValueText == name)
+                    .Initializer?.Value is BaseObjectCreationExpressionSyntax
+                && !body.DescendantNodes()
+                    .OfType<IdentifierNameSyntax>()
+                    .Any(use => use.Identifier.ValueText == name && IsGiven(use)),
+            _ => false
+        };
+
+    // True for a use of a name that can give it a value: the target of an assignment, or an argument
+    // with ref or out.
+    private static bool IsGiven(SyntaxNode use) =>
+        (use.Parent is AssignmentExpressionSyntax { Left: var target } && target == use)
+        || (use.Parent is ArgumentSyntax argument && !argument.RefKindKeyword.IsKind(SyntaxKind.None));
+
+    /// <summary>
     ///     True for a method that has a parameter whose type is a delegate. Most
     ///     methods have none, and the answer for a method is the same at each call.
     /// </summary>
@@ -1247,13 +1317,12 @@ internal sealed class SodaFlowSymbols
     ///     of numbers has no other state, but it can be a query that runs a
     ///     function.
     /// </summary>
-    public static bool CanHoldQuery(ITypeSymbol? type) => CanHoldQuery(type: type, depth: 0);
-
-    private static bool CanHoldQuery(ITypeSymbol? type, int depth) =>
-        IsEnumerated(type)
-        || (depth < 3
-            && type is INamedTypeSymbol named
-            && named.TypeArguments.Any(argument => CanHoldQuery(type: argument, depth: depth + 1)));
+    /// <remarks>
+    ///     The search goes into each type argument at each depth. The type
+    ///     arguments of a type have an end, thus the search ends.
+    /// </remarks>
+    public static bool CanHoldQuery(ITypeSymbol? type) =>
+        IsEnumerated(type) || (type is INamedTypeSymbol named && named.TypeArguments.Any(CanHoldQuery));
 
     /// <summary>
     ///     True for a method of <c>System.Linq.Enumerable</c> that makes a query

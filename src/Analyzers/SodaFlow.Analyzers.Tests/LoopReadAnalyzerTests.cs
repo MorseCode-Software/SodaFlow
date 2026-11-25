@@ -118,7 +118,34 @@ internal sealed partial class LoopReadAnalyzerTests
         // is in a branch on the result, the local had a different object before, or the call is through an interface.
         "Ab415TryGetValueInAnIfPendingThenPlain",
         "Ab415TryGetValueThroughAnInterface",
-        "Ab415TryGetValueIntoAnOlderLocal"
+        "Ab415TryGetValueIntoAnOlderLocal",
+        // A foreach calls MoveNext of an enumerator of the code before it reads Current. The walk joins the value that
+        // MoveNext gives the auto-property Current with the value that the constructor gave it.
+        "Ab439SyncCurrentReplacedInMoveNext",
+        // The analyzer cannot read the coalesce function. Thus, the sink can fire the value of each send.
+        "Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheSecond",
+        // A class with no static constructor can run its initializers before the block writes the field. Thus,
+        // after the initializers, the field keeps the pending cell of the block also.
+        "Ab464AnInitializerWritesAndTheBlockReadsWithNoStaticConstructor",
+        // A ref local names an element at an index that a call gives, and a put through it gives that element a
+        // different object. The analyzer does not read the index. Thus, each element can hold the object that
+        // went in before, as Ab458ARefLocalOfACallIndexGivesTheSecondElementADifferentObject shows for index 1.
+        "Ab195ElementGetsALocalAndARefLocalOfAnUnknownIndexGivesItADifferentObject",
+        // The local gets the list of this through the field of a second object. Then a call on this gives the field of
+        // this a new list. The record of a put through a local is for the field and not for one object. The rule for a
+        // call that gives the field a new list applies only to a local that got the list through this. Thus, a read
+        // through this gets the put also.
+        "Ab467ThisGetsANewListAndTheCodeReadsThis",
+        // A lambda gives the second field a new list after the first field got the list of the second field. A lambda
+        // can run at a different time. Thus, its assignment does not remove the link of the two fields. The put through
+        // the first field goes into the record of the second field also.
+        "Ab468ALambdaGivesTheSecondFieldANewList",
+        // The same with a method that gets the pending cell. A call can be in a branch that does not run. Thus, a link
+        // of two fields stays where a callee gives one of them a different value.
+        "Ab468AMethodGivesTheSecondFieldANewList",
+        // A local function can run before its position in the code. Thus, the new list that the field gets before the
+        // call does not stop the record of the put through the local. A read of the field gets the put.
+        "Ab469TheFieldGetsANewListBeforeTheLocalFunctionRuns"
     ];
 
     private static readonly Assembly[] ShapeLibraries =

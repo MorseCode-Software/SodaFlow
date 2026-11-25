@@ -160,7 +160,7 @@ internal sealed partial class LoopStateEvaluator
         if ((constructor?.Parent
                 ?? (atAFieldRead
                     ? owner.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                    : null)) is not TypeDeclarationSyntax type
+                    : null)) is not TypeDeclarationSyntax
             || !this.region.StartsTheType(
                 type: owner,
                 sure: this.WhereItRuns(use) is (true, _) || this.RunsInEachFirstTurn(use)))
@@ -170,9 +170,13 @@ internal sealed partial class LoopStateEvaluator
 
         try
         {
-            // The static initializers run in the order of the code, and then the body.
+            // The static initializers run in the order of the code, and then the body. Each part of a
+            // partial type has initializers. The compiler runs the parts in the order of their declarations.
             IEnumerable<SyntaxNode> parts =
-                type.Members
+                owner.OriginalDefinition.DeclaringSyntaxReferences
+                    .Select(static reference => reference.GetSyntax())
+                    .OfType<TypeDeclarationSyntax>()
+                    .SelectMany(static declaration => declaration.Members)
                     .Where(static part => part.Modifiers.Any(SyntaxKind.StaticKeyword))
                     .SelectMany(InitializersOf)
                     .OfType<SyntaxNode>();
@@ -182,9 +186,14 @@ internal sealed partial class LoopStateEvaluator
                 parts = parts.Append(body);
             }
 
-            // The runtime replaces each object that the constructor throws with a TypeInitializationException.
-            return this.Wrapped(
-                followed: parts.Aggregate(
+            // A write in an initializer replaces the state of a static field for the code after it. The runtime can
+            // run the initializers of a type with no static constructor before the block writes the field. Thus,
+            // after them, the field also keeps the state of the time before them.
+            (Dictionary<ISymbol, LoopState> Fields, Dictionary<ISymbol, LoopState> Closed)? earlier =
+                constructor == null ? this.region.TheFieldsNow() : null;
+
+            Followed? followed =
+                parts.Aggregate(
                     seed: (Followed?)null,
                     func: (all, part) =>
                         Both(
@@ -197,8 +206,15 @@ internal sealed partial class LoopStateEvaluator
                                 definer: null,
                                 members: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
                                 receiver: null,
-                                target: null))),
-                wrapper: "System.TypeInitializationException");
+                                target: null)));
+
+            if (earlier is { } before)
+            {
+                this.region.JoinsTheFieldsOf(before);
+            }
+
+            // The runtime replaces each object that the constructor throws with a TypeInitializationException.
+            return this.Wrapped(followed: followed, wrapper: "System.TypeInitializationException");
         }
         finally
         {

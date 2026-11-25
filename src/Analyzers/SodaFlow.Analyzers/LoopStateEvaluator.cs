@@ -182,9 +182,7 @@ internal sealed partial class LoopStateEvaluator
                     dictionary: this.locals,
                     comparer: SymbolEqualityComparer.Default),
                 assigned: new HashSet<ISymbol>(collection: this.assigned, comparer: SymbolEqualityComparer.Default),
-                thisMembers: new Dictionary<ISymbol, LoopState>(
-                    dictionary: this.thisMembers,
-                    comparer: SymbolEqualityComparer.Default),
+                thisMembers: this.ACopyOfTheRecordOfThis(),
                 setOnThis: new Dictionary<ISymbol, MadeObject?>(
                     dictionary: this.setOnThis,
                     comparer: SymbolEqualityComparer.Default),
@@ -879,7 +877,9 @@ internal sealed partial class LoopStateEvaluator
 
         if (KeepsItsObject(local))
         {
-            this.NotesALink(name: new NameKey(of: local, owner: null, index: -1), value: value, replaces: replaces);
+            NameKey name = new(of: local, owner: null, index: -1);
+            this.NotesALink(name: name, value: value, replaces: replaces);
+            this.NotesTheLinksOfALiteral(name: name, value: value);
         }
 
         this.NotesANameOfThis(local: local, location: null, value: value, replaces: replaces);
@@ -1464,7 +1464,9 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     /// <remarks>
     ///     A struct is a copy at each assignment, thus a second name of it is not
-    ///     the same object. It holds the objects of its parts in its members. An
+    ///     the same object. It is no object of the store, and it holds the objects
+    ///     that it got, as a new collection does. An ArraySegment holds the objects
+    ///     of its array, and a tuple holds the objects of its parts. An
     ///     evaluator that reads code which does not run now makes no object. The
     ///     body of a loop makes the object of this turn. Other code that can run
     ///     two or more times makes two or more objects. The store has none of
@@ -1477,17 +1479,12 @@ internal sealed partial class LoopStateEvaluator
     {
         TypeInfo info = this.region.ModelFor(place).GetTypeInfo(place);
 
-        if ((info.Type ?? info.ConvertedType) is not { IsReferenceType: true } type)
-        {
-            return OfAStruct(place: place, state: state);
-        }
-
         // A new collection holds the objects that it got, and is not one of them. Members of a
         // value that no object of the store is are only here. Thus, the collection then holds an
         // object that the store does not know.
         LoopState apart = HoldingItsObjects(state);
 
-        if (this.quiet)
+        if ((info.Type ?? info.ConvertedType) is not { IsReferenceType: true } type || this.quiet)
         {
             return apart;
         }
@@ -2246,6 +2243,10 @@ internal sealed partial class LoopStateEvaluator
                 {
                     named = named.Join(before);
                 }
+                else if (symbol is ILocalSymbol local && this.BeforeItsPatternIsRead(local) is { } matched)
+                {
+                    named = named.Join(matched);
+                }
 
                 named = this.WithItsField(local: symbol, use: expression, state: named);
 
@@ -2412,6 +2413,11 @@ internal sealed partial class LoopStateEvaluator
                                 member: symbol,
                                 field: field));
 
+                        if (expression is MemberAccessExpressionSyntax named)
+                        {
+                            through = through.Join(this.WrittenThroughASecondName(named));
+                        }
+
                         // The members are of each object that the owner can be. An owner that the
                         // store does not know has a member that the store does not know.
                         return (through.Objects.IsEmpty || !owner.Objects.Contains(MadeObject.Unknown)
@@ -2436,9 +2442,10 @@ internal sealed partial class LoopStateEvaluator
                     // SyncRoot of a collection is an object to lock, and not a value in it.
                     if (symbol.ContainingType.IsTupleType
                         || (symbol.Name != "SyncRoot"
-                            && this.region.Symbols.CanHoldState(
-                                type: memberType,
-                                compilation: this.region.Assembly)))
+                            && (this.region.Symbols.CanHoldState(
+                                    type: memberType,
+                                    compilation: this.region.Assembly)
+                                || GivesAnExceptionThatItHolds(member: symbol, type: memberType))))
                     {
                         // A dictionary holds its values. Its keys are objects that the store does not
                         // know as objects of the dictionary, thus a key keeps what it has.
@@ -3346,7 +3353,8 @@ internal sealed partial class LoopStateEvaluator
         // no type argument, but it keeps the value that it gets.
         bool holdsState =
             this.region.Symbols.CanHoldState(type: method.ReturnType, compilation: this.region.Assembly)
-            || SodaFlowSymbols.KeepsAJsonValue(definition);
+            || SodaFlowSymbols.KeepsAJsonValue(definition)
+            || HoldsExceptions(method.ReturnType);
 
         // Reflection makes an object or calls a method that the analyzer cannot follow. Its
         // result is not one of the values that it got.
@@ -4050,6 +4058,10 @@ internal sealed partial class LoopStateEvaluator
     ///     The expression of the value at a first read, for a value in a member.
     ///     The function then reads the members of the object of the read.
     /// </param>
+    /// <param name="withTheMembersNow">
+    ///     True when the walk gave the function the members that the store has
+    ///     now before this call: see WithTheMembersAtTheRead.
+    /// </param>
     private Followed? FollowFunction(
         SyntaxNode call,
         string name,
@@ -4058,21 +4070,25 @@ internal sealed partial class LoopStateEvaluator
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         (ExpressionSyntax Written, LoopState Given, bool ManyTimes)? each,
         ImmutableArray<LoopState> byPosition = default,
-        ExpressionSyntax? heldIn = null)
+        ExpressionSyntax? heldIn = null,
+        bool withTheMembersNow = false)
     {
-        if (heldIn != null)
+        if (heldIn != null || (!withTheMembersNow && RunsAfterTheCodeOfItsObject(function)))
         {
+            FunctionValue read = heldIn == null ? function : this.AsAGroupOfThis(function: function, at: heldIn);
+
             return this.WithTheMembersAtTheRead(
                 heldIn: heldIn,
-                function: function,
+                function: read,
                 walk: () => this.FollowFunction(
                     call: call,
                     name: name,
-                    function: function,
+                    function: read,
                     target: target,
                     arguments: arguments,
                     each: each,
-                    byPosition: byPosition));
+                    byPosition: byPosition,
+                    withTheMembersNow: true));
         }
 
         SemanticModel model = this.region.ModelFor(function.Declaration);

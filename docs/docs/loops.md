@@ -272,7 +272,15 @@ and the build is quiet.
   is thus harmless in a cell that you only keep. If you sample that cell in the block, or close the
   loop with it, the analyzer reports the sample or the close. It reads the function at that first
   read, with the values that the function reads then, so a capture or a member that becomes pending
-  after you build the cell counts too. That includes a static member that the function reaches only
+  after you build the cell counts too. So does a member of an object whose method built the cell on
+  `this` and returned it, with a method of the object given by name or a lambda that calls one, also
+  in a default method of an interface, where the block sets that member through its own name for the
+  object after the call. A delegate on `this` that such a method returns, and that the block calls,
+  reads the member in the same way. A write through the name of the object that code of the block makes while such a
+  method still runs, such as a lambda that the method gets and calls, counts for a read through
+  `this` later in that method, also through such a cell that the method samples. It counts also
+  where the method gives the cell to another method that samples it, such as a method of a
+  different object or a static method. That includes a static member that the function reaches only
   through code of yours that it runs, such as a method, a getter, an indexer, an operator, a
   conversion, or a constructor, also one called on its parameter. What the function writes there
   counts for the code after the read. A second read of the cell does not run the function again, when the analyzer knows that
@@ -357,7 +365,18 @@ The analyzer follows a value made from the placeholder through the code of your 
   `InnerException` of such an exception has the object, and so does the `InnerException` of an
   exception of the platform that you create with an inner exception, and each of the
   `InnerExceptions` of an `AggregateException`, also through `First` or another LINQ method that
-  gives one element. `Flatten` and `GetBaseException` of such an exception have the object too.
+  gives one element. `InnerExceptions` itself is none of those objects: a type pattern such as
+  `all is MyFault f` on it matches nothing, and its variable has no object. The same holds for each
+  pattern of a type that the value can never have. For a value of the type `object`, the analyzer
+  reads the type before a cast to `object`, the value of a local that no code writes, and, in a
+  method, a local function, or a lambda of your code, the argument of the call for a parameter that
+  the function does not write. For a lambda, it reads only a call of its delegate with no named
+  argument, and not a call that a method of the platform makes.
+  `Flatten` and `GetBaseException` of such an exception have the object too. So does a value that
+  a method of the platform makes from the object, where an exception is the element type or a type
+  argument of its type, such as the array of `ToArray`, an `ImmutableArray<Exception>` from
+  `ImmutableArray.Create`, or a pair from `KeyValuePair.Create`. A member whose type is that type
+  argument gives the object, as the `Result` of a `Task<Exception>` from `Task.FromResult` does.
   `GetResult` of the awaiter of a task throws the object that a function of the task threw. An
   `await` of the task of `Task.FromException` or `ValueTask.FromException`, and of the task of a
   `TaskCompletionSource` after `SetException` or `TrySetException`, throws that object too, and so
@@ -366,7 +385,11 @@ The analyzer follows a value made from the placeholder through the code of your 
   `Task.Run` whose function throws it and `Parallel.Invoke` of such a function. The `Exception` of
   the task has the object the same way. The filter of the `catch` clause gets the object too, and a
   local that the filter sets keeps it. The analyzer reports no read in a filter, because an
-  exception there is lost and makes the filter false.
+  exception there is lost and makes the filter false. For the same reason, it reports no read in a
+  `try` block or a `catch` clause whose `finally` block has a `throw` statement at its first level:
+  that `throw` replaces the exception of the read. A read still gets its report where a `catch`
+  clause with a variable sits between it and the `finally` block, because that clause can keep the
+  exception, and where the read is in a lambda or a local function, which can run later.
 - Collections, arrays, and dictionaries. A list, an array, or a span that you write as a literal
   keeps each element apart, also where the literal spreads a second such local, so `cells[0]`,
   `cells?[0]`, `cells[^1]`, `cells.ElementAt(1)`, and each element of a list pattern in an `is` or a
@@ -374,51 +397,53 @@ The analyzer follows a value made from the placeholder through the code of your 
   inside a list pattern knows the positions of the inner collection wherever a read such as
   `cells[0][1]` knows them, also after a write through two indexes or through a second name of the
   inner collection. Otherwise, it gives each of its variables every element of the inner collection.
-  An element of a range with constant bounds, as `cells[1..][0]`, is one element too. An array in a
-  static field keeps each element apart from a value that the code puts in at a constant index, as
-  in `Cells[1] = value`, also in a method that the block calls, so a read of `Cells[0]` does not get
+  An element of a range with constant bounds, as `cells[1..][0]`, is one element too. A range of an
+  array is a new array, so a value put into it, as in `cells[1..][0] = value`, does not reach
+  `cells`, while a write to a member of one of its elements does. An array in a static field keeps
+  each element apart from a value that the code puts in at a constant index, as in
+  `Cells[1] = value`, also in a method that the block calls, so a read of `Cells[0]` does not get
   that value. A value put in at any other index reaches every element. Each element of a `private`
   static array is also its own object where the initializer makes every element with `new` and no
-  code of the class gives the field or one of its elements a different value, with an assignment,
-  an increment, or a `ref`, `out`, or `in` argument, or uses the array other than through an element
-  or a local that only reads its elements. A `ref` local of an element counts as a read where the
-  code only reads or writes members through it. A write to a member through one such element at a
-  constant index then does not reach a different element, also in a method that the block calls.
-  The arguments that a call that runs one time gives one by one to a `params` parameter keep their
-  positions in the same way. A positional pattern on a tuple gives each part its own item. A
-  `Dictionary` that you write with constant keys and no comparer, and that the code then only
-  reads, keeps the value
-  of each key apart, so `cells["total"]` is that one value. A key of the type `object` has the type
-  of its constant too, so the `int` 1 and the `long` 1 are two keys. `Array.Fill` puts its value
-  into each element that it fills, as an assignment to that element would, and `Array.Reverse` of a
-  whole array moves each element to the other end. A `Span<T>`, `ReadOnlySpan<T>`, `Memory<T>`,
-  `ReadOnlyMemory<T>`, or `ArraySegment<T>` that a method makes from an array in one of its locals
-  or parameters, with an implicit conversion, `AsSpan`, `AsMemory`, a constructor, `Slice`, or a
-  range, is another name for the elements of that array, as long as neither name gets a second
-  value. That holds as well where the code makes the view and writes through it in one expression,
-  as in `cells.AsSpan(1)[0] = value`. `Fill`, a write to an element, through a `ref` local of an
-  element, or through the `ref` variable of a `foreach` over the view, and `CopyTo` into it put
-  their values into the array, and so do `CopyTo` into the array itself and `Array.Copy`. Where each
-  step from the array to the view starts at a constant, as `AsSpan(1)` or `[1..]` does, a write to
-  an element at a constant index and a `Fill` reach only the elements of the array that they write.
-  Otherwise, they reach every element. A write through the `ref` variable of a `foreach` adds its
-  value to every element of the array and does not replace what each one held. The span that
-  `CollectionsMarshal.AsSpan` makes of a local `List<T>` is another name for the elements of that
-  list in the same way, and a write through it reaches every element. A span that
-  `new Span<T>(ref local)` makes is another name for that local. A `ReadOnlyCollection<T>` that a
-  method makes of a `List<T>` in one of its locals or parameters, with `AsReadOnly` or with `new`,
-  is another name for that list, so a read through it sees each later put into the list, until the
-  local gets a different list. A write through a `ref` that an indexer, a property, a method, or a
-  local function of yours returns goes where that `ref` points: a parameter, a local of the code
-  around a local function, a static field, or a member of the object of the call or an element of
-  that member. So does a write through a `ref` local of such an indexer, and a write through a
-  conditional `ref` goes to both of its locations. A write through a `ref` local of a conditional
-  `ref`, or through a conditional `ref` that a method or a local function returns, goes to the
-  location that a constant condition selects, and to both locations where the condition is not a
-  constant. A write through a `ref` that a method returns, to a
-  static field or to an element of an array parameter, adds its value to what the location held and
-  does not replace it, so a plain cell written that way over a pending one still counts as pending.
-  A write through a `ref` local of a static field replaces what the field held, as a write to the
+  code of the class gives the field or one of its elements a different value, with an assignment, an
+  increment, or a `ref`, `out`, or `in` argument, or uses the array other than through an element or
+  a local that only reads its elements. A `ref` local of an element counts as a read where the code
+  only reads or writes members through it. A write to a member through one such element at a
+  constant index then does not reach a different element, also in a method that the block calls, and
+  neither does a write through a local whose only value is such an element, as `d` after
+  `var d = Slots[1];`. The arguments that a call that runs one time gives one by one to a `params`
+  parameter keep their positions in the same way. A positional pattern on a tuple gives each part
+  its own item. A `Dictionary` that you write with constant keys and no comparer, and that the code
+  then only reads, keeps the value of each key apart, so `cells["total"]` is that one value. A key
+  of the type `object` has the type of its constant too, so the `int` 1 and the `long` 1 are two
+  keys. `Array.Fill` puts its value into each element that it fills, as an assignment to that
+  element would, and `Array.Reverse` of a whole array moves each element to the other end. A
+  `Span<T>`, `ReadOnlySpan<T>`, `Memory<T>`, `ReadOnlyMemory<T>`, or `ArraySegment<T>` that a method
+  makes from an array in one of its locals or parameters, with an implicit conversion, `AsSpan`,
+  `AsMemory`, a constructor, `Slice`, or a range of such a view, is another name for the elements of
+  that array, as long as neither name gets a second value. That holds as well where the code makes
+  the view and writes through it in one expression, as in `cells.AsSpan(1)[0] = value`. `Fill`, a
+  write to an element, through a `ref` local of an element, or through the `ref` variable of a
+  `foreach` over the view, and `CopyTo` into it put their values into the array, and so do `CopyTo`
+  into the array itself and `Array.Copy`. Where each step from the array to the view starts at a
+  constant, as `AsSpan(1)` or `[1..]` does, a write to an element at a constant index and a `Fill`
+  reach only the elements of the array that they write. Otherwise, they reach every element. A write
+  through the `ref` variable of a `foreach` adds its value to every element of the array and does
+  not replace what each one held. The span that `CollectionsMarshal.AsSpan` makes of a local
+  `List<T>` is another name for the elements of that list in the same way, and a write through it
+  reaches every element. A span that `new Span<T>(ref local)` makes is another name for that local.
+  A `ReadOnlyCollection<T>` that a method makes of a `List<T>` in one of its locals or parameters,
+  with `AsReadOnly` or with `new`, is another name for that list, so a read through it sees each
+  later put into the list, until the local gets a different list. A write through a `ref` that an
+  indexer, a property, a method, or a local function of yours returns goes where that `ref` points:
+  a parameter, a local of the code around a local function, a static field, or a member of the
+  object of the call or an element of that member. So does a write through a `ref` local of such an
+  indexer, and a write through a conditional `ref` goes to both of its locations. A write through a
+  `ref` local of a conditional `ref`, or through a conditional `ref` that a method or a local
+  function returns, goes to the location that a constant condition selects, and to both locations
+  where the condition is not a constant. A write through a `ref` that a method returns, to a static
+  field or to an element of an array parameter, adds its value to what the location held and does
+  not replace it, so a plain cell written that way over a pending one still counts as pending. A
+  write through a `ref` local of a static field replaces what the field held, as a write to the
   field itself does. Two `ref` or `in` arguments of one call that are one location, such as `ref c`
   twice or `ref a[0]` and `in a[0]`, are one location in the method too, so a write through one
   parameter is a write through the other. A write to a member through an element of a local array,
@@ -430,12 +455,50 @@ The analyzer follows a value made from the placeholder through the code of your 
   index. A local that gets the array or the list in a field, or in a static property with no body,
   sees each element that code puts in through the field later, also in a method and through a `ref`
   local of a field of such an element at a constant index or at an index in a local, until the local
-  or the field gets a different value. The other way also holds: a read through the field sees an
-  element that code puts in through such a local, at an index or with `Add`, `Insert`, or `AddRange`
-  of a `List<T>`.
+  or the field gets a different value. A local that got an element of a collection stops being one
+  of its elements when the name of the collection gets a new array or list, so after
+  `var d = Slots[0]; Slots = [new Slot()];` a write through `d` does not reach `Slots[0]`. The other
+  way also holds: a read through the field sees an element that code puts in through such a local,
+  at an index or with `Add`, `Insert`, or `AddRange` of a `List<T>`. A call of your code between the
+  two does not stop that, with one exception: a call that always runs there, of a method that no
+  override can replace and whose last statement gives a static field or such a property a new list,
+  such as `Items = [];`. The same holds for a field of `this` that a method of `this` gives a new
+  list, as in `this.Renew()`. After that call, an `Add`, an `Insert`, or an `AddRange` through the
+  old local does not reach the field. A new array or list that the code writes to the field itself
+  between the two, such as `Items = [];`, also stops it, unless the code gave the field the list of
+  a different name before the read, as in `second.Items = this.Items`. The old list then still has
+  that name, and a read through the field sees the put. This holds for a field of a second object
+  too, also where a method of that object gives it a new list. The put can be in a lambda or a local
+  function that the code calls, and so can the read of the field into the local. Where the read is
+  in the code around the function of the put, a new list stops the put when it comes before the put
+  in that function, or, for a lambda, between the read and the lambda. A local function can run
+  before its place in the code, so a new list outside it does not stop the put. Where a different
+  function made the read, no new list stops the put. Both can give a report for a read that does not
+  throw. A second field that got the same list or array through an assignment, as in `B = A;`, sees
+  such a put too, and a read through `A` sees a put through `B` itself, at an index or with `Add`,
+  `Insert`, or `AddRange`. The assignment can be in a lambda or a method of yours that the analyzer
+  follows, and the value can come through a local, a method that returns the field, a conditional
+  expression, or `??`. The two fields stay joined until a statement of the block that always runs
+  gives one of them a different value, and only where that field is static and no local got the list
+  from it before. Such a local keeps the list of both fields, so a put through it still reaches the
+  other field. A field of an object, a static field that a lambda or a method gives a new list, and
+  a static field that such a local got its list from stay joined, which can give a report for a read
+  that does not throw. An assignment in a method that the analyzer does not follow, such as one that
+  gets nothing from the block, is not seen.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
-  from there. A name is a local, a parameter, a static field or a static property with no body, a
+  from there. An array or list literal that a local or a field gets, such as `a = [d, d]` or
+  `new[] { d, d }`, makes each element a name of the object at its position. `list.Add(d)` makes the
+  item at the index of that `Add` a name of `d` where the analyzer knows the index: the list is a
+  local that only a literal and `Add` statements at the first level of its block fill, or a list
+  of objects that the analyzer saw made. An `Add` inside a branch or a loop, an `Insert`, and any
+  other use of the list or array that can put a value at an index the analyzer does not know, such
+  as a `ref` to an element at an index that is not a constant, give no such name. A write through an
+  element of a local list or array that had such a use, or that the local got from a call, a field,
+  or a second local, or through an element at an index that is not a constant, then reaches every
+  read through an object that the analyzer does not know, where the list or array can hold such an
+  object. A name is a local, a
+  parameter, a static field or a static property with no body, a
   field or such a property of the object in a local, a property whose get accessor only returns one
   field and whose set accessor, where it has one, only writes it, the result of a method of yours
   with no parameters that only returns a field, or an element of a local collection or of an array
@@ -466,14 +529,22 @@ The analyzer follows a value made from the placeholder through the code of your 
   takes a `ref` to anywhere in its function, as in `ref d` or `new Span<T>(ref d)`, is no such name,
   because the `ref` can give it a new object at any time. A local of a struct type is no second
   name either, because it gets a copy, also from a cast that takes the struct out of an `object`
-  that holds it, so a write through the copy does not reach the box. A write through an expression
+  that holds it, so a write through the copy does not reach the box. The copy still holds the
+  objects that the struct got, as a collection does: after `var t = new ValueTuple<Slot>(d)` or
+  `new ArraySegment<Slot>(slots)`, a write through `t.Item1` or through an element of the segment
+  is a write to that object. A write through an expression
   that is no
   such name, such as a conditional expression, reaches a later read through each name whose object
   the analyzer cannot tell apart from the object of the write. It tells two objects apart where the
   write goes to an object that the code creates after the name got its object, through the creation
   itself or through a local that only that creation gives a value, and where it goes through a
   private `static readonly` field that a creation fills and whose object your code never hands on:
-  each use of the field reads or writes a field or a property with no body. A write in a method that
+  each use of the field reads or writes a field or a property with no body. A write through a static
+  field, or through a local that got one, reaches a later read through a name that got its object
+  from a different static field too. Code that the analyzer does not follow, such as a method, a
+  constructor that hands on `this`, an initializer, or code in a different class, can give the two
+  fields one object. It does not where each of the two fields keeps the object of its own `new`
+  initializer, or where one of them is such a `static readonly` field. A write in a method that
   the block calls counts as well, where the block always calls the method one time and the method
   writes through a static field, an element of an array in one, or a parameter whose argument is
   such a name. So does a write through one of the names in a lambda or a local function that the
@@ -565,7 +636,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   from the last declaration to the first, `DisposeAsync` at the end of an `await using`, also of a
   resource
   in `ConfigureAwait`, `GetAwaiter` at an `await`, with `IsCompleted` of its awaiter and `GetResult`
-  where the analyzer knows that the awaiter is complete, the enumerator of a `foreach`, the `Add` of
+  where the analyzer knows that the awaiter is complete, the enumerator of a `foreach`, also a
+  `Current` of it that is an auto-property, such as one that a primary constructor sets, the `Add` of
   a collection initializer or a collection expression, the `Create` method of a `CollectionBuilder`,
   `Count` and `Slice` for an index from the end, a range, or a list pattern, the `ToString` and the
   copy constructor of a record, the `ToString` of each value that a record or a tuple prints, the
@@ -583,7 +655,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   parameters, do not. Each type argument of a generic class, as in
   `Cache<int>` and `Cache<string>`, has a run of its own. A member of a nested
   class runs only the static constructor of the nested class, and a delegate of a static method runs
-  it where something calls the delegate, not where the code makes the delegate. A first use that the
+  it where something calls the delegate, not where the code makes the delegate. The static
+  initializers of a `partial` class come from all of its parts, in the order in which the compiler
+  runs them. A first use that the
   code can skip, such as one in a branch or in an arm of `?:`, counts only for itself, so the
   analyzer reads the constructor again at the next use. A use in each turn of a loop counts for the
   rest of the block only when the loop always runs its first turn, by the rule for an `await` below,
@@ -659,7 +733,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   `Wait`, `Task.WaitAll`, `Result`, or `GetResult` of its awaiter. An `await` of the task, also
   through `ConfigureAwait` or `WhenAll`, puts the exception into the task of its `async` function,
   and the report comes where the code waits for that task. A continuation that nothing waits for
-  gets no report. A query expression over a type whose methods run their function in the call,
+  gets no report. A value whose type has a query type among its type arguments, at any depth, such
+  as a `Tuple` of a `Tuple` of the query, keeps the query until something enumerates it. A query
+  expression over a type whose methods run their function in the call,
   such as `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. For a query
   over a type of your project whose methods for the clauses return no sequence, the analyzer
   reads each of those
@@ -781,7 +857,7 @@ careful side, so it can report a read that does not throw:
   its `catch` clauses. The analyzer knows that only for a `throw` statement at the first level of
   the `finally` block. A call there that throws, or a `Dispose` that throws at the end of a
   `using`, leaves the first object going on, so a `catch` of it further out can get `SF1001`
-  although it never runs.
+  although it never runs. A read in the `try` block keeps its report there the same way.
 - A `catch` that takes the exception of an early read, such as a `catch (InvalidOperationException)`
   or a `catch (Exception)` around a `Sample` of the looped value, does not clear the report of that
   read. The code still reads the value before the loop closes, and the `catch` only hides it. The
@@ -887,12 +963,14 @@ careful side, so it can report a read that does not throw:
 - The coalesce function of a sink runs only when two sends go into the sink in one transaction. The
   analyzer counts the sends that are statements of the block itself, with no `return` or `goto`
   before them: one such send does not run the function, and two or more fire only what it returns.
-  With exactly two such sends into a sink of a stream, the first parameter of the function gets the
-  value of the first send and the second parameter that of the second. With more, and for a sink of
-  a cell, each parameter gets the value of each send.
+  With exactly two such sends into a sink, the first parameter of the function gets the value of the
+  first send and the second parameter that of the second. With more, each parameter gets the value
+  of each send.
   Any other send, such as one under a condition, in a loop, or in a function, counts as a send that
   can run the function, and its own value counts as well. A value that you make from the sink after
-  the sends also gets the value of each send.
+  the sends also gets the value of each send, unless two or more such sends of the block always run
+  and the function is a lambda or a method of your code: such a sink fires only what the function
+  returns, so the value gets only that.
 - Where a value can be one of several objects, a plain value set on it does not clear a pending
   one. An element counts as one object from a write through it to a read through it only in a
   straight line: in one function, with no loop, `goto` label, or `switch` section around the read
@@ -914,10 +992,19 @@ careful side, so it can report a read that does not throw:
   what writes through other calls gave that member, and does not replace it, because the analyzer
   cannot tell whether two calls give the same object, even two calls with the same text. So a plain
   value written into `Find(id).Cell` after a pending one still reports a read of `Find(id).Cell`.
-  A local that holds the result is one object: writes through the local replace each other, and a
-  read through it sees only them. Such a write still goes into the shared state, so a read through a
-  second call, or through a local of a second call with no value of its own, sees it, even where the
-  two calls give different objects. The state is shared across the names of one property as well: a
+  A local that holds the result is one object: writes through the local replace each other. Such a
+  write still goes into the shared state, so a read through a second call, or through a local of a
+  second call with no value of its own, sees it, even where the two calls give different objects.
+  The other way also holds for a method that the analyzer does not read because nothing from the
+  placeholder goes in: a write through a second call of the same method in the same function, or
+  through a local of one, reaches a read through the local of the first call, also where the local
+  has a value of its own, and a read through a collection that keeps that local. It does not where
+  each `return` of the method gives an object that a `new` in it makes, because each call then gives
+  a new object, or where the two calls get two different constants, or two static fields that each
+  keep the object of their own initializer, at one position. A write through a second call in a
+  different method that the block calls reaches such a read too. So does a read through a copy that
+  code with no source, such as a library, keeps of a local with a value of its own, where the write
+  through the second call comes after the last write through the first result. The state is shared across the names of one property as well: a
   property of a class and the interface properties that it implements, or two interface properties
   that one property of a class in your project implements. A pending value written through one name
   then reaches a read through another name on the result of any call. The exception is a call of a
@@ -971,7 +1058,10 @@ careful side, so it can report a read that does not throw:
   creation, or an assignment through a property setter with code between that value and the build
   makes each value that the code of the class gives the member count. So does a call or a creation
   before the build that gets `this` as an argument, in a constructor that the analyzer reads, even
-  when that call does not change the member. A build in a method, not in a constructor, also counts
+  when that call does not change the member. The same holds for a member that holds a cell or a
+  `Lazy<T>`: after such a call, for example one of reflection or of a method of a nested class, each
+  value that the code of the class gives the member counts, because that call can run a `private`
+  method that builds the member again. A build in a method, not in a constructor, also counts
   the value that the member has where the different method reads.
 
 Some reads that throw it does not see:
@@ -1019,7 +1109,9 @@ Some reads that throw it does not see:
   that the object has at the read. A delegate that your object keeps in a local or in a member of its own, such as
   `this.factory = this.Read;` and then `new Lazy<int>(this.factory)`, is seen. So is a member of a
   different object that the constructor writes before the build, such as `this.box.F = this.Add;`
-  and then `Map(this.box.F)`, and a delegate made from one function, such as
+  and then `Map(this.box.F)`, such a member that the code which made your object writes, such as
+  `m.Box.F = m.Add;` or, with an extension method, `m.Box.F = m.AddTo;`, before a method of `m`
+  builds `Map(this.Box.F)`, and a delegate made from one function, such as
   `new Func<int>(this.Read)` or `new(this.Read)`, which counts as that function.
 - The objects of a task for a `catch` around `Task.WaitAll`, `Task.WaitAny`, or a wait of a task
   from `Task.Factory.StartNew`. The analyzer gives such a `catch` no object.
@@ -1033,13 +1125,17 @@ Some reads that throw it does not see:
   of the class itself, as in a method of the class that the block calls, which is the last time that
   they can run. Where the runtime ran them earlier, they can have read a different value. A read in
   the code of the class does not run them when the block itself is in that class, because the code
-  around the block can have run them first.
+  around the block can have run them first. A static field that such an initializer gives a value
+  has that value in the initializers after it. After them, the field can still have the value that
+  the block gave it before the read, because the runtime can have run the write first, so a plain
+  cell written there over a pending one still counts as pending in the block. With a static
+  constructor, the initializers run at the first use, and the write replaces the value.
 - A write into an element of an array in a field that a method you call makes through a second
   name of the array that the analyzer does not follow, read through a local that got the array
   before the call. It follows a `ref` local, `Array.Copy` into a static field, the array of a static
   field that a method returns when the method only returns it, a second static `readonly` field
-  whose initializer names the first one, and a `ref` that a method of your object returns of an
-  element of its `readonly` field.
+  whose initializer names the first one, a second field that got the array through an assignment,
+  and a `ref` that a method of your object returns of an element of its `readonly` field.
 - A `ref` field that a constructor of yours does not set from a `ref` parameter, or that the code
   gives a second `ref`, as in `r.Target = ref other`. A write through it does not reach the local
   that it refers to, and a read through it does not see a write of that local.
@@ -1079,11 +1175,10 @@ Some reads that throw it does not see:
   `readonly` field, or a get-only property whose initializer is such a task, and a method or a
   getter of your own that returns only such tasks. An awaiter of your own whose `IsCompleted` always
   returns `true`, and is not virtual, is complete too.
-- Two calls of your methods that give the same object, in two cases. A read through a local that
-  has a value of its own, written through that local, does not see a later write through a second
-  call. And when a method returns a sealed class, the result of a call that comes before the first
-  write through a result of a call counts as a new object, so a read through it does not see that
-  write.
+- Two calls of your methods that give the same object, where the analyzer does not read the
+  method. Two calls whose arguments at one position are two different constants, or two static
+  fields that each keep the object of their own initializer, count as two objects, even where the
+  method gives the same object for both.
 - A chain of your own calls more than six calls deep. There, the analyzer reports `SF1003` at the
   call where it stops. The same happens past a budget of 512 bodies of methods, constructors,
   getters, and lambdas that it reads for one block, at the call that would go over it.

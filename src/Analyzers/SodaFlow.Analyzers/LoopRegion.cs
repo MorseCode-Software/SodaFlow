@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -50,6 +51,9 @@ internal sealed class LoopRegion(
     // with the constant index or -1. See PutsThroughLocalsOf.
     private readonly Dictionary<ISymbol, List<(int Index, LoopState Held)>> putsThroughLocals =
         new(SymbolEqualityComparer.Default);
+
+    // Each two fields that an assignment gave one list or one array, from LinksTwoFields.
+    private readonly List<(ISymbol One, ISymbol Other)> linkedFields = [];
 
     // For a static field that holds an array: each put into an element through the field at a constant index. A
     // put at one index does not change a different element. See PutsAtAnIndexOf.
@@ -187,6 +191,36 @@ internal sealed class LoopRegion(
     ///     KeepsTheObjectsOfItsFields.
     /// </summary>
     public Dictionary<ISymbol, bool> HoldersOfFields { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     For each object of the store that is the result of a call of a
+    ///     helper that the walk did not read, that call. See
+    ///     LoopStateEvaluator.IsWrittenThroughASecondResult.
+    /// </summary>
+    public Dictionary<MadeObject, InvocationExpressionSyntax> UnreadResults { get; } = [];
+
+    /// <summary>
+    ///     Each write to a member through the result of a call of such a
+    ///     helper, or through a local of one. Each has the call, the member,
+    ///     and the count of member writes of the region at the write.
+    /// </summary>
+    public List<(InvocationExpressionSyntax Call, ISymbol Member, int At)> WritesThroughResults { get; } = [];
+
+    /// <summary>
+    ///     For each record of the members of this in code on an object of the
+    ///     store, where that record began. See
+    ///     LoopStateEvaluator.WrittenThroughASecondNameOfThis.
+    /// </summary>
+    public ConditionalWeakTable<Dictionary<ISymbol, LoopState>, LoopStateEvaluator.StartOfARecord> StartsOfRecords
+    {
+        get;
+    } = new();
+
+    /// <summary>
+    ///     For each local collection, true when the walk knows which value
+    ///     went in at each index. See KeepsItsIndexes.
+    /// </summary>
+    public Dictionary<ISymbol, bool> KeepsItsIndexes { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>The body of the block.</summary>
     public SyntaxNode Root { get; } = root;
@@ -468,6 +502,38 @@ internal sealed class LoopRegion(
                     implementations: this.Symbols.Implementations,
                     hasInterfaceMembers: this.hasInterfaceFields,
                     canHave: canHave));
+
+    /// <summary>
+    ///     A copy of the state of each static field now, for
+    ///     <see cref="JoinsTheFieldsOf" />.
+    /// </summary>
+    public (Dictionary<ISymbol, LoopState> Fields, Dictionary<ISymbol, LoopState> Closed) TheFieldsNow() =>
+        (new Dictionary<ISymbol, LoopState>(dictionary: this.fields, comparer: SymbolEqualityComparer.Default),
+            new Dictionary<ISymbol, LoopState>(
+                dictionary: this.closedFields,
+                comparer: SymbolEqualityComparer.Default));
+
+    /// <summary>
+    ///     Gives each static field also the state that it had at an earlier time,
+    ///     from <see cref="TheFieldsNow" />.
+    /// </summary>
+    /// <param name="earlier">The copy of that time.</param>
+    public void JoinsTheFieldsOf((Dictionary<ISymbol, LoopState> Fields, Dictionary<ISymbol, LoopState> Closed) earlier)
+    {
+        Join(now: this.fields, before: earlier.Fields);
+        Join(now: this.closedFields, before: earlier.Closed);
+
+        return;
+
+        static void Join(IDictionary<ISymbol, LoopState> now, IEnumerable<KeyValuePair<ISymbol, LoopState>> before)
+        {
+            foreach (KeyValuePair<ISymbol, LoopState> pair in before)
+            {
+                now[pair.Key] =
+                    now.TryGetValue(key: pair.Key, value: out LoopState? state) ? state.Join(pair.Value) : pair.Value;
+            }
+        }
+    }
 
     /// <summary>
     ///     Records a value that the code gives to a field. The walk does not know
@@ -900,7 +966,12 @@ internal sealed class LoopRegion(
     ///     Such a write can be through each name.
     /// </param>
     /// <param name="objects">The objects of the store that the owner can be.</param>
-    public void NotesAWriteThroughAName(ISymbol member, NameKey? name, ImmutableArray<MadeObject> objects)
+    /// <param name="canBeAnUnknownObject">See <see cref="NamedWrite.CanBeAnUnknownObject" />.</param>
+    public void NotesAWriteThroughAName(
+        ISymbol member,
+        NameKey? name,
+        ImmutableArray<MadeObject> objects,
+        bool canBeAnUnknownObject)
     {
         ISymbol key = member.OriginalDefinition;
 
@@ -915,7 +986,12 @@ internal sealed class LoopRegion(
             this.writesThroughNames[key] = writes;
         }
 
-        writes.Add(new NamedWrite(name: name, objects: objects, at: this.MemberWrites));
+        writes.Add(
+            new NamedWrite(
+                name: name,
+                objects: objects,
+                at: this.MemberWrites,
+                canBeAnUnknownObject: canBeAnUnknownObject));
     }
 
     /// <summary>
@@ -955,8 +1031,12 @@ internal sealed class LoopRegion(
     /// <param name="held">The state of the array with the value in it.</param>
     public void AddAPutThroughALocal(ISymbol field, int index, LoopState held)
     {
-        ISymbol key = field.OriginalDefinition;
+        this.AddAPutThroughALocalOf(key: field.OriginalDefinition, index: index, held: held);
+        this.AddAPutThroughTheFieldsLinkedTo(field: field, index: index, held: held);
+    }
 
+    private void AddAPutThroughALocalOf(ISymbol key, int index, LoopState held)
+    {
         if (!this.putsThroughLocals.TryGetValue(key: key, value: out List<(int Index, LoopState Held)>? puts))
         {
             puts = [];
@@ -964,6 +1044,72 @@ internal sealed class LoopRegion(
         }
 
         puts.Add((index, held));
+    }
+
+    /// <summary>True when the record has a link from <see cref="LinksTwoFields" />.</summary>
+    public bool HasLinkedFields => this.linkedFields.Count > 0;
+
+    /// <summary>
+    ///     Records that an assignment gave a field the list or the array of a
+    ///     second field, as <c>B = A</c> does. Then, a put through one of them,
+    ///     or through a local of one of them, goes into the record of each.
+    /// </summary>
+    /// <param name="one">The field that got the value.</param>
+    /// <param name="other">The field that gave the value.</param>
+    public void LinksTwoFields(ISymbol one, ISymbol other) =>
+        this.linkedFields.Add((one.OriginalDefinition, other.OriginalDefinition));
+
+    /// <summary>
+    ///     Removes each link of a field from <see cref="LinksTwoFields" />. The
+    ///     field has one location, and it gets a different value.
+    /// </summary>
+    public void TakesAwayTheLinksOfAField(ISymbol field)
+    {
+        if (this.linkedFields.Count > 0)
+        {
+            ISymbol key = field.OriginalDefinition;
+
+            this.linkedFields.RemoveAll(link =>
+                SymbolEqualityComparer.Default.Equals(x: link.One, y: key)
+                || SymbolEqualityComparer.Default.Equals(x: link.Other, y: key));
+        }
+    }
+
+    /// <summary>
+    ///     Records a put into the list or the array of a field for each field
+    ///     that a chain of links from <see cref="LinksTwoFields" /> gives. The
+    ///     field itself does not get it.
+    /// </summary>
+    /// <param name="field">The field.</param>
+    /// <param name="index">The constant index, or -1.</param>
+    /// <param name="held">The state of the list with the value in it.</param>
+    public void AddAPutThroughTheFieldsLinkedTo(ISymbol field, int index, LoopState held)
+    {
+        if (this.linkedFields.Count == 0)
+        {
+            return;
+        }
+
+        List<ISymbol> reached = [field.OriginalDefinition];
+
+        for (int i = 0; i < reached.Count; i++)
+        {
+            foreach ((ISymbol one, ISymbol other) in this.linkedFields)
+            {
+                ISymbol? next =
+                    SymbolEqualityComparer.Default.Equals(x: one, y: reached[i])
+                        ? other
+                        : SymbolEqualityComparer.Default.Equals(x: other, y: reached[i])
+                            ? one
+                            : null;
+
+                if (next != null && !reached.Contains(value: next, comparer: SymbolEqualityComparer.Default))
+                {
+                    reached.Add(next);
+                    this.AddAPutThroughALocalOf(key: next, index: index, held: held);
+                }
+            }
+        }
     }
 
     /// <summary>

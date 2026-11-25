@@ -63694,6 +63694,1486 @@ public static class Shapes
     public static Cell<int> Ab429TwoObjectsGetAStaticObjectForAReadonlyField() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab429KeptFromAStatic m = new(); Ab429KeptFromAStatic n = new(); m.Set(l.Map(v => v)); Kept.Add(n.Read()); return S.Hold(0); });
 
+    // S15451. AB438. A method gives a writable static field the object of a private readonly static field. A local gets the writable field and a plain cell. A pending cell then goes into the readonly field, and the block reads the local.
+    public static Cell<int> Ab438AReadonlyFieldWhoseObjectAMethodGivesAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15452. AB438. The constructor of the object of a private readonly static field puts this into a second static field. A local gets the second field and a plain cell. A pending cell then goes into the readonly field.
+    public static Cell<int> Ab438AReadonlyFieldWhoseConstructorGivesThisAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Leaker d = Ab438LeakTarget!; d.Share = Plain; Ab438Leak.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15453. AB438. The initializer of a private readonly static field gives it the object of a writable static field. A local gets the writable field and a plain cell. A pending cell then goes into the readonly field.
+    public static Cell<int> Ab438AReadonlyFieldThatGetsASecondField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab438Source; d.Share = Plain; Ab438Alias.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15454. AB438. Code of a different type gives a writable static field the object of a public readonly static field. A local gets the writable field and a plain cell. A pending cell then goes into the readonly field.
+    public static Cell<int> Ab438APublicReadonlyFieldThatADifferentTypeGivesAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Helpers.Ab438ShareThePublicField(); SettableSlot d = Ab438Writable2; d.Share = Plain; Ab438Public.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15455. AB438, an edge. A method gives a writable static field the object of a second writable static field. A local gets the first field and a plain cell. A pending cell then goes into the second field.
+    public static Cell<int> Ab438TwoWritableFieldsThatAMethodJoins() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Join(); SettableSlot d = Ab438First; d.Share = Plain; Ab438Second.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15456. AB438, an edge. The same as the first shape, but the pending cell goes into the object through a second local of the readonly field.
+    public static Cell<int> Ab438ASecondLocalOfTheReadonlyField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; SettableSlot k = Ab438Kept; k.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15457. AB438, an edge. The same as the first shape, but the block gives the local a second plain cell after the pending cell. Thus, the read gets the plain cell.
+    public static Cell<int> Ab438APlainCellThroughTheLocalAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); d.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15458. AB438, an edge. The same as the first shape, but the pending cell goes into the readonly field before the local gets the plain cell. Thus, the read gets the plain cell.
+    public static Cell<int> Ab438APendingCellBeforeThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); Ab438Kept.Share = l.Map(v => v); SettableSlot d = Ab438Writable; d.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15459. AB438, a control. Two private readonly static fields get a new object each, and no code gives an object to a different name. A local gets the first field and a plain cell. A pending cell then goes into the second field.
+    public static Cell<int> Ab438TwoReadonlyFieldsOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab438Third; d.Share = Plain; Ab438Fourth.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15460. AB438, a control. Two private readonly static fields get a new object each, and a method gives each object to a list. A local gets the first field and a plain cell. A pending cell then goes into the second field.
+    public static Cell<int> Ab438TwoReadonlyFieldsThatAMethodGivesToAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438HandOn(); SettableSlot d = Ab438Fifth; d.Share = Plain; Ab438Sixth.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15461. AB438, a control. A private readonly static field holds its object alone and gets a plain cell. A pending cell then goes into a writable static field, and the block reads the first field.
+    public static Cell<int> Ab438AFieldThatHoldsItsObjectAloneThenASecondField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Seventh.Share = Plain; Ab438First.Share = l.Map(v => v); return S.Hold(Ab438Seventh.Share!.Sample()); });
+
+    // S15462. AB438, a control. The same as the first shape of AB438, but the local gets a second plain cell after the pending cell. A write to a different object comes before the read.
+    public static Cell<int> Ab438APlainCellThroughTheLocalThenAWriteElsewhere() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); d.Share = Plain; Ab438Seventh.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15463. AB438, a control. The same as the first shape of AB438, but the block reads a new object that got a plain cell before.
+    public static Cell<int> Ab438AReadOfANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot e = new(); e.Share = Plain; Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); return S.Hold(e.Share!.Sample()); });
+
+    // S15464. AB438, a control. The same as the first shape of AB438, but a method gives the local a plain cell after the pending cell.
+    public static Cell<int> Ab438AMethodGivesThePlainCellAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); Ab438PutPlain(d); return S.Hold(d.Share!.Sample()); });
+
+    // S15465. AB438, a control. The same, but a write to a different object comes after the call and before the read.
+    public static Cell<int> Ab438AMethodGivesThePlainCellThenAWriteElsewhere() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); Ab438PutPlain(d); Ab438Seventh.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15466. AB438, a control. The same as the first shape of AB438, but the local gets a second plain cell after the pending cell. A method then writes a member of a different object.
+    public static Cell<int> Ab438APlainCellThroughTheLocalThenAMethodWritesElsewhere() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); d.Share = Plain; Ab438PutPlain(Ab438Fifth); return S.Hold(d.Share!.Sample()); });
+
+    // S15467. AB443. A method of a class maps with the group this.Add and returns the map. The block then sets a member that Add samples to a pending cell through its local, and samples the map.
+    public static Cell<int> Ab443GroupOnThisInAClassMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Cell<int> w = o.MapOfAdd(); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S15468. AB443. The same, but the method maps with a lambda that calls this.Add.
+    public static Cell<int> Ab443LambdaOnThisInAClassMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Cell<int> w = o.MapOfAddByLambda(); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S15469. AB443. The same as the first shape, but a default method of an interface maps with the group, and Add is a method of the class.
+    public static Cell<int> Ab443GroupOnThisInADefaultMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Adder o = new(); Cell<int> w = ((IAb443Adder)o).MapOfAdd(); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S15470. AB443. The same, but the default method maps with a lambda that calls this.Add.
+    public static Cell<int> Ab443LambdaOnThisInADefaultMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Adder o = new(); Cell<int> w = ((IAb443Adder)o).MapOfAddByLambda(); o.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S15471. AB443, an edge. The same as the first shape, but a method of the object sets the member to the pending cell.
+    public static Cell<int> Ab443GroupOnThisThenAMethodSetsTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Cell<int> w = o.MapOfAdd(); o.Set(l.Map(v => v)); return S.Hold(w.Sample()); });
+
+    // S15472. AB443, an edge. The same as the first shape, but the block sets the member to a plain cell after the pending cell. Thus, the map reads the plain cell.
+    public static Cell<int> Ab443GroupOnThisThenAPlainCellAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Cell<int> w = o.MapOfAdd(); o.Share = l.Map(v => v); o.Share = Plain; return S.Hold(w.Sample()); });
+
+    // S15473. AB443, an edge. The same as the first shape, but the pending cell goes into a member of a second object of the class.
+    public static Cell<int> Ab443GroupOnThisThenAPendingCellInASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Ab443Class p = new(); Cell<int> w = o.MapOfAdd(); p.Share = l.Map(v => v); return S.Hold(w.Sample()); });
+
+    // S15474. AB443, an edge. The method sets the member to a plain cell before it maps with the group. The block set the member to a pending cell before the call.
+    public static Cell<int> Ab443APlainCellInTheMethodAfterAPendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); o.Share = l.Map(v => v); Cell<int> w = o.SetPlainAndMap(); return S.Hold(w.Sample()); });
+
+    // S15475. AB443, an edge. The block sets the member to a pending cell before the method maps with the group, and the block samples the map.
+    public static Cell<int> Ab443APendingCellBeforeTheMethodMaps() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); o.Share = l.Map(v => v); Cell<int> w = o.MapOfAdd(); return S.Hold(w.Sample()); });
+
+    // S15476. AB443, an edge. A method returns a lambda that samples a member through this. The block sets the member to a pending cell through its local, and calls the lambda.
+    public static Cell<int> Ab443ALambdaOnThisThatAMethodReturnsIsCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Func<int> f = o.Reader(); o.Share = l.Map(v => v); Kept.Add(f()); return S.Hold(0); });
+
+    // S15477. AB443, an edge. The same, but the method returns the group this.Add, and the block calls it with an argument.
+    public static Cell<int> Ab443AGroupOnThisThatAMethodReturnsIsCalled() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Func<int, int> f = o.AddGroup(); o.Share = l.Map(v => v); Kept.Add(f(1)); return S.Hold(0); });
+
+    // S15478. AB443, an edge. The same as the lambda edge, but the block sets the member to a plain cell after the pending cell.
+    public static Cell<int> Ab443ALambdaOnThisThenAPlainCellAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab443Class o = new(); Func<int> f = o.Reader(); o.Share = l.Map(v => v); o.Share = Plain; Kept.Add(f()); return S.Hold(0); });
+
+    // S15479. AB447. A helper gives an element of a static array. A local gets the result of a first call, and a line of a library keeps the local. A pending cell goes in through the result of a second call, and the block reads the last item of the line.
+    public static Cell<int> Ab447FoundSameObjectOfTwoCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); line.Put(s); Ab447Make(2).Share = l.Map(v => v); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15480. AB447, an edge. A local gets the result of a first call of the helper. A pending cell goes in through the result of a second call, and the block reads the local.
+    public static Cell<int> Ab447AReadThroughALocalOfTheFirstCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(2); Ab447Make(2).Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15481. AB447, an edge. The same, but the local gets a plain cell before the pending cell goes in through the second call.
+    public static Cell<int> Ab447APlainCellThroughALocalOfTheFirstCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(2); s.Share = Plain; Ab447Make(2).Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15482. AB447, an edge. A list keeps the result of a first call. A pending cell goes in through the result of a second call, and the block reads the first item of the list.
+    public static Cell<int> Ab447AListThatKeepsTheFirstResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> kept = []; SettableSlot s = Ab447Make(2); kept.Add(s); Ab447Make(2).Share = l.Map(v => v); return S.Hold(kept[0].Share!.Sample()); });
+
+    // S15483. AB447, an edge. The same as the first shape, but the pending cell goes in through a local of the second call.
+    public static Cell<int> Ab447ALocalOfTheSecondCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); line.Put(s); SettableSlot t = Ab447Make(2); t.Share = l.Map(v => v); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15484. AB447, a control. A helper gives a new object at each call. A local gets the first result and a plain cell. A pending cell goes in through the result of a second call.
+    public static Cell<int> Ab447AHelperThatMakesANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447New(); s.Share = Plain; Ab447New().Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15485. AB447, a control. The same, but the helper puts the new object into a local and returns the local.
+    public static Cell<int> Ab447AHelperThatMakesANewObjectInALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447NewInALocal(); s.Share = Plain; Ab447NewInALocal().Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15486. AB447, a control. The same as the second edge, but the local gets a plain cell after the pending cell.
+    public static Cell<int> Ab447APlainCellAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(2); Ab447Make(2).Share = l.Map(v => v); s.Share = Plain; return S.Hold(s.Share!.Sample()); });
+
+    // S15487. AB447, a control. The two calls of the helper get two different constants, and they give two different elements. A pending cell goes into the second element.
+    public static Cell<int> Ab447TwoCallsOfTwoElements() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(1); s.Share = Plain; Ab447Make(0).Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15488. AB447, an edge. A local of a first call of the helper gets a plain cell. A local of a second call then gets a pending cell, and the block reads the first local.
+    public static Cell<int> Ab447APlainCellThenALocalOfTheSecondCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(2); s.Share = Plain; SettableSlot t = Ab447Make(2); t.Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15489. AB447, an edge. A helper gives a local a new object and then an element of a static array, and returns the local. A local of a first call gets a plain cell, and a pending cell goes in through a second call.
+    public static Cell<int> Ab447AHelperWhoseLocalGetsAnElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447ElementInALocal(); s.Share = Plain; Ab447ElementInALocal().Share = l.Map(v => v); return S.Hold(s.Share!.Sample()); });
+
+    // S15490. AB447, a control. A helper gives a new object at each call. A local gets the first result. A pending cell goes in through the result of a second call, and the block reads the local.
+    public static Cell<int> Ab447AHelperThatMakesANewObjectThenAReadOfTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab447Box s = Ab447NewBox(); Ab447NewBox().Share = l.Map(v => v); return S.Hold(s.Share.Sample()); });
+
+    // S15491. AB449. The block makes an object whose constructor runs a private method through reflection with its name in a string. The method builds a map that samples a member. A method sets that member to a pending cell and samples the map.
+    public static Cell<int> Ab449PrivateMethodThatReflectionRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417ReflectionRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15492. AB449. The same, but the name of the private method is in a nameof.
+    public static Cell<int> Ab449PrivateMethodThatReflectionRunsByNameof() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417NameofRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15493. AB449. The same, but the constructor runs each private method that reflection finds with no name.
+    public static Cell<int> Ab449PrivateMethodThatReflectionFindsWithNoName() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417FoundRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15494. AB449. The same, but the constructor gives this to a method of a nested type, and that method calls the private method.
+    public static Cell<int> Ab449PrivateMethodThatANestedTypeCalls() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417NestedRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15495. AB449, an edge. The same, but the constructor gives this and the name of the private method to a helper of a different type. The helper runs the method through reflection.
+    public static Cell<int> Ab449PrivateMethodThatAHelperRunsByItsName() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab417ByNameRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15496. AB449, an edge. The constructor gives this to a list. A private method that no code names builds a map that samples a member. Thus, no code can run that method.
+    public static Cell<int> Ab449APrivateMethodThatNoCodeNamesAfterAListGetsThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab449Given().SetAndRead(l.Map(v => v))));
+
+    // S15497. AB449, an edge. The constructor runs a private method through reflection. The method builds a map that does not sample a member. A method sets a member to a pending cell and samples the map.
+    public static Cell<int> Ab449PrivateMethodThatReflectionRunsBuildsNoRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab449QuietRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15498. AB449, an edge. The constructor runs a private method through reflection. The method gives a member a Lazy whose function samples a second member. A method sets that member to a pending cell and reads the Lazy.
+    public static Cell<int> Ab449PrivateMethodThatReflectionRunsBuildsALazy() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab449LazyRebuilt().SetAndRead(l.Map(v => v))));
+
+    // S15499. AB450: a local gets a static array and then a literal with element 0 of the array two times. A read of element 0 of the field gets the write through element 1 of the local.
+    public static Cell<int> Ab450ALocalOfTheArrayGetsADifferentArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab450ArrA; a = [Ab450ArrA[0], Ab450ArrA[0]]; Ab450ArrA[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrA[0].Share!.Sample()); });
+
+    // S15500. AB450: the declaration of a local gives it a literal with element 0 of a static array two times. A read of element 0 gets the write through element 1 of the local.
+    public static Cell<int> Ab450ALiteralHasOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab450ArrB[0], Ab450ArrB[0]]; Ab450ArrB[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrB[0].Share!.Sample()); });
+
+    // S15501. AB450: the literal has element 1 of the field first and element 0 second. A read of element 0 gets the write through element 1 of the local.
+    public static Cell<int> Ab450TheSecondElementOfTheLiteralIsTheFirstOfTheField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab450ArrC; a = [Ab450ArrC[1], Ab450ArrC[0]]; Ab450ArrC[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrC[0].Share!.Sample()); });
+
+    // S15502. AB450: the same with a public static array, which has no owner for each element.
+    public static Cell<int> Ab450ALiteralHasAnElementOfAPublicArrayTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab450PublicArr; a = [Ab450PublicArr[0], Ab450PublicArr[0]]; Ab450PublicArr[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450PublicArr[0].Share!.Sample()); });
+
+    // S15503. AB450: an array creation with an initializer has element 0 of a static array two times. A read of element 0 gets the write through element 1.
+    public static Cell<int> Ab450AnArrayCreationHasOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = new SettableSlot[] { Ab450ArrE[0], Ab450ArrE[0] }; Ab450ArrE[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrE[0].Share!.Sample()); });
+
+    // S15504. AB450: an implicit array creation that a local gets after a static array has element 0 of that array two times.
+    public static Cell<int> Ab450AnImplicitArrayCreationHasOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab450ArrF; a = new[] { Ab450ArrF[0], Ab450ArrF[0] }; Ab450ArrF[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrF[0].Share!.Sample()); });
+
+    // S15505. AB450: a literal of a list has element 0 of a static array two times. A read of element 0 gets the write through item 1 of the list.
+    public static Cell<int> Ab450AListLiteralHasOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [Ab450ArrG[0], Ab450ArrG[0]]; Ab450ArrG[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrG[0].Share!.Sample()); });
+
+    // S15506. AB450: the initializer of a new list adds element 0 of a static array two times. A read of element 0 gets the write through item 1 of the list.
+    public static Cell<int> Ab450AListInitializerAddsOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = new() { Ab450ArrH[0], Ab450ArrH[0] }; Ab450ArrH[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrH[0].Share!.Sample()); });
+
+    // S15507. AB450: a local gets element 0 of a static array, and a literal has that local two times. A read through the local gets the write through element 1 of the literal.
+    public static Cell<int> Ab450ALiteralHasALocalOfAnUnknownObjectTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab450ArrJ[0]; SettableSlot[] a = [c, c]; c.Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S15508. AB450: a static field gets a literal with element 0 of a second static array two times. A read of element 0 of the second array gets the write through element 1 of the field.
+    public static Cell<int> Ab450AStaticFieldGetsALiteralWithOneElementTwoTimes() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab450TargetK = [Ab450ArrK[0], Ab450ArrK[0]]; Ab450ArrK[0].Share = Plain; Ab450TargetK[1].Share = l.Map(v => v); return S.Hold(Ab450ArrK[0].Share!.Sample()); });
+
+    // S15509. AB450: the literal has element 0 and element 1 of a static array. A read of element 0 does not get the write through element 1 of the literal.
+    public static Cell<int> Ab450ALiteralHasTwoElementsWriteTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab450ArrM[0], Ab450ArrM[1]]; Ab450ArrM[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrM[0].Share!.Sample()); });
+
+    // S15510. AB450: the local gets a second literal of new objects before the write. Thus, element 1 of the local is not element 0 of the field.
+    public static Cell<int> Ab450TheLocalGetsANewLiteralBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab450ArrN[0], Ab450ArrN[0]]; a = [new SettableSlot(), new SettableSlot()]; Ab450ArrN[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrN[0].Share!.Sample()); });
+
+    // S15511. AB450: element 1 of the local gets a new object before the write. Thus, element 1 is not element 0 of the field.
+    public static Cell<int> Ab450AnElementGetsANewObjectBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab450ArrP[0], Ab450ArrP[0]]; a[1] = new SettableSlot(); Ab450ArrP[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab450ArrP[0].Share!.Sample()); });
+
+    // S15512. AB450: a field of a holder local gets a literal with a local two times. A method of a second holder writes its own element 1, and a read through the local gets the plain cell.
+    public static Cell<int> Ab450AHolderFieldGetsALiteralASecondHolderWritesItsElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = Ab450ArrQ[0]; Ab450Box h = new(); h.Items = [x, x]; x.Share = Plain; Ab450OtherQ.WriteSecond(l.Map(v => v)); return S.Hold(x.Share!.Sample()); });
+
+    // S15513. AB450: the same with element 0 of a static array in the literal, and a read of that element.
+    public static Cell<int> Ab450AHolderFieldGetsALiteralOfAnElementASecondHolderWritesItsElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab450Box h = new(); h.Items = [Ab450ArrR[0], Ab450ArrR[0]]; Ab450ArrR[0].Share = Plain; Ab450OtherR.WriteSecond(l.Map(v => v)); return S.Hold(Ab450ArrR[0].Share!.Sample()); });
+
+    // S15514. AB445: an ArraySegment of an array holds the object of the array. A write in a foreach over the segment changes that object, and a read through the local gets the pending cell.
+    public static Cell<int> Ab445AForeachOverAnArraySegmentWritesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot[] arr = [d]; ArraySegment<SettableSlot> seg = new(arr); foreach (SettableSlot s in seg) { s.Share = l.Map(v => v); } return S.Hold(d.Share!.Sample()); });
+
+    // S15515. AB445: the constructor of a ValueTuple gets a local. A write through Item1 changes the object of the local, and a read through the local gets the pending cell.
+    public static Cell<int> Ab445AValueTupleOfTheConstructorHoldsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; ValueTuple<SettableSlot> t = new(d); t.Item1.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15516. AB445: a write through element 0 of an ArraySegment changes the object of the array, and a read through the local gets the pending cell.
+    public static Cell<int> Ab445AnElementOfAnArraySegmentIsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot[] arr = [d]; ArraySegment<SettableSlot> seg = new(arr); seg[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15517. AB445: the constructor of a KeyValuePair gets a local as its value. A write through Value changes the object of the local.
+    public static Cell<int> Ab445AKeyValuePairOfTheConstructorHoldsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; KeyValuePair<int, SettableSlot> kv = new(1, d); kv.Value.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15518. AB445: the ValueTuple gets a second object. A write through Item1 does not change the object of the local.
+    public static Cell<int> Ab445AValueTupleOfASecondObjectKeepsTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot e = new() { Share = Plain }; ValueTuple<SettableSlot> t = new(e); t.Item1.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15519. AB445: the ArraySegment is of an array of a second object. A write in a foreach over it does not change the object of the local.
+    public static Cell<int> Ab445AnArraySegmentOfASecondObjectKeepsTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot[] arr = [new SettableSlot()]; ArraySegment<SettableSlot> seg = new(arr); foreach (SettableSlot s in seg) { s.Share = l.Map(v => v); } return S.Hold(d.Share!.Sample()); });
+
+    // S15520. AB445: a struct of this code gets a local in its constructor. A write through its field changes the object of the local.
+    public static Cell<int> Ab445AStructOfThisCodeHoldsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; Ab445Holder h = new(d); h.Slot.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15521. AB446: four levels of Tuple hold a query. A foreach over the query runs its function, which samples the pending cell.
+    public static Cell<int> Ab446AQueryFourTuplesDeepRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new[] { l.Map(v => v) }.Select(c => c.Sample()); var t = Tuple.Create(Tuple.Create(Tuple.Create(Tuple.Create(q)))); foreach (int x in t.Item1.Item1.Item1.Item1) { Kept.Add(x); } return S.Hold(0); });
+
+    // S15522. AB446: six levels of Tuple hold a query, and Sum of the query runs its function.
+    public static Cell<int> Ab446AQuerySixTuplesDeepRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new[] { l.Map(v => v) }.Select(c => c.Sample()); var t = Tuple.Create(Tuple.Create(Tuple.Create(Tuple.Create(Tuple.Create(Tuple.Create(q)))))); return S.Hold(t.Item1.Item1.Item1.Item1.Item1.Item1.Sum()); });
+
+    // S15523. AB446: four levels of a list in a Tuple hold a query, and a foreach over the query runs its function.
+    public static Cell<int> Ab446AQueryInAListFourLevelsDeepRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new[] { l.Map(v => v) }.Select(c => c.Sample()); var t = Tuple.Create(Tuple.Create(Tuple.Create(new List<IEnumerable<int>> { q }))); foreach (int x in t.Item1.Item1.Item1[0]) { Kept.Add(x); } return S.Hold(0); });
+
+    // S15524. AB446: four levels of Tuple hold a query, and the code does not run it.
+    public static Cell<int> Ab446AQueryFourTuplesDeepDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new[] { l.Map(v => v) }.Select(c => c.Sample()); var t = Tuple.Create(Tuple.Create(Tuple.Create(Tuple.Create(q)))); Kept.Add(t); return S.Hold(0); });
+
+    // S15525. AB444: a range of an array is a new array. A put into it in the same expression does not change the array.
+    public static Cell<int> Ab444ARangeOfAnArrayWritesACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; a[1..][0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S15526. AB444: the same with a range that has an end.
+    public static Cell<int> Ab444ARangeWithAnEndOfAnArrayWritesACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain, Plain]; a[1..2][0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S15527. AB444: the same with an array in a static field.
+    public static Cell<int> Ab444ARangeOfAStaticArrayWritesACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab444Cells[1] = Plain; Ab444Cells[1..][0] = l.Map(v => v); return S.Hold(Ab444Cells[1].Sample()); });
+
+    // S15528. AB444: a local gets a range of an array. A put into the local does not change the array.
+    public static Cell<int> Ab444ALocalOfARangeOfAnArrayIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; Cell<int>[] b = a[1..]; b[0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S15529. AB444: a range of an array holds the objects of the array. A write to a member through an element of the range changes the object in the array.
+    public static Cell<int> Ab444AMemberWriteThroughARangeOfAnArrayChangesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot { Share = Plain }, new SettableSlot { Share = Plain }]; a[1..][0].Share = l.Map(v => v); return S.Hold(a[1].Share!.Sample()); });
+
+    // S15530. AB444: a range of a span is a view of the array. A put into it changes element 1 of the array.
+    public static Cell<int> Ab444ARangeOfASpanWritesTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; a.AsSpan()[1..][0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S15531. AB444: a range of a memory is a view of the array. A put through its span changes element 1 of the array.
+    public static Cell<int> Ab444ARangeOfAMemoryWritesTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; a.AsMemory()[1..].Span[0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S15532. AB444: a range of an array of arrays holds the inner arrays. A put into an inner array through the range changes the inner array.
+    public static Cell<int> Ab444APutIntoAnInnerArrayThroughARangeChangesIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] a = [[Plain], [Plain]]; a[1..][0][0] = l.Map(v => v); return S.Hold(a[1][0].Sample()); });
+
+    // S15533. AB448: a local gets element 0 of a static array, and then the field gets a new array. A write through the local does not change the new element, and a lambda reads it.
+    public static Cell<int> Ab448AFieldGetsANewArrayALambdaReadsTheNewElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab448ArrA[0]; Ab448ArrA = [new SettableSlot { Share = Plain }]; q.Share = l.Map(v => v); Func<int> read = () => Ab448ArrA[0].Share!.Sample(); Kept.Add(read()); return S.Hold(0); });
+
+    // S15534. AB448: the same with a read of the new element in the block.
+    public static Cell<int> Ab448AFieldGetsANewArrayTheBlockReadsTheNewElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab448ArrB[0]; Ab448ArrB = [new SettableSlot { Share = Plain }]; q.Share = l.Map(v => v); return S.Hold(Ab448ArrB[0].Share!.Sample()); });
+
+    // S15535. AB448: the same with a local array that gets a new array.
+    public static Cell<int> Ab448ALocalArrayGetsANewArrayTheBlockReadsTheNewElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab448ArrC; SettableSlot q = a[0]; a = [new SettableSlot { Share = Plain }]; q.Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S15536. AB448: the field keeps its array. Thus, the write through the local of element 0 reaches the read in the lambda.
+    public static Cell<int> Ab448AFieldKeepsItsArrayALambdaReadsTheElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab448ArrD[0]; q.Share = l.Map(v => v); Func<int> read = () => Ab448ArrD[0].Share!.Sample(); Kept.Add(read()); return S.Hold(0); });
+
+    // S15537. AB448: the new array of the field has the object of the local. Thus, the write through the local changes the new element.
+    public static Cell<int> Ab448AFieldGetsANewArrayWithTheObjectOfTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab448ArrE[0]; Ab448ArrE = [q]; q.Share = l.Map(v => v); return S.Hold(Ab448ArrE[0].Share!.Sample()); });
+
+    // S15538. AB448: the field gets the array that it had before, from a local. Thus, the write through the local changes element 0.
+    public static Cell<int> Ab448AFieldGetsItsOldArrayBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] g = Ab448ArrF; SettableSlot q = Ab448ArrF[0]; Ab448ArrF = g; q.Share = l.Map(v => v); return S.Hold(Ab448ArrF[0].Share!.Sample()); });
+
+    // S15539. AB448: a local of element 1 of a static array of new objects gets a pending cell. A read through a local of element 0 gets the plain cell.
+    public static Cell<int> Ab448ALocalOfASecondElementWritesOnlyThatElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab448ArrG[0]; c.Share = Plain; SettableSlot d = Ab448ArrG[1]; d.Share = l.Map(v => v); SettableSlot q = Ab448ArrG[0]; return S.Hold(q.Share!.Sample()); });
+
+    // S15540. AB448: the same with a read of element 0 through the field.
+    public static Cell<int> Ab448ALocalOfASecondElementTheFieldReadsTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab448ArrH[0].Share = Plain; SettableSlot d = Ab448ArrH[1]; d.Share = l.Map(v => v); return S.Hold(Ab448ArrH[0].Share!.Sample()); });
+
+    // S15541. AB448: the two locals have element 0. Thus, the write through the second local reaches the read through the third.
+    public static Cell<int> Ab448TwoLocalsOfTheFirstElementWriteOneObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab448ArrJ[0]; c.Share = Plain; SettableSlot d = Ab448ArrJ[0]; d.Share = l.Map(v => v); SettableSlot q = Ab448ArrJ[0]; return S.Hold(q.Share!.Sample()); });
+
+    // S15542. AB448: the local gets element 1 and then element 0. Thus, the write through it reaches the read of element 0.
+    public static Cell<int> Ab448ALocalWithTwoValuesWritesTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab448ArrK[0].Share = Plain; SettableSlot d = Ab448ArrK[1]; d = Ab448ArrK[0]; d.Share = l.Map(v => v); return S.Hold(Ab448ArrK[0].Share!.Sample()); });
+
+    // S15543. AB448: a read of each element in a foreach gets the write through the local of element 1.
+    public static Cell<int> Ab448ALocalOfASecondElementReachesAForeach() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab448ArrM[1]; d.Share = l.Map(v => v); foreach (SettableSlot s in Ab448ArrM) { Kept.Add(s.Share?.Sample() ?? 0); } return S.Hold(0); });
+
+    // S15544. AB448: a local gets element 0 of a static array, and a second field gets a new array. The write through the local reaches the read of element 0 of the first field.
+    public static Cell<int> Ab448ASecondFieldGetsANewArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot q = Ab448ArrN[0]; Ab448ArrP = [new SettableSlot { Share = Plain }]; q.Share = l.Map(v => v); return S.Hold(Ab448ArrN[0].Share!.Sample()); });
+
+    // S15545. AB448: the same with a second local array that gets a new array.
+    public static Cell<int> Ab448ASecondLocalGetsANewArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab448ArrQ; SettableSlot[] b = [new SettableSlot()]; SettableSlot q = a[0]; b = [new SettableSlot { Share = Plain }]; q.Share = l.Map(v => v); return S.Hold(a[0].Share!.Sample()); });
+
+    // S15546. AB454: a list gets element 0 of a static array with two calls of Add. A read of element 0 gets the write through item 1 of the list.
+    public static Cell<int> Ab454TwoAddsOfOneElementOfAStaticArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; a.Add(Ab454ArrA[0]); a.Add(Ab454ArrA[0]); Ab454ArrA[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab454ArrA[0].Share!.Sample()); });
+
+    // S15547. AB454: a list gets a local of an unknown object with two calls of Add. A read through the local gets the write through item 1.
+    public static Cell<int> Ab454TwoAddsOfALocalOfAnUnknownObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab454ArrB[0]; List<SettableSlot> a = []; a.Add(c); a.Add(c); c.Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S15548. AB454: a literal of a list has element 1 of a static array, and an Add puts element 0 at index 1. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab454AnAddAfterALiteralOfAnUnknownObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [Ab454ArrC[1]]; a.Add(Ab454ArrC[0]); Ab454ArrC[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab454ArrC[0].Share!.Sample()); });
+
+    // S15549. AB454: a literal of a list has a new object, and an Add puts element 0 of a static array at index 1. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab454AnAddAfterALiteralOfANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [new SettableSlot()]; a.Add(Ab454ArrD[0]); Ab454ArrD[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab454ArrD[0].Share!.Sample()); });
+
+    // S15550. AB454: the two calls of Add put element 0 and element 1 of a static array. A read of element 0 does not get the write through item 1.
+    public static Cell<int> Ab454TwoAddsOfTwoElementsWriteTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; a.Add(Ab454ArrE[0]); a.Add(Ab454ArrE[1]); Ab454ArrE[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab454ArrE[0].Share!.Sample()); });
+
+    // S15551. AB454: the first Add puts element 1 and the second puts element 0. A read of element 0 does not get the write through item 0.
+    public static Cell<int> Ab454TwoAddsInTheOtherOrderWriteTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; a.Add(Ab454ArrF[1]); a.Add(Ab454ArrF[0]); Ab454ArrF[0].Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(Ab454ArrF[0].Share!.Sample()); });
+
+    // S15552. AD29. A partial class has no static constructor. The initializer of a static field in its second part samples a static field. The block sets that field to a pending cell and reads the first field.
+    public static Cell<int> Ad29AnInitializerInTheSecondPartSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ad29Shared.First = l.Map(v => v); Kept.Add(Ad29SecondPartSamples.Value); return S.Hold(0); });
+
+    // S15553. AD29. The second part of a partial class has a static constructor. The initializer of a static field in the first part samples a static field. The block sets that field to a pending cell and reads the first field.
+    public static Cell<int> Ad29AnInitializerInThePartWithNoStaticConstructorSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ad29Shared.Second = l.Map(v => v); Kept.Add(Ad29ConstructorInTheSecondPart.Value); return S.Hold(0); });
+
+    // S15554. AD29. The first part of a partial class has a static constructor. The initializer of a static field in the second part samples a static field. The block sets that field to a pending cell and reads the first field.
+    public static Cell<int> Ad29AnInitializerAfterThePartWithTheStaticConstructorSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ad29Shared.Third = l.Map(v => v); Kept.Add(Ad29ConstructorInTheFirstPart.Value); return S.Hold(0); });
+
+    // S15555. AD29. The initializer of the first part of a partial class samples a static field. Then the initializer of the second part gives that field a plain cell.
+    public static Cell<int> Ad29TheFirstPartSamplesBeforeTheSecondPartGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ad29Shared.Fourth = l.Map(v => v); Kept.Add(Ad29PlainSecond.Value); return S.Hold(0); });
+
+    // S15556. AD29, a control. The second part of a partial class has an initializer of an instance field that samples a static field. The block reads a static field, which runs no instance initializer.
+    public static Cell<int> Ad29AnInstanceInitializerInTheSecondPartDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ad29Shared.Fifth = l.Map(v => v); Kept.Add(Ad29InstanceInTheSecondPart.Value); return S.Hold(0); });
+
+    // S15557. AB452. The block gives a delegate member of a box a method group of an object. A method of the object then makes a map with that member. A different method sets the member that the method group samples to a pending cell and samples the map.
+    public static Cell<int> Ab452MethodBuildOfAMemberOfABoxThatTheBlockGives() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452BoxThatTheBlockGives m = new(); m.Box.FMap = m.Add; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15558. AB452, an edge. The same, but the member that holds the map has no initializer.
+    public static Cell<int> Ab452AMemberWithNoInitializer() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452NoInitializer m = new(); m.Box.FMap = m.Add; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15559. AB452, an edge. The block names the method group through a second local of the same object.
+    public static Cell<int> Ab452ASecondLocalOfTheObjectNamesTheGroup() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452BoxThatTheBlockGives m = new(); Ab452BoxThatTheBlockGives k = m; m.Box.FMap = k.Add; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15560. AB452, an edge. A method of the object makes a Lazy with a delegate member of the box. A different method sets the member that the method group samples to a pending cell and reads the value.
+    public static Cell<int> Ab452ALazyOfAMemberOfTheBox() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452LazyBox m = new(); m.Box.FLazy = m.Get; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15561. AB452, a control. The method group is of a second object. The method of the first object sets its own member to a pending cell, and the group samples the member of the second object.
+    public static Cell<int> Ab452AGroupOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452BoxThatTheBlockGives m = new(); Ab452BoxThatTheBlockGives k = new(); m.Box.FMap = k.Add; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15562. AB452, an edge. The method group is of a second object, and a method of the second object sets its member to a pending cell. Then the first object samples the map.
+    public static Cell<int> Ab452AGroupOfASecondObjectWithAPendingMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452BoxThatTheBlockGives m = new(); Ab452BoxThatTheBlockGives k = new(); m.Box.FMap = k.Add; m.Build(); k.SetAndRead(l.Map(v => v)); return S.Hold(m.SetAndRead(Plain)); });
+
+    // S15563. AB452, an edge. The method group is of an extension method of the object. The block sets the member that the method samples to a pending cell after the build, and a method of the object samples the map.
+    public static Cell<int> Ab452AnExtensionGroupAfterTheBlockSetsTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452OpenBox m = new(); m.Box.FMap = m.Ab452AddTo; m.Build(); m.Share = l.Map(v => v); return S.Hold(m.Read()); });
+
+    // S15564. AB452, an edge. The same with a method group of the object.
+    public static Cell<int> Ab452AGroupAfterTheBlockSetsTheMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab452OpenBox m = new(); m.Box.FMap = m.Add; m.Build(); m.Share = l.Map(v => v); return S.Hold(m.Read()); });
+
+    // S15565. AB453. A local gets the list of a static auto-property. A method then gives the property a new list. The block adds a pending cell to the list of the local and reads the last element of the property.
+    public static Cell<int> Ab453AddThroughTheOldLocalAfterACalleeGivesTheStaticPropertyANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; Ab453Renew(); xs.Add(l.Map(v => v)); return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15566. AB453. The same with a static field. The method gives the field a new list through a creation of the type of the field.
+    public static Cell<int> Ab453AddThroughTheOldLocalAfterACalleeGivesTheStaticFieldANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453Field = [Plain]; List<Cell<int>> xs = Ab453Field; Ab453RenewTheField(); xs.Add(l.Map(v => v)); return S.Hold(Ab453Field[^1].Sample()); });
+
+    // S15567. AB453, a control. The block calls the method in each turn of a loop, before it adds a pending cell to the list of the local.
+    public static Cell<int> Ab453ACallInEachTurnOfALoopBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; for (int i = 0; i < 2; i++) { Ab453Renew(); xs.Add(l.Map(v => v)); } return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15568. AB453, an edge. The method gives the property a new list only in a branch, and that branch does not run. Thus, the pending cell goes into the list of the property.
+    public static Cell<int> Ab453ACalleeThatGivesTheListInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListB = [Plain]; List<Cell<int>> xs = Ab453ListB; Ab453RenewInABranch(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListB[^1].Sample()); });
+
+    // S15569. AB453, an edge. The method returns before it gives the property a new list. Thus, the pending cell goes into the list of the property.
+    public static Cell<int> Ab453ACalleeThatReturnsBeforeItGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListC = [Plain]; List<Cell<int>> xs = Ab453ListC; Ab453ReturnFirst(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListC[^1].Sample()); });
+
+    // S15570. AB453, an edge. The method gives the property the list that a static field keeps, which is the list of the local. Thus, the pending cell goes into the list of the property.
+    public static Cell<int> Ab453ACalleeThatGivesTheOldListBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListD = [Plain]; List<Cell<int>> xs = Ab453ListD; Ab453Saved = xs; Ab453GiveBack(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListD[^1].Sample()); });
+
+    // S15571. AB453, an edge. The block calls the method that gives the property a new list only in a branch that does not run.
+    public static Cell<int> Ab453ACallInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; if (Ab453Turn > 0) { Ab453Renew(); } xs.Add(l.Map(v => v)); return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15572. AB453, an edge. A goto goes to a label after the call of the method that gives the property a new list. Thus, the call does not run.
+    public static Cell<int> Ab453AGotoPastTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; if (Ab453Skip) { goto put; } Ab453Renew(); put: xs.Add(l.Map(v => v)); return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15573. AB453, an edge. The method gives a different static property a new list.
+    public static Cell<int> Ab453ACalleeThatGivesADifferentPropertyANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListH = [Plain]; List<Cell<int>> xs = Ab453ListH; Ab453Renew(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListH[^1].Sample()); });
+
+    // S15574. AB453, an edge. The block calls a virtual method that gives the property a new list. The object is of a class whose override does nothing.
+    public static Cell<int> Ab453AVirtualCalleeThatAnOverrideChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListE = [Plain]; List<Cell<int>> xs = Ab453ListE; Ab453Renewer r = new Ab453KeepingRenewer(); r.Renew(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListE[^1].Sample()); });
+
+    // S15575. AB453, an edge. An async method waits for a task that does not complete, and then gives the property a new list.
+    public static Cell<int> Ab453AnAsyncCalleeThatWaitsBeforeItGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListF = [Plain]; List<Cell<int>> xs = Ab453ListF; Ab453RenewLater(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListF[^1].Sample()); });
+
+    // S15576. AB453, an edge. An iterator gives the property a new list, but the block does not enumerate it. Thus, its code does not run.
+    public static Cell<int> Ab453AnIteratorThatGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListG = [Plain]; List<Cell<int>> xs = Ab453ListG; Ab453RenewLazily(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListG[^1].Sample()); });
+
+    // S15577. AB453, an edge. The block calls the method before the local gets the list of the property. Thus, the pending cell goes into the new list.
+    public static Cell<int> Ab453ACallBeforeTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; Ab453Renew(); List<Cell<int>> xs = Ab453List; xs.Add(l.Map(v => v)); return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15578. AB453, an edge. The block reads the last element of the property after the add and before the call of the method.
+    public static Cell<int> Ab453ACallAfterTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; xs.Add(l.Map(v => v)); int r = Ab453List[^1].Sample(); Ab453Renew(); return S.Hold(r); });
+
+    // S15579. AB453, an edge. The call comes before a loop. In each turn, the loop adds a pending cell to the list of the local, and then gives the property that list again.
+    public static Cell<int> Ab453ACallBeforeALoopThatGivesTheFirstListBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; Ab453Renew(); for (int i = 0; i < 2; i++) { xs.Add(l.Map(v => v)); Ab453GiveTheListBack(xs); } return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15580. AB453, an edge. A goto in the method goes over the statement that gives the property a new list.
+    public static Cell<int> Ab453ACalleeWithAGotoOverTheNewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListK = [Plain]; List<Cell<int>> xs = Ab453ListK; Ab453RenewAfterAGoto(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListK[^1].Sample()); });
+
+    // S15581. AB453, an edge. An override gives the property a new list, and the object is of a class whose override does nothing.
+    public static Cell<int> Ab453AnOverrideThatASecondOverrideChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListL = [Plain]; List<Cell<int>> xs = Ab453ListL; Ab453RenewingRenewer r = new Ab453KeepingAgain(); r.Renew(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListL[^1].Sample()); });
+
+    // S15582. AB453, an edge. The method gives the property a creation of a different type. A conversion of that type gives the list of the local.
+    public static Cell<int> Ab453ACreationOfATypeWhoseConversionGivesTheFirstList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListJ = [Plain]; List<Cell<int>> xs = Ab453ListJ; Ab453Saved = xs; Ab453RenewThroughAConversion(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListJ[^1].Sample()); });
+
+    // S15583. AB453, an edge. The property is of a list type with a builder. The builder of a collection expression gives one list each time.
+    public static Cell<int> Ab453ACollectionExpressionOfATypeWithABuilder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453Cached = Ab453CachedOne; Ab453CachedList xs = Ab453Cached; Ab453RenewTheCached(); xs.Add(l.Map(v => v)); return S.Hold(Ab453Cached[^1].Sample()); });
+
+    // S15584. AB453, an edge. A method gives an instance field of a second object a new list. The local has the list of the same field of the first object.
+    public static Cell<int> Ab453ACalleeGivesTheFieldOfASecondObjectANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab453Holder().Run(new Ab453Holder(), l.Map(v => v))));
+
+    // S15585. AB453, an edge. A method gives a static property of a generic class a new list for one type argument. The local has the list of a different type argument.
+    public static Cell<int> Ab453ACalleeGivesANewListForADifferentTypeArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453Generic<int>.Items = [Plain]; List<Cell<int>> xs = Ab453Generic<int>.Items; Ab453Generic<string>.Renew(); xs.Add(l.Map(v => v)); return S.Hold(Ab453Generic<int>.Items[^1].Sample()); });
+
+    // S15586. AB453, an edge. The method gives the property a new list, and then gives it the list of the local again.
+    public static Cell<int> Ab453ACalleeThatGivesTheFirstListAfterANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListI = [Plain]; List<Cell<int>> xs = Ab453ListI; Ab453RenewAndGiveBack(xs); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListI[^1].Sample()); });
+
+    // S15587. AB453, an edge. After the first method, a second method gives the property the list of the local again. Then the block adds the pending cell.
+    public static Cell<int> Ab453ASecondCallGivesTheFirstListBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; Ab453Renew(); Ab453GiveTheListBack(xs); xs.Add(l.Map(v => v)); return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15588. AG105, a control. Two getters read each other. A method sets a member to a plain cell, and does not read the getters. No value of the placeholder goes into the getters.
+    public static Cell<int> Ag105GettersThatReadEachOtherWithNoPendingValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab427GetterCycle().SetAndRead(Plain, read: false)));
+
+    // S15589. A catch clause samples the member of its object, and the finally block then throws. That exception replaces the exception of the sample, and the outer catch gets it.
+    public static Cell<int> Ab440SampleInACatchBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(e.Share.Sample()); } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15590. A try block samples the looped cell, and its finally block then throws. That exception replaces the exception of the sample, and the outer catch gets it.
+    public static Cell<int> Ab440SampleInATryBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { Kept.Add(l.Sample()); } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15591. An inner try samples the looped cell, and the finally block of the outer try throws. That exception replaces the exception of the sample.
+    public static Cell<int> Ab440SampleInAnInnerTryBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { try { Kept.Add(l.Sample()); } finally { Kept.Add(1); } } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15592. The finally block throws only in a branch that does not run. Thus, the exception of the sample goes on.
+    public static Cell<int> Ab440FinallyThatThrowsInABranchLetsTheSampleThrow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { Kept.Add(l.Sample()); } finally { if (Kept.Count < 0) { throw new ArgumentException("x"); } } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15593. A goto in the finally block skips its throw statement. Thus, the exception of the sample goes on.
+    public static Cell<int> Ab440GotoPastTheThrowInAFinallyLetsTheSampleThrow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { Kept.Add(l.Sample()); } finally { if (Kept.Count >= 0) { goto done; } throw new ArgumentException("x"); done: Kept.Add(1); } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15594. A catch clause keeps the exception of the sample before the finally block throws. The code throws that exception again after the outer catch.
+    public static Cell<int> Ab440CatchKeepsTheExceptionOfTheSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Exception? kept = null; try { try { Kept.Add(l.Sample()); } catch (InvalidOperationException e) { kept = e; } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } if (kept != null) { throw kept; } return S.Hold(0); });
+
+    // S15595. An inner catch clause keeps the exception of the sample, and the outer finally block then throws. The code throws that exception again after the outer catch.
+    public static Cell<int> Ab440InnerCatchKeepsTheExceptionOfTheSample() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Exception? kept = null; try { try { try { Kept.Add(l.Sample()); } catch (InvalidOperationException e) { kept = e; throw; } } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } if (kept != null) { throw kept; } return S.Hold(0); });
+
+    // S15596. A lambda of the try block samples the looped cell. The code calls the lambda after the try statement, thus the finally block does not replace its exception.
+    public static Cell<int> Ab440LambdaOfATryBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int>? read = null; try { try { read = () => l.Sample(); } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } Kept.Add(read!()); return S.Hold(0); });
+
+    // S15597. The finally block samples the looped cell before its throw statement. The exception of that sample leaves the finally block.
+    public static Cell<int> Ab440SampleInAFinallyBeforeItsThrow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { try { Kept.Add(1); } finally { Kept.Add(l.Sample()); throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15598. A method of the code samples the cell that it gets in a try block, and its finally block then throws. That exception replaces the exception of the sample.
+    public static Cell<int> Ab440CalleeSamplesInATryBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(Ab440SampleInATry(l.Map(v => v))); } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15599. A method of the code samples the cell in a try block. Its finally block throws only in a branch that does not run.
+    public static Cell<int> Ab440CalleeSamplesInATryBeforeAFinallyThatDoesNotThrow() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { Kept.Add(Ab440SampleInATryOrNot(l.Map(v => v))); } catch (ArgumentException) { Kept.Add(2); } return S.Hold(0); });
+
+    // S15600. A local function of the try block samples the looped cell. The code calls it after the try statement, thus the finally block does not replace its exception.
+    public static Cell<int> Ab440LocalFunctionOfATryBeforeAFinallyThatThrows() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<int>? read = null; try { try { read = Read; int Read() => l.Sample(); } finally { throw new ArgumentException("x"); } } catch (ArgumentException) { Kept.Add(2); } Kept.Add(read!()); return S.Hold(0); });
+
+    // S15601. A method of the code gets the InnerExceptions as an object. A pattern of the type of the object on the collection fails, thus the method never samples.
+    public static Cell<int> Ab442MethodMatchesTheInnerExceptionsAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAFault(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15602. A method of the code gets the first of the InnerExceptions as an object. The pattern matches that object, and the method samples its member.
+    public static Cell<int> Ab442MethodMatchesTheFirstInnerExceptionAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAFault(e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15603. A method of the code gets the InnerExceptions as an object, and a pattern of a sequence matches them. The method samples the member of the first.
+    public static Cell<int> Ab442MethodMatchesTheInnerExceptionsAsASequence() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfTheFirst(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15604. A method of the code gets the InnerException as an object. The pattern matches that object, and the method samples its member.
+    public static Cell<int> Ab442MethodMatchesTheInnerExceptionAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAFault(e.InnerException)); } return S.Hold(0); });
+
+    // S15605. An if tests the InnerExceptions in a local of the type object, with a pattern of the type of the object. The pattern fails, thus the code never samples.
+    public static Cell<int> Ab442IfMatchesTheInnerExceptionsAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { object all = e.InnerExceptions; if (all is R4CsFault f) { Kept.Add(f.Share.Sample()); } } return S.Hold(0); });
+
+    // S15606. A method of the code gets a list of exceptions as an object. A pattern of the type of the element on the list fails, thus the method never samples.
+    public static Cell<int> Ab442MethodMatchesAListAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Exception> all = [new R4CsFault(l.Map(v => v))]; Kept.Add(Ab442ShareOfAFault(all)); return S.Hold(0); });
+
+    // S15607. A method of the code gets the InnerExceptions as an object, and tests them with a property pattern of the type of the object. The pattern fails.
+    public static Cell<int> Ab442PropertyPatternOnTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAProperty(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15608. A method of the code gets the first of the InnerExceptions, and tests it with a property pattern of its type. The method samples the member.
+    public static Cell<int> Ab442PropertyPatternOnTheFirstInnerException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAProperty(e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15609. A method of the code gets a list of the code whose type is a subclass of the type of the pattern. The pattern matches, and the method samples the member.
+    public static Cell<int> Ab442PatternOfABaseTypeMatchesAListOfTheCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab442ShareOfAnOpenFault(new Ab442FaultList(l.Map(v => v)) { new R4CsFault(Plain) })); return S.Hold(0); });
+
+    // S15610. A method of the code gets a sealed list of the code, and a pattern of that type matches it. The method samples the member.
+    public static Cell<int> Ab442PatternOfASealedListOfTheCode() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab442ShareOfASealedList(new Ab442SealedFaultList(l.Map(v => v)) { new R4CsFault(Plain) })); return S.Hold(0); });
+
+    // S15611. A foreach over the InnerExceptions gives each object, and the catch samples its member.
+    public static Cell<int> Ab442ForeachOverTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { foreach (Exception one in e.InnerExceptions) { Kept.Add(((R4CsFault)one).Share.Sample()); } } return S.Hold(0); });
+
+    // S15612. A method of the code gets an exception of the platform with an inner object, and a pattern of its sealed type matches it. The method samples the member of the inner object.
+    public static Cell<int> Ab442PatternOfASealedTypeOfThePlatform() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Kept.Add(Ab442ShareOfAnInvocationFault(new System.Reflection.TargetInvocationException(new R4CsFault(l.Map(v => v))))); return S.Hold(0); });
+
+    // S15613. A method of the code gets a sealed list of the code that derives from a list of the platform. A pattern of that type matches it, and the method samples the member.
+    public static Cell<int> Ab442PatternOfASealedSubclassOfAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab442FaultBag bag = new(l.Map(v => v)); bag.Add(new R4CsFault(Plain)); Kept.Add(Ab442ShareOfABag(bag)); return S.Hold(0); });
+
+    // S15614. A method of the code gets the InnerExceptions as an object, and then gives the parameter the first of them. The pattern matches that object, and the method samples its member.
+    public static Cell<int> Ab442MethodWritesTheParameterBeforeThePattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareAfterAWrite(e.InnerExceptions, e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15615. A generic method of the code gives its parameter of a type parameter a second value. The pattern matches that object, and the method samples its member.
+    public static Cell<int> Ab442GenericMethodWritesItsParameter() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab442ShareOfAGeneric(e.InnerExceptions[0], e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15616. ImmutableArray.Create puts the object of a catch into an array of exceptions. First of the array is the object, and the catch samples its member.
+    public static Cell<int> Ab441FirstOfAnImmutableArrayFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(e); Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15617. ImmutableArray.Create puts the object of a catch into an array of exceptions. The element at index 0 is the object, and the catch samples its member.
+    public static Cell<int> Ab441IndexOfAnImmutableArrayFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(e); Kept.Add(((R4CsFault)all[0]).Share.Sample()); } return S.Hold(0); });
+
+    // S15618. ImmutableArray.Create puts a new object into an array of exceptions. First of the array is that object, and the code samples its member.
+    public static Cell<int> Ab441FirstOfAnImmutableArrayFromCreateOfANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(new R4CsFault(l.Map(v => v))); Kept.Add(((R4CsFault)all.First()).Share.Sample()); return S.Hold(0); });
+
+    // S15619. ImmutableArray.CreateRange copies a list that holds the object of a catch. First of the copy is the object, and the catch samples its member.
+    public static Cell<int> Ab441FirstOfAnImmutableArrayFromCreateRange() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { List<Exception> list = [e]; ImmutableArray<Exception> all = ImmutableArray.CreateRange(list); Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15620. ToImmutableArray copies a list that holds the object of a catch. First of the copy is the object, and the catch samples its member.
+    public static Cell<int> Ab441FirstOfToImmutableArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { List<Exception> list = [e]; ImmutableArray<Exception> all = list.ToImmutableArray(); Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15621. ImmutableList.Create puts the object of a catch into a list of exceptions. First of the list is the object, and the catch samples its member.
+    public static Cell<int> Ab441FirstOfAnImmutableListFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableList<Exception> all = ImmutableList.Create<Exception>(e); Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15622. A foreach over an array of exceptions from ImmutableArray.Create gives the object of the catch, and the catch samples its member.
+    public static Cell<int> Ab441ForeachOverAnImmutableArrayFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(e); foreach (Exception one in all) { Kept.Add(((R4CsFault)one).Share.Sample()); } } return S.Hold(0); });
+
+    // S15623. A catch puts its object into an ImmutableArray of exceptions with a collection expression. First of the array is the object, and the catch samples its member.
+    public static Cell<int> Ab441FirstOfAnImmutableArrayOfTheCaughtObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableArray<Exception> all = [e]; Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15624. ImmutableArray.Create puts a second object with a plain cell into an array of exceptions. First of the array is that object, thus the sample returns.
+    public static Cell<int> Ab441FirstOfAnImmutableArrayFromCreateOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault) { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(new R4CsFault(Plain)); Kept.Add(((R4CsFault)all.First()).Share.Sample()); } return S.Hold(0); });
+
+    // S15625. ImmutableArray.Create puts the object of a catch into an array of exceptions. The code samples only a plain cell, thus it returns.
+    public static Cell<int> Ab441ImmutableArrayFromCreateWithNoReadOfTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ImmutableArray<Exception> all = ImmutableArray.Create<Exception>(e); Kept.Add(all.Length + Plain.Sample()); } return S.Hold(0); });
+
+    // S15626. ToArray copies a list that holds the object of a catch into an array of exceptions. The element at index 0 is the object, and the catch samples its member.
+    public static Cell<int> Ab441IndexOfToArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { List<Exception> list = [e]; Exception[] all = list.ToArray(); Kept.Add(((R4CsFault)all[0]).Share.Sample()); } return S.Hold(0); });
+
+    // S15627. KeyValuePair.Create puts the object of a catch into a pair. The value of the pair is the object, and the catch samples its member.
+    public static Cell<int> Ab441ValueOfAPairFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { KeyValuePair<string, Exception> p = KeyValuePair.Create<string, Exception>("a", e); Kept.Add(((R4CsFault)p.Value).Share.Sample()); } return S.Hold(0); });
+
+    // S15628. Tuple.Create puts the object of a catch into a tuple. The first item of the tuple is the object, and the catch samples its member.
+    public static Cell<int> Ab441ItemOfATupleFromCreate() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Tuple<Exception> p = Tuple.Create<Exception>(e); Kept.Add(((R4CsFault)p.Item1).Share.Sample()); } return S.Hold(0); });
+
+    // S15629. A list of cells gives an ImmutableArray of numbers. A pattern of the type of a cell on a number is always false, thus the code never samples.
+    public static Cell<int> Ab441NumbersFromALinkedListOfCells() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<Cell<int>> cells = [l.Map(v => v)]; ImmutableArray<int> n = cells.Select(static c => 1).ToImmutableArray(); foreach (object o in n) { if (o is Cell<int> c) { Kept.Add(c.Sample()); } } return S.Hold(0); });
+
+    // S15630. An await foreach reads Current of an enumerator of the code. A parameter of the primary constructor gives Current its cell, and the body samples that cell.
+    public static Cell<int> Ab439CurrentFromAPrimaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (Cell<int> n in new Ab439OneCell(l.Map(v => v))) { Kept.Add(n.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S15631. The same, with an in parameter of the primary constructor.
+    public static Cell<int> Ab439CurrentFromAnInParameterOfAPrimaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (Cell<int> n in new Ab439OneCellIn(l.Map(v => v))) { Kept.Add(n.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S15632. A foreach reads Current of an enumerator of the code. A parameter of the primary constructor gives Current its cell, and the body samples that cell.
+    public static Cell<int> Ab439SyncCurrentFromAPrimaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (Cell<int> n in new Ab439OneSyncCell(l.Map(v => v))) { Kept.Add(n.Sample()); } return S.Hold(0); });
+
+    // S15633. The code reads Current of the enumerator of the code itself, after MoveNextAsync. The cell of Current comes from the primary constructor.
+    public static Cell<int> Ab439DirectCurrentFromAPrimaryConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab439OneCellWalker walker = new(l.Map(v => v)); Kept.Add(walker.Current.Sample()); return S.Hold(0); });
+
+    // S15634. An await foreach reads Current of an enumerator of the code whose primary constructor gets a plain cell. The body samples that cell, thus it returns.
+    public static Cell<int> Ab439CurrentFromAPrimaryConstructorWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<Task> run = async () => { await foreach (Cell<int> n in new Ab439OneCell(Plain)) { Kept.Add(n.Sample()); } }; run().Wait(0); return S.Hold(0); });
+
+    // S15635. A foreach reads Current of an enumerator of the code. Its constructor gives Current the cell, and the body samples that cell.
+    public static Cell<int> Ab439SyncCurrentSetInTheConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (Cell<int> n in new Ab439SetCell(l.Map(v => v))) { Kept.Add(n.Sample()); } return S.Hold(0); });
+
+    // S15636. A foreach reads Current of an enumerator of the code. MoveNext gives Current the cell, and the body samples that cell.
+    public static Cell<int> Ab439SyncCurrentSetInMoveNext() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (Cell<int> n in new Ab439MovedCell(l.Map(v => v))) { Kept.Add(n.Sample()); } return S.Hold(0); });
+
+    // S15637. A foreach reads Current of an enumerator of the code. The constructor gives Current the linked cell, and MoveNext then gives it a plain cell. Thus, the body samples the plain cell.
+    public static Cell<int> Ab439SyncCurrentReplacedInMoveNext() =>
+        Cell.Loop<int>().WithoutCaptures(l => { foreach (Cell<int> n in new Ab439ReplacedCell(l.Map(v => v))) { Kept.Add(n.Sample()); } return S.Hold(0); });
+
+    // S15638. A cell sink has a coalesce function that keeps the second send. The block sends a linked cell and then a plain cell, thus the switch of the sink gets the plain cell.
+    public static Cell<int> Ab437CellSinkCoalesceReturnsTheSecondPlainSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, (_, b) => b); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15639. A cell sink has a coalesce function that keeps the first send. The block sends a linked cell and then a plain cell, thus the switch of the sink gets the linked cell.
+    public static Cell<int> Ab437CellSinkCoalesceReturnsTheFirstLinkedSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, (a, _) => a); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15640. A cell sink has a coalesce function of the code, as a method group, that keeps the second send. The switch of the sink gets the plain cell.
+    public static Cell<int> Ab437CellSinkCoalesceOfAMethodGroupReturnsTheSecondPlainSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, Ab437KeepTheSecond); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15641. A cell sink has a coalesce function of the code, as a method group, that keeps the first send. The switch of the sink gets the linked cell.
+    public static Cell<int> Ab437CellSinkCoalesceOfAMethodGroupReturnsTheFirstLinkedSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, Ab437KeepTheFirst); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15642. A cell sink has a coalesce function that the analyzer cannot read, and the function keeps the first send. The switch of the sink gets the linked cell.
+    public static Cell<int> Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheFirst() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, Ab437Unread.KeepTheFirst<Cell<int>>()); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15643. A cell sink has a coalesce function that the analyzer cannot read, and the function keeps the second send. The switch of the sink gets the plain cell.
+    public static Cell<int> Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheSecond() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, Ab437Unread.KeepTheSecond<Cell<int>>()); s.Send(l.Map(v => v)); s.Send(Plain); return s.SwitchC(); });
+
+    // S15644. A cell sink gets a linked cell, and a plain cell only in a branch that does not run. The switch of the sink gets the linked cell.
+    public static Cell<int> Ab437CellSinkSecondSendInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { CellSink<Cell<int>> s = Cell.CreateSink<Cell<int>>(Plain, (_, b) => b); s.Send(l.Map(v => v)); if (Kept.Count < 0) { s.Send(Plain); } return s.SwitchC(); });
+
+    // S15645. A stream sink has a coalesce function that keeps the second send, and the block holds the stream after the sends. The switch of the hold gets the plain cell.
+    public static Cell<int> Ab437StreamSinkHeldAfterTheSendsReturnsTheSecondPlainSend() =>
+        Cell.Loop<int>().WithoutCaptures(l => { StreamSink<Cell<int>> s = Stream.CreateSink<Cell<int>>((_, b) => b); s.Send(l.Map(v => v)); s.Send(Plain); Cell<Cell<int>> h = s.Hold(Plain); return h.SwitchC(); });
+
+    // S15646. A conditional in an argument tests an object with a pattern of its type. The true branch samples the member of the variable.
+    public static Cell<int> Ab455ConditionalInAnArgumentSamplesThePatternVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(l.Map(v => v)); Kept.Add(all is R4CsFault f ? f.Share.Sample() : 0); return S.Hold(0); });
+
+    // S15647. A conditional in an argument tests the first of the InnerExceptions with a pattern of its type. The true branch samples the member of the variable.
+    public static Cell<int> Ab455ConditionalOnTheFirstInnerException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { object all = e.InnerExceptions[0]; Kept.Add(all is R4CsFault f ? f.Share.Sample() : 0); } return S.Hold(0); });
+
+    // S15648. A switch expression in an argument has an arm with a pattern of the type of the object. The arm samples the member of its variable.
+    public static Cell<int> Ab455SwitchArmInAnArgumentSamplesThePatternVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(l.Map(v => v)); Kept.Add(all switch { R4CsFault f => f.Share.Sample(), _ => 0 }); return S.Hold(0); });
+
+    // S15649. A conditional in an argument tests an object with a property pattern. The true branch samples the variable of the property.
+    public static Cell<int> Ab455PropertyPatternInAnArgumentSamplesItsVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(l.Map(v => v)); Kept.Add(all is R4CsFault { Share: var s } ? s.Sample() : 0); return S.Hold(0); });
+
+    // S15650. A conditional in an argument tests a local of the type of the object with an empty property pattern. The true branch samples the member of the variable.
+    public static Cell<int> Ab455EmptyPropertyPatternInAnArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { R4CsFault all = new R4CsFault(l.Map(v => v)); Kept.Add(all is { } f ? f.Share.Sample() : 0); return S.Hold(0); });
+
+    // S15651. A conditional in an argument tests an object with a pattern of a cell. The true branch samples the variable, which is the linked cell.
+    public static Cell<int> Ab455ConditionalInAnArgumentSamplesACellVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = l.Map(v => v); Kept.Add(all is Cell<int> c ? c.Sample() : 0); return S.Hold(0); });
+
+    // S15652. A conditional in an argument tests a parenthesized pattern with an and pattern. The true branch samples the member of the variable.
+    public static Cell<int> Ab455AndPatternInAnArgumentSamplesThePatternVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(l.Map(v => v)); Kept.Add(all is (R4CsFault f and not null) ? f.Share.Sample() : 0); return S.Hold(0); });
+
+    // S15653. A conditional in an argument tests an object with a var pattern. The true branch casts the variable and samples its member.
+    public static Cell<int> Ab455VarPatternInAnArgumentSamplesItsVariable() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(l.Map(v => v)); Kept.Add(all is var f && f is not null ? ((R4CsFault)f).Share.Sample() : 0); return S.Hold(0); });
+
+    // S15654. A conditional in an argument tests an object that has a plain cell. The true branch samples the plain cell, thus the code returns.
+    public static Cell<int> Ab455ConditionalInAnArgumentOnAnObjectWithAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object all = new R4CsFault(Plain); Kept.Add(all is R4CsFault f ? f.Share.Sample() : 0); return S.Hold(0); });
+
+    // S15655. A conditional in an argument tests the InnerExceptions with a pattern of the type of the object. The pattern fails, thus the code never samples.
+    public static Cell<int> Ab455ConditionalOnTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { object all = e.InnerExceptions; Kept.Add(all is R4CsFault f ? f.Share.Sample() : 0); } return S.Hold(0); });
+
+    // S15656. A switch expression in an argument tests the InnerExceptions with an arm of the type of the object. The arm never runs.
+    public static Cell<int> Ab455SwitchArmOnTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { object all = e.InnerExceptions; Kept.Add(all switch { R4CsFault f => f.Share.Sample(), _ => 0 }); } return S.Hold(0); });
+
+    // S15657. Task.FromResult gives a task whose result is the object of a catch. The catch samples the member of that result.
+    public static Cell<int> Ab456ResultOfFromResultOfAnException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Task<Exception> t = Task.FromResult<Exception>(e); Kept.Add(((R4CsFault)t.Result).Share.Sample()); } return S.Hold(0); });
+
+    // S15658. The same, with no local for the task.
+    public static Cell<int> Ab456ResultOfFromResultOfAnExceptionWithNoLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Kept.Add(((R4CsFault)Task.FromResult<Exception>(e).Result).Share.Sample()); } return S.Hold(0); });
+
+    // S15659. ValueTask.FromResult gives a value task whose result is the object of a catch. The catch samples the member of that result.
+    public static Cell<int> Ab456ResultOfAValueTaskOfAnException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { ValueTask<Exception> t = ValueTask.FromResult<Exception>(e); Kept.Add(((R4CsFault)t.Result).Share.Sample()); } return S.Hold(0); });
+
+    // S15660. Task.FromResult gives a task whose result is a second object with a plain cell. The sample of its member returns.
+    public static Cell<int> Ab456ResultOfFromResultOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault) { Task<Exception> t = Task.FromResult<Exception>(new R4CsFault(Plain)); Kept.Add(((R4CsFault)t.Result).Share.Sample()); } return S.Hold(0); });
+
+    // S15661. Task.FromResult gives a task whose result is the object of a catch. The Exception of that task is null, thus the code never samples.
+    public static Cell<int> Ab456ExceptionOfFromResultOfAnException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Task<Exception> t = Task.FromResult<Exception>(e); Kept.Add(t.Exception is { InnerException: R4CsFault f } ? f.Share.Sample() : 0); } return S.Hold(0); });
+
+    // S15662. A dictionary has a linked cell as its key and a number as its value. A lambda gets the value of each entry as an object, and a pattern of a cell on that number fails.
+    public static Cell<int> Ab456ValueOfAnEntryIsNotItsKey() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Dictionary<Cell<int>, int> d = new() { [l.Map(v => v)] = 1 }; Func<object, int> pick = o => o is Cell<int> c ? c.Sample() : 0; foreach (KeyValuePair<Cell<int>, int> kv in d) { Kept.Add(pick(kv.Value)); } return S.Hold(0); });
+
+    // S15663. Task.FromResult gives a task whose result is the object of a catch. The Exception of that task is null, thus a pattern on it fails and the code never samples.
+    public static Cell<int> Ab456ExceptionOfFromResultIsNotItsResult() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new R4CsFault(l.Map(v => v)); } catch (R4CsFault e) { Task<Exception> t = Task.FromResult<Exception>(e); Kept.Add(t.Exception is object o && o is R4CsFault f ? f.Share.Sample() : 0); } return S.Hold(0); });
+
+    // S15664. A lambda gets the InnerExceptions as an object through a call of its delegate. A pattern of the type of the object on the collection fails, thus the lambda never samples.
+    public static Cell<int> Ab457LambdaMatchesTheInnerExceptionsAsAnObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15665. The same, with Invoke of the delegate.
+    public static Cell<int> Ab457LambdaThroughInvokeMatchesTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick.Invoke(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15666. A lambda gets the first of the InnerExceptions as an object through a call of its delegate. The pattern matches it, and the lambda samples its member.
+    public static Cell<int> Ab457LambdaMatchesTheFirstInnerException() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick(e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15667. The block calls the delegate of a lambda with the InnerExceptions. Then it calls the delegate with the first of them, and that call samples the member.
+    public static Cell<int> Ab457LambdaCalledWithTheCollectionAndThenTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick(e.InnerExceptions)); Kept.Add(pick(e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15668. A lambda gets the InnerExceptions as an object, and then gives its parameter the first of them. The pattern matches that object, and the lambda samples its member.
+    public static Cell<int> Ab457LambdaWritesItsParameterBeforeThePattern() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Func<object, int> pick = all => { all = e.InnerExceptions[0]; return all is R4CsFault f ? f.Share.Sample() : 0; }; Kept.Add(pick(e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15669. Select of the platform calls a lambda with each element of a list of objects. The element is the object, and the lambda samples its member.
+    public static Cell<int> Ab457LambdaOfSelectGetsEachElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { List<object> all = [e.InnerExceptions[0]]; Kept.Add(all.Select(o => o is R4CsFault f ? f.Share.Sample() : 0).ToList()); } return S.Hold(0); });
+
+    // S15670. A method of the code calls a delegate that it gets with a value that it also gets. The value is the first of the InnerExceptions, and the lambda samples its member.
+    public static Cell<int> Ab457MethodCallsTheLambdaWithTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab457Run(pick, e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15671. A method of the code calls a delegate that it gets with a value that it also gets. The value is the InnerExceptions, thus the pattern of the lambda fails.
+    public static Cell<int> Ab457MethodCallsTheLambdaWithTheCollection() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = all => all is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(Ab457Run(pick, e.InnerExceptions)); } return S.Hold(0); });
+
+    // S15672. A delegate of a local function gets the InnerExceptions as an object. A pattern of the type of the object on the collection fails, thus the function never samples.
+    public static Cell<int> Ab457LocalFunctionThroughADelegateMatchesTheInnerExceptions() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, int> pick = Pick; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick(e.InnerExceptions)); } return S.Hold(0); static int Pick(object all) => all is R4CsFault f ? f.Share.Sample() : 0; });
+
+    // S15673. A delegate call gives its two arguments by name, in a different order. The first parameter of the lambda gets the object, and the lambda samples its member.
+    public static Cell<int> Ab457NamedArgumentsOfADelegateCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Func<object, object, int> pick = (a, b) => a is R4CsFault f ? f.Share.Sample() : 0; try { throw new AggregateException(new R4CsFault(l.Map(v => v))); } catch (AggregateException e) { Kept.Add(pick(arg2: e.InnerExceptions, arg1: e.InnerExceptions[0])); } return S.Hold(0); });
+
+    // S15674. A delegate of an extension method keeps the object as the first argument. The call gives a list as the second argument, and the method samples the member of the object.
+    public static Cell<int> Ab457DelegateOfAnExtensionMethodKeepsItsFirstArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { object fault = new R4CsFault(l.Map(v => v)); Func<object, int> pick = fault.Ab457ShareOfTheReceiver; Kept.Add(pick(new List<int>())); return S.Hold(0); });
+
+    // S15675. Lift runs a lambda with the values of two cells at the first sample. The first value is the object, and the lambda samples its member.
+    public static Cell<int> Ab457LambdaOfLiftGetsTheValueOfACell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<object> a = Cell.Constant<object>(new R4CsFault(l.Map(v => v))); Cell<int> m = a.Lift(Plain, (x, y) => x is R4CsFault f ? f.Share.Sample() : y); Kept.Add(m.Sample()); return S.Hold(0); });
+
+    // S15676. AB462. A method of an object runs a lambda of the block and then samples a member through this. The lambda sets that member to a pending cell through the local of the block.
+    public static Cell<int> Ab462ReadAfterACallback() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.RunThenRead(() => o.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15677. AB462, a control. The same, but the lambda sets the member through a static field that holds the object.
+    public static Cell<int> Ab462ReadAfterACallbackThroughAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Ab462Held = o; Kept.Add(o.RunThenRead(() => Ab462Held!.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15678. AB462. A method of an object maps with the group this.Add, runs a lambda of the block, and samples the map. The lambda sets the member that Add samples to a pending cell through the local of the block.
+    public static Cell<int> Ab462MapRunInTheMethodAfterAWriteThroughTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.MapThenRun(() => o.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15679. AB462, a control. The same as the first shape, but the method sets the member to a plain cell after the lambda runs.
+    public static Cell<int> Ab462APlainCellInTheMethodAfterTheCallback() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.RunSetPlainThenRead(() => o.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15680. AB462, a control. A method maps with the group this.Add and gives the map to a method of a second object. The lambda of the block writes no member.
+    public static Cell<int> Ab462MapGivenToAReaderWithNoWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.MapThenGive(() => Kept.Add(l.Map(v => v)), new Ab462Reader())); return S.Hold(0); });
+
+    // S15681. AB460. A line of a library keeps the result of a call of a helper. A method then gives a pending cell to the result of a second call of the helper. The block reads the last item of the line.
+    public static Cell<int> Ab460ASecondCallInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); line.Put(s); Ab460PutThroughMake(l.Map(v => v)); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15682. AB460, an edge. A local gets the result of a call of a helper. A method then gives a pending cell to the result of a second call of the helper, and the block reads the local.
+    public static Cell<int> Ab460ASecondCallInAMethodThenARead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(2); Ab460PutThroughMake(l.Map(v => v)); return S.Hold(s.Share!.Sample()); });
+
+    // S15683. AB460, an edge. The same with a helper that gives a box with a plain cell. The two calls get the same constant.
+    public static Cell<int> Ab460ASecondCallOfTheSameBoxInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab447Box s = Ab460Box(2); Ab460PutThroughBoxTwo(l.Map(v => v)); return S.Hold(s.Share.Sample()); });
+
+    // S15684. AB460, a control. The same, but the two calls get two different constants, thus they give two different boxes.
+    public static Cell<int> Ab460ASecondCallOfADifferentBoxInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab447Box s = Ab460Box(1); Ab460PutThroughBoxZero(l.Map(v => v)); return S.Hold(s.Share.Sample()); });
+
+    // S15685. AB460, a control. The same as the first edge, but the helper makes a new object at each call.
+    public static Cell<int> Ab460ASecondCallOfAHelperThatMakesInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab447Box s = Ab447NewBox(); Ab460PutThroughANewBox(l.Map(v => v)); return S.Hold(s.Share.Sample()); });
+
+    // S15686. AB461. A local of a call of a helper gets a plain cell, and a line of a library keeps the local. A pending cell then goes in through a second call of the helper. The block reads the last item of the line.
+    public static Cell<int> Ab461ALineCopyWithAPlainCellOfItsOwn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); s.Share = Plain; line.Put(s); Ab447Make(2).Share = l.Map(v => v); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15687. AB461, an edge. The same, but a method gives the pending cell to the result of its own call of the helper.
+    public static Cell<int> Ab461ALineCopyThenASecondCallInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); s.Share = Plain; line.Put(s); Ab460PutThroughMake(l.Map(v => v)); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15688. AB461, a control. The pending cell goes in through the second call before the local gets the plain cell. Thus, the read gets the plain cell.
+    public static Cell<int> Ab461APlainCellAfterTheSecondCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); Ab447Make(2).Share = l.Map(v => v); s.Share = Plain; line.Put(s); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15689. AB461, a control. The same as the first shape, but the second call gets a different constant.
+    public static Cell<int> Ab461ALineCopyThenADifferentElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(1); s.Share = Plain; line.Put(s); Ab447Make(0).Share = l.Map(v => v); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15690. AB461, an edge. A line keeps a first local with a pending cell and a second local with a plain cell. The block reads the first item of the line.
+    public static Cell<int> Ab461TwoPutsOfTwoResults() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot t = Ab447Make(1); t.Share = l.Map(v => v); line.Put(t); SettableSlot s = Ab447Make(0); s.Share = Plain; line.Put(s); s.Share = Plain; return S.Hold(line.All().First().Share!.Sample()); });
+
+    // S15691. AB463. The block gives a delegate member of a box a method group of an extension method of an object. A method of the object makes a map with that member. A different method sets the member that the extension method samples to a pending cell and samples the map.
+    public static Cell<int> Ab463AnExtensionGroupThatAMethodReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab463Box m = new(); m.Box.FMap = m.Ab463AddTo; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15692. AB463, an edge. The block names the extension method group through a second local of the same object.
+    public static Cell<int> Ab463AnExtensionGroupThroughASecondLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab463Box m = new(); Ab463Box k = m; m.Box.FMap = k.Ab463AddTo; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15693. AB463, a control. The extension method group is of a second object. The method of the first object sets its own member to a pending cell, and the group samples the member of the second object.
+    public static Cell<int> Ab463AnExtensionGroupOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab463Box m = new(); Ab463Box k = new(); m.Box.FMap = k.Ab463AddTo; m.Build(); return S.Hold(m.SetAndRead(l.Map(v => v))); });
+
+    // S15694. AB463, an edge. The extension method group is of a second object, and the block sets the member of the second object to a pending cell. Then a method of the first object samples the map.
+    public static Cell<int> Ab463AnExtensionGroupOfASecondObjectWithAPendingMember() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab463Box m = new(); Ab463Box k = new(); m.Box.FMap = k.Ab463AddTo; m.Build(); k.Share = l.Map(v => v); return S.Hold(m.SetAndRead(Plain)); });
+
+    // S15695. AB464. The initializer of a static field of a class with a static constructor gives a second static field a plain cell. The block sets that field to a pending cell, reads the class, and then samples the field.
+    public static Cell<int> Ab464AnInitializerWritesAndTheBlockReadsAfterAStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.A = l.Map(v => v); Kept.Add(Ab464WithAConstructor.Value); return S.Hold(Ab464Shared.A!.Sample()); });
+
+    // S15696. AB464. The first initializer of a class gives a static field a plain cell, and the second initializer samples it. The block sets that field to a pending cell first.
+    public static Cell<int> Ab464AnInitializerWritesBeforeASecondInitializerReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.B = l.Map(v => v); Kept.Add(Ab464WriteThenRead.Read); return S.Hold(0); });
+
+    // S15697. AB464. The first initializer of a class calls a method that gives a static field a plain cell, and the second initializer samples the field.
+    public static Cell<int> Ab464AnInitializerCallsAMethodThatWritesBeforeASecondInitializerReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.C = l.Map(v => v); Kept.Add(Ab464CallThenRead.Read); return S.Hold(0); });
+
+    // S15698. AD29 and AB464. The initializer of the first part of a partial class gives a static field a plain cell. Then the initializer of the second part samples that field.
+    public static Cell<int> Ad29TheFirstPartGivesAPlainCellBeforeTheSecondPartSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.D = l.Map(v => v); Kept.Add(Ad29PlainFirst.Value); return S.Hold(0); });
+
+    // S15699. AB464, on the careful side. A class with no static constructor has an initializer that gives a static field a plain cell. The block sets that field to a pending cell, reads the class, and then samples the field.
+    public static Cell<int> Ab464AnInitializerWritesAndTheBlockReadsWithNoStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.E = l.Map(v => v); Kept.Add(Ab464WithNoConstructor.Value); return S.Hold(Ab464Shared.E!.Sample()); });
+
+    // S15700. AB464, an edge. The write in the initializer is in an arm of a conditional expression that does not run. Thus, the field keeps the pending cell.
+    public static Cell<int> Ab464AnInitializerWritesInAnArmThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.F = l.Map(v => v); Kept.Add(Ab464WriteInAnArm.Value); return S.Hold(Ab464Shared.F!.Sample()); });
+
+    // S15701. AB465. A method reads a list field of this into a local. A method of this then gives the field a new list. The first method adds a pending cell through the local and samples the last element of the field.
+    public static Cell<int> Ab465ACalleeGivesTheFieldOfThisANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunThroughThis(l.Map(v => v))));
+
+    // S15702. AB465. The same with the simple names of the field and of the method.
+    public static Cell<int> Ab465ACalleeGivesTheFieldANewListBySimpleNames() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunBySimpleNames(l.Map(v => v))));
+
+    // S15703. AB465, an edge. The method of this gives the same field of a second object a new list.
+    public static Cell<int> Ab465ACalleeOnThisGivesTheFieldOfASecondObjectANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunThroughASecondObject(new Ab465Holder(), l.Map(v => v))));
+
+    // S15704. AB465, an edge. The method of this gives the field of this a new list only in a branch that does not run.
+    public static Cell<int> Ab465ACalleeGivesTheFieldOfThisANewListInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunWithABranch(l.Map(v => v))));
+
+    // S15705. AB465, an edge. The local gets the list field of a second object that a local keeps. A method of this gives the field of this a new list, and the code samples the field of the second object.
+    public static Cell<int> Ab465ACalleeOnThisAndALocalOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunOnALocalOfASecondObject(l.Map(v => v))));
+
+    // S15706. AB458: an Add in a branch and an Add after it put element 0 of a static array into a list. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab458AnAddInABranchAndAnAddAfterIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; if (Kept.Count >= 0) { a.Add(Ab458ArrA[0]); } a.Add(Ab458ArrA[0]); Ab458ArrA[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab458ArrA[0].Share!.Sample()); });
+
+    // S15707. AB458: an Insert puts element 0 of a static array at the front of a list. A read of element 0 gets the write through item 0.
+    public static Cell<int> Ab458AnInsertAtTheFront() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; a.Add(Ab458ArrB[1]); a.Insert(0, Ab458ArrB[0]); Ab458ArrB[0].Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(Ab458ArrB[0].Share!.Sample()); });
+
+    // S15708. AB458: a loop adds element 0 of a static array two times. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab458TwoAddsInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; for (int i = 0; i < 2; i++) { a.Add(Ab458ArrC[0]); } Ab458ArrC[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab458ArrC[0].Share!.Sample()); });
+
+    // S15709. AB458: an Add in a branch puts a local of an unknown object into a list. A read through the local gets the write through item 1.
+    public static Cell<int> Ab458AnAddInABranchOfALocalOfAnUnknownObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot c = Ab458ArrD[0]; List<SettableSlot> a = []; if (Kept.Count >= 0) { a.Add(c); } a.Add(c); c.Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(c.Share!.Sample()); });
+
+    // S15710. AB458: an Add in a branch puts element 0 into a list, and the block makes a second object. A read through the second object does not get the write through item 1.
+    public static Cell<int> Ab458AnAddInABranchANewObjectKeepsItsCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> a = []; if (Kept.Count >= 0) { a.Add(Ab458ArrE[0]); } a.Add(Ab458ArrE[0]); a[1].Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
+
+    // S15711. AB458: a list holds only new objects that an Add in a branch puts in. A read of element 0 of a static array does not get the write through item 0.
+    public static Cell<int> Ab458AListOfNewObjectsKeepsTheElementOfTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [new SettableSlot()]; if (Kept.Count >= 0) { a.Add(new SettableSlot()); } Ab458ArrF[0].Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(Ab458ArrF[0].Share!.Sample()); });
+
+    // S15712. AB458: a ref local names element 1 of a local array, from an index that a call gives. The local d goes into element 0, and the ref local gives element 1 a different object. Thus, the write through element 0 reaches the read through d.
+    public static Cell<int> Ab458ARefLocalOfACallIndexGivesTheSecondElementADifferentObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [Ab458ArrG[0], Ab458ArrG[1]]; SettableSlot d = Ab458ArrG[2]; ref SettableSlot r = ref a[Ab458One()]; a[0] = d; r = Ab458ArrG[3]; d.Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15713. AB458: a literal has element 0 of a static array two times. The write goes through an index in a local that is not a constant. A read of element 0 gets the write.
+    public static Cell<int> Ab458AWriteAtAnIndexThatIsNotAConstant() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [Ab458ArrH[0], Ab458ArrH[0]]; int i = Kept.Count >= 0 ? 1 : 0; Ab458ArrH[0].Share = Plain; a[i].Share = l.Map(v => v); return S.Hold(Ab458ArrH[0].Share!.Sample()); });
+
+    // S15714. AB458: the code reads the count of a literal of element 0 and element 1 of a static array. A read of element 0 does not get the write through item 1.
+    public static Cell<int> Ab458ACountOfALiteralKeepsEachIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [Ab458ArrJ[0], Ab458ArrJ[1]]; Kept.Add(a.Count); Ab458ArrJ[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab458ArrJ[0].Share!.Sample()); });
+
+    // S15715. AB458: a local gets a literal with element 0 of a static array two times, and then a literal with element 1 two times. A read of element 0 does not get the write through item 1.
+    public static Cell<int> Ab458ASecondLiteralOfASecondElementKeepsEachIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [Ab458ArrK[0], Ab458ArrK[0]]; a = [Ab458ArrK[1], Ab458ArrK[1]]; Ab458ArrK[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab458ArrK[0].Share!.Sample()); });
+
+    // S15716. AB459: a method returns a list with element 0 of a static array two times. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab459AListThatAMethodReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = Ab459MakeA(); Ab459ArrA[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab459ArrA[0].Share!.Sample()); });
+
+    // S15717. AB459: a method returns an array with element 0 of a static array two times. A read of element 0 gets the write through element 1.
+    public static Cell<int> Ab459AnArrayThatAMethodReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab459MakeB(); Ab459ArrB[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab459ArrB[0].Share!.Sample()); });
+
+    // S15718. AB459: a local gets a static list with element 0 of a static array two times. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab459AListFromAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = Ab459ListC; Ab459ArrC[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab459ArrC[0].Share!.Sample()); });
+
+    // S15719. AB459: a method returns a list of new objects. A read of element 0 of a static array does not get the write through item 1.
+    public static Cell<int> Ab459AListOfNewObjectsThatAMethodReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = Ab459MakeD(); Ab459ArrD[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab459ArrD[0].Share!.Sample()); });
+
+    // S15720. AB459: a method returns a list with element 0 of a static array, and the block makes a second object. A read through the second object does not get the write through item 1.
+    public static Cell<int> Ab459AListThatAMethodReturnsANewObjectKeepsItsCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> a = Ab459MakeE(); a[1].Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
+
+    // S15721. AB466. A method of an object maps with the group this.Add and runs a lambda of the block. The lambda sets the member that Add samples to a pending cell through the local of the block. Then the method gives the map to a method of a second object, and that method samples the map.
+    public static Cell<int> Ab466MapGivenToAReaderAfterAWriteThroughTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.MapThenGive(() => o.Share = l.Map(v => v), new Ab462Reader())); return S.Hold(0); });
+
+    // S15722. AB466. The same, but the lambda sets the member through a static field that holds the object.
+    public static Cell<int> Ab466MapGivenToAReaderAfterAWriteThroughAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Ab462Held = o; Kept.Add(o.MapThenGive(() => Ab462Held!.Share = l.Map(v => v), new Ab462Reader())); return S.Hold(0); });
+
+    // S15723. AB466. The same as the first shape, but the method of the second object gives the map to a second method. That method samples the map.
+    public static Cell<int> Ab466MapGivenToAReaderThatGivesItOn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapThenGiveOn(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
+    // S15724. AB466. The same as the first shape, but a static method samples the map.
+    public static Cell<int> Ab466MapGivenToAStaticReader() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapThenGiveToAStaticReader(() => o.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15725. AB466. The same as the first shape, but a second method of the same object samples the map.
+    public static Cell<int> Ab466MapGivenToAMethodOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapThenGiveToThis(() => o.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15726. AB466. The same as the first shape, but the block sets the member to a pending cell before the call, and the lambda does nothing.
+    public static Cell<int> Ab466MapGivenToAReaderWithAPendingMemberBeforeTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); o.Share = l.Map(v => v); Kept.Add(o.MapThenGive(() => { }, new Ab462Reader())); return S.Hold(0); });
+
+    // S15727. AB466. The same as the first shape, but a second method of the object makes the map and returns it.
+    public static Cell<int> Ab466MapOfAHelperGivenToAReader() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MakeMapThenGive(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
+    // S15728. AB466. The same as the first shape, but the map gets a lambda that samples the member through this.
+    public static Cell<int> Ab466MapOfALambdaGivenToAReader() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapWithALambdaThenGive(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
+    // S15729. AB466, a control. The same as the first shape, but the method of the second object does not sample the map.
+    public static Cell<int> Ab466MapGivenToAMethodThatDoesNotRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapThenGiveToAnIgnore(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
+    // S15730. AB466, a control. The same as the first shape, but the method gives the map to the second object before it runs the lambda.
+    public static Cell<int> Ab466MapGivenToAReaderBeforeTheWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapGiveThenRun(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
+    // S15731. AB466, a control. The same as the first shape, but the lambda sets the member to a plain cell.
+    public static Cell<int> Ab466MapGivenToAReaderAfterAPlainWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.MapThenGive(() => o.Share = Plain, new Ab462Reader())); Kept.Add(l.Map(v => v)); return S.Hold(0); });
+
+    // S15732. AB466, a control. The same as the first shape, but the method sets the member to a plain cell after the lambda runs.
+    public static Cell<int> Ab466MapGivenToAReaderAfterAPlainCellOfTheMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab466Class o = new(); Kept.Add(o.MapRunSetPlainThenGive(() => o.Share = l.Map(v => v), new Ab466Reader())); return S.Hold(0); });
+
+    // S15733. AB467. A method gives a second object the list field of this, and reads that field of the second object into a local. The second object then gets a new list. The method adds a pending cell through the local and samples the last element of the field of this.
+    public static Cell<int> Ab467ASecondObjectGetsTheListOfThisAndThenANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab465Holder().RunOnASecondHolder(l.Map(v => v))));
+
+    // S15734. AB467, a control. The same, but the method samples the last element of the field of the second object.
+    public static Cell<int> Ab467ASecondObjectGetsANewListAndTheCodeReadsIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().ReadTheSecondObject(l.Map(v => v))));
+
+    // S15735. AB467. The same as the first shape, but this gets the new list. The method samples the last element of the field of the second object.
+    public static Cell<int> Ab467ThisGetsANewListAndTheCodeReadsTheSecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().RenewThisAndReadTheSecondObject(l.Map(v => v))));
+
+    // S15736. AB467, a report on the careful side. The same as the first shape, but this gets the new list.
+    public static Cell<int> Ab467ThisGetsANewListAndTheCodeReadsThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().RenewThisAndReadThis(l.Map(v => v))));
+
+    // S15737. AB467. The same as the first shape, but the local gets the list through the field of this.
+    public static Cell<int> Ab467TheLocalGetsTheListOfThisAndTheSecondObjectGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().ReadThroughThis(l.Map(v => v))));
+
+    // S15738. AB467. The same as the first shape, but the second object is a parameter.
+    public static Cell<int> Ab467ASecondObjectOfAParameterGetsTheListOfThisAndThenANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().ReadWithAParameter(new Ab467Holder(), l.Map(v => v))));
+
+    // S15739. AB467. The same as the first shape, but the method puts the pending cell into the first element through the local. Then it samples the first element of the field of this.
+    public static Cell<int> Ab467APutAtAnIndexAfterTheSecondObjectGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().PutAtAnIndex(l.Map(v => v))));
+
+    // S15740. AB467, a control. The same as the first shape, but the local gets a new list before the add.
+    public static Cell<int> Ab467TheLocalGetsANewListBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().RenewTheLocal(l.Map(v => v))));
+
+    // S15741. AB467, a control. The method reads the list field of this into a local and gives the field a new list. Then it adds a pending cell through the local and samples the last element of the field.
+    public static Cell<int> Ab467TheFieldGetsANewListBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().AssignBeforeTheAdd(l.Map(v => v))));
+
+    // S15742. AB467. The same as the first shape, but the method gives the field of the second object a new list through an assignment.
+    public static Cell<int> Ab467ASecondObjectGetsTheListOfThisAndThenANewListByAnAssignment() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().AssignTheSecondObject(l.Map(v => v))));
+
+    // S15743. AB467. A local gets the list of a static field. The field gets a new list only in a branch that does not run. A pending cell goes in through the local, and the block samples the last element through the field.
+    public static Cell<int> Ab467TheFieldGetsANewListOnlyInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab467List = [Plain]; List<Cell<int>> xs = Ab467List; if (Never) { Ab467List = [Plain]; } xs.Add(l.Map(v => v)); return S.Hold(Ab467List[^1].Sample()); });
+
+    // S15744. AB467, a control. The same as the first shape, but the local gets a new list through an out argument before the add.
+    public static Cell<int> Ab467TheLocalGetsANewListThroughAnOutArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab467Holder().RenewTheLocalThroughAnOutArgument(l.Map(v => v))));
+
+    // S15745. AB467. A local gets the list of a static field, and the field then gets a new list. A loop adds a pending cell through the local and then gives the local the list of the field. The second add goes into the new list.
+    public static Cell<int> Ab467TheLocalGetsTheFieldAgainInALoop() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab467List = [Plain]; List<Cell<int>> xs = Ab467List; Ab467List = [Plain]; for (int i = 0; i < 2; i++) { xs.Add(l.Map(v => v)); xs = Ab467List; } return S.Hold(Ab467List[^1].Sample()); });
+
+    // S15746. AB468. A static field gets the list of a second static field. The code adds a pending cell through the first field and samples the last element of the second field.
+    public static Cell<int> Ab468APutThroughTheFieldThatGotTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15747. AB468. The same, but the code adds the pending cell through a local that got the list of the first field.
+    public static Cell<int> Ab468APutThroughALocalOfTheFieldThatGotTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468List; xs.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15748. AB468. The same, but the local gets the list of the second field, and the code samples the first field.
+    public static Cell<int> Ab468APutThroughALocalOfTheFieldThatGaveTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468Other; xs.Add(l.Map(v => v)); return S.Hold(Ab468List[^1].Sample()); });
+
+    // S15749. AB468. The same as the first shape, but the code adds the pending cell through the second field and samples the first field.
+    public static Cell<int> Ab468APutThroughTheFieldThatGaveTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468Other.Add(l.Map(v => v)); return S.Hold(Ab468List[^1].Sample()); });
+
+    // S15750. AB468. The same as the first shape, but the code puts the pending cell into the first element through the first field.
+    public static Cell<int> Ab468APutAtAnIndexThroughTheFieldThatGotTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468List[0] = l.Map(v => v); return S.Hold(Ab468Other[0].Sample()); });
+
+    // S15751. AB468. The same, but the code puts the pending cell into the first element through a local of the first field.
+    public static Cell<int> Ab468APutAtAnIndexThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468List; xs[0] = l.Map(v => v); return S.Hold(Ab468Other[0].Sample()); });
+
+    // S15752. AB468. The same as the first shape, but the two static fields hold arrays, and the code puts the pending cell into the first element.
+    public static Cell<int> Ab468TwoFieldsOfOneArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468OtherArray = [Plain]; Ab468Array = Ab468OtherArray; Ab468Array[0] = l.Map(v => v); return S.Hold(Ab468OtherArray[0].Sample()); });
+
+    // S15753. AB468. The same as the first shape, but a third static field gets the list of the first field. The code adds the pending cell through the third field.
+    public static Cell<int> Ab468AChainOfThreeFields() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468Third = Ab468List; Ab468Third.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15754. AB468. The same as the first shape, but a local gets the list of the second field. The first field gets the list of the local.
+    public static Cell<int> Ab468TheListGoesThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; List<Cell<int>> ys = Ab468Other; Ab468List = ys; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15755. AB468. The same as the first shape, but a method gets the pending cell and gives the first field the list of the second field.
+    public static Cell<int> Ab468AMethodThatGetsTheCellGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468ShareWith(l.Map(v => v)); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15756. AB468. The same as the first shape, but a lambda that the code calls gives the first field the list of the second field.
+    public static Cell<int> Ab468ALambdaGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Action share = () => Ab468List = Ab468Other; share(); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15757. AB468. The same as the first shape, but the second field gets a new list in a branch that does not run.
+    public static Cell<int> Ab468TheSecondFieldGetsANewListOnlyInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; if (Never) { Ab468Other = [Plain]; } Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15758. AB468. A loop adds a pending cell through the first field, and then gives the first field the list of the second field. The second add goes into that list.
+    public static Cell<int> Ab468ALoopGivesTheListAfterTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; for (int i = 0; i < 2; i++) { Ab468List.Add(l.Map(v => v)); Ab468List = Ab468Other; } return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15759. AB468. The same as the first shape, but the first field gets the list from a method that returns the second field.
+    public static Cell<int> Ab468AMethodReturnsTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468TheOther(); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15760. AB468. The same as the first shape, but a deconstruction gives the list of the second field to the first field and to a third field.
+    public static Cell<int> Ab468ADeconstructionGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; (Ab468List, Ab468Third) = (Ab468Other, Ab468Other); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15761. AB468. The same as the first shape, but the first field gets the list from a conditional expression whose condition is false.
+    public static Cell<int> Ab468AConditionalGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Never ? [Plain] : Ab468Other; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15762. AB468. The same as the first shape, but a static property with no code gets the list of the second field.
+    public static Cell<int> Ab468AStaticPropertyGetsTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468Property = Ab468Other; Ab468Property.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15763. AB468, a control. The code adds the pending cell through the first field and then gives the second field the list of the first field.
+    public static Cell<int> Ab468TheSecondFieldGetsTheListAfterTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; Ab468List.Add(l.Map(v => v)); Ab468Other = Ab468List; return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15764. AB468. A method gives a field of this the list of a second field of this. It adds a pending cell through the first field and samples the last element of the second field.
+    public static Cell<int> Ab468TwoFieldsOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab468Holder().PutThroughTheSecondField(l.Map(v => v))));
+
+    // S15765. AB468. The same, but the method adds the pending cell through a local that got the list of the first field.
+    public static Cell<int> Ab468TwoFieldsOfThisAndALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab468Holder().PutThroughALocal(l.Map(v => v))));
+
+    // S15766. AB468. The same as the first method, but the second field gets a new list before the first field gets it.
+    public static Cell<int> Ab468TwoFieldsOfThisAfterANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab468Holder().PutAfterANewList(l.Map(v => v))));
+
+    // S15767. AB468. A method gives a field of a second object the list of a field of this. It adds a pending cell through the field of the second object and samples the field of this.
+    public static Cell<int> Ab468AFieldOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab468Holder().PutThroughASecondObject(l.Map(v => v))));
+
+    // S15768. AB468, a control. The same as the first shape, but the second field gets a new list after the first field gets its list.
+    public static Cell<int> Ab468TheSecondFieldGetsANewListAfterTheLink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468Other = [Plain]; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15769. AB468, a control. The same as the first shape, but the first field gets a new list after it gets the list of the second field.
+    public static Cell<int> Ab468TheFirstFieldGetsANewListAfterTheLink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468List = [Plain]; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15770. AB468, a control. The same as the first shape, but the code samples the second field before the add.
+    public static Cell<int> Ab468AReadBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; int first = Ab468Other[^1].Sample(); Ab468List.Add(l.Map(v => v)); return S.Hold(first); });
+
+    // S15771. AB468, a control. The two static fields get two new lists, and the code adds the pending cell through the first field.
+    public static Cell<int> Ab468TwoFieldsOfTwoLists() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15772. AB468, a control. The same as the first shape, but a static property with no code holds the list and gets a new list.
+    public static Cell<int> Ab468AStaticPropertyGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Property = [Plain]; Ab468List = Ab468Property; Ab468Property = [Plain]; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Property[^1].Sample()); });
+
+    // S15773. AB468, a control. The same as the first method of the object, but the second field gets a new list after the first field gets its list.
+    public static Cell<int> Ab468TwoFieldsOfThisAndANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab468Holder().NewListAfterTheLink(l.Map(v => v))));
+
+    // S15774. AB468, a report on the careful side. The same as the first shape, but a lambda that the code calls gives the second field a new list before the add.
+    public static Cell<int> Ab468ALambdaGivesTheSecondFieldANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Action renew = () => Ab468Other = [Plain]; renew(); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15775. AB468. The same as the first shape, but the first field gets the list from a coalesce expression whose left value is null.
+    public static Cell<int> Ab468ACoalesceGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Nothing ?? Ab468Other; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15776. AB468, a control. A local gets the list of the second field, and the second field then gets a new list. The first field gets the list of the local, which is the first list.
+    public static Cell<int> Ab468TheLocalKeepsTheOldListOfTheSecondField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; List<Cell<int>> ys = Ab468Other; Ab468Other = [Plain]; Ab468List = ys; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15777. AB468, a control. The same as the first shape, but the code only searches the first field for the pending cell.
+    public static Cell<int> Ab468ASearchThroughTheFirstField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; int at = Ab468List.IndexOf(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample() + at); });
+
+    // S15778. AB468. The same as the first shape, but a lambda gives the second field a new list. The code calls the lambda only in a branch that does not run.
+    public static Cell<int> Ab468ALambdaInABranchGivesTheSecondFieldANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Action renew = () => Ab468Other = [Plain]; if (Never) { renew(); } Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15779. AB468. The same as the first shape, but a method that gets the pending cell gives the second field a new list. The code calls it only in a branch that does not run.
+    public static Cell<int> Ab468AMethodInABranchGivesTheSecondFieldANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; if (Never) { Ab468RenewWith(l.Map(v => v)); } Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15780. AB468, a report on the careful side. The same as the first shape, but a method that gets the pending cell gives the second field a new list before the add.
+    public static Cell<int> Ab468AMethodGivesTheSecondFieldANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468RenewWith(l.Map(v => v)); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15781. AB468, a control. A lambda gives the first field the list of the second field, but the code does not call the lambda.
+    public static Cell<int> Ab468ALambdaThatDoesNotRunGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; Action share = () => Ab468List = Ab468Other; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15782. AB468, a control. The function of a map of a constant gives the first field the list of the second field. Nothing samples the map.
+    public static Cell<int> Ab468AMapThatDoesNotRunGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; Cell<int> later = Cell.Constant(1).Map(v => { Ab468List = Ab468Other; return v; }); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15783. AB468. A local gets the array of the second field, and a method then puts a pending cell into the first element through the first field. The code samples the first element through the local.
+    public static Cell<int> Ab468AMethodPutsThroughTheFirstFieldAndTheCodeReadsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468OtherArray = [Plain]; Ab468Array = Ab468OtherArray; Cell<int>[] xs = Ab468OtherArray; Ab468PutInto(l.Map(v => v)); return S.Hold(xs[0].Sample()); });
+
+    // S15784. AB468, a control. A function that runs after the transaction gives the first field the list of the second field. The code adds a pending cell through the first field before that.
+    public static Cell<int> Ab468APostedFunctionGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; Transaction.Post(() => Ab468List = Ab468Other); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15785. AB468. The block gives a field of one object the list of a second field of that object. Then it gives the second field of a different object a new list. It adds a pending cell through the first field and samples the second field of the first object.
+    public static Cell<int> Ab468ADifferentObjectGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Holder one = new(); Ab468Holder two = new(); one.Others = one.Items; two.Items = [Plain]; one.Others.Add(l.Map(v => v)); return S.Hold(one.Items[^1].Sample()); });
+
+    // S15786. AB469. A local gets the list of a static field. A lambda adds a pending cell through the local, and the code calls the lambda and samples the last element of the field.
+    public static Cell<int> Ab469AnAddInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => xs.Add(l.Map(v => v)); add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15787. AB469. The same, but a local function adds the pending cell.
+    public static Cell<int> Ab469AnAddInALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; void Add() => xs.Add(l.Map(v => v)); Add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15788. AB469. The same as the first shape, but the lambda puts the pending cell into the first element. The code samples the first element of the field.
+    public static Cell<int> Ab469APutAtAnIndexInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action put = () => xs[0] = l.Map(v => v); put(); return S.Hold(Ab469List[0].Sample()); });
+
+    // S15789. AB469. The same, but a local function puts the pending cell into the first element.
+    public static Cell<int> Ab469APutAtAnIndexInALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; void Put() => xs[0] = l.Map(v => v); Put(); return S.Hold(Ab469List[0].Sample()); });
+
+    // S15790. AB469. The same as the first shape, but the lambda has a block body.
+    public static Cell<int> Ab469AnAddInALambdaWithABlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { xs.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15791. AB469. The same as the first shape, but a method of the code gets the lambda and calls it.
+    public static Cell<int> Ab469AnAddInALambdaThatAMethodRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Ab469Run(() => xs.Add(l.Map(v => v))); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15792. AB469. The same as the first shape, but a lambda in the lambda adds the pending cell.
+    public static Cell<int> Ab469AnAddInANestedLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { Action inner = () => xs.Add(l.Map(v => v)); inner(); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15793. AB469. The same as the first shape, but the lambda gives the local a new list after the add.
+    public static Cell<int> Ab469TheLambdaGivesTheLocalANewListAfterTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { xs.Add(l.Map(v => v)); xs = [Plain]; }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15794. AB469. The code makes the lambda before the local gets the list of the field. Then the code calls the lambda.
+    public static Cell<int> Ab469ALambdaMadeBeforeTheLocalGetsTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = [Plain]; Action add = () => xs.Add(l.Map(v => v)); xs = Ab469List; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15795. AB469. The code calls a local function, samples the field, and then gives the local a new list. The local function comes after that code.
+    public static Cell<int> Ab469ALocalFunctionRunsBeforeTheLocalGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Add(); int first = Ab469List[^1].Sample(); xs = [Plain]; return S.Hold(first); void Add() => xs.Add(l.Map(v => v)); });
+
+    // S15796. AB469. The code calls a local function, samples the field, and then gives the field a new list. The local function comes after that code.
+    public static Cell<int> Ab469ALocalFunctionRunsBeforeTheFieldGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Add(); int first = Ab469List[^1].Sample(); Ab469List = [Plain]; return S.Hold(first); void Add() => xs.Add(l.Map(v => v)); });
+
+    // S15797. AB469, a control. The same as the first shape, but the code does not call the lambda.
+    public static Cell<int> Ab469ALambdaThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => xs.Add(l.Map(v => v)); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15798. AB469, a control. The same as the first shape, but the field gets a new list before the code makes the lambda.
+    public static Cell<int> Ab469TheFieldGetsANewListBeforeTheLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Ab469List = [Plain]; Action add = () => xs.Add(l.Map(v => v)); add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15799. AB469, a control. The same as the first shape, but the field gets a new list in the lambda before the add.
+    public static Cell<int> Ab469TheFieldGetsANewListInTheLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { Ab469List = [Plain]; xs.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15800. AB469, a control. The same as the second shape, but the field gets a new list in the local function before the add.
+    public static Cell<int> Ab469TheFieldGetsANewListInTheLocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; void Add() { Ab469List = [Plain]; xs.Add(l.Map(v => v)); } Add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15801. AB469, a control. The same as the first shape, but the lambda gives the local a new list before the add.
+    public static Cell<int> Ab469TheLambdaGivesTheLocalANewListBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { xs = [Plain]; xs.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15802. AB469, a control. The same as the second shape, but the local function gives the local a new list before the add.
+    public static Cell<int> Ab469TheLocalFunctionGivesTheLocalANewListBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; void Add() { xs = [Plain]; xs.Add(l.Map(v => v)); } Add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15803. AB469, a control. The same as the first shape, but the local gets a new list before the code makes the lambda.
+    public static Cell<int> Ab469TheLocalGetsANewListBeforeTheLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; xs = [Plain]; Action add = () => xs.Add(l.Map(v => v)); add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15804. AB469, a control. The same as the first shape, but the lambda adds a plain cell.
+    public static Cell<int> Ab469ALambdaAddsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => xs.Add(Plain); add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15805. AB469, a control. The same as the first shape, but the code samples the field before it calls the lambda.
+    public static Cell<int> Ab469TheLambdaRunsAfterTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => xs.Add(l.Map(v => v)); int first = Ab469List[^1].Sample(); add(); return S.Hold(first); });
+
+    // S15806. AB469, a report on the careful side. The same as the second shape, but the field gets a new list before the code calls the local function.
+    public static Cell<int> Ab469TheFieldGetsANewListBeforeTheLocalFunctionRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Ab469List = [Plain]; Add(); return S.Hold(Ab469List[^1].Sample()); void Add() => xs.Add(l.Map(v => v)); });
+
+    // S15807. AB469. A lambda gives a local the list of a static field and adds a pending cell through the local. The code calls the lambda and samples the last element of the field.
+    public static Cell<int> Ab469ALambdaReadsTheFieldAndAdds() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; Action add = () => { List<Cell<int>> ys = Ab469List; ys.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15808. AB469, a control. The same, but the lambda gives the field a new list after the read and before the add.
+    public static Cell<int> Ab469ALambdaReadsTheFieldAndGivesItANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; Action add = () => { List<Cell<int>> ys = Ab469List; Ab469List = [Plain]; ys.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15809. AB469, a control. The same as the first shape, but the local gets a new list through an out argument before the code makes the lambda.
+    public static Cell<int> Ab469TheLocalGetsANewListThroughAnOutArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Ab469Fresh(out xs); Action add = () => xs.Add(l.Map(v => v)); add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15810. AB469. A method gives a second object the list field of this and reads that field of the second object into a local. The second object then gets a new list. A lambda adds a pending cell through the local, and the method samples the field of this.
+    public static Cell<int> Ab469ASecondObjectGetsANewListBeforeALambdaAdds() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab469Holder().AddInALambda(l.Map(v => v))));
+
+    // S15811. AB469, a control. The same as the first shape, but the lambda gives the local a new list through an out argument before the add.
+    public static Cell<int> Ab469TheLambdaGivesTheLocalANewListThroughAnOutArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { Ab469Fresh(out xs); xs.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15812. AB469. A lambda gives a local the list of a static field. The code calls the lambda, adds a pending cell through the local, and samples the last element of the field.
+    public static Cell<int> Ab469ALambdaGivesTheLocalTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = [Plain]; Action get = () => xs = Ab469List; get(); xs.Add(l.Map(v => v)); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15813. AB469. The same, but a local function gives the local the list.
+    public static Cell<int> Ab469ALocalFunctionGivesTheLocalTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = [Plain]; void Get() => xs = Ab469List; Get(); xs.Add(l.Map(v => v)); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15814. AB469, a control. The same as the first shape, but the code gives the local a new list after the call.
+    public static Cell<int> Ab469TheLocalGetsANewListAfterTheLambdaGivesItTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = [Plain]; Action get = () => xs = Ab469List; get(); xs = [Plain]; xs.Add(l.Map(v => v)); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15815. AB469. One lambda gives a local the list of a static field, and a second lambda adds a pending cell through the local. The code calls the two lambdas and samples the last element of the field.
+    public static Cell<int> Ab469TwoLambdasGiveTheListAndAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = [Plain]; Action get = () => xs = Ab469List; Action add = () => xs.Add(l.Map(v => v)); get(); add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15816. AB468. The first field gets the list of the second field, and a local gets the list of the first field. The first field then gets a new list. The code adds a pending cell through the local and samples the second field.
+    public static Cell<int> Ab468ALocalKeepsTheListAfterTheFirstFieldGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468List; Ab468List = [Plain]; xs.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15817. AB468. The same, but the second field gets the new list, and the code samples the first field.
+    public static Cell<int> Ab468ALocalKeepsTheListAfterTheSecondFieldGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468Other; Ab468Other = [Plain]; xs.Add(l.Map(v => v)); return S.Hold(Ab468List[^1].Sample()); });
+
+    // S15818. AB468. The same, but the code puts the pending cell into the first element through the local.
+    public static Cell<int> Ab468ALocalKeepsTheListForAPutAtAnIndex() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468Other; Ab468Other = [Plain]; xs[0] = l.Map(v => v); return S.Hold(Ab468List[0].Sample()); });
+
+    // S15819. AB468, a control. The same as the first shape, but the local gets a new list before the add.
+    public static Cell<int> Ab468ALocalGetsANewListAfterTheFirstFieldGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468List; Ab468List = [Plain]; xs = [Plain]; xs.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15820. AB468, a control. The same as the first shape, but the local gets the list of a third field. Thus, the link of the first two fields goes when the first field gets a new list.
+    public static Cell<int> Ab468ALocalOfAThirdFieldKeepsNoLink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468Third; Ab468List = [Plain]; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample() + xs.Count); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -117482,6 +118962,1354 @@ public static class Shapes
         public int Read() => this.slot.Share.Sample();
     }
 
+    private static readonly SettableSlot Ab438Kept = new();
+
+    private static SettableSlot Ab438Writable = new();
+
+    private static void Ab438Share() => Ab438Writable = Ab438Kept;
+
+    private static Ab438Leaker? Ab438LeakTarget;
+
+    private static readonly Ab438Leaker Ab438Leak = new();
+
+    public sealed class Ab438Leaker
+    {
+        public Ab438Leaker() => Ab438LeakTarget = this;
+
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static SettableSlot Ab438Source = new();
+
+    private static readonly SettableSlot Ab438Alias = Ab438Source;
+
+    public static SettableSlot Ab438Writable2 = new();
+
+    public static readonly SettableSlot Ab438Public = new();
+
+    public static SettableSlot Ab438First = new();
+
+    public static SettableSlot Ab438Second = new();
+
+    private static void Ab438Join() => Ab438Second = Ab438First;
+
+    private static readonly SettableSlot Ab438Third = new();
+
+    private static readonly SettableSlot Ab438Fourth = new();
+
+    private static readonly SettableSlot Ab438Fifth = new();
+
+    private static readonly SettableSlot Ab438Sixth = new();
+
+    private static readonly SettableSlot Ab438Seventh = new();
+
+    private static void Ab438HandOn()
+    {
+        Kept.Add(Ab438Fifth);
+        Kept.Add(Ab438Sixth);
+    }
+
+    private static void Ab438PutPlain(SettableSlot slot) => slot.Share = Plain;
+
+    public sealed class Ab443Class
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public int Add(int v) => v + this.Share.Sample();
+
+        public Cell<int> MapOfAdd() => Plain.Map(this.Add);
+
+        public Cell<int> MapOfAddByLambda() => Plain.Map(v => this.Add(v));
+
+        public void Set(Cell<int> share) => this.Share = share;
+
+        public Func<int> Reader() => () => this.Share.Sample();
+
+        public Func<int, int> AddGroup() => this.Add;
+
+        public Cell<int> SetPlainAndMap()
+        {
+            this.Share = Plain;
+
+            return Plain.Map(this.Add);
+        }
+    }
+
+    public interface IAb443Adder
+    {
+        int Add(int v);
+
+        Cell<int> MapOfAdd() => Plain.Map(this.Add);
+
+        Cell<int> MapOfAddByLambda() => Plain.Map(v => this.Add(v));
+    }
+
+    public sealed class Ab443Adder : IAb443Adder
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public int Add(int v) => v + this.Share.Sample();
+    }
+
+    private static readonly SettableSlot[] Ab447Slots = [new(), new(), new()];
+
+    private static SettableSlot Ab447Make(int i) => Ab447Slots[i];
+
+    private static SettableSlot Ab447New() => new();
+
+    private static SettableSlot Ab447NewInALocal()
+    {
+        SettableSlot made = new();
+
+        return made;
+    }
+
+    private static SettableSlot Ab447ElementInALocal()
+    {
+        SettableSlot made = new();
+        made = Ab447Slots[0];
+
+        return made;
+    }
+
+    public sealed class Ab447Box
+    {
+        public Cell<int> Share { get; set; } = Plain;
+    }
+
+    private static Ab447Box Ab447NewBox() => new();
+
+    public sealed class Ab449Given
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab449Given() => Kept.Add(this);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(v => v + this.share.Sample());
+    }
+
+    public sealed class Ab449QuietRebuilt
+    {
+        private Cell<int> map = Cell.Constant(1).Map(static v => v);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab449QuietRebuilt() =>
+            typeof(Ab449QuietRebuilt)
+                .GetMethod("Rebuild", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .Invoke(this, null);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.map.Sample();
+        }
+
+        private void Rebuild() => this.map = Cell.Constant(1).Map(static v => v + 1);
+    }
+
+    public sealed class Ab449LazyRebuilt
+    {
+        private Lazy<int> lazy = new(static () => 1);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public Ab449LazyRebuilt() =>
+            typeof(Ab449LazyRebuilt)
+                .GetMethod("Rebuild", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .Invoke(this, null);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+
+            return this.lazy.Value;
+        }
+
+        private void Rebuild() => this.lazy = new Lazy<int>(() => this.share.Sample());
+    }
+
+    private static readonly SettableSlot[] Ab450ArrA = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrB = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrC = [new SettableSlot(), new SettableSlot()];
+    public static readonly SettableSlot[] Ab450PublicArr = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrE = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrF = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrG = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrH = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrJ = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrK = [new SettableSlot(), new SettableSlot()];
+    private static SettableSlot[] Ab450TargetK = [];
+    private static readonly SettableSlot[] Ab450ArrM = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrN = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrP = [new SettableSlot(), new SettableSlot()];
+
+    private static readonly SettableSlot[] Ab450ArrQ = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab450ArrR = [new SettableSlot(), new SettableSlot()];
+    private static readonly Ab450Box Ab450OtherQ = new() { Items = [new SettableSlot(), new SettableSlot()] };
+    private static readonly Ab450Box Ab450OtherR = new() { Items = [new SettableSlot(), new SettableSlot()] };
+
+    public sealed class Ab450Box
+    {
+        public SettableSlot[] Items = [];
+
+        public void WriteSecond(Cell<int> share)
+        {
+            // The shape tests a write through the field by its simple name, which has a key of its own.
+            // ReSharper disable once ArrangeThisQualifier
+            Items[1].Share = share;
+        }
+    }
+
+    public readonly struct Ab445Holder
+    {
+        public readonly SettableSlot Slot;
+
+        public Ab445Holder(SettableSlot slot) => this.Slot = slot;
+    }
+
+    private static readonly Cell<int>[] Ab444Cells = [Plain, Plain];
+
+    private static SettableSlot[] Ab448ArrA = [new()];
+    private static SettableSlot[] Ab448ArrB = [new()];
+    private static readonly SettableSlot[] Ab448ArrC = [new()];
+    private static readonly SettableSlot[] Ab448ArrD = [new()];
+    private static SettableSlot[] Ab448ArrE = [new()];
+    private static SettableSlot[] Ab448ArrF = [new()];
+    private static readonly SettableSlot[] Ab448ArrG = [new(), new()];
+    private static readonly SettableSlot[] Ab448ArrH = [new(), new()];
+    private static readonly SettableSlot[] Ab448ArrJ = [new(), new()];
+    private static readonly SettableSlot[] Ab448ArrK = [new(), new()];
+    private static readonly SettableSlot[] Ab448ArrM = [new(), new()];
+
+    private static SettableSlot[] Ab448ArrN = [new()];
+    private static SettableSlot[] Ab448ArrP = [new()];
+    private static SettableSlot[] Ab448ArrQ = [new()];
+
+    private static readonly SettableSlot[] Ab454ArrA = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab454ArrB = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab454ArrC = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab454ArrD = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab454ArrE = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab454ArrF = [new SettableSlot(), new SettableSlot()];
+
+    public static class Ad29Shared
+    {
+        public static Cell<int>? First;
+        public static Cell<int>? Second;
+        public static Cell<int>? Third;
+        public static Cell<int>? Fourth;
+        public static Cell<int>? Fifth;
+    }
+
+    public static partial class Ad29SecondPartSamples
+    {
+        public static readonly int Value = 1;
+    }
+
+    public static partial class Ad29SecondPartSamples
+    {
+        public static readonly int Read = Ad29Shared.First!.Sample();
+    }
+
+    public static partial class Ad29ConstructorInTheSecondPart
+    {
+        public static readonly int Value = Ad29Shared.Second!.Sample();
+    }
+
+    public static partial class Ad29ConstructorInTheSecondPart
+    {
+        static Ad29ConstructorInTheSecondPart()
+        {
+        }
+    }
+
+    public static partial class Ad29ConstructorInTheFirstPart
+    {
+        public static readonly int Value = 1;
+
+        static Ad29ConstructorInTheFirstPart()
+        {
+        }
+    }
+
+    public static partial class Ad29ConstructorInTheFirstPart
+    {
+        public static readonly int Read = Ad29Shared.Third!.Sample();
+    }
+
+    public static partial class Ad29PlainSecond
+    {
+        public static readonly int Value = Ad29Shared.Fourth!.Sample();
+    }
+
+    public static partial class Ad29PlainSecond
+    {
+        public static readonly int Given = Ad29GivePlainToTheFourth();
+    }
+
+    public sealed partial class Ad29InstanceInTheSecondPart
+    {
+        public static readonly int Value = 1;
+    }
+
+    public sealed partial class Ad29InstanceInTheSecondPart
+    {
+        public readonly int Own = Ad29Shared.Fifth!.Sample();
+    }
+
+    private static int Ad29GivePlainToTheFourth()
+    {
+        Ad29Shared.Fourth = Plain;
+
+        return 0;
+    }
+
+    public sealed class Ab452BoxThatTheBlockGives
+    {
+        public readonly R6PairFnBox Box = new();
+
+        private Cell<int> built = Cell.Constant(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public void Build() => this.built = Cell.Constant(1).Map(this.Box.FMap);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+            int r = this.built.Sample();
+
+            return r;
+        }
+
+        public int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab452NoInitializer
+    {
+        public readonly R6PairFnBox Box = new();
+
+        private Cell<int>? built;
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public void Build() => this.built = Cell.Constant(1).Map(this.Box.FMap);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+            int r = this.built!.Sample();
+
+            return r;
+        }
+
+        public int Add(int v) => v + this.share.Sample();
+    }
+
+    public sealed class Ab452LazyBox
+    {
+        public readonly R6PairFnBox Box = new();
+
+        private Lazy<int> built = new(0);
+
+        private Cell<int> share = Cell.Constant(0);
+
+        public void Build() => this.built = new Lazy<int>(this.Box.FLazy);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.share = pending;
+            int r = this.built.Value;
+
+            return r;
+        }
+
+        public int Get() => this.share.Sample();
+    }
+
+    public sealed class Ab452OpenBox
+    {
+        public readonly R6PairFnBox Box = new();
+
+        public Cell<int> Share = Cell.Constant(0);
+
+        private Cell<int> built = Cell.Constant(0);
+
+        public void Build() => this.built = Cell.Constant(1).Map(this.Box.FMap);
+
+        public int Read()
+        {
+            int r = this.built.Sample();
+
+            return r;
+        }
+
+        public int Add(int v) => v + this.Share.Sample();
+    }
+
+    private static int Ab452AddTo(this Ab452OpenBox box, int v) => v + box.Share.Sample();
+
+    private static List<Cell<int>> Ab453List { get; set; } = [];
+    private static List<Cell<int>> Ab453ListB { get; set; } = [];
+    private static List<Cell<int>> Ab453ListC { get; set; } = [];
+    private static List<Cell<int>> Ab453ListD { get; set; } = [];
+    private static List<Cell<int>> Ab453ListE { get; set; } = [];
+    private static List<Cell<int>> Ab453ListF { get; set; } = [];
+    private static List<Cell<int>> Ab453ListG { get; set; } = [];
+    private static List<Cell<int>> Ab453ListH { get; set; } = [];
+
+    private static List<Cell<int>> Ab453Field = [];
+
+    private static List<Cell<int>> Ab453Saved = [];
+
+    private static readonly TaskCompletionSource Ab453NeverDone = new();
+
+    private static int Ab453Turn;
+
+    private static bool Ab453Skip = true;
+
+    private static bool Ab453Stop = true;
+
+    private static void Ab453Renew() => Ab453List = [Plain];
+
+    private static void Ab453RenewTheField() => Ab453Field = new List<Cell<int>> { Plain };
+
+    private static void Ab453RenewInABranch()
+    {
+        if (Ab453Turn > 0)
+        {
+            Ab453ListB = [Plain];
+        }
+    }
+
+    private static void Ab453ReturnFirst()
+    {
+        if (Ab453Stop)
+        {
+            return;
+        }
+
+        Ab453ListC = [Plain];
+    }
+
+    private static void Ab453GiveBack() => Ab453ListD = Ab453Saved;
+
+    private static async void Ab453RenewLater()
+    {
+        await Ab453NeverDone.Task;
+        Ab453ListF = [Plain];
+    }
+
+    private static IEnumerable<int> Ab453RenewLazily()
+    {
+        if (Ab453Turn > 0)
+        {
+            yield return 0;
+        }
+
+        Ab453ListG = [Plain];
+    }
+
+    public class Ab453Renewer
+    {
+        public virtual void Renew() => Ab453ListE = [Plain];
+    }
+
+    public sealed class Ab453KeepingRenewer : Ab453Renewer
+    {
+        public override void Renew()
+        {
+        }
+    }
+    private static List<Cell<int>> Ab453ListJ { get; set; } = [];
+    private static List<Cell<int>> Ab453ListK { get; set; } = [];
+    private static List<Cell<int>> Ab453ListL { get; set; } = [];
+
+    private static Ab453CachedList Ab453Cached { get; set; } = new();
+
+    private static readonly Ab453CachedList Ab453CachedOne = new();
+
+    private static void Ab453GiveTheListBack(List<Cell<int>> list) => Ab453List = list;
+
+    private static void Ab453RenewAfterAGoto()
+    {
+        if (Ab453Skip)
+        {
+            goto done;
+        }
+
+        Ab453ListK = [Plain];
+
+        done:
+        Ab453Turn += 0;
+    }
+
+    private static void Ab453RenewThroughAConversion() => Ab453ListJ = new Ab453Back();
+
+    private static void Ab453RenewTheCached() => Ab453Cached = [Plain];
+
+    public class Ab453RenewingRenewer : Ab453Renewer
+    {
+        public override void Renew() => Ab453ListL = [Plain];
+    }
+
+    public class Ab453KeepingAgain : Ab453RenewingRenewer
+    {
+        public override void Renew()
+        {
+        }
+    }
+
+    public sealed class Ab453Back
+    {
+        public static implicit operator List<Cell<int>>(Ab453Back back) => Ab453Saved;
+    }
+
+    [CollectionBuilder(typeof(Ab453CachedBuilder), nameof(Ab453CachedBuilder.Create))]
+    public sealed class Ab453CachedList : List<Cell<int>>
+    {
+    }
+
+    public static class Ab453CachedBuilder
+    {
+        public static Ab453CachedList Create(ReadOnlySpan<Cell<int>> items) => Ab453CachedOne;
+    }
+    public sealed class Ab453Holder
+    {
+        public List<Cell<int>> Items = [Plain];
+
+        public void Renew() => this.Items = [Plain];
+
+        public int Run(Ab453Holder other, Cell<int> pending)
+        {
+            List<Cell<int>> xs = this.Items;
+            other.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+    }
+
+    public static class Ab453Generic<T>
+    {
+        public static List<Cell<int>> Items { get; set; } = [];
+
+        public static void Renew() => Items = [Plain];
+    }
+
+    private static List<Cell<int>> Ab453ListI { get; set; } = [];
+
+    private static void Ab453RenewAndGiveBack(List<Cell<int>> list)
+    {
+        Ab453ListI = [Plain];
+        Ab453ListI = list;
+    }
+
+    // Helpers of the shapes of AB440.
+    private static int Ab440SampleInATry(Cell<int> c)
+    {
+        try
+        {
+            return c.Sample();
+        }
+        finally
+        {
+            throw new ArgumentException("x");
+        }
+    }
+
+    private static int Ab440SampleInATryOrNot(Cell<int> c)
+    {
+        try
+        {
+            return c.Sample();
+        }
+        finally
+        {
+            if (Kept.Count < 0)
+            {
+                throw new ArgumentException("x");
+            }
+        }
+    }
+
+    // Helpers of the shapes of AB442.
+    private static int Ab442ShareOfAFault(object? all) => all is R4CsFault f ? f.Share.Sample() : 0;
+
+    private static int Ab442ShareOfTheFirst(object all) =>
+        all is IEnumerable<Exception> each && each.First() is R4CsFault f ? f.Share.Sample() : 0;
+
+    private static int Ab442ShareOfAProperty(object all) => all is R4CsFault { Share: var share } ? share.Sample() : 0;
+
+    private static int Ab442ShareOfAnOpenFault(object all) => all is Ab442OpenFault f ? f.Share.Sample() : 0;
+
+    private static int Ab442ShareOfASealedList(object all) => all is Ab442SealedFaultList f ? f.Share.Sample() : 0;
+
+    public class Ab442OpenFault(Cell<int> share) : Exception
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
+    public sealed class Ab442FaultList(Cell<int> share) : Ab442OpenFault(share), IEnumerable<Exception>
+    {
+        private readonly List<Exception> all = [];
+
+        public void Add(Exception one) => this.all.Add(one);
+
+        public IEnumerator<Exception> GetEnumerator() => this.all.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    public sealed class Ab442SealedFaultList(Cell<int> share) : Exception, IEnumerable<Exception>
+    {
+        private readonly List<Exception> all = [];
+
+        public Cell<int> Share { get; } = share;
+
+        public void Add(Exception one) => this.all.Add(one);
+
+        public IEnumerator<Exception> GetEnumerator() => this.all.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    private static int Ab442ShareOfAnInvocationFault(object all) =>
+        all is System.Reflection.TargetInvocationException t ? ((R4CsFault)t.InnerException!).Share.Sample() : 0;
+
+    private static int Ab442ShareOfABag(object all) => all is Ab442FaultBag f ? f.Share.Sample() : 0;
+
+    public sealed class Ab442FaultBag(Cell<int> share) : List<Exception>
+    {
+        public Cell<int> Share { get; } = share;
+    }
+
+    private static int Ab442ShareAfterAWrite(object all, Exception one)
+    {
+        all = one;
+
+        return all is R4CsFault f ? f.Share.Sample() : 0;
+    }
+
+    private static int Ab442ShareOfAGeneric<T>(T all, T other)
+    {
+        all = other;
+
+        return all is R4CsFault f ? f.Share.Sample() : 0;
+    }
+
+    // Helpers of the shapes of AB439.
+    public sealed class Ab439OneCell(Cell<int> share) : IAsyncEnumerable<Cell<int>>
+    {
+        public IAsyncEnumerator<Cell<int>> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            new Ab439OneCellWalker(share);
+    }
+
+    public sealed class Ab439OneCellWalker(Cell<int> share) : IAsyncEnumerator<Cell<int>>
+    {
+        private bool done;
+
+        public Cell<int> Current { get; } = share;
+
+        public ValueTask<bool> MoveNextAsync()
+        {
+            bool more = !this.done;
+            this.done = true;
+
+            return ValueTask.FromResult(more);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    public sealed class Ab439OneCellIn(in Cell<int> share) : IAsyncEnumerable<Cell<int>>
+    {
+        private readonly Cell<int> share = share;
+
+        public IAsyncEnumerator<Cell<int>> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
+            new Ab439OneCellInWalker(this.share);
+    }
+
+    public sealed class Ab439OneCellInWalker(in Cell<int> share) : IAsyncEnumerator<Cell<int>>
+    {
+        private bool done;
+
+        public Cell<int> Current { get; } = share;
+
+        public ValueTask<bool> MoveNextAsync()
+        {
+            bool more = !this.done;
+            this.done = true;
+
+            return ValueTask.FromResult(more);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    public sealed class Ab439OneSyncCell(Cell<int> share)
+    {
+        public Ab439OneSyncCellWalker GetEnumerator() => new(share);
+    }
+
+    public sealed class Ab439OneSyncCellWalker(Cell<int> share)
+    {
+        private bool done;
+
+        public Cell<int> Current { get; } = share;
+
+        public bool MoveNext()
+        {
+            bool more = !this.done;
+            this.done = true;
+
+            return more;
+        }
+    }
+
+    public sealed class Ab439SetCell(Cell<int> share)
+    {
+        public Ab439SetCellWalker GetEnumerator() => new(share);
+    }
+
+    public sealed class Ab439SetCellWalker
+    {
+        private bool done;
+
+        public Ab439SetCellWalker(Cell<int> share) => this.Current = share;
+
+        public Cell<int> Current { get; }
+
+        public bool MoveNext()
+        {
+            bool more = !this.done;
+            this.done = true;
+
+            return more;
+        }
+    }
+
+    public sealed class Ab439MovedCell(Cell<int> share)
+    {
+        public Ab439MovedCellWalker GetEnumerator() => new(share);
+    }
+
+    public sealed class Ab439MovedCellWalker(Cell<int> share)
+    {
+        private readonly Cell<int> share = share;
+
+        private bool done;
+
+        public Cell<int> Current { get; private set; } = Plain;
+
+        public bool MoveNext()
+        {
+            bool more = !this.done;
+            this.done = true;
+            this.Current = this.share;
+
+            return more;
+        }
+    }
+
+    public sealed class Ab439ReplacedCell(Cell<int> share)
+    {
+        public Ab439ReplacedCellWalker GetEnumerator() => new(share);
+    }
+
+    public sealed class Ab439ReplacedCellWalker(Cell<int> share)
+    {
+        private bool done;
+
+        public Cell<int> Current { get; private set; } = share;
+
+        public bool MoveNext()
+        {
+            bool more = !this.done;
+            this.done = true;
+            this.Current = Plain;
+
+            return more;
+        }
+    }
+
+    // Helpers of the shapes of AB437.
+    private static Cell<int> Ab437KeepTheFirst(Cell<int> first, Cell<int> second) => first;
+
+    private static Cell<int> Ab437KeepTheSecond(Cell<int> first, Cell<int> second) => second;
+
+    // Helper of the shapes of AB457.
+    private static int Ab457Run(Func<object, int> pick, object value) => pick(value);
+
+    private static Ab462Class? Ab462Held;
+
+    public sealed class Ab462Class
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public int Add(int v) => v + this.Share.Sample();
+
+        public int RunThenRead(Action write)
+        {
+            write();
+
+            return this.Share.Sample();
+        }
+
+        public int RunSetPlainThenRead(Action write)
+        {
+            write();
+            this.Share = Plain;
+
+            return this.Share.Sample();
+        }
+
+        public int MapThenRun(Action write)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return map.Sample();
+        }
+
+        public int MapThenGive(Action write, Ab462Reader reader)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return reader.Read(map);
+        }
+    }
+
+    public sealed class Ab462Reader
+    {
+        public int Read(Cell<int> cell) => cell.Sample();
+    }
+
+    private static readonly Ab447Box[] Ab460Boxes = [new(), new(), new()];
+
+    private static Ab447Box Ab460Box(int i) => Ab460Boxes[i];
+
+    private static void Ab460PutThroughMake(Cell<int> pending) => Ab447Make(2).Share = pending;
+
+    private static void Ab460PutThroughBoxTwo(Cell<int> pending) => Ab460Box(2).Share = pending;
+
+    private static void Ab460PutThroughBoxZero(Cell<int> pending) => Ab460Box(0).Share = pending;
+
+    private static void Ab460PutThroughANewBox(Cell<int> pending) => Ab447NewBox().Share = pending;
+
+    public sealed class Ab463Box
+    {
+        public readonly R6PairFnBox Box = new();
+
+        public Cell<int> Share = Cell.Constant(0);
+
+        private Cell<int> built = Cell.Constant(0);
+
+        public void Build() => this.built = Cell.Constant(1).Map(this.Box.FMap);
+
+        public int SetAndRead(Cell<int> pending)
+        {
+            this.Share = pending;
+            int r = this.built.Sample();
+
+            return r;
+        }
+    }
+
+    private static int Ab463AddTo(this Ab463Box box, int v) => v + box.Share.Sample();
+
+    public static class Ab464Shared
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+        public static Cell<int>? C;
+        public static Cell<int>? D;
+        public static Cell<int>? E;
+        public static Cell<int>? F;
+    }
+
+    private static bool Ab464Off;
+
+    public static class Ab464WithAConstructor
+    {
+        public static readonly Cell<int> Value = Ab464Shared.A = Plain;
+
+        static Ab464WithAConstructor()
+        {
+        }
+    }
+
+    public static class Ab464WriteThenRead
+    {
+        public static readonly Cell<int> Value = Ab464Shared.B = Plain;
+
+        public static readonly int Read = Ab464Shared.B!.Sample();
+    }
+
+    public static class Ab464CallThenRead
+    {
+        public static readonly int Value = Ab464GivePlain();
+
+        public static readonly int Read = Ab464Shared.C!.Sample();
+    }
+
+    public static partial class Ad29PlainFirst
+    {
+        public static readonly int Value = Ad29GivePlain();
+    }
+
+    public static partial class Ad29PlainFirst
+    {
+        public static readonly int Read = Ab464Shared.D!.Sample();
+    }
+
+    public static class Ab464WithNoConstructor
+    {
+        public static readonly Cell<int> Value = Ab464Shared.E = Plain;
+    }
+
+    public static class Ab464WriteInAnArm
+    {
+        public static readonly Cell<int> Value = Ab464Off ? Ab464Shared.F = Plain : Plain;
+
+        static Ab464WriteInAnArm()
+        {
+        }
+    }
+
+    private static int Ab464GivePlain()
+    {
+        Ab464Shared.C = Plain;
+
+        return 0;
+    }
+
+    private static int Ad29GivePlain()
+    {
+        Ab464Shared.D = Plain;
+
+        return 0;
+    }
+
+    public sealed class Ab465Holder
+    {
+        private static bool turn;
+
+        public List<Cell<int>> Items = [Plain];
+
+        public void Renew() => this.Items = [Plain];
+
+        public void RenewTheOther(Ab465Holder other) => other.Items = [Plain];
+
+        public void RenewInABranch()
+        {
+            if (turn)
+            {
+                this.Items = [Plain];
+            }
+        }
+
+        public int RunThroughThis(Cell<int> pending)
+        {
+            List<Cell<int>> xs = this.Items;
+            this.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int RunBySimpleNames(Cell<int> pending)
+        {
+            List<Cell<int>> xs = Items;
+            Renew();
+            xs.Add(pending);
+
+            return Items[^1].Sample();
+        }
+
+        public int RunThroughASecondObject(Ab465Holder other, Cell<int> pending)
+        {
+            other.Items = this.Items;
+            List<Cell<int>> xs = this.Items;
+            this.RenewTheOther(other);
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int RunOnASecondHolder(Cell<int> pending)
+        {
+            Ab465Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int RunOnALocalOfASecondObject(Cell<int> pending)
+        {
+            Ab465Holder second = new();
+            List<Cell<int>> xs = second.Items;
+            this.Renew();
+            xs.Add(pending);
+
+            return second.Items[^1].Sample();
+        }
+
+        public int RunWithABranch(Cell<int> pending)
+        {
+            List<Cell<int>> xs = this.Items;
+            this.RenewInABranch();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+    }
+
+    private static readonly SettableSlot[] Ab458ArrA = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrB = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrC = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrD = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrE = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrF = [new SettableSlot(), new SettableSlot()];
+
+    private static readonly SettableSlot[] Ab458ArrG = [new SettableSlot(), new SettableSlot(), new SettableSlot(), new SettableSlot()];
+
+    private static int Ab458One() => Ab458ArrG.Length - 3;
+
+    private static readonly SettableSlot[] Ab458ArrH = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab458ArrJ = [new SettableSlot(), new SettableSlot()];
+
+    private static readonly SettableSlot[] Ab458ArrK = [new SettableSlot(), new SettableSlot()];
+
+    private static readonly SettableSlot[] Ab459ArrA = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab459ArrB = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab459ArrC = [new SettableSlot(), new SettableSlot()];
+    private static readonly List<SettableSlot> Ab459ListC = [Ab459ArrC[0], Ab459ArrC[0]];
+    private static readonly SettableSlot[] Ab459ArrD = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab459ArrE = [new SettableSlot(), new SettableSlot()];
+
+    private static List<SettableSlot> Ab459MakeA() => [Ab459ArrA[0], Ab459ArrA[0]];
+
+    private static SettableSlot[] Ab459MakeB() => [Ab459ArrB[0], Ab459ArrB[0]];
+
+    private static List<SettableSlot> Ab459MakeD() => [new SettableSlot(), new SettableSlot()];
+
+    private static List<SettableSlot> Ab459MakeE() => [Ab459ArrE[0], Ab459ArrE[0]];
+
+    public sealed class Ab466Class
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public int Add(int v) => v + this.Share.Sample();
+
+        public int MapThenGiveOn(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return reader.ReadThroughASecondMethod(map);
+        }
+
+        public int MapThenGiveToAStaticReader(Action write)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return Ab466Read(map);
+        }
+
+        public int MapThenGiveToThis(Action write)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return this.Read(map);
+        }
+
+        public int MapThenGiveToAnIgnore(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return reader.Ignore(map);
+        }
+
+        public int MapGiveThenRun(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            int value = reader.Read(map);
+            write();
+
+            return value;
+        }
+
+        public int MapRunSetPlainThenGive(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+            this.Share = Plain;
+
+            return reader.Read(map);
+        }
+
+        public int MakeMapThenGive(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = this.MakeMap();
+            write();
+
+            return reader.Read(map);
+        }
+
+        public int MapWithALambdaThenGive(Action write, Ab466Reader reader)
+        {
+            Cell<int> map = Plain.Map(v => v + this.Share.Sample());
+            write();
+
+            return reader.Read(map);
+        }
+
+        private Cell<int> MakeMap() => Plain.Map(this.Add);
+
+        private int Read(Cell<int> cell) => cell.Sample();
+    }
+
+    public sealed class Ab466Reader
+    {
+        public int Read(Cell<int> cell) => cell.Sample();
+
+        public int ReadThroughASecondMethod(Cell<int> cell) => this.Read(cell);
+
+        public int Ignore(Cell<int> cell) => cell == Plain ? 1 : 0;
+    }
+
+    private static int Ab466Read(Cell<int> cell) => cell.Sample();
+
+    public sealed class Ab467Holder
+    {
+        public List<Cell<int>> Items = [Plain];
+
+        public void Renew() => this.Items = [Plain];
+
+        public int ReadTheSecondObject(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            xs.Add(pending);
+
+            return second.Items[^1].Sample();
+        }
+
+        public int RenewThisAndReadTheSecondObject(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            this.Renew();
+            xs.Add(pending);
+
+            return second.Items[^1].Sample();
+        }
+
+        public int RenewThisAndReadThis(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            this.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int ReadThroughThis(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = this.Items;
+            second.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int PutAtAnIndex(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            xs[0] = pending;
+
+            return this.Items[0].Sample();
+        }
+
+        public int RenewTheLocal(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            xs = [Plain];
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int AssignBeforeTheAdd(Cell<int> pending)
+        {
+            List<Cell<int>> xs = this.Items;
+            this.Items = [Plain];
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int AssignTheSecondObject(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Items = [Plain];
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int RenewTheLocalThroughAnOutArgument(Cell<int> pending)
+        {
+            Ab467Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            Ab467Fresh(out xs);
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int ReadWithAParameter(Ab467Holder second, Cell<int> pending)
+        {
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+    }
+
+    private static List<Cell<int>> Ab467List = [Plain];
+
+    private static void Ab467Fresh(out List<Cell<int>> xs) => xs = [Plain];
+
+    private static List<Cell<int>> Ab468List = [Plain];
+    private static List<Cell<int>> Ab468Other = [Plain];
+    private static List<Cell<int>> Ab468Third = [Plain];
+    private static Cell<int>[] Ab468Array = [Plain];
+    private static Cell<int>[] Ab468OtherArray = [Plain];
+
+    private static List<Cell<int>> Ab468Property { get; set; } = [Plain];
+
+    private static void Ab468ShareWith(Cell<int> cell) => Ab468List = Ab468Other;
+
+    private static List<Cell<int>> Ab468TheOther() => Ab468Other;
+
+    public sealed class Ab468Holder
+    {
+        public List<Cell<int>> Items = [Plain];
+        public List<Cell<int>> Others = [Plain];
+
+        public int PutThroughTheSecondField(Cell<int> pending)
+        {
+            this.Others = this.Items;
+            this.Others.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int PutThroughALocal(Cell<int> pending)
+        {
+            this.Others = this.Items;
+            List<Cell<int>> xs = this.Others;
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int PutAfterANewList(Cell<int> pending)
+        {
+            this.Items = [Plain];
+            this.Others = this.Items;
+            this.Others.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int PutThroughASecondObject(Cell<int> pending)
+        {
+            Ab468Holder second = new();
+            second.Others = this.Items;
+            second.Others.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int NewListAfterTheLink(Cell<int> pending)
+        {
+            this.Others = this.Items;
+            this.Items = [Plain];
+            this.Others.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+    }
+
+    private static List<Cell<int>>? Ab468Nothing = null;
+
+    private static void Ab468RenewWith(Cell<int> cell) => Ab468Other = [Plain];
+
+    private static void Ab468PutInto(Cell<int> cell) => Ab468Array[0] = cell;
+
+    private static List<Cell<int>> Ab469List = [Plain];
+
+    private static void Ab469Run(Action run) => run();
+
+    private static void Ab469Fresh(out List<Cell<int>> xs) => xs = [Plain];
+
+    public sealed class Ab469Holder
+    {
+        public List<Cell<int>> Items = [Plain];
+
+        public int AddInALambda(Cell<int> pending)
+        {
+            Ab469Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Items = [Plain];
+            Action add = () => xs.Add(pending);
+            add();
+
+            return this.Items[^1].Sample();
+        }
+    }
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -117490,6 +120318,13 @@ public static class Shapes
 
 file static class Helpers
 {
+    // A helper of the shapes of AB457.
+    public static int Ab457ShareOfTheReceiver(this object all, object other) =>
+        all is Shapes.R4CsFault f ? f.Share.Sample() : 0;
+
+    // Code of a different type gives the object of a public readonly field to a second field: AB438.
+    public static void Ab438ShareThePublicField() => Shapes.Ab438Writable2 = Shapes.Ab438Public;
+
     // A ContinueWith of this code, which keeps its function and does not run it.
     public static Task ContinueWith(this Task task, Action<Task> f, TaskContinuationOptions options, string name)
     {
