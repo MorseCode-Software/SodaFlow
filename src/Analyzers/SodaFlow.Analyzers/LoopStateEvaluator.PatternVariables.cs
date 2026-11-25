@@ -20,7 +20,7 @@ internal sealed partial class LoopStateEvaluator
     ///     tests.
     /// </remarks>
     /// <param name="local">The local that the code reads.</param>
-    private LoopState? BeforeItsPatternIsRead(ILocalSymbol local)
+    private LoopState? BeforeItsPatternIsRead(ISymbol local)
     {
         if (local.DeclaringSyntaxReferences.Length != 1
             || local.DeclaringSyntaxReferences[0].GetSyntax() is not SingleVariableDesignationSyntax
@@ -43,7 +43,7 @@ internal sealed partial class LoopStateEvaluator
     // The state of the value that a pattern tests. A pattern of a type that the value can never have gives no state.
     // Null where the evaluator does not know the value, as for a position of a list or a positional pattern. The walk
     // gives each variable of a case label its state before it reads a section. Thus, a case label is not here.
-    private LoopState? TestedBy(PatternSyntax pattern, TypeSyntax? type)
+    private LoopState? TestedBy(SyntaxNode pattern, ExpressionSyntax? type)
     {
         SyntaxNode? around = pattern.Parent;
 
