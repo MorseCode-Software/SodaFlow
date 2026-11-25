@@ -57,6 +57,9 @@ internal sealed class ObjectStore
     // comes after each loop that is around it.
     private readonly List<SyntaxNode> open = [];
     private readonly Dictionary<MadeObject, LoopState> states = [];
+
+    // For each object: the count of changes of the store at its last change. See Changes.
+    private readonly Dictionary<MadeObject, int> changedAt = [];
     private readonly Dictionary<SyntaxNode, List<MadeObject>> turns = [];
 
     /// <summary>True while the walk is in a loop whose turn made an object.</summary>
@@ -650,10 +653,24 @@ internal sealed class ObjectStore
     /// </summary>
     public bool ChangedAStaticObject { get; private set; }
 
+    /// <summary>
+    ///     The count of changes of the store. Each change of the state of an
+    ///     object adds one.
+    /// </summary>
+    public int Changes { get; private set; }
+
+    /// <summary>
+    ///     The count of changes of the store at the last change of an object.
+    ///     Zero for an object that the store did not change.
+    /// </summary>
+    public int ChangedAt(MadeObject found) => this.changedAt.TryGetValue(key: found, value: out int at) ? at : 0;
+
     /// <summary>Gives an object of the store a new state.</summary>
     public void Set(MadeObject found, LoopState state)
     {
         this.states[found] = state;
+        this.Changes++;
+        this.changedAt[found] = this.Changes;
 
         if (this.ofStaticMembers.Count > 0 && !this.ChangedAStaticObject)
         {

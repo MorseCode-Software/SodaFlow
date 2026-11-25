@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -187,6 +188,16 @@ internal sealed class LoopRegion(
     ///     KeepsTheObjectsOfItsFields.
     /// </summary>
     public Dictionary<ISymbol, bool> HoldersOfFields { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     For each record of the members of this in code on an object of the
+    ///     store, where that record began. See
+    ///     LoopStateEvaluator.WrittenThroughASecondNameOfThis.
+    /// </summary>
+    public ConditionalWeakTable<Dictionary<ISymbol, LoopState>, LoopStateEvaluator.StartOfARecord> StartsOfRecords
+    {
+        get;
+    } = new();
 
     /// <summary>The body of the block.</summary>
     public SyntaxNode Root { get; } = root;

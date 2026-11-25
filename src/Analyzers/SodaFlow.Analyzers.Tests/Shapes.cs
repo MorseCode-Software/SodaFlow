@@ -64594,6 +64594,26 @@ public static class Shapes
     public static Cell<int> Ab457LambdaOfLiftGetsTheValueOfACell() =>
         Cell.Loop<int>().WithoutCaptures(l => { Cell<object> a = Cell.Constant<object>(new R4CsFault(l.Map(v => v))); Cell<int> m = a.Lift(Plain, (x, y) => x is R4CsFault f ? f.Share.Sample() : y); Kept.Add(m.Sample()); return S.Hold(0); });
 
+    // S15676. AB462. A method of an object runs a lambda of the block and then samples a member through this. The lambda sets that member to a pending cell through the local of the block.
+    public static Cell<int> Ab462ReadAfterACallback() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.RunThenRead(() => o.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15677. AB462, a control. The same, but the lambda sets the member through a static field that holds the object.
+    public static Cell<int> Ab462ReadAfterACallbackThroughAField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Ab462Held = o; Kept.Add(o.RunThenRead(() => Ab462Held!.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15678. AB462. A method of an object maps with the group this.Add, runs a lambda of the block, and samples the map. The lambda sets the member that Add samples to a pending cell through the local of the block.
+    public static Cell<int> Ab462MapRunInTheMethodAfterAWriteThroughTheBlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.MapThenRun(() => o.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15679. AB462, a control. The same as the first shape, but the method sets the member to a plain cell after the lambda runs.
+    public static Cell<int> Ab462APlainCellInTheMethodAfterTheCallback() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.RunSetPlainThenRead(() => o.Share = l.Map(v => v))); return S.Hold(0); });
+
+    // S15680. AB462, a control. A method maps with the group this.Add and gives the map to a method of a second object. The lambda of the block writes no member.
+    public static Cell<int> Ab462MapGivenToAReaderWithNoWrite() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.MapThenGive(() => Kept.Add(l.Map(v => v)), new Ab462Reader())); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119171,6 +119191,51 @@ public static class Shapes
 
     // Helper of the shapes of AB457.
     private static int Ab457Run(Func<object, int> pick, object value) => pick(value);
+
+    private static Ab462Class? Ab462Held;
+
+    public sealed class Ab462Class
+    {
+        public Cell<int> Share = Cell.Constant(0);
+
+        public int Add(int v) => v + this.Share.Sample();
+
+        public int RunThenRead(Action write)
+        {
+            write();
+
+            return this.Share.Sample();
+        }
+
+        public int RunSetPlainThenRead(Action write)
+        {
+            write();
+            this.Share = Plain;
+
+            return this.Share.Sample();
+        }
+
+        public int MapThenRun(Action write)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return map.Sample();
+        }
+
+        public int MapThenGive(Action write, Ab462Reader reader)
+        {
+            Cell<int> map = Plain.Map(this.Add);
+            write();
+
+            return reader.Read(map);
+        }
+    }
+
+    public sealed class Ab462Reader
+    {
+        public int Read(Cell<int> cell) => cell.Sample();
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

@@ -9201,6 +9201,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab457MethodCallsTheLambdaWithTheObject"] = ["SF1004"],
             ["Ab457NamedArgumentsOfADelegateCall"] = ["SF1004"],
             ["Ab457DelegateOfAnExtensionMethodKeepsItsFirstArgument"] = ["SF1004"],
-            ["Ab457LambdaOfLiftGetsTheValueOfACell"] = ["SF1001"]
+            ["Ab457LambdaOfLiftGetsTheValueOfACell"] = ["SF1001"],
+            ["Ab462ReadAfterACallback"] = ["SF1005"],
+            ["Ab462ReadAfterACallbackThroughAField"] = ["SF1005"],
+            ["Ab462MapRunInTheMethodAfterAWriteThroughTheBlock"] = ["SF1005"]
         };
 }

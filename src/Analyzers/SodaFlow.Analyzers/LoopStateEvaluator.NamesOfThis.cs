@@ -134,6 +134,7 @@ internal sealed partial class LoopStateEvaluator
             : this.thisMembers.TryGetValue(key: member.OriginalDefinition, value: out LoopState? own)
                 ? own
                 : this.OfTheImplementationsOnThis(member))
+        .Join(this.WrittenThroughASecondNameOfThis(member))
         .Join(
             !field.IsNone
             && this.Frame.OwnWriteOf.TryGetValue(key: member.OriginalDefinition, value: out int replaced)

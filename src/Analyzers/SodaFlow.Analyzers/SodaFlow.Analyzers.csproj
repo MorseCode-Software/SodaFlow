@@ -103,6 +103,7 @@
         <Compile Include="LoopStateEvaluator.PutsThroughLocals.cs"/>
         <Compile Include="LoopStateEvaluator.ReadBack.cs"/>
         <Compile Include="LoopStateEvaluator.ReadKeys.cs"/>
+        <Compile Include="LoopStateEvaluator.RecordsOfThis.cs"/>
         <Compile Include="LoopStateEvaluator.Reflection.cs"/>
         <Compile Include="LoopStateEvaluator.Recursion.cs"/>
         <Compile Include="LoopStateEvaluator.RefsOfOneLocation.cs"/>

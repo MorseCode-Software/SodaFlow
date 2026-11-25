@@ -71,6 +71,7 @@ internal sealed partial class LoopStateEvaluator
         if (only && !this.quiet)
         {
             this.Frame.OwnWriteOf[key] = this.region.MemberWrites;
+            this.NotesASureWriteThroughThis(key);
         }
 
         this.setOnThis[key] = only && from != null ? this.TheOneCollectionThatIs(from: from, state: state) : null;

@@ -276,7 +276,10 @@ and the build is quiet.
   `this` and returned it, with a method of the object given by name or a lambda that calls one, also
   in a default method of an interface, where the block sets that member through its own name for the
   object after the call. A delegate on `this` that such a method returns, and that the block calls,
-  reads the member in the same way. That includes a static member that the function reaches only
+  reads the member in the same way. A write through the name of the object that code of the block makes while such a
+  method still runs, such as a lambda that the method gets and calls, counts for a read through
+  `this` later in that method, also through such a cell that the method samples. It is not seen
+  where the method gives the cell to a method of a different object that reads it first. That includes a static member that the function reaches only
   through code of yours that it runs, such as a method, a getter, an indexer, an operator, a
   conversion, or a constructor, also one called on its parameter. What the function writes there
   counts for the code after the read. A second read of the cell does not run the function again, when the analyzer knows that
