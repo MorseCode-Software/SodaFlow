@@ -514,7 +514,9 @@ internal sealed class LoopRegion(
         Join(now: this.fields, before: earlier.Fields);
         Join(now: this.closedFields, before: earlier.Closed);
 
-        static void Join(Dictionary<ISymbol, LoopState> now, Dictionary<ISymbol, LoopState> before)
+        return;
+
+        static void Join(IDictionary<ISymbol, LoopState> now, IEnumerable<KeyValuePair<ISymbol, LoopState>> before)
         {
             foreach (KeyValuePair<ISymbol, LoopState> pair in before)
             {
