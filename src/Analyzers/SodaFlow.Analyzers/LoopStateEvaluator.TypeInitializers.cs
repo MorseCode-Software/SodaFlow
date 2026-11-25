@@ -160,7 +160,7 @@ internal sealed partial class LoopStateEvaluator
         if ((constructor?.Parent
                 ?? (atAFieldRead
                     ? owner.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-                    : null)) is not TypeDeclarationSyntax type
+                    : null)) is not TypeDeclarationSyntax
             || !this.region.StartsTheType(
                 type: owner,
                 sure: this.WhereItRuns(use) is (true, _) || this.RunsInEachFirstTurn(use)))
@@ -170,9 +170,13 @@ internal sealed partial class LoopStateEvaluator
 
         try
         {
-            // The static initializers run in the order of the code, and then the body.
+            // The static initializers run in the order of the code, and then the body. Each part of a
+            // partial type has initializers. The compiler runs the parts in the order of their declarations.
             IEnumerable<SyntaxNode> parts =
-                type.Members
+                owner.OriginalDefinition.DeclaringSyntaxReferences
+                    .Select(static reference => reference.GetSyntax())
+                    .OfType<TypeDeclarationSyntax>()
+                    .SelectMany(static declaration => declaration.Members)
                     .Where(static part => part.Modifiers.Any(SyntaxKind.StaticKeyword))
                     .SelectMany(InitializersOf)
                     .OfType<SyntaxNode>();

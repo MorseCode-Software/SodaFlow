@@ -64098,6 +64098,26 @@ public static class Shapes
     public static Cell<int> Ab454TwoAddsInTheOtherOrderWriteTheFirst() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = []; a.Add(Ab454ArrF[1]); a.Add(Ab454ArrF[0]); Ab454ArrF[0].Share = Plain; a[0].Share = l.Map(v => v); return S.Hold(Ab454ArrF[0].Share!.Sample()); });
 
+    // S15552. AD29. A partial class has no static constructor. The initializer of a static field in its second part samples a static field. The block sets that field to a pending cell and reads the first field.
+    public static Cell<int> Ad29AnInitializerInTheSecondPartSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ad29Shared.First = l.Map(v => v); Kept.Add(Ad29SecondPartSamples.Value); return S.Hold(0); });
+
+    // S15553. AD29. The second part of a partial class has a static constructor. The initializer of a static field in the first part samples a static field. The block sets that field to a pending cell and reads the first field.
+    public static Cell<int> Ad29AnInitializerInThePartWithNoStaticConstructorSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ad29Shared.Second = l.Map(v => v); Kept.Add(Ad29ConstructorInTheSecondPart.Value); return S.Hold(0); });
+
+    // S15554. AD29. The first part of a partial class has a static constructor. The initializer of a static field in the second part samples a static field. The block sets that field to a pending cell and reads the first field.
+    public static Cell<int> Ad29AnInitializerAfterThePartWithTheStaticConstructorSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ad29Shared.Third = l.Map(v => v); Kept.Add(Ad29ConstructorInTheFirstPart.Value); return S.Hold(0); });
+
+    // S15555. AD29. The initializer of the first part of a partial class samples a static field. Then the initializer of the second part gives that field a plain cell.
+    public static Cell<int> Ad29TheFirstPartSamplesBeforeTheSecondPartGivesAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ad29Shared.Fourth = l.Map(v => v); Kept.Add(Ad29PlainSecond.Value); return S.Hold(0); });
+
+    // S15556. AD29, a control. The second part of a partial class has an initializer of an instance field that samples a static field. The block reads a static field, which runs no instance initializer.
+    public static Cell<int> Ad29AnInstanceInitializerInTheSecondPartDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ad29Shared.Fifth = l.Map(v => v); Kept.Add(Ad29InstanceInTheSecondPart.Value); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -118126,6 +118146,78 @@ public static class Shapes
     private static readonly SettableSlot[] Ab454ArrD = [new SettableSlot(), new SettableSlot()];
     private static readonly SettableSlot[] Ab454ArrE = [new SettableSlot(), new SettableSlot()];
     private static readonly SettableSlot[] Ab454ArrF = [new SettableSlot(), new SettableSlot()];
+
+    public static class Ad29Shared
+    {
+        public static Cell<int>? First;
+        public static Cell<int>? Second;
+        public static Cell<int>? Third;
+        public static Cell<int>? Fourth;
+        public static Cell<int>? Fifth;
+    }
+
+    public static partial class Ad29SecondPartSamples
+    {
+        public static readonly int Value = 1;
+    }
+
+    public static partial class Ad29SecondPartSamples
+    {
+        public static readonly int Read = Ad29Shared.First!.Sample();
+    }
+
+    public static partial class Ad29ConstructorInTheSecondPart
+    {
+        public static readonly int Value = Ad29Shared.Second!.Sample();
+    }
+
+    public static partial class Ad29ConstructorInTheSecondPart
+    {
+        static Ad29ConstructorInTheSecondPart()
+        {
+        }
+    }
+
+    public static partial class Ad29ConstructorInTheFirstPart
+    {
+        public static readonly int Value = 1;
+
+        static Ad29ConstructorInTheFirstPart()
+        {
+        }
+    }
+
+    public static partial class Ad29ConstructorInTheFirstPart
+    {
+        public static readonly int Read = Ad29Shared.Third!.Sample();
+    }
+
+    public static partial class Ad29PlainSecond
+    {
+        public static readonly int Value = Ad29Shared.Fourth!.Sample();
+    }
+
+    public static partial class Ad29PlainSecond
+    {
+        public static readonly int Given = Ad29GivePlainToTheFourth();
+    }
+
+    public sealed partial class Ad29InstanceInTheSecondPart
+    {
+        public static readonly int Value = 1;
+    }
+
+    public sealed partial class Ad29InstanceInTheSecondPart
+    {
+        public readonly int Own = Ad29Shared.Fifth!.Sample();
+    }
+
+    private static int Ad29GivePlainToTheFourth()
+    {
+        Ad29Shared.Fourth = Plain;
+
+        return 0;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

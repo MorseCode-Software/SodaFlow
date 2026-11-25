@@ -9109,6 +9109,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab454TwoAddsOfOneElementOfAStaticArray"] = ["SF1001"],
             ["Ab454TwoAddsOfALocalOfAnUnknownObject"] = ["SF1001"],
             ["Ab454AnAddAfterALiteralOfAnUnknownObject"] = ["SF1001"],
-            ["Ab454AnAddAfterALiteralOfANewObject"] = ["SF1001"]
+            ["Ab454AnAddAfterALiteralOfANewObject"] = ["SF1001"],
+            ["Ad29AnInitializerInTheSecondPartSamples"] = ["SF1005"],
+            ["Ad29AnInitializerInThePartWithNoStaticConstructorSamples"] = ["SF1005"],
+            ["Ad29AnInitializerAfterThePartWithTheStaticConstructorSamples"] = ["SF1005"],
+            ["Ad29TheFirstPartSamplesBeforeTheSecondPartGivesAPlainCell"] = ["SF1005"]
         };
 }
