@@ -61,6 +61,7 @@
         <Compile Include="LoopRegion.cs"/>
         <Compile Include="LoopState.cs"/>
         <Compile Include="LoopStateEvaluator.Builders.cs"/>
+        <Compile Include="LoopStateEvaluator.CalleeOrigins.cs"/>
         <Compile Include="LoopStateEvaluator.Callees.cs"/>
         <Compile Include="LoopStateEvaluator.ClauseMethods.cs"/>
         <Compile Include="LoopStateEvaluator.Collections.cs"/>
@@ -89,7 +90,9 @@
         <Compile Include="LoopStateEvaluator.OlderObjects.cs"/>
         <Compile Include="LoopStateEvaluator.Overrides.cs"/>
         <Compile Include="LoopStateEvaluator.PartialMembers.cs"/>
+        <Compile Include="LoopStateEvaluator.Owners.cs"/>
         <Compile Include="LoopStateEvaluator.Paths.cs"/>
+        <Compile Include="LoopStateEvaluator.GenericStatics.cs"/>
         <Compile Include="LoopStateEvaluator.Getters.cs"/>
         <Compile Include="LoopStateEvaluator.Platform.cs"/>
         <Compile Include="LoopStateEvaluator.cs"/>
@@ -114,9 +117,11 @@
         <Compile Include="LoopStateEvaluator.Continuations.cs"/>
         <Compile Include="LoopStateEvaluator.ThisOfAConstructor.cs"/>
         <Compile Include="LoopStateEvaluator.TypeInitializers.cs"/>
+        <Compile Include="LoopStateEvaluator.StaticArrays.cs"/>
         <Compile Include="LoopStateEvaluator.Views.cs"/>
         <Compile Include="LoopStateEvaluator.Writes.cs"/>
         <Compile Include="MadeObject.cs"/>
+        <Compile Include="MemberOwner.cs"/>
         <Compile Include="MapHandler.cs"/>
         <Compile Include="MemberBuilds.cs"/>
         <Compile Include="NameOfAnObject.cs"/>
@@ -147,6 +152,8 @@
         <Compile Include="SinkWalker.Serializers.cs"/>
         <Compile Include="SinkWalker.UndecidedRuns.cs"/>
         <Compile Include="SodaFlowSymbols.cs"/>
+        <Compile Include="StaticOwner.cs"/>
+        <Compile Include="UnchangedStatics.cs"/>
         <Compile Include="WriteThroughAName.cs"/>
         <Compile Include="WritesThroughEach.cs"/>
     </ItemGroup>

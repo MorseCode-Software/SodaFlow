@@ -363,7 +363,10 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
+        // A local of a value type gets a copy, also from a cast that takes a struct out of its box. Thus, it
+        // is not a second name of the box.
         if (!KeepsItsObject(local)
+            || HasACopy(local)
             || Unwrapped(value) is not IdentifierNameSyntax name
             || this.region.SymbolOf(name) is not ((ILocalSymbol or IParameterSymbol) and { } from)
             || !KeepsItsObject(from)
@@ -3003,20 +3006,23 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
-        // A static field of a type that is not generic has one location. Thus, a write that always
-        // runs in the block replaces the value before it.
+        // A static field of a type that is not generic, or of a closed type, has one location. Thus, a
+        // write that always runs in the block replaces the value before it. A write through an owner that
+        // the walk knows reaches no read through a different known owner.
+        if (!this.quiet && this.KnownOwnerOf(owner: owner, has: has) is { } one)
+        {
+            this.region.SetFieldOfAnOwner(field: member, state: this.InAnOldLocation(state), owner: one);
+
+            return;
+        }
+
         this.SetField(
             field: member,
             state: state,
             replaces: replaces
                       && (this.call?.AlwaysRuns ?? true)
-                      && member is IFieldSymbol { IsStatic: true, ContainingType: var type }
-                      && !IsGeneric(type));
-
-        return;
-
-        static bool IsGeneric(INamedTypeSymbol? type) =>
-            type != null && (type.IsGenericType || IsGeneric(type.ContainingType));
+                      && member is IFieldSymbol { IsStatic: true }
+                      && this.HasOneLocation(member));
     }
 
     // True for a name of a value with no object that has a second name, or had one.

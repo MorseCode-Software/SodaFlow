@@ -140,6 +140,10 @@ internal sealed partial class LoopStateEvaluator
     ///     For the expression of a query clause, the range variable that the
     ///     lambda of the clause gets as its parameter, with the argument.
     /// </param>
+    /// <param name="ownerOfThis">
+    ///     For a method group, the owner of this that the code which names the
+    ///     group knows: see OwnerOfAGroup. Null for each other callee.
+    /// </param>
     private Followed? Enter(
         SyntaxNode call,
         string name,
@@ -153,7 +157,8 @@ internal sealed partial class LoopStateEvaluator
         bool returnsAnObject = false,
         bool manyTimes = false,
         ExpressionSyntax? owner = null,
-        (ISymbol Variable, LoopState State)? range = null)
+        (ISymbol Variable, LoopState State)? range = null,
+        object? ownerOfThis = null)
     {
         // Take of no item gives an empty sequence and does not start the iterator.
         if (this.TakesNoItem(call) && IsAnIteratorBody(body))
@@ -227,7 +232,10 @@ internal sealed partial class LoopStateEvaluator
                 eachRun: manyTimes ? body : null,
                 self: self,
                 itsObject: receiver?.Members,
-                range: range);
+                range: range,
+                objectsOfThis: receiver?.Objects);
+
+        inner.givenOwnerOfThis = ownerOfThis;
 
         if (owner != null && definer == null)
         {
@@ -289,7 +297,10 @@ internal sealed partial class LoopStateEvaluator
                         eachRun: body,
                         self: self,
                         itsObject: receiver?.Members,
-                        range: range);
+                        range: range,
+                        objectsOfThis: receiver?.Objects);
+
+                inner.givenOwnerOfThis = ownerOfThis;
 
                 if (started != null)
                 {
@@ -542,7 +553,8 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode? eachRun,
         MadeObject? self,
         Construction? itsObject = null,
-        (ISymbol Variable, LoopState State)? range = null)
+        (ISymbol Variable, LoopState State)? range = null,
+        ImmutableArray<MadeObject>? objectsOfThis = null)
     {
         ImmutableDictionary<ISymbol, LoopState>.Builder parameters = (definer?.bound ?? NoSymbols).ToBuilder();
 
@@ -702,6 +714,12 @@ internal sealed partial class LoopStateEvaluator
             : ReferenceEquals(objA: members, objB: this.thisMembers) ? this.thisInTheStore
             : null;
 
+        inner.objectsOfThis =
+            definer?.objectsOfThis
+            ?? (ReferenceEquals(objA: members, objB: this.thisMembers)
+                ? this.objectsOfThis
+                : objectsOfThis ?? ImmutableArray<MadeObject>.Empty);
+
         // The code of a function does not read this record: see TheOneCollectionOf.
         foreach (KeyValuePair<ISymbol, MadeObject> one in collections)
         {
@@ -758,6 +776,7 @@ internal sealed partial class LoopStateEvaluator
         if (!lexical)
         {
             inner.Frame.Return();
+            this.TakesTheOriginsOfACallee(inner: inner, byParameter: byParameter);
         }
 
         foreach ((QueryValue query, IReadOnlyList<Finding> foundInIt) in leaving)

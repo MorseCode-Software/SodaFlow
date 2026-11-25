@@ -330,9 +330,13 @@ dotnet_diagnostic.SF1003.severity = warning
 The analyzer follows a value made from the placeholder through the code of your project:
 
 - Locals, tuples, deconstructions, patterns, `out` and `ref` arguments, and the fields that the
-  block sets. A write to a static field of a class that is not generic replaces what the field held,
-  where the write always runs: in the block, in a method that the block always calls, or in the
-  function of a `Map` at a first read that always runs. The variable of a `catch` clause gets each
+  block sets. Each closed type of a generic class, such as `Cache<int>` and `Cache<long>`, has
+  static fields of its own, also where a call of a generic method or of a member of a generic class
+  gives the type argument. A write through a type argument that the analyzer does not know, as in a
+  method that an interface call runs, reaches the field of every closed type. A write to a static
+  field of a class that is not generic, or of a closed type, replaces what the field held, where the
+  write always runs: in the block, in a method that the block always calls, or in the function of a
+  `Map` at a first read that always runs. The variable of a `catch` clause gets each
   object that a `throw` in its `try` block, or in a method or a lambda that the block calls, can
   send to that clause. That includes a lambda that a method of the platform, such as
   `List<T>.ForEach`, runs in the call. An object that the code of a LINQ query or of an iterator
@@ -370,10 +374,20 @@ The analyzer follows a value made from the placeholder through the code of your 
   inside a list pattern knows the positions of the inner collection wherever a read such as
   `cells[0][1]` knows them, also after a write through two indexes or through a second name of the
   inner collection. Otherwise, it gives each of its variables every element of the inner collection.
-  An element of a range with constant bounds, as `cells[1..][0]`, is one element too. The arguments
-  that a call that runs one time gives one by one to a `params` parameter keep their positions in
-  the same way. A positional pattern on a tuple gives each part its own item. A `Dictionary` that
-  you write with constant keys and no comparer, and that the code then only reads, keeps the value
+  An element of a range with constant bounds, as `cells[1..][0]`, is one element too. An array in a
+  static field keeps each element apart from a value that the code puts in at a constant index, as
+  in `Cells[1] = value`, also in a method that the block calls, so a read of `Cells[0]` does not get
+  that value. A value put in at any other index reaches every element. Each element of a `private`
+  static array is also its own object where the initializer makes every element with `new` and no
+  code of the class gives the field or one of its elements a different value, with an assignment,
+  an increment, or a `ref`, `out`, or `in` argument, or uses the array other than through an element
+  or a local that only reads its elements. A `ref` local of an element counts as a read where the
+  code only reads or writes members through it. A write to a member through one such element at a
+  constant index then does not reach a different element, also in a method that the block calls.
+  The arguments that a call that runs one time gives one by one to a `params` parameter keep their
+  positions in the same way. A positional pattern on a tuple gives each part its own item. A
+  `Dictionary` that you write with constant keys and no comparer, and that the code then only
+  reads, keeps the value
   of each key apart, so `cells["total"]` is that one value. A key of the type `object` has the type
   of its constant too, so the `int` 1 and the `long` 1 are two keys. `Array.Fill` puts its value
   into each element that it fills, as an assignment to that element would, and `Array.Reverse` of a
@@ -429,7 +443,12 @@ The analyzer follows a value made from the placeholder through the code of your 
   get accessor only returns such an element of a static array is that element. A local that a method
   of yours gives a field of its object through an `out` parameter is a name of that field, where
   each statement of the method only gives an `out` parameter a field or a literal. A `Deconstruct`
-  method of yours of that form gives each part in the same way. An element of a second local that
+  method of yours of that form gives each part in the same way. The local that `TryGetValue` of a
+  `Dictionary`, `ConcurrentDictionary`, `SortedDictionary`, or `SortedList` declares for its `out`
+  argument holds one of the objects of the dictionary, as a read by the key would, and a write
+  through it is a write to that object. Where that local was declared before the call, or the call
+  is through an interface such as `IReadOnlyDictionary`, a write through it adds to what the object
+  had, and a write inside an `if` on the result adds too. An element of a second local that
   got the collection from the first is the same element, as long as neither local gets another
   value. A local that a lambda uses is a name as long as no lambda assigns it, and a `ref` local
   that code gives no other location, and assigns only with `=`, is a name of the location that it
@@ -445,7 +464,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   any of them sees the last value, while each name keeps the object. A virtual or abstract property
   counts as having no body only where no override in your project gives it one. A local that code
   takes a `ref` to anywhere in its function, as in `ref d` or `new Span<T>(ref d)`, is no such name,
-  because the `ref` can give it a new object at any time. A write through an expression that is no
+  because the `ref` can give it a new object at any time. A local of a struct type is no second
+  name either, because it gets a copy, also from a cast that takes the struct out of an `object`
+  that holds it, so a write through the copy does not reach the box. A write through an expression
+  that is no
   such name, such as a conditional expression, reaches a later read through each name whose object
   the analyzer cannot tell apart from the object of the write. It tells two objects apart where the
   write goes to an object that the code creates after the name got its object, through the creation
@@ -488,7 +510,8 @@ The analyzer follows a value made from the placeholder through the code of your 
   get-only property creates in its initializer. That includes the `Equals`, `GetHashCode`,
   `ToString`, and `Deconstruct` that the compiler writes for a record, also where you call one by
   name, a partial method or a partial property, read from the part that has its code, a property
-  that uses `field`, a member of an extension block, also in its static form, in a property
+  that uses `field`, where `field` holds what a setter with code writes to it rather than the value
+  that you assign, a member of an extension block, also in its static form, in a property
   pattern, given by name as a function, and where it writes through a `ref` receiver, a static
   member of an interface called through a type parameter, also an operator such as `a + b`, and the
   constructor that `new T()` runs, where the call says the type of `T`. A call of a partial method with no part that has code reads
@@ -787,18 +810,32 @@ careful side, so it can report a read that does not throw:
   `Interlocked.Exchange` or `CompareExchange` of it count as such assignments, and a value counts
   whatever its form, such as a cast or a conditional of a method group. A read through a local that
   only ever holds the member, or through a getter of the object that only returns it, counts as a
-  read of the member. It does not know whether that code ran, so a read can get a report from an
-  assignment in a method that you never called.
+  read of the member. An assignment in a `private` method that no code of the class names, whether
+  by a call, a delegate, a `nameof`, or a string, does not count, because nothing can call that
+  method. That holds only where the class is not `partial`, has no base class from a library, and
+  uses no reflection that can find a method without its name, and where the method has no
+  attribute, because the XAML of a view, a framework, or such reflection can call a method that no
+  code names. A call from outside the class that the code does not name, such as reflection on the
+  class in a different class, is not seen. For each other assignment, the analyzer does not know
+  whether that code ran, so a read can get a report from an assignment in a method that you never
+  called.
 - The `Result` of a task that you create with `new` has the value that its function returns even
   where no code runs the task. Such a `Result` waits forever, and the code after it does not run.
 - A method that writes a member through an object that the analyzer does not know, such as an
-  element of an array in a static field, can have written that member of any such object. So a
-  read of the member through an element whose object the analyzer does not know, or through a
-  local that got such an element, after a call that wrote that member, also gets what the call
-  wrote. That is so even when the call wrote a different object. In the same way, a write into a
-  member of an object of your class through an element of an array, a static field, an element of an
-  array in a static field, or a field of a holder object reaches a read of that member through any
-  other object of the class, also one that the code made with `new` itself.
+  element of an array in a static field whose objects it does not know, can have written that member
+  of any such object. So a read of the member through an element whose object the analyzer does not
+  know, or through a local that got such an element, after a call that wrote that member, also gets
+  what the call wrote. That is so even when the call wrote a different object. In the same way, a
+  write into a member of an object of your class through a name whose object the analyzer does not
+  know reaches a read of that member through any other object of the class, also one that the code
+  made with `new` itself. The analyzer knows the object of a local, or of an element of a local
+  array, that holds one creation and no other value, of a `private` static field that no code of
+  the class assigns after its `new` initializer, or a `readonly` one that no static constructor
+  names, of an element of such a static array, and of a `readonly` field that its initializer makes
+  with `new` and that no constructor writes. It knows the object of a field of a holder too, where
+  the initializer makes it with `new`, a local gets the holder from `new` of a class with no
+  constructor of its own, and the code only reads fields through that local. A write through one of
+  these names does not reach a read through a different one.
 - A local that gets a field of `this` that is not `readonly`, with a call between that can give the
   field a different object, as in `var slot = this.slot; this.Renew(); slot.Share = value;`. The
   analyzer does not read whether the call did, so a write through the local still reaches a read
@@ -969,16 +1006,17 @@ Some reads that throw it does not see:
   the method makes itself or that a call inside it puts there, gets no report at all.
 - A method of a library other than the platform and SodaFlow that keeps a function and runs it
   later.
-- A delegate that a constructor of your object reads from a member or a getter of a different
-  object and gives to a `Map` or a `Lazy<T>`, where a different method of your object reads the
-  value, and the code of that object gives the delegate a lambda, as in
-  `this.Factory = () => this.Share.Sample();`. Such a read gets `SF1005` at the call where
-  `SF1004` at the argument is right. The same holds for a `Lazy<T>` that a getter of the other
-  object makes, and for an object that the constructor makes in a local. A method of that object,
-  as in `this.Factory = this.Read;` in its constructor or `Func<int> Factory => this.Read;`, is
-  seen, for `new Lazy<int>(holder.Factory)` and for `this.holder.Factory` alike: the analyzer reads
-  the value that the code of the other object gives the member, as it does for a member that holds
-  a cell. A delegate that your object keeps in a local or in a member of its own, such as
+- A delegate that a constructor of your object reads from a member of a different object that the
+  constructor makes in a local and keeps, and gives to a `Map` or a `Lazy<T>`, where a different
+  method of your object sets a member of that object and reads the value. Such a read gets
+  `SF1005` at the call where `SF1004` at the argument is right. The same delegate of an object that
+  the constructor gets is seen, from a member or a getter of that object, whether the code of that
+  object gives it a lambda, as in `this.Factory = () => this.Share.Sample();`, or a method, as in
+  `this.Factory = this.Read;` in its constructor or `Func<int> Factory => this.Read;`, and so is a
+  `Lazy<T>` that a getter of that object makes. That holds for `new Lazy<int>(holder.Factory)` and
+  for `this.holder.Factory` alike: the analyzer reads the value that the code of the other object
+  gives the member, as it does for a member that holds a cell, and the function reads the members
+  that the object has at the read. A delegate that your object keeps in a local or in a member of its own, such as
   `this.factory = this.Read;` and then `new Lazy<int>(this.factory)`, is seen. So is a member of a
   different object that the constructor writes before the build, such as `this.box.F = this.Add;`
   and then `Map(this.box.F)`, and a delegate made from one function, such as

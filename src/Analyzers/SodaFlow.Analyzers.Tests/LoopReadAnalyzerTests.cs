@@ -106,7 +106,19 @@ internal sealed partial class LoopReadAnalyzerTests
         "Ab430ACallGivesTheWritableFieldANewObjectBetween",
         // The constructor puts this into the element only in a branch. The analyzer does not read if the branch
         // runs. Thus, each element of the array can be the new object.
-        "Ab423AConstructorPutsThisInABranchThatDoesNotRun"
+        "Ab423AConstructorPutsThisInABranchThatDoesNotRun",
+        // No code calls the method that builds the member. Code that the analyzer does not read can call a public
+        // method, a method with an attribute, a method of a partial class, or a method of a class with a base class
+        // in a library. Thus, the analyzer counts the build of such a method.
+        "Ab417PublicMethodThatNothingCalls",
+        "Ab417PrivateMethodOfAPartialClassThatNothingCalls",
+        "Ab417PrivateMethodWithAnAttribute",
+        "Ab417PrivateMethodOfALibraryBase",
+        // The plain cell goes into the object of the key, but the analyzer does not replace the pending cell. The write
+        // is in a branch on the result, the local had a different object before, or the call is through an interface.
+        "Ab415TryGetValueInAnIfPendingThenPlain",
+        "Ab415TryGetValueThroughAnInterface",
+        "Ab415TryGetValueIntoAnOlderLocal"
     ];
 
     private static readonly Assembly[] ShapeLibraries =

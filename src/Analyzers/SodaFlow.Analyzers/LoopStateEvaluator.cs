@@ -1020,7 +1020,10 @@ internal sealed partial class LoopStateEvaluator
         if (!this.quiet)
         {
             // The owner of the field is not known, thus it is new in no turn.
-            this.region.SetField(field: field, state: this.InAnOldLocation(state), replaces: replaces);
+            this.region.SetField(
+                field: this.InTheTypeOfTheCall(field),
+                state: this.InAnOldLocation(state),
+                replaces: replaces);
         }
     }
 
@@ -1113,6 +1116,11 @@ internal sealed partial class LoopStateEvaluator
                 this.HoldsOnlyWhatWentIn(collection)
                     ? state.AsContainer
                     : state.AsContainer.HoldingAnUnknownObject;
+
+            if (this.PutsIntoAnElementOfItsOwnObject(target: target, state: state))
+            {
+                return;
+            }
 
             target = collection;
         }
@@ -2301,9 +2309,13 @@ internal sealed partial class LoopStateEvaluator
                 // field also.
                 LoopState field =
                     (this.region.HasFields
-                        ? this.region.FieldState(field: symbol, canHave: this.KeysOfTheResult(expression))
+                        ? this.region.FieldState(
+                            field: this.InTheTypeOfTheCall(symbol),
+                            canHave: this.KeysOfTheResult(expression),
+                            owner: this.region.HasOwnedFields ? this.OwnerOfARead(expression) : null)
                         : LoopState.None)
-                    .Join(this.region.PutsThroughLocalsOf(symbol));
+                    .Join(this.region.PutsThroughLocalsOf(symbol))
+                    .Join(this.PutsAtTheIndexOfARead(field: symbol, read: expression));
 
                 // A member of this object, in a constructor the evaluator follows, has the state the
                 // constructor gave it.
@@ -4170,7 +4182,8 @@ internal sealed partial class LoopStateEvaluator
                         receiver: owner,
                         target: null,
                         returnsAnObject: this.DoesNotSayItsClass(method.ReturnType),
-                        manyTimes: each is { ManyTimes: true }));
+                        manyTimes: each is { ManyTimes: true },
+                        ownerOfThis: OwnerOfAGroup(function)));
             }
             // A method group of a read of the library, such as x.Sample.
             case MemberAccessExpressionSyntax read when function.Definer != null:

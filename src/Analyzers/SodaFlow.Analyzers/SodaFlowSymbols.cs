@@ -258,6 +258,9 @@ internal sealed class SodaFlowSymbols
         this.Implementations = new ImplementationIndex(compilation);
     }
 
+    /// <summary>The fields whose objects no code changes after the initializer.</summary>
+    public UnchangedStatics Unchanged { get; } = new();
+
     /// <summary>
     ///     True when the compilation declares a method with the name <c>Add</c>.
     ///     A collection initializer can call it.
@@ -626,6 +629,42 @@ internal sealed class SodaFlowSymbols
         expression.RawKind == FieldKeywordKind && symbol is IFieldSymbol { AssociatedSymbol: IPropertySymbol property }
             ? property
             : null;
+
+    /// <summary>
+    ///     True for <c>TryGetValue</c> of a dictionary class of the platform.
+    ///     The method only reads the dictionary. It gives its out argument the
+    ///     value at the key, or the default value where the dictionary does not
+    ///     have the key.
+    /// </summary>
+    public static bool IsTryGetValueOfADictionary(ISymbol method) =>
+        method is IMethodSymbol
+        {
+            Name: "TryGetValue",
+            ContainingType:
+            {
+                Name: "Dictionary" or "ConcurrentDictionary" or "SortedDictionary" or "SortedList",
+                Arity: 2
+            } dictionary
+        }
+        && IsPlatform(dictionary);
+
+    /// <summary>
+    ///     True for a property with a backing field and a setter with code. The
+    ///     setter gives the field its value, which can be different from the
+    ///     value that the property gets. Thus, a write of such a property does
+    ///     not give the property its value. The walk reads the setter for that.
+    /// </summary>
+    /// <remarks>
+    ///     The walk keeps the state of the backing field on the property: see
+    ///     <see cref="PropertyOfTheFieldKeyword" />. An automatic accessor, or
+    ///     the <c>field</c> keyword, shows that the property has a backing field.
+    /// </remarks>
+    public static bool SetterWritesTheField(IPropertySymbol property) =>
+        property.SetMethod is { DeclaringSyntaxReferences: { Length: 1 } references }
+        && references[0].GetSyntax() is AccessorDeclarationSyntax { Parent: AccessorListSyntax accessors } setter
+        && (setter.Body != null || setter.ExpressionBody != null)
+        && (accessors.Accessors.Any(static accessor => accessor is { Body: null, ExpressionBody: null })
+            || accessors.DescendantNodes().Any(static node => node.RawKind == FieldKeywordKind));
 
     /// <summary>
     ///     True for an event of this compilation with no accessors in its

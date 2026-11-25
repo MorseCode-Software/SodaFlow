@@ -120,10 +120,13 @@ internal sealed partial class LoopStateEvaluator
 
     // The state of a member of the object that the code is in, as a read through this gives it. A
     // read through this or through a field gets the member as the origin of a write through a name.
+    // A read in a function gets the origin of the value, as a method of this that the function calls
+    // does.
     // The region has each write to the member through an owner that can be this object. A sure write
     // through this replaces each such write before it.
     private LoopState OfThisObject(ISymbol member, LoopState field, ExpressionSyntax read, bool throughThisOrAField) =>
         (throughThisOrAField
+         && this.function == null
          && this.Frame.WrittenThroughANameOfThis.TryGetValue(
              key: member.OriginalDefinition,
              value: out LoopState? named)

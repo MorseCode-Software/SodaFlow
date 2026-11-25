@@ -2719,7 +2719,15 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             case ElementAccessExpressionSyntax or ElementBindingExpressionSyntax
                 when ElementTarget(target) is (var collection, var indexes):
                 this.evaluator.ForgetsThePositionsOf(collection);
-                this.evaluator.Absorb(target: collection, state: state);
+
+                if (!this.evaluator.PutsAtAConstantIndexOfAStaticArray(
+                        element: target as ElementAccessExpressionSyntax,
+                        collection: collection,
+                        state: state))
+                {
+                    this.evaluator.Absorb(target: collection, state: state);
+                }
+
                 this.evaluator.PutsThroughAFieldThatACallReturns(collection: collection, state: state);
 
                 if (target is ElementAccessExpressionSyntax put)
@@ -2786,6 +2794,10 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             && SodaFlowSymbols.PropertyOfTheFieldKeyword(expression: target, symbol: assigned) is { } property)
         {
             assigned = property;
+        }
+        else if (assigned is IPropertySymbol written && SodaFlowSymbols.SetterWritesTheField(written))
+        {
+            return;
         }
 
         switch (assigned)
