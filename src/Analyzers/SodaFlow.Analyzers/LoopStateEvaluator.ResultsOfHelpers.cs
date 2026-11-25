@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -25,14 +26,14 @@ internal sealed partial class LoopStateEvaluator
 
     // Records a write to a member through the result of a call of such a helper, or through a local of one. Most
     // regions have no such result, thus that test comes first.
-    private void NotesAWriteThroughAResult(ExpressionSyntax? written)
+    private void NotesAWriteThroughAResult(ExpressionSyntax? written, ISymbol member)
     {
         if (this.region.UnreadResults.Count > 0
             && !this.quiet
             && written != null
             && this.CallThatGave(written) is { } call)
         {
-            this.region.WritesThroughResults.Add(call);
+            this.region.WritesThroughResults.Add((call, member.OriginalDefinition, this.region.MemberWrites));
         }
     }
 
@@ -45,5 +46,53 @@ internal sealed partial class LoopStateEvaluator
         && owner.Objects.Any(made =>
             this.region.UnreadResults.TryGetValue(key: made, value: out InvocationExpressionSyntax? first)
             && this.region.WritesThroughResults.Any(write =>
-                write != first && this.CanGiveOneObject(one: first, other: write)));
+                write.Call != first && this.CanGiveOneObject(one: first, other: write.Call)));
+
+    // The same, for an owner whose name has a state of its own for the member, as a copy that a library keeps has. The
+    // write through the second result must come after the last write through the first result to the member. That
+    // last write gave the owner its own state.
+    private bool IsWrittenThroughASecondResultLater(LoopState owner, ISymbol member)
+    {
+        if (this.region.WritesThroughResults.Count == 0)
+        {
+            return false;
+        }
+
+        ISymbol definition = member.OriginalDefinition;
+
+        foreach (MadeObject made in owner.Objects)
+        {
+            if (!this.region.UnreadResults.TryGetValue(key: made, value: out InvocationExpressionSyntax? first))
+            {
+                continue;
+            }
+
+            int own = -1;
+            int other = -1;
+
+            foreach ((InvocationExpressionSyntax call, ISymbol written, int at) in this.region.WritesThroughResults)
+            {
+                if (!SymbolEqualityComparer.Default.Equals(x: written, y: definition))
+                {
+                    continue;
+                }
+
+                if (call == first)
+                {
+                    own = Math.Max(val1: own, val2: at);
+                }
+                else if (this.CanGiveOneObject(one: first, other: call))
+                {
+                    other = Math.Max(val1: other, val2: at);
+                }
+            }
+
+            if (other > own)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

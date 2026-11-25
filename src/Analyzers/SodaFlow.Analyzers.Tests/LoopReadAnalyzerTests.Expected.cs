@@ -9207,6 +9207,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab462MapRunInTheMethodAfterAWriteThroughTheBlock"] = ["SF1005"],
             ["Ab460ASecondCallInAMethod"] = ["SF1001"],
             ["Ab460ASecondCallInAMethodThenARead"] = ["SF1001"],
-            ["Ab460ASecondCallOfTheSameBoxInAMethod"] = ["SF1001"]
+            ["Ab460ASecondCallOfTheSameBoxInAMethod"] = ["SF1001"],
+            ["Ab461ALineCopyWithAPlainCellOfItsOwn"] = ["SF1001"],
+            ["Ab461ALineCopyThenASecondCallInAMethod"] = ["SF1001"],
+            ["Ab461TwoPutsOfTwoResults"] = ["SF1001"]
         };
 }

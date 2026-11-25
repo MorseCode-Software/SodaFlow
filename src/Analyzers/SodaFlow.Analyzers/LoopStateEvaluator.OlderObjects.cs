@@ -34,19 +34,20 @@ internal sealed partial class LoopStateEvaluator
     private LoopState NotesAnOlderResult(SyntaxNode call, LoopState made)
     {
         // The evaluator followed the call before it made the object, thus it keeps the answer.
-        if (!ReferenceEquals(objA: this.Follow(call), objB: Followed.Nothing)
-            || (call is InvocationExpressionSyntax invocation
-                && this.region.SymbolOf(call) is IMethodSymbol method
-                && !this.region.Symbols.MakesItsResult(method.OriginalDefinition)
-                && this.IsCalledAgain(invocation)))
+        if (!ReferenceEquals(objA: this.Follow(call), objB: Followed.Nothing))
         {
             this.region.NotesOlderObjects(made.Objects);
         }
-        else if (call is InvocationExpressionSyntax unread
-                 && this.region.SymbolOf(call) is IMethodSymbol helper
-                 && !this.region.Symbols.MakesItsResult(helper.OriginalDefinition))
+        else if (call is InvocationExpressionSyntax invocation
+                 && this.region.SymbolOf(call) is IMethodSymbol method
+                 && !this.region.Symbols.MakesItsResult(method.OriginalDefinition))
         {
-            this.NotesAnUnreadResult(call: unread, made: made);
+            if (this.IsCalledAgain(invocation))
+            {
+                this.region.NotesOlderObjects(made.Objects);
+            }
+
+            this.NotesAnUnreadResult(call: invocation, made: made);
         }
 
         return made;
@@ -140,6 +141,7 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     private bool ReadsAnOlderObject(LoopState owner, ISymbol member, LoopState field) =>
         !field.IsNone
-        && (owner.Objects.Any(this.region.IsAnOlderObject) || this.IsWrittenThroughASecondResult(owner))
-        && owner.Members?.Has(member) != true;
+        && (owner.Members?.Has(member) != true
+            ? owner.Objects.Any(this.region.IsAnOlderObject) || this.IsWrittenThroughASecondResult(owner)
+            : this.IsWrittenThroughASecondResultLater(owner: owner, member: member));
 }

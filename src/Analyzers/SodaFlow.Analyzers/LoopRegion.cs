@@ -197,10 +197,11 @@ internal sealed class LoopRegion(
     public Dictionary<MadeObject, InvocationExpressionSyntax> UnreadResults { get; } = [];
 
     /// <summary>
-    ///     The call of each write to a member through the result of a call of
-    ///     such a helper, or through a local of one.
+    ///     Each write to a member through the result of a call of such a
+    ///     helper, or through a local of one. Each has the call, the member,
+    ///     and the count of member writes of the region at the write.
     /// </summary>
-    public List<InvocationExpressionSyntax> WritesThroughResults { get; } = [];
+    public List<(InvocationExpressionSyntax Call, ISymbol Member, int At)> WritesThroughResults { get; } = [];
 
     /// <summary>
     ///     For each record of the members of this in code on an object of the

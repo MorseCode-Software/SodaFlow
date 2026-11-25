@@ -974,10 +974,9 @@ careful side, so it can report a read that does not throw:
   each `return` of the method gives an object that a `new` in it makes, because each call then gives
   a new object, or where the two calls get two different constants, or two static fields that each
   keep the object of their own initializer, at one position. A write through a second call in a
-  different method that the block calls reaches such a read too, where the name of the first result
-  has no value of its own. Where it has one, that write is not seen, and neither is a write that a
-  copy keeps, which code with no source, such as a library, makes of a local with a value of its
-  own. The state is shared across the names of one property as well: a
+  different method that the block calls reaches such a read too. So does a read through a copy that
+  code with no source, such as a library, keeps of a local with a value of its own, where the write
+  through the second call comes after the last write through the first result. The state is shared across the names of one property as well: a
   property of a class and the interface properties that it implements, or two interface properties
   that one property of a class in your project implements. A pending value written through one name
   then reaches a read through another name on the result of any call. The exception is a call of a
@@ -1144,11 +1143,10 @@ Some reads that throw it does not see:
   `readonly` field, or a get-only property whose initializer is such a task, and a method or a
   getter of your own that returns only such tasks. An awaiter of your own whose `IsCompleted` always
   returns `true`, and is not virtual, is complete too.
-- Two calls of your methods that give the same object, in two cases. A read through a local that
-  has a value of its own, written through that local, does not see a later write through a second
-  call. And when a method returns a sealed class, the result of a call that comes before the first
-  write through a result of a call counts as a new object, so a read through it does not see that
-  write.
+- Two calls of your methods that give the same object, where the analyzer does not read the
+  method. Two calls whose arguments at one position are two different constants, or two static
+  fields that each keep the object of their own initializer, count as two objects, even where the
+  method gives the same object for both.
 - A chain of your own calls more than six calls deep. There, the analyzer reports `SF1003` at the
   call where it stops. The same happens past a budget of 512 bodies of methods, constructors,
   getters, and lambdas that it reads for one block, at the call that would go over it.

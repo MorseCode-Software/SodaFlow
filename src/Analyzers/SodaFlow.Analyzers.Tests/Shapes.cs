@@ -64634,6 +64634,26 @@ public static class Shapes
     public static Cell<int> Ab460ASecondCallOfAHelperThatMakesInAMethod() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab447Box s = Ab447NewBox(); Ab460PutThroughANewBox(l.Map(v => v)); return S.Hold(s.Share.Sample()); });
 
+    // S15686. AB461. A local of a call of a helper gets a plain cell, and a line of a library keeps the local. A pending cell then goes in through a second call of the helper. The block reads the last item of the line.
+    public static Cell<int> Ab461ALineCopyWithAPlainCellOfItsOwn() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); s.Share = Plain; line.Put(s); Ab447Make(2).Share = l.Map(v => v); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15687. AB461, an edge. The same, but a method gives the pending cell to the result of its own call of the helper.
+    public static Cell<int> Ab461ALineCopyThenASecondCallInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); s.Share = Plain; line.Put(s); Ab460PutThroughMake(l.Map(v => v)); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15688. AB461, a control. The pending cell goes in through the second call before the local gets the plain cell. Thus, the read gets the plain cell.
+    public static Cell<int> Ab461APlainCellAfterTheSecondCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); Ab447Make(2).Share = l.Map(v => v); s.Share = Plain; line.Put(s); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15689. AB461, a control. The same as the first shape, but the second call gets a different constant.
+    public static Cell<int> Ab461ALineCopyThenADifferentElement() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(1); s.Share = Plain; line.Put(s); Ab447Make(0).Share = l.Map(v => v); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15690. AB461, an edge. A line keeps a first local with a pending cell and a second local with a plain cell. The block reads the first item of the line.
+    public static Cell<int> Ab461TwoPutsOfTwoResults() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot t = Ab447Make(1); t.Share = l.Map(v => v); line.Put(t); SettableSlot s = Ab447Make(0); s.Share = Plain; line.Put(s); s.Share = Plain; return S.Hold(line.All().First().Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
