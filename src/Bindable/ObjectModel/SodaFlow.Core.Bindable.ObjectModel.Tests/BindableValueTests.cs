@@ -475,6 +475,25 @@ public sealed class BindableValueTests
         await Assert.That(() => b.Value = 1).ThrowsExactly<ObjectDisposedException>();
     }
 
+    // In an open transaction the write waits until that transaction releases the lock. A Dispose
+    // in that interval comes before the write, thus the write must not reach the graph.
+    [Test]
+    public async Task TwoWayDisposedInTheTransactionOfAWriteSendsNothing()
+    {
+        CellSink<int> c = Cell.CreateSink(0);
+        ITwoWayBindableValue<int> b = TwoWay(c);
+
+        _ = b.Value;
+
+        Transaction.RunVoid(() =>
+        {
+            b.Value = 9;
+            b.Dispose();
+        });
+
+        await Assert.That(c.Sample()).IsEqualTo(0).Because("the bindable was disposed before the write ran");
+    }
+
     // A view model builds its bindable objects on the thread where it runs, and it does not have
     // to know which thread the binding engine uses. These tests build on a different thread,
     // with no SynchronizationContext, and then test that the sampled value is

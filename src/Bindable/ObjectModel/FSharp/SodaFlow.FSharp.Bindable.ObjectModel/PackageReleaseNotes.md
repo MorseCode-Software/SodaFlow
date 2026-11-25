@@ -9,7 +9,9 @@ This release also raises the dependency floor, so that a new install gets SodaFl
 that release, a transaction that posts to the binding thread through SynchronizationContextBindingScheduler no longer
 runs the transaction start hooks a second time, which made a TimerSystem read its clock and send Time twice. In the
 same release, a one-way bindable value and a command's CanExecute no longer show a value from a transaction that
-failed. That package's notes have the details of both.
+failed. Also in that release, a refresh, a two-way write, or a command that a nested message loop delivers into a
+transaction that then fails is no longer lost, and a command disposed before its deferred send no longer fires. That
+package's notes have the details of each.
 
 Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0

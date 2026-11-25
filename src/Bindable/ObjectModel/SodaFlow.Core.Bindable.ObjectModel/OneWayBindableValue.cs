@@ -135,10 +135,10 @@ public static partial class BindableCoreExtensionMethods
         ///         slot, and the two are full fences. Thus, an update that finds the flag
         ///         set wrote the slot before the refresh reads it, and an update after the
         ///         clear posts again. A refresh that starts while the transaction of the
-        ///         newest update is open on its own thread gives the post to the queue of
-        ///         that transaction, which runs it after the close. A read of the cell in
-        ///         that transaction gives the value before the update. That occurs when a
-        ///         nested message loop runs the queue from a callback.
+        ///         newest update is open on its own thread posts again after that
+        ///         transaction releases the lock, also when that transaction fails. A read
+        ///         of the cell in that transaction gives the value before the update. That
+        ///         occurs when a nested message loop runs the queue from a callback.
         ///     </para>
         /// </remarks>
         private void OnSourceChanged(T newValue)
@@ -189,9 +189,16 @@ public static partial class BindableCoreExtensionMethods
             // transaction that failed is over, thus a read in the open transaction gives the value
             // that committed. Before, the refresh waited also then, and a drain in a transaction
             // made no progress.
+            //
+            // The post again runs after the transaction releases the lock, also when it fails.
+            // Before, it waited in the post queue of the transaction, and a failure discards that
+            // queue. This refresh cleared the flag, and the update found the flag set and
+            // registered no discard. Thus, nothing posted again, and the binding kept the value
+            // from before the last commit until the next update. Only this rare path allocates the
+            // delegate.
             if (!outcome.Known && TransactionInternal.GetCurrentTransaction() != null)
             {
-                TransactionInternal.PostImpl(action: static self => self.PostRefresh(), state: this);
+                TransactionInternal.AfterReleaseImpl(this.PostRefresh);
 
                 return;
             }

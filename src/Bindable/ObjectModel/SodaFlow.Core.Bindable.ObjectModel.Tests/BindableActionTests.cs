@@ -223,6 +223,47 @@ public sealed class BindableActionTests
         }
     }
 
+    // A nested message loop can deliver a click into a transaction that then fails for a cause
+    // that has no connection to the click. The send must reach the graph also then. Before, it
+    // waited in the post queue of that transaction, and the failure discarded it.
+    [Test]
+    public async Task FiresWhenTheTransactionOfTheCallFails()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        CellSink<int> other = Cell.CreateSink(0);
+        List<int> fired = [];
+
+        using IBindableAction<int> a = Action(sink);
+
+        using (a.FiringsStream.Listen(fired.Add))
+        {
+            // The listener runs immediately in the Send below, thus it cannot have a longer life
+            // than the using block.
+            // ReSharper disable AccessToDisposedClosure
+            IListener nested = other.Updates().Listen(_ =>
+            {
+                a.Execute(7);
+
+                throw new InvalidOperationException("from the graph");
+            });
+
+            // ReSharper restore AccessToDisposedClosure
+
+            try
+            {
+                await Assert.That(() => other.Send(1)).ThrowsExactly<InvalidOperationException>();
+            }
+            finally
+            {
+                nested.Dispose();
+            }
+
+            await Assert.That(fired)
+                .IsEquivalentTo(expected: [7], ordering: CollectionOrdering.Matching)
+                .Because("the send ran after the transaction failed");
+        }
+    }
+
     // The control for the two tests above: the send reads the cell, and a true cell lets the send occur.
     [Test]
     public async Task FiresWhenTheCellIsTrueAtTheSend()
@@ -302,6 +343,29 @@ public sealed class BindableActionTests
 
             await Assert.That(fired).IsEmpty();
             await Assert.That(a.CanExecute(null)).IsFalse();
+        }
+    }
+
+    // In an open transaction the send waits until that transaction releases the lock. A Dispose
+    // in that interval comes before the send, thus the command must not fire. The two-way value
+    // holds the same rule for a write. Before, the command fired.
+    [Test]
+    public async Task DisposedInTheTransactionOfTheCallDoesNotFire()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> fired = [];
+
+        IBindableAction<int> a = Action(sink);
+
+        using (a.FiringsStream.Listen(fired.Add))
+        {
+            Transaction.RunVoid(() =>
+            {
+                a.Execute(7);
+                a.Dispose();
+            });
+
+            await Assert.That(fired).IsEmpty().Because("the command was disposed before the send ran");
         }
     }
 
@@ -485,6 +549,57 @@ public sealed class BindableActionTests
         await Assert.That(a.CanExecute(null)).IsTrue().Because("the cell holds true after the transaction");
         await Assert.That(notifications).IsEqualTo(1);
         await Assert.That(ranAfter).IsEqualTo(1).Because("the refresh posted itself again for after that transaction");
+        a.Dispose();
+    }
+
+    // The same nested drain, in a transaction that then fails. The refresh that waits must post
+    // again also then. Before, it waited in the post queue of the transaction, which the failure
+    // discarded. Nothing posted again, and the command kept the answer false until the next
+    // change, although the cell held true.
+    [Test]
+    public async Task ARefreshThatWaitsForAChangingTransactionThatFailsPostsAgain()
+    {
+        QueueingScheduler scheduler = new();
+        CellSink<bool> enabled = Cell.CreateSink(false);
+
+        IBindableAction<int> a =
+            Stream.CreateSink<int>().ToBindableActionImpl(scheduler: scheduler, isEnabledCell: enabled);
+
+        bool initial = a.CanExecute(null);
+        int notifications = 0;
+        a.CanExecuteChanged += (_, _) => notifications++;
+
+        enabled.Send(true);
+
+        int ranInside = 0;
+
+        // This listener is newer than the listener of the command, thus it runs after it.
+        IListener pump = enabled.Updates().Listen(v =>
+        {
+            if (!v)
+            {
+                ranInside = scheduler.RunAll();
+
+                throw new InvalidOperationException("from the graph");
+            }
+        });
+
+        try
+        {
+            await Assert.That(() => enabled.Send(false)).ThrowsExactly<InvalidOperationException>();
+        }
+        finally
+        {
+            pump.Dispose();
+        }
+
+        int ranAfter = scheduler.RunAll();
+
+        await Assert.That(initial).IsFalse();
+        await Assert.That(ranInside).IsEqualTo(1).Because("the refresh of true ran in the transaction of false");
+        await Assert.That(ranAfter).IsEqualTo(1).Because("and posted itself again, although that transaction failed");
+        await Assert.That(a.CanExecute(null)).IsTrue().Because("the refresh after the failure read the cell");
+        await Assert.That(notifications).IsEqualTo(1);
         a.Dispose();
     }
 
