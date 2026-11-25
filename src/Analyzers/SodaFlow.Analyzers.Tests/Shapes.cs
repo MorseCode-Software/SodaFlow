@@ -63946,6 +63946,34 @@ public static class Shapes
     public static Cell<int> Ab450AHolderFieldGetsALiteralOfAnElementASecondHolderWritesItsElement() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab450Box h = new(); h.Items = [Ab450ArrR[0], Ab450ArrR[0]]; Ab450ArrR[0].Share = Plain; Ab450OtherR.WriteSecond(l.Map(v => v)); return S.Hold(Ab450ArrR[0].Share!.Sample()); });
 
+    // S15514. AB445: an ArraySegment of an array holds the object of the array. A write in a foreach over the segment changes that object, and a read through the local gets the pending cell.
+    public static Cell<int> Ab445AForeachOverAnArraySegmentWritesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot[] arr = [d]; ArraySegment<SettableSlot> seg = new(arr); foreach (SettableSlot s in seg) { s.Share = l.Map(v => v); } return S.Hold(d.Share!.Sample()); });
+
+    // S15515. AB445: the constructor of a ValueTuple gets a local. A write through Item1 changes the object of the local, and a read through the local gets the pending cell.
+    public static Cell<int> Ab445AValueTupleOfTheConstructorHoldsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; ValueTuple<SettableSlot> t = new(d); t.Item1.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15516. AB445: a write through element 0 of an ArraySegment changes the object of the array, and a read through the local gets the pending cell.
+    public static Cell<int> Ab445AnElementOfAnArraySegmentIsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot[] arr = [d]; ArraySegment<SettableSlot> seg = new(arr); seg[0].Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15517. AB445: the constructor of a KeyValuePair gets a local as its value. A write through Value changes the object of the local.
+    public static Cell<int> Ab445AKeyValuePairOfTheConstructorHoldsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; KeyValuePair<int, SettableSlot> kv = new(1, d); kv.Value.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15518. AB445: the ValueTuple gets a second object. A write through Item1 does not change the object of the local.
+    public static Cell<int> Ab445AValueTupleOfASecondObjectKeepsTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot e = new() { Share = Plain }; ValueTuple<SettableSlot> t = new(e); t.Item1.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15519. AB445: the ArraySegment is of an array of a second object. A write in a foreach over it does not change the object of the local.
+    public static Cell<int> Ab445AnArraySegmentOfASecondObjectKeepsTheLocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; SettableSlot[] arr = [new SettableSlot()]; ArraySegment<SettableSlot> seg = new(arr); foreach (SettableSlot s in seg) { s.Share = l.Map(v => v); } return S.Hold(d.Share!.Sample()); });
+
+    // S15520. AB445: a struct of this code gets a local in its constructor. A write through its field changes the object of the local.
+    public static Cell<int> Ab445AStructOfThisCodeHoldsTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; Ab445Holder h = new(d); h.Slot.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -117941,6 +117969,13 @@ public static class Shapes
             // ReSharper disable once ArrangeThisQualifier
             Items[1].Share = share;
         }
+    }
+
+    public readonly struct Ab445Holder
+    {
+        public readonly SettableSlot Slot;
+
+        public Ab445Holder(SettableSlot slot) => this.Slot = slot;
     }
 
     public sealed record ItemId(int Number) : IIdentity<int>

@@ -1466,7 +1466,9 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     /// <remarks>
     ///     A struct is a copy at each assignment, thus a second name of it is not
-    ///     the same object. It holds the objects of its parts in its members. An
+    ///     the same object. It is no object of the store, and it holds the objects
+    ///     that it got, as a new collection does. An ArraySegment holds the objects
+    ///     of its array, and a tuple holds the objects of its parts. An
     ///     evaluator that reads code which does not run now makes no object. The
     ///     body of a loop makes the object of this turn. Other code that can run
     ///     two or more times makes two or more objects. The store has none of
@@ -1479,17 +1481,12 @@ internal sealed partial class LoopStateEvaluator
     {
         TypeInfo info = this.region.ModelFor(place).GetTypeInfo(place);
 
-        if ((info.Type ?? info.ConvertedType) is not { IsReferenceType: true } type)
-        {
-            return OfAStruct(place: place, state: state);
-        }
-
         // A new collection holds the objects that it got, and is not one of them. Members of a
         // value that no object of the store is are only here. Thus, the collection then holds an
         // object that the store does not know.
         LoopState apart = HoldingItsObjects(state);
 
-        if (this.quiet)
+        if ((info.Type ?? info.ConvertedType) is not { IsReferenceType: true } type || this.quiet)
         {
             return apart;
         }

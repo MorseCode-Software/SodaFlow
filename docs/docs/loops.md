@@ -471,7 +471,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   takes a `ref` to anywhere in its function, as in `ref d` or `new Span<T>(ref d)`, is no such name,
   because the `ref` can give it a new object at any time. A local of a struct type is no second
   name either, because it gets a copy, also from a cast that takes the struct out of an `object`
-  that holds it, so a write through the copy does not reach the box. A write through an expression
+  that holds it, so a write through the copy does not reach the box. The copy still holds the
+  objects that the struct got, as a collection does: after `var t = new ValueTuple<Slot>(d)` or
+  `new ArraySegment<Slot>(slots)`, a write through `t.Item1` or through an element of the segment
+  is a write to that object. A write through an expression
   that is no
   such name, such as a conditional expression, reaches a later read through each name whose object
   the analyzer cannot tell apart from the object of the write. It tells two objects apart where the

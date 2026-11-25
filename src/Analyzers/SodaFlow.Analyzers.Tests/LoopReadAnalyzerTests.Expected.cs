@@ -9085,6 +9085,11 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab450AListLiteralHasOneElementTwoTimes"] = ["SF1001"],
             ["Ab450AListInitializerAddsOneElementTwoTimes"] = ["SF1001"],
             ["Ab450ALiteralHasALocalOfAnUnknownObjectTwoTimes"] = ["SF1001"],
-            ["Ab450AStaticFieldGetsALiteralWithOneElementTwoTimes"] = ["SF1001"]
+            ["Ab450AStaticFieldGetsALiteralWithOneElementTwoTimes"] = ["SF1001"],
+            ["Ab445AForeachOverAnArraySegmentWritesTheObject"] = ["SF1001"],
+            ["Ab445AValueTupleOfTheConstructorHoldsTheObject"] = ["SF1001"],
+            ["Ab445AnElementOfAnArraySegmentIsTheObject"] = ["SF1001"],
+            ["Ab445AKeyValuePairOfTheConstructorHoldsTheObject"] = ["SF1001"],
+            ["Ab445AStructOfThisCodeHoldsTheObject"] = ["SF1001"]
         };
 }
