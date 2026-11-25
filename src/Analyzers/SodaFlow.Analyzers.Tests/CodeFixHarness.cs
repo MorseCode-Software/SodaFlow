@@ -118,7 +118,7 @@ internal static class CodeFixHarness
         return workspace.AddDocument(projectId: project.Id, name: "Sample.cs", text: SourceText.From(source));
     }
 
-    // The text of the document after the fix, which the check holds to the sample.
+    // The text of the document after the CodeFixProvider changes it. The check holds this text to the sample.
     private static async Task<string> Apply(TextDocument document, CodeAction action, DiagnosticAnalyzer analyzer, Check check)
     {
         ImmutableArray<CodeActionOperation> operations = await action.GetOperationsAsync(CancellationToken.None).ConfigureAwait(false);
@@ -155,7 +155,7 @@ internal static class CodeFixHarness
         }
     }
 
-    // Each warning of the compiler as its id and message. It has no place, because a fix moves code.
+    // Each warning of the compiler as its id and message. It has no location, because a code change moves code.
     private static IEnumerable<string> Warnings(Compilation compilation) =>
         compilation.GetDiagnostics()
             .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Warning)
@@ -181,7 +181,7 @@ internal static class CodeFixHarness
         public string Result { get; } = result;
     }
 
-    // What a result must hold to: the name of the fix in a failure, the count of the reports on the
-    // sample, and the warnings of the sample.
+    // What a result must hold to. These are the name of the CodeFixProvider for a failure message, the count of the
+    // reports on the sample, and the warnings of the sample.
     private sealed record Check(string What, int Reports, IReadOnlyCollection<string> WarningsBefore);
 }

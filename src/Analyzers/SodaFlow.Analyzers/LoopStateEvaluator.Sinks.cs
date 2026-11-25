@@ -192,7 +192,7 @@ internal sealed partial class LoopStateEvaluator
 
     // The value of a local that no code writes. Each other expression is itself. The read of a
     // hold checks that the code of the transaction made the hold.
-    private ExpressionSyntax ValueOfALocalThatNoCodeWrites(ExpressionSyntax cell) =>
+    internal ExpressionSyntax ValueOfALocalThatNoCodeWrites(ExpressionSyntax cell) =>
         cell is IdentifierNameSyntax name
         && this.region.SymbolOf(name) is ILocalSymbol { DeclaringSyntaxReferences.Length: 1 } local
         && local.DeclaringSyntaxReferences[0].GetSyntax()
@@ -344,7 +344,7 @@ internal sealed partial class LoopStateEvaluator
 
         ExpressionSyntax? sink = this.SinkArgumentOf(creation: creation, method: method);
 
-        if (sink == null)
+        if (sink == null || this.IsNeverEnabled(creation: creation, method: method))
         {
             return;
         }
@@ -354,6 +354,27 @@ internal sealed partial class LoopStateEvaluator
 
         this.region.ReadAfterTheTransaction(function: write, read: () => later.Sends(sink: sink, content: content));
     }
+
+    // The library reads the enablement of an action at Execute and again at the send. Thus, the
+    // constant false cell stops each send. The walk finds it in the creation call, or in a local that
+    // no code writes.
+    private bool IsNeverEnabled(InvocationExpressionSyntax creation, IMethodSymbol method) =>
+        method.Name == "CreateBindableAction"
+        && creation.ArgumentList.Arguments
+                .Where((argument, position) =>
+                    ParameterFor(method: method, argument: argument, position: position) is { Name: "isEnabledCell" })
+                .Select(static argument => argument.Expression)
+                .FirstOrDefault()
+            is { } enablement
+        && this.ValueOfALocalThatNoCodeWrites(Unwrapped(enablement)) is InvocationExpressionSyntax
+        {
+            Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Constant" },
+            ArgumentList.Arguments.Count: 1
+        } constant
+        && this.region.SymbolOf(constant) is IMethodSymbol made
+        && this.region.Symbols.IsSodaFlow(made)
+        && this.region.ModelFor(constant).GetConstantValue(constant.ArgumentList.Arguments[0].Expression)
+            is { Value: false };
 
     // A write to the bindable that the receiver has. A member, a callee, or a second name can give
     // the receiver that bindable. An action carries the sink of its firings as a member. The store
@@ -423,6 +444,7 @@ internal sealed partial class LoopStateEvaluator
         {
             "CreateTwoWay" => this.ATwoWayBindable(creation: call, method: method, state: state),
             "Construct" => this.AConstructedResult(construct: call, state: state),
+            "SetTimer" => this.ATimerOfAClock(call: call, state: state),
             _ => this.AMapWithAHandler(map: call, method: method, state: state)
         };
 
@@ -956,13 +978,19 @@ internal sealed partial class LoopStateEvaluator
             return sent;
         }
 
-        // The function runs after the close. Each parameter gets the value of a send.
+        // The function runs after the close. Each parameter gets the value of a send. Of two sends of
+        // the block, the first gives the first parameter, and the second gives the second.
+        ImmutableArray<LoopState> given =
+            this.region.SentBefore.TwoSendsInto(creation) is { } two
+                ? ImmutableArray.Create(item1: two.First.Content, item2: two.Second.Content)
+                : ImmutableArray.Create(item1: sent.Content, item2: sent.Content);
+
         LoopState coalesced =
             this.ResultOfTheFunctions(
                     call: creation,
                     written: coalesce,
                     functions: this.Eval(coalesce),
-                    given: ImmutableArray.Create(item1: sent.Content, item2: sent.Content))
+                    given: given)
                 .AfterTheClose
                 .AsContent;
 

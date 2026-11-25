@@ -51,6 +51,21 @@ internal sealed class LoopRegion(
     private readonly Dictionary<ISymbol, List<(int Index, LoopState Held)>> putsThroughLocals =
         new(SymbolEqualityComparer.Default);
 
+    // For a static field that holds an array: each put into an element through the field at a constant index. A
+    // put at one index does not change a different element. See PutsAtAnIndexOf.
+    private readonly Dictionary<ISymbol, List<(int Index, LoopState Held)>> putsAtIndexes =
+        new(SymbolEqualityComparer.Default);
+
+    // The fields that the code set through an owner whose object the walk knows, with that owner for each write. A read
+    // through a different owner does not get such a write. See SetFieldOfAnOwner.
+    private readonly Dictionary<ISymbol, List<(object Owner, LoopState State)>> ownedFields =
+        new(SymbolEqualityComparer.Default);
+
+    // The static members of a generic type that the code set through a type whose type arguments have no type
+    // parameter. Each such type has its own location. A write through a type with an open type argument goes to the
+    // fields, and each read of the member gets it. See ClosedKeyOf.
+    private readonly Dictionary<ISymbol, LoopState> closedFields = new(SymbolEqualityComparer.Default);
+
     // True when a key of the fields is a property of an interface: see FieldState.
     private bool hasInterfaceFields;
 
@@ -58,10 +73,19 @@ internal sealed class LoopRegion(
     private readonly HashSet<MadeObject> olderObjects = [];
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Dictionary<ISymbol, ExpressionSyntax?> initializerOf = new(SymbolEqualityComparer.Default);
+
+    private readonly Dictionary<ISymbol, ImmutableArray<ISymbol>> namedByTheInitializer =
+        new(SymbolEqualityComparer.Default);
+
     private readonly Action<Diagnostic> report = report;
 
     // A read of the block after the first one reports only what the reads before did not.
     private readonly HashSet<(string Id, Location Location)> reported = readBefore?.reported ?? [];
+
+    // The reads of a run in the branch of a condition whose value the walk does not know. Each read of
+    // the block adds to them. The last read reports each one whose location has no other report: see
+    // ReportTheUndecidedReads.
+    private readonly Dictionary<Location, Diagnostic> undecided = readBefore?.undecided ?? [];
 
     // The walk and the evaluator get the symbol and the type of one node many times. The compiler
     // computes them again at each call, thus the region keeps them.
@@ -85,6 +109,9 @@ internal sealed class LoopRegion(
     // The types whose static constructor the walk reads now. A use of such a type in its own static constructor
     // runs it no second time.
     private readonly HashSet<INamedTypeSymbol> startingTypes = new(SymbolEqualityComparer.Default);
+
+    // True for a type declaration that has a static initializer. Each name in its code asks.
+    private readonly Dictionary<TypeDeclarationSyntax, bool> hasStaticInitializers = [];
 
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
@@ -123,6 +150,12 @@ internal sealed class LoopRegion(
     /// </summary>
     public bool ReadsCodeAfterTheTransaction => this.readAfterTheTransaction.Count > 0;
 
+    /// <summary>
+    ///     True after the walk read a continuation whose task keeps its
+    ///     findings. Only then can a wait of a task report findings.
+    /// </summary>
+    public bool KeepsTheReadsOfAContinuation { get; set; }
+
     /// <summary>Reads a function that runs after the transaction of the block.</summary>
     /// <remarks>
     ///     A posted function can post a function also. The walk does not read a
@@ -147,6 +180,13 @@ internal sealed class LoopRegion(
             this.readAfterTheTransaction.Remove(function);
         }
     }
+
+    /// <summary>
+    ///     For each local that holds an object, true when no code can give a
+    ///     field of that object a different object. See
+    ///     KeepsTheObjectsOfItsFields.
+    /// </summary>
+    public Dictionary<ISymbol, bool> HoldersOfFields { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>The body of the block.</summary>
     public SyntaxNode Root { get; } = root;
@@ -183,7 +223,23 @@ internal sealed class LoopRegion(
     public INamedTypeSymbol? TypeOfThePlatform(string name) => this.compilation.GetTypeByMetadataName(name);
 
     /// <summary>True when the code set a field to a value with a state.</summary>
-    public bool HasFields => this.fields.Count > 0;
+    public bool HasFields =>
+        this.fields.Count > 0
+        || this.closedFields.Count > 0
+        || this.putsAtIndexes.Count > 0
+        || this.ownedFields.Count > 0;
+
+    /// <summary>
+    ///     True when the code set a field through an owner that the walk knows:
+    ///     see <see cref="SetFieldOfAnOwner" />.
+    /// </summary>
+    public bool HasOwnedFields => this.ownedFields.Count > 0;
+
+    /// <summary>
+    ///     True when the code put a value into an element of the array of a
+    ///     static field: see <see cref="AddAPutAtAnIndex" />.
+    /// </summary>
+    public bool HasPutsAtIndexes => this.putsAtIndexes.Count > 0;
 
     /// <summary>
     ///     Records that the walk reads the static constructor of a type. False
@@ -214,6 +270,38 @@ internal sealed class LoopRegion(
     public void EndsTheStaticConstructorOf(INamedTypeSymbol type) => this.startingTypes.Remove(type);
 
     /// <summary>
+    ///     True when a type declaration has an initializer of a static field or
+    ///     of a static property. Each part of a partial type counts.
+    /// </summary>
+    public bool HasStaticInitializers(TypeDeclarationSyntax type)
+    {
+        if (!this.hasStaticInitializers.TryGetValue(key: type, value: out bool has))
+        {
+            // A read in one part of a type runs the initializers of the type. Only a partial type
+            // needs the compiler to find its other parts.
+            has = type.Modifiers.Any(SyntaxKind.PartialKeyword)
+                  && this.ModelFor(type).GetDeclaredSymbol(type) is { } declared
+                ? declared.DeclaringSyntaxReferences.Any(static reference =>
+                    reference.GetSyntax() is TypeDeclarationSyntax part && DeclaresStaticInitializers(part))
+                : DeclaresStaticInitializers(type);
+
+            this.hasStaticInitializers[type] = has;
+        }
+
+        return has;
+    }
+
+    private static bool DeclaresStaticInitializers(TypeDeclarationSyntax type) =>
+        type.Members.Any(static member =>
+            member.Modifiers.Any(SyntaxKind.StaticKeyword)
+            && member switch
+            {
+                FieldDeclarationSyntax field => field.Declaration.Variables.Any(static one => one.Initializer != null),
+                PropertyDeclarationSyntax property => property.Initializer != null,
+                _ => false
+            });
+
+    /// <summary>
     ///     Keeps the objects as results of calls that a second call can give
     ///     also. See <see cref="IsAnOlderObject" />.
     /// </summary>
@@ -227,10 +315,33 @@ internal sealed class LoopRegion(
 
     /// <summary>A number for what the fields say, from <see cref="LoopState.Shape" />.</summary>
     public int ShapeOfFields =>
-        this.fields.Aggregate(
-            seed: 0,
-            func: static (sum, one) => unchecked(
-                sum + ShapeNumber.Of(location: ShapeNumber.Of(one.Key.Name), state: one.Value.Shape)));
+        unchecked(
+            this.fields.Aggregate(
+                seed: 0,
+                func: static (sum, one) => unchecked(
+                    sum + ShapeNumber.Of(location: ShapeNumber.Of(one.Key.Name), state: one.Value.Shape)))
+            + this.putsAtIndexes.Aggregate(
+                seed: 0,
+                func: static (sum, one) => unchecked(
+                    sum
+                    + one.Value.Aggregate(
+                        seed: ShapeNumber.Of(one.Key.Name),
+                        func: static (all, put) => unchecked(
+                            all + ShapeNumber.Of(location: put.Index + 1, state: put.Held.Shape)))))
+            + this.closedFields.Aggregate(
+                seed: 0,
+                func: static (sum, one) => unchecked(
+                    sum
+                    + ShapeNumber.Of(
+                        location: SymbolEqualityComparer.Default.GetHashCode(one.Key),
+                        state: one.Value.Shape)))
+            + this.ownedFields.Aggregate(
+                seed: 0,
+                func: static (sum, one) => unchecked(
+                    sum
+                    + one.Value.Aggregate(
+                        seed: ShapeNumber.Of(one.Key.Name) * 7,
+                        func: static (all, write) => unchecked(all + write.State.Shape)))));
 
     /// <summary>
     ///     The state of a field that the code set while the loop is open. The
@@ -242,15 +353,116 @@ internal sealed class LoopRegion(
     ///     <see cref="Construction.StateWithTheAliases" /> and
     ///     <see cref="Construction.StateImplementedTogether" />.
     /// </param>
-    public LoopState FieldState(ISymbol field, Func<ISymbol, bool>? canHave = null) =>
+    /// <param name="owner">
+    ///     The owner of the read, from <see cref="SetFieldOfAnOwner" />, or null
+    ///     when the walk does not know it. A read through a known owner does not
+    ///     get a write through a different known owner.
+    /// </param>
+    public LoopState FieldState(ISymbol field, Func<ISymbol, bool>? canHave = null, object? owner = null)
+    {
+        LoopState own = this.OwnFieldState(states: this.fields, field: field, canHave: canHave);
+        ImmutableArray<ISymbol> named = this.FieldsNamedByTheInitializerOf(field);
+
+        if (this.ownedFields.Count > 0)
+        {
+            own = own.Join(this.OwnFieldState(states: this.OwnedFieldsFor(owner), field: field, canHave: canHave));
+        }
+
+        if (this.closedFields.Count > 0)
+        {
+            own = own.Join(this.ClosedFieldState(field));
+        }
+
+        return named.IsEmpty ? own : this.WithTheFieldsNamed(state: own, named: named, canHave: canHave);
+    }
+
+    // The state of a static member from the writes through a closed type. A read through a closed type gets the writes
+    // through that type. Each other read gets the writes through each closed type.
+    private LoopState ClosedFieldState(ISymbol field)
+    {
+        if (ClosedKeyOf(field) is { } closed)
+        {
+            return this.closedFields.TryGetValue(key: closed, value: out LoopState? state)
+                ? state.From(closed)
+                : LoopState.None;
+        }
+
+        ISymbol definition = field.OriginalDefinition;
+
+        return this.closedFields
+            .Where(one => SymbolEqualityComparer.Default.Equals(x: one.Key.OriginalDefinition, y: definition))
+            .Aggregate(seed: LoopState.None, func: static (all, one) => all.Join(one.Value.From(one.Key)));
+    }
+
+    /// <summary>
+    ///     The member itself, for a static member of a generic type whose type
+    ///     arguments have no type parameter. Null for each other member.
+    /// </summary>
+    /// <remarks>
+    ///     Each closed type of a generic type has its own static members. A type
+    ///     parameter can be each type. Thus, a member through an open type has
+    ///     the key of its definition, as each other member has.
+    /// </remarks>
+    public static ISymbol? ClosedKeyOf(ISymbol member) =>
+        member is { IsStatic: true, ContainingType: { } type }
+        && !SymbolEqualityComparer.Default.Equals(x: member, y: member.OriginalDefinition)
+        && IsClosed(type)
+            ? member
+            : null;
+
+    // True for a type with no type parameter in it, also in the type that contains it.
+    private static bool IsClosed(ITypeSymbol type) =>
+        type switch
+        {
+            ITypeParameterSymbol or IErrorTypeSymbol => false,
+            IArrayTypeSymbol array => IsClosed(array.ElementType),
+            IPointerTypeSymbol pointer => IsClosed(pointer.PointedAtType),
+            INamedTypeSymbol named => named.TypeArguments.All(IsClosed)
+                                      && (named.ContainingType == null || IsClosed(named.ContainingType)),
+            _ => true
+        };
+
+    // The state of each field from the writes through an owner that can be the owner of a read. Null is each owner.
+    private Dictionary<ISymbol, LoopState> OwnedFieldsFor(object? owner)
+    {
+        Dictionary<ISymbol, LoopState> visible = new(SymbolEqualityComparer.Default);
+
+        foreach (KeyValuePair<ISymbol, List<(object Owner, LoopState State)>> field in this.ownedFields)
+        {
+            foreach ((object writer, LoopState state) in field.Value)
+            {
+                if (owner == null || owner.Equals(writer))
+                {
+                    visible[field.Key] =
+                        visible.TryGetValue(key: field.Key, value: out LoopState? before) ? before.Join(state) : state;
+                }
+            }
+        }
+
+        return visible;
+    }
+
+    // Most fields have no named field. Thus, only this method makes the function that it gives Aggregate.
+    private LoopState WithTheFieldsNamed(
+        LoopState state,
+        ImmutableArray<ISymbol> named,
+        Func<ISymbol, bool>? canHave) =>
+        named.Aggregate(
+            seed: state,
+            func: (all, one) => all.Join(this.OwnFieldState(states: this.fields, field: one, canHave: canHave)));
+
+    private LoopState OwnFieldState(
+        IReadOnlyDictionary<ISymbol, LoopState> states,
+        ISymbol field,
+        Func<ISymbol, bool>? canHave) =>
         Construction.StateWithTheAliases(
-                states: this.fields,
+                states: states,
                 key: field.OriginalDefinition,
                 stateOf: static (key, state) => state.From(key),
                 canHave: canHave)
             .Join(
                 Construction.StateImplementedTogether(
-                    states: this.fields,
+                    states: states,
                     key: field.OriginalDefinition,
                     stateOf: static (key, state) => state.From(key),
                     implementations: this.Symbols.Implementations,
@@ -270,10 +482,19 @@ internal sealed class LoopRegion(
     /// </param>
     public void SetField(ISymbol field, LoopState state, bool replaces)
     {
+        if (ClosedKeyOf(field) is { } closed)
+        {
+            this.SetAClosedField(field: closed, state: state, replaces: replaces);
+
+            return;
+        }
+
         ISymbol key = field.OriginalDefinition;
 
-        // A state that only holds objects of the store says what the owner of the field holds.
-        if (state is { IsNone: true, HoldsAnObject: false })
+        // A state that only holds objects of the store says what the owner of the field holds. A map of a
+        // collection with a handler stays, because a Dispose through the field runs that handler.
+        if (state is { IsNone: true, HoldsAnObject: false }
+            && !state.Objects.Any(made => this.Objects.HandlersOfAMap(made).Count > 0))
         {
             if (replaces)
             {
@@ -290,7 +511,120 @@ internal sealed class LoopRegion(
 
         this.lastWrites[key] = this.MemberWrites;
 
+        // A second field that holds the same array gets each put into it also. A read of this field reads that
+        // field too, thus the two directions are the same.
+        foreach (ISymbol named in this.FieldsNamedByTheInitializerOf(key))
+        {
+            this.fields[named] =
+                this.fields.TryGetValue(key: named, value: out LoopState? before) ? before.Join(state) : state;
+
+            this.lastWrites[named] = this.MemberWrites;
+        }
+
         this.hasInterfaceFields |= key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
+    }
+
+    // The same as SetField, for a member of a closed type. The last write has the key of the definition, as a read of
+    // LastWriteOf has it.
+    private void SetAClosedField(ISymbol field, LoopState state, bool replaces)
+    {
+        if (state is { IsNone: true, HoldsAnObject: false }
+            && !state.Objects.Any(made => this.Objects.HandlersOfAMap(made).Count > 0))
+        {
+            if (replaces)
+            {
+                this.closedFields.Remove(field);
+            }
+
+            return;
+        }
+
+        this.closedFields[field] =
+            !replaces && this.closedFields.TryGetValue(key: field, value: out LoopState? existing)
+                ? existing.Join(state)
+                : state;
+
+        this.lastWrites[field.OriginalDefinition] = this.MemberWrites;
+    }
+
+    /// <summary>
+    ///     Records a value that the code gives to a member of one owner that the
+    ///     walk knows. Other names of that object can have no record of the
+    ///     write. A read through a different known owner does not get it, and each
+    ///     other read does, as for <see cref="SetField" />.
+    /// </summary>
+    /// <param name="field">The member.</param>
+    /// <param name="state">The state of the value.</param>
+    /// <param name="owner">
+    ///     The owner: an object of the store, or a <see cref="StaticOwner" />. Two
+    ///     owners that are not equal are two different objects.
+    /// </param>
+    public void SetFieldOfAnOwner(ISymbol field, LoopState state, object owner)
+    {
+        ISymbol key = field.OriginalDefinition;
+
+        if (state is { IsNone: true, HoldsAnObject: false }
+            && !state.Objects.Any(made => this.Objects.HandlersOfAMap(made).Count > 0))
+        {
+            return;
+        }
+
+        if (!this.ownedFields.TryGetValue(key: key, value: out List<(object Owner, LoopState State)>? writes))
+        {
+            writes = [];
+            this.ownedFields[key] = writes;
+        }
+
+        writes.Add((owner, state));
+        this.lastWrites[key] = this.MemberWrites;
+        this.hasInterfaceFields |= key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
+    }
+
+    /// <summary>
+    ///     The static fields with readonly that hold the same object as a static
+    ///     field with readonly, from its initializer. That is the field that the
+    ///     initializer names, the field that the initializer of that field names,
+    ///     and so on. Empty for each other field.
+    /// </summary>
+    /// <remarks>
+    ///     No code can give such a field a different value after its
+    ///     initializer. Thus, the two fields hold one object at each read.
+    /// </remarks>
+    private ImmutableArray<ISymbol> FieldsNamedByTheInitializerOf(ISymbol field)
+    {
+        if (field.OriginalDefinition is not IFieldSymbol { IsStatic: true, IsReadOnly: true } original)
+        {
+            return ImmutableArray<ISymbol>.Empty;
+        }
+
+        field = original;
+
+        if (this.namedByTheInitializer.TryGetValue(key: field, value: out ImmutableArray<ISymbol> known))
+        {
+            return known;
+        }
+
+        List<ISymbol> named = [];
+
+        for (ISymbol at = field; named.Count < 8;)
+        {
+            if (this.InitializerOf(at) is not ((IdentifierNameSyntax or MemberAccessExpressionSyntax) and var value)
+                || this.ModelFor(value).GetSymbolInfo(value).Symbol?.OriginalDefinition
+                    is not IFieldSymbol { IsStatic: true, IsReadOnly: true } next
+                || SymbolEqualityComparer.Default.Equals(x: next, y: field)
+                || named.Contains(value: next, comparer: SymbolEqualityComparer.Default))
+            {
+                break;
+            }
+
+            named.Add(next);
+            at = next;
+        }
+
+        ImmutableArray<ISymbol> all = named.ToImmutableArray();
+        this.namedByTheInitializer[field] = all;
+
+        return all;
     }
 
     private SemanticModel ModelFor(SyntaxTree tree)
@@ -490,6 +824,49 @@ internal sealed class LoopRegion(
         }
     }
 
+    // A read of such a run becomes an SF1007 at the location of its report.
+    // A value that goes to unseen code from such a run gets no report.
+    private void Report(Finding finding)
+    {
+        if (!finding.Undecided)
+        {
+            this.Report(finding.Diagnostic);
+
+            return;
+        }
+
+        if (!finding.Escape)
+        {
+            Location location = finding.Diagnostic.Location;
+
+            this.undecided[location] =
+                Diagnostic.Create(
+                    descriptor: Diagnostics.UndecidedRun,
+                    location: location,
+                    location.SourceTree?.GetText().ToString(location.SourceSpan) ?? string.Empty,
+                    this.PlaceholderName);
+        }
+    }
+
+    // A report at the location of the same read wins. The walk can find a warning there in a read of
+    // the block after this one, thus only the last read reports.
+    private void ReportTheUndecidedReads()
+    {
+        foreach (Diagnostic diagnostic in this.undecided.Values
+                     .Where(diagnostic => this.reported.All(reported => reported.Location != diagnostic.Location))
+                     .ToList())
+        {
+            this.Report(diagnostic);
+        }
+    }
+
+    /// <summary>
+    ///     True while the walk tests a run of the timers or a Dispose in a
+    ///     callee. The test then counts each condition whose value the walk does
+    ///     not know as true.
+    /// </summary>
+    public bool CountsAnUndecidedCondition { get; set; }
+
     /// <summary>
     ///     Counts one more callee body that the walk reads. False when the block
     ///     is at its limit, and the callee is then code that the analyzer does not
@@ -613,6 +990,65 @@ internal sealed class LoopRegion(
             key: field.OriginalDefinition,
             value: out List<(int Index, LoopState Held)>? puts)
             ? puts.Aggregate(seed: LoopState.None, func: static (all, put) => all.Join(put.Held))
+            : LoopState.None;
+
+    /// <summary>
+    ///     Records a put into an element of the array of a static field, through
+    ///     the field, at a constant index. A second field that holds the same
+    ///     array gets the put also, as in <see cref="SetField" />.
+    /// </summary>
+    /// <param name="field">The field.</param>
+    /// <param name="index">The constant index.</param>
+    /// <param name="held">The state of the array with the value in it.</param>
+    public void AddAPutAtAnIndex(ISymbol field, int index, LoopState held)
+    {
+        ISymbol key = field.OriginalDefinition;
+        this.AddAPutAtAnIndexOf(key: key, index: index, held: held);
+
+        foreach (ISymbol named in this.FieldsNamedByTheInitializerOf(key))
+        {
+            this.AddAPutAtAnIndexOf(key: named, index: index, held: held);
+        }
+    }
+
+    private void AddAPutAtAnIndexOf(ISymbol key, int index, LoopState held)
+    {
+        if (!this.putsAtIndexes.TryGetValue(key: key, value: out List<(int Index, LoopState Held)>? puts))
+        {
+            puts = [];
+            this.putsAtIndexes[key] = puts;
+        }
+
+        puts.Add((index, held));
+        this.lastWrites[key] = this.MemberWrites;
+    }
+
+    /// <summary>
+    ///     The state of the array of a static field from the puts at a constant
+    ///     index, from <see cref="AddAPutAtAnIndex" />. A read of one element gets
+    ///     only the puts at its index. Each other read gets all of them.
+    /// </summary>
+    /// <param name="field">The field.</param>
+    /// <param name="index">The constant index of the element that the code reads, or null.</param>
+    public LoopState PutsAtAnIndexOf(ISymbol field, int? index)
+    {
+        if (this.putsAtIndexes.Count == 0)
+        {
+            return LoopState.None;
+        }
+
+        ISymbol key = field.OriginalDefinition;
+
+        return this.FieldsNamedByTheInitializerOf(key)
+            .Aggregate(
+                seed: this.PutsAtAnIndexIn(key: key, index: index),
+                func: (all, named) => all.Join(this.PutsAtAnIndexIn(key: named, index: index)));
+    }
+
+    private LoopState PutsAtAnIndexIn(ISymbol key, int? index) =>
+        this.putsAtIndexes.TryGetValue(key: key, value: out List<(int Index, LoopState Held)>? puts)
+            ? puts.Where(put => index == null || put.Index == index)
+                .Aggregate(seed: LoopState.None, func: (all, put) => all.Join(put.Held.From(key)))
             : LoopState.None;
 
     /// <summary>
@@ -740,12 +1176,12 @@ internal sealed class LoopRegion(
         LoopStateEvaluator evaluator = new(this);
 
         evaluator.ReadBy(
-                new SinkWalker(region: this, evaluator: evaluator, sink: finding => this.Report(finding.Diagnostic)))
+                new SinkWalker(region: this, evaluator: evaluator, sink: this.Report))
             .Visit(this.Root);
 
         foreach (Finding unread in evaluator.Frame.TakeUnread())
         {
-            this.Report(unread.Diagnostic);
+            this.Report(unread);
         }
 
         if (canReadAgain && this.Sent.SaysMoreThan(this.SentBefore))
@@ -792,6 +1228,8 @@ internal sealed class LoopRegion(
                         this.PlaceholderName));
             }
         }
+
+        this.ReportTheUndecidedReads();
 
         return true;
     }

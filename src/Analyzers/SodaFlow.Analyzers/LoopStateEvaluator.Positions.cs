@@ -17,11 +17,26 @@ internal sealed partial class LoopStateEvaluator
     // row contains the element. A dictionary in a local gives the value of a constant key: see
     // ValuesByKeyOf.
     private ExpressionSyntax? PositionOf(ElementAccessExpressionSyntax access) =>
-        this.ElementsOf(access.Expression) is { } all
-            ? this.PositionIn(index: access.ArgumentList.Arguments[0].Expression, count: all.Count) is { } index
+        this.PositionOf(collection: access.Expression, indexes: access.ArgumentList);
+
+    // The same for the collection and the indexes of an element access, or of a null-conditional
+    // element access.
+    private ExpressionSyntax? PositionOf(ExpressionSyntax collection, BaseArgumentListSyntax indexes) =>
+        (this.ElementsOf(collection) ?? this.ElementsOfARange(collection)) is { } all
+            ? this.PositionIn(index: indexes.Arguments[0].Expression, count: all.Count) is { } index
                 ? all[index]
                 : null
-            : this.ValueOfAKey(access);
+            : this.ValueOfAKey(collection: collection, indexes: indexes);
+
+    // The state of a null-conditional element access, as for an element access with the same collection.
+    // The value before the mark is the collection.
+    private LoopState EvalElementBinding(ElementBindingExpressionSyntax binding, ExpressionSyntax collection) =>
+        (this.PositionOf(collection: collection, indexes: binding.ArgumentList) is { } position
+            ? this.StateAtAPosition(position)
+            : this.AtAStorePosition(collection: collection, indexes: binding.ArgumentList)
+              ?? this.FollowExpression(binding)?.State
+              ?? ElementOf(collection: this.Eval(collection), type: this.region.TypeOf(binding)))
+        .Join(this.TypeState(binding));
 
     // The state of the expression of an element. The expression can be in the code of a definer of
     // this function. That code read it, and a second read here makes a second object for a
@@ -56,12 +71,51 @@ internal sealed partial class LoopStateEvaluator
             : null;
     }
 
+    // The elements of a range of an array or of a view, as in all[1..]. The walk must know the
+    // positions of the array or the view. Each bound must be a constant. Null for each other
+    // expression.
+    private IReadOnlyList<ExpressionSyntax>? ElementsOfARange(ExpressionSyntax collection) =>
+        RangeOf(collection) is (var of, var range)
+        && this.ElementsOf(of) is { } all
+        && this.BoundsIn(range: range, count: all.Count) is (var start, var end)
+            ? [.. all.Skip(start).Take(end - start)]
+            : null;
+
+    // The collection and the range of an element access with a range. The walk has positions only
+    // for an array, a span, and a list of the platform. A list has no range, and a range of an array
+    // or a span keeps the order. Null for each other expression.
+    private static (ExpressionSyntax Of, RangeExpressionSyntax Range)? RangeOf(ExpressionSyntax collection) =>
+        Unwrapped(collection) is ElementAccessExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } slice
+        && arguments.First().Expression is RangeExpressionSyntax range
+            ? (slice.Expression, range)
+            : null;
+
+    // The start and the end of a range in a collection with a number of elements. Each bound is a
+    // constant from the start or from the end. A bound that the code does not write is an end of the
+    // collection. Null for a range that is not in the collection.
+    private (int Start, int End)? BoundsIn(RangeExpressionSyntax range, int count) =>
+        (range.LeftOperand == null ? 0 : this.BoundIn(bound: range.LeftOperand, count: count)) is { } start
+        && (range.RightOperand == null ? count : this.BoundIn(bound: range.RightOperand, count: count)) is { } end
+        && start <= end
+            ? (start, end)
+            : null;
+
+    // A bound of a range, from 0 to the number of elements. Null for a bound that is not a constant.
+    private int? BoundIn(ExpressionSyntax bound, int count)
+    {
+        bool fromTheEnd = bound is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.IndexExpression };
+        ExpressionSyntax number = fromTheEnd ? ((PrefixUnaryExpressionSyntax)bound).Operand : bound;
+
+        return this.region.ModelFor(number).GetConstantValue(number) is { Value: int at and >= 0 } && at <= count
+            ? fromTheEnd ? count - at : at
+            : null;
+    }
+
     // The value that a read by a constant key gives, for a dictionary in a local whose initializer
     // gave that key a value. Null for each other read.
-    private ExpressionSyntax? ValueOfAKey(ElementAccessExpressionSyntax access)
+    private ExpressionSyntax? ValueOfAKey(SyntaxNode collection, BaseArgumentListSyntax indexes)
     {
-        if (access.ArgumentList.Arguments.Count != 1
-            || this.region.SymbolOf(access.Expression) is not ILocalSymbol local)
+        if (indexes.Arguments.Count != 1 || this.region.SymbolOf(collection) is not ILocalSymbol local)
         {
             return null;
         }
@@ -75,7 +129,7 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return known != null
-               && this.KeyOf(key: access.ArgumentList.Arguments[0].Expression, ofObjects: HasObjectKeys(local))
+               && this.KeyOf(key: indexes.Arguments[0].Expression, ofObjects: HasObjectKeys(local))
                    is { } key
                && known.TryGetValue(key: key, value: out ExpressionSyntax? value)
             ? value
@@ -202,21 +256,39 @@ internal sealed partial class LoopStateEvaluator
     // The value of the element that a read by a constant index gives, from the positions of the
     // store. The value came into this code as its collection did, as each other element.
     private LoopState? AtAStorePosition(ElementAccessExpressionSyntax access) =>
-        access.ArgumentList.Arguments.Count == 1
-            ? this.AtAStorePosition(collection: access.Expression, index: access.ArgumentList.Arguments[0].Expression)
+        this.AtAStorePosition(collection: access.Expression, indexes: access.ArgumentList);
+
+    // The same for the collection and the indexes of an element access, or of a null-conditional
+    // element access.
+    private LoopState? AtAStorePosition(ExpressionSyntax collection, BaseArgumentListSyntax indexes) =>
+        indexes.Arguments.Count == 1
+            ? this.AtAStorePosition(collection: collection, index: indexes.Arguments[0].Expression)
             : null;
 
     // The same for the collection and the index of an ElementAt.
     private LoopState? AtAStorePosition(ExpressionSyntax collection, SyntaxNode index)
     {
-        if (this.StorePositionsOf(collection) is not (_, var all)
-            || this.PositionIn(index: index, count: all.Length) is not { } at)
+        // A range of a collection has the positions of that collection from the start of the range.
+        (ExpressionSyntax Of, ImmutableArray<LoopState> All)? known =
+            this.StorePositionsOf(collection) is (_, var whole)
+                ? (collection, whole)
+                : this.StorePositionsOfARange(collection);
+
+        if (known is not (var of, var all) || this.PositionIn(index: index, count: all.Length) is not { } at)
         {
             return null;
         }
 
-        return this.Eval(collection).Origin is { } origin ? all[at].From(origin) : all[at];
+        return this.Eval(of).Origin is { } origin ? all[at].From(origin) : all[at];
     }
+
+    // The positions that the store has for a range of a collection. See ElementsOfARange.
+    private (ExpressionSyntax Of, ImmutableArray<LoopState> All)? StorePositionsOfARange(ExpressionSyntax collection) =>
+        RangeOf(collection) is (var of, var range)
+        && this.StorePositionsOf(of) is (_, var all)
+        && this.BoundsIn(range: range, count: all.Length) is (var start, var end)
+            ? (of, ImmutableArray.Create(items: all, start: start, length: end - start))
+            : null;
 
     /// <summary>
     ///     The state of the element that <c>ElementAt</c> or
@@ -261,6 +333,52 @@ internal sealed partial class LoopStateEvaluator
         IReadOnlyList<LoopState> kept = all;
 
         return this.Eval(collection).Origin is { } origin ? [.. kept.Select(state => state.From(origin))] : kept;
+    }
+
+    /// <summary>
+    ///     The state at a position, with the state that the store has now for
+    ///     each object of it.
+    /// </summary>
+    /// <remarks>
+    ///     A position keeps the state of its element at the time of the record.
+    ///     A write through a name of that element after the record changes the
+    ///     store, and not the position. A read of a name gets the state of the
+    ///     store, and a pattern for the position must get it also.
+    /// </remarks>
+    public LoopState NowInTheStore(LoopState position)
+    {
+        LoopState? stored = null;
+
+        foreach (MadeObject made in position.Objects)
+        {
+            if (this.region.Objects.StateOf(made) is { } one)
+            {
+                stored = stored == null ? one : stored.Join(one);
+            }
+        }
+
+        return stored == null
+            ? position
+            : position.RefreshedFrom(stored: stored.FromIfUnknown(position.AnyOrigin), all: false);
+    }
+
+    /// <summary>
+    ///     The state of each element of the one collection that a state is, when
+    ///     the store knows its positions. Null for each other state.
+    /// </summary>
+    public IReadOnlyList<LoopState>? StatesAtThePositionsIn(LoopState collection)
+    {
+        if (collection.Objects.Length != 1
+            || collection.Objects.FirstOrDefault() is not { IsNew: true, IsOfTurnsBefore: false } made
+            || !this.region.Objects.HoldsOnlyWhatWentIn(made)
+            || this.region.Objects.PositionsOf(made) is not { } all)
+        {
+            return null;
+        }
+
+        IReadOnlyList<LoopState> kept = all;
+
+        return collection.Origin is { } origin ? [.. kept.Select(state => state.From(origin))] : kept;
     }
 
     /// <summary>
@@ -1173,6 +1291,10 @@ internal sealed partial class LoopStateEvaluator
         name.Parent switch
         {
             ElementAccessExpressionSyntax access => !IsWritten(access),
+            // A null-conditional element access. Its first token is the bracket of its index.
+            ConditionalAccessExpressionSyntax access =>
+                access.WhenNotNull.GetFirstToken().Parent?.Parent is ElementBindingExpressionSyntax binding
+                && !IsWritten(binding),
             // The property. A method with the name Count can be one of this compilation.
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Count" or "Length" } member =>
                 member.Parent is not InvocationExpressionSyntax,

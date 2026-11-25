@@ -46,6 +46,18 @@ internal static class Diagnostics
             defaultSeverity: DiagnosticSeverity.Info,
             isEnabledByDefault: true);
 
+    public static readonly DiagnosticDescriptor UndecidedRun =
+        new(
+            id: "SF1007",
+            title: "A run in a callee can read a looped value before its loop closes",
+            messageFormat:
+            "'{0}' can read looped value '{1}' before the loop closes. A callee makes this read only when a condition "
+            + "is true, and the analyzer does not know the value of that condition. When the condition is true, the "
+            + "read throws at run time.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Info,
+            isEnabledByDefault: true);
+
     public static readonly DiagnosticDescriptor MemberReadInCallee =
         new(
             id: "SF1005",

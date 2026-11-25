@@ -21,7 +21,8 @@ internal sealed class NamesOfOneObject
     ///     The state of each member that a sure write through one of the names
     ///     gave, with the end of that write. Each write after it that can be to
     ///     the same object added its state. Accurate is true when no such write
-    ///     came after it.
+    ///     came after it. At is the number of member writes of the region at the
+    ///     last change of the state.
     /// </summary>
-    public List<(ISymbol Member, int End, LoopState State, bool Accurate)> Members { get; } = [];
+    public List<(ISymbol Member, int End, LoopState State, bool Accurate, int At)> Members { get; } = [];
 }

@@ -15,6 +15,18 @@ internal sealed partial class LoopStateEvaluator
     private ExpressionSyntax? readForAUse;
 
     /// <summary>
+    ///     An assignment to <c>this</c> in a method of a struct. Each member of
+    ///     the object gets the value that the new value has for it.
+    /// </summary>
+    public void SetEachMemberOfThis(Construction written, bool replaces)
+    {
+        foreach (KeyValuePair<ISymbol, LoopState> member in written.Members)
+        {
+            this.SetMember(member: member.Key, state: member.Value, replaces: replaces);
+        }
+    }
+
+    /// <summary>
     ///     Records the state of a member of the object that the code is in, at
     ///     its initializer or assignment.
     /// </summary>
@@ -26,6 +38,9 @@ internal sealed partial class LoopStateEvaluator
     {
         ISymbol key = member.OriginalDefinition;
         this.region.AddAMemberWrite();
+
+        (this.writesThroughThis ??= new Dictionary<ISymbol, int>(SymbolEqualityComparer.Default))[key] =
+            this.region.MemberWrites;
 
         if (this.Frame.WrittenThroughANameOfThis.Count > 0)
         {
@@ -109,13 +124,19 @@ internal sealed partial class LoopStateEvaluator
     ///     change to the location itself. A function can run at a different time,
     ///     thus the code of a function gets no location.
     /// </remarks>
-    public ExpressionSyntax? TheLocationOf(ExpressionSyntax written)
+    public ExpressionSyntax? TheLocationOf(ExpressionSyntax written) =>
+        this.TheLocationIn(locations: this.Frame.LocationOf, written: written);
+
+    // The location of a name with ref in the given record, when the walk can read it again.
+    private ExpressionSyntax? TheLocationIn(
+        IReadOnlyDictionary<ISymbol, ExpressionSyntax> locations,
+        ExpressionSyntax written)
     {
         if (this.function != null
-            || this.Frame.LocationOf.Count == 0
+            || locations.Count == 0
             || Unwrapped(written) is not IdentifierNameSyntax use
             || this.region.SymbolOf(use) is not ILocalSymbol name
-            || !this.Frame.LocationOf.TryGetValue(key: name, value: out ExpressionSyntax? location)
+            || !locations.TryGetValue(key: name, value: out ExpressionSyntax? location)
             || FunctionOf(use) is not { } code
             || FunctionOf(location) != code
             || use.SpanStart <= location.Span.End)
@@ -123,12 +144,7 @@ internal sealed partial class LoopStateEvaluator
             return null;
         }
 
-        ExpressionSyntax target = Unwrapped(location);
-
-        IEnumerable<IdentifierNameSyntax> parts =
-            target is IdentifierNameSyntax ? [] : target.DescendantNodes().OfType<IdentifierNameSyntax>();
-
-        return parts.Any(part =>
+        return NamesInTheParts(location).Any(part =>
             this.region.SymbolOf(part) is { } symbol and (ILocalSymbol or IParameterSymbol)
             && this.GetsAValue(
                 name: symbol,
@@ -138,6 +154,19 @@ internal sealed partial class LoopStateEvaluator
                 orAFunctionUsesIt: false))
             ? null
             : location;
+
+        // A new value of a name in a part can move the location. A local that is the location
+        // itself does not move it. The condition of a conditional ref does not move it either.
+        static IEnumerable<IdentifierNameSyntax> NamesInTheParts(ExpressionSyntax location) =>
+            Unwrapped(location) switch
+            {
+                IdentifierNameSyntax => [],
+                ConditionalExpressionSyntax
+                {
+                    WhenTrue: RefExpressionSyntax whenTrue, WhenFalse: RefExpressionSyntax whenFalse
+                } => NamesInTheParts(whenTrue.Expression).Concat(NamesInTheParts(whenFalse.Expression)),
+                var target => target.DescendantNodes().OfType<IdentifierNameSyntax>()
+            };
     }
 
     /// <summary>
@@ -179,7 +208,8 @@ internal sealed partial class LoopStateEvaluator
                 || !this.Frame.FirstNameOf.TryGetValue(key: second, value: out ExpressionSyntax? first)
                 || this.WindowsOfTheRecordOf(first: first, at: at) is not (var windows, var ran)
                 || this.region.SymbolOf(first) is not { } firstName
-                || this.GetsAValueIn(windows: windows, ran: ran, names: [firstName, second], use: at))
+                || this.GetsAValueIn(windows: windows, ran: ran, names: [firstName, second], use: at)
+                || (firstName is IFieldSymbol field && this.CanChangeTheFieldIn(field: field, windows: windows)))
             {
                 break;
             }
@@ -316,7 +346,27 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
+        // A read-only view of a list reads the list at each use. Thus, it is a second name of the list.
+        if (sure && KeepsItsObject(local) && this.TheListOfAReadOnlyView(value) is { } viewed)
+        {
+            this.Frame.FirstNameOf[local] = viewed;
+            this.Frame.RunThatNamed[viewed] = this;
+
+            return;
+        }
+
+        // A local that gets a field of this is a second name of that field.
+        if (KeepsItsObject(local) && this.AFieldOfThisIn(value) is { } field)
+        {
+            this.NotesALocalOfAFieldOfThis(local: local, field: field, sure: sure);
+
+            return;
+        }
+
+        // A local of a value type gets a copy, also from a cast that takes a struct out of its box. Thus, it
+        // is not a second name of the box.
         if (!KeepsItsObject(local)
+            || HasACopy(local)
             || Unwrapped(value) is not IdentifierNameSyntax name
             || this.region.SymbolOf(name) is not ((ILocalSymbol or IParameterSymbol) and { } from)
             || !KeepsItsObject(from)
@@ -554,8 +604,8 @@ internal sealed partial class LoopStateEvaluator
 
     // The parts of a location that the walk can read again. They are the array or the field, the
     // owner of the field, and the index of the element. The array is in a local, in a parameter, or in a
-    // field. The owner is null for a static field and for a field of this object. Null for each
-    // other expression.
+    // field. The owner is null for a static field and for a field of this object. A static property
+    // with no code is a static field. Null for each other expression.
     private (ISymbol Of, ISymbol? Owner, int Index)? LocationKeyOf(ExpressionSyntax written) =>
         Unwrapped(written) switch
         {
@@ -566,6 +616,10 @@ internal sealed partial class LoopStateEvaluator
                      && this.ConstantIndexOf(indexes[0]) is { } index =>
                 (collection, null, index),
             IdentifierNameSyntax name when this.region.SymbolOf(name) is IFieldSymbol field => (field, null, -1),
+            (IdentifierNameSyntax or MemberAccessExpressionSyntax) and var named
+                when this.region.SymbolOf(named) is IPropertySymbol { IsStatic: true } property
+                     && this.IsAStaticLocation(property) =>
+                (property, null, -1),
             MemberAccessExpressionSyntax access when this.region.SymbolOf(access) is IFieldSymbol field =>
                 Unwrapped(access.Expression) switch
                 {
@@ -579,6 +633,11 @@ internal sealed partial class LoopStateEvaluator
             InvocationExpressionSyntax call => this.LocationReturnedBy(call),
             _ => null
         };
+
+    // True for a static property of this compilation with no code. Each read of it gives the value of
+    // the last write to it, as for a static field.
+    private bool IsAStaticLocation(IPropertySymbol property) =>
+        !property.DeclaringSyntaxReferences.IsEmpty && this.IsALocation(property);
 
     // The location that a call gives the value of, as a read of it at the call does. A parameter
     // of the callee there is its argument, and an array or an owner of a field must be a name of
@@ -784,7 +843,8 @@ internal sealed partial class LoopStateEvaluator
                || (aCallCounts
                    && this.region.SymbolOf(node) is IMethodSymbol method
                    && (method.MethodKind is MethodKind.DelegateInvoke or MethodKind.LocalFunction
-                       || (key is { Owner: null, Of: IFieldSymbol } && !method.DeclaringSyntaxReferences.IsEmpty)));
+                       || (key is { Owner: null, Of: IFieldSymbol or IPropertySymbol }
+                           && !method.DeclaringSyntaxReferences.IsEmpty)));
     }
 
     // True for the target of an assignment whose value is the given name.
@@ -985,10 +1045,10 @@ internal sealed partial class LoopStateEvaluator
                     || this.ConstantIndexOf(indexes[0]) is not { } one
                     || this.ConstantIndexOf(index) is not { } other
                     || one == other),
-            MemberAccessExpressionSyntax access =>
+            MemberAccessExpressionSyntax or IdentifierNameSyntax =>
                 field != null
                 && SymbolEqualityComparer.Default.Equals(
-                    x: this.region.SymbolOf(access)?.OriginalDefinition,
+                    x: this.region.SymbolOf(location)?.OriginalDefinition,
                     y: field),
             _ => false
         };
@@ -1019,12 +1079,22 @@ internal sealed partial class LoopStateEvaluator
 
         List<(ExpressionSyntax Argument, bool IsAnElement)> locations = [];
 
-        foreach (ExpressionSyntax returned in body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+        foreach (ExpressionSyntax returned in
+                 (body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+                 .SelectMany(this.LocationsOfAConditionalRef))
         {
             (ExpressionSyntax name, bool isAnElement) =
-                Unwrapped(returned) is ElementAccessExpressionSyntax element
+                Unwrapped(this.SelectedLocation(returned)) is ElementAccessExpressionSyntax element
                     ? (Unwrapped(element.Expression), true)
-                    : (Unwrapped(returned), false);
+                    : (Unwrapped(this.SelectedLocation(returned)), false);
+
+            // A static field through the name of its type is the same location in the caller.
+            if (name is MemberAccessExpressionSyntax && this.IsAStaticField(name))
+            {
+                locations.Add((name, isAnElement));
+
+                continue;
+            }
 
             if (name is not IdentifierNameSyntax || this.region.SymbolOf(name) is not { } returnedName)
             {
@@ -1070,7 +1140,9 @@ internal sealed partial class LoopStateEvaluator
 
         List<(ISymbol Member, bool IsAnElement)> members = [];
 
-        foreach (ExpressionSyntax returned in body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+        foreach (ExpressionSyntax returned in
+                 (body is ExpressionSyntax only ? [only] : ReturnExpressions(body))
+                 .SelectMany(this.LocationsOfAConditionalRef))
         {
             (ExpressionSyntax name, bool isAnElement) =
                 Unwrapped(returned) is ElementAccessExpressionSyntax element
@@ -1102,11 +1174,16 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
+        LoopState ofTheOwner = this.Eval(owner);
+
         LoopState collection =
-            StateOfAMember(
-                owner: this.Eval(owner),
+            this.WithTheObjectsInTheMember(
+                owner: ofTheOwner,
                 member: member,
-                implementations: this.region.Symbols.Implementations);
+                state: StateOfAMember(
+                    owner: ofTheOwner,
+                    member: member,
+                    implementations: this.region.Symbols.Implementations));
 
         foreach (MadeObject made in collection.Objects)
         {
@@ -1149,6 +1226,15 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="value">The expression of the value, when the code has one.</param>
     public void GetsThroughARef(ExpressionSyntax collection, LoopState state, ExpressionSyntax? value)
     {
+        // An element of a view of a local array is an element of that array. The variable of a
+        // foreach with ref over the view is such an element.
+        if (IsAView(this.region.TypeOf(collection)) && this.TheArrayOfAView(collection) is { } array)
+        {
+            this.PutsThroughAView(array: array, value: value, state: state);
+
+            return;
+        }
+
         if (value != null)
         {
             this.Gets(collection: collection, value: value);
@@ -1189,6 +1275,22 @@ internal sealed partial class LoopStateEvaluator
                     after: reference.Span.End,
                     before: int.MaxValue,
                     orAFunctionUsesIt: false));
+
+    // The location of a ref. A conditional ref on a constant is the location that the constant
+    // selects. The walk does not know the location of a conditional ref on a different condition.
+    private ExpressionSyntax SelectedLocation(ExpressionSyntax location)
+    {
+        while (Unwrapped(location) is ConditionalExpressionSyntax
+               {
+                   WhenTrue: RefExpressionSyntax whenTrue, WhenFalse: RefExpressionSyntax whenFalse
+               } conditional
+               && SinkWalker.ConstantOf(region: this.region, condition: conditional.Condition) is { } always)
+        {
+            location = always ? whenTrue.Expression : whenFalse.Expression;
+        }
+
+        return location;
+    }
 
     // True for a static field. A local with ref for it reads the field again at each use. Thus, it
     // gets each value that code gives the field after the declaration.
@@ -1296,7 +1398,8 @@ internal sealed partial class LoopStateEvaluator
                 {
                     this.region.Sent.Count(
                         creation: creation,
-                        inTheBlock: sinks.Length == 1 ? this.SendOfTheBlock(sink) : null);
+                        inTheBlock: sinks.Length == 1 ? this.SendOfTheBlock(sink) : null,
+                        content: content);
                 }
 
                 if (!content.IsNone)
@@ -1376,19 +1479,34 @@ internal sealed partial class LoopStateEvaluator
     ///     </para>
     /// </remarks>
     /// <param name="remove">The assignment with <c>-=</c>.</param>
-    public LoopState? AfterTheLastRemove(AssignmentExpressionSyntax remove)
+    public LoopState? AfterTheLastRemove(AssignmentExpressionSyntax remove) =>
+        !this.quiet
+        && FunctionOf(remove) is { } code
+        && this.NamedLocation(remove.Left) is { } location
+        && this.TheLambdaOfTheLastRemove(code: code, at: remove, handler: remove.Right, location: location, ran: [])
+            is { } lambda
+            ? this.Eval(remove.Left).WithoutFunctionsOf(lambda)
+            : null;
+
+    // The lambda whose last occurrence a remove takes away, for AfterTheLastRemove. The remove is at
+    // the given node of the code, or a call at that node runs it. The uses of the names in what the
+    // call ran are uses of the remove. Null when the walk is not sure.
+    private AnonymousFunctionExpressionSyntax? TheLambdaOfTheLastRemove(
+        SyntaxNode code,
+        SyntaxNode at,
+        ExpressionSyntax handler,
+        (ISymbol Variable, ISymbol? Member) location,
+        IReadOnlyCollection<SyntaxNode> ran)
     {
-        if (this.quiet
-            || Unwrapped(remove.Right) is not IdentifierNameSyntax handler
-            || this.region.SymbolOf(handler) is not ILocalSymbol local
+        if (Unwrapped(handler) is not IdentifierNameSyntax name
+            || this.region.SymbolOf(name) is not ILocalSymbol local
             || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax { Initializer.Value: { } value } declarator
             || Unwrapped(value) is not AnonymousFunctionExpressionSyntax lambda
-            || FunctionOf(remove) is not { } code
             || code.DescendantNodes().OfType<LabeledStatementSyntax>().Any()
-            || !RunsStraightIn(node: declarator, code: code)
+            || !this.RunsStraightIn(node: declarator, code: code, names: [local.Name, location.Variable.Name])
             || this.GetsASecondValue(local: local, scope: code)
-            || this.UsesOfTheLocation(location: remove.Left, code: code) is not (var changes, var start))
+            || this.UsesOfTheLocation(location: location, code: code, ran: ran) is not (var changes, var start))
         {
             return null;
         }
@@ -1401,7 +1519,8 @@ internal sealed partial class LoopStateEvaluator
                      .OfType<IdentifierNameSyntax>()
                      .Where(use =>
                          use.Identifier.ValueText == local.Name
-                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local)))
+                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local)
+                         && !IsInAny(nodes: ran, use: use)))
         {
             if (FunctionOf(use) != code)
             {
@@ -1414,14 +1533,17 @@ internal sealed partial class LoopStateEvaluator
                     continue;
                 case AssignmentExpressionSyntax change when change.Right == use && changes.Contains(change):
                 {
-                    if (!RunsStraightIn(node: change, code: code))
+                    if (!this.RunsStraightIn(
+                            node: change,
+                            code: code,
+                            names: [local.Name, location.Variable.Name]))
                     {
                         return null;
                     }
 
                     ofTheLambda.Add(change);
 
-                    if (change.SpanStart < remove.SpanStart)
+                    if (change.SpanStart < at.SpanStart)
                     {
                         count += change.IsKind(SyntaxKind.AddAssignmentExpression) ? 1 : -1;
                         first ??= change;
@@ -1460,7 +1582,7 @@ internal sealed partial class LoopStateEvaluator
                         node == code || node is not AnonymousFunctionExpressionSyntax)
                     .Any(node =>
                         node.SpanStart >= first.Span.End
-                        && node.Span.End <= remove.SpanStart
+                        && node.Span.End <= at.SpanStart
                         && !node.AncestorsAndSelf().Any(ofTheLambda.Contains)
                         && node is InvocationExpressionSyntax
                             or BaseObjectCreationExpressionSyntax
@@ -1470,33 +1592,37 @@ internal sealed partial class LoopStateEvaluator
                             or PostfixUnaryExpressionSyntax
                             or ElementAccessExpressionSyntax
                             or MemberAccessExpressionSyntax)
-                && !this.OnlyTheEventReaches(remove: remove, changes: changes)))
+                && !this.OnlyTheEventReaches(location: location, code: code, at: at, changes: changes, ran: ran)))
         {
             return null;
         }
 
-        return this.Eval(remove.Left).WithoutFunctionsOf(lambda);
+        return lambda;
     }
 
     // True when code before a remove from an event of a local object gets to the object only to add
     // or remove a handler. Thus, no code between the add and the remove can copy the handlers. The
     // constructor must keep the object: see KeepsItsObject.
-    private bool OnlyTheEventReaches(AssignmentExpressionSyntax remove, ICollection<SyntaxNode> changes)
+    private bool OnlyTheEventReaches(
+        (ISymbol Variable, ISymbol? Member) location,
+        SyntaxNode code,
+        SyntaxNode at,
+        ICollection<SyntaxNode> changes,
+        IReadOnlyCollection<SyntaxNode> ran)
     {
-        if (Unwrapped(remove.Left) is not MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner }
-            || this.region.SymbolOf(owner) is not ILocalSymbol local
+        if (location is not (ILocalSymbol local, not null)
             || local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax { Initializer.Value: BaseObjectCreationExpressionSyntax made }
             || this.region.SymbolOf(made) is not IMethodSymbol constructor
-            || !this.KeepsItsObject(constructor)
-            || FunctionOf(remove) is not { } code)
+            || !this.KeepsItsObject(constructor))
         {
             return false;
         }
 
         return code.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
-            .Where(use => use.SpanStart < remove.SpanStart
+            .Where(use => use.SpanStart < at.SpanStart
+                          && !IsInAny(nodes: ran, use: use)
                           && use.Identifier.ValueText == local.Name
                           && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: local))
             .All(use => use.Parent is MemberAccessExpressionSyntax { Parent: AssignmentExpressionSyntax change }
@@ -1601,33 +1727,38 @@ internal sealed partial class LoopStateEvaluator
         return false;
     }
 
+    // The variable of the delegate location that a remove changes, with the event for an event of the
+    // variable. The event keeps its handlers in a field, and the remove is not in the type of the
+    // event. The owner of an event can be a parameter of a callee. Null for each other location.
+    private (ISymbol Variable, ISymbol? Member)? NamedLocation(ExpressionSyntax location) =>
+        Unwrapped(location) switch
+        {
+            IdentifierNameSyntax name when this.region.SymbolOf(name) is ILocalSymbol own => (own, null),
+            MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner } access
+                when this.region.SymbolOf(owner) is (ILocalSymbol or IParameterSymbol) and var own
+                     && this.region.SymbolOf(access) is IEventSymbol happening
+                     && SodaFlowSymbols.IsFieldLikeEvent(happening)
+                     && !happening.ContainingType.DeclaringSyntaxReferences.Any(reference =>
+                         reference.SyntaxTree == location.SyntaxTree
+                         && reference.Span.Contains(location.Span)) => (own, happening),
+            _ => null
+        };
+
     // The assignments with += and -= of a delegate location of this run of the code, and, for a
     // local, its declarator. The location is a local, or an event of a local whose value is a new
     // object. Null when a use of the location can copy the delegate, or when the location can be
-    // of a different run.
+    // of a different run. A use in what a call ran is a use of the remove.
     private (HashSet<SyntaxNode> Changes, VariableDeclaratorSyntax? Start)? UsesOfTheLocation(
-        ExpressionSyntax location,
-        SyntaxNode code)
+        (ISymbol Variable, ISymbol? Member) location,
+        SyntaxNode code,
+        IReadOnlyCollection<SyntaxNode> ran)
     {
-        (ISymbol Variable, ISymbol? Member)? named =
-            Unwrapped(location) switch
-            {
-                IdentifierNameSyntax name when this.region.SymbolOf(name) is ILocalSymbol own => (own, null),
-                MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax owner } access
-                    when this.region.SymbolOf(owner) is ILocalSymbol own
-                         && this.region.SymbolOf(access) is IEventSymbol happening
-                         && SodaFlowSymbols.IsFieldLikeEvent(happening)
-                         && !happening.ContainingType.DeclaringSyntaxReferences.Any(reference =>
-                             reference.SyntaxTree == location.SyntaxTree
-                             && reference.Span.Contains(location.Span)) => (own, happening),
-                _ => null
-            };
+        (ISymbol variable, ISymbol? member) = location;
 
-        if (named is not (var variable, var member)
-            || variable.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+        if (variable.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
                 is not VariableDeclaratorSyntax declarator
             || FunctionOf(declarator) != code
-            || !RunsStraightIn(node: declarator, code: code)
+            || !this.RunsStraightIn(node: declarator, code: code, names: [variable.Name])
             || (member != null
                 && (declarator.Initializer?.Value is not BaseObjectCreationExpressionSyntax
                     || this.GetsASecondValue(local: variable, scope: code))))
@@ -1641,7 +1772,8 @@ internal sealed partial class LoopStateEvaluator
                      .OfType<IdentifierNameSyntax>()
                      .Where(use =>
                          use.Identifier.ValueText == variable.Name
-                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: variable)))
+                         && SymbolEqualityComparer.Default.Equals(x: this.region.SymbolOf(use), y: variable)
+                         && !IsInAny(nodes: ran, use: use)))
         {
             if (FunctionOf(use) != code)
             {
@@ -1686,19 +1818,6 @@ internal sealed partial class LoopStateEvaluator
 
         return (changes, member == null ? declarator : null);
     }
-
-    // True when each run of the code runs the node. The node has only blocks and its own statement
-    // around it, up to the code.
-    private static bool RunsStraightIn(SyntaxNode node, SyntaxNode code) =>
-        node.Ancestors()
-            .TakeWhile(around => around != code)
-            .All(static around =>
-                around is BlockSyntax
-                    or ExpressionStatementSyntax
-                    or LocalDeclarationStatementSyntax
-                    or VariableDeclarationSyntax
-                    or VariableDeclaratorSyntax
-                    or EqualsValueClauseSyntax);
 
     // The state of an expression at this time. The walk reads a node one time, and this takes
     // that read away for the expression and for each of its parts.
@@ -1877,11 +1996,17 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="owner">The state of the object.</param>
     /// <param name="written">The expression of the object, when the call has one.</param>
     /// <param name="sets">The members, from <see cref="Followed.Sets" />.</param>
+    /// <param name="later">
+    ///     The members that the callee wrote through a second owner after its
+    ///     last write through this. That owner can be the same object, thus the
+    ///     copy does not replace what the member has.
+    /// </param>
     private void GivesItsOwner(
         SyntaxNode call,
         LoopState owner,
         ExpressionSyntax? written,
-        ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> sets)
+        ImmutableArray<(ISymbol Member, LoopState State, MadeObject? One)> sets,
+        IReadOnlyDictionary<ISymbol, int> later)
     {
         // C# calls a method of a struct that the code cannot write on a copy of it. The writes of
         // the method go to the copy, and the struct keeps its members.
@@ -1894,6 +2019,8 @@ internal sealed partial class LoopStateEvaluator
 
         foreach ((ISymbol member, LoopState state, MadeObject? one) in sets)
         {
+            int? thisAt = later.TryGetValue(key: member.OriginalDefinition, value: out int at) ? at : null;
+
             // The write is a write to the member through the expression, as an assignment is.
             if (written != null)
             {
@@ -1901,12 +2028,13 @@ internal sealed partial class LoopStateEvaluator
                     owner: written,
                     member: member,
                     state: state,
-                    replaces: always,
+                    replaces: always && thisAt == null,
                     turn: turn,
-                    givenBackBy: call);
+                    givenBackBy: call,
+                    laterThan: thisAt);
 
                 // The callee knows the collection that it gave the member.
-                if (always && this.function == null && this.TheOneCollectionOf(written) is { } self)
+                if (always && thisAt == null && this.function == null && this.TheOneCollectionOf(written) is { } self)
                 {
                     this.region.Objects.IsTheCollectionIn(owner: self, member: member, collection: one);
                 }
@@ -1927,7 +2055,7 @@ internal sealed partial class LoopStateEvaluator
                 owner: owner,
                 change: old =>
                     old.WithMembers((old.Members ?? Construction.Empty).With(member: member, state: inOwner)),
-                replaces: always,
+                replaces: always && thisAt == null,
                 turn: turn,
                 member: member);
 
@@ -2001,6 +2129,7 @@ internal sealed partial class LoopStateEvaluator
     ///     The call whose callee wrote the member through this, when the write
     ///     comes back to the receiver. Null for each other write.
     /// </param>
+    /// <param name="laterThan">See NotesAWriteThroughANameOfOneObject.</param>
     public void SetMemberOf(
         ExpressionSyntax? owner,
         ISymbol member,
@@ -2009,10 +2138,14 @@ internal sealed partial class LoopStateEvaluator
         SyntaxNode? turn,
         ExpressionSyntax? from = null,
         bool fromTheCallee = false,
-        SyntaxNode? givenBackBy = null)
+        SyntaxNode? givenBackBy = null,
+        int? laterThan = null)
     {
+        bool isThroughThis = owner != null && this.IsANameOfThis(owner);
+        state = this.ForANameOfTheBuiltObject(state: state, from: from);
+
         // A write through a name that got this is a write to the object that the code is in.
-        if (owner != null && this.IsANameOfThis(owner))
+        if (isThroughThis)
         {
             this.SetMember(member: member, state: state, replaces: replaces, from: from);
 
@@ -2052,6 +2185,13 @@ internal sealed partial class LoopStateEvaluator
         LoopState has = this.Eval(owner);
         state = this.InAnObject(owner: has, state: state);
         this.region.AddAMemberWrite();
+
+        if (!isThroughThis)
+        {
+            (this.writesThroughOthers ??= new Dictionary<ISymbol, int>(SymbolEqualityComparer.Default))[
+                member.OriginalDefinition] = this.region.MemberWrites;
+        }
+
         this.NotesAnOwnWrite(written);
         this.NotesAnOwnWrite(owner);
 
@@ -2101,7 +2241,8 @@ internal sealed partial class LoopStateEvaluator
             state: state,
             replaces: replaces || (always && written != null && this.TheDeclaredLocationOf(written) != null),
             seen: fromTheCallee,
-            givenBackBy: givenBackBy);
+            givenBackBy: givenBackBy,
+            laterThan: laterThan);
 
         this.NotesAWriteAtAnElement(
             written: written,
@@ -2510,14 +2651,14 @@ internal sealed partial class LoopStateEvaluator
         && (property.IsVirtual || property.IsAbstract || property.IsOverride)
         && this.region.Symbols.Overrides.ReplacesWithCode(property);
 
-    // True for a field, or for a property of which each declaration has no accessor with a body.
+    // True for a field, or for a property of which each declaration has no accessor with a body. A
+    // partial property has its code in its second part, which DeclarationsOf finds.
     private static bool HasNoCode(ISymbol member) =>
         member is IFieldSymbol
         || (member is IPropertySymbol property
-            && property.DeclaringSyntaxReferences.All(static declared =>
-                declared.GetSyntax() is ParameterSyntax
-                    or PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: null }
-                || (declared.GetSyntax() is PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: { } list }
+            && DeclarationsOf(property).All(static declared =>
+                declared is ParameterSyntax or PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: null }
+                || (declared is PropertyDeclarationSyntax { ExpressionBody: null, AccessorList: { } list }
                     && list.Accessors.All(static accessor => accessor.Body == null && accessor.ExpressionBody == null))));
 
     /// <summary>
@@ -2865,20 +3006,23 @@ internal sealed partial class LoopStateEvaluator
             return;
         }
 
-        // A static field of a type that is not generic has one location. Thus, a write that always
-        // runs in the block replaces the value before it.
+        // A static field of a type that is not generic, or of a closed type, has one location. Thus, a
+        // write that always runs in the block replaces the value before it. A write through an owner that
+        // the walk knows reaches no read through a different known owner.
+        if (!this.quiet && this.KnownOwnerOf(owner: owner, has: has) is { } one)
+        {
+            this.region.SetFieldOfAnOwner(field: member, state: this.InAnOldLocation(state), owner: one);
+
+            return;
+        }
+
         this.SetField(
             field: member,
             state: state,
             replaces: replaces
                       && (this.call?.AlwaysRuns ?? true)
-                      && member is IFieldSymbol { IsStatic: true, ContainingType: var type }
-                      && !IsGeneric(type));
-
-        return;
-
-        static bool IsGeneric(INamedTypeSymbol? type) =>
-            type != null && (type.IsGenericType || IsGeneric(type.ContainingType));
+                      && member is IFieldSymbol { IsStatic: true }
+                      && this.HasOneLocation(member));
     }
 
     // True for a name of a value with no object that has a second name, or had one.

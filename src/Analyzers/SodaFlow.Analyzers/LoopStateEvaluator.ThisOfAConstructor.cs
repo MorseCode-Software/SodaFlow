@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -58,6 +59,27 @@ internal sealed partial class LoopStateEvaluator
         && this.depth < MaxInlineDepth
         && this.region.TryEnterForObjects();
 
+    // True for a call on the object that a constructor builds, of a method that gives this away.
+    // The walk reads such a method also with no state, because it can give the new object a name.
+    private bool GivesTheBuiltObjectAway(SyntaxNode call, Dictionary<ISymbol, LoopState> members) =>
+        this.thisInTheStore != null
+        && ReferenceEquals(objA: members, objB: this.thisMembers)
+        && this.region.SymbolOf(call) is IMethodSymbol method
+        && this.region.Symbols.GivesThisAway(method.OriginalDefinition);
+
+    // The value of this that a name keeps in the code of a constructor: the object of the store, with
+    // no state for a member. The store has the members of the object. A copy of them in the name does
+    // not get the next write to the object.
+    private LoopState ForANameOfTheBuiltObject(LoopState state, ExpressionSyntax? from) =>
+        from != null
+        && Unwrapped(from) is ThisExpressionSyntax
+        && this.thisInTheStore is { } built
+        && this.builtType is { } type
+        && state.Objects.Contains(built)
+        && state.Objects.All(made => this.region.Objects.StateOf(made) != null)
+            ? state.WithMembers(Construction.Of(type))
+            : state;
+
     // The object that the walk made for a creation before it read the constructor, with the state
     // that the creation gives it. Null for each other expression.
     private MadeObject? BuiltFor(SyntaxNode place, LoopState state)
@@ -75,10 +97,60 @@ internal sealed partial class LoopStateEvaluator
 
     // The state of this in the code of a constructor: the members that the walk knows now, and the
     // object of the store.
-    private LoopState ThisInTheStore(MadeObject built) =>
-        LoopState.None
-            .WithMembers(Construction.Of(this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default)))
-            .WithObjects(ImmutableArray.Create(built));
+    private LoopState ThisInTheStore(MadeObject built, SyntaxNode at) =>
+        this.ThisWithItsMembers(at).WithObjects(ImmutableArray.Create(built));
+
+    // The state of this with the members that the walk knows now. A call that gets this can change
+    // them: see GivesThisToACall.
+    private LoopState ThisWithItsMembers(SyntaxNode at)
+    {
+        this.GivesThisToACall(at);
+
+        return LoopState.None.WithMembers(
+            Construction.Of(this.thisMembers.ToImmutableDictionary(SymbolEqualityComparer.Default)));
+    }
+
+    // In the walk of a constructor, a call or a creation can get this as an argument. Its code can
+    // then give a delegate member of this a different value. The walk does not read that code when
+    // the call gets no state. Thus, after such a call, each such member also has each value that the
+    // code of the class gives it.
+    private void GivesThisToACall(SyntaxNode at)
+    {
+        if (at.Parent is not ArgumentSyntax
+            {
+                Parent: ArgumentListSyntax
+                {
+                    Parent: InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax
+                }
+            }
+            || this.builtType is not { } type)
+        {
+            return;
+        }
+
+        foreach (ISymbol member in Construction.FieldsOf(type)
+                     .Concat<ISymbol>(Construction.PropertiesOf(type))
+                     .Where(static member =>
+                         member is { IsStatic: false }
+                             and (IFieldSymbol { Type.TypeKind: TypeKind.Delegate }
+                             or IPropertySymbol { Type.TypeKind: TypeKind.Delegate })))
+        {
+            ImmutableArray<ExpressionSyntax> values = MemberBuilds.Of(member: member, type: type);
+
+            if (values.IsEmpty)
+            {
+                continue;
+            }
+
+            ISymbol key = member.OriginalDefinition;
+
+            this.thisMembers[key] = values.Aggregate(
+                seed: this.thisMembers.TryGetValue(key: key, value: out LoopState? known) ? known : LoopState.None,
+                func: (all, each) => all.Join(this.Eval(each)));
+
+            this.WritesThisInTheStore(key);
+        }
+    }
 
     // Gives the object of the store the state that a write through this gave a member. A write
     // through a second name of the object changes the store only. Thus, the store has the last write

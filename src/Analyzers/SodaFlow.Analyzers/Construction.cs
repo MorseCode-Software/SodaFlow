@@ -46,6 +46,11 @@ internal sealed class Construction(
 
     private readonly bool hasInterfaceMembers = hasInterfaceMembers;
 
+    // The members in the order of the source. The dictionary has the order of the hash codes of the
+    // symbols, which can change between two compilations of the same code. Thus, each reader that
+    // can see an order reads this array. The first such read makes it.
+    private KeyValuePair<ISymbol, LoopState>[]? inOrder;
+
     /// <summary>An object with no member that the evaluator knows.</summary>
     public static Construction Empty { get; } =
         new(
@@ -132,15 +137,24 @@ internal sealed class Construction(
                 hasInterfaceMembers: this.hasInterfaceMembers);
     }
 
-    /// <summary>The state of each member that the evaluator knows.</summary>
-    public IEnumerable<KeyValuePair<ISymbol, LoopState>> Members => this.members;
+    /// <summary>
+    ///     The state of each member that the evaluator knows, in the order of the
+    ///     source. A member of the platform comes after the members of the code.
+    /// </summary>
+    public IEnumerable<KeyValuePair<ISymbol, LoopState>> Members => this.InOrder;
+
+    private KeyValuePair<ISymbol, LoopState>[] InOrder =>
+        this.inOrder ??=
+            this.members.Count < 2
+                ? [.. this.members]
+                : [.. this.members.OrderBy(keySelector: static pair => pair.Key, comparer: SourceOrder.Instance)];
 
     /// <summary>
     ///     The origin of one member that has an origin, for a report about the
     ///     object and not about one member.
     /// </summary>
     public ISymbol? AnyOrigin =>
-        this.members.Values.Select(static state => state.AnyOrigin).FirstOrDefault(static origin => origin != null);
+        this.InOrder.Select(static pair => pair.Value.AnyOrigin).FirstOrDefault(static origin => origin != null);
 
     /// <summary>
     ///     The same object after an initializer sets one member. The new state
@@ -227,6 +241,7 @@ internal sealed class Construction(
                 !ReferenceEquals(objA: pair.Value, objB: own)
                 && AreAliases(first: pair.Key, second: key)
                 && (canHave == null || canHave(pair.Key)))
+            .OrderBy(keySelector: static pair => pair.Key, comparer: SourceOrder.Instance)
             .Aggregate(seed: state, func: (joined, pair) => joined.Join(stateOf(arg1: pair.Key, arg2: pair.Value)));
 
     /// <summary>
@@ -283,6 +298,7 @@ internal sealed class Construction(
                 && other.Name == key.Name
                 && implementations.AreTogether(first: other, second: key)
                 && (canHave == null || canHave(other)))
+            .OrderBy(keySelector: static pair => pair.Key, comparer: SourceOrder.Instance)
             .Aggregate(
                 seed: LoopState.None,
                 func: (joined, pair) => joined.Join(stateOf(arg1: pair.Key, arg2: pair.Value)));
@@ -516,7 +532,7 @@ internal sealed class Construction(
 
     /// <summary>The state of each element, when this object is a tuple.</summary>
     public IEnumerable<LoopState> TupleElements =>
-        this.members
+        this.InOrder
             .Where(static pair => pair.Key.ContainingType is { IsTupleType: true })
             .Select(static pair => pair.Value);
 
@@ -527,9 +543,9 @@ internal sealed class Construction(
     ///     place of the type parameter of the part in the type of the pair. It is
     ///     -1 for a part whose type is not a type parameter.
     /// </summary>
-    /// <remarks>The members have no order. Thus, the position comes from the member.</remarks>
+    /// <remarks>The position comes from the member, and not from the order of the source.</remarks>
     public IEnumerable<(int Position, LoopState State)> PartsAt(bool ofATuple) =>
-        this.members
+        this.InOrder
             .Where(pair => ofATuple ? pair.Key.ContainingType is { IsTupleType: true } : IsPart(pair.Key))
             .Select(static pair =>
                 (pair.Key switch
@@ -783,4 +799,53 @@ internal sealed class Construction(
         member is IFieldSymbol { CorrespondingTupleField: { } element }
             ? element.OriginalDefinition
             : member.OriginalDefinition;
+
+    // The order of the declarations of two members. A member of the platform has no position in the
+    // source. Thus, it comes after the members of the code, in the order of its symbol type and its
+    // name. Two members of one object are almost never at one position. A record property and the
+    // parameter of its primary constructor are such a pair. The symbol type tells them apart.
+    private sealed class SourceOrder : IComparer<ISymbol>
+    {
+        public static readonly SourceOrder Instance = new();
+
+        public int Compare(ISymbol? x, ISymbol? y)
+        {
+            if (ReferenceEquals(objA: x, objB: y))
+            {
+                return 0;
+            }
+
+            if (x == null || y == null)
+            {
+                return x == null ? -1 : 1;
+            }
+
+            Location? first = PositionOf(x);
+            Location? second = PositionOf(y);
+
+            if (first != null && second != null)
+            {
+                int byFile = string.CompareOrdinal(strA: first.SourceTree?.FilePath, strB: second.SourceTree?.FilePath);
+                int byPlace = byFile != 0 ? byFile : first.SourceSpan.Start.CompareTo(second.SourceSpan.Start);
+
+                if (byPlace != 0)
+                {
+                    return byPlace;
+                }
+            }
+            else if (first != null || second != null)
+            {
+                return first != null ? -1 : 1;
+            }
+
+            return x.Kind.CompareTo(y.Kind) is var byKind and not 0
+                ? byKind
+                : string.CompareOrdinal(strA: x.Name, strB: y.Name) is var byName and not 0
+                    ? byName
+                    : string.CompareOrdinal(strA: x.ToDisplayString(), strB: y.ToDisplayString());
+        }
+
+        private static Location? PositionOf(ISymbol member) =>
+            member.Locations.FirstOrDefault(static location => location.IsInSource);
+    }
 }

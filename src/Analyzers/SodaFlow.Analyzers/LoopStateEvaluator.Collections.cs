@@ -109,6 +109,12 @@ internal sealed partial class LoopStateEvaluator
     /// </summary>
     public void CanGet(ExpressionSyntax collection, IMethodSymbol method, SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
+        // TryGetValue only reads. The out argument then holds an element, as after a read by the key.
+        if (SodaFlowSymbols.IsTryGetValueOfADictionary(method))
+        {
+            return;
+        }
+
         for (int i = 0; i < arguments.Count; i++)
         {
             ExpressionSyntax value = arguments[i].Expression;

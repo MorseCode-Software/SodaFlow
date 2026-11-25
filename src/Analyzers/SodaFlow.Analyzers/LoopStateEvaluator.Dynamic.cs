@@ -72,8 +72,9 @@ internal sealed partial class LoopStateEvaluator
     ///     or be at the position of one. Each parameter with no argument must be
     ///     optional, and has null in the order. The type of an argument that the
     ///     code knows must have an implicit conversion to the type of its
-    ///     parameter. Null when no method or more than one method agrees with
-    ///     the arguments.
+    ///     parameter. A params parameter can also get each argument at or
+    ///     after its position as one element. Null when no method or more than
+    ///     one method agrees with the arguments.
     /// </summary>
     /// <param name="members">The members of the object.</param>
     /// <param name="name">The name of the method.</param>
@@ -101,7 +102,11 @@ internal sealed partial class LoopStateEvaluator
 
     private ArgumentSyntax?[]? InTheOrderOfTheParameters(
         IMethodSymbol method,
-        SeparatedSyntaxList<ArgumentSyntax> arguments)
+        SeparatedSyntaxList<ArgumentSyntax> arguments) =>
+        this.InTheNormalForm(method: method, arguments: arguments)
+        ?? this.InTheExpandedForm(method: method, arguments: arguments);
+
+    private ArgumentSyntax?[]? InTheNormalForm(IMethodSymbol method, SeparatedSyntaxList<ArgumentSyntax> arguments)
     {
         ImmutableArray<IParameterSymbol> parameters = method.Parameters;
         ArgumentSyntax?[] placed = new ArgumentSyntax?[parameters.Length];
@@ -124,6 +129,48 @@ internal sealed partial class LoopStateEvaluator
         }
 
         return parameters.Where((parameter, position) => placed[position] == null && !parameter.IsOptional).Any()
+            ? null
+            : placed;
+    }
+
+    // The binder also lets a params array get each argument at or after the position of the
+    // parameter as one element. Each element must have an implicit conversion to the type of an
+    // element. The order has the elements at its end, from the position of the parameter.
+    private ArgumentSyntax?[]? InTheExpandedForm(IMethodSymbol method, SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        ImmutableArray<IParameterSymbol> parameters = method.Parameters;
+
+        if (parameters.LastOrDefault() is not { IsParams: true, Type: IArrayTypeSymbol { ElementType: var element } })
+        {
+            return null;
+        }
+
+        int last = parameters.Length - 1;
+
+        ArgumentSyntax?[] placed =
+            new ArgumentSyntax?[arguments.Count > parameters.Length ? arguments.Count : parameters.Length];
+
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            ArgumentSyntax argument = arguments[i];
+
+            int at = argument.NameColon is { } named ? IndexOf(parameters: parameters, name: named.Name) : i;
+
+            if (at < 0
+                || placed[at] != null
+                || (this.region.TypeOf(argument.Expression) is { } type
+                    && !this.region.Converts(from: type, to: at >= last ? element : parameters[at].Type)))
+            {
+                return null;
+            }
+
+            placed[at] = argument;
+        }
+
+        return parameters
+            .Take(last)
+            .Where((parameter, position) => placed[position] == null && !parameter.IsOptional)
+            .Any()
             ? null
             : placed;
     }

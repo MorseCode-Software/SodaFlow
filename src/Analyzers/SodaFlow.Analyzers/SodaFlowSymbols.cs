@@ -103,6 +103,9 @@ internal sealed class SodaFlowSymbols
     // The constructors whose code uses this as a value, as in a put of this into a name.
     private readonly ConcurrentDictionary<IMethodSymbol, bool> givesThisAway = new(SymbolEqualityComparer.Default);
 
+    // The fields whose object no second name can hold.
+    private readonly ConcurrentDictionary<IFieldSymbol, bool> holdsItsObjectAlone = new(SymbolEqualityComparer.Default);
+
     private readonly ConcurrentDictionary<IAssemblySymbol, bool> knowsTheLibrary =
         new(SymbolEqualityComparer.Default);
 
@@ -254,6 +257,9 @@ internal sealed class SodaFlowSymbols
         this.Overrides = new OverrideIndex(compilation);
         this.Implementations = new ImplementationIndex(compilation);
     }
+
+    /// <summary>The fields whose objects no code changes after the initializer.</summary>
+    public UnchangedStatics Unchanged { get; } = new();
 
     /// <summary>
     ///     True when the compilation declares a method with the name <c>Add</c>.
@@ -593,14 +599,16 @@ internal sealed class SodaFlowSymbols
 
     /// <summary>
     ///     True for a member of the platform that gives a task that is complete.
-    ///     Such a member is <c>CompletedTask</c> or <c>FromResult</c> of
-    ///     <c>Task</c> or of <c>ValueTask</c>, or a constructor of
-    ///     <c>ValueTask</c> that gets a value.
+    ///     Such a member is <c>CompletedTask</c>, <c>FromResult</c>,
+    ///     <c>FromException</c>, or <c>FromCanceled</c> of <c>Task</c> or of
+    ///     <c>ValueTask</c>. A constructor of <c>ValueTask</c> that gets a value
+    ///     is such a member also. A task that keeps an exception is complete.
     /// </summary>
     public static bool MakesACompleteTask(ISymbol? member) =>
         member switch
         {
-            IPropertySymbol { Name: "CompletedTask" } or IMethodSymbol { Name: "FromResult" } =>
+            IPropertySymbol { Name: "CompletedTask" }
+                or IMethodSymbol { Name: "FromResult" or "FromException" or "FromCanceled" } =>
                 IsTask(member.ContainingType),
             IMethodSymbol { MethodKind: MethodKind.Constructor } constructor =>
                 constructor.ContainingType.Name == "ValueTask"
@@ -621,6 +629,42 @@ internal sealed class SodaFlowSymbols
         expression.RawKind == FieldKeywordKind && symbol is IFieldSymbol { AssociatedSymbol: IPropertySymbol property }
             ? property
             : null;
+
+    /// <summary>
+    ///     True for <c>TryGetValue</c> of a dictionary class of the platform.
+    ///     The method only reads the dictionary. It gives its out argument the
+    ///     value at the key, or the default value where the dictionary does not
+    ///     have the key.
+    /// </summary>
+    public static bool IsTryGetValueOfADictionary(ISymbol method) =>
+        method is IMethodSymbol
+        {
+            Name: "TryGetValue",
+            ContainingType:
+            {
+                Name: "Dictionary" or "ConcurrentDictionary" or "SortedDictionary" or "SortedList",
+                Arity: 2
+            } dictionary
+        }
+        && IsPlatform(dictionary);
+
+    /// <summary>
+    ///     True for a property with a backing field and a setter with code. The
+    ///     setter gives the field its value, which can be different from the
+    ///     value that the property gets. Thus, a write of such a property does
+    ///     not give the property its value. The walk reads the setter for that.
+    /// </summary>
+    /// <remarks>
+    ///     The walk keeps the state of the backing field on the property: see
+    ///     <see cref="PropertyOfTheFieldKeyword" />. An automatic accessor, or
+    ///     the <c>field</c> keyword, shows that the property has a backing field.
+    /// </remarks>
+    public static bool SetterWritesTheField(IPropertySymbol property) =>
+        property.SetMethod is { DeclaringSyntaxReferences: { Length: 1 } references }
+        && references[0].GetSyntax() is AccessorDeclarationSyntax { Parent: AccessorListSyntax accessors } setter
+        && (setter.Body != null || setter.ExpressionBody != null)
+        && (accessors.Accessors.Any(static accessor => accessor is { Body: null, ExpressionBody: null })
+            || accessors.DescendantNodes().Any(static node => node.RawKind == FieldKeywordKind));
 
     /// <summary>
     ///     True for an event of this compilation with no accessors in its
@@ -669,12 +713,14 @@ internal sealed class SodaFlowSymbols
             _ => false
         };
 
-    // The library of a serializer. The tokens of Json.NET are in Json.NET, and the serializer of
-    // JSON data contracts is one of the data contract serializers.
+    // The library of a serializer. The tokens of Json.NET are in Json.NET, and the nodes of
+    // System.Text.Json are in System.Text.Json. The serializer of JSON data contracts is one of the
+    // data contract serializers.
     private static string? LibraryOf(ISymbol serializer) =>
         serializer.ContainingType?.ContainingNamespace?.ToDisplayString() switch
         {
             "Newtonsoft.Json.Linq" => "Newtonsoft.Json",
+            "System.Text.Json.Nodes" => "System.Text.Json",
             "System.Runtime.Serialization.Json" => DataContracts,
             var other => other
         };
@@ -711,6 +757,31 @@ internal sealed class SodaFlowSymbols
         && IsLinqToXml(owner);
 
     private static bool IsLinqToXml(ISymbol type) => type.ContainingNamespace?.ToDisplayString() == "System.Xml.Linq";
+
+    /// <summary>
+    ///     True for <c>Create&lt;T&gt;</c> of <c>JsonValue</c>. The node keeps
+    ///     the value, and a write of the node writes the value with
+    ///     <c>System.Text.Json</c>.
+    /// </summary>
+    public static bool KeepsAJsonValue(IMethodSymbol definition) =>
+        definition is { Name: "Create", IsGenericMethod: true, ContainingType: { Name: "JsonValue" } owner }
+        && IsJsonNodes(owner);
+
+    /// <summary>
+    ///     True for a method of a node of <c>System.Text.Json.Nodes</c> that
+    ///     writes the node: <c>ToJsonString</c>, <c>WriteTo</c>, and
+    ///     <c>ToString</c>. The node writes each value that it keeps.
+    /// </summary>
+    public static bool WritesAJsonNode(IMethodSymbol definition) =>
+        definition is
+        {
+            Name: "ToJsonString" or "WriteTo" or "ToString",
+            ContainingType: { Name: "JsonNode" or "JsonValue" or "JsonObject" or "JsonArray" } owner
+        }
+        && IsJsonNodes(owner);
+
+    private static bool IsJsonNodes(ISymbol type) =>
+        type.ContainingNamespace?.ToDisplayString() == "System.Text.Json.Nodes";
 
     /// <summary>
     ///     True for a property that the serializer reads. It is public, it is
@@ -1004,6 +1075,12 @@ internal sealed class SodaFlowSymbols
     /// </remarks>
     public bool IsRemovedFrom(SyntaxTree tree, IMethodSymbol method)
     {
+        // A partial method with no second part has no code, and the compiler removes each call of it.
+        if (method is { IsPartialDefinition: true, PartialImplementationPart: null })
+        {
+            return true;
+        }
+
         if (!method.IsConditional)
         {
             return false;
@@ -1061,12 +1138,11 @@ internal sealed class SodaFlowSymbols
                 or ("JsonPropertyAttribute", "Newtonsoft.Json", "Newtonsoft.Json"));
 
     /// <summary>
-    ///     True for <c>System.Text.Json</c>. It writes the properties of the type
-    ///     that the call or the property names, and not those of the type of the
-    ///     object.
+    ///     True for <c>System.Text.Json</c> and its nodes. It writes the
+    ///     properties of the type that the call or the property names, and not
+    ///     those of the type of the object.
     /// </summary>
-    public static bool WritesTheDeclaredType(IMethodSymbol serializer) =>
-        serializer.ContainingType?.ContainingNamespace?.ToDisplayString() == "System.Text.Json";
+    public static bool WritesTheDeclaredType(IMethodSymbol serializer) => LibraryOf(serializer) == "System.Text.Json";
 
     /// <summary>
     ///     True for a type with <c>JsonDerivedType</c> or <c>JsonPolymorphic</c>.
@@ -1089,20 +1165,62 @@ internal sealed class SodaFlowSymbols
             || (owner.Name == "Activator" && IsSystem(owner.ContainingNamespace)));
 
     /// <summary>
-    ///     True for a constructor whose code uses <c>this</c> as a value, and not
-    ///     only as the owner of a member. Such a constructor can give the new
+    ///     True for a constructor or a method whose code uses <c>this</c> as a
+    ///     value, and not only as the owner of a member. Such code can give the
     ///     object a second name. The answer for a constructor is the same at each
-    ///     creation.
+    ///     creation, and for a method at each call.
     /// </summary>
+    /// <remarks>
+    ///     The code can also call a method of its type on this, and that method
+    ///     can use this as a value. The walk reads such calls to the depth that it
+    ///     reads callees. A call by name counts each method of the type with that
+    ///     name that is not static.
+    /// </remarks>
     public bool GivesThisAway(IMethodSymbol definition) =>
         this.givesThisAway.GetOrAdd(
             key: definition,
-            valueFactory: static constructor =>
-                constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is ConstructorDeclarationSyntax code
-                && code.DescendantNodes()
-                    .OfType<ThisExpressionSyntax>()
-                    .Any(static used => used.Parent is not MemberAccessExpressionSyntax { Expression: var owner }
-                                        || owner != used));
+            valueFactory: static method =>
+                method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    is ConstructorDeclarationSyntax or MethodDeclarationSyntax
+                && UsesThisAsAValue(
+                    code: method.DeclaringSyntaxReferences[0].GetSyntax(),
+                    type: method.ContainingType,
+                    calls: LoopStateEvaluator.MaxInlineDepth));
+
+    // The name of a method that a call by a simple name, or through this, calls. Null for each other
+    // call.
+    private static string? NameOfACallOnThis(InvocationExpressionSyntax call) =>
+        call.Expression switch
+        {
+            IdentifierNameSyntax name => name.Identifier.ValueText,
+            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax name } =>
+                name.Identifier.ValueText,
+            _ => null
+        };
+
+    // True when code uses this as a value, or calls a method of the type on this whose code does.
+    private static bool UsesThisAsAValue(SyntaxNode code, INamespaceOrTypeSymbol type, int calls) =>
+        code.DescendantNodes()
+            .Any(node => node switch
+            {
+                ThisExpressionSyntax used =>
+                    used.Parent is not MemberAccessExpressionSyntax { Expression: var owner } || owner != used,
+                InvocationExpressionSyntax call when calls > 0 && NameOfACallOnThis(call) is { } name =>
+                    type.GetMembers(name)
+                        .Any(member => member is IMethodSymbol { IsStatic: false } method
+                                       && method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                                           is MethodDeclarationSyntax called
+                                       && UsesThisAsAValue(code: called, type: type, calls: calls - 1)),
+                _ => false
+            });
+
+    /// <summary>
+    ///     True for a field whose object no second name can hold, as the given
+    ///     function finds. The answer for a field is the same in each region, and
+    ///     the function reads the code of the type of the field.
+    /// </summary>
+    public bool HoldsItsObjectAlone(IFieldSymbol field, Func<IFieldSymbol, bool> read) =>
+        this.holdsItsObjectAlone.GetOrAdd(key: field, valueFactory: read);
 
     /// <summary>
     ///     True for a method that has a parameter whose type is a delegate. Most
