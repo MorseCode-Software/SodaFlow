@@ -176,11 +176,9 @@ selected item together, both arrive in the same job, so the control can apply th
 instead of reacting to a new list whose selection hasn't arrived yet. If one of the posted actions
 throws, the rest of the job still runs, and the exception is thrown once they have finished.
 
-There is no process-wide default and no fallback. An earlier version captured the constructing
-thread's `SynchronizationContext` and, when there was none, ran handlers inline without a word,
-so a view model built on a background thread raised `PropertyChanged` off the UI thread and the
-binding engine failed somewhere far from the cause. Requiring the scheduler up front moves that
-failure to the one line that builds the factory.
+There is no process-wide default and no fallback. `BindableFactory` throws
+`ArgumentNullException` for a null scheduler, so a missing scheduler fails at the one line that
+builds the factory.
 
 `BindingScheduler.Immediate` runs handlers on the calling thread, which is what tests and headless
 hosts want. With no transaction open it runs them at once. Inside a transaction it runs them as
