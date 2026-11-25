@@ -88,6 +88,7 @@
         <Compile Include="LoopStateEvaluator.MethodGroups.cs"/>
         <Compile Include="LoopStateEvaluator.NamesOfABuild.cs"/>
         <Compile Include="LoopStateEvaluator.NamesOfThis.cs"/>
+        <Compile Include="LoopStateEvaluator.NewObjectsOfACallee.cs"/>
         <Compile Include="LoopStateEvaluator.OlderObjects.cs"/>
         <Compile Include="LoopStateEvaluator.Overrides.cs"/>
         <Compile Include="LoopStateEvaluator.PartialMembers.cs"/>

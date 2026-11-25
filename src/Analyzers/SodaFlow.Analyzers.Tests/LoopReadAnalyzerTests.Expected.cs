@@ -9120,6 +9120,26 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab452ALazyOfAMemberOfTheBox"] = ["SF1004"],
             ["Ab452AGroupOfASecondObjectWithAPendingMember"] = ["SF1005"],
             ["Ab452AnExtensionGroupAfterTheBlockSetsTheMember"] = ["SF1005"],
-            ["Ab452AGroupAfterTheBlockSetsTheMember"] = ["SF1005"]
+            ["Ab452AGroupAfterTheBlockSetsTheMember"] = ["SF1005"],
+            ["Ab453ACalleeThatGivesTheListInABranch"] = ["SF1001"],
+            ["Ab453ACalleeThatReturnsBeforeItGivesTheList"] = ["SF1001"],
+            ["Ab453ACalleeThatGivesTheOldListBack"] = ["SF1001"],
+            ["Ab453ACallInABranchThatDoesNotRun"] = ["SF1001"],
+            ["Ab453AGotoPastTheCall"] = ["SF1001"],
+            ["Ab453ACalleeThatGivesADifferentPropertyANewList"] = ["SF1001"],
+            ["Ab453AVirtualCalleeThatAnOverrideChanges"] = ["SF1001"],
+            ["Ab453AnAsyncCalleeThatWaitsBeforeItGivesTheList"] = ["SF1001"],
+            ["Ab453AnIteratorThatGivesTheList"] = ["SF1001"],
+            ["Ab453ACallBeforeTheRead"] = ["SF1001"],
+            ["Ab453ACallAfterTheRead"] = ["SF1001"],
+            ["Ab453ACallBeforeALoopThatGivesTheFirstListBack"] = ["SF1001"],
+            ["Ab453ACalleeWithAGotoOverTheNewList"] = ["SF1001"],
+            ["Ab453AnOverrideThatASecondOverrideChanges"] = ["SF1001"],
+            ["Ab453ACreationOfATypeWhoseConversionGivesTheFirstList"] = ["SF1001"],
+            ["Ab453ACollectionExpressionOfATypeWithABuilder"] = ["SF1001"],
+            ["Ab453ACalleeGivesTheFieldOfASecondObjectANewList"] = ["SF1004"],
+            ["Ab453ACalleeGivesANewListForADifferentTypeArgument"] = ["SF1001"],
+            ["Ab453ACalleeThatGivesTheFirstListAfterANewList"] = ["SF1001"],
+            ["Ab453ASecondCallGivesTheFirstListBack"] = ["SF1001"]
         };
 }

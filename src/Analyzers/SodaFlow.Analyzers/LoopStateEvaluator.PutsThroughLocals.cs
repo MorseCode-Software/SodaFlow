@@ -71,7 +71,8 @@ internal sealed partial class LoopStateEvaluator
             && this.TheFieldThatItNames(local) is { } named
             && SinkWalker.PutsIntoAList(method)
             && this.region.SymbolOf(named) is { } field and (IFieldSymbol or IPropertySymbol)
-            && this.IsStillTheLocationOf(name: local, location: named, use: call, aCallCounts: false))
+            && this.IsStillTheLocationOf(name: local, location: named, use: call, aCallCounts: false)
+            && !this.ACallGivesANewObjectTo(location: field, local: local, read: named, use: call))
         {
             this.region.AddAPutThroughALocal(
                 field: field,

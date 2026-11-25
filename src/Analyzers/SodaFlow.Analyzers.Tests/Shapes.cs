@@ -64150,6 +64150,98 @@ public static class Shapes
     public static Cell<int> Ab452AGroupAfterTheBlockSetsTheMember() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab452OpenBox m = new(); m.Box.FMap = m.Add; m.Build(); m.Share = l.Map(v => v); return S.Hold(m.Read()); });
 
+    // S15565. AB453. A local gets the list of a static auto-property. A method then gives the property a new list. The block adds a pending cell to the list of the local and reads the last element of the property.
+    public static Cell<int> Ab453AddThroughTheOldLocalAfterACalleeGivesTheStaticPropertyANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; Ab453Renew(); xs.Add(l.Map(v => v)); return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15566. AB453. The same with a static field. The method gives the field a new list through a creation of the type of the field.
+    public static Cell<int> Ab453AddThroughTheOldLocalAfterACalleeGivesTheStaticFieldANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453Field = [Plain]; List<Cell<int>> xs = Ab453Field; Ab453RenewTheField(); xs.Add(l.Map(v => v)); return S.Hold(Ab453Field[^1].Sample()); });
+
+    // S15567. AB453, a control. The block calls the method in each turn of a loop, before it adds a pending cell to the list of the local.
+    public static Cell<int> Ab453ACallInEachTurnOfALoopBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; for (int i = 0; i < 2; i++) { Ab453Renew(); xs.Add(l.Map(v => v)); } return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15568. AB453, an edge. The method gives the property a new list only in a branch, and that branch does not run. Thus, the pending cell goes into the list of the property.
+    public static Cell<int> Ab453ACalleeThatGivesTheListInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListB = [Plain]; List<Cell<int>> xs = Ab453ListB; Ab453RenewInABranch(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListB[^1].Sample()); });
+
+    // S15569. AB453, an edge. The method returns before it gives the property a new list. Thus, the pending cell goes into the list of the property.
+    public static Cell<int> Ab453ACalleeThatReturnsBeforeItGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListC = [Plain]; List<Cell<int>> xs = Ab453ListC; Ab453ReturnFirst(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListC[^1].Sample()); });
+
+    // S15570. AB453, an edge. The method gives the property the list that a static field keeps, which is the list of the local. Thus, the pending cell goes into the list of the property.
+    public static Cell<int> Ab453ACalleeThatGivesTheOldListBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListD = [Plain]; List<Cell<int>> xs = Ab453ListD; Ab453Saved = xs; Ab453GiveBack(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListD[^1].Sample()); });
+
+    // S15571. AB453, an edge. The block calls the method that gives the property a new list only in a branch that does not run.
+    public static Cell<int> Ab453ACallInABranchThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; if (Ab453Turn > 0) { Ab453Renew(); } xs.Add(l.Map(v => v)); return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15572. AB453, an edge. A goto goes to a label after the call of the method that gives the property a new list. Thus, the call does not run.
+    public static Cell<int> Ab453AGotoPastTheCall() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; if (Ab453Skip) { goto put; } Ab453Renew(); put: xs.Add(l.Map(v => v)); return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15573. AB453, an edge. The method gives a different static property a new list.
+    public static Cell<int> Ab453ACalleeThatGivesADifferentPropertyANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListH = [Plain]; List<Cell<int>> xs = Ab453ListH; Ab453Renew(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListH[^1].Sample()); });
+
+    // S15574. AB453, an edge. The block calls a virtual method that gives the property a new list. The object is of a class whose override does nothing.
+    public static Cell<int> Ab453AVirtualCalleeThatAnOverrideChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListE = [Plain]; List<Cell<int>> xs = Ab453ListE; Ab453Renewer r = new Ab453KeepingRenewer(); r.Renew(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListE[^1].Sample()); });
+
+    // S15575. AB453, an edge. An async method waits for a task that does not complete, and then gives the property a new list.
+    public static Cell<int> Ab453AnAsyncCalleeThatWaitsBeforeItGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListF = [Plain]; List<Cell<int>> xs = Ab453ListF; Ab453RenewLater(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListF[^1].Sample()); });
+
+    // S15576. AB453, an edge. An iterator gives the property a new list, but the block does not enumerate it. Thus, its code does not run.
+    public static Cell<int> Ab453AnIteratorThatGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListG = [Plain]; List<Cell<int>> xs = Ab453ListG; Ab453RenewLazily(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListG[^1].Sample()); });
+
+    // S15577. AB453, an edge. The block calls the method before the local gets the list of the property. Thus, the pending cell goes into the new list.
+    public static Cell<int> Ab453ACallBeforeTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; Ab453Renew(); List<Cell<int>> xs = Ab453List; xs.Add(l.Map(v => v)); return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15578. AB453, an edge. The block reads the last element of the property after the add and before the call of the method.
+    public static Cell<int> Ab453ACallAfterTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; xs.Add(l.Map(v => v)); int r = Ab453List[^1].Sample(); Ab453Renew(); return S.Hold(r); });
+
+    // S15579. AB453, an edge. The call comes before a loop. In each turn, the loop adds a pending cell to the list of the local, and then gives the property that list again.
+    public static Cell<int> Ab453ACallBeforeALoopThatGivesTheFirstListBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; Ab453Renew(); for (int i = 0; i < 2; i++) { xs.Add(l.Map(v => v)); Ab453GiveTheListBack(xs); } return S.Hold(Ab453List[^1].Sample()); });
+
+    // S15580. AB453, an edge. A goto in the method goes over the statement that gives the property a new list.
+    public static Cell<int> Ab453ACalleeWithAGotoOverTheNewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListK = [Plain]; List<Cell<int>> xs = Ab453ListK; Ab453RenewAfterAGoto(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListK[^1].Sample()); });
+
+    // S15581. AB453, an edge. An override gives the property a new list, and the object is of a class whose override does nothing.
+    public static Cell<int> Ab453AnOverrideThatASecondOverrideChanges() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListL = [Plain]; List<Cell<int>> xs = Ab453ListL; Ab453RenewingRenewer r = new Ab453KeepingAgain(); r.Renew(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListL[^1].Sample()); });
+
+    // S15582. AB453, an edge. The method gives the property a creation of a different type. A conversion of that type gives the list of the local.
+    public static Cell<int> Ab453ACreationOfATypeWhoseConversionGivesTheFirstList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListJ = [Plain]; List<Cell<int>> xs = Ab453ListJ; Ab453Saved = xs; Ab453RenewThroughAConversion(); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListJ[^1].Sample()); });
+
+    // S15583. AB453, an edge. The property is of a list type with a builder. The builder of a collection expression gives one list each time.
+    public static Cell<int> Ab453ACollectionExpressionOfATypeWithABuilder() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453Cached = Ab453CachedOne; Ab453CachedList xs = Ab453Cached; Ab453RenewTheCached(); xs.Add(l.Map(v => v)); return S.Hold(Ab453Cached[^1].Sample()); });
+
+    // S15584. AB453, an edge. A method gives an instance field of a second object a new list. The local has the list of the same field of the first object.
+    public static Cell<int> Ab453ACalleeGivesTheFieldOfASecondObjectANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab453Holder().Run(new Ab453Holder(), l.Map(v => v))));
+
+    // S15585. AB453, an edge. A method gives a static property of a generic class a new list for one type argument. The local has the list of a different type argument.
+    public static Cell<int> Ab453ACalleeGivesANewListForADifferentTypeArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453Generic<int>.Items = [Plain]; List<Cell<int>> xs = Ab453Generic<int>.Items; Ab453Generic<string>.Renew(); xs.Add(l.Map(v => v)); return S.Hold(Ab453Generic<int>.Items[^1].Sample()); });
+
+    // S15586. AB453, an edge. The method gives the property a new list, and then gives it the list of the local again.
+    public static Cell<int> Ab453ACalleeThatGivesTheFirstListAfterANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453ListI = [Plain]; List<Cell<int>> xs = Ab453ListI; Ab453RenewAndGiveBack(xs); xs.Add(l.Map(v => v)); return S.Hold(Ab453ListI[^1].Sample()); });
+
+    // S15587. AB453, an edge. After the first method, a second method gives the property the list of the local again. Then the block adds the pending cell.
+    public static Cell<int> Ab453ASecondCallGivesTheFirstListBack() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; Ab453Renew(); Ab453GiveTheListBack(xs); xs.Add(l.Map(v => v)); return S.Hold(Ab453List[^1].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -118335,6 +118427,162 @@ public static class Shapes
     }
 
     private static int Ab452AddTo(this Ab452OpenBox box, int v) => v + box.Share.Sample();
+
+    private static List<Cell<int>> Ab453List { get; set; } = [];
+    private static List<Cell<int>> Ab453ListB { get; set; } = [];
+    private static List<Cell<int>> Ab453ListC { get; set; } = [];
+    private static List<Cell<int>> Ab453ListD { get; set; } = [];
+    private static List<Cell<int>> Ab453ListE { get; set; } = [];
+    private static List<Cell<int>> Ab453ListF { get; set; } = [];
+    private static List<Cell<int>> Ab453ListG { get; set; } = [];
+    private static List<Cell<int>> Ab453ListH { get; set; } = [];
+
+    private static List<Cell<int>> Ab453Field = [];
+
+    private static List<Cell<int>> Ab453Saved = [];
+
+    private static readonly TaskCompletionSource Ab453NeverDone = new();
+
+    private static int Ab453Turn;
+
+    private static bool Ab453Skip = true;
+
+    private static bool Ab453Stop = true;
+
+    private static void Ab453Renew() => Ab453List = [Plain];
+
+    private static void Ab453RenewTheField() => Ab453Field = new List<Cell<int>> { Plain };
+
+    private static void Ab453RenewInABranch()
+    {
+        if (Ab453Turn > 0)
+        {
+            Ab453ListB = [Plain];
+        }
+    }
+
+    private static void Ab453ReturnFirst()
+    {
+        if (Ab453Stop)
+        {
+            return;
+        }
+
+        Ab453ListC = [Plain];
+    }
+
+    private static void Ab453GiveBack() => Ab453ListD = Ab453Saved;
+
+    private static async void Ab453RenewLater()
+    {
+        await Ab453NeverDone.Task;
+        Ab453ListF = [Plain];
+    }
+
+    private static IEnumerable<int> Ab453RenewLazily()
+    {
+        if (Ab453Turn > 0)
+        {
+            yield return 0;
+        }
+
+        Ab453ListG = [Plain];
+    }
+
+    public class Ab453Renewer
+    {
+        public virtual void Renew() => Ab453ListE = [Plain];
+    }
+
+    public sealed class Ab453KeepingRenewer : Ab453Renewer
+    {
+        public override void Renew()
+        {
+        }
+    }
+    private static List<Cell<int>> Ab453ListJ { get; set; } = [];
+    private static List<Cell<int>> Ab453ListK { get; set; } = [];
+    private static List<Cell<int>> Ab453ListL { get; set; } = [];
+
+    private static Ab453CachedList Ab453Cached { get; set; } = new();
+
+    private static readonly Ab453CachedList Ab453CachedOne = new();
+
+    private static void Ab453GiveTheListBack(List<Cell<int>> list) => Ab453List = list;
+
+    private static void Ab453RenewAfterAGoto()
+    {
+        if (Ab453Skip)
+        {
+            goto done;
+        }
+
+        Ab453ListK = [Plain];
+
+        done:
+        Ab453Turn += 0;
+    }
+
+    private static void Ab453RenewThroughAConversion() => Ab453ListJ = new Ab453Back();
+
+    private static void Ab453RenewTheCached() => Ab453Cached = [Plain];
+
+    public class Ab453RenewingRenewer : Ab453Renewer
+    {
+        public override void Renew() => Ab453ListL = [Plain];
+    }
+
+    public class Ab453KeepingAgain : Ab453RenewingRenewer
+    {
+        public override void Renew()
+        {
+        }
+    }
+
+    public sealed class Ab453Back
+    {
+        public static implicit operator List<Cell<int>>(Ab453Back back) => Ab453Saved;
+    }
+
+    [CollectionBuilder(typeof(Ab453CachedBuilder), nameof(Ab453CachedBuilder.Create))]
+    public sealed class Ab453CachedList : List<Cell<int>>
+    {
+    }
+
+    public static class Ab453CachedBuilder
+    {
+        public static Ab453CachedList Create(ReadOnlySpan<Cell<int>> items) => Ab453CachedOne;
+    }
+    public sealed class Ab453Holder
+    {
+        public List<Cell<int>> Items = [Plain];
+
+        public void Renew() => this.Items = [Plain];
+
+        public int Run(Ab453Holder other, Cell<int> pending)
+        {
+            List<Cell<int>> xs = this.Items;
+            other.Renew();
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+    }
+
+    public static class Ab453Generic<T>
+    {
+        public static List<Cell<int>> Items { get; set; } = [];
+
+        public static void Renew() => Items = [Plain];
+    }
+
+    private static List<Cell<int>> Ab453ListI { get; set; } = [];
+
+    private static void Ab453RenewAndGiveBack(List<Cell<int>> list)
+    {
+        Ab453ListI = [Plain];
+        Ab453ListI = list;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
