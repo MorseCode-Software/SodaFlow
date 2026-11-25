@@ -1317,13 +1317,12 @@ internal sealed class SodaFlowSymbols
     ///     of numbers has no other state, but it can be a query that runs a
     ///     function.
     /// </summary>
-    public static bool CanHoldQuery(ITypeSymbol? type) => CanHoldQuery(type: type, depth: 0);
-
-    private static bool CanHoldQuery(ITypeSymbol? type, int depth) =>
-        IsEnumerated(type)
-        || (depth < 3
-            && type is INamedTypeSymbol named
-            && named.TypeArguments.Any(argument => CanHoldQuery(type: argument, depth: depth + 1)));
+    /// <remarks>
+    ///     The search goes into each type argument at each depth. The type
+    ///     arguments of a type have an end, thus the search ends.
+    /// </remarks>
+    public static bool CanHoldQuery(ITypeSymbol? type) =>
+        IsEnumerated(type) || (type is INamedTypeSymbol named && named.TypeArguments.Any(CanHoldQuery));
 
     /// <summary>
     ///     True for a method of <c>System.Linq.Enumerable</c> that makes a query

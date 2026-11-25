@@ -63974,6 +63974,22 @@ public static class Shapes
     public static Cell<int> Ab445AStructOfThisCodeHoldsTheObject() =>
         Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = new() { Share = Plain }; Ab445Holder h = new(d); h.Slot.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
 
+    // S15521. AB446: four levels of Tuple hold a query. A foreach over the query runs its function, which samples the pending cell.
+    public static Cell<int> Ab446AQueryFourTuplesDeepRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new[] { l.Map(v => v) }.Select(c => c.Sample()); var t = Tuple.Create(Tuple.Create(Tuple.Create(Tuple.Create(q)))); foreach (int x in t.Item1.Item1.Item1.Item1) { Kept.Add(x); } return S.Hold(0); });
+
+    // S15522. AB446: six levels of Tuple hold a query, and Sum of the query runs its function.
+    public static Cell<int> Ab446AQuerySixTuplesDeepRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new[] { l.Map(v => v) }.Select(c => c.Sample()); var t = Tuple.Create(Tuple.Create(Tuple.Create(Tuple.Create(Tuple.Create(Tuple.Create(q)))))); return S.Hold(t.Item1.Item1.Item1.Item1.Item1.Item1.Sum()); });
+
+    // S15523. AB446: four levels of a list in a Tuple hold a query, and a foreach over the query runs its function.
+    public static Cell<int> Ab446AQueryInAListFourLevelsDeepRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new[] { l.Map(v => v) }.Select(c => c.Sample()); var t = Tuple.Create(Tuple.Create(Tuple.Create(new List<IEnumerable<int>> { q }))); foreach (int x in t.Item1.Item1.Item1[0]) { Kept.Add(x); } return S.Hold(0); });
+
+    // S15524. AB446: four levels of Tuple hold a query, and the code does not run it.
+    public static Cell<int> Ab446AQueryFourTuplesDeepDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new[] { l.Map(v => v) }.Select(c => c.Sample()); var t = Tuple.Create(Tuple.Create(Tuple.Create(Tuple.Create(q)))); Kept.Add(t); return S.Hold(0); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);

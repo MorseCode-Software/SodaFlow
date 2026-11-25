@@ -672,7 +672,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   `Wait`, `Task.WaitAll`, `Result`, or `GetResult` of its awaiter. An `await` of the task, also
   through `ConfigureAwait` or `WhenAll`, puts the exception into the task of its `async` function,
   and the report comes where the code waits for that task. A continuation that nothing waits for
-  gets no report. A query expression over a type whose methods run their function in the call,
+  gets no report. A value whose type has a query type among its type arguments, at any depth, such
+  as a `Tuple` of a `Tuple` of the query, keeps the query until something enumerates it. A query
+  expression over a type whose methods run their function in the call,
   such as `from x in maybe select ...` over a `Maybe<T>`, runs where it is written. For a query
   over a type of your project whose methods for the clauses return no sequence, the analyzer
   reads each of those
