@@ -222,6 +222,10 @@ in every C# project that references `SodaFlow`, with no setup. To turn it off, p
 `ExcludeAssets="analyzers"` on that reference. It does not check F#, because a Roslyn analyzer runs
 only in the C# compiler. In F#, the exception at run time is the check.
 
+The analyzer needs the C# compiler of the .NET 8 SDK or of Visual Studio 2022 17.8, or a later
+one. An older compiler does not run it and gives warning `CS9057` instead, which fails a build that
+treats warnings as errors. If you build with an older compiler, turn the analyzer off as above.
+
 The same analyzer also has `SF2001`, for a listener that nothing holds. [Listener
 lifetimes](lifetimes.md#the-mistake-that-fails-silently) describes it.
 
