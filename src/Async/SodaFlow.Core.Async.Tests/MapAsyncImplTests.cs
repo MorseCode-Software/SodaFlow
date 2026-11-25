@@ -760,6 +760,120 @@ public sealed class MapAsyncImplTests
         l.Dispose();
     }
 
+    // A disposal in a transaction that a listener fails. The first listener throws before the
+    // trigger comes, and the second one throws after it. The record of the cancel shows the side of
+    // the throw. The token reads as not canceled on each side, because it changes after the release
+    // of the lock. The disposal cancels the token in each condition.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task Dispose_InsideATransactionThatAListenerFails_RecordsTheCancelOnlyAfterTheTrigger(
+        bool throwAfterTheTrigger)
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<int> other = Stream.CreateSink<int>();
+        ControlledOperation<int, int> op = new();
+        KeepItemsStrategy strategy = new();
+        List<(bool Recorded, bool Canceled)> atTheThrow = [];
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: strategy,
+                inputConverter: static v => v,
+                cancelOnDispose: true);
+
+        // A listener on the sink gets its firing when the transaction sends, which is before each
+        // listener below a node. Two maps put a listener after the listener of the trigger, which
+        // is one node below its sink.
+        Stream<int> throwsHere = throwAfterTheTrigger ? other.Map(static v => v).Map(static v => v) : other;
+
+        using IListener throws =
+            throwsHere.Listen(_ =>
+            {
+                AsyncItemCancellationSource cancellation = strategy.FirstItem.Cancellation;
+
+                atTheThrow.Add((cancellation.IsCancelCommitted, cancellation.IsCancellationRequested));
+
+                throw new InvalidOperationException("The test fails this transaction.");
+            });
+
+        source.Send(1);
+        TestUtil.WaitUntil(() => op.HasStarted(1));
+
+        await Assert.That(() => Transaction.RunVoid(() =>
+            {
+                status.Dispose();
+                other.Send(1);
+            }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(atTheThrow.SequenceEqual([(throwAfterTheTrigger, false)]))
+            .IsTrue()
+            .Because("the record shows the side of the trigger, and the token changes after the release");
+
+        await Assert.That(strategy.FirstItem.Cancellation.IsCancellationRequested).IsTrue();
+
+        TestUtil.WaitUntil(() => status.Items.Sample().Count == 0);
+    }
+
+    // A transaction that fails must cancel nothing: no token, and no record. A record that stays
+    // after the failure holds the result of the item, also with a token that no code canceled.
+    [Test]
+    public async Task ACancelAllInATransactionThatFailsRecordsNoCancel()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<UnitInternal> cancelAll = Stream.CreateSink<UnitInternal>();
+        ControlledOperation<int, int> op = new();
+        KeepItemsStrategy strategy = new();
+        List<int> received = [];
+
+        using IListener l = results.Listen(received.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: strategy,
+                inputConverter: static v => v,
+                cancelAll: cancelAll);
+
+        // The two maps put this listener after the listener of the pipeline on the stream. Thus, the
+        // pipeline gets the cancellation before the throw.
+        using IListener throws =
+            cancelAll.Map(static v => v)
+                .Map(static v => v)
+                .Listen(static _ => throw new InvalidOperationException("The test fails this transaction."));
+
+        source.Send(1);
+        TestUtil.WaitUntil(() => op.HasStarted(1));
+
+        await Assert.That(() => cancelAll.Send(UnitInternal.Value)).ThrowsExactly<InvalidOperationException>();
+
+        AsyncItemCancellationSource cancellation = strategy.FirstItem.Cancellation;
+
+        await Assert.That(cancellation.IsCancelCommitted).IsFalse();
+        await Assert.That(cancellation.IsCancellationRequested).IsFalse();
+
+        op.Release(input: 1, result: 10);
+        TestUtil.WaitUntil(() => received.Count == 1);
+
+        await Assert.That(received).IsEquivalentTo(expected: [10], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
     // The pipeline finds the items with a dictionary and a set where it ends more than a few items.
     // This test cancels half of a long queue. Then the release of the item that runs must start the
     // next item that remains.
@@ -1419,6 +1533,44 @@ public sealed class MapAsyncImplTests
             IReadOnlyList<AsyncQueuedItem<TStrategyInput>> canceled,
             IReadOnlyList<AsyncTrackedItem<TStrategyInput>> tracked) =>
             new(state: state, start: AsyncToStart<TStrategyInput>.None);
+    }
+
+    /// <summary>
+    ///     Starts each item immediately and keeps each item that it admits. Thus, a
+    ///     test can read the cancellation of an item.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class KeepItemsStrategy : AsyncConcurrencyStrategy<int, object?>
+    {
+        // This state is global and is not the state of one MapAsync call, as in RecordingStrategy.
+        private readonly List<AsyncQueuedItem<int>> items = [];
+
+        public AsyncQueuedItem<int> FirstItem => this.items[0];
+
+        protected override object? CreateState() => null;
+
+        protected internal override AsyncStrategyStep<int, object?> Admit(
+            object? state,
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
+        {
+            this.items.Add(incoming);
+
+            return new AsyncStrategyStep<int, object?>(state: state, start: [new AsyncToStart<int>(incoming)]);
+        }
+
+        protected internal override AsyncStrategyResult<int, object?> OnCompleted(
+            object? state,
+            AsyncQueuedItem<int> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, publish: true, next: AsyncToStart<int>.None);
+
+        protected internal override AsyncStrategyStep<int, object?> OnCanceled(
+            object? state,
+            IReadOnlyList<AsyncQueuedItem<int>> canceled,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, start: AsyncToStart<int>.None);
     }
 
     /// <summary>

@@ -160,6 +160,37 @@ that delivered the item before it, and the starts and the results come in the sa
 starts more than one item. Work that the code of an operation starts is not held back for the loop, so an operation that
 calls Execute on another pipeline and waits for its task still gets the result.
 
+Fixed: the code that a cancellation runs no longer runs with the transaction lock held. CancellationTokenSource.Cancel
+runs the callbacks registered on the token on the thread that calls it, and a callback that completes an await in an
+operation runs the rest of that operation there too, such as the cleanup in a catch for OperationCanceledException. The
+pipeline called Cancel inside a transaction: for cancelAll, cancelMatching, and a strategy's Cancel, which is how
+SwitchLatest replaces its run, in the posted action that runs after the commit and before the lock is released, and for
+a disposal with cancelOnDispose, inside the listener callback of the disposal. So that code ran holding the lock, and a
+transaction on any other thread waited until it finished: a cleanup that waited on such a thread waited forever. Inside
+the disposal's callback a send from it threw. The documentation already said that an operation runs outside any
+transaction. The pipeline now records the cancellation at the same point as before, while the transaction still holds
+the lock, and cancels the tokens once the transaction has released it, so that code runs with no transaction open on
+the thread that canceled. The record is what the pipeline reads to decide that an item does not start and does not
+publish, so those guarantees keep the order they had. An operation that polls its token sees the cancellation a moment
+later than before, after the commit rather than at it.
+
+Fixed: a cancellation that committed while a finished operation waited for the lock no longer lets its result through.
+When an operation returned, the pipeline read its token to decide whether the item had been canceled, and then took the
+lock to deliver the result. A cancelAll, cancelMatching, or Dispose that committed on another thread between those two
+steps canceled the token too late: the delivery went ahead and published the result, which broke the rule that a
+cancellation stops the result even of an operation that ignores its token. The same happened for an Execute task, which
+completed with the result instead of being canceled. The delivery now reads the record of the cancellation again once it
+holds the lock, so a cancellation that committed first always wins, and the item ends as canceled.
+
+Fixed: a callback on an operation's token that throws during a disposal no longer stops the disposal. With
+cancelOnDispose, the disposal canceled the items one after another with nothing to catch a throw, so the first callback
+that threw ended the loop, failed the transaction that disposed, and came out of Dispose. The items after it kept live
+tokens, and since the listener that cancels had already removed itself, nothing canceled them later: a queued item could
+then start after the disposal, when the running item before it ended. cancelAll and cancelMatching already caught such a
+throw. A disposal now records the cancellation of every item first, which keeps every queued item from starting, and
+then cancels each token on its own, with the exceptions going together to handleException. Dispose no longer throws for
+them.
+
 Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
 build.
