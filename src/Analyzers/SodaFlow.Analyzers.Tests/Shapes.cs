@@ -64754,6 +64754,26 @@ public static class Shapes
     public static Cell<int> Ab458ASecondLiteralOfASecondElementKeepsEachIndex() =>
         Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = [Ab458ArrK[0], Ab458ArrK[0]]; a = [Ab458ArrK[1], Ab458ArrK[1]]; Ab458ArrK[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab458ArrK[0].Share!.Sample()); });
 
+    // S15716. AB459: a method returns a list with element 0 of a static array two times. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab459AListThatAMethodReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = Ab459MakeA(); Ab459ArrA[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab459ArrA[0].Share!.Sample()); });
+
+    // S15717. AB459: a method returns an array with element 0 of a static array two times. A read of element 0 gets the write through element 1.
+    public static Cell<int> Ab459AnArrayThatAMethodReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = Ab459MakeB(); Ab459ArrB[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab459ArrB[0].Share!.Sample()); });
+
+    // S15718. AB459: a local gets a static list with element 0 of a static array two times. A read of element 0 gets the write through item 1.
+    public static Cell<int> Ab459AListFromAStaticField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = Ab459ListC; Ab459ArrC[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab459ArrC[0].Share!.Sample()); });
+
+    // S15719. AB459: a method returns a list of new objects. A read of element 0 of a static array does not get the write through item 1.
+    public static Cell<int> Ab459AListOfNewObjectsThatAMethodReturns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { List<SettableSlot> a = Ab459MakeD(); Ab459ArrD[0].Share = Plain; a[1].Share = l.Map(v => v); return S.Hold(Ab459ArrD[0].Share!.Sample()); });
+
+    // S15720. AB459: a method returns a list with element 0 of a static array, and the block makes a second object. A read through the second object does not get the write through item 1.
+    public static Cell<int> Ab459AListThatAMethodReturnsANewObjectKeepsItsCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot x = new() { Share = Plain }; List<SettableSlot> a = Ab459MakeE(); a[1].Share = l.Map(v => v); return S.Hold(x.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119575,6 +119595,21 @@ public static class Shapes
     private static readonly SettableSlot[] Ab458ArrJ = [new SettableSlot(), new SettableSlot()];
 
     private static readonly SettableSlot[] Ab458ArrK = [new SettableSlot(), new SettableSlot()];
+
+    private static readonly SettableSlot[] Ab459ArrA = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab459ArrB = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab459ArrC = [new SettableSlot(), new SettableSlot()];
+    private static readonly List<SettableSlot> Ab459ListC = [Ab459ArrC[0], Ab459ArrC[0]];
+    private static readonly SettableSlot[] Ab459ArrD = [new SettableSlot(), new SettableSlot()];
+    private static readonly SettableSlot[] Ab459ArrE = [new SettableSlot(), new SettableSlot()];
+
+    private static List<SettableSlot> Ab459MakeA() => [Ab459ArrA[0], Ab459ArrA[0]];
+
+    private static SettableSlot[] Ab459MakeB() => [Ab459ArrB[0], Ab459ArrB[0]];
+
+    private static List<SettableSlot> Ab459MakeD() => [new SettableSlot(), new SettableSlot()];
+
+    private static List<SettableSlot> Ab459MakeE() => [Ab459ArrE[0], Ab459ArrE[0]];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

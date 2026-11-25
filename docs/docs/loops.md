@@ -473,9 +473,10 @@ The analyzer follows a value made from the placeholder through the code of your 
   of objects that the analyzer saw made. An `Add` inside a branch or a loop, an `Insert`, and any
   other use of the list or array that can put a value at an index the analyzer does not know, such
   as a `ref` to an element at an index that is not a constant, give no such name. A write through an
-  element of a list or array that the local's declaration made and that had such a use, or through
-  an element at an index that is not a constant, then reaches every read through an object that the
-  analyzer does not know, where the list or array can hold such an object. A name is a local, a
+  element of a local list or array that had such a use, or that the local got from a call, a field,
+  or a second local, or through an element at an index that is not a constant, then reaches every
+  read through an object that the analyzer does not know, where the list or array can hold such an
+  object. A name is a local, a
   parameter, a static field or a static property with no body, a
   field or such a property of the object in a local, a property whose get accessor only returns one
   field and whose set accessor, where it has one, only writes it, the result of a method of yours

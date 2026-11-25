@@ -333,17 +333,15 @@ internal sealed partial class LoopStateEvaluator
         }
     }
 
-    // True for an element of a local collection that its declaration makes. The walk does not know which value went in
-    // at each index: see KeepsItsIndexes. An element at an index that is not a constant is such a use itself. Thus,
-    // the element can be each object that went in, also one that the store does not know.
+    // True for an element of a local collection where the walk does not know which value went in at each index: see
+    // KeepsItsIndexes. A local that gets its collection from a call, a field, or a second local is such a local. An
+    // element at an index that is not a constant is such an element also. Thus, the element can be each object of the
+    // collection, also one that the store does not know.
     private bool IsAnElementWithNoKnownValue(ExpressionSyntax? written) =>
         written != null
         && Unwrapped(written) is ElementAccessExpressionSyntax { Expression: var of }
         && Unwrapped(of) is IdentifierNameSyntax collection
         && this.region.SymbolOf(collection) is ILocalSymbol { RefKind: RefKind.None } local
-        && local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
-            is VariableDeclaratorSyntax { Initializer.Value: var made }
-        && MakesANewCollection(made)
         && !this.KeepsItsIndexes(local);
 
     // True for a local collection that its declaration makes, where the walk knows the index of each value. Each use

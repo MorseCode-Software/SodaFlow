@@ -9225,6 +9225,9 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab458AnAddInABranchOfALocalOfAnUnknownObject"] = ["SF1001"],
             ["Ab458ARefLocalOfACallIndexGivesTheSecondElementADifferentObject"] = ["SF1001"],
             ["Ab195ElementGetsALocalAndARefLocalOfAnUnknownIndexGivesItADifferentObject"] = ["SF1001"],
-            ["Ab458AWriteAtAnIndexThatIsNotAConstant"] = ["SF1001"]
+            ["Ab458AWriteAtAnIndexThatIsNotAConstant"] = ["SF1001"],
+            ["Ab459AListThatAMethodReturns"] = ["SF1001"],
+            ["Ab459AnArrayThatAMethodReturns"] = ["SF1001"],
+            ["Ab459AListFromAStaticField"] = ["SF1001"]
         };
 }
