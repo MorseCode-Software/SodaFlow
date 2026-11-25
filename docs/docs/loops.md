@@ -973,9 +973,11 @@ careful side, so it can report a read that does not throw:
   has a value of its own, and a read through a collection that keeps that local. It does not where
   each `return` of the method gives an object that a `new` in it makes, because each call then gives
   a new object, or where the two calls get two different constants, or two static fields that each
-  keep the object of their own initializer, at one position. A second call in a different method is
-  not seen this way, and neither is a copy that code with no source, such as a library, keeps of a
-  local with a value of its own. The state is shared across the names of one property as well: a
+  keep the object of their own initializer, at one position. A write through a second call in a
+  different method that the block calls reaches such a read too, where the name of the first result
+  has no value of its own. Where it has one, that write is not seen, and neither is a write that a
+  copy keeps, which code with no source, such as a library, makes of a local with a value of its
+  own. The state is shared across the names of one property as well: a
   property of a class and the interface properties that it implements, or two interface properties
   that one property of a class in your project implements. A pending value written through one name
   then reaches a read through another name on the result of any call. The exception is a call of a

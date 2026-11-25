@@ -190,6 +190,19 @@ internal sealed class LoopRegion(
     public Dictionary<ISymbol, bool> HoldersOfFields { get; } = new(SymbolEqualityComparer.Default);
 
     /// <summary>
+    ///     For each object of the store that is the result of a call of a
+    ///     helper that the walk did not read, that call. See
+    ///     LoopStateEvaluator.IsWrittenThroughASecondResult.
+    /// </summary>
+    public Dictionary<MadeObject, InvocationExpressionSyntax> UnreadResults { get; } = [];
+
+    /// <summary>
+    ///     The call of each write to a member through the result of a call of
+    ///     such a helper, or through a local of one.
+    /// </summary>
+    public List<InvocationExpressionSyntax> WritesThroughResults { get; } = [];
+
+    /// <summary>
     ///     For each record of the members of this in code on an object of the
     ///     store, where that record began. See
     ///     LoopStateEvaluator.WrittenThroughASecondNameOfThis.

@@ -64614,6 +64614,26 @@ public static class Shapes
     public static Cell<int> Ab462MapGivenToAReaderWithNoWrite() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab462Class o = new(); Kept.Add(o.MapThenGive(() => Kept.Add(l.Map(v => v)), new Ab462Reader())); return S.Hold(0); });
 
+    // S15681. AB460. A line of a library keeps the result of a call of a helper. A method then gives a pending cell to the result of a second call of the helper. The block reads the last item of the line.
+    public static Cell<int> Ab460ASecondCallInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { ILine<SettableSlot> line = NoBody.Line<SettableSlot>(); SettableSlot s = Ab447Make(2); line.Put(s); Ab460PutThroughMake(l.Map(v => v)); return S.Hold(line.Last().Share!.Sample()); });
+
+    // S15682. AB460, an edge. A local gets the result of a call of a helper. A method then gives a pending cell to the result of a second call of the helper, and the block reads the local.
+    public static Cell<int> Ab460ASecondCallInAMethodThenARead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot s = Ab447Make(2); Ab460PutThroughMake(l.Map(v => v)); return S.Hold(s.Share!.Sample()); });
+
+    // S15683. AB460, an edge. The same with a helper that gives a box with a plain cell. The two calls get the same constant.
+    public static Cell<int> Ab460ASecondCallOfTheSameBoxInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab447Box s = Ab460Box(2); Ab460PutThroughBoxTwo(l.Map(v => v)); return S.Hold(s.Share.Sample()); });
+
+    // S15684. AB460, a control. The same, but the two calls get two different constants, thus they give two different boxes.
+    public static Cell<int> Ab460ASecondCallOfADifferentBoxInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab447Box s = Ab460Box(1); Ab460PutThroughBoxZero(l.Map(v => v)); return S.Hold(s.Share.Sample()); });
+
+    // S15685. AB460, a control. The same as the first edge, but the helper makes a new object at each call.
+    public static Cell<int> Ab460ASecondCallOfAHelperThatMakesInAMethod() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab447Box s = Ab447NewBox(); Ab460PutThroughANewBox(l.Map(v => v)); return S.Hold(s.Share.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119236,6 +119256,18 @@ public static class Shapes
     {
         public int Read(Cell<int> cell) => cell.Sample();
     }
+
+    private static readonly Ab447Box[] Ab460Boxes = [new(), new(), new()];
+
+    private static Ab447Box Ab460Box(int i) => Ab460Boxes[i];
+
+    private static void Ab460PutThroughMake(Cell<int> pending) => Ab447Make(2).Share = pending;
+
+    private static void Ab460PutThroughBoxTwo(Cell<int> pending) => Ab460Box(2).Share = pending;
+
+    private static void Ab460PutThroughBoxZero(Cell<int> pending) => Ab460Box(0).Share = pending;
+
+    private static void Ab460PutThroughANewBox(Cell<int> pending) => Ab447NewBox().Share = pending;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

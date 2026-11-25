@@ -2234,6 +2234,8 @@ internal sealed partial class LoopStateEvaluator
             from: from,
             sure: replaces && isKnown);
 
+        this.NotesAWriteThroughAResult(written);
+
         // A local with ref that keeps its location names that location at each use. The record of the names of one
         // object has the name of the location at this write.
         this.NotesAWriteThroughANameOfOneObject(

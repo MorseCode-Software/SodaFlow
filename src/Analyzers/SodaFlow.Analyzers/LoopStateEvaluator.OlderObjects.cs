@@ -42,6 +42,12 @@ internal sealed partial class LoopStateEvaluator
         {
             this.region.NotesOlderObjects(made.Objects);
         }
+        else if (call is InvocationExpressionSyntax unread
+                 && this.region.SymbolOf(call) is IMethodSymbol helper
+                 && !this.region.Symbols.MakesItsResult(helper.OriginalDefinition))
+        {
+            this.NotesAnUnreadResult(call: unread, made: made);
+        }
 
         return made;
     }
@@ -134,6 +140,6 @@ internal sealed partial class LoopStateEvaluator
     /// </remarks>
     private bool ReadsAnOlderObject(LoopState owner, ISymbol member, LoopState field) =>
         !field.IsNone
-        && owner.Objects.Any(this.region.IsAnOlderObject)
+        && (owner.Objects.Any(this.region.IsAnOlderObject) || this.IsWrittenThroughASecondResult(owner))
         && owner.Members?.Has(member) != true;
 }
