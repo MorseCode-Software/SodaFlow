@@ -142,7 +142,10 @@ internal sealed partial class LoopReadAnalyzerTests
         "Ab468ALambdaGivesTheSecondFieldANewList",
         // The same with a method that gets the pending cell. A call can be in a branch that does not run. Thus, a link
         // of two fields stays where a callee gives one of them a different value.
-        "Ab468AMethodGivesTheSecondFieldANewList"
+        "Ab468AMethodGivesTheSecondFieldANewList",
+        // A local function can run before its position in the code. Thus, the new list that the field gets before the
+        // call does not stop the record of the put through the local. A read of the field gets the put.
+        "Ab469TheFieldGetsANewListBeforeTheLocalFunctionRuns"
     ];
 
     private static readonly Assembly[] ShapeLibraries =

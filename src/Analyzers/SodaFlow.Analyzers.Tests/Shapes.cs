@@ -65034,6 +65034,126 @@ public static class Shapes
     public static Cell<int> Ab468ADifferentObjectGetsANewList() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab468Holder one = new(); Ab468Holder two = new(); one.Others = one.Items; two.Items = [Plain]; one.Others.Add(l.Map(v => v)); return S.Hold(one.Items[^1].Sample()); });
 
+    // S15786. AB469. A local gets the list of a static field. A lambda adds a pending cell through the local, and the code calls the lambda and samples the last element of the field.
+    public static Cell<int> Ab469AnAddInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => xs.Add(l.Map(v => v)); add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15787. AB469. The same, but a local function adds the pending cell.
+    public static Cell<int> Ab469AnAddInALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; void Add() => xs.Add(l.Map(v => v)); Add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15788. AB469. The same as the first shape, but the lambda puts the pending cell into the first element. The code samples the first element of the field.
+    public static Cell<int> Ab469APutAtAnIndexInALambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action put = () => xs[0] = l.Map(v => v); put(); return S.Hold(Ab469List[0].Sample()); });
+
+    // S15789. AB469. The same, but a local function puts the pending cell into the first element.
+    public static Cell<int> Ab469APutAtAnIndexInALocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; void Put() => xs[0] = l.Map(v => v); Put(); return S.Hold(Ab469List[0].Sample()); });
+
+    // S15790. AB469. The same as the first shape, but the lambda has a block body.
+    public static Cell<int> Ab469AnAddInALambdaWithABlock() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { xs.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15791. AB469. The same as the first shape, but a method of the code gets the lambda and calls it.
+    public static Cell<int> Ab469AnAddInALambdaThatAMethodRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Ab469Run(() => xs.Add(l.Map(v => v))); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15792. AB469. The same as the first shape, but a lambda in the lambda adds the pending cell.
+    public static Cell<int> Ab469AnAddInANestedLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { Action inner = () => xs.Add(l.Map(v => v)); inner(); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15793. AB469. The same as the first shape, but the lambda gives the local a new list after the add.
+    public static Cell<int> Ab469TheLambdaGivesTheLocalANewListAfterTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { xs.Add(l.Map(v => v)); xs = [Plain]; }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15794. AB469. The code makes the lambda before the local gets the list of the field. Then the code calls the lambda.
+    public static Cell<int> Ab469ALambdaMadeBeforeTheLocalGetsTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = [Plain]; Action add = () => xs.Add(l.Map(v => v)); xs = Ab469List; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15795. AB469. The code calls a local function, samples the field, and then gives the local a new list. The local function comes after that code.
+    public static Cell<int> Ab469ALocalFunctionRunsBeforeTheLocalGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Add(); int first = Ab469List[^1].Sample(); xs = [Plain]; return S.Hold(first); void Add() => xs.Add(l.Map(v => v)); });
+
+    // S15796. AB469. The code calls a local function, samples the field, and then gives the field a new list. The local function comes after that code.
+    public static Cell<int> Ab469ALocalFunctionRunsBeforeTheFieldGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Add(); int first = Ab469List[^1].Sample(); Ab469List = [Plain]; return S.Hold(first); void Add() => xs.Add(l.Map(v => v)); });
+
+    // S15797. AB469, a control. The same as the first shape, but the code does not call the lambda.
+    public static Cell<int> Ab469ALambdaThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => xs.Add(l.Map(v => v)); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15798. AB469, a control. The same as the first shape, but the field gets a new list before the code makes the lambda.
+    public static Cell<int> Ab469TheFieldGetsANewListBeforeTheLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Ab469List = [Plain]; Action add = () => xs.Add(l.Map(v => v)); add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15799. AB469, a control. The same as the first shape, but the field gets a new list in the lambda before the add.
+    public static Cell<int> Ab469TheFieldGetsANewListInTheLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { Ab469List = [Plain]; xs.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15800. AB469, a control. The same as the second shape, but the field gets a new list in the local function before the add.
+    public static Cell<int> Ab469TheFieldGetsANewListInTheLocalFunction() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; void Add() { Ab469List = [Plain]; xs.Add(l.Map(v => v)); } Add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15801. AB469, a control. The same as the first shape, but the lambda gives the local a new list before the add.
+    public static Cell<int> Ab469TheLambdaGivesTheLocalANewListBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { xs = [Plain]; xs.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15802. AB469, a control. The same as the second shape, but the local function gives the local a new list before the add.
+    public static Cell<int> Ab469TheLocalFunctionGivesTheLocalANewListBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; void Add() { xs = [Plain]; xs.Add(l.Map(v => v)); } Add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15803. AB469, a control. The same as the first shape, but the local gets a new list before the code makes the lambda.
+    public static Cell<int> Ab469TheLocalGetsANewListBeforeTheLambda() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; xs = [Plain]; Action add = () => xs.Add(l.Map(v => v)); add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15804. AB469, a control. The same as the first shape, but the lambda adds a plain cell.
+    public static Cell<int> Ab469ALambdaAddsAPlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => xs.Add(Plain); add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15805. AB469, a control. The same as the first shape, but the code samples the field before it calls the lambda.
+    public static Cell<int> Ab469TheLambdaRunsAfterTheRead() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => xs.Add(l.Map(v => v)); int first = Ab469List[^1].Sample(); add(); return S.Hold(first); });
+
+    // S15806. AB469, a report on the careful side. The same as the second shape, but the field gets a new list before the code calls the local function.
+    public static Cell<int> Ab469TheFieldGetsANewListBeforeTheLocalFunctionRuns() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Ab469List = [Plain]; Add(); return S.Hold(Ab469List[^1].Sample()); void Add() => xs.Add(l.Map(v => v)); });
+
+    // S15807. AB469. A lambda gives a local the list of a static field and adds a pending cell through the local. The code calls the lambda and samples the last element of the field.
+    public static Cell<int> Ab469ALambdaReadsTheFieldAndAdds() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; Action add = () => { List<Cell<int>> ys = Ab469List; ys.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15808. AB469, a control. The same, but the lambda gives the field a new list after the read and before the add.
+    public static Cell<int> Ab469ALambdaReadsTheFieldAndGivesItANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; Action add = () => { List<Cell<int>> ys = Ab469List; Ab469List = [Plain]; ys.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15809. AB469, a control. The same as the first shape, but the local gets a new list through an out argument before the code makes the lambda.
+    public static Cell<int> Ab469TheLocalGetsANewListThroughAnOutArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Ab469Fresh(out xs); Action add = () => xs.Add(l.Map(v => v)); add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15810. AB469. A method gives a second object the list field of this and reads that field of the second object into a local. The second object then gets a new list. A lambda adds a pending cell through the local, and the method samples the field of this.
+    public static Cell<int> Ab469ASecondObjectGetsANewListBeforeALambdaAdds() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab469Holder().AddInALambda(l.Map(v => v))));
+
+    // S15811. AB469, a control. The same as the first shape, but the lambda gives the local a new list through an out argument before the add.
+    public static Cell<int> Ab469TheLambdaGivesTheLocalANewListThroughAnOutArgument() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = Ab469List; Action add = () => { Ab469Fresh(out xs); xs.Add(l.Map(v => v)); }; add(); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15812. AB469. A lambda gives a local the list of a static field. The code calls the lambda, adds a pending cell through the local, and samples the last element of the field.
+    public static Cell<int> Ab469ALambdaGivesTheLocalTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = [Plain]; Action get = () => xs = Ab469List; get(); xs.Add(l.Map(v => v)); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15813. AB469. The same, but a local function gives the local the list.
+    public static Cell<int> Ab469ALocalFunctionGivesTheLocalTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = [Plain]; void Get() => xs = Ab469List; Get(); xs.Add(l.Map(v => v)); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15814. AB469, a control. The same as the first shape, but the code gives the local a new list after the call.
+    public static Cell<int> Ab469TheLocalGetsANewListAfterTheLambdaGivesItTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = [Plain]; Action get = () => xs = Ab469List; get(); xs = [Plain]; xs.Add(l.Map(v => v)); return S.Hold(Ab469List[^1].Sample()); });
+
+    // S15815. AB469. One lambda gives a local the list of a static field, and a second lambda adds a pending cell through the local. The code calls the two lambdas and samples the last element of the field.
+    public static Cell<int> Ab469TwoLambdasGiveTheListAndAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab469List = [Plain]; List<Cell<int>> xs = [Plain]; Action get = () => xs = Ab469List; Action add = () => xs.Add(l.Map(v => v)); get(); add(); return S.Hold(Ab469List[^1].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -120146,6 +120266,29 @@ public static class Shapes
     private static void Ab468RenewWith(Cell<int> cell) => Ab468Other = [Plain];
 
     private static void Ab468PutInto(Cell<int> cell) => Ab468Array[0] = cell;
+
+    private static List<Cell<int>> Ab469List = [Plain];
+
+    private static void Ab469Run(Action run) => run();
+
+    private static void Ab469Fresh(out List<Cell<int>> xs) => xs = [Plain];
+
+    public sealed class Ab469Holder
+    {
+        public List<Cell<int>> Items = [Plain];
+
+        public int AddInALambda(Cell<int> pending)
+        {
+            Ab469Holder second = new();
+            second.Items = this.Items;
+            List<Cell<int>> xs = second.Items;
+            second.Items = [Plain];
+            Action add = () => xs.Add(pending);
+            add();
+
+            return this.Items[^1].Sample();
+        }
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

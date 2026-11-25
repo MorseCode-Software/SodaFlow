@@ -110,10 +110,17 @@ internal sealed partial class LoopStateEvaluator
             return true;
         }
 
-        if (FunctionOf(location) is not { } code
-            || FunctionOf(use) != code
-            || location.Span.End > use.SpanStart
-            || this.LocationKeyOf(location) is not { } key
+        if (FunctionOf(location) is not { } code || this.LocationKeyOf(location) is not { } key)
+        {
+            return false;
+        }
+
+        if (FunctionOf(use) != code)
+        {
+            return this.StillHasTheValueInAFunction(local: local, location: location, use: use, code: code, key: key);
+        }
+
+        if (location.Span.End > use.SpanStart
             || this.GetsAValue(
                 name: local,
                 code: code,
@@ -124,13 +131,18 @@ internal sealed partial class LoopStateEvaluator
             return false;
         }
 
-        return code.DescendantNodes(TextSpan.FromBounds(start: code.SpanStart, end: location.SpanStart))
-                   .OfType<AssignmentExpressionSyntax>()
-                   .Any(assignment => assignment.Span.End <= location.SpanStart
-                                      && this.IsAnAssignmentTo(assignment: assignment, key: key)
-                                      && !IsANewObject(assignment.Right))
+        return this.GetsASecondNameBefore(code: code, read: location, key: key)
                || !this.GetsANewObjectBetween(code: code, key: key, read: location, use: use);
     }
+
+    // True when code before a read gives the location a value that is not a new object. A different name can have
+    // that value.
+    private bool GetsASecondNameBefore(SyntaxNode code, SyntaxNode read, (ISymbol Of, ISymbol? Owner, int Index) key) =>
+        code.DescendantNodes(TextSpan.FromBounds(start: code.SpanStart, end: read.SpanStart))
+            .OfType<AssignmentExpressionSyntax>()
+            .Any(assignment => assignment.Span.End <= read.SpanStart
+                               && this.IsAnAssignmentTo(assignment: assignment, key: key)
+                               && !IsANewObject(assignment.Right));
 
     // True when a statement gives the location a new object between a read and a use, and always runs there. The
     // statement is in a block around the use, with no loop between the block and the use.

@@ -468,16 +468,21 @@ The analyzer follows a value made from the placeholder through the code of your 
   between the two, such as `Items = [];`, also stops it, unless the code gave the field the list of
   a different name before the read, as in `second.Items = this.Items`. The old list then still has
   that name, and a read through the field sees the put. This holds for a field of a second object
-  too, also where a method of that object gives it a new list. A second field that got the same list
-  or array through an assignment, as in `B = A;`, sees such a put too, and a read through `A` sees a
-  put through `B` itself, at an index or with `Add`, `Insert`, or `AddRange`. The assignment can be
-  in a lambda or a method of yours that the analyzer follows, and the value can come through a
-  local, a method that returns the field, a conditional expression, or `??`. The two fields stay
-  joined until a statement of the block that always runs gives one of them a different value, and
-  only where that field is static. A field of an object, or a static field that a lambda or a method
-  gives a new list, stays joined, which can give a report for a read that does not throw. An
-  assignment in a method that the analyzer does not follow, such as one that gets nothing from the
-  block, is not seen.
+  too, also where a method of that object gives it a new list. The put can be in a lambda or a local
+  function that the code calls, and so can the read of the field into the local. Where the read is
+  in the code around the function of the put, a new list stops the put when it comes before the put
+  in that function, or, for a lambda, between the read and the lambda. A local function can run
+  before its place in the code, so a new list outside it does not stop the put. Where a different
+  function made the read, no new list stops the put. Both can give a report for a read that does not
+  throw. A second field that got the same list or array through an assignment, as in `B = A;`, sees
+  such a put too, and a read through `A` sees a put through `B` itself, at an index or with `Add`,
+  `Insert`, or `AddRange`. The assignment can be in a lambda or a method of yours that the analyzer
+  follows, and the value can come through a local, a method that returns the field, a conditional
+  expression, or `??`. The two fields stay joined until a statement of the block that always runs
+  gives one of them a different value, and only where that field is static. A field of an object, or
+  a static field that a lambda or a method gives a new list, stays joined, which can give a report
+  for a read that does not throw. An assignment in a method that the analyzer does not follow, such
+  as one that gets nothing from the block, is not seen.
 - Names of one object. Where one name gets its object from another, as in `a[0] = d`,
   `box.Slot = Shared`, `var slots = SharedSlots`, or `list.Add(d)`, the two are names of one object
   from there. An array or list literal that a local or a field gets, such as `a = [d, d]` or

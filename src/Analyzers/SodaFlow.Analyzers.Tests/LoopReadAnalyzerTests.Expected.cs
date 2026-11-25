@@ -9274,6 +9274,23 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab468AMethodInABranchGivesTheSecondFieldANewList"] = ["SF1001"],
             ["Ab468AMethodGivesTheSecondFieldANewList"] = ["SF1001"],
             ["Ab468AMethodPutsThroughTheFirstFieldAndTheCodeReadsALocal"] = ["SF1001"],
-            ["Ab468ADifferentObjectGetsANewList"] = ["SF1001"]
+            ["Ab468ADifferentObjectGetsANewList"] = ["SF1001"],
+            ["Ab469AnAddInALambda"] = ["SF1001"],
+            ["Ab469AnAddInALocalFunction"] = ["SF1001"],
+            ["Ab469APutAtAnIndexInALambda"] = ["SF1001"],
+            ["Ab469APutAtAnIndexInALocalFunction"] = ["SF1001"],
+            ["Ab469AnAddInALambdaWithABlock"] = ["SF1001"],
+            ["Ab469AnAddInALambdaThatAMethodRuns"] = ["SF1001"],
+            ["Ab469AnAddInANestedLambda"] = ["SF1001"],
+            ["Ab469TheLambdaGivesTheLocalANewListAfterTheAdd"] = ["SF1001"],
+            ["Ab469ALambdaMadeBeforeTheLocalGetsTheList"] = ["SF1001"],
+            ["Ab469ALocalFunctionRunsBeforeTheLocalGetsANewList"] = ["SF1001"],
+            ["Ab469ALocalFunctionRunsBeforeTheFieldGetsANewList"] = ["SF1001"],
+            ["Ab469TheFieldGetsANewListBeforeTheLocalFunctionRuns"] = ["SF1001"],
+            ["Ab469ALambdaReadsTheFieldAndAdds"] = ["SF1001"],
+            ["Ab469ASecondObjectGetsANewListBeforeALambdaAdds"] = ["SF1004"],
+            ["Ab469ALambdaGivesTheLocalTheList"] = ["SF1001"],
+            ["Ab469ALocalFunctionGivesTheLocalTheList"] = ["SF1001"],
+            ["Ab469TwoLambdasGiveTheListAndAdd"] = ["SF1001"]
         };
 }

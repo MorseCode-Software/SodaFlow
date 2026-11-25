@@ -412,7 +412,6 @@ internal sealed partial class LoopStateEvaluator
         this.Frame.GaveTo.Remove(local);
 
         if (replaces
-            && this.function == null
             && local is ILocalSymbol { RefKind: RefKind.None }
             && this.LocationKeyOf(value) != null
             && this.region.TypeOf(value) is { } type
