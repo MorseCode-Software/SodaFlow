@@ -2509,6 +2509,13 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
             target = around.Expression;
         }
 
+        // No name holds the new array of a range of an array. Thus, no read can see a put into it.
+        if (target is ElementAccessExpressionSyntax { Expression: var copy }
+            && this.evaluator.IsANewArrayOfARange(copy))
+        {
+            return;
+        }
+
         // A conditional ref is the location of one of its two branches, and the walk does not know which.
         if (target is ConditionalExpressionSyntax
             {

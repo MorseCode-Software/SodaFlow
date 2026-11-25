@@ -378,7 +378,9 @@ The analyzer follows a value made from the placeholder through the code of your 
   inside a list pattern knows the positions of the inner collection wherever a read such as
   `cells[0][1]` knows them, also after a write through two indexes or through a second name of the
   inner collection. Otherwise, it gives each of its variables every element of the inner collection.
-  An element of a range with constant bounds, as `cells[1..][0]`, is one element too. An array in a
+  An element of a range with constant bounds, as `cells[1..][0]`, is one element too. A range of an
+  array is a new array, so a value put into it, as in `cells[1..][0] = value`, does not reach
+  `cells`, while a write to a member of one of its elements does. An array in a
   static field keeps each element apart from a value that the code puts in at a constant index, as
   in `Cells[1] = value`, also in a method that the block calls, so a read of `Cells[0]` does not get
   that value. A value put in at any other index reaches every element. Each element of a `private`
@@ -398,7 +400,7 @@ The analyzer follows a value made from the placeholder through the code of your 
   whole array moves each element to the other end. A `Span<T>`, `ReadOnlySpan<T>`, `Memory<T>`,
   `ReadOnlyMemory<T>`, or `ArraySegment<T>` that a method makes from an array in one of its locals
   or parameters, with an implicit conversion, `AsSpan`, `AsMemory`, a constructor, `Slice`, or a
-  range, is another name for the elements of that array, as long as neither name gets a second
+  range of such a view, is another name for the elements of that array, as long as neither name gets a second
   value. That holds as well where the code makes the view and writes through it in one expression,
   as in `cells.AsSpan(1)[0] = value`. `Fill`, a write to an element, through a `ref` local of an
   element, or through the `ref` variable of a `foreach` over the view, and `CopyTo` into it put

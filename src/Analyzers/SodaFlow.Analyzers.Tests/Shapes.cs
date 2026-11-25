@@ -63990,6 +63990,38 @@ public static class Shapes
     public static Cell<int> Ab446AQueryFourTuplesDeepDoesNotRun() =>
         Cell.Loop<int>().WithoutCaptures(l => { IEnumerable<int> q = new[] { l.Map(v => v) }.Select(c => c.Sample()); var t = Tuple.Create(Tuple.Create(Tuple.Create(Tuple.Create(q)))); Kept.Add(t); return S.Hold(0); });
 
+    // S15525. AB444: a range of an array is a new array. A put into it in the same expression does not change the array.
+    public static Cell<int> Ab444ARangeOfAnArrayWritesACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; a[1..][0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S15526. AB444: the same with a range that has an end.
+    public static Cell<int> Ab444ARangeWithAnEndOfAnArrayWritesACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain, Plain]; a[1..2][0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S15527. AB444: the same with an array in a static field.
+    public static Cell<int> Ab444ARangeOfAStaticArrayWritesACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab444Cells[1] = Plain; Ab444Cells[1..][0] = l.Map(v => v); return S.Hold(Ab444Cells[1].Sample()); });
+
+    // S15528. AB444: a local gets a range of an array. A put into the local does not change the array.
+    public static Cell<int> Ab444ALocalOfARangeOfAnArrayIsACopy() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; Cell<int>[] b = a[1..]; b[0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S15529. AB444: a range of an array holds the objects of the array. A write to a member through an element of the range changes the object in the array.
+    public static Cell<int> Ab444AMemberWriteThroughARangeOfAnArrayChangesTheObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot[] a = [new SettableSlot { Share = Plain }, new SettableSlot { Share = Plain }]; a[1..][0].Share = l.Map(v => v); return S.Hold(a[1].Share!.Sample()); });
+
+    // S15530. AB444: a range of a span is a view of the array. A put into it changes element 1 of the array.
+    public static Cell<int> Ab444ARangeOfASpanWritesTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; a.AsSpan()[1..][0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S15531. AB444: a range of a memory is a view of the array. A put through its span changes element 1 of the array.
+    public static Cell<int> Ab444ARangeOfAMemoryWritesTheArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[] a = [Plain, Plain]; a.AsMemory()[1..].Span[0] = l.Map(v => v); return S.Hold(a[1].Sample()); });
+
+    // S15532. AB444: a range of an array of arrays holds the inner arrays. A put into an inner array through the range changes the inner array.
+    public static Cell<int> Ab444APutIntoAnInnerArrayThroughARangeChangesIt() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Cell<int>[][] a = [[Plain], [Plain]]; a[1..][0][0] = l.Map(v => v); return S.Hold(a[1][0].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -117993,6 +118025,8 @@ public static class Shapes
 
         public Ab445Holder(SettableSlot slot) => this.Slot = slot;
     }
+
+    private static readonly Cell<int>[] Ab444Cells = [Plain, Plain];
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {

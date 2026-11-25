@@ -9093,6 +9093,10 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab445AStructOfThisCodeHoldsTheObject"] = ["SF1001"],
             ["Ab446AQueryFourTuplesDeepRuns"] = ["SF1001"],
             ["Ab446AQuerySixTuplesDeepRuns"] = ["SF1001"],
-            ["Ab446AQueryInAListFourLevelsDeepRuns"] = ["SF1001"]
+            ["Ab446AQueryInAListFourLevelsDeepRuns"] = ["SF1001"],
+            ["Ab444AMemberWriteThroughARangeOfAnArrayChangesTheObject"] = ["SF1001"],
+            ["Ab444ARangeOfASpanWritesTheArray"] = ["SF1001"],
+            ["Ab444ARangeOfAMemoryWritesTheArray"] = ["SF1001"],
+            ["Ab444APutIntoAnInnerArrayThroughARangeChangesIt"] = ["SF1001"]
         };
 }
