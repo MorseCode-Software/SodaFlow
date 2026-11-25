@@ -9,7 +9,7 @@ of its own, and ExcludeAssets="analyzers" on the reference removes it. It needs 
 of Visual Studio 2022 17.8, or a later one. An earlier compiler does not run it and gives warning CS9057, which fails a
 build that treats warnings as errors, so a project on such a compiler removes the analyzer as above. F# is not covered,
 because a Roslyn analyzer runs in the C# compiler only. The loops page describes the rules, the mark that silences the
-escape, and what the analyzer does not see.
+escape, and the common cases that the analyzer does not report.
 
 Added: rule SF2001 in the same analyzer, a warning. It reports a call to Listen or ListenOnce whose listener nothing
 holds: a statement of the call alone, a discard, or a local that no later code reads. Such a listener stops at a garbage
