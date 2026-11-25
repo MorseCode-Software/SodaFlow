@@ -71,15 +71,8 @@ internal sealed partial class LoopStateEvaluator
             return false;
         }
 
-        for (int i = 0; i < first.Count; i++)
-        {
-            if (this.Differ(one: first[i].Expression, other: second[i].Expression))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return !first.Where((argument, at) => this.Differ(one: argument.Expression, other: second[at].Expression))
+            .Any();
 
         static string? NameOfTheCallee(InvocationExpressionSyntax call) =>
             call.Expression switch

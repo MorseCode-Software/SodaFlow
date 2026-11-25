@@ -614,20 +614,14 @@ internal sealed partial class LoopStateEvaluator
         }
 
         ISymbol definition = member.OriginalDefinition;
-        LoopState found = LoopState.None;
 
-        foreach (NamesOfOneObject one in this.Frame.NamesOfOneObject)
-        {
-            if (one.ThroughASecondName.Count > 0
+        return this.Frame.NamesOfOneObject
+            .Where(one =>
+                one.ThroughASecondName.Count > 0
                 && one.Names.Any(each => this.IsTheName(name: each, read: name, use: read.Expression)))
-            {
-                found = one.ThroughASecondName
-                    .Where(each => SymbolEqualityComparer.Default.Equals(x: each.Member, y: definition))
-                    .Aggregate(seed: found, func: static (all, each) => all.Join(each.State));
-            }
-        }
-
-        return found;
+            .SelectMany(static one => one.ThroughASecondName)
+            .Where(each => SymbolEqualityComparer.Default.Equals(x: each.Member, y: definition))
+            .Aggregate(seed: LoopState.None, func: static (all, each) => all.Join(each.State));
     }
 
     // The position of the creation that made the object of an expression. The expression is the

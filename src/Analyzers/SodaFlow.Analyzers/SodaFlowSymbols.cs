@@ -1235,7 +1235,7 @@ internal sealed class SodaFlowSymbols
 
     // A local function or a lambda in the body has returns of its own. A local that gets a creation in
     // its declaration, and no other value, gives the object of that creation.
-    private static bool ReturnsOnlyCreations(IMethodSymbol method)
+    private static bool ReturnsOnlyCreations(ISymbol method)
     {
         if (method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not MethodDeclarationSyntax declared)
         {
@@ -1288,9 +1288,9 @@ internal sealed class SodaFlowSymbols
 
     // True for a use of a name that can give it a value: the target of an assignment, or an argument
     // with ref or out.
-    private static bool IsGiven(IdentifierNameSyntax use) =>
-        use.Parent is AssignmentExpressionSyntax { Left: var target } && target == use
-        || use.Parent is ArgumentSyntax argument && !argument.RefKindKeyword.IsKind(SyntaxKind.None);
+    private static bool IsGiven(SyntaxNode use) =>
+        (use.Parent is AssignmentExpressionSyntax { Left: var target } && target == use)
+        || (use.Parent is ArgumentSyntax argument && !argument.RefKindKeyword.IsKind(SyntaxKind.None));
 
     /// <summary>
     ///     True for a method that has a parameter whose type is a delegate. Most

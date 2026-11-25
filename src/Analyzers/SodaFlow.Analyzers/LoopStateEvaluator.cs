@@ -4055,6 +4055,10 @@ internal sealed partial class LoopStateEvaluator
     ///     The expression of the value at a first read, for a value in a member.
     ///     The function then reads the members of the object of the read.
     /// </param>
+    /// <param name="withTheMembersNow">
+    ///     True when the walk gave the function the members that the store has
+    ///     now before this call: see WithTheMembersAtTheRead.
+    /// </param>
     private Followed? FollowFunction(
         SyntaxNode call,
         string name,
