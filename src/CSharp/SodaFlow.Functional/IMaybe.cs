@@ -29,8 +29,9 @@ public interface IMaybe
     /// <remarks>
     ///     This calls one function of the two, and it calls that function before this
     ///     method returns.
-    ///     This is the primitive that expresses all the other members of the
-    ///     interface.
+    ///     Each other member of the interface agrees with this method. An
+    ///     implementation can read its value in those members, and not call this
+    ///     method.
     /// </remarks>
     T Match<T>(
         [InstantHandle] Func<object?, T> onSome,
@@ -70,8 +71,9 @@ public interface IMaybe
     /// <remarks>
     ///     Only the selected function runs. The task from this call is its task, and
     ///     not a wrapper.
-    ///     Thus, a failure shows as a fault on that task, and not as an exception from
-    ///     this call.
+    ///     Thus, a function that throws before it gives a task throws from this call.
+    ///     A failure after that, as in an <c>async</c> function, shows as a fault on
+    ///     that task.
     /// </remarks>
     Task<T> MatchAsync<T>(
         [InstantHandle] Func<object?, Task<T>> onSome,

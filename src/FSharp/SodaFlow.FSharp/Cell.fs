@@ -349,8 +349,8 @@ let lift8 f (cell: Cell<_>, cell2, cell3, cell4, cell5, cell6, cell7, cell8) =
 /// <param name="cell">The cell to calm.</param>
 /// <returns>A cell which updates only when the value actually changed.</returns>
 /// <remarks>
-///     A suppressed update is not a missing update. The cell takes the new value, and the next
-///     comparer call reads the last value that the cell published.
+///     This code compares each value with the last value that the cell sent. A suppressed update
+///     does not change the cell, thus the cell keeps that last value.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let calmWithCompare compare (cell: Cell<_>) = cell.CalmImpl(Func<_, _, _> compare)
@@ -363,8 +363,8 @@ let calmWithCompare compare (cell: Cell<_>) = cell.CalmImpl(Func<_, _, _> compar
 /// <param name="cell">The cell to calm.</param>
 /// <returns>A cell which updates only when the value actually changed.</returns>
 /// <remarks>
-///     A suppressed update is not a missing update. The cell takes the new value, and the next
-///     comparer call reads the last value that the cell published.
+///     This code compares each value with the last value that the cell sent. A suppressed update
+///     does not change the cell, thus the cell keeps that last value.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let calmWithEqualityComparer (equalityComparer: IEqualityComparer<_>) (cell: Cell<_>) =
@@ -376,8 +376,8 @@ let calmWithEqualityComparer (equalityComparer: IEqualityComparer<_>) (cell: Cel
 /// <param name="cell">The cell to calm.</param>
 /// <returns>A cell which updates only when the value actually changed.</returns>
 /// <remarks>
-///     A suppressed update is not a missing update. The cell takes the new value, and the next
-///     comparer call reads the last value that the cell published.
+///     This code compares each value with the last value that the cell sent. A suppressed update
+///     does not change the cell, thus the cell keeps that last value.
 ///
 ///     Uses <c>=</c>, so for a type without meaningful structural equality use
 ///     the alternative <c>calmWithCompare</c>.

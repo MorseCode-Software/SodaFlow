@@ -10,7 +10,7 @@
 # running it after them was costing its whole duration in wall clock for no reason.
 #
 # The price is that both jobs compile the solution, because there is no cheap way to hand a built
-# tree between jobs: the obj and bin trees for 23 projects across three frameworks are large, and
+# tree between jobs: the obj and bin trees of every project across every framework are large, and
 # uploading and downloading them costs more than the compile it saves. Two builds on two machines at
 # once is the trade, and on a public repository the minutes are free while the wall clock is not.
 #
@@ -65,7 +65,7 @@ on:
 # The floor every job starts from. Naming one permission drops every other to none, so the read that
 # checkout needs is spelled out rather than inherited, and the two jobs that need more say so
 # themselves. Nothing here grants security-events or id-token: those belong to one job each, and a
-# permission granted at this level would be held by all three.
+# permission granted at this level would be held by every job.
 permissions:
   contents: read
 
@@ -100,8 +100,8 @@ jobs:
   # that will never report - so any rename here has to be paired with a ruleset change.
   build:
     name: Build
-    # Windows because src targets net472 alongside net6.0 and netstandard2.0, and the test projects
-    # target net472 alongside net10.0. The .NET Framework reference assemblies come from a package
+    # Windows because src targets net472 alongside net6.0, net8.0, and netstandard2.0, and the test
+    # projects target net472 alongside net10.0. The .NET Framework reference assemblies come from a package
     # rather than an installed targeting pack - see src/Directory.Build.props - so this is a choice
     # about running the net472 tests, not about being able to build them.
     runs-on: windows-latest
@@ -224,7 +224,7 @@ jobs:
       #
       # Get-ChildItem without -Recurse, and that is load-bearing rather than tidy: the collector
       # writes every report twice, once here and once under a machine-and-timestamp directory in the
-      # layout VSTest used. The two copies are byte for byte identical - 22 reports become 44 - so
+      # layout VSTest used. The two copies are byte for byte identical - each report is there twice - so
       # recursing would submit every one of them twice. build.cake globs the same way where it checks
       # that any were produced.
       #
@@ -388,7 +388,7 @@ jobs:
       # The same target the build job runs, and the reason this job exists in this shape at all:
       # inspectcode is invoked with --no-build, so something has to have compiled the solution in
       # this workspace first. Handing the built tree over from the other job instead would mean
-      # uploading and downloading the obj and bin trees of 23 projects across three frameworks,
+      # uploading and downloading the obj and bin trees of every project across every framework,
       # which costs more than the compile it saves.
       - name: Build
         run: dotnet cake --target=Build --configuration=${{ env.CONFIGURATION }}

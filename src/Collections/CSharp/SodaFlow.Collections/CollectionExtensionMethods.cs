@@ -46,10 +46,12 @@ public static class CollectionExtensionMethods
     /// <returns>A cell tracking that key's state.</returns>
     /// <remarks>
     ///     <para>
-    ///         The cost is low, thus code can make one for each bound view. It filters
-    ///         on one hash lookup and does not read the other items. A weak cache
-    ///         holds one for each key, thus N observers of one key share a node, and
-    ///         two views of the same root give the same cell.
+    ///         The cost is low, thus code can make one for each bound view. It gets
+    ///         only the changes that name its key, and it does not read the other
+    ///         items. Each collection and each view keeps a weak cache of these
+    ///         cells, one for each key. Thus, N observers of one key through one view
+    ///         share a cell. Two views give two cells, because each view answers for
+    ///         its own members.
     ///     </para>
     ///     <para>
     ///         The key can be missing now. A removal sends no value, and a subsequent
@@ -57,11 +59,11 @@ public static class CollectionExtensionMethods
     ///         key can continue after the item.
     ///     </para>
     ///     <para>
-    ///         This answers for the store and not for the members of a view. A read of
-    ///         a filtered view for a key that its filter removed gives the state of
-    ///         that item.
+    ///         This answers for the members of the collection that it reads. A read
+    ///         of a filtered view for a key that its filter removed gives no value.
+    ///         The cell gets a value again when the key comes into the view.
     ///         <see cref="ReactiveCollection{TKey,TIdentity,TState}.KeysCell" />
-    ///         answers for the members.
+    ///         gives the members in their order.
     ///     </para>
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]

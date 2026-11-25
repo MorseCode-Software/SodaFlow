@@ -104,8 +104,11 @@ wrapper — `SodaFlow` and `SodaFlow.FSharp`, and the async, bindable, and colle
 uses the internals of `SodaFlow.Core`, so a change to those internals binds it to one particular
 core even when no public API moved. Upgrade a wrapper and the core packages under it together.
 When a change binds the wrappers to a new core, the whole group takes a major version together.
-A wrapper's NuGet dependency is a minimum version rather than a range, so nothing but that version
-number stops an old wrapper being resolved against a newer core.
+A package depends on each package of this repository from the version it was built against up to,
+but not including, that package's next major, so a wrapper built against 6.1.0 of a dependency
+declares `[6.1.0, 7.0.0)`. NuGet never resolves past that bound on its own. A project that
+references a newer major directly still gets it, with warning NU1608, which a build that treats
+warnings as errors fails on.
 
 ## Supported frameworks
 

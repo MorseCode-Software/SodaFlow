@@ -6,11 +6,12 @@
              sharply between them. Benchmarks declare the runtimes they run on as jobs, so a
              single run reports each; this pair is what those jobs are built from.
 
-             Not net6.0, for the reason it never was: a project reference resolves to the
-             libraries' net6.0 assets whatever the modern target here is, so the assembly measured
-             is the one a consumer gets either way, while the runtime running it is one still in
-             support. Targeting net6.0 here costs six warnings - its own end-of-life notice, and
-             BenchmarkDotNet's dependencies declining to claim support for it.
+             Not net6.0. A project reference resolves to the nearest target of each library,
+             which for net10.0 here is net8.0, so the net10.0 jobs measure the net8.0 build - the
+             one a consumer on .NET 8 or later gets - and the net6.0 build of the libraries is not
+             benchmarked. A net6.0 target here would measure it, but it costs six warnings - its
+             own end-of-life notice, and BenchmarkDotNet's dependencies declining to claim support
+             for it.
 
              net10.0 rather than the net8.0 this was, and the reason is entirely about the build
              rather than the measurement: net10.0 is what global.json pins and what every test

@@ -17,7 +17,7 @@ namespace SodaFlow.Benchmarks;
 ///         obviously correct, and it does all of that work again for each edit.
 ///         The size of the edit makes no difference. The version here is the
 ///         charitable one. The items live in an immutable dictionary, thus the
-///         edit itself is <c>O(log32 n)</c> and not a copy of the full list. That
+///         edit itself is <c>O(log n)</c> and not a copy of the full list. That
 ///         leaves the re-derivation as the thing this measures.
 ///     </para>
 ///     <para>
@@ -322,7 +322,7 @@ internal sealed class ChainedViewShape : IKeyedCollectionViewShape
 ///     <para>
 ///         This exists because without it no reader can read the view benchmarks.
 ///         An edit through a chain pays for the transaction, the send operation,
-///         the trie write to the state map, the snapshot, and the change object.
+///         the tree write to the state map, the snapshot, and the change object.
 ///         All of that comes before it reads any stage. At ten thousand items that
 ///         is 2.8 of the 6.5 microseconds an excluded-key edit costs. Report the
 ///         6.5 and a stage-level difference of a fifth of a microsecond reads as

@@ -17,8 +17,11 @@ namespace SodaFlow.Samples.Search.Avalonia;
 ///     receives the data context, and this code does the composition. Compare the
 ///     WPF head, which does the same operation in <c>OnStartup</c>.
 /// </remarks>
-// The namespace is AvaloniaUi and not Avalonia. A namespace with Avalonia as its last segment
-// hides the root namespace of the framework from the code in it.
+// The last segment of the namespace is Avalonia. Thus, in the code of the namespace, the name
+// Avalonia refers to this namespace and not to the root namespace of the framework. A full name
+// such as Avalonia.Controls.Window is then an error that is difficult to read. The using
+// directives above the namespace do not have this problem, thus this code uses them and no full
+// names.
 // ReSharper disable once InheritdocConsiderUsage
 internal sealed class App : Application
 {

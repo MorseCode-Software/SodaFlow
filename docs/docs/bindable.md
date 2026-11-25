@@ -121,7 +121,11 @@ value schedules its refresh first, so by then it already shows the cell's value 
 
 Two cases still throw where they did. With `BindingScheduler.Immediate` the post runs at once, so
 a test that sets `Value` directly gets the exception from the setter. And a setter called inside
-an open transaction only queues its write, so the exception comes out of that transaction's close.
+an open transaction, which happens when a nested message loop delivers the write from a callback,
+holds its write until that transaction ends and releases its lock. The write then runs in a
+transaction of its own, even if the open one failed for some other reason, and its exception comes
+out of the code that opened the transaction, together with that transaction's own exception if it
+had one. A command's `Execute` inside an open transaction waits the same way.
 
 If you write your own `IBindingScheduler`, let a posted action throw. A scheduler that catches it
 and carries on hides the bug again. Two more rules: run posts in the order they were made, and run
@@ -146,7 +150,9 @@ on the sink would make, so you don't need to add one with the same cell. The che
 what the command sends: code that sends into the sink directly is not gated.
 
 A disposed action reports `CanExecute` as false, so a torn-down view model cannot be invoked
-through a stale binding.
+through a stale binding. An `Execute` that is still waiting for an open transaction to end when
+the action is disposed sends nothing, just as a two-way value drops a write that is waiting when
+it is disposed.
 
 For a `StreamSink<Unit>` the parameterless overload wins overload resolution and yields the
 non-generic `IBindableAction`, whose command ignores its `CommandParameter`. That is the one you

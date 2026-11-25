@@ -759,8 +759,8 @@ Task("Inspect-Sample")
         throw new Exception($"No sample solution at {sampleSolution.Path}.");
     }
 
-    // Not cleaned, unlike the inspection above: each sample writes its own report, and running all
-    // three locally should end with all three rather than only the last.
+    // Not cleaned, unlike the inspection above: each sample writes its own report, and running every
+    // sample locally should end with a report for each rather than only the last.
     EnsureDirectoryExists(inspectionDirectory);
 
     RunInspection(
@@ -837,7 +837,7 @@ Task("Publish")
             + ".github/workflows/build.yml, which exchanges this run's OIDC token for a short-lived "
             + "key. An empty value means that exchange did not happen or was refused - check that a "
             + "trusted publishing policy for this repository and workflow exists on nuget.org under "
-            + "the MorseCodeSoftware account.");
+            + "the jam40jeff account, which owns the packages.");
     }
 
     // The tag prefix to package id map is read from the projects rather than written out here. Both

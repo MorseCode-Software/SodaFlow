@@ -95,13 +95,14 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
     ///     version from this version and does not copy it.
     /// </summary>
     /// <remarks>
-    ///     This is a trie, and it was a usual dictionary. A usual dictionary reads
-    ///     faster and costs <c>O(n)</c> to write, because a copy is the only path to
-    ///     its next version. Thus, a structural edit had a cost in proportion to the
-    ///     collection, at each cost of the view stages below it. The add-and-remove
-    ///     benchmark in <c>KeyedCollectionViewBenchmarks</c> found that. The cost is
-    ///     now <c>O(log32 n)</c> for each key in the edit, which gives the identity
-    ///     map the cost of the state map beside it. The state map was always a trie.
+    ///     This is an AVL tree of hash buckets, and it was a usual dictionary. A
+    ///     usual dictionary reads faster and costs <c>O(n)</c> to write, because a
+    ///     copy is the only path to its next version. Thus, a structural edit had a
+    ///     cost in proportion to the collection, at each cost of the view stages
+    ///     below it. The add-and-remove benchmark in
+    ///     <c>KeyedCollectionViewBenchmarks</c> found that. The cost is now
+    ///     <c>O(log n)</c> for each key in the edit, which gives the identity map the
+    ///     cost of the state map beside it. The state map was always such a tree.
     /// </remarks>
     internal ImmutableDictionary<TKey, TIdentity> IdentitiesImpl { get; }
 
@@ -225,8 +226,8 @@ public sealed class CollectionSnapshot<TKey, TIdentity, TState>
         IEnumerable<TKey> removed)
     {
         // ToBuilder and ToImmutable are each <c>O(1)</c>, because the builder uses the root of
-        // this map and does not copy it. Thus, the cost is one <c>O(log32 n)</c> write for each key
-        // in the edit.
+        // this map and does not copy it. Thus, the cost is one <c>O(log n)</c> write for each key in
+        // the edit.
         ImmutableDictionary<TKey, TIdentity>.Builder builder = this.IdentitiesImpl.ToBuilder();
 
         foreach (TKey key in removed)

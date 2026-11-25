@@ -127,13 +127,13 @@ Observing through a view costs nothing over observing the collection directly, a
 built. The natural implementation, lifting the cell of the collection against the keys of the view, costs about twice
 an ordinary edit, because every observer becomes a node the propagation walks whenever the view moves at all, and a
 reorder counts as moving. Holding membership per observer and calming it wins back about a quarter of that. The
-library does neither. The per-item cell of a view hangs off the change stream of the view itself, exactly as that of
-the collection hangs off its item change stream, so an observer whose key was not named filters itself out and
-propagates no further.
+library does neither. A view keeps its own index from key to cell, exactly as the collection does, so a change of the
+view reaches only the cells of the keys it names and goes no further.
 
-An edit of many keys in one transaction is the other case. Every observer asks the change whether an operation names its
-key. A scan of the operations would make a wide edit against many observers pay for every observer against every
-operation, with almost every comparison finding nothing. Thus, a `CollectionViewChange` with at least
+An edit of many keys in one transaction is the other case. Each cell that a change reaches asks the change whether an
+operation names its key, and a change that names more keys than have cells reaches every cell. A scan of the
+operations would make a wide edit against many observers pay for every observer against every operation, with almost
+every comparison finding nothing. Thus, a `CollectionViewChange` with at least
 `MinimumOperationsForIndex` operations builds a dictionary of its keys once it has answered `LookupsBeforeIndex` lookups
 by a scan. Both constants are 8. A wide edit through a view therefore costs close to the same edit on the collection,
 where the item change always answers from a dictionary.
@@ -151,9 +151,9 @@ installs the F# collections package acquires `Maybe<T>`, which F# has no use for
 
 ### Storage
 
-`StateMap<TKey, TState>` is the seam where the storage strategy is chosen. `ImmutableStateMap` is the default: a hash
-array mapped trie, about O(log32 n) per update, allocating only the path from the root, roughly four nodes per edit at
-100k items. Measure before replacing it.
+`StateMap<TKey, TState>` is the seam where the storage strategy is chosen. `ImmutableStateMap` is the default: an
+`ImmutableDictionary`, which is an AVL tree of hash buckets. An update is O(log n) and allocates only the path from
+the root, about seventeen nodes per edit at 100k items. Measure before replacing it.
 
 The contract an implementation must honor is that **a value returned by an instance never changes for the lifetime of
 that instance**. SodaFlow reads the pre-transaction value of a cell during a transaction, so a snapshot that aliases
@@ -173,9 +173,11 @@ versions relate. This is how the repository produces them.
 `SodaFlow.Core` exposes its real work through `internal` members. Every wrapper, `SodaFlow`, `SodaFlow.FSharp`, and each
 async, bindable, and collections assembly, reaches them through `InternalsVisibleTo`, which
 `src/SodaFlow.Core/AssemblyInfo.cs` lists. Thus, a change to those internals binds the wrappers to one particular core
-even when no public API moved. When that happens, the whole group takes a major version together. The emitted NuGet
-dependency is a minimum version rather than a range, so nothing but the version number stops an old wrapper being
-resolved against a newer core.
+even when no public API moved. When that happens, the whole group takes a major version together, and the version
+range on each dependency is what keeps an old wrapper off a newer core. The packing gives each dependency on a package
+of this repository the range from the version it was built against up to, but not including, the next major of that
+package. The `AddUpperBoundToProjectReferenceVersions` target in `src/Directory.Build.props` writes that range, and its
+comment gives the reason.
 
 ### Versions and tags
 

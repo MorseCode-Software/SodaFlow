@@ -1623,8 +1623,8 @@ let collect initialState (f: 'a -> 'TState -> struct ('b * 'TState)) (stream: St
 /// <param name="stream">The stream to calm.</param>
 /// <returns>A stream firing only when the value actually changed.</returns>
 /// <remarks>
-///     A suppressed firing is not a missing firing. The next comparer call reads the value that this
-///     code suppressed, and not the last value that the stream published.
+///     This code compares each value with the last value that the stream sent, and not with a value
+///     that it suppressed.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let calmWithCompare compare (stream: Stream<_>) = stream.CalmImpl(Func<_, _, _> compare)
@@ -1637,8 +1637,8 @@ let calmWithCompare compare (stream: Stream<_>) = stream.CalmImpl(Func<_, _, _> 
 /// <param name="stream">The stream to calm.</param>
 /// <returns>A stream firing only when the value actually changed.</returns>
 /// <remarks>
-///     A suppressed firing is not a missing firing. The next comparer call reads the value that this
-///     code suppressed, and not the last value that the stream published.
+///     This code compares each value with the last value that the stream sent, and not with a value
+///     that it suppressed.
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let calmWithEqualityComparer (equalityComparer: IEqualityComparer<_>) (stream: Stream<_>) =
@@ -1650,8 +1650,8 @@ let calmWithEqualityComparer (equalityComparer: IEqualityComparer<_>) (stream: S
 /// <param name="stream">The stream to calm.</param>
 /// <returns>A stream firing only when the value actually changed.</returns>
 /// <remarks>
-///     A suppressed firing is not a missing firing. The next comparer call reads the value that this
-///     code suppressed, and not the last value that the stream published.
+///     This code compares each value with the last value that the stream sent, and not with a value
+///     that it suppressed.
 ///
 ///     Uses <c>=</c>, so for a type without meaningful structural equality use
 ///     the alternative <c>calmWithCompare</c>.

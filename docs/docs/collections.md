@@ -19,12 +19,15 @@ Two obvious shapes both scale with the collection rather than with the screen.
   from outside the graph.
 
 A reactive collection is neither. One cell holds the whole snapshot, one stream carries resolved
-changes, and a per-item observer is a filter over that stream. Watching one item costs one hash
-lookup per transaction no matter how large the collection is, and nothing is built for the items
-nobody is looking at.
+changes, and each collection keeps an index from key to the cells that watch that key. A change
+looks up only the keys it names, so a watched item that the change does not touch costs nothing,
+and nothing is built for the items nobody is looking at.
 
-That property is measured rather than asserted — see [Measuring it](#measuring-it), where an
-edit to an unwatched key costs 5.9 µs at a thousand items and 6.3 µs at ten thousand.
+That property is measured rather than asserted. One edit of one key in a collection of ten
+thousand items takes 1.6 to 1.8 µs on .NET 10 whether a hundred, a thousand, or ten thousand rows
+are bound, where each bound row used to filter every change and the same edit took 7.2 µs,
+61 µs, and 0.75 to 0.79 ms. `PerKeyEditBenchmarks` measures that, and
+[Measuring it](#measuring-it) compares the collection with the shapes people reach for instead.
 
 It lives in a separate package; see [Which package do I install?](packages.md).
 
@@ -641,9 +644,9 @@ the same instance. A hand-rolled fold also has to handle `IsReset` itself, which
 operations: recompute from `change.Keys`.
 
 Use `StateMap`'s `Pairs` rather than `Keys` with a lookup for each. Both answer the same question; the second
-costs an O(log32 n) search per item and reads the trie in key order rather than in storage order,
-which measured three times slower at every size and made summing one field cost more than sorting
-the whole collection.
+costs an O(log n) search of the tree from its root per item rather than one walk of it in storage
+order, which measured three times slower at every size and made summing one field cost more than
+sorting the whole collection.
 
 ## Measuring it
 
@@ -681,9 +684,13 @@ developer machine:
 | 10,000 | 0.71 µs | 3,010 µs | 6.3 µs |
 
 Ten times the items costs the stream-fed cells twenty-eight times the work and the collection
-seven percent. That is the property the design is for: the cost of an edit follows the number of
-bound rows, not the size of the collection. Sinks per field are flat too, and faster — they are
-also the shape you cannot feed from a stream.
+seven percent. That is the property the design is for: the cost of an edit does not follow the
+size of the collection. Sinks per field are flat too, and faster — they are also the shape you
+cannot feed from a stream.
+
+These figures predate the index from key to cell, when each of the twenty bound rows still tested
+every change, and they have not been taken again since. `PerKeyEditBenchmarks` measures what the
+index changed, as the opening of this page says.
 
 Standing the same collections up, on the same machine:
 
@@ -786,7 +793,9 @@ each key once. Both checks use the collection's key comparer, so under
 `StringComparer.OrdinalIgnoreCase` an update of `"a"` and an update of `"A"` are two transforms
 for one key. Whichever spelling an edit uses, a key keeps the spelling its item arrived with: an
 update or a removal of `"A"` for an item added as `"a"` reports `"a"` in the item change, in the
-snapshot, and in every view.
+snapshot, and in every view. A remove of `"a"` and an add of `"A"` in one transaction replaces the
+item, and the replacement is a new arrival: the new item is `"A"`, and the removal of the old one
+reports `"a"`.
 
 An update against a key that is not there throws `KeyNotFoundException`; an add of a key that
 is already there throws `InvalidOperationException`; and an edit that resolves to no change at
@@ -809,10 +818,10 @@ removal arrives as a value containing no value. The core says the same thing as 
 
 ## Storage
 
-The states of a snapshot are a `StateMap<TKey, TState>`, a hash array mapped trie: an edit costs
-about O(log32 n) and allocates only the path from the root, roughly four nodes per edit at 100k
-items. A `StateMap` never changes once you hold it, so a snapshot you keep, such as the `Before`
-of a change, reads the same later.
+The states of a snapshot are a `StateMap<TKey, TState>`, an `ImmutableDictionary`, which is an AVL
+tree of hash buckets: an update costs O(log n) and allocates only the path from the root, about
+seventeen nodes per edit at 100k items. A `StateMap` never changes once you hold it, so a snapshot
+you keep, such as the `Before` of a change, reads the same later.
 
 ## F#
 

@@ -59,7 +59,7 @@ handlers, timers, and network callbacks; everything downstream stays pure.
 | `s.SnapshotLatest(c, f)` | `snapshotLatestC c f s` | Like `Snapshot(c, f)`, but sees the cell's value after this transaction. |
 | `s.SnapshotLatest(c1, c2, f)` | `snapshotLatest2C c1 c2 f s` | Same, over more cells (up to 8). |
 | `s.Gate(c)` | `gateC c s` | Drop firings while a `Cell<bool>` is false. |
-| `s.Calm()` | `calmS s` | Suppress firings equal to the previous one. |
+| `s.Calm()` | `calmS s` | Suppress firings equal to the last value the stream sent, never to one it suppressed. C# compares with `EqualityComparer<T>.Default`, where `NaN` equals `NaN`, and F# with `=`, where it never does. |
 | `s.Calm(comparer)` | `calmWithEqualityComparerS cmp s` | As above with an explicit comparer. |
 | `s.Accum(initial, f)` | `accumS initial f s` | Fold into a **cell** holding the accumulated state. |
 | `s.AccumLazy(initial, f)` | `accumLazyS initial f s` | As above with a `LazySample<T>` initial state, for a fold whose starting value comes from the graph it is part of. |
@@ -93,7 +93,7 @@ is already the new one.
 | `c.Lift(c2, f)` | `lift2C f (c, c2)` | Combine two cells. Overloads up to 8 cells in both languages. |
 | `cells.Lift()` | `liftAllC id cells` | Combine a collection into `Cell<IReadOnlyList<T>>`. F#'s `liftAllC` always takes a combining function; C# also has `cells.Lift(f)`. |
 | `c.Apply(cf)` | `applyC cf c` | Apply a function held in a cell. The primitive `Lift` is built from. |
-| `c.Calm()` | `calmC c` | Suppress updates equal to the previous value. |
+| `c.Calm()` | `calmC c` | Suppress updates equal to the last value the cell sent, which it keeps through a suppressed update. C# compares with `EqualityComparer<T>.Default`, where `NaN` equals `NaN`, and F# with `=`, where it never does. |
 | `c.Updates()` | `updatesC c` | The stream of changes. Does **not** fire on subscribe. |
 | `c.Values()` | `valuesC c` | Changes, **plus** one firing in the transaction it was obtained in. |
 | `c.Listen(handler)` | `listenC handler c` | Subscribe. Fires immediately with the current value. The handler runs only while you hold the `IListener`. |

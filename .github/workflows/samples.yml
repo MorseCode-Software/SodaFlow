@@ -1,10 +1,10 @@
 # Builds and inspects the sample solutions under samples/.
 #
 # Independent of build.yml, which builds, tests, packs, inspects and publishes the libraries under
-# src/, and of docs.yml, which builds the documentation site. Nothing is shared between the three.
+# src/, and of docs.yml, which builds the documentation site. Nothing is shared between them.
 #
-# THERE IS NO PATHS FILTER ANY MORE, and its absence is load-bearing. All four samples are required
-# status checks on main. A required check reports nothing at all when its workflow is
+# THERE IS NO PATHS FILTER ANY MORE, and its absence is load-bearing. Every sample is a required
+# status check on main. A required check reports nothing at all when its workflow is
 # filtered out of a run - GitHub does not read that as "passed", it reads it as "still waiting" -
 # so a pull request touching only src/ would have sat unmergeable forever. Skipping a job inside a
 # workflow that ran is fine and reports as success; skipping the workflow is not.

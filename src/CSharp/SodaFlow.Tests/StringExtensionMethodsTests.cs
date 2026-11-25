@@ -205,6 +205,60 @@ public sealed class StringExtensionMethodsTests
         await Assert.That("green".TryParseDefinedEnum<Color>(true)).IsEqualTo(Maybe.Some(Color.Green));
     }
 
+#if NET
+    // The reference assemblies of net472 do not have the read of the bytes that a thread allocated.
+    // Thus, this test is for the newer targets only. The other targets do not have the generic
+    // Enum.IsDefined, and the check boxes the value there.
+    //
+    // The check with a boxed value is the control. It shows that the measurement can see an
+    // allocation. The control reads the type from a local. With a typeof argument, CA2263 asks for
+    // the generic overload, which does not box.
+    [Test]
+    public async Task TestTryParseDefinedEnumAllocatesNothing()
+    {
+        const int calls = 1000;
+        Type colorType = typeof(Color);
+        int found = 0;
+
+        for (int i = 0; i < calls; i++)
+        {
+            found += ParseEach();
+            found += Enum.IsDefined(enumType: colorType, value: Color.Blue) ? 1 : 0;
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (int i = 0; i < calls; i++)
+        {
+            found += ParseEach();
+        }
+
+        long withTheParse = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (int i = 0; i < calls; i++)
+        {
+            found += Enum.IsDefined(enumType: colorType, value: Color.Blue) ? 1 : 0;
+        }
+
+        long withABox = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(withTheParse).IsEqualTo(0);
+        await Assert.That(withABox).IsGreaterThan(0);
+        await Assert.That(found).IsEqualTo(calls * 8);
+
+        return;
+
+        // Each parse that finds a value adds one. "37" is a number that Color does not declare.
+        static int ParseEach() =>
+            ("Green".TryParseDefinedEnum<Color>().HasValue() ? 1 : 0)
+            + ("1".TryParseDefinedEnum<Color>().HasValue() ? 1 : 0)
+            + ("37".TryParseDefinedEnum<Color>().HasValue() ? 1 : 0)
+            + ("blue".TryParseDefinedEnum<Color>(ignoreCase: true).HasValue() ? 1 : 0);
+    }
+#endif
+
     // ReSharper disable UnusedMember.Local
     private enum Color
     {

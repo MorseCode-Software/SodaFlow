@@ -291,6 +291,36 @@ public sealed class ReactiveCollectionTests
         await Assert.That(collection.SnapshotCell.Sample().Count).IsEqualTo(1);
     }
 
+    // A removal and then two adds of a key in the store. The first add takes the key out of the
+    // removals. Before, the second add thus found the key in the store and gave "already exists",
+    // which is not the cause.
+    [Test]
+    public async Task ARemovalAndTwoAddsOfOneKeyThrowForTheSecondAdd()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            ReactiveCollection<int, ItemIdentity, ItemState>.Create(
+                keySelector: TestUtil.KeyOf,
+                initialItems: [TestUtil.Item(number: 1, name: "one", score: 10)],
+                edits);
+
+        await Assert.That(() =>
+                edits.Send(
+                    TestUtil.Remove(1)
+                        .CombineWith(
+                            TestUtil.Add(
+                                TestUtil.Item(number: 1, name: "first", score: 20),
+                                TestUtil.Item(number: 1, name: "second", score: 30)))))
+            .Throws<InvalidOperationException>()
+            .WithMessage(
+                "Key '1' is added twice in one transaction. Merge order is arbitrary, so the result has no "
+                + "defined value. Add each key once.");
+
+        await Assert.That(collection.SnapshotCell.Sample().Count).IsEqualTo(1);
+    }
+
     // A comparer that ignores case makes "c1" and "C1" one key. CombineWith compares the keys of
     // two updates with the default comparer, thus the collection must find the two itself.
     [Test]

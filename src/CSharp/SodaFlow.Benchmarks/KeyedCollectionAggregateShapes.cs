@@ -134,7 +134,7 @@ internal sealed class RederivedAggregateShape : IKeyedAggregateShape
             // did the second one, which made the baseline slower than necessary. On a hundred thousand
             // items, a sum of one field cost more than a sort of the full collection did next door. The
             // difference that this measures is the one between a re-read and a fold. It is not the one
-            // between a walk of a trie and a search of it.
+            // between a walk of a tree and a search of it.
             Cell<long> total =
                 collection.SnapshotCell.Map(static snapshot =>
                 {

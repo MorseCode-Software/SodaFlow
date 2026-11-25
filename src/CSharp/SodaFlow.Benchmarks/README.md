@@ -52,8 +52,10 @@ chain as each arm minus that floor.
 
 On that measure the identity filter costs three to six percent less than the filter over the state, consistently. It
 was ahead in every paired measurement, on both runtimes, and the gap does not grow with the collection. It is largest
-at ten thousand items and flat above that, because both things it skips are trie lookups costing O(log32 n), and
-log32 of a million is four where log32 of ten thousand is nearly three. There was never much room for the gap to open.
+at ten thousand items and flat above that. Both things it skips are lookups in an `ImmutableDictionary`, which is a
+balanced binary tree, so each costs O(log n): a depth of about fourteen at ten thousand items and twenty at a million.
+Six more nodes to read on each lookup are small beside an edit of seven microseconds, so there was never much room for
+the gap to open.
 
 Allocation is identical to the byte at every size. What the identity filter skips is reading, and reading allocates
 nothing.

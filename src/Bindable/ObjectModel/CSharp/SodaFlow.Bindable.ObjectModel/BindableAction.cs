@@ -51,8 +51,9 @@ internal static class BindableActions
 
         /// <inheritdoc />
         /// <remarks>
-        ///     A command with no parameter discards its parameter. Thus, the type of that
-        ///     parameter cannot be incorrect.
+        ///     The parameter can be a <typeparamref name="T" />, a
+        ///     <see cref="Maybe{T}" />, or <see langword="null" />. A parameter of a
+        ///     different type throws.
         /// </remarks>
         protected override void ValidateParameter(object? value)
         {

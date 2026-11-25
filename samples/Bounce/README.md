@@ -46,12 +46,15 @@ moment it reaches one is a root of the quadratic, computed in advance and schedu
 ```csharp
 Cell<Maybe<double>> nextBounce = flight.Map(f => NextBounceTime(f, min, max));
 
-return timers.At(nextBounce)
-    .Snapshot(flight, (time, f) => Reflect(f, time, min, max))
-    .Hold(initial);
+Stream<Flight> bounced = timers.At(nextBounce)
+    .Snapshot(flight, restitution, (time, f, e) => Reflect(f, time, min, max, e));
+
+return restarts.OrElse(bounced).Hold(initial);
 ```
 
-So a bounce cannot be missed by a frame arriving late, or skipped by one that never arrives.
+So a bounce cannot be missed by a frame arriving late, or skipped by one that never arrives. The
+`restitution` it reads is the damping, and `restarts`, which wins over a bounce in the same
+instant, is a flight imposed from outside; both come up below.
 
 **The graph feeds itself.** The next bounce is a function of the current flight, and the bounce
 produces the next flight. `Cell.Loop` is what lets that be written as the circle it is — with no

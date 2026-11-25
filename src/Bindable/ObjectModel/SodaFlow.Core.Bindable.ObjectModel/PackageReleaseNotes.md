@@ -22,7 +22,7 @@ value from a transaction that failed. The value's listener runs while the transa
 it saw; a transaction that failed after that point discarded the cell's update but the batch still reached the
 binding thread, so the screen showed a value the cell never took, until the next update. The two-way value was
 immune because it reads its cell on the binding thread. The posted action now asks the transaction how it ended, which
-SodaFlow.Core 5.0.1 records before any discard runs, and reads the cell only then; a transaction that commits costs
+SodaFlow.Core 6.0.0 records before any discard runs, and reads the cell only then; a transaction that commits costs
 one more reference in the closure the value already allocates and reads no cell on the binding thread. The
 scheduler sends its batch after every last action and every discard, so the answer is known before the batch leaves.
 Measured with 10,000 one-way values updated in one transaction and every notification delivered, the cost against
@@ -81,6 +81,32 @@ now waits for that transaction to close, through its post queue, as a bindable v
 a scheduler of your own that hands each action to the binding thread as it arrives, because the two schedulers in this
 package hold a transaction's posts until it ends. With the change above it could have happened with them too, through a
 refresh that an earlier transaction left in the queue, so the two changes come together.
+
+Fixed: a bindable value or a command no longer loses its refresh when the transaction it waits for fails. A refresh that
+a nested message loop runs inside the open transaction of the newest update posts itself again for after that
+transaction, as the paragraphs above on posting one refresh at a time and on a command's stale CanExecute describe,
+and it did that through the transaction's queue of posted actions. A transaction that fails discards that queue. The
+refresh had already cleared the mark that keeps a second refresh out of the queue, and the update had found the mark
+set and arranged nothing for a failure, so nothing posted again. Until the cell next changed, the binding showed the
+value from before the last commit, a two-way value sent every write to the graph, including the ones equal to what it
+shows, and a command's CanExecute stayed stale. The refresh now posts again once the transaction releases its lock,
+whether it committed or failed, as BindingScheduler.Immediate does with its posts. Where those two paragraphs say the
+refresh waits through the post queue, they describe it before this change. What the binding thread sees when the
+transaction commits is unchanged.
+
+Fixed: a write to a two-way value, or a command's Execute, that a nested message loop delivers inside an open
+transaction now reaches the graph when that transaction fails for a reason of its own. The send waits for that
+transaction, so that it never runs inside a callback, and it waited in the transaction's queue of posted actions,
+which a failure discards: the cell never got the write, and the command never fired. The send now runs in a
+transaction of its own once the open transaction releases its lock, whatever its outcome. An exception from it still
+comes out of the code that opened the transaction, now together with that transaction's own exception when both
+throw. With no transaction open, which is the usual case, nothing changes, including what a write or an Execute
+allocates.
+
+Fixed: a command that is disposed after Execute but before its send runs no longer fires. That can happen only when
+Execute is called inside an open transaction, because the send then waits for the transaction to end. The send read
+the enablement cell again at that point but did not check whether the command had been disposed. A two-way value
+already dropped a write in the same position, so the two now agree.
 
 Changed: SynchronizationContextBindingScheduler keeps the delegate it gives a transaction to send its batch, where it
 made a new one for every transaction that posted. That is 64 bytes less for each transaction that posts to the binding

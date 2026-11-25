@@ -175,7 +175,8 @@ ReactiveCollection<int, AccountIdentity, AccountState> page = accounts
 MappedItems<AccountRowViewModel> rows = page.Map(
     project: key => new AccountRowViewModel(
         number: bindableFactory.CreateOneWay(
-            page.IdentityCell(key).Map(static identity => identity.Match(i => i.Number, () => string.Empty))),
+            page.IdentityCell(key).Map(static identity =>
+                identity.Match(i => i.Number.ToString(CultureInfo.CurrentCulture), () => string.Empty))),
         balance: bindableFactory.CreateOneWay(
             page.StateCell(key).Map(static state => state.Match(s => s.Balance, () => 0L)))),
     onEvicted: static row => row.Dispose());

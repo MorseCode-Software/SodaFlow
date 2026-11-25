@@ -19,7 +19,7 @@ public sealed class AsyncQueuedItemTests
     [Test]
     public async Task Cancel_WithNoTransactionOpen_CancelsTheTokenNow()
     {
-        using CancellationTokenSource cancellation = new();
+        using AsyncItemCancellationSource cancellation = new();
         AsyncMapBase.AsyncQueuedItem<int> item = NewItem(cancellation: cancellation, report: TestUtil.Unexpected);
 
         item.Cancel();
@@ -30,7 +30,7 @@ public sealed class AsyncQueuedItemTests
     [Test]
     public async Task Cancel_InATransaction_CancelsTheTokenAtTheCommit()
     {
-        using CancellationTokenSource cancellation = new();
+        using AsyncItemCancellationSource cancellation = new();
         AsyncMapBase.AsyncQueuedItem<int> item = NewItem(cancellation: cancellation, report: TestUtil.Unexpected);
 
         bool canceledInTheTransaction =
@@ -46,10 +46,70 @@ public sealed class AsyncQueuedItemTests
         await Assert.That(cancellation.IsCancellationRequested).IsTrue();
     }
 
+    // The cancel has two parts. A posted action after the cancel runs after the commit, with the
+    // lock. There, the record shows the cancel and the token does not. After the release of the
+    // lock, the token shows it also. Thus, the callbacks of the token run with no transaction open.
+    [Test]
+    public async Task Cancel_InATransaction_RecordsTheCancelWithTheLockAndCancelsTheTokenAfterTheRelease()
+    {
+        using AsyncItemCancellationSource cancellation = new();
+        AsyncMapBase.AsyncQueuedItem<int> item = NewItem(cancellation: cancellation, report: TestUtil.Unexpected);
+        List<bool> inACallback = [];
+
+        // The registration lives as long as the source, which this test disposes.
+        _ = cancellation.Token.Register(() => inACallback.Add(Transaction.IsActive()));
+
+        List<(bool Recorded, bool Canceled)> atThePost = [];
+
+        TransactionInternal.Apply((_, _) =>
+        {
+            item.Cancel();
+
+            // The post of the cancel comes first, thus this one runs after it.
+            // ReSharper disable AccessToDisposedClosure - The transaction ends before the disposal.
+            TransactionInternal.PostImpl(() =>
+                atThePost.Add((cancellation.IsCancelCommitted, cancellation.IsCancellationRequested)));
+
+            // ReSharper restore AccessToDisposedClosure
+
+            return UnitInternal.Value;
+        });
+
+        await Assert.That(atThePost.SequenceEqual([(true, false)]))
+            .IsTrue()
+            .Because("the record comes at the commit, and the token changes after the release of the lock");
+
+        await Assert.That(cancellation.IsCancellationRequested).IsTrue();
+        await Assert.That(inACallback.SequenceEqual([false])).IsTrue();
+    }
+
+    // The end of an item can come on a different thread while the cancel runs out of the lock. A
+    // disposal during Cancel() is not permitted, thus the end leaves the disposal to the cancel. Here,
+    // a callback of the token gives the end during the cancel.
+    [Test]
+    public async Task DisposeAtTheEnd_DuringTheCancel_DisposesTheSourceAfterTheCancel()
+    {
+        AsyncItemCancellationSource cancellation = new();
+        AsyncMapBase.AsyncQueuedItem<int> item = NewItem(cancellation: cancellation, report: TestUtil.Unexpected);
+        List<bool> tokenReadsInTheCallback = [];
+
+        _ = cancellation.Token.Register(() =>
+        {
+            cancellation.DisposeAtTheEnd();
+            tokenReadsInTheCallback.Add(ReadsTheToken(cancellation));
+        });
+
+        item.Cancel();
+
+        await Assert.That(tokenReadsInTheCallback.SequenceEqual([true])).IsTrue().Because("the cancel runs");
+        await Assert.That(ReadsTheToken(cancellation)).IsFalse().Because("the cancel disposed the source at its end");
+        await Assert.That(item.Cancel).ThrowsNothing();
+    }
+
     [Test]
     public async Task Cancel_InATransactionThatFails_CancelsNothing()
     {
-        using CancellationTokenSource cancellation = new();
+        using AsyncItemCancellationSource cancellation = new();
         AsyncMapBase.AsyncQueuedItem<int> item = NewItem(cancellation: cancellation, report: TestUtil.Unexpected);
 
         await Assert.That(() =>
@@ -70,7 +130,7 @@ public sealed class AsyncQueuedItemTests
     [Test]
     public async Task Cancel_WhileADifferentThreadHoldsATransactionOpen_CancelsTheTokenNow()
     {
-        using CancellationTokenSource cancellation = new();
+        using AsyncItemCancellationSource cancellation = new();
         AsyncMapBase.AsyncQueuedItem<int> item = NewItem(cancellation: cancellation, report: TestUtil.Unexpected);
         using ManualResetEventSlim otherOpened = new(false);
         using ManualResetEventSlim otherCanEnd = new(false);
@@ -118,7 +178,7 @@ public sealed class AsyncQueuedItemTests
     [Test]
     public async Task IsCancelAsked_IsTrueOnlyInTheTransactionThatAskedUntilTheCancelCommits()
     {
-        using CancellationTokenSource cancellation = new();
+        using AsyncItemCancellationSource cancellation = new();
         AsyncMapBase.AsyncQueuedItem<int> item = NewItem(cancellation: cancellation, report: TestUtil.Unexpected);
         List<bool> asked = [TransactionInternal.Apply((_, _) => item.IsCancelAsked())];
 
@@ -155,7 +215,7 @@ public sealed class AsyncQueuedItemTests
     [Test]
     public async Task Cancel_InATransaction_GivesAThrowFromACallbackOfTheTokenToTheReport()
     {
-        using CancellationTokenSource cancellation = new();
+        using AsyncItemCancellationSource cancellation = new();
         List<Exception> reported = [];
         InvalidOperationException fromCallback = new("The callback of the token throws.");
         AsyncMapBase.AsyncQueuedItem<int> item = NewItem(cancellation: cancellation, report: reported.Add);
@@ -181,7 +241,7 @@ public sealed class AsyncQueuedItemTests
     [Test]
     public async Task Cancel_WithNoTransactionOpen_GivesAThrowFromACallbackOfTheTokenToTheCaller()
     {
-        using CancellationTokenSource cancellation = new();
+        using AsyncItemCancellationSource cancellation = new();
         InvalidOperationException fromCallback = new("The callback of the token throws.");
         AsyncMapBase.AsyncQueuedItem<int> item = NewItem(cancellation: cancellation, report: TestUtil.Unexpected);
 
@@ -196,10 +256,10 @@ public sealed class AsyncQueuedItemTests
     [Test]
     public async Task Cancel_AfterTheDisposalOfTheSource_DoesNothing()
     {
-        CancellationTokenSource cancellation = new();
+        AsyncItemCancellationSource cancellation = new();
         AsyncMapBase.AsyncQueuedItem<int> item = NewItem(cancellation: cancellation, report: TestUtil.Unexpected);
 
-        cancellation.Dispose();
+        cancellation.DisposeAtTheEnd();
 
         item.Cancel();
 
@@ -213,8 +273,22 @@ public sealed class AsyncQueuedItemTests
         await Assert.That(cancellation.IsCancellationRequested).IsFalse();
     }
 
+    private static bool ReadsTheToken(CancellationTokenSource source)
+    {
+        try
+        {
+            _ = source.Token;
+
+            return true;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
+    }
+
     private static AsyncMapBase.AsyncQueuedItem<int> NewItem(
-        CancellationTokenSource cancellation,
+        AsyncItemCancellationSource cancellation,
         Action<Exception> report) =>
         new(id: Guid.NewGuid(), value: 1, cancellation: cancellation, reportCancelFailure: report);
 }

@@ -1030,6 +1030,12 @@ public sealed class MapAsyncExtensionsTests
 
     // A disposal in a transaction that a listener fails. The first listener throws before the
     // trigger comes, and the second one throws after it. The disposal cancels in each condition.
+    //
+    // The token of an item changes after the release of the lock. Thus, at the throw it reads as
+    // not canceled on each side of the trigger. Before, it read as canceled after the trigger, and
+    // this test used that to show the side. The record of the cancel shows the side now, and only
+    // SodaFlow.Core.Async.Tests can read it. See
+    // Dispose_InsideATransactionThatAListenerFails_RecordsTheCancelOnlyAfterTheTrigger there.
     [Test]
     [Arguments(true)]
     [Arguments(false)]
@@ -1075,8 +1081,8 @@ public sealed class MapAsyncExtensionsTests
             .ThrowsExactly<InvalidOperationException>();
 
         await Assert.That(canceledAtTheThrow)
-            .IsEquivalentTo(expected: [throwAfterTheTrigger], ordering: CollectionOrdering.Matching)
-            .Because("this shows that the listener threw on the side of the trigger that the test names");
+            .IsEquivalentTo(expected: [false], ordering: CollectionOrdering.Matching)
+            .Because("the token of an item changes only after the release of the lock");
 
         await Assert.That(op.IsCanceled("a")).IsTrue();
     }
