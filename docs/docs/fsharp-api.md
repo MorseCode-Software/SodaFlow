@@ -41,13 +41,3 @@ let l = c |> listenC (printfn "%d")
 The suffix names the type operated on — `S` stream, `C` cell, `B` behavior, `L` listener,
 `T` transaction. `Shorthand.fs` is the single file listing every alias, and it doubles as the best
 available index of the F# API.
-
-## What it would take to fix this
-
-Generate with [`fsdocs`](https://fsprojects.github.io/FSharp.Formatting/) rather than DocFX, and
-publish it under its own path. `fsdocs` reads F# source and signatures rather than compiled
-metadata, so it renders modules as modules and curried functions in their F# form, and it picks up
-the same `///` comments already in the source.
-
-The prerequisite — writing those comments — is done. What remains is wiring the generator into the
-docs build.
