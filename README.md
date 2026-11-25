@@ -59,6 +59,11 @@ dotnet tool install -g docfx
 docfx docs/docfx.json --serve
 ```
 
+## Contributing
+
+To work on SodaFlow itself, read [CONTRIBUTING.md](CONTRIBUTING.md). It covers how parts of the
+libraries work inside, how they are tested, and how the packages are released.
+
 ## License and attribution
 
 SodaFlow is BSD 3-Clause licensed. See [LICENSE](LICENSE).
