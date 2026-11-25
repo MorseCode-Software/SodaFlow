@@ -190,6 +190,34 @@ internal sealed class TransactionInternal
         Apply(code: static (trans, created, c) => c(arg1: trans, arg2: created), state: code);
 
     /// <summary>
+    ///     Runs the code in a new transaction, with a state for the code, as
+    ///     <see cref="Apply{TState,TResult}" /> does when no transaction is open.
+    /// </summary>
+    /// <remarks>
+    ///     This is for code that must not run in an open transaction, at a point
+    ///     where the caller makes sure that none is open. An example is an action
+    ///     after a release. <see cref="Apply{TState,TResult}" /> runs its code in
+    ///     the open transaction, thus an error in that guarantee goes unseen there.
+    ///     This method throws before it changes the open transaction. The test is
+    ///     the test that gives <c>createdNewTransaction</c>, thus a start hook,
+    ///     where no transaction is current, opens a new transaction as before.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">A transaction is open on this thread.</exception>
+    internal static TResult ApplyInNewTransaction<TState, TResult>(
+        [InstantHandle] Func<TransactionInternal, TState, TResult> code,
+        TState state)
+    {
+        if (localTransaction != null)
+        {
+            throw new InvalidOperationException("This code must run in a new transaction, but a transaction is open.");
+        }
+
+        return Apply(
+            code: static (trans, _, s) => s.Code(arg1: trans, arg2: s.State),
+            state: (Code: code, State: state));
+    }
+
+    /// <summary>
     ///     Runs the code in the open transaction, or in a new one, with a state for
     ///     the code. A caller with a static lambda then allocates no closure and no
     ///     delegate, which matters for a send from outside a transaction.

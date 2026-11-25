@@ -850,8 +850,18 @@ internal static class CollectionViewUtility
                     state: (Cache: cache, Releases: releases)));
     }
 
+    // After the release, no transaction is open. Thus, the send opens a transaction of its own, and
+    // ApplyInNewTransaction throws where one is open.
     private static void SendAfterTheTransaction(StreamSink<UnitInternal> releases) =>
-        TransactionInternal.AfterReleaseImpl(() => releases.SendImpl(UnitInternal.Value));
+        TransactionInternal.AfterReleaseImpl(() =>
+            TransactionInternal.ApplyInNewTransaction(
+                code: static (_, r) =>
+                {
+                    r.SendImpl(UnitInternal.Value);
+
+                    return UnitInternal.Value;
+                },
+                state: releases));
 
     #endregion
 
