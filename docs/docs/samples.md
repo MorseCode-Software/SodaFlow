@@ -106,21 +106,6 @@ types. Avalonia writes on every keystroke by default. The Search sample shows bo
 
 ## They reference packages, not the source next door
 
-Every sample takes its dependencies from nuget.org at a pinned version, exactly as an
-application outside this repository would:
-
-```xml
-<PackageReference Include="SodaFlow" Version="5.0.1" />
-<PackageReference Include="SodaFlow.Async" Version="5.0.0" />
-<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.3" />
-```
-
-That is Search, which uses all three. Counter and Bounce take the first and the third. Accounts
-takes `SodaFlow` and `SodaFlow.Collections` 2.0.0, and `SodaFlow.Bindable.ObjectModel` at 4.0.4,
-because it relies on commands that check their enablement when they send.
-
-Project references into `src/` would have been easier to set up and worse to live with: a sample
-would then break the moment anyone changed a library API. Pinning to released versions means a
-sample moves when someone deliberately bumps a version, and until then it keeps demonstrating a
-combination that is actually installable — which also makes the samples a real test of the
-published packages rather than of the working tree.
+Every sample takes its dependencies from nuget.org at a pinned version, exactly as your application
+would, rather than from the source beside it in the repository. The project file of each view model
+names the versions it uses.
