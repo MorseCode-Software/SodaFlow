@@ -58,10 +58,19 @@ internal sealed class LoopRegion(
     private readonly HashSet<MadeObject> olderObjects = [];
     private readonly Dictionary<SyntaxTree, SemanticModel> models = [];
     private readonly Dictionary<ISymbol, ExpressionSyntax?> initializerOf = new(SymbolEqualityComparer.Default);
+
+    private readonly Dictionary<ISymbol, ImmutableArray<ISymbol>> namedByTheInitializer =
+        new(SymbolEqualityComparer.Default);
+
     private readonly Action<Diagnostic> report = report;
 
     // A read of the block after the first one reports only what the reads before did not.
     private readonly HashSet<(string Id, Location Location)> reported = readBefore?.reported ?? [];
+
+    // The reads of a run in the branch of a condition whose value the walk does not know. Each read of
+    // the block adds to them. The last read reports each one whose location has no other report: see
+    // ReportTheUndecidedReads.
+    private readonly Dictionary<Location, Diagnostic> undecided = readBefore?.undecided ?? [];
 
     // The walk and the evaluator get the symbol and the type of one node many times. The compiler
     // computes them again at each call, thus the region keeps them.
@@ -85,6 +94,9 @@ internal sealed class LoopRegion(
     // The types whose static constructor the walk reads now. A use of such a type in its own static constructor
     // runs it no second time.
     private readonly HashSet<INamedTypeSymbol> startingTypes = new(SymbolEqualityComparer.Default);
+
+    // True for a type declaration that has a static initializer. Each name in its code asks.
+    private readonly Dictionary<TypeDeclarationSyntax, bool> hasStaticInitializers = [];
 
     // The lambdas and the local functions that the walk reads for a call now.
     private readonly HashSet<SyntaxNode> activeFunctions = [];
@@ -122,6 +134,12 @@ internal sealed class LoopRegion(
     ///     the close.
     /// </summary>
     public bool ReadsCodeAfterTheTransaction => this.readAfterTheTransaction.Count > 0;
+
+    /// <summary>
+    ///     True after the walk read a continuation whose task keeps its
+    ///     findings. Only then can a wait of a task report findings.
+    /// </summary>
+    public bool KeepsTheReadsOfAContinuation { get; set; }
 
     /// <summary>Reads a function that runs after the transaction of the block.</summary>
     /// <remarks>
@@ -214,6 +232,38 @@ internal sealed class LoopRegion(
     public void EndsTheStaticConstructorOf(INamedTypeSymbol type) => this.startingTypes.Remove(type);
 
     /// <summary>
+    ///     True when a type declaration has an initializer of a static field or
+    ///     of a static property. Each part of a partial type counts.
+    /// </summary>
+    public bool HasStaticInitializers(TypeDeclarationSyntax type)
+    {
+        if (!this.hasStaticInitializers.TryGetValue(key: type, value: out bool has))
+        {
+            // A read in one part of a type runs the initializers of the type. Only a partial type
+            // needs the compiler to find its other parts.
+            has = type.Modifiers.Any(SyntaxKind.PartialKeyword)
+                  && this.ModelFor(type).GetDeclaredSymbol(type) is { } declared
+                ? declared.DeclaringSyntaxReferences.Any(static reference =>
+                    reference.GetSyntax() is TypeDeclarationSyntax part && DeclaresStaticInitializers(part))
+                : DeclaresStaticInitializers(type);
+
+            this.hasStaticInitializers[type] = has;
+        }
+
+        return has;
+    }
+
+    private static bool DeclaresStaticInitializers(TypeDeclarationSyntax type) =>
+        type.Members.Any(static member =>
+            member.Modifiers.Any(SyntaxKind.StaticKeyword)
+            && member switch
+            {
+                FieldDeclarationSyntax field => field.Declaration.Variables.Any(static one => one.Initializer != null),
+                PropertyDeclarationSyntax property => property.Initializer != null,
+                _ => false
+            });
+
+    /// <summary>
     ///     Keeps the objects as results of calls that a second call can give
     ///     also. See <see cref="IsAnOlderObject" />.
     /// </summary>
@@ -242,7 +292,22 @@ internal sealed class LoopRegion(
     ///     <see cref="Construction.StateWithTheAliases" /> and
     ///     <see cref="Construction.StateImplementedTogether" />.
     /// </param>
-    public LoopState FieldState(ISymbol field, Func<ISymbol, bool>? canHave = null) =>
+    public LoopState FieldState(ISymbol field, Func<ISymbol, bool>? canHave = null)
+    {
+        LoopState own = this.OwnFieldState(field: field, canHave: canHave);
+        ImmutableArray<ISymbol> named = this.FieldsNamedByTheInitializerOf(field);
+
+        return named.IsEmpty ? own : this.WithTheFieldsNamed(state: own, named: named, canHave: canHave);
+    }
+
+    // Most fields have no named field. Thus, only this method makes the function that it gives Aggregate.
+    private LoopState WithTheFieldsNamed(
+        LoopState state,
+        ImmutableArray<ISymbol> named,
+        Func<ISymbol, bool>? canHave) =>
+        named.Aggregate(seed: state, func: (all, one) => all.Join(this.OwnFieldState(field: one, canHave: canHave)));
+
+    private LoopState OwnFieldState(ISymbol field, Func<ISymbol, bool>? canHave) =>
         Construction.StateWithTheAliases(
                 states: this.fields,
                 key: field.OriginalDefinition,
@@ -272,8 +337,10 @@ internal sealed class LoopRegion(
     {
         ISymbol key = field.OriginalDefinition;
 
-        // A state that only holds objects of the store says what the owner of the field holds.
-        if (state is { IsNone: true, HoldsAnObject: false })
+        // A state that only holds objects of the store says what the owner of the field holds. A map of a
+        // collection with a handler stays, because a Dispose through the field runs that handler.
+        if (state is { IsNone: true, HoldsAnObject: false }
+            && !state.Objects.Any(made => this.Objects.HandlersOfAMap(made).Count > 0))
         {
             if (replaces)
             {
@@ -290,7 +357,64 @@ internal sealed class LoopRegion(
 
         this.lastWrites[key] = this.MemberWrites;
 
+        // A second field that holds the same array gets each put into it also. A read of this field reads that
+        // field too, thus the two directions are the same.
+        foreach (ISymbol named in this.FieldsNamedByTheInitializerOf(key))
+        {
+            this.fields[named] =
+                this.fields.TryGetValue(key: named, value: out LoopState? before) ? before.Join(state) : state;
+
+            this.lastWrites[named] = this.MemberWrites;
+        }
+
         this.hasInterfaceFields |= key is IPropertySymbol { ContainingType.TypeKind: TypeKind.Interface };
+    }
+
+    /// <summary>
+    ///     The static fields with readonly that hold the same object as a static
+    ///     field with readonly, from its initializer. That is the field that the
+    ///     initializer names, the field that the initializer of that field names,
+    ///     and so on. Empty for each other field.
+    /// </summary>
+    /// <remarks>
+    ///     No code can give such a field a different value after its
+    ///     initializer. Thus, the two fields hold one object at each read.
+    /// </remarks>
+    private ImmutableArray<ISymbol> FieldsNamedByTheInitializerOf(ISymbol field)
+    {
+        if (field.OriginalDefinition is not IFieldSymbol { IsStatic: true, IsReadOnly: true } original)
+        {
+            return ImmutableArray<ISymbol>.Empty;
+        }
+
+        field = original;
+
+        if (this.namedByTheInitializer.TryGetValue(key: field, value: out ImmutableArray<ISymbol> known))
+        {
+            return known;
+        }
+
+        List<ISymbol> named = [];
+
+        for (ISymbol at = field; named.Count < 8;)
+        {
+            if (this.InitializerOf(at) is not ((IdentifierNameSyntax or MemberAccessExpressionSyntax) and var value)
+                || this.ModelFor(value).GetSymbolInfo(value).Symbol?.OriginalDefinition
+                    is not IFieldSymbol { IsStatic: true, IsReadOnly: true } next
+                || SymbolEqualityComparer.Default.Equals(x: next, y: field)
+                || named.Contains(value: next, comparer: SymbolEqualityComparer.Default))
+            {
+                break;
+            }
+
+            named.Add(next);
+            at = next;
+        }
+
+        ImmutableArray<ISymbol> all = named.ToImmutableArray();
+        this.namedByTheInitializer[field] = all;
+
+        return all;
     }
 
     private SemanticModel ModelFor(SyntaxTree tree)
@@ -489,6 +613,49 @@ internal sealed class LoopRegion(
             this.report(diagnostic);
         }
     }
+
+    // A read of such a run becomes an SF1007 at the location of its report.
+    // A value that goes to unseen code from such a run gets no report.
+    private void Report(Finding finding)
+    {
+        if (!finding.Undecided)
+        {
+            this.Report(finding.Diagnostic);
+
+            return;
+        }
+
+        if (!finding.Escape)
+        {
+            Location location = finding.Diagnostic.Location;
+
+            this.undecided[location] =
+                Diagnostic.Create(
+                    descriptor: Diagnostics.UndecidedRun,
+                    location: location,
+                    location.SourceTree?.GetText().ToString(location.SourceSpan) ?? string.Empty,
+                    this.PlaceholderName);
+        }
+    }
+
+    // A report at the location of the same read wins. The walk can find a warning there in a read of
+    // the block after this one, thus only the last read reports.
+    private void ReportTheUndecidedReads()
+    {
+        foreach (Diagnostic diagnostic in this.undecided.Values
+                     .Where(diagnostic => this.reported.All(reported => reported.Location != diagnostic.Location))
+                     .ToList())
+        {
+            this.Report(diagnostic);
+        }
+    }
+
+    /// <summary>
+    ///     True while the walk tests a run of the timers or a Dispose in a
+    ///     callee. The test then counts each condition whose value the walk does
+    ///     not know as true.
+    /// </summary>
+    public bool CountsAnUndecidedCondition { get; set; }
 
     /// <summary>
     ///     Counts one more callee body that the walk reads. False when the block
@@ -740,12 +907,12 @@ internal sealed class LoopRegion(
         LoopStateEvaluator evaluator = new(this);
 
         evaluator.ReadBy(
-                new SinkWalker(region: this, evaluator: evaluator, sink: finding => this.Report(finding.Diagnostic)))
+                new SinkWalker(region: this, evaluator: evaluator, sink: this.Report))
             .Visit(this.Root);
 
         foreach (Finding unread in evaluator.Frame.TakeUnread())
         {
-            this.Report(unread.Diagnostic);
+            this.Report(unread);
         }
 
         if (canReadAgain && this.Sent.SaysMoreThan(this.SentBefore))
@@ -792,6 +959,8 @@ internal sealed class LoopRegion(
                         this.PlaceholderName));
             }
         }
+
+        this.ReportTheUndecidedReads();
 
         return true;
     }

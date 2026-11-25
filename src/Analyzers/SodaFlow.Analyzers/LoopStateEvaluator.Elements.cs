@@ -415,6 +415,7 @@ internal sealed partial class LoopStateEvaluator
                 this.region.SymbolOf(node) is not IPropertySymbol property
                 || this.IsAMemberLocation(property)
                 || this.TheFieldBehind(property) != null
+                || this.TheStaticElementBehind(property) != null
                 || (property.DeclaringSyntaxReferences.IsEmpty
                     && (SodaFlowSymbols.IsLazyValue(property) || this.region.Symbols.ReadsItsOwner(property)
                         ? this.RunsNoFunctionThatTheWalkKnows(owner: OwnerOfAProperty(node), callee: callee)
@@ -468,7 +469,8 @@ internal sealed partial class LoopStateEvaluator
     // PlatformCallers. A method of SodaFlow runs no code of the project, but for a read of a cell
     // with a function that the walk knows. The call cannot get the collection or a view of it, and
     // it gets no function other than a lambda that the code writes there. A literal is no
-    // collection. RunSynchronously runs the function of its task.
+    // collection, and a new object that gets no argument is no collection also. RunSynchronously
+    // runs the function of its task.
     private bool CannotChangeItsCollection(
         InvocationExpressionSyntax call,
         ITypeSymbol collection,
@@ -519,7 +521,10 @@ internal sealed partial class LoopStateEvaluator
 
         return (receiver == null || this.CannotBeTheCollection(value: receiver, collection: collection))
                && call.ArgumentList.Arguments.All(argument =>
-                   Unwrapped(argument.Expression) is AnonymousFunctionExpressionSyntax or LiteralExpressionSyntax
+                   Unwrapped(argument.Expression)
+                       is AnonymousFunctionExpressionSyntax
+                       or LiteralExpressionSyntax
+                       or BaseObjectCreationExpressionSyntax { ArgumentList: null or { Arguments.Count: 0 } }
                    || (this.region.TypeOf(argument.Expression) is not { TypeKind: TypeKind.Delegate }
                        && this.CannotBeTheCollection(value: argument.Expression, collection: collection)));
     }
@@ -555,14 +560,21 @@ internal sealed partial class LoopStateEvaluator
     private bool ConstructorCanStandBetween(IMethodSymbol constructor, ITypeSymbol collection, int callees) =>
         constructor.OriginalDefinition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
             is ConstructorDeclarationSyntax { Initializer: null } declaration
-        && constructor.ContainingType is
-        {
-            BaseType: null or { SpecialType: SpecialType.System_Object or SpecialType.System_ValueType }
-        } made
-        && made.DeclaringSyntaxReferences
+        && HasNoInitializers(constructor.ContainingType)
+        && (declaration.Body ?? (SyntaxNode?)declaration.ExpressionBody?.Expression) is { } body
+        && body.DescendantNodesAndSelf()
+            .All(node => node is ElementAccessExpressionSyntax element
+                ? this.region.SymbolOf(element) == null
+                : this.CannotChangeTheElement(node: node, collection: collection, callees: callees - 1));
+
+    // True for a type whose creation runs no code before the body of its constructor. Its base type
+    // has no code, and it gives no member that is not static an initializer.
+    private static bool HasNoInitializers(ITypeSymbol type) =>
+        type.BaseType is null or { SpecialType: SpecialType.System_Object or SpecialType.System_ValueType }
+        && type.DeclaringSyntaxReferences
             .Select(static reference => reference.GetSyntax())
             .OfType<TypeDeclarationSyntax>()
-            .SelectMany(static type => type.Members)
+            .SelectMany(static declared => declared.Members)
             .All(static member => member switch
             {
                 FieldDeclarationSyntax field =>
@@ -571,12 +583,7 @@ internal sealed partial class LoopStateEvaluator
                 PropertyDeclarationSyntax property =>
                     property.Modifiers.Any(SyntaxKind.StaticKeyword) || property.Initializer == null,
                 _ => true
-            })
-        && (declaration.Body ?? (SyntaxNode?)declaration.ExpressionBody?.Expression) is { } body
-        && body.DescendantNodesAndSelf()
-            .All(node => node is ElementAccessExpressionSyntax element
-                ? this.region.SymbolOf(element) == null
-                : this.CannotChangeTheElement(node: node, collection: collection, callees: callees - 1));
+            });
 
     // The owner of a property that a node reads: the owner of a member access, or of the member
     // access whose name the node is. Null for a property with no owner in the code.

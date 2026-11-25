@@ -30,9 +30,16 @@ internal sealed partial class LoopStateEvaluator
                 new Binding(parameter: callee.Parameters[position], argument: argument, state: this.Eval(argument)))
         ];
 
+        // The static constructors run before the constructor, as at new T().
         if (callee.MethodKind == MethodKind.Constructor)
         {
-            return this.FollowConstructor(call: invocation, constructor: callee, arguments: default, bound: bindings);
+            return Both(
+                first: this.FollowTheStaticConstructors(creation: invocation, constructor: callee),
+                second: this.FollowConstructor(
+                    call: invocation,
+                    constructor: callee,
+                    arguments: default,
+                    bound: bindings));
         }
 
         if (BodyOf(callee) is not { } body)
@@ -131,6 +138,21 @@ internal sealed partial class LoopStateEvaluator
                 return null;
         }
     }
+
+    /// <summary>
+    ///     The result of a creation. The runtime makes an object of a type
+    ///     parameter, as in <c>new T()</c>, through reflection. Thus, it replaces
+    ///     each object that a constructor throws there with a
+    ///     <c>TargetInvocationException</c>, as at a call of
+    ///     <c>Activator.CreateInstance</c>.
+    /// </summary>
+    /// <param name="creation">The creation.</param>
+    /// <param name="followed">The result of the constructors of the creation.</param>
+    private Followed? OfACreation(SyntaxNode creation, Followed? followed) =>
+        // Only a creation of a type parameter has no symbol of a constructor.
+        followed is { Thrown.IsEmpty: false } && this.region.SymbolOf(creation) is not IMethodSymbol
+            ? this.Wrapped(followed: followed, wrapper: "System.Reflection.TargetInvocationException")
+            : followed;
 
     private INamedTypeSymbol? ReflectedType(TypeOfExpressionSyntax typeOf) =>
         this.region.SymbolOf(typeOf.Type) as INamedTypeSymbol;

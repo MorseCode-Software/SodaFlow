@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -8,9 +9,70 @@ namespace SodaFlow.Analyzers;
 
 // The part of the walker that finds the code after a loop or a switch statement that runs only
 // after an await. A loop can run no turn, and a switch can run no section. A break or a continue
-// can also skip the await. Each of them runs the code after the loop or the switch now.
+// can also skip the await. Each of them runs the code after the loop or the switch now. The same
+// rules find the code after an if or a switch that an iterator does not run after its first item.
 internal sealed partial class SinkWalker
 {
+    // Each if and each switch statement that stops the iterator on each path.
+    private HashSet<StatementSyntax>? stopsOnEachPath;
+
+    // The iterator stops in an if when each branch stops it.
+    private void StopsInEachBranchOf(IfStatementSyntax node)
+    {
+        if (this.takesOneItem
+            && node.Else is { } otherwise
+            && this.StopsIn(node.Statement)
+            && this.StopsIn(otherwise.Statement))
+        {
+            this.StopsOnEachPathAt(node);
+        }
+    }
+
+    // The iterator stops in a switch when each section stops it, and one section matches each value.
+    private void StopsInEachSectionOf(SwitchStatementSyntax node)
+    {
+        if (this.takesOneItem
+            && node.Sections.All(this.StopsIn)
+            && node.Sections.SelectMany(static section => section.Labels).Any(this.MatchesEachValue))
+        {
+            this.StopsOnEachPathAt(node);
+        }
+    }
+
+    private void StopsOnEachPathAt(StatementSyntax node)
+    {
+        (this.stopsOnEachPath ??= []).Add(node);
+        this.StopsAfter(node);
+    }
+
+    // True when the code always stops the iterator in a branch, or in a section of a switch. The
+    // branch is a yield statement or code that runs to a yield statement. It can also be an if or a
+    // switch that stops on each path. A goto, a break, or a continue before that yield statement can
+    // skip it.
+    private bool StopsIn(SyntaxNode branch)
+    {
+        if (branch is YieldStatementSyntax
+            || (branch is StatementSyntax statement && this.stopsOnEachPath?.Contains(statement) == true))
+        {
+            return true;
+        }
+
+        // The walk reads no code after the first stop in the branch. Thus, the branch has one stop.
+        foreach ((SyntaxNode block, int from) in this.afterTheItem)
+        {
+            if (block == branch)
+            {
+                return !branch.DescendantNodes(static node =>
+                        node is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax))
+                    .Any(node =>
+                        node.SpanStart < from
+                        && node is GotoStatementSyntax or BreakStatementSyntax or ContinueStatementSyntax);
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     ///     True when the code after a loop runs only after a position in its
     ///     body. The loop always runs its first turn. No break or continue of

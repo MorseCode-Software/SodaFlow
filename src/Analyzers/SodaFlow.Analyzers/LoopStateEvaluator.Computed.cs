@@ -107,7 +107,8 @@ internal sealed partial class LoopStateEvaluator
                         functions: functions.ToImmutable(),
                         given: given,
                         manyTimes: manyTimes,
-                        writes: writes)));
+                        writes: writes,
+                        manyCells: this.CanBuildTwoOrMoreCells(invocation))));
     }
 
     // True for code with an assignment. An increment gives a number, which has no state.
@@ -118,9 +119,10 @@ internal sealed partial class LoopStateEvaluator
     ///     True when a lambda can read a value that the code can change after
     ///     it makes the lambda. That is a name from the code around the lambda,
     ///     a member of an object, a static member, or a function of this
-    ///     compilation. This is a check of the syntax. Only the first name of a
-    ///     member access needs the compiler, because it can be a type. Then, the
-    ///     member after the type needs it also.
+    ///     compilation. The check of the names comes first. Only the first name
+    ///     of a member access needs the compiler, because it can be a type. Then,
+    ///     the member after the type needs it also. A name of a nested part
+    ///     needs it too, because it can be a capture.
     /// </summary>
     private bool CanReadALaterValue(AnonymousFunctionExpressionSyntax lambda, LoopState given)
     {
@@ -129,7 +131,7 @@ internal sealed partial class LoopStateEvaluator
             return true;
         }
 
-        HashSet<string>? own = null;
+        DeclaredNames? own = null;
 
         foreach (SyntaxNode node in lambda.Body.DescendantNodesAndSelf())
         {
@@ -140,7 +142,7 @@ internal sealed partial class LoopStateEvaluator
                 case SimpleNameSyntax name when IsAValue(name):
                     own ??= NamesDeclaredIn(lambda);
 
-                    if (!own.Contains(name.Identifier.ValueText)
+                    if (!this.IsOwn(name: name, lambda: lambda, own: own)
                         && (name.Parent is not MemberAccessExpressionSyntax access
                             || access.Expression != name
                             || this.region.SymbolOf(name) is not (ITypeSymbol or INamespaceSymbol)
@@ -153,7 +155,9 @@ internal sealed partial class LoopStateEvaluator
             }
         }
 
-        return false;
+        // A member of this compilation can read a static member, also when the lambda reaches it through
+        // its parameter or with no name. This check needs the compiler, thus it comes last.
+        return lambda.Body.DescendantNodesAndSelf().Any(this.RunsCodeOfThisCompilation);
 
         static bool IsAValue(ExpressionSyntax name) =>
             name.Parent switch
@@ -162,6 +166,57 @@ internal sealed partial class LoopStateEvaluator
                 MemberBindingExpressionSyntax or QualifiedNameSyntax or NameColonSyntax or NameEqualsSyntax => false,
                 _ => !SyntaxFacts.IsInTypeOnlyContext(name)
             };
+    }
+
+    /// <summary>
+    ///     True when a node of a lambda runs a member of this compilation. That
+    ///     is a method, a getter, an indexer, an operator, a conversion, or a
+    ///     constructor. The check of the syntax comes first, and then the
+    ///     compiler gives the member.
+    /// </summary>
+    private bool RunsCodeOfThisCompilation(SyntaxNode node)
+    {
+        DeclaredCode declared = this.region.Symbols.DeclaredCode;
+
+        ISymbol? member =
+            node switch
+            {
+                MemberAccessExpressionSyntax { Name: var name } access when Calls(access) || declared.CanRunCode(name)
+                    => this.MemberOf(access),
+                MemberBindingExpressionSyntax { Name: var name } binding
+                    when Calls(binding) || declared.CanRunCode(name) => this.MemberOf(binding),
+                ElementAccessExpressionSyntax or ElementBindingExpressionSyntax
+                    when this.region.Symbols.DeclaresIndexers => this.region.SymbolOf(node),
+                BinaryExpressionSyntax
+                    or PrefixUnaryExpressionSyntax
+                    or PostfixUnaryExpressionSyntax
+                    or AssignmentExpressionSyntax
+                    or CastExpressionSyntax
+                    or BaseObjectCreationExpressionSyntax when declared.CanRunCode(node) => this.region.SymbolOf(node),
+                // No syntax shows an implicit conversion. This check reads it on a name only, as DeclaredCode does.
+                IdentifierNameSyntax name when declared.CanRunCode(name) =>
+                    this.region.ModelFor(name).GetConversion(name).MethodSymbol,
+                _ => null
+            };
+
+        return member is IMethodSymbol or IPropertySymbol
+               && SymbolEqualityComparer.Default.Equals(x: member.ContainingAssembly, y: this.region.Assembly);
+
+        static bool Calls(SyntaxNode used) =>
+            used.Parent is InvocationExpressionSyntax call && call.Expression == used;
+    }
+
+    // True when a name in a lambda names a parameter or a local of the lambda. A name of a nested part can
+    // also be a capture, thus the compiler gives the symbol of such a name.
+    private bool IsOwn(SimpleNameSyntax name, SyntaxNode lambda, DeclaredNames own)
+    {
+        string text = name.Identifier.ValueText;
+
+        return own.Everywhere.Contains(text)
+               || (own.InAPart.Contains(text)
+                   && (this.region.SymbolOf(name) is not { } symbol
+                       || symbol.DeclaringSyntaxReferences.Any(reference =>
+                           reference.SyntaxTree == lambda.SyntaxTree && lambda.Span.Contains(reference.Span))));
     }
 
     /// <summary>
@@ -211,10 +266,30 @@ internal sealed partial class LoopStateEvaluator
     private bool CanHoldState(ITypeSymbol type) =>
         this.region.Symbols.CanHoldState(type: type, compilation: this.region.Assembly);
 
-    // The names of the parameters and the locals that a lambda declares, with those of each function in it.
-    private static HashSet<string> NamesDeclaredIn(AnonymousFunctionExpressionSyntax lambda)
+    // The names of the parameters and the locals that a lambda declares, with those of each function in it. A
+    // parameter, or a local of the top block, hides a capture with its name in all of the lambda. Each other name
+    // hides a capture only in a part of the lambda.
+    private static DeclaredNames NamesDeclaredIn(AnonymousFunctionExpressionSyntax lambda)
     {
-        HashSet<string> names = [.. ParametersOf(lambda).Select(static parameter => parameter.Identifier.ValueText)];
+        HashSet<string> everywhere =
+            [.. ParametersOf(lambda).Select(static parameter => parameter.Identifier.ValueText)];
+
+        HashSet<string> names = [];
+
+        foreach (StatementSyntax statement in lambda.Block?.Statements ?? default)
+        {
+            switch (statement)
+            {
+                case LocalDeclarationStatementSyntax local:
+                    everywhere.UnionWith(local.Declaration.Variables.Select(static each => each.Identifier.ValueText));
+
+                    break;
+                case LocalFunctionStatementSyntax function:
+                    everywhere.Add(function.Identifier.ValueText);
+
+                    break;
+            }
+        }
 
         foreach (SyntaxNode node in lambda.Body.DescendantNodesAndSelf())
         {
@@ -231,13 +306,13 @@ internal sealed partial class LoopStateEvaluator
                     _ => default
                 };
 
-            if (declared.IsKind(SyntaxKind.IdentifierToken))
+            if (declared.IsKind(SyntaxKind.IdentifierToken) && !everywhere.Contains(declared.ValueText))
             {
                 names.Add(declared.ValueText);
             }
         }
 
-        return names;
+        return new DeclaredNames(everywhere: everywhere, inAPart: names);
 
         static SyntaxToken IdentifierOf(SyntaxNode clause) =>
             clause switch
@@ -266,28 +341,39 @@ internal sealed partial class LoopStateEvaluator
     /// <param name="read">The read, which is where the walk reports what the functions read.</param>
     /// <param name="state">The state of the cell.</param>
     /// <param name="marks">
-    ///     What records the run of a cell. The position of the read tells the
-    ///     walk how. Null when the walk cannot know that the read runs.
+    ///     What records the run of a cell, with the name of the read. The
+    ///     position of the read tells the walk how. Null when the walk cannot
+    ///     know that the read runs.
     /// </param>
     /// <param name="heldIn">
     ///     The expression of the cell at the read, for a cell in a member. Null
     ///     for a read with no such expression.
     /// </param>
+    /// <param name="ofACaller">
+    ///     What gets a read of a function whose code is in a caller of this code,
+    ///     such as a lambda that the caller gave. That read is a finding of the
+    ///     caller. Null where no frame of a caller can have the function.
+    /// </param>
     public LoopState AtTheFirstRead(
         SyntaxNode read,
         LoopState state,
-        Action<ComputedValue>? marks,
-        ExpressionSyntax? heldIn = null)
+        Action<ComputedValue, ReadKey?>? marks,
+        ExpressionSyntax? heldIn = null,
+        Action<Finding>? ofACaller = null)
     {
         List<Finding> found = [];
+        List<Finding>? ofCallers = null;
 
-        foreach (ComputedValue cell in state.Computed.Where(static cell => !cell.HasRunNow))
+        // A build that makes two or more cells has a record for each name of a read.
+        ReadKey? key = state.Computed.Any(static cell => cell.ManyCells) ? this.ReadKeyOf(heldIn) : null;
+
+        foreach (ComputedValue cell in state.Computed.Where(cell => !cell.HasRunAt(key)))
         {
             // The mark comes before the walk of the functions. Thus, a function that reads its own
             // cell does not run again.
             if (!this.quiet)
             {
-                marks?.Invoke(cell);
+                marks?.Invoke(arg1: cell, arg2: key);
             }
 
             // An object of the store can get a pending member through a second name, which the
@@ -298,6 +384,8 @@ internal sealed partial class LoopStateEvaluator
             {
                 continue;
             }
+
+            int from = found.Count;
 
             foreach ((ExpressionSyntax written, LoopState functions) in cell.Functions)
             {
@@ -313,8 +401,24 @@ internal sealed partial class LoopStateEvaluator
                                 each: (written, cell.Given, cell.ManyTimes),
                                 heldIn: heldIn)
                             ?.Findings
-                            .Where(static finding => !finding.Escape)
+                            .Where(static finding => finding.IsASureRead)
                         ?? []);
+                }
+            }
+
+            // The call that made this frame drops a finding of this frame with no origin. Thus, a finding of
+            // a caller goes back to that caller as it is. A cell from the frame of that finding came here
+            // through an argument, and the caller reports the read at that argument.
+            if (ofACaller != null)
+            {
+                for (int i = from; i < found.Count; i++)
+                {
+                    if (found[i].Home != this.Frame
+                        && found[i].Home != cell.Builder.Frame
+                        && this.Frame.IsWithin(found[i].Home))
+                    {
+                        (ofCallers ??= []).Add(found[i]);
+                    }
                 }
             }
         }
@@ -324,6 +428,11 @@ internal sealed partial class LoopStateEvaluator
             return state;
         }
 
+        foreach (Finding finding in ofCallers ?? [])
+        {
+            ofACaller?.Invoke(finding);
+        }
+
         ISymbol? origin = found.FirstOrDefault(finding => finding.Home == this.Frame && finding.Origin != null)?.Origin;
 
         // A function that reads a parameter of this code makes the read a read of that parameter, also
@@ -331,5 +440,12 @@ internal sealed partial class LoopStateEvaluator
         return origin is IParameterSymbol parameter
             ? state.WithPending(true).From(parameter)
             : state.WithPending(true).FromIfUnknown(origin);
+    }
+
+    private sealed class DeclaredNames(in HashSet<string> everywhere, in HashSet<string> inAPart)
+    {
+        public HashSet<string> Everywhere { get; } = everywhere;
+
+        public HashSet<string> InAPart { get; } = inAPart;
     }
 }

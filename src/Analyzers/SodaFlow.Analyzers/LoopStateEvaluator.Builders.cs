@@ -11,6 +11,10 @@ namespace SodaFlow.Analyzers;
 // of the object can read the value after a third method changes a member that the function reads.
 internal sealed partial class LoopStateEvaluator
 {
+    // The most names that can give the expression of a member that holds a build. See
+    // WithTheBuildOfAMember.
+    private const int MaxNamesOfABuild = 4;
+
     /// <summary>
     ///     The state of a member that holds a cell or a <c>Lazy</c>, at a read of
     ///     its value. The walk can know nothing of the member. Then, the state
@@ -36,24 +40,38 @@ internal sealed partial class LoopStateEvaluator
 
         // A member of this, or a member of a different object.
         ExpressionSyntax? owner;
+        ISymbol? symbol;
 
-        switch (Unwrapped(heldIn))
+        // A local with one value and a getter that is only an expression each give the member that
+        // they read. Two getters can read each other, thus the number of such names has a limit.
+        for (int names = 0;; names++)
         {
-            case MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax or BaseExpressionSyntax }:
-            case IdentifierNameSyntax:
-                owner = null;
+            switch (Unwrapped(heldIn))
+            {
+                case MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax or BaseExpressionSyntax }:
+                case IdentifierNameSyntax:
+                    owner = null;
 
-                break;
-            case MemberAccessExpressionSyntax access:
-                owner = access.Expression;
+                    break;
+                case MemberAccessExpressionSyntax access:
+                    owner = access.Expression;
 
+                    break;
+                default:
+                    return state;
+            }
+
+            symbol = this.region.SymbolOf(Unwrapped(heldIn));
+
+            if (names == MaxNamesOfABuild || this.MemberThatANameReads(symbol: symbol, owner: owner) is not { } named)
+            {
                 break;
-            default:
-                return state;
+            }
+
+            heldIn = named;
         }
 
-        if (this.region.SymbolOf(Unwrapped(heldIn))
-            is not ({ } member and (IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false })))
+        if (symbol is not ({ } member and (IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false })))
         {
             return state;
         }
@@ -78,9 +96,7 @@ internal sealed partial class LoopStateEvaluator
             MemberBuilds.Of(
                 member: read,
                 type: owner == null
-                    ? heldIn.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } code
-                        ? this.region.ModelFor(code).GetDeclaredSymbol(code) as ITypeSymbol
-                        : null
+                    ? this.TypeOfThis(heldIn)
                     : ReferenceEquals(objA: read, objB: member)
                         ? this.region.TypeOf(owner)
                         : null);
@@ -106,7 +122,63 @@ internal sealed partial class LoopStateEvaluator
 
         // The evaluator keeps the value of each expression. Thus, a second read of a member of this
         // gets the same cell, and does not run its functions again.
-        return values.Aggregate(seed: state, func: (all, value) => all.Join(reader.EvalABuild(value)));
+        LoopState built = values.Aggregate(seed: state, func: (all, value) => all.Join(reader.EvalABuild(value)));
+
+        // The code of the build ran before the read. A lambda of the build that runs at the read
+        // is then a function of a frame that returned. Thus, the read gets its findings, as for a
+        // call: see Leave.
+        if (!ReferenceEquals(objA: reader, objB: this))
+        {
+            reader.Frame.Return();
+        }
+
+        return built;
+    }
+
+    // The expression that a local or a getter of this gives, when it can name a member. The local
+    // has one value. The getter is only an expression, and no override can change it. Null for each
+    // other name.
+    private ExpressionSyntax? MemberThatANameReads(ISymbol? symbol, ExpressionSyntax? owner) =>
+        symbol switch
+        {
+            // The search for the writes of a local binds each use. Thus, the value comes first.
+            ILocalSymbol local
+                when local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax()
+                    is VariableDeclaratorSyntax { Initializer.Value: var initial }
+                && Unwrapped(initial) is IdentifierNameSyntax or MemberAccessExpressionSyntax =>
+                this.OnlyValueOf(local),
+            // The getter of a different object reads the members of that object, not those of this.
+            IPropertySymbol { IsStatic: false, IsVirtual: false, IsAbstract: false, IsOverride: false } property
+                when owner == null => GetterOf(property.OriginalDefinition) as ExpressionSyntax,
+            _ => null
+        };
+
+    // The type of the object of this code, for the code of a node. A method of a base class can run
+    // on an object of a derived class. The code of that class can give the members their values.
+    // Thus, the one type that the walk knows for the object of the call comes first, when it is that
+    // class or a class derived from it.
+    private ITypeSymbol? TypeOfThis(SyntaxNode at)
+    {
+        if (at.FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } code
+            || this.region.ModelFor(code).GetDeclaredSymbol(code) is not INamedTypeSymbol declared)
+        {
+            return null;
+        }
+
+        INamedTypeSymbol[] known = [.. (this.thisObject?.Types ?? []).Take(2)];
+        INamedTypeSymbol? actual = known.Length == 1 ? known[0] : null;
+
+        for (INamedTypeSymbol? each = actual?.OriginalDefinition;
+             each != null;
+             each = each.BaseType?.OriginalDefinition)
+        {
+            if (SymbolEqualityComparer.Default.Equals(x: each, y: declared.OriginalDefinition))
+            {
+                return actual;
+            }
+        }
+
+        return declared;
     }
 
     /// <summary>

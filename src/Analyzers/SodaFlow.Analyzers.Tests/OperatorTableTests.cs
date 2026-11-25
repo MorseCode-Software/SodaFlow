@@ -77,14 +77,13 @@ internal sealed class OperatorTableTests
             .Because("each public member needs a row in OperatorTable, or a place in DefaultIsSound");
     }
 
-    // The methods that a type declares, and the members of each interface of the platform that
-    // it implements, as ICommand of a bindable action. An accessor has the name of its property
-    // or event, thus a setter is in the list as its property. A base type of the platform, as
-    // Enum or Exception is, gives its own interfaces, which read no value of the graph. A field
-    // can hold a cell or a function, thus each field that is not a constant is a member also. A
-    // constant, as the value of an enum, holds a value that the compiler sets. A constructor can
-    // call a member of an object that it gets, as the constructor of TimerSystem calls Now. Thus,
-    // each public constructor is a member also, with the name of its type.
+    // The methods that a type declares, and the members of each interface of the platform that it implements, as
+    // ICommand of a bindable action. An accessor has the name of its property or event, thus a setter is in the list as
+    // its property. Enum and Exception are examples of a base type of the platform. Such a type gives its own
+    // interfaces, which read no value of the graph. A field can hold a cell or a function, thus each field that is not
+    // a constant is a member also. A constant, as the value of an enum, holds a value that the compiler sets. A
+    // constructor can call a member of an object that it gets, as the constructor of TimerSystem calls Now. Thus, each
+    // public constructor is a member also, with the name of its type.
     private static IEnumerable<string> MembersOf(Type type) =>
         type.GetMethods(Declared)
             .Concat(
@@ -173,7 +172,7 @@ internal sealed class OperatorTableTests
 
     /// <summary>
     ///     An operator whose function computes its value can also get a function
-    ///     that it keeps for a later time. Only the first makes the result
+    ///     that it keeps for a subsequent time. Only the first makes the result
     ///     pending. Thus, each function parameter of such an operator has to say
     ///     which it is, and this test fails for a new one until it does. A
     ///     comparer, and a cell of functions, are functions here also.

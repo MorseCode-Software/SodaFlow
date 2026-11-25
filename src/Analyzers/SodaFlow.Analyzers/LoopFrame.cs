@@ -101,6 +101,13 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     } = [];
 
     /// <summary>
+    ///     Each element of a collection in a static field that got objects of the
+    ///     store from a sure put of a callee. The index is a constant. The name
+    ///     holds the objects from the end of the call.
+    /// </summary>
+    public List<(NameOfAnObject Name, ImmutableArray<MadeObject> Objects)> PutsIntoStaticElements { get; } = [];
+
+    /// <summary>
     ///     For a parameter with ref or out that this code gave a value: the
     ///     number of entries that <see cref="PutsIntoLocations" /> had at that
     ///     assignment.
@@ -224,6 +231,14 @@ internal sealed class LoopFrame(in LoopFrame? parent, in bool repeats, in bool i
     ///     field of an object in a local.
     /// </summary>
     public Dictionary<ISymbol, ExpressionSyntax> LocationOf { get; } = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    ///     For a local with ref of this code: the conditional ref of its
+    ///     location, where the condition is not a constant. Each branch is a
+    ///     location that <see cref="LocationOf" /> can have.
+    /// </summary>
+    public Dictionary<ISymbol, ExpressionSyntax> ConditionalLocationOf { get; } =
+        new(SymbolEqualityComparer.Default);
 
     /// <summary>
     ///     For a loop of this code: each member that a write of its turn

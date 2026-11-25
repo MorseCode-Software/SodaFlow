@@ -13,4 +13,5 @@ SF1003 | SodaFlow.Loops | Info | A looped value leaves the library before its lo
 SF1004 | SodaFlow.Loops | Warning | A callee reads a looped value before its loop closes
 SF1005 | SodaFlow.Loops | Warning | A member built from a looped value is read before its loop closes
 SF1006 | SodaFlow.Loops | Warning | A loop closes with a value whose initial value reads its own placeholder
+SF1007 | SodaFlow.Loops | Info | A run in a callee can read a looped value before its loop closes
 SF2001 | SodaFlow.Listeners | Warning | Nothing holds the listener that Listen or ListenOnce returns

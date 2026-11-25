@@ -6,14 +6,12 @@ using SodaFlow;
 
 namespace SodaFlow.Analyzers.ListenerShapes;
 
-// Each method is one shape of a listener. The comment SF2001 at the end of a line says that the
-// rule reports the call on that line. ListenerAnalyzerTests reads these comments, runs the
-// analyzer, and then runs each shape. A shape gets a sink and a list. It listens with the Add of
-// the list, and then Probe.Fire collects and sends 1. Thus, the list has 1 when the listener lived
-// to the send. Each shape gets the full optimization of the JIT at its first call. Without it, the
-// JIT keeps each local alive to the end of the method, and a local that nothing reads still holds
-// its listener. This file is test data: the harness compiles it and the analyzer reads it, and the
-// project does not compile it.
+// Each method is one shape of a listener. The comment SF2001 at the end of a line says that the rule reports the call
+// on that line. ListenerAnalyzerTests reads these comments, runs the analyzer, and then runs each shape. A shape gets a
+// sink and a list. It listens with the Add of the list, and then Probe.Fire collects and sends 1. Thus, the list has 1
+// when the listener lived to the send. Each shape gets the full optimization of the JIT at its first call. Without it,
+// the JIT keeps each local alive to the end of the method. Then a local that nothing reads holds its listener all the
+// same. This file is test data: the harness compiles it and the analyzer reads it, and the project does not compile it.
 public static class ListenerShapes
 {
     // L01. A statement of the listen alone, which drops its result.
@@ -154,7 +152,7 @@ public static class ListenerShapes
         Probe.Fire(s);
     }
 
-    // L17. The static form of the extension method.
+    // L17. The extension method, called as a static method.
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static void ListenCalledAsAStaticMethod(StreamSink<int> s, List<int> seen)
     {
@@ -175,8 +173,7 @@ public static class ListenerShapes
         Probe.Fire(s);
     }
 
-    // L19. A local of another type that nothing reads. The listener goes into it through an
-    // implicit conversion.
+    // L19. A local of a different type that nothing reads. The listener goes into it through an implicit conversion.
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static void ListenIntoADisposableLocalThatNothingReads(StreamSink<int> s, List<int> seen)
     {
@@ -278,7 +275,7 @@ public static class ListenerShapes
         }
     }
 
-    // K10. A local set in one pass of a loop and read in the next.
+    // K10. A local that one iteration of a loop sets and the next iteration reads.
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static void ListenIntoALocalReadInTheNextPass(StreamSink<int> s, List<int> seen)
     {
@@ -339,7 +336,7 @@ public static class ListenerShapes
         Holder.Listener = null;
     }
 
-    // K15. A local that a later declarator of the same statement reads.
+    // K15. A local that a subsequent declarator of the same statement reads.
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static void ListenIntoALocalReadInItsStatement(StreamSink<int> s, List<int> seen)
     {
