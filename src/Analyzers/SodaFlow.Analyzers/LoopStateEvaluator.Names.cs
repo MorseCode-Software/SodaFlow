@@ -481,6 +481,7 @@ internal sealed partial class LoopStateEvaluator
             {
                 held.Add(one);
                 one.Members.RemoveAll(each => each.Member.Name == member.Name);
+                one.ThroughASecondField.RemoveAll(each => each.Member.Name == member.Name);
             }
             else if (isOfIt
                          ? !one.Members.Any(each =>
@@ -501,6 +502,13 @@ internal sealed partial class LoopStateEvaluator
                                 At = this.region.MemberWrites
                             };
                     }
+                }
+
+                if (name is { } second
+                    && use != null
+                    && this.CanHoldTheObjectOf(names: one, second: second, use: use))
+                {
+                    one.ThroughASecondField.Add((member.OriginalDefinition, state));
                 }
             }
         }
@@ -525,6 +533,73 @@ internal sealed partial class LoopStateEvaluator
         {
             one.Members.Add((member.OriginalDefinition, end, state, true, this.region.MemberWrites));
         }
+    }
+
+    // True when a write through a name can be a write to the object of a record of names. The record
+    // has a static field, and the name is a second static field or a name of a record with one. The
+    // walk does not read each code that gives a static field a value. Thus, the two fields can hold
+    // one object. Two fields that each keep the object of their creation hold two objects, and so do
+    // two fields where one holds its object alone.
+    private bool CanHoldTheObjectOf(
+        NamesOfOneObject names,
+        (ISymbol Of, ISymbol? Owner, object? Index) second,
+        SyntaxNode use)
+    {
+        IFieldSymbol[] fields =
+        [
+            .. names.Names
+                .Select(static name => StaticFieldOf(of: name.Of, owner: name.Owner, index: name.Index))
+                .OfType<IFieldSymbol>()
+        ];
+
+        return fields.Length > 0
+               && this.Frame.NamesOfOneObject
+                   .Where(one => one.Names.Any(name => this.IsTheName(name: name, read: second, use: use)))
+                   .SelectMany(static one => one.Names)
+                   .Select(static name => StaticFieldOf(of: name.Of, owner: name.Owner, index: name.Index))
+                   .Append(StaticFieldOf(of: second.Of, owner: second.Owner, index: second.Index))
+                   .OfType<IFieldSymbol>()
+                   .Any(field =>
+                       !fields.Contains(value: field, comparer: SymbolEqualityComparer.Default)
+                       && fields.Any(other => this.CanHoldOneObject(one: other, second: field)));
+
+        static IFieldSymbol? StaticFieldOf(ISymbol of, ISymbol? owner, object? index) =>
+            owner == null && index == null && of is IFieldSymbol { IsStatic: true } field ? field : null;
+    }
+
+    // True when two static fields can hold one object: see CanHoldTheObjectOf.
+    private bool CanHoldOneObject(IFieldSymbol one, IFieldSymbol second) =>
+        (this.region.Symbols.Unchanged.CreationOf(one) == null
+         || this.region.Symbols.Unchanged.CreationOf(second) == null)
+        && !this.HoldsItsObjectAlone(one);
+
+    // The state of a read of a member through a name of a record, from the writes through a second
+    // static field. See CanHoldTheObjectOf. None where no record is for the read.
+    private LoopState WrittenThroughASecondField(MemberAccessExpressionSyntax read)
+    {
+        if (this.quiet
+            || !this.Frame.NamesOfOneObject.Any(static one => one.ThroughASecondField.Count > 0)
+            || this.region.SymbolOf(read) is not { } member
+            || this.NameOfAnObjectIn(read.Expression) is not { } name)
+        {
+            return LoopState.None;
+        }
+
+        ISymbol definition = member.OriginalDefinition;
+        LoopState found = LoopState.None;
+
+        foreach (NamesOfOneObject one in this.Frame.NamesOfOneObject)
+        {
+            if (one.ThroughASecondField.Count > 0
+                && one.Names.Any(each => this.IsTheName(name: each, read: name, use: read.Expression)))
+            {
+                found = one.ThroughASecondField
+                    .Where(each => SymbolEqualityComparer.Default.Equals(x: each.Member, y: definition))
+                    .Aggregate(seed: found, func: static (all, each) => all.Join(each.State));
+            }
+        }
+
+        return found;
     }
 
     // The position of the creation that made the object of an expression. The expression is the

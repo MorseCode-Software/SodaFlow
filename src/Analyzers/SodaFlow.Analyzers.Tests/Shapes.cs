@@ -63694,6 +63694,70 @@ public static class Shapes
     public static Cell<int> Ab429TwoObjectsGetAStaticObjectForAReadonlyField() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab429KeptFromAStatic m = new(); Ab429KeptFromAStatic n = new(); m.Set(l.Map(v => v)); Kept.Add(n.Read()); return S.Hold(0); });
 
+    // S15451. AB438. A method gives a writable static field the object of a private readonly static field. A local gets the writable field and a plain cell. A pending cell then goes into the readonly field, and the block reads the local.
+    public static Cell<int> Ab438AReadonlyFieldWhoseObjectAMethodGivesAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15452. AB438. The constructor of the object of a private readonly static field puts this into a second static field. A local gets the second field and a plain cell. A pending cell then goes into the readonly field.
+    public static Cell<int> Ab438AReadonlyFieldWhoseConstructorGivesThisAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Leaker d = Ab438LeakTarget!; d.Share = Plain; Ab438Leak.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15453. AB438. The initializer of a private readonly static field gives it the object of a writable static field. A local gets the writable field and a plain cell. A pending cell then goes into the readonly field.
+    public static Cell<int> Ab438AReadonlyFieldThatGetsASecondField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab438Source; d.Share = Plain; Ab438Alias.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15454. AB438. Code of a different type gives a writable static field the object of a public readonly static field. A local gets the writable field and a plain cell. A pending cell then goes into the readonly field.
+    public static Cell<int> Ab438APublicReadonlyFieldThatADifferentTypeGivesAway() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Helpers.Ab438ShareThePublicField(); SettableSlot d = Ab438Writable2; d.Share = Plain; Ab438Public.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15455. AB438, an edge. A method gives a writable static field the object of a second writable static field. A local gets the first field and a plain cell. A pending cell then goes into the second field.
+    public static Cell<int> Ab438TwoWritableFieldsThatAMethodJoins() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Join(); SettableSlot d = Ab438First; d.Share = Plain; Ab438Second.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15456. AB438, an edge. The same as the first shape, but the pending cell goes into the object through a second local of the readonly field.
+    public static Cell<int> Ab438ASecondLocalOfTheReadonlyField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; SettableSlot k = Ab438Kept; k.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15457. AB438, an edge. The same as the first shape, but the block gives the local a second plain cell after the pending cell. Thus, the read gets the plain cell.
+    public static Cell<int> Ab438APlainCellThroughTheLocalAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); d.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15458. AB438, an edge. The same as the first shape, but the pending cell goes into the readonly field before the local gets the plain cell. Thus, the read gets the plain cell.
+    public static Cell<int> Ab438APendingCellBeforeThePlainCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); Ab438Kept.Share = l.Map(v => v); SettableSlot d = Ab438Writable; d.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15459. AB438, a control. Two private readonly static fields get a new object each, and no code gives an object to a different name. A local gets the first field and a plain cell. A pending cell then goes into the second field.
+    public static Cell<int> Ab438TwoReadonlyFieldsOfTwoObjects() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot d = Ab438Third; d.Share = Plain; Ab438Fourth.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15460. AB438, a control. Two private readonly static fields get a new object each, and a method gives each object to a list. A local gets the first field and a plain cell. A pending cell then goes into the second field.
+    public static Cell<int> Ab438TwoReadonlyFieldsThatAMethodGivesToAList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438HandOn(); SettableSlot d = Ab438Fifth; d.Share = Plain; Ab438Sixth.Share = l.Map(v => v); return S.Hold(d.Share!.Sample()); });
+
+    // S15461. AB438, a control. A private readonly static field holds its object alone and gets a plain cell. A pending cell then goes into a writable static field, and the block reads the first field.
+    public static Cell<int> Ab438AFieldThatHoldsItsObjectAloneThenASecondField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Seventh.Share = Plain; Ab438First.Share = l.Map(v => v); return S.Hold(Ab438Seventh.Share!.Sample()); });
+
+    // S15462. AB438, a control. The same as the first shape of AB438, but the local gets a second plain cell after the pending cell. A write to a different object comes before the read.
+    public static Cell<int> Ab438APlainCellThroughTheLocalThenAWriteElsewhere() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); d.Share = Plain; Ab438Seventh.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15463. AB438, a control. The same as the first shape of AB438, but the block reads a new object that got a plain cell before.
+    public static Cell<int> Ab438AReadOfANewObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => { SettableSlot e = new(); e.Share = Plain; Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); return S.Hold(e.Share!.Sample()); });
+
+    // S15464. AB438, a control. The same as the first shape of AB438, but a method gives the local a plain cell after the pending cell.
+    public static Cell<int> Ab438AMethodGivesThePlainCellAfterThePendingCell() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); Ab438PutPlain(d); return S.Hold(d.Share!.Sample()); });
+
+    // S15465. AB438, a control. The same, but a write to a different object comes after the call and before the read.
+    public static Cell<int> Ab438AMethodGivesThePlainCellThenAWriteElsewhere() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); Ab438PutPlain(d); Ab438Seventh.Share = Plain; return S.Hold(d.Share!.Sample()); });
+
+    // S15466. AB438, a control. The same as the first shape of AB438, but the local gets a second plain cell after the pending cell. A method then writes a member of a different object.
+    public static Cell<int> Ab438APlainCellThroughTheLocalThenAMethodWritesElsewhere() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab438Share(); SettableSlot d = Ab438Writable; d.Share = Plain; Ab438Kept.Share = l.Map(v => v); d.Share = Plain; Ab438PutPlain(Ab438Fifth); return S.Hold(d.Share!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -117482,6 +117546,55 @@ public static class Shapes
         public int Read() => this.slot.Share.Sample();
     }
 
+    private static readonly SettableSlot Ab438Kept = new();
+
+    private static SettableSlot Ab438Writable = new();
+
+    private static void Ab438Share() => Ab438Writable = Ab438Kept;
+
+    private static Ab438Leaker? Ab438LeakTarget;
+
+    private static readonly Ab438Leaker Ab438Leak = new();
+
+    public sealed class Ab438Leaker
+    {
+        public Ab438Leaker() => Ab438LeakTarget = this;
+
+        public Cell<int>? Share { get; set; }
+    }
+
+    private static SettableSlot Ab438Source = new();
+
+    private static readonly SettableSlot Ab438Alias = Ab438Source;
+
+    public static SettableSlot Ab438Writable2 = new();
+
+    public static readonly SettableSlot Ab438Public = new();
+
+    public static SettableSlot Ab438First = new();
+
+    public static SettableSlot Ab438Second = new();
+
+    private static void Ab438Join() => Ab438Second = Ab438First;
+
+    private static readonly SettableSlot Ab438Third = new();
+
+    private static readonly SettableSlot Ab438Fourth = new();
+
+    private static readonly SettableSlot Ab438Fifth = new();
+
+    private static readonly SettableSlot Ab438Sixth = new();
+
+    private static readonly SettableSlot Ab438Seventh = new();
+
+    private static void Ab438HandOn()
+    {
+        Kept.Add(Ab438Fifth);
+        Kept.Add(Ab438Sixth);
+    }
+
+    private static void Ab438PutPlain(SettableSlot slot) => slot.Share = Plain;
+
     public sealed record ItemId(int Number) : IIdentity<int>
     {
         public int Key => this.Number;
@@ -117490,6 +117603,9 @@ public static class Shapes
 
 file static class Helpers
 {
+    // Code of a different type gives the object of a public readonly field to a second field: AB438.
+    public static void Ab438ShareThePublicField() => Shapes.Ab438Writable2 = Shapes.Ab438Public;
+
     // A ContinueWith of this code, which keeps its function and does not run it.
     public static Task ContinueWith(this Task task, Action<Task> f, TaskContinuationOptions options, string name)
     {

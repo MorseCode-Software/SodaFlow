@@ -2412,6 +2412,11 @@ internal sealed partial class LoopStateEvaluator
                                 member: symbol,
                                 field: field));
 
+                        if (expression is MemberAccessExpressionSyntax named)
+                        {
+                            through = through.Join(this.WrittenThroughASecondField(named));
+                        }
+
                         // The members are of each object that the owner can be. An owner that the
                         // store does not know has a member that the store does not know.
                         return (through.Objects.IsEmpty || !owner.Objects.Contains(MadeObject.Unknown)

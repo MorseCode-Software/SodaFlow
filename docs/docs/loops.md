@@ -473,7 +473,12 @@ The analyzer follows a value made from the placeholder through the code of your 
   write goes to an object that the code creates after the name got its object, through the creation
   itself or through a local that only that creation gives a value, and where it goes through a
   private `static readonly` field that a creation fills and whose object your code never hands on:
-  each use of the field reads or writes a field or a property with no body. A write in a method that
+  each use of the field reads or writes a field or a property with no body. A write through a static
+  field, or through a local that got one, reaches a later read through a name that got its object
+  from a different static field too. Code that the analyzer does not follow, such as a method, a
+  constructor that hands on `this`, an initializer, or code in a different class, can give the two
+  fields one object. It does not where each of the two fields keeps the object of its own `new`
+  initializer, or where one of them is such a `static readonly` field. A write in a method that
   the block calls counts as well, where the block always calls the method one time and the method
   writes through a static field, an element of an array in one, or a parameter whose argument is
   such a name. So does a write through one of the names in a lambda or a local function that the

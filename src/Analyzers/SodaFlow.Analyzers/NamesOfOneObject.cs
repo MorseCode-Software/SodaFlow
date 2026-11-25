@@ -25,4 +25,20 @@ internal sealed class NamesOfOneObject
     ///     last change of the state.
     /// </summary>
     public List<(ISymbol Member, int End, LoopState State, bool Accurate, int At)> Members { get; } = [];
+
+    /// <summary>
+    ///     The state of each member that a write through a second static field
+    ///     gave after the last sure write through one of the names. That field
+    ///     can hold the object of a static field of the names. A method can give
+    ///     the one field the object of the other. A sure write through one of the
+    ///     names removes the state of its member.
+    /// </summary>
+    /// <remarks>
+    ///     A write that the frame did not see does not remove the states, as it
+    ///     does for <see cref="Members" />. Such a write can only replace a
+    ///     state. Thus, the record can keep a pending value that the object no
+    ///     longer has, and a report is then on the careful side. Without the
+    ///     state, a read can miss a pending value that the object has.
+    /// </remarks>
+    public List<(ISymbol Member, LoopState State)> ThroughASecondField { get; } = [];
 }

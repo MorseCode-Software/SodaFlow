@@ -9048,6 +9048,12 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab429AReadonlyStaticFieldThatAStaticConstructorChanges"] = ["SF1005"],
             ["Ab429AnElementWithTheObjectOfAReadonlyStaticField"] = ["SF1005"],
             ["Ab429AnElementWithTheObjectThatAMethodReturns"] = ["SF1005"],
-            ["Ab429TwoObjectsGetAStaticObjectForAReadonlyField"] = ["SF1005"]
+            ["Ab429TwoObjectsGetAStaticObjectForAReadonlyField"] = ["SF1005"],
+            ["Ab438AReadonlyFieldWhoseObjectAMethodGivesAway"] = ["SF1001"],
+            ["Ab438AReadonlyFieldWhoseConstructorGivesThisAway"] = ["SF1001"],
+            ["Ab438AReadonlyFieldThatGetsASecondField"] = ["SF1001"],
+            ["Ab438APublicReadonlyFieldThatADifferentTypeGivesAway"] = ["SF1001"],
+            ["Ab438TwoWritableFieldsThatAMethodJoins"] = ["SF1001"],
+            ["Ab438ASecondLocalOfTheReadonlyField"] = ["SF1001"]
         };
 }
