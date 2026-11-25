@@ -35,6 +35,7 @@ measures a `ReactiveCollection` against the shapes people reach for instead.
 | `KeyedCollectionViewBenchmarks` | The view chain, `Filter`, `SortBy`, and `Take`, against re-deriving the same view from a cell that holds the whole collection. |
 | `KeyedCollectionPagingBenchmarks` | Turning the page of a `Slice`, and editing within one, against re-deriving those with `OrderByDescending`, `Skip`, and `Take`. |
 | `KeyedCollectionAggregateBenchmarks` | A total over the whole collection folded from the change stream, against one read again from the store. |
+| `PerKeyEditBenchmarks` | One edit of one key in ten thousand items, against the number of per-key cells on the collection or on a view: a hundred, a thousand, or ten thousand. The opening of the page quotes it. Before each collection kept an index from key to cell, each bound row filtered every change, and the same edit took 7.2 µs, 61 µs, and 0.75 to 0.79 ms. |
 | `KeyedCollectionScaleBenchmarks` | One question, what a selective filter costs per edit, up to a million items. |
 
 Run them all with:

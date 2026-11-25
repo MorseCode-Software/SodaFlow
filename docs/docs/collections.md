@@ -24,10 +24,9 @@ looks up only the keys it names, so a watched item that the change does not touc
 and nothing is built for the items nobody is looking at.
 
 That property is measured rather than asserted. One edit of one key in a collection of ten
-thousand items takes 1.6 to 1.8 µs on .NET 10 whether a hundred, a thousand, or ten thousand rows
-are bound, where each bound row used to filter every change and the same edit took 7.2 µs,
-61 µs, and 0.75 to 0.79 ms. `PerKeyEditBenchmarks` measures that, and
-[Measuring it](#measuring-it) compares the collection with the shapes people reach for instead.
+thousand items takes 1.6 to 1.8 µs on .NET 10, whether a hundred, a thousand, or ten thousand rows
+are bound. [Measuring it](#measuring-it) compares the collection with the shapes people reach for
+instead.
 
 It lives in a separate package; see [Which package do I install?](packages.md).
 
