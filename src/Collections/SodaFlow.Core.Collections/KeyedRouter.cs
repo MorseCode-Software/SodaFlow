@@ -39,7 +39,13 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
     private const int MinPruneThreshold = 64;
 
     private readonly Stream<TChange> anchor;
-    private readonly Dictionary<TKey, Bucket> buckets;
+
+    /// <summary>
+    ///     The routes of each key: the weak reference of its one route, or a
+    ///     <see cref="Bucket" /> when the key has two or more. Most keys have one
+    ///     cell. Thus, most keys cost no bucket and no list.
+    /// </summary>
+    private readonly Dictionary<TKey, object> buckets;
 
     /// <summary>The keys whose buckets a change emptied, for removal after the change.</summary>
     private readonly List<TKey> emptied = [];
@@ -47,8 +53,9 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
     private readonly Stream<TChange> source;
 
     /// <summary>
-    ///     A new value for each change. A bucket records the value of the last change
-    ///     that visited it. Thus, a key that a change names two times gets one value.
+    ///     A new value for each change. A bucket, or the one route of a key, records
+    ///     the value of the last change that visited it. Thus, a key that a change
+    ///     names two times gets one value.
     /// </summary>
     private long generation;
 
@@ -66,7 +73,7 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
     private protected KeyedRouter(TransactionInternal trans, Stream<TChange> source, IEqualityComparer<TKey> comparer)
     {
         this.source = source;
-        this.buckets = new Dictionary<TKey, Bucket>(comparer);
+        this.buckets = new Dictionary<TKey, object>(comparer);
         this.anchor = new Stream<TChange>(source.KeepListenersAlive);
 
         this.anchor.UnsafeAttachListener(
@@ -75,12 +82,6 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
 
     /// <summary>The number of keys that have a bucket. Tests read it.</summary>
     internal int KeyCount => this.buckets.Count;
-
-    /// <summary>The per-key action, as the router sees it.</summary>
-    private interface IRoute
-    {
-        void Route(TransactionInternal trans, TChange change);
-    }
 
     public override void Fire(TransactionInternal trans, TChange value)
     {
@@ -107,9 +108,9 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
         {
             // A change that names more keys than have buckets, such as a reset, visits each bucket. The
             // projection of each stream then tests its own key, as the filter did.
-            foreach (KeyValuePair<TKey, Bucket> pair in this.buckets)
+            foreach (KeyValuePair<TKey, object> pair in this.buckets)
             {
-                this.RouteBucket(trans: trans, change: value, key: pair.Key, bucket: pair.Value);
+                this.RouteEntry(trans: trans, change: value, key: pair.Key, entry: pair.Value);
             }
         }
 
@@ -163,9 +164,9 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
 
     private protected void RouteKey(TransactionInternal trans, TChange change, TKey key)
     {
-        if (this.buckets.TryGetValue(key: key, value: out Bucket? bucket))
+        if (this.buckets.TryGetValue(key: key, value: out object? entry))
         {
-            this.RouteBucket(trans: trans, change: change, key: key, bucket: bucket);
+            this.RouteEntry(trans: trans, change: change, key: key, entry: entry);
         }
     }
 
@@ -173,13 +174,50 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
     {
         this.Prune();
 
-        if (!this.buckets.TryGetValue(key: key, value: out Bucket? bucket))
+        if (!this.buckets.TryGetValue(key: key, value: out object? entry))
         {
-            bucket = new Bucket();
-            this.buckets.Add(key: key, value: bucket);
+            this.buckets.Add(key: key, value: route);
+
+            return;
         }
 
-        bucket.Routes.Add(route);
+        if (entry is Bucket bucket)
+        {
+            bucket.Routes.Add(route);
+
+            return;
+        }
+
+        // The second route of a key makes its bucket. A dead first route goes, and the key keeps one.
+        WeakReference<object> first = (WeakReference<object>)entry;
+        this.buckets[key] = first.TryGetTarget(out _) ? new Bucket(first: first, second: route) : route;
+    }
+
+    private void RouteEntry(TransactionInternal trans, TChange change, TKey key, object entry)
+    {
+        if (entry is Bucket bucket)
+        {
+            this.RouteBucket(trans: trans, change: change, key: key, bucket: bucket);
+
+            return;
+        }
+
+        if (!((WeakReference<object>)entry).TryGetTarget(out object? target))
+        {
+            this.emptied.Add(key);
+
+            return;
+        }
+
+        Route route = (Route)target;
+
+        if (route.Generation == this.generation)
+        {
+            return;
+        }
+
+        route.Generation = this.generation;
+        route.RouteChange(trans: trans, change: change);
     }
 
     private void RouteBucket(TransactionInternal trans, TChange change, TKey key, Bucket bucket)
@@ -197,7 +235,7 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
         {
             if (routes[index].TryGetTarget(out object? route))
             {
-                ((IRoute)route).Route(trans: trans, change: change);
+                ((Route)route).RouteChange(trans: trans, change: change);
             }
             else
             {
@@ -230,11 +268,18 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
 
         List<TKey> dead = [];
 
-        foreach (KeyValuePair<TKey, Bucket> pair in this.buckets)
+        foreach (KeyValuePair<TKey, object> pair in this.buckets)
         {
-            pair.Value.Routes.RemoveAll(static reference => !reference.TryGetTarget(out _));
+            if (pair.Value is Bucket bucket)
+            {
+                bucket.Routes.RemoveAll(static reference => !reference.TryGetTarget(out _));
 
-            if (pair.Value.Routes.Count == 0)
+                if (bucket.Routes.Count == 0)
+                {
+                    dead.Add(pair.Key);
+                }
+            }
+            else if (!((WeakReference<object>)pair.Value).TryGetTarget(out _))
             {
                 dead.Add(pair.Key);
             }
@@ -248,13 +293,26 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
         this.pruneThreshold = Math.Max(val1: MinPruneThreshold, val2: 2 * this.buckets.Count);
     }
 
-    /// <summary>The routes of one key.</summary>
-    private sealed class Bucket
+    /// <summary>The routes of a key that has two or more.</summary>
+    private sealed class Bucket(WeakReference<object> first, WeakReference<object> second)
     {
-        internal readonly List<WeakReference<object>> Routes = [];
+        internal readonly List<WeakReference<object>> Routes = [first, second];
 
         /// <summary>The generation of the last change that visited this bucket.</summary>
         internal long Generation = -1;
+    }
+
+    /// <summary>The per-key action, as the router sees it.</summary>
+    // ReSharper disable once InheritdocConsiderUsage - The summary says what a route is, which the base action does not.
+    private abstract class Route : StreamAction<TChange>
+    {
+        /// <summary>
+        ///     The generation of the last change that visited this route, when it is
+        ///     the one route of its key.
+        /// </summary>
+        internal long Generation = -1;
+
+        internal abstract void RouteChange(TransactionInternal trans, TChange change);
     }
 
     /// <summary>The action of one per-key stream.</summary>
@@ -262,7 +320,7 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
     private sealed class PerKey<TProjected>(
         in KeyedRouter<TKey, TChange> router,
         in Stream<TProjected> @out,
-        in Func<TChange, MaybeInternal<TProjected>> project) : StreamAction<TChange>, IRoute
+        in Func<TChange, MaybeInternal<TProjected>> project) : Route
     {
         private readonly Stream<TProjected> @out = @out;
         private readonly Func<TChange, MaybeInternal<TProjected>> project = project;
@@ -274,7 +332,7 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
         // ReSharper disable once UnusedMember.Local - The field is a strong reference and nothing reads it.
         private readonly KeyedRouter<TKey, TChange> router = router;
 
-        public void Route(TransactionInternal trans, TChange change)
+        internal override void RouteChange(TransactionInternal trans, TChange change)
         {
             if (this.project(change).TryGetValue(out TProjected value))
             {
@@ -283,7 +341,8 @@ internal abstract class KeyedRouter<TKey, TChange> : StreamAction<TChange>
         }
 
         // The anchor never fires. A replay of the changes of the current transaction comes here.
-        public override void Fire(TransactionInternal trans, TChange value) => this.Route(trans: trans, change: value);
+        public override void Fire(TransactionInternal trans, TChange value) =>
+            this.RouteChange(trans: trans, change: value);
     }
 }
 
