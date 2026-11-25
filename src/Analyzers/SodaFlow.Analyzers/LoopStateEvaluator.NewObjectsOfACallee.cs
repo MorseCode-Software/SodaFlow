@@ -75,7 +75,7 @@ internal sealed partial class LoopStateEvaluator
     // True when a callee always gives a location a new object. No override can replace the callee. Its code
     // runs at the call, thus it is not async and not an iterator. The last statement of its code gives the
     // location the new object, and no return can come before it. A goto cannot go over the last statement.
-    private bool GivesANewObjectTo(InvocationExpressionSyntax call, ISymbol location) =>
+    private bool GivesANewObjectTo(SyntaxNode call, ISymbol location) =>
         this.region.SymbolOf(call)
             is IMethodSymbol { IsVirtual: false, IsOverride: false, IsAsync: false, ReturnsVoid: true } method
         && BodyOf(method.OriginalDefinition) switch
