@@ -32,8 +32,20 @@ internal sealed partial class LoopStateEvaluator
 
         switch (this.region.SymbolOf(Unwrapped(element.Expression)))
         {
-            case { } field and (IFieldSymbol or IPropertySymbol) when replaces && index >= 0 && this.function == null:
-                this.region.ReplacesThePutsThroughLocals(field: field, index: index);
+            case { } field and (IFieldSymbol or IPropertySymbol):
+                if (replaces && index >= 0 && this.function == null)
+                {
+                    this.region.ReplacesThePutsThroughLocals(field: field, index: index);
+                }
+
+                // A second field that got the same array gets the put also.
+                if (this.region.HasLinkedFields)
+                {
+                    this.region.AddAPutThroughTheFieldsLinkedTo(
+                        field: field,
+                        index: index,
+                        held: LoopState.None.HoldingWhatCameWith(state).Join(state.AsContainer.WithNoObjects));
+                }
 
                 break;
             case ILocalSymbol local
@@ -82,6 +94,8 @@ internal sealed partial class LoopStateEvaluator
                 index: -1,
                 held: LoopState.None.HoldingWhatCameWith(state).Join(state.AsContainer.WithNoObjects));
         }
+
+        this.AddsThroughALinkedField(list: list, method: method, state: state);
     }
 
     // True when a put through a local can go into the value that a read through a location gets. The local is a name

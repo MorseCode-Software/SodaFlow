@@ -83,6 +83,7 @@
         <Compile Include="LoopStateEvaluator.Names.cs"/>
         <Compile Include="LoopStateEvaluator.LaterFormats.cs"/>
         <Compile Include="LoopStateEvaluator.LaterWrites.cs"/>
+        <Compile Include="LoopStateEvaluator.LinkedFields.cs"/>
         <Compile Include="LoopStateEvaluator.LiteralLinks.cs"/>
         <Compile Include="LoopStateEvaluator.Marks.cs"/>
         <Compile Include="LoopStateEvaluator.MethodGroups.cs"/>

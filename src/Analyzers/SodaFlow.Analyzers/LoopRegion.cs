@@ -52,6 +52,9 @@ internal sealed class LoopRegion(
     private readonly Dictionary<ISymbol, List<(int Index, LoopState Held)>> putsThroughLocals =
         new(SymbolEqualityComparer.Default);
 
+    // Each two fields that an assignment gave one list or one array, from LinksTwoFields.
+    private readonly List<(ISymbol One, ISymbol Other)> linkedFields = [];
+
     // For a static field that holds an array: each put into an element through the field at a constant index. A
     // put at one index does not change a different element. See PutsAtAnIndexOf.
     private readonly Dictionary<ISymbol, List<(int Index, LoopState Held)>> putsAtIndexes =
@@ -1028,8 +1031,12 @@ internal sealed class LoopRegion(
     /// <param name="held">The state of the array with the value in it.</param>
     public void AddAPutThroughALocal(ISymbol field, int index, LoopState held)
     {
-        ISymbol key = field.OriginalDefinition;
+        this.AddAPutThroughALocalOf(key: field.OriginalDefinition, index: index, held: held);
+        this.AddAPutThroughTheFieldsLinkedTo(field: field, index: index, held: held);
+    }
 
+    private void AddAPutThroughALocalOf(ISymbol key, int index, LoopState held)
+    {
         if (!this.putsThroughLocals.TryGetValue(key: key, value: out List<(int Index, LoopState Held)>? puts))
         {
             puts = [];
@@ -1037,6 +1044,72 @@ internal sealed class LoopRegion(
         }
 
         puts.Add((index, held));
+    }
+
+    /// <summary>True when the record has a link from <see cref="LinksTwoFields" />.</summary>
+    public bool HasLinkedFields => this.linkedFields.Count > 0;
+
+    /// <summary>
+    ///     Records that an assignment gave a field the list or the array of a
+    ///     second field, as <c>B = A</c> does. Then, a put through one of them,
+    ///     or through a local of one of them, goes into the record of each.
+    /// </summary>
+    /// <param name="one">The field that got the value.</param>
+    /// <param name="other">The field that gave the value.</param>
+    public void LinksTwoFields(ISymbol one, ISymbol other) =>
+        this.linkedFields.Add((one.OriginalDefinition, other.OriginalDefinition));
+
+    /// <summary>
+    ///     Removes each link of a field from <see cref="LinksTwoFields" />. The
+    ///     field has one location, and it gets a different value.
+    /// </summary>
+    public void TakesAwayTheLinksOfAField(ISymbol field)
+    {
+        if (this.linkedFields.Count > 0)
+        {
+            ISymbol key = field.OriginalDefinition;
+
+            this.linkedFields.RemoveAll(link =>
+                SymbolEqualityComparer.Default.Equals(x: link.One, y: key)
+                || SymbolEqualityComparer.Default.Equals(x: link.Other, y: key));
+        }
+    }
+
+    /// <summary>
+    ///     Records a put into the list or the array of a field for each field
+    ///     that a chain of links from <see cref="LinksTwoFields" /> gives. The
+    ///     field itself does not get it.
+    /// </summary>
+    /// <param name="field">The field.</param>
+    /// <param name="index">The constant index, or -1.</param>
+    /// <param name="held">The state of the list with the value in it.</param>
+    public void AddAPutThroughTheFieldsLinkedTo(ISymbol field, int index, LoopState held)
+    {
+        if (this.linkedFields.Count == 0)
+        {
+            return;
+        }
+
+        List<ISymbol> reached = [field.OriginalDefinition];
+
+        for (int i = 0; i < reached.Count; i++)
+        {
+            foreach ((ISymbol one, ISymbol other) in this.linkedFields)
+            {
+                ISymbol? next =
+                    SymbolEqualityComparer.Default.Equals(x: one, y: reached[i])
+                        ? other
+                        : SymbolEqualityComparer.Default.Equals(x: other, y: reached[i])
+                            ? one
+                            : null;
+
+                if (next != null && !reached.Contains(value: next, comparer: SymbolEqualityComparer.Default))
+                {
+                    reached.Add(next);
+                    this.AddAPutThroughALocalOf(key: next, index: index, held: held);
+                }
+            }
+        }
     }
 
     /// <summary>

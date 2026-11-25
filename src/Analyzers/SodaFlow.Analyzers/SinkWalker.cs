@@ -2621,6 +2621,7 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
         this.evaluator.NotesALocalOfALocation(location: target, value: value, replaces: replaces);
         this.evaluator.NotesNamesOfOneObject(target: target, value: value, replaces: replaces);
         this.evaluator.NotesALinkOfALocation(location: target, value: value, replaces: replaces);
+        this.evaluator.NotesTwoFieldsOfOneList(target: target, value: value, replaces: replaces);
 
         if (target is ElementAccessExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax)
         {

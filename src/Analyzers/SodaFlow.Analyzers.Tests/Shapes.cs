@@ -64874,6 +64874,166 @@ public static class Shapes
     public static Cell<int> Ab467TheLocalGetsTheFieldAgainInALoop() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab467List = [Plain]; List<Cell<int>> xs = Ab467List; Ab467List = [Plain]; for (int i = 0; i < 2; i++) { xs.Add(l.Map(v => v)); xs = Ab467List; } return S.Hold(Ab467List[^1].Sample()); });
 
+    // S15746. AB468. A static field gets the list of a second static field. The code adds a pending cell through the first field and samples the last element of the second field.
+    public static Cell<int> Ab468APutThroughTheFieldThatGotTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15747. AB468. The same, but the code adds the pending cell through a local that got the list of the first field.
+    public static Cell<int> Ab468APutThroughALocalOfTheFieldThatGotTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468List; xs.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15748. AB468. The same, but the local gets the list of the second field, and the code samples the first field.
+    public static Cell<int> Ab468APutThroughALocalOfTheFieldThatGaveTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468Other; xs.Add(l.Map(v => v)); return S.Hold(Ab468List[^1].Sample()); });
+
+    // S15749. AB468. The same as the first shape, but the code adds the pending cell through the second field and samples the first field.
+    public static Cell<int> Ab468APutThroughTheFieldThatGaveTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468Other.Add(l.Map(v => v)); return S.Hold(Ab468List[^1].Sample()); });
+
+    // S15750. AB468. The same as the first shape, but the code puts the pending cell into the first element through the first field.
+    public static Cell<int> Ab468APutAtAnIndexThroughTheFieldThatGotTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468List[0] = l.Map(v => v); return S.Hold(Ab468Other[0].Sample()); });
+
+    // S15751. AB468. The same, but the code puts the pending cell into the first element through a local of the first field.
+    public static Cell<int> Ab468APutAtAnIndexThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; List<Cell<int>> xs = Ab468List; xs[0] = l.Map(v => v); return S.Hold(Ab468Other[0].Sample()); });
+
+    // S15752. AB468. The same as the first shape, but the two static fields hold arrays, and the code puts the pending cell into the first element.
+    public static Cell<int> Ab468TwoFieldsOfOneArray() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468OtherArray = [Plain]; Ab468Array = Ab468OtherArray; Ab468Array[0] = l.Map(v => v); return S.Hold(Ab468OtherArray[0].Sample()); });
+
+    // S15753. AB468. The same as the first shape, but a third static field gets the list of the first field. The code adds the pending cell through the third field.
+    public static Cell<int> Ab468AChainOfThreeFields() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468Third = Ab468List; Ab468Third.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15754. AB468. The same as the first shape, but a local gets the list of the second field. The first field gets the list of the local.
+    public static Cell<int> Ab468TheListGoesThroughALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; List<Cell<int>> ys = Ab468Other; Ab468List = ys; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15755. AB468. The same as the first shape, but a method gets the pending cell and gives the first field the list of the second field.
+    public static Cell<int> Ab468AMethodThatGetsTheCellGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468ShareWith(l.Map(v => v)); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15756. AB468. The same as the first shape, but a lambda that the code calls gives the first field the list of the second field.
+    public static Cell<int> Ab468ALambdaGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Action share = () => Ab468List = Ab468Other; share(); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15757. AB468. The same as the first shape, but the second field gets a new list in a branch that does not run.
+    public static Cell<int> Ab468TheSecondFieldGetsANewListOnlyInABranch() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; if (Never) { Ab468Other = [Plain]; } Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15758. AB468. A loop adds a pending cell through the first field, and then gives the first field the list of the second field. The second add goes into that list.
+    public static Cell<int> Ab468ALoopGivesTheListAfterTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; for (int i = 0; i < 2; i++) { Ab468List.Add(l.Map(v => v)); Ab468List = Ab468Other; } return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15759. AB468. The same as the first shape, but the first field gets the list from a method that returns the second field.
+    public static Cell<int> Ab468AMethodReturnsTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468TheOther(); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15760. AB468. The same as the first shape, but a deconstruction gives the list of the second field to the first field and to a third field.
+    public static Cell<int> Ab468ADeconstructionGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; (Ab468List, Ab468Third) = (Ab468Other, Ab468Other); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15761. AB468. The same as the first shape, but the first field gets the list from a conditional expression whose condition is false.
+    public static Cell<int> Ab468AConditionalGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Never ? [Plain] : Ab468Other; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15762. AB468. The same as the first shape, but a static property with no code gets the list of the second field.
+    public static Cell<int> Ab468AStaticPropertyGetsTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468Property = Ab468Other; Ab468Property.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15763. AB468, a control. The code adds the pending cell through the first field and then gives the second field the list of the first field.
+    public static Cell<int> Ab468TheSecondFieldGetsTheListAfterTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; Ab468List.Add(l.Map(v => v)); Ab468Other = Ab468List; return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15764. AB468. A method gives a field of this the list of a second field of this. It adds a pending cell through the first field and samples the last element of the second field.
+    public static Cell<int> Ab468TwoFieldsOfThis() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab468Holder().PutThroughTheSecondField(l.Map(v => v))));
+
+    // S15765. AB468. The same, but the method adds the pending cell through a local that got the list of the first field.
+    public static Cell<int> Ab468TwoFieldsOfThisAndALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab468Holder().PutThroughALocal(l.Map(v => v))));
+
+    // S15766. AB468. The same as the first method, but the second field gets a new list before the first field gets it.
+    public static Cell<int> Ab468TwoFieldsOfThisAfterANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab468Holder().PutAfterANewList(l.Map(v => v))));
+
+    // S15767. AB468. A method gives a field of a second object the list of a field of this. It adds a pending cell through the field of the second object and samples the field of this.
+    public static Cell<int> Ab468AFieldOfASecondObject() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab468Holder().PutThroughASecondObject(l.Map(v => v))));
+
+    // S15768. AB468, a control. The same as the first shape, but the second field gets a new list after the first field gets its list.
+    public static Cell<int> Ab468TheSecondFieldGetsANewListAfterTheLink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468Other = [Plain]; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15769. AB468, a control. The same as the first shape, but the first field gets a new list after it gets the list of the second field.
+    public static Cell<int> Ab468TheFirstFieldGetsANewListAfterTheLink() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468List = [Plain]; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15770. AB468, a control. The same as the first shape, but the code samples the second field before the add.
+    public static Cell<int> Ab468AReadBeforeTheAdd() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; int first = Ab468Other[^1].Sample(); Ab468List.Add(l.Map(v => v)); return S.Hold(first); });
+
+    // S15771. AB468, a control. The two static fields get two new lists, and the code adds the pending cell through the first field.
+    public static Cell<int> Ab468TwoFieldsOfTwoLists() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15772. AB468, a control. The same as the first shape, but a static property with no code holds the list and gets a new list.
+    public static Cell<int> Ab468AStaticPropertyGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Property = [Plain]; Ab468List = Ab468Property; Ab468Property = [Plain]; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Property[^1].Sample()); });
+
+    // S15773. AB468, a control. The same as the first method of the object, but the second field gets a new list after the first field gets its list.
+    public static Cell<int> Ab468TwoFieldsOfThisAndANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab468Holder().NewListAfterTheLink(l.Map(v => v))));
+
+    // S15774. AB468, a report on the careful side. The same as the first shape, but a lambda that the code calls gives the second field a new list before the add.
+    public static Cell<int> Ab468ALambdaGivesTheSecondFieldANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Action renew = () => Ab468Other = [Plain]; renew(); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15775. AB468. The same as the first shape, but the first field gets the list from a coalesce expression whose left value is null.
+    public static Cell<int> Ab468ACoalesceGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Nothing ?? Ab468Other; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15776. AB468, a control. A local gets the list of the second field, and the second field then gets a new list. The first field gets the list of the local, which is the first list.
+    public static Cell<int> Ab468TheLocalKeepsTheOldListOfTheSecondField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; List<Cell<int>> ys = Ab468Other; Ab468Other = [Plain]; Ab468List = ys; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15777. AB468, a control. The same as the first shape, but the code only searches the first field for the pending cell.
+    public static Cell<int> Ab468ASearchThroughTheFirstField() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; int at = Ab468List.IndexOf(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample() + at); });
+
+    // S15778. AB468. The same as the first shape, but a lambda gives the second field a new list. The code calls the lambda only in a branch that does not run.
+    public static Cell<int> Ab468ALambdaInABranchGivesTheSecondFieldANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Action renew = () => Ab468Other = [Plain]; if (Never) { renew(); } Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15779. AB468. The same as the first shape, but a method that gets the pending cell gives the second field a new list. The code calls it only in a branch that does not run.
+    public static Cell<int> Ab468AMethodInABranchGivesTheSecondFieldANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; if (Never) { Ab468RenewWith(l.Map(v => v)); } Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15780. AB468, a report on the careful side. The same as the first shape, but a method that gets the pending cell gives the second field a new list before the add.
+    public static Cell<int> Ab468AMethodGivesTheSecondFieldANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = Ab468Other; Ab468RenewWith(l.Map(v => v)); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15781. AB468, a control. A lambda gives the first field the list of the second field, but the code does not call the lambda.
+    public static Cell<int> Ab468ALambdaThatDoesNotRunGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; Action share = () => Ab468List = Ab468Other; Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15782. AB468, a control. The function of a map of a constant gives the first field the list of the second field. Nothing samples the map.
+    public static Cell<int> Ab468AMapThatDoesNotRunGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; Cell<int> later = Cell.Constant(1).Map(v => { Ab468List = Ab468Other; return v; }); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15783. AB468. A local gets the array of the second field, and a method then puts a pending cell into the first element through the first field. The code samples the first element through the local.
+    public static Cell<int> Ab468AMethodPutsThroughTheFirstFieldAndTheCodeReadsALocal() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468OtherArray = [Plain]; Ab468Array = Ab468OtherArray; Cell<int>[] xs = Ab468OtherArray; Ab468PutInto(l.Map(v => v)); return S.Hold(xs[0].Sample()); });
+
+    // S15784. AB468, a control. A function that runs after the transaction gives the first field the list of the second field. The code adds a pending cell through the first field before that.
+    public static Cell<int> Ab468APostedFunctionGivesTheList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Other = [Plain]; Ab468List = [Plain]; Transaction.Post(() => Ab468List = Ab468Other); Ab468List.Add(l.Map(v => v)); return S.Hold(Ab468Other[^1].Sample()); });
+
+    // S15785. AB468. The block gives a field of one object the list of a second field of that object. Then it gives the second field of a different object a new list. It adds a pending cell through the first field and samples the second field of the first object.
+    public static Cell<int> Ab468ADifferentObjectGetsANewList() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab468Holder one = new(); Ab468Holder two = new(); one.Others = one.Items; two.Items = [Plain]; one.Others.Add(l.Map(v => v)); return S.Hold(one.Items[^1].Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119918,6 +120078,74 @@ public static class Shapes
     private static List<Cell<int>> Ab467List = [Plain];
 
     private static void Ab467Fresh(out List<Cell<int>> xs) => xs = [Plain];
+
+    private static List<Cell<int>> Ab468List = [Plain];
+    private static List<Cell<int>> Ab468Other = [Plain];
+    private static List<Cell<int>> Ab468Third = [Plain];
+    private static Cell<int>[] Ab468Array = [Plain];
+    private static Cell<int>[] Ab468OtherArray = [Plain];
+
+    private static List<Cell<int>> Ab468Property { get; set; } = [Plain];
+
+    private static void Ab468ShareWith(Cell<int> cell) => Ab468List = Ab468Other;
+
+    private static List<Cell<int>> Ab468TheOther() => Ab468Other;
+
+    public sealed class Ab468Holder
+    {
+        public List<Cell<int>> Items = [Plain];
+        public List<Cell<int>> Others = [Plain];
+
+        public int PutThroughTheSecondField(Cell<int> pending)
+        {
+            this.Others = this.Items;
+            this.Others.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int PutThroughALocal(Cell<int> pending)
+        {
+            this.Others = this.Items;
+            List<Cell<int>> xs = this.Others;
+            xs.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int PutAfterANewList(Cell<int> pending)
+        {
+            this.Items = [Plain];
+            this.Others = this.Items;
+            this.Others.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int PutThroughASecondObject(Cell<int> pending)
+        {
+            Ab468Holder second = new();
+            second.Others = this.Items;
+            second.Others.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+
+        public int NewListAfterTheLink(Cell<int> pending)
+        {
+            this.Others = this.Items;
+            this.Items = [Plain];
+            this.Others.Add(pending);
+
+            return this.Items[^1].Sample();
+        }
+    }
+
+    private static List<Cell<int>>? Ab468Nothing = null;
+
+    private static void Ab468RenewWith(Cell<int> cell) => Ab468Other = [Plain];
+
+    private static void Ab468PutInto(Cell<int> cell) => Ab468Array[0] = cell;
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
