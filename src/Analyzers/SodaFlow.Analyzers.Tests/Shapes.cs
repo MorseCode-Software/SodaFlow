@@ -64242,6 +64242,10 @@ public static class Shapes
     public static Cell<int> Ab453ASecondCallGivesTheFirstListBack() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab453List = [Plain]; List<Cell<int>> xs = Ab453List; Ab453Renew(); Ab453GiveTheListBack(xs); xs.Add(l.Map(v => v)); return S.Hold(Ab453List[^1].Sample()); });
 
+    // S15588. AG105, a control. Two getters read each other. A method sets a member to a plain cell, and does not read the getters. No value of the placeholder goes into the getters.
+    public static Cell<int> Ag105GettersThatReadEachOtherWithNoPendingValue() =>
+        Cell.Loop<int>().WithoutCaptures(l => S.Hold(new Ab427GetterCycle().SetAndRead(Plain, read: false)));
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
