@@ -123,7 +123,10 @@ internal sealed partial class LoopReadAnalyzerTests
         // MoveNext gives the auto-property Current with the value that the constructor gave it.
         "Ab439SyncCurrentReplacedInMoveNext",
         // The analyzer cannot read the coalesce function. Thus, the sink can fire the value of each send.
-        "Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheSecond"
+        "Ab437CellSinkCoalesceThatTheAnalyzerCannotReadKeepsTheSecond",
+        // A class with no static constructor can run its initializers before the block writes the field. Thus,
+        // after the initializers, the field keeps the pending cell of the block also.
+        "Ab464AnInitializerWritesAndTheBlockReadsWithNoStaticConstructor"
     ];
 
     private static readonly Assembly[] ShapeLibraries =

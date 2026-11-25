@@ -1097,7 +1097,11 @@ Some reads that throw it does not see:
   of the class itself, as in a method of the class that the block calls, which is the last time that
   they can run. Where the runtime ran them earlier, they can have read a different value. A read in
   the code of the class does not run them when the block itself is in that class, because the code
-  around the block can have run them first.
+  around the block can have run them first. A static field that such an initializer gives a value
+  has that value in the initializers after it. After them, the field can still have the value that
+  the block gave it before the read, because the runtime can have run the write first, so a plain
+  cell written there over a pending one still counts as pending in the block. With a static
+  constructor, the initializers run at the first use, and the write replaces the value.
 - A write into an element of an array in a field that a method you call makes through a second
   name of the array that the analyzer does not follow, read through a local that got the array
   before the call. It follows a `ref` local, `Array.Copy` into a static field, the array of a static

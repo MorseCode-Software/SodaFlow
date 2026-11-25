@@ -2185,6 +2185,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                 this.AlwaysRunsAt(place: statement, turn: out turn),
             // The expression that is the body of a function is the one statement of that function.
             ArrowExpressionClauseSyntax clause => this.AlwaysRunsAt(place: clause, turn: out turn),
+            EqualsValueClauseSyntax clause when IsTheInitializerOfAStaticMember(clause) =>
+                this.AlwaysRunsAt(place: clause, turn: out turn),
             AnonymousFunctionExpressionSyntax lambda when lambda.ExpressionBody == assignment =>
                 this.AlwaysRunsAt(place: assignment, turn: out turn),
             _ => false
@@ -2246,6 +2248,8 @@ internal sealed partial class SinkWalker(in LoopRegion region, in LoopStateEvalu
                     or IfStatementSyntax
                     or ArrowExpressionClauseSyntax:
                     return parent;
+                case EqualsValueClauseSyntax clause when IsTheInitializerOfAStaticMember(clause):
+                    return clause;
                 case AnonymousFunctionExpressionSyntax lambda:
                     return lambda.ExpressionBody == child ? child : null;
                 case StatementSyntax or SwitchExpressionArmSyntax or QueryClauseSyntax or SelectOrGroupClauseSyntax:

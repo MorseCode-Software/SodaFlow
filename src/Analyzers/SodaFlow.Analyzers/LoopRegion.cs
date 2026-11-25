@@ -495,6 +495,36 @@ internal sealed class LoopRegion(
                     canHave: canHave));
 
     /// <summary>
+    ///     A copy of the state of each static field now, for
+    ///     <see cref="JoinsTheFieldsOf" />.
+    /// </summary>
+    public (Dictionary<ISymbol, LoopState> Fields, Dictionary<ISymbol, LoopState> Closed) TheFieldsNow() =>
+        (new Dictionary<ISymbol, LoopState>(dictionary: this.fields, comparer: SymbolEqualityComparer.Default),
+            new Dictionary<ISymbol, LoopState>(
+                dictionary: this.closedFields,
+                comparer: SymbolEqualityComparer.Default));
+
+    /// <summary>
+    ///     Gives each static field also the state that it had at an earlier time,
+    ///     from <see cref="TheFieldsNow" />.
+    /// </summary>
+    /// <param name="earlier">The copy of that time.</param>
+    public void JoinsTheFieldsOf((Dictionary<ISymbol, LoopState> Fields, Dictionary<ISymbol, LoopState> Closed) earlier)
+    {
+        Join(now: this.fields, before: earlier.Fields);
+        Join(now: this.closedFields, before: earlier.Closed);
+
+        static void Join(Dictionary<ISymbol, LoopState> now, Dictionary<ISymbol, LoopState> before)
+        {
+            foreach (KeyValuePair<ISymbol, LoopState> pair in before)
+            {
+                now[pair.Key] =
+                    now.TryGetValue(key: pair.Key, value: out LoopState? state) ? state.Join(pair.Value) : pair.Value;
+            }
+        }
+    }
+
+    /// <summary>
     ///     Records a value that the code gives to a field. The walk does not know
     ///     which object has the field, thus each object of the type has that state
     ///     to the end of the block.

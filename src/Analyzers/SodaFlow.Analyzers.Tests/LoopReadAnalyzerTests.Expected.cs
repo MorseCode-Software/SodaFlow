@@ -9213,6 +9213,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["Ab461TwoPutsOfTwoResults"] = ["SF1001"],
             ["Ab463AnExtensionGroupThatAMethodReads"] = ["SF1004"],
             ["Ab463AnExtensionGroupThroughASecondLocal"] = ["SF1004"],
-            ["Ab463AnExtensionGroupOfASecondObjectWithAPendingMember"] = ["SF1005"]
+            ["Ab463AnExtensionGroupOfASecondObjectWithAPendingMember"] = ["SF1005"],
+            ["Ab464AnInitializerWritesAndTheBlockReadsWithNoStaticConstructor"] = ["SF1001"],
+            ["Ab464AnInitializerWritesInAnArmThatDoesNotRun"] = ["SF1001"]
         };
 }

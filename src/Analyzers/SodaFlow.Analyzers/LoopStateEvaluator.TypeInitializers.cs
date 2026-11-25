@@ -186,9 +186,14 @@ internal sealed partial class LoopStateEvaluator
                 parts = parts.Append(body);
             }
 
-            // The runtime replaces each object that the constructor throws with a TypeInitializationException.
-            return this.Wrapped(
-                followed: parts.Aggregate(
+            // A write in an initializer replaces the state of a static field for the code after it. The runtime can
+            // run the initializers of a type with no static constructor before the block writes the field. Thus,
+            // after them, the field also keeps the state of the time before them.
+            (Dictionary<ISymbol, LoopState> Fields, Dictionary<ISymbol, LoopState> Closed)? earlier =
+                constructor == null ? this.region.TheFieldsNow() : null;
+
+            Followed? followed =
+                parts.Aggregate(
                     seed: (Followed?)null,
                     func: (all, part) =>
                         Both(
@@ -201,8 +206,15 @@ internal sealed partial class LoopStateEvaluator
                                 definer: null,
                                 members: new Dictionary<ISymbol, LoopState>(SymbolEqualityComparer.Default),
                                 receiver: null,
-                                target: null))),
-                wrapper: "System.TypeInitializationException");
+                                target: null)));
+
+            if (earlier is { } before)
+            {
+                this.region.JoinsTheFieldsOf(before);
+            }
+
+            // The runtime replaces each object that the constructor throws with a TypeInitializationException.
+            return this.Wrapped(followed: followed, wrapper: "System.TypeInitializationException");
         }
         finally
         {

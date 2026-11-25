@@ -158,6 +158,7 @@
         <Compile Include="SinkWalker.Paths.cs"/>
         <Compile Include="SinkWalker.Removes.cs"/>
         <Compile Include="SinkWalker.Serializers.cs"/>
+        <Compile Include="SinkWalker.StaticInitializers.cs"/>
         <Compile Include="SinkWalker.UndecidedRuns.cs"/>
         <Compile Include="SinkWalker.ReplacedReads.cs"/>
         <Compile Include="SinkWalker.PatternTypes.cs"/>

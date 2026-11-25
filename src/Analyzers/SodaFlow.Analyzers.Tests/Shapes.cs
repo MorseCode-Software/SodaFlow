@@ -64670,6 +64670,30 @@ public static class Shapes
     public static Cell<int> Ab463AnExtensionGroupOfASecondObjectWithAPendingMember() =>
         Cell.Loop<int>().WithoutCaptures(l => { Ab463Box m = new(); Ab463Box k = new(); m.Box.FMap = k.Ab463AddTo; m.Build(); k.Share = l.Map(v => v); return S.Hold(m.SetAndRead(Plain)); });
 
+    // S15695. AB464. The initializer of a static field of a class with a static constructor gives a second static field a plain cell. The block sets that field to a pending cell, reads the class, and then samples the field.
+    public static Cell<int> Ab464AnInitializerWritesAndTheBlockReadsAfterAStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.A = l.Map(v => v); Kept.Add(Ab464WithAConstructor.Value); return S.Hold(Ab464Shared.A!.Sample()); });
+
+    // S15696. AB464. The first initializer of a class gives a static field a plain cell, and the second initializer samples it. The block sets that field to a pending cell first.
+    public static Cell<int> Ab464AnInitializerWritesBeforeASecondInitializerReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.B = l.Map(v => v); Kept.Add(Ab464WriteThenRead.Read); return S.Hold(0); });
+
+    // S15697. AB464. The first initializer of a class calls a method that gives a static field a plain cell, and the second initializer samples the field.
+    public static Cell<int> Ab464AnInitializerCallsAMethodThatWritesBeforeASecondInitializerReads() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.C = l.Map(v => v); Kept.Add(Ab464CallThenRead.Read); return S.Hold(0); });
+
+    // S15698. AD29 and AB464. The initializer of the first part of a partial class gives a static field a plain cell. Then the initializer of the second part samples that field.
+    public static Cell<int> Ad29TheFirstPartGivesAPlainCellBeforeTheSecondPartSamples() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.D = l.Map(v => v); Kept.Add(Ad29PlainFirst.Value); return S.Hold(0); });
+
+    // S15699. AB464, on the careful side. A class with no static constructor has an initializer that gives a static field a plain cell. The block sets that field to a pending cell, reads the class, and then samples the field.
+    public static Cell<int> Ab464AnInitializerWritesAndTheBlockReadsWithNoStaticConstructor() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.E = l.Map(v => v); Kept.Add(Ab464WithNoConstructor.Value); return S.Hold(Ab464Shared.E!.Sample()); });
+
+    // S15700. AB464, an edge. The write in the initializer is in an arm of a conditional expression that does not run. Thus, the field keeps the pending cell.
+    public static Cell<int> Ab464AnInitializerWritesInAnArmThatDoesNotRun() =>
+        Cell.Loop<int>().WithoutCaptures(l => { Ab464Shared.F = l.Map(v => v); Kept.Add(Ab464WriteInAnArm.Value); return S.Hold(Ab464Shared.F!.Sample()); });
+
     public sealed class Scene(Stream<int> restarts)
     {
         public Cell<int> Count { get; } = restarts.Accum(0, (_, n) => n + 1);
@@ -119325,6 +119349,79 @@ public static class Shapes
     }
 
     private static int Ab463AddTo(this Ab463Box box, int v) => v + box.Share.Sample();
+
+    public static class Ab464Shared
+    {
+        public static Cell<int>? A;
+        public static Cell<int>? B;
+        public static Cell<int>? C;
+        public static Cell<int>? D;
+        public static Cell<int>? E;
+        public static Cell<int>? F;
+    }
+
+    private static bool Ab464Off;
+
+    public static class Ab464WithAConstructor
+    {
+        public static readonly Cell<int> Value = Ab464Shared.A = Plain;
+
+        static Ab464WithAConstructor()
+        {
+        }
+    }
+
+    public static class Ab464WriteThenRead
+    {
+        public static readonly Cell<int> Value = Ab464Shared.B = Plain;
+
+        public static readonly int Read = Ab464Shared.B!.Sample();
+    }
+
+    public static class Ab464CallThenRead
+    {
+        public static readonly int Value = Ab464GivePlain();
+
+        public static readonly int Read = Ab464Shared.C!.Sample();
+    }
+
+    public static partial class Ad29PlainFirst
+    {
+        public static readonly int Value = Ad29GivePlain();
+    }
+
+    public static partial class Ad29PlainFirst
+    {
+        public static readonly int Read = Ab464Shared.D!.Sample();
+    }
+
+    public static class Ab464WithNoConstructor
+    {
+        public static readonly Cell<int> Value = Ab464Shared.E = Plain;
+    }
+
+    public static class Ab464WriteInAnArm
+    {
+        public static readonly Cell<int> Value = Ab464Off ? Ab464Shared.F = Plain : Plain;
+
+        static Ab464WriteInAnArm()
+        {
+        }
+    }
+
+    private static int Ab464GivePlain()
+    {
+        Ab464Shared.C = Plain;
+
+        return 0;
+    }
+
+    private static int Ad29GivePlain()
+    {
+        Ab464Shared.D = Plain;
+
+        return 0;
+    }
 
     public sealed record ItemId(int Number) : IIdentity<int>
     {
