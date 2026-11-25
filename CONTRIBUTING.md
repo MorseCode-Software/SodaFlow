@@ -1,0 +1,104 @@
+# Contributing to SodaFlow
+
+This file is for people who work on SodaFlow itself: how parts of the libraries work inside, how they are tested, and
+how the packages are released. To use SodaFlow, start with the
+[documentation](https://morsecode-software.github.io/SodaFlow/) instead. How to build and test the repository is in the
+[README](README.md#building).
+
+## Reactive collections
+
+What the [Reactive collections](docs/docs/collections.md) page promises a user, and the costs it gives, rest on the
+design below. None of it is public.
+
+### What a stage holds
+
+Each stage of a view keeps its own snapshot current with one graph node, and each change makes one small object, which
+holds the two maps behind the visible keys of that stage.
+
+Each collection and each view keeps one index from key to cell, and a change looks its keys up there. That is what
+makes an edit of one row cost the same whether a hundred rows are bound or ten thousand. A cell that nothing holds any
+more is skipped, even before the garbage collector reclaims it. The index is paid for when a cell is made: a few
+hundred bytes for each cell.
+
+The weak cache of `StateCell` is keyed by the projection as well as the key. Each language surface holds one
+projection per cell type, and a cache belongs to the projection that filled it, so the C# and F# surfaces over one
+collection cannot be handed each other's cells.
+
+### How the chain stays incremental
+
+Each stage keeps its own ordered key set and applies the operations from above.
+
+| Stage | On upstream insert or remove | On upstream update | On upstream move |
+| --- | --- | --- | --- |
+| `Filter` | Test, add or drop | May enter, leave, or move | May enter, leave, or move |
+| `SortBy` | Add or drop | Re-file, O(log n) | Re-file, O(log n) |
+| `Take` | Re-window | Forwarded if inside the window | Re-window |
+
+`ViewUpdate` is what makes chaining work. A stage that saw no positional consequence still has to tell the stage below
+that an item changed, because that stage may sort or filter on exactly the state that just moved.
+
+An upstream move says the same thing, which is why it is re-filed rather than ignored. A re-file that moves a key
+reports the move alone, so the move is the only operation carrying the new sort value of the key, and a stage below
+has to file against it exactly as it would against an update. The `StateCell` of the row fires on one too, for the
+same reason: the value is what moved the row.
+
+That is the only thing a move ever means. A move caused by the order itself changing would break a filter below it,
+which re-files a moved key under the order it already holds and so would keep the old one. It would also cost
+everything else below it: every stage would re-file each moved key, and the `StateCell` of every moved row would fire,
+for values that did not change. So a stage whose order changes resets instead, and the stages below re-file what they
+hold under the new order.
+
+`Filter` preserves upstream order without tracking positions in the upstream list: it asks the key set of the upstream
+for a new set under *the same order*, holding the members it kept. That keeps it O(log n) per changed key instead of
+needing rank queries over a subsequence.
+
+Re-filing a key on update stores the sort value it was filed under, so the old entry is removed with the comparison
+that placed it. Otherwise, you are hunting a sorted set for an entry whose sort position has already moved underneath
+it.
+
+A state edit can never move a key in an order that makes its sort value from the key or from the identity. The order
+of the root, the order of arrival, is such an order, and so is each filter directly above it. A stage in such an order
+says so rather than removing and adding the key again to find out, which is worth about a tenth of an edit and a
+fifth of its allocation, as `KeyedCollectionViewBenchmarks` measured it.
+
+### Observing through a view
+
+Observing through a view costs nothing over observing the collection directly, and that is only because of how it is
+built. The natural implementation, lifting the cell of the collection against the keys of the view, costs about twice
+an ordinary edit, because every observer becomes a node the propagation walks whenever the view moves at all, and a
+reorder counts as moving. Holding membership per observer and calming it wins back about a quarter of that. The
+library does neither. The per-item cell of a view hangs off the change stream of the view itself, exactly as that of
+the collection hangs off its item change stream, so an observer whose key was not named filters itself out and
+propagates no further.
+
+An edit of many keys in one transaction is the other case. Every observer asks the change whether an operation names
+its key. A scan of the operations would make a wide edit against many observers pay for every observer against every
+operation, with almost every comparison finding nothing. So a `CollectionViewChange` with at least
+`MinimumOperationsForIndex` operations builds a dictionary of its keys once it has answered `LookupsBeforeIndex`
+lookups by a scan. Both constants are 8. A wide edit through a view therefore costs close to the same edit on the
+collection, where the item change always answers from a dictionary.
+
+### Optionality
+
+`SodaFlow.Collections.Core` has no optional type of its own, and depends on neither `SodaFlow.Functional` nor anything
+else beyond `SodaFlow.Core`. It answers in `TryGetItem`, `TryGetState`, `TryGetNewState`, and an internal index lookup
+returning `-1`, and each language surface puts its own optional type back on top: `SodaFlow.Collections` adds
+`Maybe<T>`, and `SodaFlow.FSharp.Collections` adds `option`. The sentinel does not escape: the only `IndexOf` either
+surface exposes is the one answering `Maybe<int>` or `int option`.
+
+It is the same reason `SodaFlow.FSharp` does not depend on `SodaFlow.Functional`, applied one layer down: nothing that
+installs the F# collections package acquires `Maybe<T>`, which F# has no use for.
+
+### Storage
+
+`StateMap<TKey, TState>` is the seam where the storage strategy is chosen. `ImmutableStateMap` is the default: a hash
+array mapped trie, about O(log32 n) per update, allocating only the path from the root, roughly four nodes per edit at
+100k items. Measure before replacing it.
+
+The contract an implementation must honor is that **a value returned by an instance never changes for the lifetime of
+that instance**. SodaFlow reads the value a cell had before the transaction during that transaction, so a snapshot that
+aliases storage you have since mutated will silently report the future. An in-place strategy therefore has to version
+its storage and serve older instances from a log, rather than handing back the live map.
+
+`Fold` reads `Pairs` for its first value, not `Keys` with a lookup for each, which measured three times slower at every
+size.
