@@ -16,24 +16,23 @@ handle. `ListenOnceAsync` has no handle to give, so it roots its listener in the
 has, until the first firing or a cancellation. The listener holds the stream in turn, so the two form a cycle that the
 collector reclaims together when the roots go. Neither permanently roots a stream by itself.
 
-A combinator needs one more kind of subscription, and none of it is public. It binds *some other* listener to *a
-chosen* stream's lifetime, and has it actively unlistened, which disconnects its node from upstream, when that stream
-is collected, rather than merely becoming unreachable. That is how a combinator keeps its own wiring alive. `Switch`
-subscribes to the outer cell to learn when the branch changes, and to whichever inner stream is currently selected.
-The caller holds neither, only the stream `Switch` returns. Both subscriptions are therefore attached to that returned
-stream, so they live exactly as long as the result does. `Operational`, `LoopedStream`, and `TimerSystem` do the same
-thing.
+A combinator needs one more kind of subscription, and none of it is public. It binds *some other* listener to *a chosen*
+stream's lifetime, and has it actively unlistened (its node disconnected from upstream) when that stream is collected,
+rather than merely becoming unreachable. That is how a combinator keeps its own wiring alive. `Switch` subscribes to the
+outer cell to learn when the branch changes, and to whichever inner stream is currently selected. The caller holds
+neither, only the stream `Switch` returns. Both subscriptions are therefore attached to that returned stream, so they
+live exactly as long as the result does. `Operational`, `LoopedStream`, and `TimerSystem` do the same thing.
 
 To stop those listeners after the stream is gone, the library keeps a weak view of each one, which can unlisten it
 without holding the stream. The inner subscription of `Switch` is replaced on every branch change, but attaching a
 fresh listener each time would grow the attached-listener list of the stream without bound, so one listener whose
 target can be re-pointed is attached once.
 
-Application code never gets into that situation, which is why this machinery is internal rather than merely
-discouraged: building a primitive this way needs the `Listen` overload taking a node, which is `internal`, and a
-handler that sends, which throws. Earlier versions exposed parts of it, `AttachListener`, the weak view through
-`GetListenerWithWeakReference`, `MutableListener`, and `Cleanup`, and SodaFlow.Core 6.0.0 removed the last of them from
-the public surface.
+Application code never gets into that situation, which is why this machinery is internal rather than merely discouraged:
+building a primitive this way needs the `Listen` overload taking a node, which is `internal`, and a handler that sends,
+which throws. Earlier versions exposed parts of it: `AttachListener`, the weak view through
+`GetListenerWithWeakReference`, `MutableListener`, and `Cleanup`. SodaFlow.Core 6.0.0 removed the last of them from the
+public surface.
 
 ### Verifying it
 
@@ -104,10 +103,10 @@ has to file against it exactly as it would against an update. The `StateCell` of
 same reason: the value is what moved the row.
 
 That is the only thing a move ever means. A move caused by the order itself changing would break a filter below it,
-which re-files a moved key under the order it already holds and so would keep the old one. It would also cost
-everything else below it: every stage would re-file each moved key, and the `StateCell` of every moved row would fire,
-for values that did not change. So a stage whose order changes resets instead, and the stages below re-file what they
-hold under the new order.
+which re-files a moved key under the order it already holds and so would keep the old one. It would also cost everything
+else below it: every stage would re-file each moved key, and the `StateCell` of every moved row would fire, for values
+that did not change. Thus, a stage whose order changes resets instead, and the stages below re-file what they hold under
+the new order.
 
 `Filter` preserves upstream order without tracking positions in the upstream list: it asks the key set of the upstream
 for a new set under *the same order*, holding the members it kept. That keeps it O(log n) per changed key instead of
@@ -117,10 +116,10 @@ Re-filing a key on update stores the sort value it was filed under, so the old e
 that placed it. Otherwise, you are hunting a sorted set for an entry whose sort position has already moved underneath
 it.
 
-A state edit can never move a key in an order that makes its sort value from the key or from the identity. The order
-of the root, the order of arrival, is such an order, and so is each filter directly above it. A stage in such an order
-says so rather than removing and adding the key again to find out, which is worth about a tenth of an edit and a
-fifth of its allocation, as `KeyedCollectionViewBenchmarks` measured it.
+A state edit can never move a key in an order that makes its sort value from the key or from the identity. The order of
+the root, the order of arrival, is such an order, and so is each filter directly above it. In such an order, a stage
+skips the removal and the add that would find that out, which is worth about a tenth of an edit and a fifth of its
+allocation, as `KeyedCollectionViewBenchmarks` measured it.
 
 ### Observing through a view
 
@@ -132,12 +131,12 @@ library does neither. The per-item cell of a view hangs off the change stream of
 the collection hangs off its item change stream, so an observer whose key was not named filters itself out and
 propagates no further.
 
-An edit of many keys in one transaction is the other case. Every observer asks the change whether an operation names
-its key. A scan of the operations would make a wide edit against many observers pay for every observer against every
-operation, with almost every comparison finding nothing. So a `CollectionViewChange` with at least
-`MinimumOperationsForIndex` operations builds a dictionary of its keys once it has answered `LookupsBeforeIndex`
-lookups by a scan. Both constants are 8. A wide edit through a view therefore costs close to the same edit on the
-collection, where the item change always answers from a dictionary.
+An edit of many keys in one transaction is the other case. Every observer asks the change whether an operation names its
+key. A scan of the operations would make a wide edit against many observers pay for every observer against every
+operation, with almost every comparison finding nothing. Thus, a `CollectionViewChange` with at least
+`MinimumOperationsForIndex` operations builds a dictionary of its keys once it has answered `LookupsBeforeIndex` lookups
+by a scan. Both constants are 8. A wide edit through a view therefore costs close to the same edit on the collection,
+where the item change always answers from a dictionary.
 
 ### Optionality
 
@@ -157,9 +156,9 @@ array mapped trie, about O(log32 n) per update, allocating only the path from th
 100k items. Measure before replacing it.
 
 The contract an implementation must honor is that **a value returned by an instance never changes for the lifetime of
-that instance**. SodaFlow reads the value a cell had before the transaction during that transaction, so a snapshot that
-aliases storage you have since mutated will silently report the future. An in-place strategy therefore has to version
-its storage and serve older instances from a log, rather than handing back the live map.
+that instance**. SodaFlow reads the pre-transaction value of a cell during a transaction, so a snapshot that aliases
+storage you have since mutated will silently report the future. An in-place strategy therefore has to version its
+storage and serve older instances from a log, rather than handing back the live map.
 
 `Fold` reads `Pairs` for its first value, not `Keys` with a lookup for each, which measured three times slower at every
 size.
@@ -171,12 +170,12 @@ versions relate. This is how the repository produces them.
 
 ### Why a wrapper and its core move together
 
-`SodaFlow.Core` exposes its real work through `internal` members. Every wrapper, `SodaFlow` and `SodaFlow.FSharp`, all
-three async assemblies, all three bindable ones, and all three collections ones, reaches them through
-`InternalsVisibleTo`, which `src/SodaFlow.Core/AssemblyInfo.cs` lists. Thus, a change to those internals binds the
-wrappers to one particular core even when no public API moved. When that happens, the whole group takes a major
-version together. The emitted NuGet dependency is a minimum version rather than a range, so nothing but the version
-number stops an old wrapper being resolved against a newer core.
+`SodaFlow.Core` exposes its real work through `internal` members. Every wrapper, `SodaFlow`, `SodaFlow.FSharp`, and each
+async, bindable, and collections assembly, reaches them through `InternalsVisibleTo`, which
+`src/SodaFlow.Core/AssemblyInfo.cs` lists. Thus, a change to those internals binds the wrappers to one particular core
+even when no public API moved. When that happens, the whole group takes a major version together. The emitted NuGet
+dependency is a minimum version rather than a range, so nothing but the version number stops an old wrapper being
+resolved against a newer core.
 
 ### Versions and tags
 
