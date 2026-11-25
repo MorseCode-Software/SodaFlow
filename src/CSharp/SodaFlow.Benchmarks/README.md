@@ -30,7 +30,7 @@ measures a `ReactiveCollection` against the shapes people reach for instead.
 
 | Class | What it measures |
 | --- | --- |
-| `KeyedCollectionEditBenchmarks` | One edit to a key nothing is watching, with twenty rows bound, against a cell sink per mutable value per object and against the same cells fed from one shared edit stream. This is the claim that per-item observation follows the number of bound rows and not the size of the collection. |
+| `KeyedCollectionEditBenchmarks` | One edit to a key nothing is watching, with twenty rows bound, against a cell sink per mutable value per object and against the same cells fed from one shared edit stream. This is the claim that per-item observation does not follow the size of the collection. Its figures on the page are from before the index from key to cell, when each of the twenty bound rows still tested every change, and they have not been taken again. |
 | `KeyedCollectionBuildBenchmarks` | What each of those shapes costs to stand up. |
 | `KeyedCollectionViewBenchmarks` | The view chain, `Filter`, `SortBy`, and `Take`, against re-deriving the same view from a cell that holds the whole collection. |
 | `KeyedCollectionPagingBenchmarks` | Turning the page of a `Slice`, and editing within one, against re-deriving those with `OrderByDescending`, `Skip`, and `Take`. |

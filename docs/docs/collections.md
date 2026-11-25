@@ -687,9 +687,8 @@ seven percent. That is the property the design is for: the cost of an edit does 
 size of the collection. Sinks per field are flat too, and faster — they are also the shape you
 cannot feed from a stream.
 
-These figures predate the index from key to cell, when each of the twenty bound rows still tested
-every change, and they have not been taken again since. `PerKeyEditBenchmarks` measures what the
-index changed, as the opening of this page says.
+The collection's figures in this table are from before it kept an index from key to cell, so they
+overstate what an edit costs now. The opening of this page gives the current cost.
 
 Standing the same collections up, on the same machine:
 
