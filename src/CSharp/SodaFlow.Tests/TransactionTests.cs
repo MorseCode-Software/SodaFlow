@@ -937,7 +937,7 @@ public sealed class TransactionTests
         bool? threadIsActive4 = null;
         bool? threadIsActive5 = null;
 
-        new Thread(() =>
+        Thread thread = new(() =>
         {
             threadIsActive1 = Transaction.IsActive();
             Thread.Sleep(500);
@@ -951,7 +951,9 @@ public sealed class TransactionTests
             });
 
             threadIsActive5 = Transaction.IsActive();
-        }).Start();
+        });
+
+        thread.Start();
 
         Thread.Sleep(250);
         bool isActive1 = Transaction.IsActive();
@@ -959,6 +961,10 @@ public sealed class TransactionTests
         bool isActive2 = Transaction.IsActive();
         Thread.Sleep(500);
         bool isActive3 = Transaction.IsActive();
+
+        // The sleeps above do not make the thread end first. A slow start of the thread can put its
+        // last read after them. Thus, the test waits for the thread before it reads the values.
+        thread.Join();
 
         await Assert.That(isActive1).IsFalse();
         await Assert.That(isActive2).IsFalse();
