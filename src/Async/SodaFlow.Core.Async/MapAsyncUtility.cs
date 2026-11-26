@@ -644,7 +644,8 @@ public abstract class AsyncMapBase
         /// <summary>
         ///     The source of the cancellation of this item, with the record of a cancel
         ///     that committed. <see cref="Cancel" /> cancels this source, and the
-        ///     execution engine links it into the token of the operation. It is
+        ///     execution engine gives its token to the operation. A token from the
+        ///     strategy is linked with it. It is
         ///     internal, because a strategy cancels through <see cref="Cancel" /> and
         ///     does not use this field.
         /// </summary>
@@ -3222,11 +3223,18 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             }
 
             // The operation monitors the token of the strategy, when there is one, such as an
-            // external timeout, and also the cancellation of this item. The two are linked.
-            CancellationTokenSource linked =
-                CancellationTokenSource.CreateLinkedTokenSource(
-                    token1: toStart.StrategyToken,
-                    token2: toStart.Item.Cancellation.Token);
+            // external timeout, and also the cancellation of this item. Where the strategy gives a
+            // token that can cancel, a linked source joins the two. Otherwise, the token of the
+            // item is sufficient, and this code makes no linked source. The library strategies
+            // give no token.
+            CancellationTokenSource? linked =
+                toStart.StrategyToken.CanBeCanceled
+                    ? CancellationTokenSource.CreateLinkedTokenSource(
+                        token1: toStart.StrategyToken,
+                        token2: toStart.Item.Cancellation.Token)
+                    : null;
+
+            CancellationToken token = linked?.Token ?? toStart.Item.Cancellation.Token;
 
             AsyncOutcome<MapAsyncResult<TResult>> pending;
             CancellationToken? tokenToCheck;
@@ -3251,13 +3259,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                     input: state.Value,
                                     resultFactory: ResultFactory<TResult>.Instance,
                                     token: state.Token),
-                            state: (Operation: this.operation, Value: value, linked.Token))
+                            state: (Operation: this.operation, Value: value, Token: token))
                         .ConfigureAwait(false);
 
                 pending = AsyncOutcome<MapAsyncResult<TResult>>.Succeeded(operationResult);
-                tokenToCheck = linked.Token;
+                tokenToCheck = token;
             }
-            catch (OperationCanceledException) when (linked.IsCancellationRequested)
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
                 pending = AsyncOutcome<MapAsyncResult<TResult>>.Canceled();
                 tokenToCheck = null;
@@ -3265,7 +3273,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             catch (Exception ex)
             {
                 pending = AsyncOutcome<MapAsyncResult<TResult>>.Failed(ex);
-                tokenToCheck = linked.Token;
+                tokenToCheck = token;
             }
 
             try
@@ -3278,7 +3286,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             }
             finally
             {
-                linked.Dispose();
+                linked?.Dispose();
             }
         }
         catch (Exception e)

@@ -270,9 +270,10 @@ public sealed class MapAsyncCancellationTests
         await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
         await Assert.That(handled.Count).IsEqualTo(1);
 
-        // The operation gets a linked token. Thus, the source of the item wraps the AggregateException
-        // of the linked source in a second one.
-        await Assert.That(((AggregateException)handled.Single()).Flatten().InnerExceptions.Single())
+        // The strategy gives no token, thus the operation gets the token of the item. The throw
+        // comes in one AggregateException, from the source of the item. Before, a linked source
+        // wrapped it in a second one.
+        await Assert.That(((AggregateException)handled.Single()).InnerExceptions.Single())
             .IsSameReferenceAs(thrown);
     }
 
@@ -317,9 +318,10 @@ public sealed class MapAsyncCancellationTests
         await Assert.That(status.Items.Sample().Count).IsEqualTo(0).Because("each operation obeys its token");
         await Assert.That(handled.Count).IsEqualTo(1);
 
-        // The operation gets a linked token. Thus, the source of the item wraps the AggregateException
-        // of the linked source in a second one.
-        await Assert.That(((AggregateException)handled.Single()).Flatten().InnerExceptions.Single())
+        // The strategy gives no token, thus the operation gets the token of the item. The throw
+        // comes in one AggregateException, from the source of the item. Before, a linked source
+        // wrapped it in a second one.
+        await Assert.That(((AggregateException)handled.Single()).InnerExceptions.Single())
             .IsSameReferenceAs(thrown);
     }
 

@@ -1699,6 +1699,55 @@ public sealed class MapAsyncImplTests
             .ThrowsExactly<ArgumentNullException>();
     }
 
+    // A strategy can give a token of its own with an item to start. The operation then gets one
+    // token that each of the two cancels: the token of the strategy, and the cancel of the item.
+    // Each cancel ends the item, and the item publishes nothing.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task TheTokenOfTheOperationObeysTheTokenOfTheStrategyAndTheItem(bool cancelTheStrategyToken)
+    {
+        using CancellationTokenSource strategySource = new();
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+        StrategyTokenStrategy strategy = new(strategySource.Token);
+        List<int> received = [];
+        List<Exception> failed = [];
+        using IListener resultsListener = results.Listen(received.Add);
+        using IListener errorsListener = errors.Listen(failed.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: strategy,
+                inputConverter: static v => v);
+
+        source.Send(1);
+        TestUtil.WaitUntil(() => op.HasStarted(1));
+
+        if (cancelTheStrategyToken)
+        {
+            strategySource.Cancel();
+        }
+        else
+        {
+            strategy.FirstItem.Cancel();
+        }
+
+        TestUtil.WaitUntil(() => status.Items.Sample().Count == 0);
+
+        await Assert.That(received).IsEmpty();
+        await Assert.That(failed).IsEmpty();
+
+        status.Dispose();
+    }
+
     private static List<(int Value, AsyncItemStatus Status)> Snapshot(AsyncMapStatus<int> status) =>
         [.. status.Items.Sample().Select(static i => (i.Value, i.Status))];
 
@@ -1774,6 +1823,49 @@ public sealed class MapAsyncImplTests
             this.items.Add(incoming);
 
             return new AsyncStrategyStep<int, object?>(state: state, start: [new AsyncToStart<int>(incoming)]);
+        }
+
+        protected internal override AsyncStrategyResult<int, object?> OnCompleted(
+            object? state,
+            AsyncQueuedItem<int> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, publish: true, next: AsyncToStart<int>.None);
+
+        protected internal override AsyncStrategyStep<int, object?> OnCanceled(
+            object? state,
+            IReadOnlyList<AsyncQueuedItem<int>> canceled,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, start: AsyncToStart<int>.None);
+    }
+
+    /// <summary>
+    ///     Starts each item immediately with a token of its own, and keeps each item
+    ///     that it admits.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class StrategyTokenStrategy : AsyncConcurrencyStrategy<int, object?>
+    {
+        // This state is global and is not the state of one MapAsync call, as in RecordingStrategy.
+        private readonly List<AsyncQueuedItem<int>> items = [];
+        private readonly CancellationToken token;
+
+        public StrategyTokenStrategy(CancellationToken token) => this.token = token;
+
+        public AsyncQueuedItem<int> FirstItem => this.items[0];
+
+        protected override object? CreateState() => null;
+
+        protected internal override AsyncStrategyStep<int, object?> Admit(
+            object? state,
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
+        {
+            this.items.Add(incoming);
+
+            return new AsyncStrategyStep<int, object?>(
+                state: state,
+                start: [new AsyncToStart<int>(item: incoming, strategyToken: this.token)]);
         }
 
         protected internal override AsyncStrategyResult<int, object?> OnCompleted(
