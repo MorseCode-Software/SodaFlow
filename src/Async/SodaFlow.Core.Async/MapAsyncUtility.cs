@@ -3174,29 +3174,40 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
 
         // This code defers only the call of the operation. The transaction that promoted the
-        // entry gave it the Running status synchronously. Post prevents the start of asynchronous work,
-        // which is a side effect, in the transaction that processes the event. The post then holds
-        // the call until the transaction lock is free. A posted action runs in a transaction, and
-        // the code of an operation before its first await must not run with the lock. Code there
-        // that blocks stops each thread from opening a transaction, and code that waits for a
-        // transaction on a different thread never ends. AfterReleaseImpl runs the call on this
-        // thread, thus the operation starts inline, as before, and not on the thread pool. The
-        // trampoline keeps the sequence of the starts and the flushes on this thread. See
-        // AsyncMapTrampoline. StartOperation is a usual async Task method. FireAndForget is the one
-        // position where this code does not await its Task, and that is explicit and not a discard
-        // in an async void method.
-        TransactionInternal.PostImpl(() =>
-            TransactionInternal.AfterReleaseImpl(() =>
-                AsyncMapTrampoline.Run(
-                    step: static state =>
-                        FireAndForget(
-                            task: state.Self.StartOperation(
-                                toStart: state.ToStart,
-                                value: state.Value,
-                                trackedCell: state.TrackedCell),
-                            report: state.Self.reportCancelFailure),
-                    state: (Self: this, ToStart: toStart, Value: value, TrackedCell: trackedCell),
-                    report: static (state, failure) => state.Self.Report(failure))));
+        // entry gave it the Running status synchronously. An after-last action prevents the start of
+        // asynchronous work, which is a side effect, in the transaction that processes the event. It
+        // runs only when the transaction commits, and a transaction that fails runs its discard,
+        // which does nothing here. The code of an operation before its first await must not run with
+        // the lock. Code there that blocks stops each thread from opening a transaction, and code that
+        // waits for a transaction on a different thread never ends. Thus, the after-last action gives
+        // the call to AfterReleaseImpl, which holds it until the transaction lock is free.
+        // AfterReleaseImpl runs the call on this thread, thus the operation starts inline, as before,
+        // and not on the thread pool. The trampoline keeps the sequence of the starts and the flushes
+        // on this thread. See AsyncMapTrampoline. StartOperation is a usual async Task method.
+        // FireAndForget is the one position where this code does not await its Task, and that is
+        // explicit and not a discard in an async void method.
+        //
+        // Before, a posted action did this. A post runs in a child transaction of its own, after the
+        // after-last actions, and that transaction cost objects for each item. The start now goes to
+        // AfterReleaseImpl before the posts of this transaction run. A posted disposal records the
+        // cancel of each item in its post, which is before the release. StartOperation reads that
+        // record again before it calls the operation. Thus, an item that this transaction admits
+        // does not start after a disposal that this transaction posts. See
+        // AnItemThatTheTransactionOfAPostedDisposalAdmitsDoesNotStart.
+        TransactionInternal.CurrentTransaction().AfterLast(
+            commit: () =>
+                TransactionInternal.AfterReleaseImpl(() =>
+                    AsyncMapTrampoline.Run(
+                        step: static state =>
+                            FireAndForget(
+                                task: state.Self.StartOperation(
+                                    toStart: state.ToStart,
+                                    value: state.Value,
+                                    trackedCell: state.TrackedCell),
+                                report: state.Self.reportCancelFailure),
+                        state: (Self: this, ToStart: toStart, Value: value, TrackedCell: trackedCell),
+                        report: static (state, failure) => state.Self.Report(failure))),
+            discard: static () => { });
     }
 
     private async Task StartOperation(
