@@ -1699,6 +1699,57 @@ public sealed class MapAsyncImplTests
             .ThrowsExactly<ArgumentNullException>();
     }
 
+    // A disposal in a callback posts its trigger, and the trigger records the cancel of each item.
+    // The start of an item waits for the release of the lock, and reads that record again before it
+    // calls the operation. Here, one transaction admits an item and then disposes of the pipeline in
+    // a listener on the updates of the queue, thus the start of the item is queued before the
+    // trigger. The operation must not start after the disposal, and the item must end.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task AnItemThatTheTransactionOfAPostedDisposalAdmitsDoesNotStart(bool parallel)
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+        List<int> received = [];
+        using IListener resultsListener = results.Listen(received.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: parallel
+                    ? AsyncConcurrencyStrategyFactory.Parallel(0)
+                    : AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v,
+                cancelOnDispose: true);
+
+        // A listener callback, thus the disposal posts its trigger and does not send it.
+        using IListener disposes =
+            status.Items.Updates()
+                .Listen(items =>
+                {
+                    if (items.Count > 0)
+                    {
+                        status.Dispose();
+                    }
+                });
+
+        source.Send(1);
+
+        // The start runs on this thread after the release, thus it ran when the send returns.
+        await Assert.That(op.HasStarted(1)).IsFalse().Because("the disposal canceled the item before its start");
+
+        TestUtil.WaitUntil(() => status.Items.Sample().Count == 0);
+
+        await Assert.That(received).IsEmpty();
+    }
+
     // A strategy can give a token of its own with an item to start. The operation then gets one
     // token that each of the two cancels: the token of the strategy, and the cancel of the item.
     // Each cancel ends the item, and the item publishes nothing.
