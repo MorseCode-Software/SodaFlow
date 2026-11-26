@@ -184,17 +184,12 @@
         one that doesn't touch it at all — both keep reporting the last tag's version. That's an
         accepted tradeoff here, not an oversight: tag on release, and don't rely on the prerelease
         version to reflect "there are unreleased changes."
-
-        The UsingMicrosoftNETSdk guards below are vestigial. They were added when four of the
-        C# test projects were still non-SDK and using packages.config, which cannot consume a
-        PackageReference; "Update to SDK style projects" converted the last of those later the
-        same day, so the condition is now always true.
     -->
-    <ItemGroup Condition="'$(UsingMicrosoftNETSdk)' == 'true'">
+    <ItemGroup>
         <PackageReference Include="MinVer" Version="8.0.0" PrivateAssets="all"/>
     </ItemGroup>
 
-    <PropertyGroup Condition="'$(UsingMicrosoftNETSdk)' == 'true'">
+    <PropertyGroup>
         <MinVerIgnoreHeight>true</MinVerIgnoreHeight>
     </PropertyGroup>
 
@@ -231,11 +226,9 @@
         each package would need a project file edit per release, and each of those edits is a chance
         to leave one package describing the release before last.
 
-        The per-project file wins where it exists, and the repository-wide one covers the rest.
-        Both are needed: this release moved six packages to 2.0.0 for one reason and
-        SodaFlow.Functional to 1.0.1 for a different one, and giving Functional the breaking-change
-        notes would have been simply untrue. Where nothing is found, the releases page is a better
-        answer than an empty field.
+        Each packable project has its own file beside it. The packages release on different
+        schedules, thus one file cannot give the notes of all of them. When a project has no file,
+        the releases page is a better answer than an empty field.
 
         Resolved in a target rather than a property group so the files are read only when packing,
         and so a project that sets PackageReleaseNotes itself still wins.
@@ -280,10 +273,8 @@
     <Target Name="SetPackageReleaseNotesFromFile" BeforeTargets="GenerateNuspec">
         <PropertyGroup>
             <_ProjectReleaseNotes>$(MSBuildProjectDirectory)\PackageReleaseNotes.md</_ProjectReleaseNotes>
-            <_SharedReleaseNotes>$(MSBuildThisFileDirectory)..\PackageReleaseNotes.md</_SharedReleaseNotes>
 
             <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == '' And Exists('$(_ProjectReleaseNotes)')">$([System.IO.File]::ReadAllText('$(_ProjectReleaseNotes)'))</PackageReleaseNotes>
-            <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == '' And Exists('$(_SharedReleaseNotes)')">$([System.IO.File]::ReadAllText('$(_SharedReleaseNotes)'))</PackageReleaseNotes>
             <PackageReleaseNotes Condition="'$(PackageReleaseNotes)' == ''">https://github.com/MorseCode-Software/SodaFlow/releases</PackageReleaseNotes>
         </PropertyGroup>
     </Target>
