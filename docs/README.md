@@ -2,7 +2,8 @@
 
 The SodaFlow for .NET documentation site. Built with [DocFX](https://dotnet.github.io/docfx/)
 and published to GitHub Pages by [`.github/workflows/docs.yml`](../.github/workflows/docs.yml)
-on every push to `main`.
+when a push to `main` changes a file that the site is built from: anything under `docs/`, `src/`,
+or `logo/`, the tool manifest in `.config/dotnet-tools.json`, or the workflow itself.
 
 ## Build it locally
 
