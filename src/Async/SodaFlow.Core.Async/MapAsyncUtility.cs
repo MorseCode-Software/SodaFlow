@@ -446,8 +446,8 @@ internal delegate MapAsyncDeliveryExceptionBase MapAsyncDeliveryExceptionFactory
 
 /// <summary>
 ///     The cancellation source of one tracked item, with a record of a cancel that
-///     committed. The two <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" />
-///     instances of one admitted value share one source.
+///     committed. The <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" /> of one
+///     admitted value holds it.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -600,10 +600,8 @@ public abstract class AsyncMapBase
     ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.Admit" /> call. A
     ///     strategy always receives the same instance that it got before. Thus,
     ///     ReferenceEquals, or ==, is sufficient to identify an admitted value in its
-    ///     state. An equal <see cref="Id" /> gives the same answer, and it is also
-    ///     correct across the different instances that the execution engine keeps for
-    ///     each admitted value. For that cause the SwitchLatest strategy in the
-    ///     library compares the Id.
+    ///     state. An equal <see cref="Id" /> gives the same answer. The SwitchLatest
+    ///     strategy in the library compares the Id.
     /// </summary>
     [PublicAPI]
     protected internal sealed class AsyncQueuedItem<TInput>
@@ -629,12 +627,8 @@ public abstract class AsyncMapBase
         }
 
         /// <summary>
-        ///     The identity of this item. The pipeline assigns it at the admission, and it
-        ///     is the same across the different <see cref="AsyncQueuedItem{TInput}" />
-        ///     instances that the execution engine keeps for one admitted value. One
-        ///     instance has the type for the strategy, and the other has the type for the
-        ///     public <see cref="AsyncItem{TInput}" /> view. An equal ID means the same
-        ///     tracked value.
+        ///     The identity of this item. The pipeline assigns it at the admission, and no
+        ///     other admitted value has it. An equal ID means the same tracked value.
         /// </summary>
         public Guid Id { get; }
 
@@ -2594,7 +2588,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                             new(collection: pair.ToCancel, comparer: EqualityComparer<TInput>.Default);
 
                         this.CancelAfterCommit(
-                            entries: Array.FindAll(array: pair.Entries, match: e => targets.Contains(e.Item.Value)),
+                            entries: Array.FindAll(array: pair.Entries, match: e => targets.Contains(e.Value)),
                             trackedCell: trackedCell);
                     });
         }
@@ -2625,7 +2619,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             trackedCell.MapImpl<IReadOnlyList<AsyncItem<TInput>>>(static entries =>
                 Array.ConvertAll(
                     array: entries,
-                    converter: static e => new AsyncItem<TInput>(value: e.Item.Value, status: e.Status)));
+                    converter: static e => new AsyncItem<TInput>(value: e.Value, status: e.Status)));
 
         return new AsyncMapStatus<TInput, TResult>(
             isRunning: isRunning,
@@ -2695,11 +2689,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
                             Entry newEntry =
                                 new(
-                                    item: new AsyncQueuedItem<TInput>(
-                                        value: o,
-                                        id: newEntryId,
-                                        cancellation: cancellation,
-                                        reportCancelFailure: this.reportCancelFailure),
                                     tracked: new AsyncTrackedItem<TStrategyInput>(
                                         item: incoming,
                                         status: AsyncItemStatus.Queued),
@@ -2925,7 +2914,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
             foreach (Entry e in list)
             {
-                if (!remove.Contains(e.Item.Id))
+                if (!remove.Contains(e.Id))
                 {
                     kept[count++] = e;
                 }
@@ -3362,7 +3351,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         foreach (Entry e in entries)
         {
-            e.Item.Cancellation.CommitCancel();
+            e.Cancellation.CommitCancel();
 
             if (e.Status != AsyncItemStatus.Queued)
             {
@@ -3405,7 +3394,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
                         return UnitInternal.Value;
                     },
-                    state: e.Item.Cancellation);
+                    state: e.Cancellation);
             }
             catch (Exception failure)
             {
@@ -3982,7 +3971,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     private sealed class Entry(
         in TInput value,
-        in AsyncQueuedItem<TInput> item,
         in AsyncTrackedItem<TStrategyInput> tracked,
         in ExecuteCompletion<TResult>? completion)
     {
@@ -3990,20 +3978,25 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         // from the source stream. Flush answers it at the end of this item.
         public ExecuteCompletion<TResult>? Completion { get; } = completion;
 
+        // The initial TInput of this item. The item of the strategy holds the converted value.
         public TInput Value { get; } = value;
 
-        public AsyncQueuedItem<TInput> Item { get; } = item;
-
-        // The same item in the types of the strategy, with its status. This is what the queue
-        // that Admit and OnCompleted read is made of, and the status lives here alone.
+        // The item in the types of the strategy, with its status. This is what the queue that
+        // Admit and OnCompleted read is made of, and the status lives here alone. The entry has no
+        // item of its own in TInput: the id and the cancellation source come from this item, and
+        // the value from Value. Before, a second item held the same three, and cost an object for
+        // each admitted value.
         public AsyncTrackedItem<TStrategyInput> Tracked { get; } = tracked;
+
+        public Guid Id => this.Tracked.Item.Id;
+
+        public AsyncItemCancellationSource Cancellation => this.Tracked.Item.Cancellation;
 
         public AsyncItemStatus Status => this.Tracked.Status;
 
         public Entry WithStatus(AsyncItemStatus status) =>
             new(
                 value: this.Value,
-                item: this.Item,
                 tracked: this.Tracked.WithStatus(status),
                 completion: this.Completion);
     }
@@ -4061,7 +4054,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
             for (int i = 0; i < entries.Length; i++)
             {
-                this.positions[entries[i].Item.Id] = i;
+                this.positions[entries[i].Id] = i;
             }
         }
 
@@ -4077,7 +4070,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
             for (int i = 0; i < this.entries.Length; i++)
             {
-                if (this.entries[i].Item.Id == id)
+                if (this.entries[i].Id == id)
                 {
                     return i;
                 }
