@@ -2432,7 +2432,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         StreamInternal.CreateSinkImpl<Entry[]>(static (_, last) => last);
 
     // Report, as one delegate for the life of this manager. Each item holds it for a cancel that
-    // waits for a commit. See AsyncQueuedItem.Cancel.
+    // waits for a commit. See AsyncQueuedItem.Cancel. FireAndForget gives it to its continuation.
     private readonly Action<Exception> reportCancelFailure;
 
     private readonly StreamSink<TResult> results;
@@ -2788,20 +2788,32 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // This is the one limit in this class where the code starts a Task and does not wait for it.
     // StartOperation catches each exception and gives it to Report, which never throws. Thus, its
     // Task cannot fault. This continuation is a guard against a change that breaks that rule. It
-    // reads the exception, which marks the Task as observed, and it gives the exception to Report.
+    // reads the exception, which marks the Task as observed, and it gives the exception to report.
+    //
+    // A Task that ran to completion cannot fault, thus it gets no continuation. That is the usual
+    // condition when the operation ends before its first await. A Task that faulted before this
+    // call gets the continuation, which then runs at once. A test calls this method directly with
+    // each kind of Task, because StartOperation never faults.
     //
     // Before, this code threw a fault again in the continuation. That made an unobserved task
     // exception, which ends the process on .NET Framework where ThrowUnobservedTaskExceptions is
     // on.
-    private void FireAndForget(Task task) =>
+    internal static void FireAndForget(Task task, Action<Exception> report)
+    {
+        if (task.Status == TaskStatus.RanToCompletion)
+        {
+            return;
+        }
+
         task.ContinueWith(
             // ReSharper disable once NullableWarningSuppressionIsUsed - This continuation has
             // TaskContinuationOptions.OnlyOnFaulted set, so the task's Exception property will be non-null.
-            continuationAction: static (t, state) => (state as AsyncMapExecutionManager<TInput, TResult, TStrategyInput>)?.Report(t.Exception!.GetBaseException()),
-            state: this,
+            continuationAction: static (t, state) => (state as Action<Exception>)?.Invoke(t.Exception!.GetBaseException()),
+            state: report,
             cancellationToken: CancellationToken.None,
             continuationOptions: TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             scheduler: TaskScheduler.Default);
+    }
 
     // Gives an exception with no caller to handleException. A throw from that action is a defect
     // of the caller. It goes to the thread pool, where it ends the process, as a throw from the
@@ -3188,11 +3200,12 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             TransactionInternal.AfterReleaseImpl(() =>
                 AsyncMapTrampoline.Run(
                     step: static state =>
-                        state.Self.FireAndForget(
-                            state.Self.StartOperation(
+                        FireAndForget(
+                            task: state.Self.StartOperation(
                                 toStart: state.ToStart,
                                 value: state.Value,
-                                trackedCell: state.TrackedCell)),
+                                trackedCell: state.TrackedCell),
+                            report: state.Self.reportCancelFailure),
                     state: (Self: this, ToStart: toStart, Value: value, TrackedCell: trackedCell),
                     report: static (state, failure) => state.Self.Report(failure))));
     }

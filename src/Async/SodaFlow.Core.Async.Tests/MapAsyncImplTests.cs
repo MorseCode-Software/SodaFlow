@@ -1748,6 +1748,51 @@ public sealed class MapAsyncImplTests
         status.Dispose();
     }
 
+    // The pipeline does not wait for the Task of a start. A fault of that Task must reach the
+    // report, which also marks the Task as observed. That holds for a Task that faults after the
+    // call, and for a Task that faulted before it. A Task that ran to completion gets no
+    // continuation, and a check of the status that also skips a faulted Task fails here.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task FireAndForgetGivesTheFaultOfTheTaskToTheReport(bool faultedBeforeTheCall)
+    {
+        InvalidOperationException fault = new("The Task faults.");
+        TaskCompletionSource<bool> gate = new();
+        List<Exception> reported = [];
+
+        if (faultedBeforeTheCall)
+        {
+            gate.SetException(fault);
+        }
+
+        AsyncMapExecutionManager<int, int, int>.FireAndForget(
+            task: gate.Task,
+            report: e =>
+            {
+                lock (reported)
+                {
+                    reported.Add(e);
+                }
+            });
+
+        if (!faultedBeforeTheCall)
+        {
+            gate.SetException(fault);
+        }
+
+        TestUtil.WaitUntil(() =>
+        {
+            lock (reported)
+            {
+                return reported.Count > 0;
+            }
+        });
+
+        await Assert.That(reported.Count).IsEqualTo(1);
+        await Assert.That(reported[0]).IsSameReferenceAs(fault);
+    }
+
     private static List<(int Value, AsyncItemStatus Status)> Snapshot(AsyncMapStatus<int> status) =>
         [.. status.Items.Sample().Select(static i => (i.Value, i.Status))];
 
