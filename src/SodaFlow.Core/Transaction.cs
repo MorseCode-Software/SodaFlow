@@ -80,9 +80,10 @@ internal sealed class TransactionInternal
     // of that cost. A queue doubles from four entries, thus a queue can have this size.
     private const int SpareCapacity = 64;
 
-    // An empty send queue and an empty last queue from a transaction that committed. Each send
-    // uses the two queues, and before, each transaction made them again. A transaction takes a
-    // spare at its first use and sets the field here to null. A transaction gives a queue back
+    // An empty queue of each type from a transaction that committed. Each send uses the send
+    // queue and the last queue. A graph that a transaction builds uses the targets, and a lazy
+    // hold or a lazy sample uses the sample queue. Before, each transaction made its queues again.
+    // A transaction takes a spare at its first use and sets the field here to null. A transaction gives a queue back
     // only after it sets its own field to null. Thus, a queue has one owner at a time, and no
     // code keeps a reference to a queue after it goes back. A child, or a transaction that a start
     // hook opens, finds null here while a different transaction holds the spare, and makes its
@@ -90,6 +91,8 @@ internal sealed class TransactionInternal
     // guards them, as it guards afterReleaseQueue. See GiveBackQueues.
     private static List<SendEntry>? spareSendQueue;
     private static Queue<LastEntry>? spareLastQueue;
+    private static List<SampleEntry>? spareSampleQueue;
+    private static List<Node.Target>? spareTargets;
 
     // The last id given. Only the thread that holds the transaction lock changes it.
     private static long lastId;
@@ -449,9 +452,10 @@ internal sealed class TransactionInternal
         }
     }
 
-    internal void Send(SendEntry entry) => (this.sendQueue ??= TakeSendQueue()).Add(entry);
+    internal void Send(SendEntry entry) => (this.sendQueue ??= TakeSpare(ref spareSendQueue)).Add(entry);
 
-    internal void AddTargetToActivate(Node.Target target) => (this.targetsToActivate ??= []).Add(target);
+    internal void AddTargetToActivate(Node.Target target) =>
+        (this.targetsToActivate ??= TakeSpare(ref spareTargets)).Add(target);
 
     internal void AddRerankEntry(Entry entry) => (this.rerankEntriesSet ??= []).Add(entry);
 
@@ -487,14 +491,14 @@ internal sealed class TransactionInternal
         PrioritizedQueue.Enqueue(e);
 
     internal void Sample(Action action) =>
-        (this.sampleQueue ??= []).Add(new SampleEntry(action: action, sampler: null));
+        (this.sampleQueue ??= TakeSpare(ref spareSampleQueue)).Add(new SampleEntry(action: action, sampler: null));
 
     /// <summary>
     ///     The same for an object that reads for itself. This allocates no delegate,
     ///     as <see cref="Last(ILastAction)" /> does not.
     /// </summary>
     internal void Sample(ISampleAction sampler) =>
-        (this.sampleQueue ??= []).Add(new SampleEntry(action: null, sampler: sampler));
+        (this.sampleQueue ??= TakeSpare(ref spareSampleQueue)).Add(new SampleEntry(action: null, sampler: sampler));
 
     /// <summary>
     ///     Adds an action that runs after all prioritized actions.
@@ -726,6 +730,12 @@ internal sealed class TransactionInternal
                     {
                         s.Run(this);
                     }
+
+                    // A sample that this list ran can queue a sample. That sample goes to a
+                    // different list, because the field is null here. Thus, no code reads this
+                    // list after the loop, and it goes back here. A sample that throws stops the
+                    // loop, and the list does not go back.
+                    GiveBack(list: sq, spare: ref spareSampleQueue);
                 }
             }
 
@@ -1107,19 +1117,30 @@ internal sealed class TransactionInternal
         return new AggregateException(failureExceptions);
     }
 
-    // Takes the spare send queue, or makes a queue when a different transaction holds the spare.
-    private static List<SendEntry> TakeSendQueue()
+    // Takes a spare list, or makes a list when a different transaction holds the spare.
+    private static List<T> TakeSpare<T>(ref List<T>? spare)
     {
-        List<SendEntry>? queue = spareSendQueue;
+        List<T>? list = spare;
 
-        if (queue == null)
+        if (list == null)
         {
             return [];
         }
 
-        spareSendQueue = null;
+        spare = null;
 
-        return queue;
+        return list;
+    }
+
+    // Gives a list back as the spare, clear, when no spare is there and when the list is not
+    // larger than SpareCapacity. The caller sets its own field to null first. See GiveBackQueues.
+    private static void GiveBack<T>(List<T> list, ref List<T>? spare)
+    {
+        if (spare == null && list.Capacity <= SpareCapacity)
+        {
+            list.Clear();
+            spare = list;
+        }
     }
 
     // Takes the spare last queue, or makes a queue when a different transaction holds the spare.
@@ -1146,6 +1167,9 @@ internal sealed class TransactionInternal
     ///         A queue goes back clear. An entry in a spare keeps its objects alive,
     ///         and the next transaction runs it. An after-last action can add a last
     ///         action, which no drain runs. Thus, the last queue can hold an entry here.
+    ///         The list of targets holds each target of this transaction, because
+    ///         Close reads it and does not clear it. The sample loop in Close gives
+    ///         back each sample list after it ran.
     ///     </para>
     ///     <para>
     ///         A failed transaction does not come here. Its queues can hold entries
@@ -1164,12 +1188,15 @@ internal sealed class TransactionInternal
         if (this.sendQueue is { } sends)
         {
             this.sendQueue = null;
+            GiveBack(list: sends, spare: ref spareSendQueue);
+        }
 
-            if (spareSendQueue == null && sends.Capacity <= SpareCapacity)
-            {
-                sends.Clear();
-                spareSendQueue = sends;
-            }
+        // Close activated each target before the sends. A link after that point is active when
+        // it is made, and it does not come to this list. Thus, no code reads the list after this.
+        if (this.targetsToActivate is { } targets)
+        {
+            this.targetsToActivate = null;
+            GiveBack(list: targets, spare: ref spareTargets);
         }
 
         if (this.lastQueue is { } lasts)
