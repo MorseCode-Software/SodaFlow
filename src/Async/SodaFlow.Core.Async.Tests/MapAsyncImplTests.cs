@@ -1784,6 +1784,8 @@ public sealed class MapAsyncImplTests
 
         if (cancelTheStrategyToken)
         {
+            // ReSharper disable once MethodHasAsyncOverload - CancelAsync arrived in .NET 8, and this
+            // compiles for net472 as well.
             strategySource.Cancel();
         }
         else
@@ -1940,13 +1942,11 @@ public sealed class MapAsyncImplTests
     ///     that it admits.
     /// </summary>
     // ReSharper disable once InheritdocConsiderUsage
-    private sealed class StrategyTokenStrategy : AsyncConcurrencyStrategy<int, object?>
+    private sealed class StrategyTokenStrategy(in CancellationToken token) : AsyncConcurrencyStrategy<int, object?>
     {
         // This state is global and is not the state of one MapAsync call, as in RecordingStrategy.
         private readonly List<AsyncQueuedItem<int>> items = [];
-        private readonly CancellationToken token;
-
-        public StrategyTokenStrategy(CancellationToken token) => this.token = token;
+        private readonly CancellationToken token = token;
 
         public AsyncQueuedItem<int> FirstItem => this.items[0];
 
