@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -4052,9 +4053,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     {
         private readonly Entry[] entries = entries;
 
-        // The items, from the first read that needs them. Two threads can read a new list at the
-        // same time, and each can make the array. That is safe: the two arrays are equal and
-        // immutable, the exchange keeps only the first, and each reader then uses that one.
+        // The items, from the first read that needs them. A read uses a plain read of this field,
+        // and not Volatile.Read. That is safe:
+        // - The exchange in Build puts the array here with a full fence, and the array does not
+        //   change after that. .NET does not move a read through a reference before the read of
+        //   that reference. Thus, a reader that gets the array also gets its items.
+        // - A reader that gets null makes an equal array. Two threads can do this at the same
+        //   time. The exchange keeps only the first array, and each reader then uses that one.
         private AsyncItem<TInput>[]? items;
 
         public int Count => this.entries.Length;
@@ -4063,7 +4068,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         {
             get
             {
-                AsyncItem<TInput>[] all = this.Items();
+                AsyncItem<TInput>[] all = this.items ?? this.Build();
 
                 return (uint)index < (uint)all.Length
                     ? all[index]
@@ -4072,17 +4077,15 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
 
         public IEnumerator<AsyncItem<TInput>> GetEnumerator() =>
-            ((IEnumerable<AsyncItem<TInput>>)this.Items()).GetEnumerator();
+            ((IEnumerable<AsyncItem<TInput>>)(this.items ?? this.Build())).GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
 
-        private AsyncItem<TInput>[] Items()
+        // Not inlined. Thus, the read of the field in the index and in GetEnumerator stays small
+        // enough to inline into the caller, and only the first read calls this.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private AsyncItem<TInput>[] Build()
         {
-            if (Volatile.Read(ref this.items) is { } made)
-            {
-                return made;
-            }
-
             AsyncItem<TInput>[] built =
                 Array.ConvertAll(
                     array: this.entries,
