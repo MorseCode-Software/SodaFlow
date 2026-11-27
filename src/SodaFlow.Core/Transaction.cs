@@ -82,7 +82,8 @@ internal sealed class TransactionInternal
 
     // An empty queue of each type from a transaction that committed. Each send uses the send
     // queue and the last queue. A graph that a transaction builds uses the targets, and a lazy
-    // hold or a lazy sample uses the sample queue. Before, each transaction made its queues again.
+    // hold or a lazy sample uses the sample queue. The batch of a binding scheduler and the start
+    // of a MapAsync item use the after-last queue. Before, each transaction made its queues again.
     // A transaction takes a spare at its first use and sets the field here to null. A transaction gives a queue back
     // only after it sets its own field to null. Thus, a queue has one owner at a time, and no
     // code keeps a reference to a queue after it goes back. A child, or a transaction that a start
@@ -91,6 +92,7 @@ internal sealed class TransactionInternal
     // guards them, as it guards afterReleaseQueue. See GiveBackQueues.
     private static List<SendEntry>? spareSendQueue;
     private static Queue<LastEntry>? spareLastQueue;
+    private static Queue<LastEntry>? spareAfterLastQueue;
     private static List<SampleEntry>? spareSampleQueue;
     private static List<Node.Target>? spareTargets;
 
@@ -505,7 +507,7 @@ internal sealed class TransactionInternal
     /// </summary>
     /// <param name="action">The action that runs after all prioritized actions.</param>
     internal void Last(Action action) =>
-        (this.lastQueue ??= TakeLastQueue())
+        (this.lastQueue ??= TakeQueue(ref spareLastQueue))
             .Enqueue(new LastEntry(commit: action, discard: null, lastAction: null));
 
     /// <summary>
@@ -524,7 +526,7 @@ internal sealed class TransactionInternal
     ///     <paramref name="commit" /> runs.
     /// </param>
     internal void Last(Action commit, Action discard) =>
-        (this.lastQueue ??= TakeLastQueue())
+        (this.lastQueue ??= TakeQueue(ref spareLastQueue))
             .Enqueue(new LastEntry(commit: commit, discard: discard, lastAction: null));
 
     /// <summary>
@@ -534,7 +536,7 @@ internal sealed class TransactionInternal
     ///     value it takes, with a commit that does nothing.
     /// </summary>
     internal void Last(ILastAction lastAction) =>
-        (this.lastQueue ??= TakeLastQueue())
+        (this.lastQueue ??= TakeQueue(ref spareLastQueue))
             .Enqueue(new LastEntry(commit: null, discard: null, lastAction: lastAction));
 
     /// <summary>
@@ -550,7 +552,7 @@ internal sealed class TransactionInternal
     ///     queue do not run. Their discard actions run in the failure path.
     /// </remarks>
     internal void AfterLast(Action commit, Action discard) =>
-        (this.afterLastQueue ??= new Queue<LastEntry>())
+        (this.afterLastQueue ??= TakeQueue(ref spareAfterLastQueue))
             .Enqueue(new LastEntry(commit: commit, discard: discard, lastAction: null));
 
     /// <summary>
@@ -755,8 +757,12 @@ internal sealed class TransactionInternal
             // these actions too.
             this.outcome?.MarkCommitted();
 
+            // The same for the after-last queue. An after-last action can add an after-last action.
+            int afterLastPeak = 0;
+
             while (this.afterLastQueue?.Count > 0)
             {
+                afterLastPeak = Math.Max(val1: afterLastPeak, val2: this.afterLastQueue.Count);
                 this.afterLastQueue.Dequeue().Commit();
             }
 
@@ -774,7 +780,7 @@ internal sealed class TransactionInternal
             // The sends and the last actions of this transaction ran. Thus, no code of this
             // transaction reads the two queues after this point. The queues go back here, and not
             // at the end, thus each child of the drain below can take them.
-            this.GiveBackQueues(lastPeak);
+            this.GiveBackQueues(lastPeak: lastPeak, afterLastPeak: afterLastPeak);
 
             if (!this.hasParentTransaction)
             {
@@ -1143,19 +1149,32 @@ internal sealed class TransactionInternal
         }
     }
 
-    // Takes the spare last queue, or makes a queue when a different transaction holds the spare.
-    private static Queue<LastEntry> TakeLastQueue()
+    // Takes a spare queue of last entries, or makes a queue when a different transaction holds
+    // the spare. The last queue and the after-last queue each have a spare.
+    private static Queue<LastEntry> TakeQueue(ref Queue<LastEntry>? spare)
     {
-        Queue<LastEntry>? queue = spareLastQueue;
+        Queue<LastEntry>? queue = spare;
 
         if (queue == null)
         {
             return new Queue<LastEntry>();
         }
 
-        spareLastQueue = null;
+        spare = null;
 
         return queue;
+    }
+
+    // Gives a queue of last entries back as the spare, clear, as GiveBack does for a list. A queue
+    // gives no capacity on each target framework, thus the caller gives the largest count of the
+    // queue in its drain.
+    private static void GiveBack(Queue<LastEntry> queue, int peak, ref Queue<LastEntry>? spare)
+    {
+        if (spare == null && Math.Max(val1: peak, val2: queue.Count) <= SpareCapacity)
+        {
+            queue.Clear();
+            spare = queue;
+        }
     }
 
     /// <summary>
@@ -1167,6 +1186,8 @@ internal sealed class TransactionInternal
     ///         A queue goes back clear. An entry in a spare keeps its objects alive,
     ///         and the next transaction runs it. An after-last action can add a last
     ///         action, which no drain runs. Thus, the last queue can hold an entry here.
+    ///         The after-last queue is empty here, because its drain runs until it is
+    ///         empty, and it goes back clear also.
     ///         The list of targets holds each target of this transaction, because
     ///         Close reads it and does not clear it. The sample loop in Close gives
     ///         back each sample list after it ran.
@@ -1183,7 +1204,8 @@ internal sealed class TransactionInternal
     ///     </para>
     /// </remarks>
     /// <param name="lastPeak">The largest count of the last queue in its drain.</param>
-    private void GiveBackQueues(int lastPeak)
+    /// <param name="afterLastPeak">The largest count of the after-last queue in its drain.</param>
+    private void GiveBackQueues(int lastPeak, int afterLastPeak)
     {
         if (this.sendQueue is { } sends)
         {
@@ -1202,12 +1224,13 @@ internal sealed class TransactionInternal
         if (this.lastQueue is { } lasts)
         {
             this.lastQueue = null;
+            GiveBack(queue: lasts, peak: lastPeak, spare: ref spareLastQueue);
+        }
 
-            if (spareLastQueue == null && Math.Max(val1: lastPeak, val2: lasts.Count) <= SpareCapacity)
-            {
-                lasts.Clear();
-                spareLastQueue = lasts;
-            }
+        if (this.afterLastQueue is { } afterLasts)
+        {
+            this.afterLastQueue = null;
+            GiveBack(queue: afterLasts, peak: afterLastPeak, spare: ref spareAfterLastQueue);
         }
     }
 
