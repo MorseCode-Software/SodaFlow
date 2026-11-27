@@ -56,6 +56,7 @@
         <Compile Include="..\..\TestUnobservedTaskExceptions.cs" Link="TestUnobservedTaskExceptions.cs"/>
         <Compile Include="CellProjectionCacheTests.cs"/>
         <Compile Include="KeyedRouterTests.cs"/>
+        <Compile Include="KeyedRouterVisitTests.cs"/>
         <Compile Include="PerKeyCellLockOrderTests.cs"/>
         <Compile Include="ProjectedCellCacheTests.cs"/>
         <Compile Include="ReactiveCollectionTests.cs"/>
