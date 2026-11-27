@@ -26,6 +26,35 @@ gets the state that the first call got, where it used to get a state that the fi
 transaction fails leaves nothing behind in the state. A strategy that only reads its arguments needs no handling for
 either. The cost is one small object for each call of a strategy method.
 
+BREAKING: AsyncMapStatus<TInput>.Items is a Cell<AsyncItemsSnapshot<TInput>>, where it was a
+Cell<IReadOnlyList<AsyncItem<TInput>>>. AsyncItemsSnapshot<TInput> is a new type, and it implements
+IReadOnlyList<AsyncItem<TInput>>, so code that samples Items, or listens to it and reads the list, compiles as it is.
+Code that names the type of the cell has to change: a variable, field, or parameter of type
+Cell<IReadOnlyList<AsyncItem<TInput>>> becomes Cell<AsyncItemsSnapshot<TInput>>, because a cell of one type does not
+convert to a cell of another.
+
+The reason is the cost of keeping Items current. Each update of the queue copied the whole list into a new array for
+Items, whether or not any code read it, so a pipeline that read only IsRunning paid for the copy too. A snapshot now
+makes its array at the first read and keeps it for the reads after that, so an update that nothing reads copies nothing.
+With the Queue strategy and 1,000 waiting items, an update and its cancel allocate 30,784 bytes where they allocated
+46,776, and filling such a queue allocates 6.5 MB where it allocated 10.5 MB, measured on .NET 10. A queue of a few
+items sees no difference, and a first read costs about what the copy did.
+
+Read the snapshot through its own type where you can. A foreach on a variable of type AsyncItemsSnapshot<TInput> uses a
+struct enumerator, allocates nothing, and costs what a foreach on an array costs. A loop over the index of the snapshot
+type allocates nothing either, but it costs more than that foreach, and more than such a loop over the old array did. A
+read through
+IReadOnlyList<AsyncItem<TInput>> gives the same items, but each call goes through the interface. On .NET 10, a second
+read of one snapshot that way costs more than a read of the old array did: a foreach allocates an enumerator, and a
+foreach or a loop over the index takes longer. A bad index throws ArgumentOutOfRangeException either way, as the old
+array did through IReadOnlyList.
+
+A snapshot that you keep after you read it holds only its items. One that you keep and never read also holds the
+pipeline's own record of each item at that update, with the item's cancellation source, until you read it or let it go.
+
+This package now depends on System.Collections.Immutable 8.0.0, for that enumerator. SodaFlow.Collections.Core already
+depends on the same version.
+
 AsyncCompletion.MatchVoid also changes while this surface is open: its two handlers are required, as the handlers of
 Match are. It accepted null for an end with no handler, which let a strategy read one end and skip the other, and Match
 is the only path to the data so that a strategy cannot. Pass a handler that does nothing for an end to ignore on

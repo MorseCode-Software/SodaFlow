@@ -11,6 +11,12 @@ failure. AsyncConcurrencyStrategy<TState> and AsyncConcurrencyStrategy, the shor
 signatures with them. AsyncCompletion.MatchVoid now requires its two handlers, where it accepted null for an end to
 skip. The notes of SodaFlow.Async.Core have the reasoning.
 
+BREAKING, and the break is in SodaFlow.Async.Core 6.0.0: the Items of the status that MapAsync returns is a
+Cell<AsyncItemsSnapshot<TInput>>, where it was a Cell<IReadOnlyList<AsyncItem<TInput>>>. The snapshot implements
+IReadOnlyList<AsyncItem<TInput>>, so code that reads the list compiles as it is, and code that names the type of the
+cell has to change. A foreach on a variable of the snapshot type allocates nothing. An update of the queue that no code
+reads no longer copies the list. The notes of SodaFlow.Async.Core have the details.
+
 Changed: MapAsync takes a required handleException, an Action<Exception> after errors. The pipeline gives it each
 exception that has no caller and that errors cannot take: a report of a failed delivery that throws as well, an item
 that cannot be ended, and a bug in the pipeline. It must not throw; a throw from it ends the process, as a throw from
