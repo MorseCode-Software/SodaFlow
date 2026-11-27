@@ -1740,6 +1740,111 @@ public sealed class MapAsyncImplTests
         status.Dispose();
     }
 
+    // The same, where the list is read before the updates. The first read makes the array of the
+    // items, and the list keeps that array. Thus, the updates do not change what it gives.
+    [Test]
+    public async Task AListOfTheItemsThatWasReadKeepsItsContentsAfterSubsequentUpdates()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+        source.Send(2);
+
+        IReadOnlyList<AsyncItem<int>> held = status.Items.Sample();
+        List<(int Value, AsyncItemStatus Status)> before = Read(held);
+
+        op.Release(input: 1, result: 1);
+        TestUtil.WaitUntil(() => op.HasStarted(2));
+        source.Send(3);
+
+        await Assert.That(before).IsEquivalentTo(
+            expected: [(1, AsyncItemStatus.Running), (2, AsyncItemStatus.Queued)],
+            ordering: CollectionOrdering.Matching);
+
+        await Assert.That(Read(held)).IsEquivalentTo(expected: before, ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
+#if NET
+    // The reference assemblies of net472 do not have the read of the bytes that a thread allocated.
+    // Thus, this test is for the newer target only. The view is the same code on each target.
+    //
+    // The first read of a list makes its array of the items, and each read after it uses that
+    // array. Thus, a second full read through the index allocates nothing. The test measures the
+    // first read also, to show that the measurement can see the array that it makes.
+    [Test]
+    public async Task ASecondReadOfTheItemsMakesNoNewArray()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        for (int v = 1; v <= 100; v++)
+        {
+            source.Send(v);
+        }
+
+        // A first list, read in full, so that the code of a read is ready before the measurement.
+        _ = SumByIndex(status.Items.Sample());
+
+        // A new value makes a new list, which no code read.
+        source.Send(101);
+
+        IReadOnlyList<AsyncItem<int>> list = status.Items.Sample();
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        long first = SumByIndex(list);
+        long firstBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        before = GC.GetAllocatedBytesForCurrentThread();
+        long second = SumByIndex(list);
+        long secondBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(firstBytes).IsGreaterThan(0).Because("the first read makes the array of the items");
+        await Assert.That(secondBytes).IsEqualTo(0).Because("the second read uses the same array");
+        await Assert.That(second).IsEqualTo(first);
+
+        status.Dispose();
+    }
+
+    private static long SumByIndex(IReadOnlyList<AsyncItem<int>> items)
+    {
+        long sum = 0;
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            sum += items[i].Value;
+        }
+
+        return sum;
+    }
+#endif
+
     // The view gives the same items in the same sequence as the copy it replaces gave, through
     // Count, the index, and an enumeration. The cases: an empty queue, one item, a deep queue,
     // and the queue after items end and leave it. A bad index throws as the index of an array

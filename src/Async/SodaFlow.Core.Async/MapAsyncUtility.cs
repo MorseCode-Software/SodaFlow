@@ -4034,36 +4034,62 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     /// <summary>
     ///     The queue of the pipeline, as a caller reads it through Items. It holds the
-    ///     array that the tracked cell has now, and makes each AsyncItem when a caller
-    ///     reads it. AsyncItem is a struct, thus a read of Count or of an index
-    ///     allocates nothing. An enumeration allocates its enumerator, as the
-    ///     enumeration of an array through this interface does.
+    ///     array that the tracked cell has now. It makes the array of AsyncItem at the
+    ///     first read that needs the items, and keeps it for each read after that. Thus,
+    ///     an update of the queue that no code reads copies nothing, and a read after
+    ///     the first one costs what a read of an array costs.
     /// </summary>
     /// <remarks>
-    ///     The array is immutable after the transaction that made it, as for
-    ///     <see cref="TrackedItems" />. Thus, a list that a caller got earlier keeps
-    ///     its contents after a subsequent update. A bad index throws
-    ///     ArgumentOutOfRangeException, as the index of an array through this
-    ///     interface does.
+    ///     Count reads the entry array, and makes no items. The index and an enumeration
+    ///     read the array of items. A bad index throws ArgumentOutOfRangeException, as
+    ///     the index of an array through this interface does. The entry array is
+    ///     immutable after the transaction that made it, as for
+    ///     <see cref="TrackedItems" />. Thus, a list that a caller got earlier keeps its
+    ///     contents after a subsequent update.
     /// </remarks>
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class ItemsView(in Entry[] entries) : IReadOnlyList<AsyncItem<TInput>>
     {
         private readonly Entry[] entries = entries;
 
+        // The items, from the first read that needs them. Two threads can read a new list at the
+        // same time, and each can make the array. That is safe: the two arrays are equal and
+        // immutable, the exchange keeps only the first, and each reader then uses that one.
+        private AsyncItem<TInput>[]? items;
+
         public int Count => this.entries.Length;
 
-        public AsyncItem<TInput> this[int index] =>
-            (uint)index < (uint)this.entries.Length
-                ? ToItem(this.entries[index])
-                : throw new ArgumentOutOfRangeException(paramName: nameof(index));
+        public AsyncItem<TInput> this[int index]
+        {
+            get
+            {
+                AsyncItem<TInput>[] all = this.Items();
+
+                return (uint)index < (uint)all.Length
+                    ? all[index]
+                    : throw new ArgumentOutOfRangeException(paramName: nameof(index));
+            }
+        }
 
         public IEnumerator<AsyncItem<TInput>> GetEnumerator() =>
-            this.entries.Select(static entry => ToItem(entry)).GetEnumerator();
+            ((IEnumerable<AsyncItem<TInput>>)this.Items()).GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
 
-        private static AsyncItem<TInput> ToItem(Entry entry) => new(value: entry.Value, status: entry.Status);
+        private AsyncItem<TInput>[] Items()
+        {
+            if (Volatile.Read(ref this.items) is { } made)
+            {
+                return made;
+            }
+
+            AsyncItem<TInput>[] built =
+                Array.ConvertAll(
+                    array: this.entries,
+                    converter: static entry => new AsyncItem<TInput>(value: entry.Value, status: entry.Status));
+
+            return Interlocked.CompareExchange(location1: ref this.items, value: built, comparand: null) ?? built;
+        }
     }
 
     private sealed class Mutation(in Guid[] remove, in Guid[] promote, in Entry[] add)
