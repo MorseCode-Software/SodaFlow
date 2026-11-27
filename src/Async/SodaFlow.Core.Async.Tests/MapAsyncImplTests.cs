@@ -1779,6 +1779,51 @@ public sealed class MapAsyncImplTests
         status.Dispose();
     }
 
+    // A list that a caller keeps after a read holds only its items. The first read releases the
+    // entry array, and an entry holds the item of the strategy. Thus, after the item leaves the
+    // queue, the held list does not keep that item.
+    [Test]
+    public async Task AListOfTheItemsThatWasReadDoesNotKeepTheEntriesOfThePipeline()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+        WeakItemsStrategy strategy = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: strategy,
+                inputConverter: static v => v);
+
+        source.Send(1);
+
+        IReadOnlyList<AsyncItem<int>> held = status.Items.Sample();
+        List<(int Value, AsyncItemStatus Status)> before = Read(held);
+
+        op.Release(input: 1, result: 1);
+        TestUtil.WaitUntil(() => status.Items.Sample().Count == 0);
+
+        // The finalizer step and the second collection also let the sweep of
+        // StreamListenerManager run. See StreamTests.
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        await Assert.That(strategy.FirstItem.IsAlive)
+            .IsFalse()
+            .Because("only the entry array of the held list could keep the item");
+
+        await Assert.That(Read(held)).IsEquivalentTo(expected: before, ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
 #if NET
     // The reference assemblies of net472 do not have the read of the bytes that a thread allocated.
     // Thus, this test is for the newer target only. The view is the same code on each target.
@@ -2155,6 +2200,44 @@ public sealed class MapAsyncImplTests
             IReadOnlyList<AsyncTrackedItem<int>> tracked)
         {
             this.items.Add(incoming);
+
+            return new AsyncStrategyStep<int, object?>(state: state, start: [new AsyncToStart<int>(incoming)]);
+        }
+
+        protected internal override AsyncStrategyResult<int, object?> OnCompleted(
+            object? state,
+            AsyncQueuedItem<int> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, publish: true, next: AsyncToStart<int>.None);
+
+        protected internal override AsyncStrategyStep<int, object?> OnCanceled(
+            object? state,
+            IReadOnlyList<AsyncQueuedItem<int>> canceled,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, start: AsyncToStart<int>.None);
+    }
+
+    /// <summary>
+    ///     Starts each item immediately and keeps a weak reference to each item that it
+    ///     admits. Thus, a test can see whether other code keeps an item.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class WeakItemsStrategy : AsyncConcurrencyStrategy<int, object?>
+    {
+        // This state is global and is not the state of one MapAsync call, as in RecordingStrategy.
+        private readonly List<WeakReference> items = [];
+
+        public WeakReference FirstItem => this.items[0];
+
+        protected override object? CreateState() => null;
+
+        protected internal override AsyncStrategyStep<int, object?> Admit(
+            object? state,
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
+        {
+            this.items.Add(new WeakReference(incoming));
 
             return new AsyncStrategyStep<int, object?>(state: state, start: [new AsyncToStart<int>(incoming)]);
         }

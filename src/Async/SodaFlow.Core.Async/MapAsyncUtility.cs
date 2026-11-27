@@ -4036,13 +4036,16 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     /// <summary>
     ///     The queue of the pipeline, as a caller reads it through Items. It holds the
     ///     array that the tracked cell has now. It makes the array of AsyncItem at the
-    ///     first read that needs the items, and keeps it for each read after that. Thus,
-    ///     an update of the queue that no code reads copies nothing, and a read after
-    ///     the first one costs what a read of an array costs.
+    ///     first read that needs the items, and keeps it for each read after that. Then
+    ///     it releases the entry array. Thus, an update of the queue that no code reads
+    ///     copies nothing, and a read after the first one costs what a read of an array
+    ///     costs. A list that a caller keeps after a read holds only its items, and not
+    ///     the entries of the pipeline, with their cancellation sources and completions.
     /// </summary>
     /// <remarks>
-    ///     Count reads the entry array, and makes no items. The index and an enumeration
-    ///     read the array of items. A bad index throws ArgumentOutOfRangeException, as
+    ///     Count reads the entry array until the first build, and the array of items
+    ///     after it. It makes no items. The index and an enumeration read the array of
+    ///     items. A bad index throws ArgumentOutOfRangeException, as
     ///     the index of an array through this interface does. The entry array is
     ///     immutable after the transaction that made it, as for
     ///     <see cref="TrackedItems" />. Thus, a list that a caller got earlier keeps its
@@ -4051,18 +4054,21 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // ReSharper disable once InheritdocConsiderUsage
     private sealed class ItemsView(in Entry[] entries) : IReadOnlyList<AsyncItem<TInput>>
     {
-        private readonly Entry[] entries = entries;
+        // The entry array, until the first build. Build sets the items first and then releases
+        // this. Thus, a reader that finds null here finds the items.
+        private Entry[]? entries = entries;
 
         // The items, from the first read that needs them. A read uses a plain read of this field,
         // and not Volatile.Read. That is safe:
         // - The exchange in Build puts the array here with a full fence, and the array does not
         //   change after that. .NET does not move a read through a reference before the read of
         //   that reference. Thus, a reader that gets the array also gets its items.
-        // - A reader that gets null makes an equal array. Two threads can do this at the same
-        //   time. The exchange keeps only the first array, and each reader then uses that one.
+        // - A reader that gets null calls Build. Build makes an equal array, or gives the array
+        //   that another build kept. Two threads can make an array at the same time. The exchange
+        //   keeps only the first array, and each reader then uses that one.
         private AsyncItem<TInput>[]? items;
 
-        public int Count => this.entries.Length;
+        public int Count => this.items?.Length ?? this.CountOfEntries();
 
         public AsyncItem<TInput> this[int index]
         {
@@ -4081,17 +4087,40 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
 
+        // Count before the first build. Volatile.Read, thus the read of the items comes after the
+        // read of the entries. Where the entries are gone, a build already set the items.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private int CountOfEntries() =>
+            Volatile.Read(ref this.entries) is { } source
+                ? source.Length
+                // ReSharper disable once NullableWarningSuppressionIsUsed - A build sets the items before it releases the entries.
+                : Volatile.Read(ref this.items)!.Length;
+
         // Not inlined. Thus, the read of the field in the index and in GetEnumerator stays small
         // enough to inline into the caller, and only the first read calls this.
         [MethodImpl(MethodImplOptions.NoInlining)]
         private AsyncItem<TInput>[] Build()
         {
+            if (Volatile.Read(ref this.entries) is not { } source)
+            {
+                // Another build kept its array, and then released the entries.
+                // ReSharper disable once NullableWarningSuppressionIsUsed - A build sets the items before it releases the entries.
+                return Volatile.Read(ref this.items)!;
+            }
+
             AsyncItem<TInput>[] built =
                 Array.ConvertAll(
-                    array: this.entries,
+                    array: source,
                     converter: static entry => new AsyncItem<TInput>(value: entry.Value, status: entry.Status));
 
-            return Interlocked.CompareExchange(location1: ref this.items, value: built, comparand: null) ?? built;
+            AsyncItem<TInput>[] kept =
+                Interlocked.CompareExchange(location1: ref this.items, value: built, comparand: null) ?? built;
+
+            // The items are in place. Release the entries, thus a list that a caller keeps does
+            // not keep the entries of the pipeline.
+            Volatile.Write(location: ref this.entries, value: null);
+
+            return kept;
         }
     }
 
