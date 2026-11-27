@@ -39,6 +39,15 @@ The library keeps its own wiring alive. A combinator such as [`Switch`](switch.m
 subscriptions it makes for as long as the stream it returns lives, so the only listener you hold
 is your own.
 
+Wiring that nothing listens to stops costing anything. A map, a lift, a filter, a merge, a
+snapshot, or a switch whose result has no listener disconnects from its inputs after the next
+time one of them fires, so later sends skip it. It still gives the right value: sampling a
+disconnected cell computes the value from its inputs, at most once for each change of those
+inputs, and listening to it again reconnects it with the value of that moment. The function you
+pass to `Map` or `Lift` therefore runs when its value is needed, not on every update, so keep
+those functions free of side effects. Stateful operations such as `Hold` and `Accum` stay
+connected, because they have to see every update to keep their state.
+
 > **Upgrading:** `ListenStrong` and `ListenOnceStrong` are gone, and so are `IStrongListener`
 > and `IWeakListener`. A strong listener kept firing after you dropped it, for as long as a
 > source of its stream lived, and then nothing could stop it. Each call to a strong form stops
