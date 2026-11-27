@@ -159,6 +159,12 @@ public static class Transaction
     ///         that exception first, and the throw from the release after it.
     ///     </para>
     ///     <para>
+    ///         <paramref name="onFailure" /> runs on the same thread after the
+    ///         transaction lock is free, with no transaction open. Thus, it runs after
+    ///         the other posted actions of that transaction. It can send and post,
+    ///         and each send or post opens a transaction of its own.
+    ///     </para>
+    ///     <para>
     ///         Each posted action runs in a transaction of its own, after the
     ///         transaction that posts it commits. An action that throws does not stop
     ///         the posted actions after it. Each throw comes out after the last posted

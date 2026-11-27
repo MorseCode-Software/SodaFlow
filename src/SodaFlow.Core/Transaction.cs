@@ -561,21 +561,15 @@ internal sealed class TransactionInternal
     private void Post(Action<TransactionInternal> action, Action<Exception>? onFailure) =>
         (this.postQueue ??= new Queue<PostEntry>()).Enqueue(new PostEntry(action: action, onFailure: onFailure));
 
-    // Runs one release and answers with its own exception, or with null. A throw from a release
-    // must not replace the exception that caused it, and must not stop the releases after it.
-    private static Exception? RunRelease(Action<Exception> onFailure, Exception cause)
-    {
-        try
-        {
-            onFailure(cause);
-
-            return null;
-        }
-        catch (Exception e)
-        {
-            return e;
-        }
-    }
+    // Gives one release to the after-release queue. Each caller holds the transaction lock, thus
+    // the release runs on this thread after the lock is free, with no transaction open. A send or
+    // a post from the release then opens a transaction of its own, and it arrives. Before, the
+    // release ran in place, in a transaction that had drained its sends or that failed, and a
+    // send from it went nowhere. RunAfterRelease keeps the order of the exceptions: the cause
+    // first, and a throw from a release after it. A throw from a release does not stop the
+    // releases after it.
+    private static void ReleaseAfterTheLock(Action<Exception> onFailure, Exception cause) =>
+        AfterReleaseImpl(() => onFailure(cause));
 
     /// <summary>
     ///     Add an action to run after all last actions.
@@ -610,21 +604,17 @@ internal sealed class TransactionInternal
                 }
 
                 // No transaction was open, thus the action runs now, in the transaction that Apply
-                // made. A throw from it goes to the caller, and the release sees that throw first.
+                // made. A throw from it goes to the caller. The release gets that throw, and runs
+                // after Apply releases the lock.
                 try
                 {
                     s.Action(s.State);
                 }
                 catch (Exception e) when (s.OnFailure != null)
                 {
-                    Exception? release = RunRelease(onFailure: s.OnFailure, cause: e);
+                    ReleaseAfterTheLock(onFailure: s.OnFailure, cause: e);
 
-                    if (release == null)
-                    {
-                        throw;
-                    }
-
-                    throw new AggregateException(e, release);
+                    throw;
                 }
 
                 return UnitInternal.Value;
@@ -872,12 +862,11 @@ internal sealed class TransactionInternal
                         {
                             (deferredFailures ??= []).Add(e);
 
-                            // This entry kept no promise, thus its own release runs here. A throw
-                            // from the release comes after the throw that caused it.
-                            if (entry.OnFailure != null
-                                && RunRelease(onFailure: entry.OnFailure, cause: e) is { } release)
+                            // This entry kept no promise, thus its own release runs, after the lock
+                            // is free. A throw from the release comes after the throws of the drain.
+                            if (entry.OnFailure != null)
                             {
-                                deferredFailures.Add(release);
+                                ReleaseAfterTheLock(onFailure: entry.OnFailure, cause: e);
                             }
                         }
                     }
@@ -961,10 +950,11 @@ internal sealed class TransactionInternal
     }
 
     /// <summary>
-    ///     The failure path. Runs the releases and the discards, and forgets the
-    ///     work of this transaction. Gives the exception to throw: the cause, or an
-    ///     <see cref="AggregateException" /> with the cause first when a release
-    ///     threw.
+    ///     The failure path. Gives the releases to the after-release queue, runs the
+    ///     discards, and forgets the work of this transaction. Gives the exception to
+    ///     throw: the cause. A throw from a release comes after the cause, in an
+    ///     <see cref="AggregateException" />, when the releases run after the lock
+    ///     is free.
     /// </summary>
     /// <remarks>
     ///     Close comes here when a step of the transaction throws, and Apply comes
@@ -1001,23 +991,13 @@ internal sealed class TransactionInternal
         //
         // A child holds the queues of its root, and the posts of the root and of each other child
         // are in them. Thus, a child releases nothing here. Its root removes what the child added,
-        // and runs those releases. See DropChildWork.
-        List<Exception>? failureExceptions = null;
-
+        // and gives those releases to the after-release queue. See DropChildWork. Each release runs
+        // after the lock is free. See ReleaseAfterTheLock.
         while (!this.hasParentTransaction && this.postQueue?.Count > 0)
         {
-            Action<Exception>? onFailure = this.postQueue.Dequeue().OnFailure;
-
-            if (onFailure == null)
+            if (this.postQueue.Dequeue().OnFailure is { } onFailure)
             {
-                continue;
-            }
-
-            Exception? release = RunRelease(onFailure: onFailure, cause: transactionException);
-
-            if (release != null)
-            {
-                (failureExceptions ??= []).Add(release);
+                ReleaseAfterTheLock(onFailure: onFailure, cause: transactionException);
             }
         }
 
@@ -1065,17 +1045,9 @@ internal sealed class TransactionInternal
             this.splitQueue = null;
         }
 
-        if (failureExceptions == null)
-        {
-            return transactionException;
-        }
-
-        // The exception of the transaction comes first, because it is the failure that the
-        // caller asked about. A throw from a failure action comes after it, and no code loses
-        // it.
-        failureExceptions.Insert(index: 0, item: transactionException);
-
-        return new AggregateException(failureExceptions);
+        // A throw from a release comes after this exception, when the releases run after the
+        // lock is free. See RunAfterRelease.
+        return transactionException;
     }
 
     // Counts one more step of a chain of deferred work, and gives false at the limit. There, the
@@ -1095,13 +1067,14 @@ internal sealed class TransactionInternal
 
         (failures ??= []).Add(limit);
 
-        // A release can post, and that post gets the same end.
+        // Each post that remains gets the end of the limit. Its release runs after the lock is
+        // free, with no transaction open. Thus, a post from a release runs then, in a transaction
+        // of its own, and not in this drain.
         while (this.postQueue?.Count > 0)
         {
-            if (this.postQueue.Dequeue().OnFailure is { } onFailure
-                && RunRelease(onFailure: onFailure, cause: limit) is { } release)
+            if (this.postQueue.Dequeue().OnFailure is { } onFailure)
             {
-                failures.Add(release);
+                ReleaseAfterTheLock(onFailure: onFailure, cause: limit);
             }
         }
 
@@ -1121,16 +1094,15 @@ internal sealed class TransactionInternal
 
     // Removes from the two queues each entry after the counts at the start of a child, because
     // the child failed. Each post that goes kept no promise, thus its release runs, with the
-    // failure of the child as the cause. Gives the exception to throw, as Discard does: the
-    // cause, or an AggregateException with the cause first when a release threw.
+    // failure of the child as the cause, after the lock is free. Gives the exception to throw, as
+    // Discard does: the cause. A throw from a release comes after it. See RunAfterRelease.
     private Exception DropChildWork(int firstPost, int firstSplit, Exception cause)
     {
-        List<Exception>? failureExceptions = null;
         Queue<PostEntry>? posts = this.postQueue;
 
-        // A release can post, and that post goes to the end of this queue. Thus, this continues
-        // until the queue holds only the posts from before the child.
-        while (posts != null && posts.Count > firstPost)
+        // A release runs after the lock is free, thus it adds nothing to this queue. One pass
+        // keeps the posts from before the child and releases the others.
+        if (posts != null && posts.Count > firstPost)
         {
             // A queue gives no access to its end. This removes each entry. It adds the entries
             // from before the child again, in their sequence, and releases the others. A child
@@ -1148,9 +1120,9 @@ internal sealed class TransactionInternal
                     continue;
                 }
 
-                if (entry.OnFailure != null && RunRelease(onFailure: entry.OnFailure, cause: cause) is { } release)
+                if (entry.OnFailure != null)
                 {
-                    (failureExceptions ??= []).Add(release);
+                    ReleaseAfterTheLock(onFailure: entry.OnFailure, cause: cause);
                 }
             }
         }
@@ -1160,14 +1132,7 @@ internal sealed class TransactionInternal
             splits.RemoveRange(index: firstSplit, count: splits.Count - firstSplit);
         }
 
-        if (failureExceptions == null)
-        {
-            return cause;
-        }
-
-        failureExceptions.Insert(index: 0, item: cause);
-
-        return new AggregateException(failureExceptions);
+        return cause;
     }
 
     // Puts the splits of one round in the sequence of their positions, and keeps the sequence of
