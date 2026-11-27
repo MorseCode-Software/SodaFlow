@@ -68,6 +68,15 @@ with the sink and the value as fields, where it held a closure and a delegate, a
 through a static function with a state, where it captured the sink and the value in a second closure. Measured on a
 send to a sink with one listener, .NET 10: 192 to 183 ns and 680 to 544 bytes.
 
+A transaction that commits gives the queues it used for sends, last actions, and samples, and its list of nodes to
+activate, to the next transaction, which uses them in place of new ones. Each goes back empty, and only if it never held
+more than 64 entries, so a large transaction does not keep a large queue alive. A transaction that fails gives nothing
+back. Measured on .NET 10, time and bytes allocated: a send to a sink with one listener 245 to 190 ns and 536 to 288
+bytes, to a fan-out of eight maps 1,370 to 1,147 ns and 2,360 to 1,488 bytes, through a chain of eight maps 880 to 686
+ns and 1,800 to 928 bytes, and through a chain of 32 maps 2,618 to 2,077 ns and 6,072 to 2,848 bytes. A collection with
+a state cell for each of 1,000 keys builds for 1,610 KB where it built for 1,980 KB, and for each of 10,000 keys for
+15,997 KB where it built for 19,484 KB. An empty transaction allocates what it did.
+
 A transaction whose first entry in the priority queue has a deep rank no longer walks every empty bucket below that
 rank. The queue starts each transaction empty with its floor at zero, so a send whose only listener sat at rank one
 thousand, as the second source of a merge with a deep stream does, walked a thousand buckets before it ran. The empty
