@@ -283,6 +283,62 @@ public sealed class LastPhaseTests
         await Assert.That(discards).IsEqualTo(1);
     }
 
+    // A last action that an after-last action queues throws from its commit. That fails the
+    // transaction, as a throw from an after-last action does. The outcome becomes failed. The
+    // discards of the entries that remain run: a second late last action, and an after-last
+    // action that the throwing one queued. The release of a post that did not run runs. A value
+    // that the usual last phase committed stays in its cell. The discard of the throwing entry
+    // does not run, as in the usual last phase.
+    [Test]
+    public async Task ALateLastActionThatThrowsFailsTheTransaction()
+    {
+        CellSink<int> cell = Cell.CreateSink(0);
+        TransactionOutcome? outcome = null;
+        List<string> seen = [];
+        bool posted = false;
+
+        await Assert.That(() =>
+                TransactionInternal.Apply<UnitInternal>((trans, _) =>
+                {
+                    outcome = trans.Outcome;
+                    cell.Send(1);
+                    TransactionInternal.PostImpl(action: () => posted = true, onFailure: _ => seen.Add("release"));
+
+                    trans.AfterLast(
+                        commit: () =>
+                        {
+                            trans.Last(
+                                commit: () =>
+                                {
+                                    trans.AfterLast(
+                                        commit: () => seen.Add("queued after-last commit"),
+                                        discard: () => seen.Add("queued after-last discard"));
+
+                                    throw new InvalidOperationException("late");
+                                },
+                                discard: () => seen.Add("throwing last discard"));
+
+                            trans.Last(
+                                commit: () => seen.Add("second late last commit"),
+                                discard: () => seen.Add("second late last discard"));
+                        },
+                        discard: () => seen.Add("first after-last discard"));
+
+                    return UnitInternal.Value;
+                }))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("late");
+
+        await Assert.That(outcome?.Failed).IsTrue();
+        await Assert.That(outcome?.Committed).IsFalse();
+        await Assert.That(posted).IsFalse();
+        await Assert.That(seen)
+            .IsEquivalentTo(
+                expected: ["release", "second late last discard", "queued after-last discard"],
+                ordering: CollectionOrdering.Any);
+        await Assert.That(cell.Sample()).IsEqualTo(1);
+    }
+
     // A queued send that runs an action, for the test of a send from a last action.
     private sealed class FlagEntry(in Action action) : TransactionInternal.SendEntry
     {

@@ -527,8 +527,10 @@ internal sealed class TransactionInternal
     ///     action must not send, sample, or queue a prioritized action. An action
     ///     that throws fails the transaction, and the actions after it in the
     ///     queue do not run. Their discard actions run in the failure path. This
-    ///     action can queue a last action. That last action runs in the same
-    ///     transaction, after the after-last actions that are in the queue.
+    ///     action can queue a last action. That last action commits in the same
+    ///     Close, after the after-last actions that are in the queue. A throw from
+    ///     that commit fails the transaction, as a throw from an after-last action
+    ///     does.
     /// </remarks>
     internal void AfterLast(Action commit, Action discard) =>
         (this.afterLastQueue ??= new Queue<LastEntry>())
