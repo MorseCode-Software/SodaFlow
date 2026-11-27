@@ -526,7 +526,9 @@ internal sealed class TransactionInternal
     ///     run, in each condition. The same rules as for a last action apply: the
     ///     action must not send, sample, or queue a prioritized action. An action
     ///     that throws fails the transaction, and the actions after it in the
-    ///     queue do not run. Their discard actions run in the failure path.
+    ///     queue do not run. Their discard actions run in the failure path. This
+    ///     action can queue a last action. That last action runs in the same
+    ///     transaction, after the after-last actions that are in the queue.
     /// </remarks>
     internal void AfterLast(Action commit, Action discard) =>
         (this.afterLastQueue ??= new Queue<LastEntry>())
@@ -722,9 +724,23 @@ internal sealed class TransactionInternal
             // these actions too.
             this.outcome?.MarkCommitted();
 
-            while (this.afterLastQueue?.Count > 0)
+            // An after-last action can queue a last action, and that last action can queue an
+            // after-last action. This loop runs each of them, until the two queues are empty. The
+            // outcome stays committed. Before, a last action that an after-last action queued
+            // did not commit and did not discard: no drain came after it, and the check below
+            // does not read the last queue. In the usual condition, the after-last queue empties
+            // and the last queue is empty, thus the loop costs one more test of each count.
+            while (this.afterLastQueue?.Count > 0 || this.lastQueue?.Count > 0)
             {
-                this.afterLastQueue.Dequeue().Commit();
+                while (this.afterLastQueue?.Count > 0)
+                {
+                    this.afterLastQueue.Dequeue().Commit();
+                }
+
+                while (this.lastQueue?.Count > 0)
+                {
+                    this.lastQueue.Dequeue().Commit();
+                }
             }
 
             // A last action runs after the drain, thus work that it queues on this transaction has

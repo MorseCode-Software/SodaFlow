@@ -193,6 +193,96 @@ public sealed class LastPhaseTests
         await Assert.That(posted).IsTrue();
     }
 
+    // An after-last action can queue a last action. That last action commits in the same
+    // transaction. Before, no drain came after the after-last actions, thus it did not commit and
+    // did not discard, and the next transaction did not run it.
+    [Test]
+    public async Task ALastActionThatAnAfterLastActionQueuesCommits()
+    {
+        int commits = 0;
+        int discards = 0;
+
+        TransactionInternal.Apply((trans, _) =>
+        {
+            trans.AfterLast(
+                commit: () => trans.Last(commit: () => commits++, discard: () => discards++),
+                discard: static () => { });
+
+            return UnitInternal.Value;
+        });
+
+        await Assert.That(commits).IsEqualTo(1);
+        await Assert.That(discards).IsEqualTo(0);
+    }
+
+    // A chain: an after-last action queues a last action, and the commit of that last action
+    // queues an after-last action, three times. Each one runs in the same transaction, in that
+    // sequence, and the loop ends when the two queues are empty.
+    [Test]
+    public async Task AChainOfAfterLastActionsAndLastActionsRunsInSequence()
+    {
+        List<string> order = [];
+
+        TransactionInternal.Apply((trans, _) =>
+        {
+            void Step(int i)
+            {
+                trans.AfterLast(
+                    commit: () =>
+                    {
+                        order.Add($"after {i}");
+                        trans.Last(() =>
+                        {
+                            order.Add($"last {i}");
+
+                            if (i < 3)
+                            {
+                                Step(i + 1);
+                            }
+                        });
+                    },
+                    discard: static () => { });
+            }
+
+            Step(1);
+
+            return UnitInternal.Value;
+        });
+
+        await Assert.That(order)
+            .IsEquivalentTo(
+                expected: ["after 1", "last 1", "after 2", "last 2", "after 3", "last 3"],
+                ordering: CollectionOrdering.Matching);
+    }
+
+    // An after-last action queues a last action, and the next after-last action throws. The
+    // transaction fails, thus the last action that the first one queued discards, and does not
+    // commit.
+    [Test]
+    public async Task ALastActionThatAnAfterLastActionQueuesDiscardsWhenALaterOneThrows()
+    {
+        int commits = 0;
+        int discards = 0;
+
+        await Assert.That(() =>
+                TransactionInternal.Apply<UnitInternal>((trans, _) =>
+                {
+                    trans.AfterLast(
+                        commit: () => trans.Last(commit: () => commits++, discard: () => discards++),
+                        discard: static () => { });
+                    trans.AfterLast(
+                        commit: static () => throw new InvalidOperationException("abort"),
+                        discard: static () => { });
+
+                    return UnitInternal.Value;
+                }))
+            .ThrowsExactly<InvalidOperationException>()
+            .WithMessage("abort");
+
+        await Assert.That(commits).IsEqualTo(0);
+        await Assert.That(discards).IsEqualTo(1);
+    }
+
     // A queued send that runs an action, for the test of a send from a last action.
     private sealed class FlagEntry(in Action action) : TransactionInternal.SendEntry
     {
