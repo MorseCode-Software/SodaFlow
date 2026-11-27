@@ -442,6 +442,7 @@ public sealed class TransactionTests
                     Transaction.Post(
                         action: static () => throw new InvalidOperationException("post"),
                         onFailure: _ => order.Add("release"));
+
                     Transaction.Post(() => order.Add("second post"));
                 }))
             .ThrowsExactly<InvalidOperationException>();
