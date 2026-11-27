@@ -94,6 +94,10 @@ let onStart a : IDisposable =
 ///         end. A chain with no end throws <c>DeferredChainLimitException</c> from the call that
 ///         started the first transaction.
 ///     </para>
+///     <para>
+///         A release of a post that posts again makes a chain on the thread. At 32 levels, this call
+///         throws <c>DeferredChainLimitException</c> immediately, and the action does not run.
+///     </para>
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let post a = TransactionInternal.PostImpl(Action a)
@@ -146,6 +150,12 @@ let post a = TransactionInternal.PostImpl(Action a)
 ///         A posted action that posts again makes a chain of deferred work. That chain must have an
 ///         end. A chain with no end throws <c>DeferredChainLimitException</c> from the call that
 ///         started the first transaction.
+///     </para>
+///     <para>
+///         A release that posts again makes a chain on the thread, because a transaction that a
+///         release opens runs its own releases before it returns. At 32 levels, this call throws
+///         <c>DeferredChainLimitException</c> immediately. It then does not run <paramref name="a" /> or
+///         <paramref name="onFailure" />.
 ///     </para>
 ///     <para>
 ///         This function is what C# spells as a second overload of Post. F# has no optional
