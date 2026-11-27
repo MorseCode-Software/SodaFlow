@@ -112,6 +112,9 @@ that reach this package, and its notes have the details of each:
   or a post from it opens a transaction of its own and arrives; before, a send from it went nowhere. It now runs after
   the other posted actions of that transaction, a transaction on another thread can run before it, and the core notes
   give the order of the exceptions.
+- An onFailure of postWithFailureHandler that posts again on each failure makes a chain with a limit: at 32 levels on
+  one thread, the post throws DeferredChainLimitException at once and runs neither its action nor its onFailure. The
+  core notes have the details.
 - A chain of deferred work that has no end throws DeferredChainLimitException, where before the call that started it
   never returned. A value that finds its way back to its own source through Operational.defer, Operational.split, or a
   posted action that posts again made a new transaction for every lap, forever. The chain is cut when it is 100,000
