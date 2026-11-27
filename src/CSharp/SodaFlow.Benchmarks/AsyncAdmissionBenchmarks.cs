@@ -12,7 +12,7 @@ namespace SodaFlow.Benchmarks;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Each benchmark sends one value to a pipeline that the setup made. The
+///         Each benchmark sends one value to a pipeline that this object made. The
 ///         operation gives back one Task that completed before the run. Thus, each
 ///         item starts and ends at its send, and no item waits. The cost is the
 ///         admission, the start, the end, and the publish of one item, and not the
@@ -37,16 +37,8 @@ public class AsyncAdmissionBenchmarks
     // The one Task that each operation gives back. The first call makes it.
     private static Task<MapAsyncResult<int>>? completed;
 
-    private Pipeline parallel = null!;
-    private Pipeline queue = null!;
-
-    /// <summary>Makes one pipeline for each strategy.</summary>
-    [GlobalSetup]
-    public void Setup()
-    {
-        this.parallel = new Pipeline(AsyncConcurrencyStrategy.Parallel());
-        this.queue = new Pipeline(AsyncConcurrencyStrategy.Queue());
-    }
+    private readonly Pipeline parallel = new(AsyncConcurrencyStrategy.Parallel());
+    private readonly Pipeline queue = new(AsyncConcurrencyStrategy.Queue());
 
     /// <summary>Disposes of the two pipelines.</summary>
     [GlobalCleanup]
