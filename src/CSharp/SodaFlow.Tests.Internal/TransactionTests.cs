@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions;
@@ -213,6 +214,214 @@ public sealed class TransactionTests
 
         await Assert.That(new DeferredChainLimitException(message: "given", innerException: inner).InnerException)
             .IsSameReferenceAs(inner);
+    }
+
+    // A chain of releases as long as the depth limit runs each release. Its innermost exception is
+    // the throw of the last action, and not the limit.
+    [Test]
+    public async Task AChainOfReleasesAsLongAsTheDepthLimitRunsEachRelease()
+    {
+        (Exception thrown, int actions, int releases) = RunAReleaseChain(TransactionInternal.AfterReleaseDepthLimit);
+
+        await Assert.That(actions).IsEqualTo(TransactionInternal.AfterReleaseDepthLimit);
+        await Assert.That(releases).IsEqualTo(TransactionInternal.AfterReleaseDepthLimit);
+        await Assert.That(Innermost(thrown) is DeferredChainLimitException).IsFalse();
+        await Assert.That(Innermost(thrown).Message).IsEqualTo("The action fails.");
+    }
+
+    // One more release in the chain comes to the limit. The post of that release throws, and it does
+    // not run its action or its release. Thus, a chain that is longer, or that has no end, stops
+    // there, and the process does not run out of stack.
+    [Test]
+    public async Task AChainOfReleasesStopsAtTheDepthLimit()
+    {
+        (Exception thrown, int actions, int releases) = RunAReleaseChain(100);
+        Exception innermost = Innermost(thrown);
+
+        await Assert.That(actions).IsEqualTo(TransactionInternal.AfterReleaseDepthLimit);
+        await Assert.That(releases).IsEqualTo(TransactionInternal.AfterReleaseDepthLimit);
+        await Assert.That(innermost).IsTypeOf<DeferredChainLimitException>();
+
+        await Assert.That(innermost.Message)
+            .IsEqualTo(DeferredChainLimitException.MessageForDepth(TransactionInternal.AfterReleaseDepthLimit));
+    }
+
+    // Each new transaction at the limit throws, not only a post. A release can catch the throw.
+    [Test]
+    public async Task ATransactionInAReleaseAtTheDepthLimitThrows()
+    {
+        int releases = 0;
+        Exception? atTheLimit = null;
+
+        try
+        {
+            Transaction.Post(action: Fail, onFailure: Release);
+        }
+        catch (Exception)
+        {
+            // The chain throws an AggregateException of the throws of its actions. The test reads
+            // the counts and not that exception.
+        }
+
+        await Assert.That(releases).IsEqualTo(TransactionInternal.AfterReleaseDepthLimit);
+        await Assert.That(atTheLimit).IsTypeOf<DeferredChainLimitException>();
+
+        return;
+
+        void Release(Exception _)
+        {
+            releases++;
+
+            if (releases < TransactionInternal.AfterReleaseDepthLimit)
+            {
+                Transaction.Post(action: Fail, onFailure: Release);
+
+                return;
+            }
+
+            try
+            {
+                Transaction.RunVoid(static () => { });
+            }
+            catch (DeferredChainLimitException e)
+            {
+                atTheLimit = e;
+            }
+        }
+    }
+
+    // The depth goes back down after a chain that stopped at the limit. Thus, a second chain as
+    // long as the limit runs each of its releases on the same thread.
+    [Test]
+    public async Task TheDepthGoesBackDownAfterAChainThatStoppedAtTheLimit()
+    {
+        _ = RunAReleaseChain(100);
+
+        (Exception thrown, int _, int releases) = RunAReleaseChain(TransactionInternal.AfterReleaseDepthLimit);
+
+        await Assert.That(releases).IsEqualTo(TransactionInternal.AfterReleaseDepthLimit);
+        await Assert.That(Innermost(thrown) is DeferredChainLimitException).IsFalse();
+        await Assert.That(Innermost(thrown).Message).IsEqualTo("The action fails.");
+    }
+
+    // The depth is for one thread. A release at the limit waits, and a transaction on a different
+    // thread then runs a release that opens a transaction of its own.
+    [Test]
+    public async Task TheDepthLimitOfOneThreadDoesNotStopADifferentThread()
+    {
+        TaskCompletionSource<bool> atTheLimit = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<bool> otherDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        int releases = 0;
+        bool otherReleaseRan = false;
+        Exception? otherFailure = null;
+
+        Task deep = Task.Run(() =>
+        {
+            try
+            {
+                Transaction.Post(action: Fail, onFailure: Release);
+            }
+            catch (Exception)
+            {
+                // The chain throws an AggregateException of the throws of its actions. The test
+                // reads the other thread and not that exception.
+            }
+        });
+
+        bool reached =
+            await Task.WhenAny(tasks: [atTheLimit.Task, Task.Delay(delay: TimeSpan.FromSeconds(30))]) == atTheLimit.Task;
+
+        try
+        {
+            Transaction.Post(
+                action: Fail,
+                onFailure: _ =>
+                {
+                    Transaction.RunVoid(static () => { });
+                    otherReleaseRan = true;
+                });
+        }
+        catch (InvalidOperationException e) when (e is not DeferredChainLimitException)
+        {
+            // The action fails on purpose. The release then runs, and its transaction must start.
+        }
+        catch (Exception e)
+        {
+            otherFailure = e;
+        }
+
+        otherDone.SetResult(true);
+        await deep;
+
+        await Assert.That(reached).IsTrue();
+        await Assert.That(otherFailure).IsNull();
+        await Assert.That(otherReleaseRan).IsTrue();
+
+        return;
+
+        void Release(Exception _)
+        {
+            releases++;
+
+            if (releases < TransactionInternal.AfterReleaseDepthLimit)
+            {
+                Transaction.Post(action: Fail, onFailure: Release);
+
+                return;
+            }
+
+            atTheLimit.SetResult(true);
+            otherDone.Task.Wait(TimeSpan.FromSeconds(30));
+        }
+    }
+
+    // A release posts an action that throws, with a release that does the same, until the chain
+    // has the given number of releases. Gives what the first post threw, and the counts. The first
+    // action throws, thus the first post always throws.
+    private static (Exception Thrown, int Actions, int Releases) RunAReleaseChain(int length)
+    {
+        int actions = 0;
+        int releases = 0;
+
+        try
+        {
+            Transaction.Post(action: CountAndFail, onFailure: Release);
+        }
+        catch (Exception e)
+        {
+            return (Thrown: e, Actions: actions, Releases: releases);
+        }
+
+        throw new InvalidOperationException("A chain of releases did not throw.");
+
+        void CountAndFail()
+        {
+            actions++;
+            Fail();
+        }
+
+        void Release(Exception _)
+        {
+            releases++;
+
+            if (releases < length)
+            {
+                Transaction.Post(action: CountAndFail, onFailure: Release);
+            }
+        }
+    }
+
+    private static void Fail() => throw new InvalidOperationException("The action fails.");
+
+    // The last exception at each level, from the top level to the bottom level.
+    private static Exception Innermost(Exception e)
+    {
+        while (e is AggregateException { InnerExceptions.Count: > 0 } aggregate)
+        {
+            e = aggregate.InnerExceptions.Last();
+        }
+
+        return e;
     }
 
     // Posts the first action of a chain, in the current transaction. Each action posts the next
