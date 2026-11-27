@@ -1890,12 +1890,66 @@ public sealed class MapAsyncImplTests
 
         return sum;
     }
+
+    // A foreach on the snapshot type uses the struct enumerator, thus it allocates nothing. The
+    // read before the measurement makes the array of the items.
+    [Test]
+    public async Task AForeachOnTheSnapshotTypeAllocatesNothing()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        for (int v = 1; v <= 100; v++)
+        {
+            source.Send(v);
+        }
+
+        AsyncItemsSnapshot<int> snapshot = status.Items.Sample();
+        long byIndex = SumByIndex(snapshot);
+
+        // A first foreach, so that the code of the loop is ready before the measurement.
+        _ = SumByForeach(snapshot);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        long byForeach = SumByForeach(snapshot);
+        long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(bytes).IsEqualTo(0).Because("the enumerator of the snapshot type is a struct");
+        await Assert.That(byForeach).IsEqualTo(byIndex);
+
+        status.Dispose();
+    }
+
+    private static long SumByForeach(AsyncItemsSnapshot<int> items)
+    {
+        long sum = 0;
+
+        // ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator - The test reads through the struct enumerator of the type.
+        foreach (AsyncItem<int> item in items)
+        {
+            sum += item.Value;
+        }
+
+        return sum;
+    }
 #endif
 
-    // The view gives the same items in the same sequence as the copy it replaces gave, through
-    // Count, the index, and an enumeration. The cases: an empty queue, one item, a deep queue,
-    // and the queue after items end and leave it. A bad index throws as the index of an array
-    // through the same interface does.
+    // The snapshot gives the same items in the same sequence as the copy it replaces gave, through
+    // each path that Read uses. The cases: an empty queue, one item, a deep queue, and the queue
+    // after items end and leave it. A bad index throws as the index of an array through
+    // IReadOnlyList does, through the snapshot type and through that interface.
     [Test]
     public async Task TheItemsGiveEachItemInTheSequenceOfTheQueue()
     {
@@ -1951,11 +2005,16 @@ public sealed class MapAsyncImplTests
             afterTheEnds.Add((v, AsyncItemStatus.Queued));
         }
 
-        IReadOnlyList<AsyncItem<int>> items = status.Items.Sample();
+        AsyncItemsSnapshot<int> items = status.Items.Sample();
+#pragma warning disable CA1859 // The test reads through the interface on purpose.
+        IReadOnlyList<AsyncItem<int>> list = items;
+#pragma warning restore CA1859 // The test reads through the interface on purpose.
 
         await Assert.That(Read(items)).IsEquivalentTo(expected: afterTheEnds, ordering: CollectionOrdering.Matching);
         await Assert.That(() => items[-1]).ThrowsExactly<ArgumentOutOfRangeException>();
         await Assert.That(() => items[items.Count]).ThrowsExactly<ArgumentOutOfRangeException>();
+        await Assert.That(() => list[-1]).ThrowsExactly<ArgumentOutOfRangeException>();
+        await Assert.That(() => list[list.Count]).ThrowsExactly<ArgumentOutOfRangeException>();
 
         status.Dispose();
     }
@@ -2107,9 +2166,10 @@ public sealed class MapAsyncImplTests
         await Assert.That(reported[0]).IsSameReferenceAs(fault);
     }
 
-    // Reads a list of items through the index and through an enumeration, and fails where the two
-    // disagree, or where Count does not agree with them.
-    private static List<(int Value, AsyncItemStatus Status)> Read(IReadOnlyList<AsyncItem<int>> items)
+    // Reads a snapshot through each path: the index and a foreach on the snapshot type, and the
+    // index and an enumeration through IReadOnlyList. Fails where two paths disagree, or where
+    // Count does not agree with them.
+    private static List<(int Value, AsyncItemStatus Status)> Read(AsyncItemsSnapshot<int> items)
     {
         List<(int Value, AsyncItemStatus Status)> byIndex = [];
 
@@ -2120,11 +2180,33 @@ public sealed class MapAsyncImplTests
             byIndex.Add((items[i].Value, items[i].Status));
         }
 
-        List<(int Value, AsyncItemStatus Status)> byEnumeration = [.. items.Select(static i => (i.Value, i.Status))];
+        List<(int Value, AsyncItemStatus Status)> byForeach = [];
 
-        return byIndex.SequenceEqual(byEnumeration)
-            ? byIndex
-            : throw new InvalidOperationException("The index and the enumeration of the items disagree.");
+        // ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator - This reads through the struct enumerator of the type.
+        foreach (AsyncItem<int> item in items)
+        {
+            byForeach.Add((item.Value, item.Status));
+        }
+
+#pragma warning disable CA1859 // The test reads through the interface on purpose.
+        IReadOnlyList<AsyncItem<int>> list = items;
+#pragma warning restore CA1859 // The test reads through the interface on purpose.
+        List<(int Value, AsyncItemStatus Status)> byListIndex = [];
+
+        // ReSharper disable once ForCanBeConvertedToForeach - This reads each item by its index.
+        // ReSharper disable once LoopCanBeConvertedToQuery - This reads each item by its index.
+        for (int i = 0; i < list.Count; i++)
+        {
+            byListIndex.Add((list[i].Value, list[i].Status));
+        }
+
+        List<(int Value, AsyncItemStatus Status)> byEnumeration = [.. list.Select(static i => (i.Value, i.Status))];
+
+        return byIndex.SequenceEqual(byForeach)
+            && byIndex.SequenceEqual(byListIndex)
+            && byIndex.SequenceEqual(byEnumeration)
+                ? byIndex
+                : throw new InvalidOperationException("The paths that read the items disagree.");
     }
 
     private static List<(int Value, AsyncItemStatus Status)> Snapshot(AsyncMapStatus<int> status) =>
