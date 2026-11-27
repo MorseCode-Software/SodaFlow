@@ -1546,7 +1546,7 @@ public sealed class MapAsyncImplTests
         TestUtil.WaitUntil(() => op.HasStarted("a"));
         TestUtil.WaitUntil(() => status.IsRunning.Sample());
 
-        IReadOnlyList<AsyncItem<string>> items = status.Items.Sample();
+        AsyncItemsSnapshot<string> items = status.Items.Sample();
         await Assert.That(items.Count).IsEqualTo(2);
         await Assert.That(items.Any(static i => i is { Value: "a", Status: AsyncItemStatus.Running })).IsTrue();
         await Assert.That(items.Any(static i => i is { Value: "b", Status: AsyncItemStatus.Queued })).IsTrue();
@@ -1722,7 +1722,7 @@ public sealed class MapAsyncImplTests
         source.Send(1);
         source.Send(2);
 
-        IReadOnlyList<AsyncItem<int>> held = status.Items.Sample();
+        AsyncItemsSnapshot<int> held = status.Items.Sample();
 
         // The end of 1 promotes 2, and a third value comes after it. Each changes the queue.
         op.Release(input: 1, result: 1);
@@ -1763,7 +1763,7 @@ public sealed class MapAsyncImplTests
         source.Send(1);
         source.Send(2);
 
-        IReadOnlyList<AsyncItem<int>> held = status.Items.Sample();
+        AsyncItemsSnapshot<int> held = status.Items.Sample();
         List<(int Value, AsyncItemStatus Status)> before = Read(held);
 
         op.Release(input: 1, result: 1);
@@ -1803,7 +1803,7 @@ public sealed class MapAsyncImplTests
 
         source.Send(1);
 
-        IReadOnlyList<AsyncItem<int>> held = status.Items.Sample();
+        AsyncItemsSnapshot<int> held = status.Items.Sample();
         List<(int Value, AsyncItemStatus Status)> before = Read(held);
 
         op.Release(input: 1, result: 1);

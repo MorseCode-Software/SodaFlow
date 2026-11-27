@@ -257,7 +257,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelAll: cancelAll);
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -296,7 +296,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Queue(),
                 cancelMatching: cancelMatching);
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -469,7 +469,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Queue(),
                 cancelMatching: cancelMatching);
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
         IListener thrower = TestUtil.ThrowAfterThePipeline(cancelMatching);
 
         source.Send("a");
@@ -519,7 +519,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelAll: results.Map(static _ => Unit.Value));
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         source.Send("b");
@@ -570,7 +570,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelAll: cancelAll);
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         source.Send("b");
@@ -631,7 +631,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Parallel(),
                 cancelAll: cancelAll);
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         source.Send("b");
@@ -673,7 +673,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Queue(),
                 cancelAll: results.Map(static _ => Unit.Value));
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         source.Send("b");
@@ -707,7 +707,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Queue(),
                 cancelMatching: cancelMatching);
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -843,7 +843,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: strategy,
                 cancelMatching: cancelMatching);
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -969,7 +969,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Queue(),
                 cancelOnDispose: true);
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         source.Send("b");
@@ -1005,7 +1005,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Queue(),
                 cancelOnDispose: true);
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         source.Send("b");
@@ -1187,7 +1187,7 @@ public sealed class MapAsyncExtensionsTests
                 strategy: AsyncConcurrencyStrategy.Queue(),
                 cancelOnDispose: true);
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         using IListener disposes = other.Listen(_ => status.Dispose());
 
@@ -1336,7 +1336,7 @@ public sealed class MapAsyncExtensionsTests
         TestUtil.WaitUntil(() => op.HasStarted("a"));
         TestUtil.WaitUntil(() => status.IsRunning.Sample());
 
-        IReadOnlyList<AsyncItem<string>> items = status.Items.Sample();
+        AsyncItemsSnapshot<string> items = status.Items.Sample();
         await Assert.That(items.Count).IsEqualTo(2);
 
         op.Release(input: "a", result: "A");
@@ -1686,7 +1686,7 @@ public sealed class MapAsyncExtensionsTests
 
         // The closure below reads this cell and not `status`. A closure over `status` reads it
         // after the disposal at the end of this method.
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         IListener probe =
             Transaction.Run(() =>
@@ -1958,7 +1958,7 @@ public sealed class MapAsyncExtensionsTests
                 operation: op.Operation,
                 strategy: new RefuseEverythingStrategy());
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
         Func<string, Task<string>> execute = status.Execute;
         Task<string>? task = null;
         List<bool> completedInTheAdmission = [];
@@ -2008,7 +2008,7 @@ public sealed class MapAsyncExtensionsTests
                     operation: op.Operation,
                     strategy: refuses ? new RefuseEverythingStrategy() : AsyncConcurrencyStrategy.Parallel());
 
-            Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+            Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
             Func<string, Task<string>> execute = status.Execute;
             Task<string>? task = null;
 
@@ -2082,7 +2082,7 @@ public sealed class MapAsyncExtensionsTests
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
         IListener thrower = TestUtil.ThrowAfterThePipeline(source);
 
         await Assert.That(() => Transaction.RunVoid(() => Transaction.Post(() => source.Send("a"))))
@@ -2114,7 +2114,7 @@ public sealed class MapAsyncExtensionsTests
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
         List<Task<string>> tasks = [];
 
         await Assert.That(() =>
@@ -2194,7 +2194,7 @@ public sealed class MapAsyncExtensionsTests
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         // A value from the source stream starts, and an Execute value is second in the queue. The
         // two use one stream, thus this shows that the merge of the two keeps each value.
@@ -2938,7 +2938,7 @@ public sealed class MapAsyncExtensionsTests
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Parallel());
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
         List<Task<string>> tasks = [];
 
         await Assert.That(() =>
@@ -3081,7 +3081,7 @@ public sealed class MapAsyncExtensionsTests
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         trigger.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -3131,7 +3131,7 @@ public sealed class MapAsyncExtensionsTests
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.Queue());
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));

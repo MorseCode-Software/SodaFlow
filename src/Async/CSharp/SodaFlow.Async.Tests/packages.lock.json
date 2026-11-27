@@ -303,6 +303,7 @@
         "type": "Project",
         "dependencies": {
           "SodaFlow.Core": "[1.0.0, )",
+          "System.Collections.Immutable": "[8.0.0, )",
           "System.ValueTuple": "[4.6.2, )"
         }
       },
@@ -696,7 +697,8 @@
       "SodaFlow.Async.Core": {
         "type": "Project",
         "dependencies": {
-          "SodaFlow.Core": "[1.0.0, )"
+          "SodaFlow.Core": "[1.0.0, )",
+          "System.Collections.Immutable": "[8.0.0, )"
         }
       },
       "sodaflow.core": {

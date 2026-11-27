@@ -32,6 +32,13 @@
 
     <ItemGroup>
         <PackageReference Include="System.ValueTuple" Version="4.6.2"/>
+        <!--
+            The struct enumerator of AsyncItemsSnapshot is the enumerator of ImmutableArray, and
+            ImmutableCollectionsMarshal wraps the array of items in one with no copy. Version 8.0.0
+            has both for each target of this project. SodaFlow.Core.Collections uses the same
+            version.
+        -->
+        <PackageReference Include="System.Collections.Immutable" Version="8.0.0"/>
     </ItemGroup>
 
     <ItemGroup>
