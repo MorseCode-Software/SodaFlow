@@ -160,6 +160,9 @@ that reach this package, and its notes have the details of each:
 - A posted action, or an element of Operational.Split, whose transaction fails no longer leaves behind what it deferred.
   The actions it posted do not run, the release of each one does, and the values it sent through Defer or Split do not
   arrive.
+- The release that Transaction.Post takes runs after the transaction lock is free, with no transaction open, so a send
+  or a Post from it opens a transaction of its own and arrives; before, a send from it went nowhere. It now runs after
+  the other posted actions of that transaction, and the core notes give the order of the exceptions.
 - A chain of deferred work that has no end throws DeferredChainLimitException, where before the call that started it
   never returned. A value that finds its way back to its own source through Operational.Defer, Operational.Split, or a
   posted action that posts again made a new transaction for every lap, forever. The chain is cut when it is 100,000
