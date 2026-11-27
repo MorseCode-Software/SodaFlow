@@ -85,6 +85,9 @@ public sealed class NodeTests
                 })
                 .SwitchC();
 
+        // A node with no listener unlinks after one firing, and then its rank does not change. Thus, the
+        // updates whose rank this test reads have a listener.
+        using IListener listener = cell.UpdatesImpl.Listen(static _ => { });
         long rank1 = cell.UpdatesImpl.Node.Rank;
 
         cellSink.Send(1);
