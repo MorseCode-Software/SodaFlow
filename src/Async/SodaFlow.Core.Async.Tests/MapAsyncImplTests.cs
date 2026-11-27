@@ -1836,6 +1836,8 @@ public sealed class MapAsyncImplTests
     {
         long sum = 0;
 
+        // ReSharper disable once ForCanBeConvertedToForeach - The test reads each item by its index.
+        // ReSharper disable once LoopCanBeConvertedToQuery - The test reads each item by its index.
         for (int i = 0; i < items.Count; i++)
         {
             sum += items[i].Value;
@@ -2066,6 +2068,8 @@ public sealed class MapAsyncImplTests
     {
         List<(int Value, AsyncItemStatus Status)> byIndex = [];
 
+        // ReSharper disable once ForCanBeConvertedToForeach - This reads each item by its index.
+        // ReSharper disable once LoopCanBeConvertedToQuery - This reads each item by its index.
         for (int i = 0; i < items.Count; i++)
         {
             byIndex.Add((items[i].Value, items[i].Status));
@@ -2073,12 +2077,9 @@ public sealed class MapAsyncImplTests
 
         List<(int Value, AsyncItemStatus Status)> byEnumeration = [.. items.Select(static i => (i.Value, i.Status))];
 
-        if (!byIndex.SequenceEqual(byEnumeration))
-        {
-            throw new InvalidOperationException("The index and the enumeration of the items disagree.");
-        }
-
-        return byIndex;
+        return byIndex.SequenceEqual(byEnumeration)
+            ? byIndex
+            : throw new InvalidOperationException("The index and the enumeration of the items disagree.");
     }
 
     private static List<(int Value, AsyncItemStatus Status)> Snapshot(AsyncMapStatus<int> status) =>
