@@ -1699,6 +1699,115 @@ public sealed class MapAsyncImplTests
             .ThrowsExactly<ArgumentNullException>();
     }
 
+    // Items is a view of the immutable entry array, and not a copy. A list that a caller holds
+    // keeps its contents after the subsequent updates of the queue.
+    [Test]
+    public async Task AListOfTheItemsKeepsItsContentsAfterSubsequentUpdates()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+        source.Send(2);
+
+        IReadOnlyList<AsyncItem<int>> held = status.Items.Sample();
+
+        // The end of 1 promotes 2, and a third value comes after it. Each changes the queue.
+        op.Release(input: 1, result: 1);
+        TestUtil.WaitUntil(() => op.HasStarted(2));
+        source.Send(3);
+
+        await Assert.That(Read(held)).IsEquivalentTo(
+            expected: [(1, AsyncItemStatus.Running), (2, AsyncItemStatus.Queued)],
+            ordering: CollectionOrdering.Matching);
+
+        await Assert.That(Snapshot(status)).IsEquivalentTo(
+            expected: [(2, AsyncItemStatus.Running), (3, AsyncItemStatus.Queued)],
+            ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
+    // The view gives the same items in the same sequence as the copy it replaces gave, through
+    // Count, the index, and an enumeration. The cases: an empty queue, one item, a deep queue,
+    // and the queue after items end and leave it. A bad index throws as the index of an array
+    // through the same interface does.
+    [Test]
+    public async Task TheItemsGiveEachItemInTheSequenceOfTheQueue()
+    {
+        const int depth = 100;
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        await Assert.That(Read(status.Items.Sample())).IsEmpty();
+
+        source.Send(1);
+
+        await Assert.That(Read(status.Items.Sample())).IsEquivalentTo(
+            expected: [(1, AsyncItemStatus.Running)],
+            ordering: CollectionOrdering.Matching);
+
+        for (int v = 2; v <= depth; v++)
+        {
+            source.Send(v);
+        }
+
+        List<(int, AsyncItemStatus)> deep = [(1, AsyncItemStatus.Running)];
+
+        for (int v = 2; v <= depth; v++)
+        {
+            deep.Add((v, AsyncItemStatus.Queued));
+        }
+
+        await Assert.That(Read(status.Items.Sample()))
+            .IsEquivalentTo(expected: deep, ordering: CollectionOrdering.Matching);
+
+        // 1 and 2 end. Each end removes its item, and promotes the next one.
+        op.Release(input: 1, result: 1);
+        TestUtil.WaitUntil(() => op.HasStarted(2));
+        op.Release(input: 2, result: 2);
+        TestUtil.WaitUntil(() => op.HasStarted(3));
+
+        List<(int, AsyncItemStatus)> afterTheEnds = [(3, AsyncItemStatus.Running)];
+
+        for (int v = 4; v <= depth; v++)
+        {
+            afterTheEnds.Add((v, AsyncItemStatus.Queued));
+        }
+
+        IReadOnlyList<AsyncItem<int>> items = status.Items.Sample();
+
+        await Assert.That(Read(items)).IsEquivalentTo(expected: afterTheEnds, ordering: CollectionOrdering.Matching);
+        await Assert.That(() => items[-1]).ThrowsExactly<ArgumentOutOfRangeException>();
+        await Assert.That(() => items[items.Count]).ThrowsExactly<ArgumentOutOfRangeException>();
+
+        status.Dispose();
+    }
+
     // A disposal in a callback posts its trigger, and the trigger records the cancel of each item.
     // The start of an item waits for the release of the lock, and reads that record again before it
     // calls the operation. Here, one transaction admits an item and then disposes of the pipeline in
@@ -1844,6 +1953,27 @@ public sealed class MapAsyncImplTests
 
         await Assert.That(reported.Count).IsEqualTo(1);
         await Assert.That(reported[0]).IsSameReferenceAs(fault);
+    }
+
+    // Reads a list of items through the index and through an enumeration, and fails where the two
+    // disagree, or where Count does not agree with them.
+    private static List<(int Value, AsyncItemStatus Status)> Read(IReadOnlyList<AsyncItem<int>> items)
+    {
+        List<(int Value, AsyncItemStatus Status)> byIndex = [];
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            byIndex.Add((items[i].Value, items[i].Status));
+        }
+
+        List<(int Value, AsyncItemStatus Status)> byEnumeration = [.. items.Select(static i => (i.Value, i.Status))];
+
+        if (!byIndex.SequenceEqual(byEnumeration))
+        {
+            throw new InvalidOperationException("The index and the enumeration of the items disagree.");
+        }
+
+        return byIndex;
     }
 
     private static List<(int Value, AsyncItemStatus Status)> Snapshot(AsyncMapStatus<int> status) =>

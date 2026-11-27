@@ -2615,11 +2615,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             trackedCell.MapImpl(static entries =>
                 Array.Exists(array: entries, match: static e => e.Status == AsyncItemStatus.Running));
 
+        // A view of the entry array, and not a copy. Each update of the queue made a new array of
+        // AsyncItem here, also when no code read Items. See ItemsView.
         Cell<IReadOnlyList<AsyncItem<TInput>>> items =
-            trackedCell.MapImpl<IReadOnlyList<AsyncItem<TInput>>>(static entries =>
-                Array.ConvertAll(
-                    array: entries,
-                    converter: static e => new AsyncItem<TInput>(value: e.Value, status: e.Status)));
+            trackedCell.MapImpl<IReadOnlyList<AsyncItem<TInput>>>(static entries => new ItemsView(entries));
 
         return new AsyncMapStatus<TInput, TResult>(
             isRunning: isRunning,
@@ -4031,6 +4030,40 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             this.entries.Select(static entry => entry.Tracked).GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    /// <summary>
+    ///     The queue of the pipeline, as a caller reads it through Items. It holds the
+    ///     array that the tracked cell has now, and makes each AsyncItem when a caller
+    ///     reads it. AsyncItem is a struct, thus a read of Count or of an index
+    ///     allocates nothing. An enumeration allocates its enumerator, as the
+    ///     enumeration of an array through this interface does.
+    /// </summary>
+    /// <remarks>
+    ///     The array is immutable after the transaction that made it, as for
+    ///     <see cref="TrackedItems" />. Thus, a list that a caller got earlier keeps
+    ///     its contents after a subsequent update. A bad index throws
+    ///     ArgumentOutOfRangeException, as the index of an array through this
+    ///     interface does.
+    /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class ItemsView(in Entry[] entries) : IReadOnlyList<AsyncItem<TInput>>
+    {
+        private readonly Entry[] entries = entries;
+
+        public int Count => this.entries.Length;
+
+        public AsyncItem<TInput> this[int index] =>
+            (uint)index < (uint)this.entries.Length
+                ? ToItem(this.entries[index])
+                : throw new ArgumentOutOfRangeException(paramName: nameof(index));
+
+        public IEnumerator<AsyncItem<TInput>> GetEnumerator() =>
+            this.entries.Select(static entry => ToItem(entry)).GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+
+        private static AsyncItem<TInput> ToItem(Entry entry) => new(value: entry.Value, status: entry.Status);
     }
 
     private sealed class Mutation(in Guid[] remove, in Guid[] promote, in Entry[] add)
