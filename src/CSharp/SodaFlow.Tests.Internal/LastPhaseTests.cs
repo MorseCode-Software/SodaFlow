@@ -225,12 +225,16 @@ public sealed class LastPhaseTests
 
         TransactionInternal.Apply((trans, _) =>
         {
-            void Step(int i)
-            {
+            Step(1);
+
+            return UnitInternal.Value;
+
+            void Step(int i) =>
                 trans.AfterLast(
                     commit: () =>
                     {
                         order.Add($"after {i}");
+
                         trans.Last(() =>
                         {
                             order.Add($"last {i}");
@@ -242,11 +246,6 @@ public sealed class LastPhaseTests
                         });
                     },
                     discard: static () => { });
-            }
-
-            Step(1);
-
-            return UnitInternal.Value;
         });
 
         await Assert.That(order)
@@ -270,6 +269,7 @@ public sealed class LastPhaseTests
                     trans.AfterLast(
                         commit: () => trans.Last(commit: () => commits++, discard: () => discards++),
                         discard: static () => { });
+
                     trans.AfterLast(
                         commit: static () => throw new InvalidOperationException("abort"),
                         discard: static () => { });
@@ -332,10 +332,12 @@ public sealed class LastPhaseTests
         await Assert.That(outcome?.Failed).IsTrue();
         await Assert.That(outcome?.Committed).IsFalse();
         await Assert.That(posted).IsFalse();
+
         await Assert.That(seen)
             .IsEquivalentTo(
                 expected: ["release", "second late last discard", "queued after-last discard"],
                 ordering: CollectionOrdering.Any);
+
         await Assert.That(cell.Sample()).IsEqualTo(1);
     }
 
