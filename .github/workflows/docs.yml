@@ -43,23 +43,13 @@ jobs:
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
-          # 6.0 for the net6.0 target the docs are generated against, 8.0 to run DocFX itself.
-          dotnet-version: |
-            6.0.x
-            8.0.x
+          # 6.0 for the net6.0 target the docs are generated against. DocFX runs on the SDK that
+          # global.json selects, the 10.0 SDK of the image, from the net10.0 build of the tool. Thus,
+          # it needs no SDK from this step.
+          dotnet-version: 6.0.x
 
       - name: Restore tools
         run: dotnet tool restore
-
-      # Only the projects DocFX extracts, and only their net6.0 target. Building the whole
-      # solution here would fail: it also targets net472, which needs Windows.
-      - name: Restore projects
-        run: |
-          dotnet restore src/SodaFlow.Core/SodaFlow.Core.csproj
-          dotnet restore src/CSharp/SodaFlow/SodaFlow.csproj
-          dotnet restore src/CSharp/SodaFlow.Functional/SodaFlow.Functional.csproj
-          dotnet restore src/Async/SodaFlow.Core.Async/SodaFlow.Core.Async.csproj
-          dotnet restore src/Async/CSharp/SodaFlow.Async/SodaFlow.Async.csproj
 
       # Every C# project under src/ runs the loop analyzer, and DocFX loads each project with its
       # analyzers. DocFX does not build them: without the analyzer's dll it reports
