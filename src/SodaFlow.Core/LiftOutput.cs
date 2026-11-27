@@ -23,7 +23,7 @@ namespace SodaFlow;
 /// </remarks>
 /// <typeparam name="TResult">The type of the lifted value.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage - The type documents itself.
-internal abstract class LiftOutput<TResult> : OnceGate, IDerivation<TResult>
+internal abstract class LiftOutput<TResult> : OnceGate, IDerivation<TResult>, IDemandOwner
 {
     private DerivedCore<TResult> core;
 
@@ -32,7 +32,7 @@ internal abstract class LiftOutput<TResult> : OnceGate, IDerivation<TResult>
     private IListenerInternal? firstCapture;
 
     private protected LiftOutput(IKeepListenersAlive keepListenersAlive) =>
-        this.core = new DerivedCore<TResult>(keepListenersAlive);
+        this.core = new DerivedCore<TResult>(keepListenersAlive: keepListenersAlive, node: new DemandStreamNode<TResult>());
 
     internal override Node Node => this.core.Node;
 
@@ -46,11 +46,15 @@ internal abstract class LiftOutput<TResult> : OnceGate, IDerivation<TResult>
     private protected void Capture<TInput>(
         Behavior<TInput> input,
         TransactionInternal trans,
-        InputCapture<TInput> capture)
-    {
-        IListenerInternal listener =
-            StreamInternal.Capture(input: input.Updates(), gate: this, trans: trans, capture: capture);
+        InputCapture<TInput> capture) =>
+        this.Attach(StreamInternal.Capture(input: input.Updates(), gate: this, trans: trans, capture: capture));
 
+    /// <summary>
+    ///     Keeps the link of one input. The lift of a list links its inputs through
+    ///     an action of its own, and not through a capture.
+    /// </summary>
+    private protected void Attach(IListenerInternal listener)
+    {
         this.firstCapture ??= listener;
 
         // The registry stops the links when no behavior and no stream holds this lift. The weak view
@@ -71,13 +75,54 @@ internal abstract class LiftOutput<TResult> : OnceGate, IDerivation<TResult>
     TResult IDerivation<TResult>.Initial() => this.Initial();
 
     /// <inheritdoc />
+    // A lift of no inputs has no link to keep.
     public Stream<TResult> CreateUpdates(TransactionInternal trans) =>
-        // ReSharper disable once NullableWarningSuppressionIsUsed - Create captures each input before it gives the lift to a caller.
-        this.core.CreateUpdates(trans: trans, retained: this.firstCapture!);
+        this.core.CreateUpdates(trans: trans, retained: this.firstCapture ?? ListenerInternal.EmptyInternal);
+
+    /// <inheritdoc />
+    public bool IsUnlinked => this.core.IsUnlinked;
+
+    /// <inheritdoc />
+    long IDerivation<TResult>.SourceVersion => this.SourceVersion;
+
+    /// <inheritdoc />
+    bool IDerivation<TResult>.SourcesHavePending => this.SourcesHavePending;
+
+    private protected abstract long SourceVersion { get; }
+
+    private protected abstract bool SourcesHavePending { get; }
+
+    /// <inheritdoc />
+    public TResult Pull(bool pending)
+    {
+        if (pending && this.SourcesHavePending)
+        {
+            return this.PendingValue();
+        }
+
+        long version = this.SourceVersion;
+
+        if (this.core.Cached(version).TryGetValue(out TResult cached))
+        {
+            return cached;
+        }
+
+        TResult value = this.Initial();
+        this.core.SetCached(version: version, value: value);
+
+        return value;
+    }
+
+    void IDemandOwner.Relinking(TransactionInternal trans) => this.core.Relinking();
+
+    void IDemandOwner.Unlinked(TransactionInternal trans) => this.core.Unlinked(trans);
 
     private protected abstract TResult Recombine(TransactionInternal trans);
 
     private protected abstract TResult Initial();
+
+    // The function over the value of each input at the end of this transaction.
+    private protected abstract TResult PendingValue();
 
     private protected override void Run(TransactionInternal trans) =>
         this.core.Arrive(trans: trans, value: this.Recombine(trans));
@@ -120,6 +165,17 @@ internal sealed class LiftOutput<T1, T2, TResult>(
         this.f(
             arg1: this.b1.SampleNoTransaction(),
             arg2: this.b2.SampleNoTransaction());
+
+    private protected override long SourceVersion =>
+        Math.Max(val1: this.b1.Version, val2: this.b2.Version);
+
+    private protected override bool SourcesHavePending =>
+        this.b1.HasPendingUpdate || this.b2.HasPendingUpdate;
+
+    private protected override TResult PendingValue() =>
+        this.f(
+            arg1: this.b1.PendingOrCurrent(),
+            arg2: this.b2.PendingOrCurrent());
 }
 
 /// <inheritdoc />
@@ -169,6 +225,18 @@ internal sealed class LiftOutput<T1, T2, T3, TResult>(
             arg1: this.b1.SampleNoTransaction(),
             arg2: this.b2.SampleNoTransaction(),
             arg3: this.b3.SampleNoTransaction());
+
+    private protected override long SourceVersion =>
+        Math.Max(val1: Math.Max(val1: this.b1.Version, val2: this.b2.Version), val2: this.b3.Version);
+
+    private protected override bool SourcesHavePending =>
+        this.b1.HasPendingUpdate || this.b2.HasPendingUpdate || this.b3.HasPendingUpdate;
+
+    private protected override TResult PendingValue() =>
+        this.f(
+            arg1: this.b1.PendingOrCurrent(),
+            arg2: this.b2.PendingOrCurrent(),
+            arg3: this.b3.PendingOrCurrent());
 }
 
 /// <inheritdoc />
@@ -226,6 +294,19 @@ internal sealed class LiftOutput<T1, T2, T3, T4, TResult>(
             arg2: this.b2.SampleNoTransaction(),
             arg3: this.b3.SampleNoTransaction(),
             arg4: this.b4.SampleNoTransaction());
+
+    private protected override long SourceVersion =>
+        Math.Max(val1: Math.Max(val1: Math.Max(val1: this.b1.Version, val2: this.b2.Version), val2: this.b3.Version), val2: this.b4.Version);
+
+    private protected override bool SourcesHavePending =>
+        this.b1.HasPendingUpdate || this.b2.HasPendingUpdate || this.b3.HasPendingUpdate || this.b4.HasPendingUpdate;
+
+    private protected override TResult PendingValue() =>
+        this.f(
+            arg1: this.b1.PendingOrCurrent(),
+            arg2: this.b2.PendingOrCurrent(),
+            arg3: this.b3.PendingOrCurrent(),
+            arg4: this.b4.PendingOrCurrent());
 }
 
 /// <inheritdoc />
@@ -291,6 +372,20 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, TResult>(
             arg3: this.b3.SampleNoTransaction(),
             arg4: this.b4.SampleNoTransaction(),
             arg5: this.b5.SampleNoTransaction());
+
+    private protected override long SourceVersion =>
+        Math.Max(val1: Math.Max(val1: Math.Max(val1: Math.Max(val1: this.b1.Version, val2: this.b2.Version), val2: this.b3.Version), val2: this.b4.Version), val2: this.b5.Version);
+
+    private protected override bool SourcesHavePending =>
+        this.b1.HasPendingUpdate || this.b2.HasPendingUpdate || this.b3.HasPendingUpdate || this.b4.HasPendingUpdate || this.b5.HasPendingUpdate;
+
+    private protected override TResult PendingValue() =>
+        this.f(
+            arg1: this.b1.PendingOrCurrent(),
+            arg2: this.b2.PendingOrCurrent(),
+            arg3: this.b3.PendingOrCurrent(),
+            arg4: this.b4.PendingOrCurrent(),
+            arg5: this.b5.PendingOrCurrent());
 }
 
 /// <inheritdoc />
@@ -364,6 +459,21 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, T6, TResult>(
             arg4: this.b4.SampleNoTransaction(),
             arg5: this.b5.SampleNoTransaction(),
             arg6: this.b6.SampleNoTransaction());
+
+    private protected override long SourceVersion =>
+        Math.Max(val1: Math.Max(val1: Math.Max(val1: Math.Max(val1: Math.Max(val1: this.b1.Version, val2: this.b2.Version), val2: this.b3.Version), val2: this.b4.Version), val2: this.b5.Version), val2: this.b6.Version);
+
+    private protected override bool SourcesHavePending =>
+        this.b1.HasPendingUpdate || this.b2.HasPendingUpdate || this.b3.HasPendingUpdate || this.b4.HasPendingUpdate || this.b5.HasPendingUpdate || this.b6.HasPendingUpdate;
+
+    private protected override TResult PendingValue() =>
+        this.f(
+            arg1: this.b1.PendingOrCurrent(),
+            arg2: this.b2.PendingOrCurrent(),
+            arg3: this.b3.PendingOrCurrent(),
+            arg4: this.b4.PendingOrCurrent(),
+            arg5: this.b5.PendingOrCurrent(),
+            arg6: this.b6.PendingOrCurrent());
 }
 
 /// <inheritdoc />
@@ -446,6 +556,22 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, T6, T7, TResult>(
             arg5: this.b5.SampleNoTransaction(),
             arg6: this.b6.SampleNoTransaction(),
             arg7: this.b7.SampleNoTransaction());
+
+    private protected override long SourceVersion =>
+        Math.Max(val1: Math.Max(val1: Math.Max(val1: Math.Max(val1: Math.Max(val1: Math.Max(val1: this.b1.Version, val2: this.b2.Version), val2: this.b3.Version), val2: this.b4.Version), val2: this.b5.Version), val2: this.b6.Version), val2: this.b7.Version);
+
+    private protected override bool SourcesHavePending =>
+        this.b1.HasPendingUpdate || this.b2.HasPendingUpdate || this.b3.HasPendingUpdate || this.b4.HasPendingUpdate || this.b5.HasPendingUpdate || this.b6.HasPendingUpdate || this.b7.HasPendingUpdate;
+
+    private protected override TResult PendingValue() =>
+        this.f(
+            arg1: this.b1.PendingOrCurrent(),
+            arg2: this.b2.PendingOrCurrent(),
+            arg3: this.b3.PendingOrCurrent(),
+            arg4: this.b4.PendingOrCurrent(),
+            arg5: this.b5.PendingOrCurrent(),
+            arg6: this.b6.PendingOrCurrent(),
+            arg7: this.b7.PendingOrCurrent());
 }
 
 /// <inheritdoc />
@@ -536,4 +662,21 @@ internal sealed class LiftOutput<T1, T2, T3, T4, T5, T6, T7, T8, TResult>(
             arg6: this.b6.SampleNoTransaction(),
             arg7: this.b7.SampleNoTransaction(),
             arg8: this.b8.SampleNoTransaction());
+
+    private protected override long SourceVersion =>
+        Math.Max(val1: Math.Max(val1: Math.Max(val1: Math.Max(val1: Math.Max(val1: Math.Max(val1: Math.Max(val1: this.b1.Version, val2: this.b2.Version), val2: this.b3.Version), val2: this.b4.Version), val2: this.b5.Version), val2: this.b6.Version), val2: this.b7.Version), val2: this.b8.Version);
+
+    private protected override bool SourcesHavePending =>
+        this.b1.HasPendingUpdate || this.b2.HasPendingUpdate || this.b3.HasPendingUpdate || this.b4.HasPendingUpdate || this.b5.HasPendingUpdate || this.b6.HasPendingUpdate || this.b7.HasPendingUpdate || this.b8.HasPendingUpdate;
+
+    private protected override TResult PendingValue() =>
+        this.f(
+            arg1: this.b1.PendingOrCurrent(),
+            arg2: this.b2.PendingOrCurrent(),
+            arg3: this.b3.PendingOrCurrent(),
+            arg4: this.b4.PendingOrCurrent(),
+            arg5: this.b5.PendingOrCurrent(),
+            arg6: this.b6.PendingOrCurrent(),
+            arg7: this.b7.PendingOrCurrent(),
+            arg8: this.b8.PendingOrCurrent());
 }

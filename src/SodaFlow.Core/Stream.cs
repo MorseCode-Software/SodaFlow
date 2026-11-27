@@ -326,6 +326,18 @@ public class Stream<T> : ILastAction
         return nodeTarget;
     }
 
+    // Adds a link that a demand node removed back to this stream, with the same replay as a new
+    // link.
+    internal void RelinkAndReplay(TransactionInternal trans, Node<T>.Target link, object action)
+    {
+        this.Node.Relink(trans: trans, t: link);
+
+        if (this.firings is { Count: > 0 })
+        {
+            trans.Prioritized(new ReplayEntry(target: link.Node, action: action, link: link, firings: [.. this.firings]));
+        }
+    }
+
     // Sends a new listener the values that this transaction sent before the listener came. This
     // removes the sequence dependency between send and listen. An entry and not a lambda:
     // the entry holds what the lambda captured, and it can tell the action of a discard.
@@ -398,7 +410,7 @@ public class Stream<T> : ILastAction
 
     internal Stream<TResult> MapImpl<TResult>(Func<T, TResult> f)
     {
-        Stream<TResult> @out = new(this.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive: this.KeepListenersAlive, node: new DemandStreamNode<TResult>());
 
         return @out.UnsafeAttachListener(
             this.Listen(target: @out.Node, action: new MapAction<TResult>(@out: @out, f: f)));
@@ -427,7 +439,7 @@ public class Stream<T> : ILastAction
 
     internal Stream<TResult> SnapshotImpl<T1, TResult>(Behavior<T1> b, Func<T, T1, TResult> f)
     {
-        Stream<TResult> @out = new(this.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive: this.KeepListenersAlive, node: new DemandStreamNode<TResult>());
 
         return @out.UnsafeAttachListener(
             this.Listen(
@@ -443,7 +455,7 @@ public class Stream<T> : ILastAction
         Behavior<T2> b2,
         Func<T, T1, T2, TResult> f)
     {
-        Stream<TResult> @out = new(this.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive: this.KeepListenersAlive, node: new DemandStreamNode<TResult>());
 
         return @out.UnsafeAttachListener(
             this.Listen(
@@ -461,7 +473,7 @@ public class Stream<T> : ILastAction
         Behavior<T3> b3,
         Func<T, T1, T2, T3, TResult> f)
     {
-        Stream<TResult> @out = new(this.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive: this.KeepListenersAlive, node: new DemandStreamNode<TResult>());
 
         return @out.UnsafeAttachListener(
             this.Listen(
@@ -481,7 +493,7 @@ public class Stream<T> : ILastAction
         Behavior<T4> b4,
         Func<T, T1, T2, T3, T4, TResult> f)
     {
-        Stream<TResult> @out = new(this.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive: this.KeepListenersAlive, node: new DemandStreamNode<TResult>());
 
         return @out.UnsafeAttachListener(
             this.Listen(
@@ -503,7 +515,7 @@ public class Stream<T> : ILastAction
         Behavior<T5> b5,
         Func<T, T1, T2, T3, T4, T5, TResult> f)
     {
-        Stream<TResult> @out = new(this.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive: this.KeepListenersAlive, node: new DemandStreamNode<TResult>());
 
         return @out.UnsafeAttachListener(
             this.Listen(
@@ -527,7 +539,7 @@ public class Stream<T> : ILastAction
         Behavior<T6> b6,
         Func<T, T1, T2, T3, T4, T5, T6, TResult> f)
     {
-        Stream<TResult> @out = new(this.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive: this.KeepListenersAlive, node: new DemandStreamNode<TResult>());
 
         return @out.UnsafeAttachListener(
             this.Listen(
@@ -553,7 +565,7 @@ public class Stream<T> : ILastAction
         Behavior<T7> b7,
         Func<T, T1, T2, T3, T4, T5, T6, T7, TResult> f)
     {
-        Stream<TResult> @out = new(this.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive: this.KeepListenersAlive, node: new DemandStreamNode<TResult>());
 
         return @out.UnsafeAttachListener(
             this.Listen(
@@ -581,7 +593,7 @@ public class Stream<T> : ILastAction
         Behavior<T8> b8,
         Func<T, T1, T2, T3, T4, T5, T6, T7, T8, TResult> f)
     {
-        Stream<TResult> @out = new(this.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive: this.KeepListenersAlive, node: new DemandStreamNode<TResult>());
 
         return @out.UnsafeAttachListener(
             this.Listen(
@@ -1132,7 +1144,12 @@ public class Stream<T> : ILastAction
 
     internal Stream<T> Coalesce(TransactionInternal trans1, Func<T, T, T> f)
     {
-        Stream<T> @out = new(this.KeepListenersAlive);
+        // A demand node only over a demand node. A binding listens to the coalesce of the updates of a
+        // cell. Over a source that never unlinks, such as a sink, a demand node saves nothing, and a
+        // link again costs each bind.
+        Stream<T> @out = this.Node is DemandStreamNode<T>
+            ? new Stream<T>(keepListenersAlive: this.KeepListenersAlive, node: new DemandStreamNode<T>())
+            : new Stream<T>(this.KeepListenersAlive);
 
         return @out.UnsafeAttachListener(
             this.Listen(
@@ -1144,7 +1161,7 @@ public class Stream<T> : ILastAction
 
     internal Stream<T> FilterImpl(Func<T, bool> predicate)
     {
-        Stream<T> @out = new(this.KeepListenersAlive);
+        Stream<T> @out = new(keepListenersAlive: this.KeepListenersAlive, node: new DemandStreamNode<T>());
 
         return @out.UnsafeAttachListener(
             this.Listen(target: @out.Node, action: new FilterAction(@out: @out, predicate: predicate)));
@@ -1321,9 +1338,12 @@ public class Stream<T> : ILastAction
         }
 
         this.firings.Add(a);
+        this.Node.Sending(trans);
 
         foreach (Node<T>.Target target in this.Node.GetListenersCopy())
         {
+            target.Node.InputFiring(trans);
+
             // This uses SendEntry and not a lambda. This code runs for each target of each
             // firing. A closure costs a display class and a delegate, and SodaFlow must
             // allocate the queue entry in all conditions. The entry holds the three values as

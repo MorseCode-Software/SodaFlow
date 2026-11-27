@@ -42,7 +42,7 @@ internal sealed class MergeTwoMaybes<T1, T2, TResult> : OnceGate
         Func<MaybeInternal<T1>, MaybeInternal<T2>, TResult> f)
     {
         this.f = f;
-        this.@out = new Stream<TResult>(keepListenersAlive);
+        this.@out = new Stream<TResult>(keepListenersAlive: keepListenersAlive, node: new DemandStreamNode<TResult>());
     }
 
     internal override Node Node => this.@out.Node;

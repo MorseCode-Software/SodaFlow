@@ -30,7 +30,8 @@ internal abstract class ValueListener<T> : StreamAction<T>
     private T? accum;
     private bool accumValid;
 
-    protected ValueListener(TransactionInternal trans, Behavior<T> source, Node target)
+    // A switch that links again selects with no initial value, because its behavior has that value.
+    protected ValueListener(TransactionInternal trans, Behavior<T> source, Node target, bool giveInitial)
     {
         this.Source = source;
         this.target = target;
@@ -38,7 +39,10 @@ internal abstract class ValueListener<T> : StreamAction<T>
         // The link gives the node of the consumer its rank. The send does not use it.
         this.arrivals.Link(trans: trans, action: NoAction, target: target);
 
-        trans.Prioritized(new InitialEntry(this));
+        if (giveInitial)
+        {
+            trans.Prioritized(new InitialEntry(this));
+        }
 
         source.Updates().Listen(target: this.arrivals, trans: trans, action: this, suppressEarlierFirings: false);
     }

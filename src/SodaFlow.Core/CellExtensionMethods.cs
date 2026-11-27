@@ -23,14 +23,7 @@ internal static class CellExtensionMethodsInternal
         where T2 : Cell<T> =>
         TransactionInternal.Apply(
             code: static (trans1, _, state) =>
-            {
-                (Stream<TResult> @out, LazySample<TResult> initialValue) =
-                    BehaviorExtensionMethodsInternal.LiftBehaviors(
-                        trans1: trans1,
-                        inputs: state.Inputs,
-                        f: state.F);
-
-                return @out.HoldLazyCellInternal(trans: trans1, initialValue: initialValue);
-            },
+                BehaviorExtensionMethodsInternal.LiftBehaviors(trans1: trans1, inputs: state.Inputs, f: state.F)
+                    .HoldCell(trans1),
             state: (Inputs: inputs, F: f));
 }

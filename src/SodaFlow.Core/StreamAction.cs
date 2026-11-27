@@ -49,7 +49,7 @@ internal interface IFailedFiringAction
 /// </remarks>
 /// <typeparam name="T">The type of the values of the source stream.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage - The type documents itself.
-internal abstract class StreamAction<T> : IStreamAction<T>, IListenerInternal
+internal abstract class StreamAction<T> : IStreamAction<T>, IListenerInternal, IRelinkable
 {
     // ReSharper disable once NotAccessedField.Local - Holds the source stream, see the remarks.
     private Stream<T>? source;
@@ -75,6 +75,27 @@ internal abstract class StreamAction<T> : IStreamAction<T>, IListenerInternal
     // ReSharper disable once NullableWarningSuppressionIsUsed - Listen links the action before it gives it to a
     // caller.
     public IListenerWithWeakReference GetListenerWithWeakReference() => this.target!;
+
+    // Links this action to its source again, on the same target node, and gives the new link.
+    IListenerWithWeakReference IRelinkable.Relink(TransactionInternal trans)
+    {
+        // A stream attaches only an action that it linked, and a demand node links again only its attached
+        // actions.
+        if (this.source is not { } source || this.target is not { } target)
+        {
+            throw new System.InvalidOperationException("An action that was never linked cannot link again.");
+        }
+
+        source.RelinkAndReplay(trans: trans, link: target, action: this);
+
+        return target;
+    }
+}
+
+/// <summary>An action that can link to its source again.</summary>
+internal interface IRelinkable
+{
+    IListenerWithWeakReference Relink(TransactionInternal trans);
 }
 
 /// <summary>

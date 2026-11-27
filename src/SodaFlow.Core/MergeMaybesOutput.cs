@@ -34,7 +34,7 @@ namespace SodaFlow;
 internal abstract class MergeMaybesOutput<TResult> : OnceGate
 {
     private protected MergeMaybesOutput(IKeepListenersAlive keepListenersAlive) =>
-        this.Out = new Stream<TResult>(keepListenersAlive);
+        this.Out = new Stream<TResult>(keepListenersAlive: keepListenersAlive, node: new DemandStreamNode<TResult>());
 
     internal override Node Node => this.Out.Node;
 
