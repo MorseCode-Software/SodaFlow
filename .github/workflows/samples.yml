@@ -94,7 +94,7 @@ jobs:
       # action restores the local tools, so inspectcode's `jb` arrives too and needs no step of
       # its own.
       - name: Inspect
-        uses: cake-build/cake-action@d218f1133bb74a1df0b08c89cfd8fc100c09e1a0 # v3.0.1
+        uses: cake-build/cake-action@f76b70bb73991d6556ec0773b057e6c28772c41b # v4.0.0
         with:
           target: Inspect-Sample
           cake-version: tool-manifest
@@ -118,7 +118,7 @@ jobs:
       - name: Upload inspection results
         if: always()
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
         with:
           sarif_file: inspection/inspectcode-${{ matrix.sample }}.sarif
           category: samples-${{ matrix.sample }}
