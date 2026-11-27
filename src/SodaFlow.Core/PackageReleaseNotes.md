@@ -42,6 +42,24 @@ continuous. LoopedCell<T> is a Cell<T> and no longer holds a LoopedBehavior<T>. 
 members, ValueProperty, UsingInitialValue, and UseInitialValueAgain, which nothing outside the library could reach,
 because its constructors are internal.
 
+Changed: a derived stream or cell that nothing observes disconnects from its inputs, so a send no longer reaches it.
+This covers the stream operators that keep no state between transactions, which are Map, Filter, FilterSome, Choose,
+Snapshot, and the merges, and also maps and lifts of cells and behaviors, the switches, and the stream that Listen on
+a cell uses. A node with no listener disconnects at the end of the first transaction in which one of its inputs fires,
+and the nodes below it that it was the last listener of disconnect with it. A listener that comes back before then
+finds it connected, and a later listener connects it again in the transaction of the listen, with the value of that
+moment. While a derived cell is disconnected, a sample computes its value from its inputs, once for each change of
+those inputs. So the function given to Map, Lift, or a switch on a cell that nothing observes runs when the value is
+read, and not on each update; a pure function cannot tell the difference. Hold, Accum, Collect, Once, SnapshotLatest,
+and the updates of a sink stay connected, because they keep state between transactions or have nothing to save.
+Measured on .NET 10: a send into a cell with a hundred maps that were listened to and released 25.6 µs and 56,288
+bytes to 175 ns and 536 bytes, and 58.1 to 0.42 µs on .NET Framework 4.7.2; a send and then a sample of such a map 469
+to 214 ns and 1,168 to 640 bytes; a bind and an unbind of a map, a lift, a merge, or a sink within 4 percent, with the
+same bytes; a send into the source of a map before each bind and unbind, the case that disconnects and connects it
+again each time, 731 to 910 ns and 1,472 to 1,538 bytes; building a switch of a constant cell of one cell 8.36 to 3.77
+ms and 2,765 to 2,210 KB; and building a constant cell 8.1 to 9.1 µs and 70.4 to 93.8 KB, for the three version
+fields each behavior now carries.
+
 Changed: a looped behavior sampled before its loop closes throws an InvalidOperationException whose message names
 LoopedBehavior, where it named BehaviorLoop, which the C# package removes in this release.
 

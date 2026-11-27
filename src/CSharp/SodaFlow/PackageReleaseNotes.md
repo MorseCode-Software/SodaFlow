@@ -137,6 +137,12 @@ FilterSome and Choose on a stream of Maybe<T> allocate nothing per firing with S
 MatchSome, which allocated two closures per call and now reads the fields; the Functional notes have the measurement.
 Nothing in this package changed for it.
 
+With SodaFlow.Core 6.0.0, a derived stream or cell that nothing observes disconnects from its inputs, so a send no
+longer reaches it, and a sample computes its value from its inputs when asked. The function given to Map, Lift, or a
+switch on a cell that nothing observes then runs when the value is read, once for each change of its inputs, and not on
+each update. A send into a cell with a hundred such maps measures 25.6 µs and 56,288 bytes to 175 ns and 536 bytes on .NET 10;
+the core notes have the rest.
+
 This release also raises the dependency floor, so that a new install gets SodaFlow.Core 6.0.0. That release has fixes
 that reach this package, and its notes have the details of each:
 
