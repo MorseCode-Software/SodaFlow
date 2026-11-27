@@ -838,5 +838,118 @@ public sealed class DemandLinkingTests
         await Assert.That(calls).IsEqualTo(callsAfterUnlink);
     }
 
+    // A lazy sample reads the value at the end of its transaction. An unlinked cell calculates this
+    // value from its inputs. Each type of derived cell must give the value of a copy with a listener.
+    // The test sends into each input alone, because an input that the check of updates does not read
+    // gives the previous value.
+    [Test]
+    public async Task ALazySampleOfAnUnlinkedCellGivesTheValueAtTheEndOfItsTransaction()
+    {
+        CellSink<int>[] s = [.. Enumerable.Range(start: 1, count: 8).Select(static i => Cell.CreateSink(i))];
+        Cell<int>[] inputs = [.. s];
+        CellSink<Cell<int>> outer = Cell.CreateSink<Cell<int>>(s[0]);
+
+        Func<Cell<int>>[] kinds =
+        [
+            () => s[0].Map(static a => a * 3),
+            () => s[0].Map(static a => a + 1).Map(static a => a * 2),
+            () => s[0].Lift(c2: s[1], f: static (a, b) => a + 2 * b),
+            () => s[0].Lift(c2: s[1], c3: s[2], f: static (a, b, c) => a + 2 * b + 3 * c),
+            () => s[0].Lift(
+                c2: s[1],
+                c3: s[2],
+                c4: s[3],
+                f: static (a, b, c, d) => a + 2 * b + 3 * c + 4 * d),
+            () => s[0].Lift(
+                c2: s[1],
+                c3: s[2],
+                c4: s[3],
+                c5: s[4],
+                f: static (a, b, c, d, e) => a + 2 * b + 3 * c + 4 * d + 5 * e),
+            () => s[0].Lift(
+                c2: s[1],
+                c3: s[2],
+                c4: s[3],
+                c5: s[4],
+                c6: s[5],
+                f: static (a, b, c, d, e, f) => a + 2 * b + 3 * c + 4 * d + 5 * e + 6 * f),
+            () => s[0].Lift(
+                c2: s[1],
+                c3: s[2],
+                c4: s[3],
+                c5: s[4],
+                c6: s[5],
+                c7: s[6],
+                f: static (a, b, c, d, e, f, g) =>
+                    a + 2 * b + 3 * c + 4 * d + 5 * e + 6 * f + 7 * g),
+            () => s[0].Lift(
+                c2: s[1],
+                c3: s[2],
+                c4: s[3],
+                c5: s[4],
+                c6: s[5],
+                c7: s[6],
+                c8: s[7],
+                f: static (a, b, c, d, e, f, g, h) =>
+                    a + 2 * b + 3 * c + 4 * d + 5 * e + 6 * f + 7 * g + 8 * h),
+            () => inputs.Lift(static values => values.Select(static (v, i) => (i + 1) * v).Sum()),
+            outer.SwitchC,
+            () => outer.SwitchC().Map(static a => a - 1)
+        ];
+
+        Cell<int>[] listened = [.. kinds.Select(static k => k())];
+        Cell<int>[] unlistened = [.. kinds.Select(static k => k())];
+        List<IListener> listeners = [.. listened.Select(static c => c.UpdatesImpl.Listen(static _ => { }))];
+
+        foreach (Cell<int> c in unlistened)
+        {
+            c.UpdatesImpl.Listen(static _ => { }).Dispose();
+        }
+
+        for (int i = 0; i < s.Length; i++)
+        {
+            s[i].Send(i + 11);
+        }
+
+        bool unlinkedBefore = unlistened.All(static c => ((DemandStreamNode<int>)c.Updates().Node).IsUnlinked);
+
+        Action[] rounds =
+        [
+            .. Enumerable.Range(start: 0, count: s.Length).Select(i => (Action)(() => s[i].Send(100 * (i + 1)))),
+            () => outer.Send(s[1]),
+            () =>
+            {
+                outer.Send(s[2]);
+                s[2].Send(999);
+            }
+        ];
+
+        LazySample<int>[][] lazies =
+        [
+            .. rounds.Select(send => Transaction.Run(() =>
+            {
+                send();
+                return listened.Concat(unlistened).Select(static c => c.SampleLazy()).ToArray();
+            }))
+        ];
+
+        int[] expected = [.. lazies.SelectMany(l => l.Take(kinds.Length)).Select(static l => l.Force())];
+        int[] actual = [.. lazies.SelectMany(l => l.Skip(kinds.Length)).Select(static l => l.Force())];
+
+        bool unlinkedAfter = unlistened.All(static c => ((DemandStreamNode<int>)c.Updates().Node).IsUnlinked);
+        int[] sampledAfter = [.. unlistened.Select(static c => c.Sample())];
+        int[] listenedAfter = [.. listened.Select(static c => c.Sample())];
+
+        foreach (IListener listener in listeners)
+        {
+            listener.Dispose();
+        }
+
+        await Assert.That(unlinkedBefore).IsTrue();
+        await Assert.That(unlinkedAfter).IsTrue();
+        await Assert.That(actual).IsEquivalentTo(expected: expected, ordering: CollectionOrdering.Matching);
+        await Assert.That(sampledAfter).IsEquivalentTo(expected: listenedAfter, ordering: CollectionOrdering.Matching);
+    }
+
     private static bool IsUnlinked<T>(Stream<T> s) => ((DemandStreamNode<T>)s.Node).IsUnlinked;
 }
