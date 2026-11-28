@@ -6,7 +6,7 @@ using JetBrains.Annotations;
 namespace SodaFlow.Bindable.ObjectModel;
 
 [PublicAPI]
-public static partial class BindableCoreExtensionMethods
+internal static partial class BindableCoreExtensionMethods
 {
     /// <summary>
     ///     An <see cref="ICommand" /> that moves its <c>CommandParameter</c> to the

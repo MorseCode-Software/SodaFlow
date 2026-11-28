@@ -1,5 +1,10 @@
 5.0.0
 
+Changed: BindableCoreExtensionMethods is internal. It was public with no public member, so it reached the API reference
+as an empty page, and its summary miscounted the public types of the package. Its members were internal already, and
+SodaFlow.Bindable.ObjectModel and SodaFlow.FSharp.Bindable.ObjectModel reach it through InternalsVisibleTo, as before.
+No code outside those packages could call it, so nothing that compiled stops compiling.
+
 BREAKING: IOneWayToSourceBindableValue is gone, with the write-only value behind it. That value kept the last value
 the view wrote and had no cell to correct it from. When the graph refused a write, the value went on holding what the
 graph refused, and its equality test then dropped every retry of the same value, so the view was stuck until it wrote
