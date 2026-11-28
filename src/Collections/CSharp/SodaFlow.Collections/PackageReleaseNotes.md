@@ -11,8 +11,8 @@ retainedBeyondTheView. A call that gives onEvicted by name compiles as it is, wi
 onEvicted: null, or default, now goes to the overload that requires a release, and code with nullable annotations warns
 on it; drop the argument. A call that gave both arguments by position, as Map(project, limit, release), has to give them
 in the new order, Map(project, release, limit), or give them by name. The public surface no longer shows a null for the
-release, as the conventions of the package ask, and as the map and mapWith of the F# package already do. What the two
-overloads do is what the one did with a release and without one.
+release, as the map and mapWith of the F# package already do not. What the two overloads do is what the one did with a
+release and without one.
 
 Apart from the two overloads of Map, this package's API does not change. This release raises the dependency floor, so
 that a new install gets SodaFlow.Collections.Core 3.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy
