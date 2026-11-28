@@ -90,6 +90,11 @@ another thread, never got that continuation and hung. The wrappers now stay off 
 this package already did. A caller that awaits the task sees no change, because its own await decides where it
 continues. The build now fails on an unconfigured await in library code, so the omission cannot come back.
 
+Added: overloads of Map and Lift on Lazy<T>, for two, three, and four inputs, that take a LazyThreadSafetyMode, as the
+constructor of Lazy<T> does. The forms with no mode still make their result as new Lazy<T>(valueFactory) does, with
+ExecutionAndPublication, so the result keeps an exception from the function and each read after it throws that exception
+again. Pass LazyThreadSafetyMode.PublicationOnly for a result that runs the function again after a throw.
+
 Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
 build.
