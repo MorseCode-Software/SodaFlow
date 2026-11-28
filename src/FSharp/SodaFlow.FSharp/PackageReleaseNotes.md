@@ -3,8 +3,9 @@
 BREAKING: sampleLazy returns a LazySample<'T>, and holdLazy, accumLazy, collectLazy, and constantLazy take one, where
 each used a Lazy<'T>, so a lazy expression no longer fits. Only SodaFlow reads a LazySample, which is what lets a
 transaction that fails forget its value; the core notes say why. New: the LazySample module, with defer for one from a
-function, map, and lift2 to lift8, and the lazySample alias for defer in Shorthand. A function given to any of them
-can run again after a failed transaction, so it must be pure and must not send.
+function, map, and lift2 to lift8, which take their samples as one tuple, as Cell.lift2 takes its cells, so lift2 f
+(sample, sample2), and the lazySample alias for defer in Shorthand. A function given to any of them can run again after
+a failed transaction, so it must be pure and must not send.
 
 BREAKING: Stream.listenStrong, Stream.listenOnceStrong, and Cell.listenStrong are removed, with their aliases
 listenStrongS, listenOnceStrongS, and listenStrongC. listen and listenOnce answer with an IListener, which is now an
