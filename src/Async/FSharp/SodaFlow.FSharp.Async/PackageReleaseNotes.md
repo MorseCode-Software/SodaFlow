@@ -17,6 +17,13 @@ throws as well, an item that cannot be ended, and a bug in the pipeline. It must
 process, as a throw from the handler of a timer system does. Before, those exceptions became unobserved task exceptions,
 or came out of an unrelated transaction. Every mapAsync and mapAsyncWithInputConverter call needs the new argument.
 
+Added: mapAsyncWithCancelMatchingComparer and mapAsyncWithInputConverterAndCancelMatchingComparer, which are mapAsync
+and mapAsyncWithInputConverter with an IEqualityComparer<'TInput> first. It decides which tracked operations a send of
+cancelMatching cancels, where before the pipeline always compared with EqualityComparer.Default, as mapAsync and
+mapAsyncWithInputConverter still do: StringComparer.OrdinalIgnoreCase for a query string, or a comparer on the key of a
+request record that also holds a time. It runs in the transaction of the send, and a throw from it fails that
+transaction and cancels nothing.
+
 Added: MapAsyncDeliveryException, the exception that errors gets when a listener stops the delivery of an outcome. It
 derives from MapAsyncDeliveryExceptionBase in SodaFlow.Async.Core, and its UndeliveredError is an exn option: Some with
 the error that was not delivered, when the outcome was the operation's exception or a Construct function's, and None
