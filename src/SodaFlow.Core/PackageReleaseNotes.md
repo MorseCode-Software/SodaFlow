@@ -383,7 +383,7 @@ Changed: the start hook of a timer system allocates nothing in a transaction wit
 say. Two functions in the hook kept a variable of the hook, and C# makes the object that holds such a variable when the
 code reaches the variable, not when the function runs. Thus, the hook allocated 56 bytes at the start of every
 transaction in the process, also with no alarm due. Measured on .NET 10, an empty transaction with a SecondsTimerSystem
-alive: 343 to 321 ns and 448 to 392 bytes.
+alive: 343 to 321 ns and 448 to 392 bytes. On .NET Framework 4.7.2, 597 to 584 ns and 449 to 393 bytes.
 
 Fixed: a transaction that fails no longer moves an alarm. The timer system's At listens to the cell that holds the
 deadline, and its listener canceled the timer of the old deadline and set one for the new deadline while the transaction
