@@ -222,13 +222,16 @@ internal sealed class GrabScene : IInteractiveScene
     /// </summary>
     private Maybe<int> BallAt(double x, double y)
     {
+        // One transaction reads all the balls, as for a frame. Thus, each distance is from the
+        // same instant.
+        IReadOnlyList<(double X, double Y)> positions = this.SamplePositions();
         Maybe<int> found = Maybe<int>.None;
         double best = double.MaxValue;
 
-        for (int i = 0; i < this.Balls.Count; i++)
+        for (int i = 0; i < positions.Count; i++)
         {
             Ball ball = this.Balls[i];
-            (double ballX, double ballY) = ball.SampleAt();
+            (double ballX, double ballY) = positions[i];
             double dx = ballX - x;
             double dy = ballY - y;
             double distance = dx * dx + dy * dy;
