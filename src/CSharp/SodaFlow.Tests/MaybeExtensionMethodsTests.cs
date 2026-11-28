@@ -169,14 +169,18 @@ public sealed class MaybeExtensionMethodsTests
 
         IEnumerable<int> values = all.Match<IEnumerable<int>>(onSome: static v => v, onNone: static () => []);
 
+        // The test reads the result two times on purpose: a second read must not read the source.
+        // ReSharper disable PossibleMultipleEnumeration
         await Assert.That(values).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
         await Assert.That(values).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+        // ReSharper restore PossibleMultipleEnumeration
         await Assert.That(reads).IsEqualTo(3);
 
         return;
 
         IEnumerable<Maybe<int>> Source(bool withANone)
         {
+            // ReSharper disable once AccessToModifiedClosure - The test sets the count to zero between the two calls.
             reads++;
             yield return Maybe.Some(1);
 
