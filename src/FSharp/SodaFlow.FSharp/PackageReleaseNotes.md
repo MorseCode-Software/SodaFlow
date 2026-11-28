@@ -109,9 +109,9 @@ that reach this package, and its notes have the details of each:
   The actions it posted do not run, the release of each one does, and the values it sent through defer or split do not
   arrive.
 - The onFailure of postWithFailureHandler runs after the transaction lock is free, with no transaction open, so a send
-  or a post from it opens a transaction of its own and arrives; before, a send from it went nowhere. It now runs after
-  the other posted actions of that transaction, a transaction on another thread can run before it, and the core notes
-  give the order of the exceptions.
+  or a post from it opens a transaction of its own and arrives; before, a send from it went nowhere. Its place among the
+  other posted actions of that transaction is not fixed, a transaction on another thread can run before it, and the core
+  notes say which order of the exceptions holds.
 - An onFailure of postWithFailureHandler that posts again on each failure makes a chain with a limit: at 32 levels on
   one thread, the post throws DeferredChainLimitException at once and runs neither its action nor its onFailure. The
   core notes have the details.

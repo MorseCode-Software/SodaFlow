@@ -457,13 +457,15 @@ Changed: the release of a Post, the action that runs where the posted action doe
 transaction lock is free, on the same thread, with no transaction open, before the call that opened the transaction
 returns. Before, it ran in place: in a transaction that had already sent its values, or in the one that was failing, so
 a send from a release went nowhere, and a Post from it ran only where that transaction still drained. Now a send or a
-Post from a release opens a transaction of its own and arrives. A release now runs after the other posted actions of
-that transaction, where it ran before the ones after it. A transaction on another thread can now run between the
-release of the lock and the release, which it could not before: a release that reads cells can see that transaction's
-values, and a release that undoes state outside the graph can find that state already changed.
-A throw from a release still comes after the exception that caused it, in one AggregateException. Where two or more
-posted actions fail in one transaction, their exceptions come first, together in one AggregateException, and the
-throws of the releases follow it; before, each release came right after its own posted action, in one flat list.
+Post from a release opens a transaction of its own and arrives. A release no longer runs before the posted actions
+queued after it, and its place among the posted actions of its transaction is not something to rely on. A transaction on
+another thread can now run between the release of the lock and the release, which it could not before: a release that
+reads cells can see that transaction's values, and a release that undoes state outside the graph can find that state
+already changed. A release should therefore do one job: free the code that waits. A throw from a release still comes
+after the exception that caused it, in one AggregateException, and that order is the part to rely on. Where two or more
+posted actions fail in one transaction, the AggregateException is built differently: before, each release came right
+after its own posted action, in one flat list, and code that read that list by position has to look for the order
+instead.
 
 Changed: a chain of releases has a limit. A release can post, and the release of that post can post again. Before,
 such a chain had no limit, and one with no end never returned. A transaction that a release opens now runs its own
