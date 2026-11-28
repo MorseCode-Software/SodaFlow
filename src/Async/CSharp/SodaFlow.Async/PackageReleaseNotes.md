@@ -65,6 +65,11 @@ NuGet resolves the lowest version a range allows, so a fresh install of SodaFlow
 this one, goes on resolving SodaFlow.Async.Core 5.0.1. Its range also stops below SodaFlow.Async.Core 6.0.0, so the
 changes reach a consumer of this package only through this release.
 
+Changed, through SodaFlow.Async.Core 6.0.0: a custom strategy can keep an AsyncQueuedItem in its state, as the async
+guide tells it to, with a state such as Maybe<AsyncMapBase.AsyncQueuedItem<Unit>>. The types nested in AsyncMapBase are
+public now; before, a strategy outside SodaFlow.Async.Core could not name them in its state type. That package's notes
+have the details.
+
 Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
 build.
