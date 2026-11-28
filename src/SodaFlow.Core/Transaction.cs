@@ -266,7 +266,7 @@ internal sealed class TransactionInternal
                     // A throw from the body fails the transaction. No send that the body made
                     // runs, and the discards run as they do when a listener throws. See
                     // Discard.
-                    exception = newTransaction.Discard(exception);
+                    newTransaction.Discard(exception);
                 }
             }
         }
@@ -782,14 +782,9 @@ internal sealed class TransactionInternal
                         }
                         catch (Exception actionException)
                         {
-                            Exception toThrow = transaction.Discard(actionException);
+                            transaction.Discard(actionException);
 
-                            if (ReferenceEquals(objA: toThrow, objB: actionException))
-                            {
-                                throw;
-                            }
-
-                            throw toThrow;
+                            throw;
                         }
 
                         transaction.Close();
@@ -797,16 +792,9 @@ internal sealed class TransactionInternal
                     catch (Exception childFailure)
                     {
                         this.TakeQueuesOf(transaction);
+                        this.DropChildWork(firstPost: firstPost, firstSplit: firstSplit, cause: childFailure);
 
-                        Exception toThrow =
-                            this.DropChildWork(firstPost: firstPost, firstSplit: firstSplit, cause: childFailure);
-
-                        if (ReferenceEquals(objA: toThrow, objB: childFailure))
-                        {
-                            throw;
-                        }
-
-                        throw toThrow;
+                        throw;
                     }
                     finally
                     {
@@ -926,14 +914,9 @@ internal sealed class TransactionInternal
         }
         catch (Exception transactionException)
         {
-            Exception toThrow = this.Discard(transactionException);
+            this.Discard(transactionException);
 
-            if (ReferenceEquals(objA: toThrow, objB: transactionException))
-            {
-                throw;
-            }
-
-            throw toThrow;
+            throw;
         }
 
         // Outside the catch above, because this transaction committed. A discard here made its
@@ -951,8 +934,8 @@ internal sealed class TransactionInternal
 
     /// <summary>
     ///     The failure path. Gives the releases to the after-release queue, runs the
-    ///     discards, and forgets the work of this transaction. Gives the exception to
-    ///     throw: the cause. A throw from a release comes after the cause, in an
+    ///     discards, and forgets the work of this transaction. The caller throws the
+    ///     cause. A throw from a release comes after the cause, in an
     ///     <see cref="AggregateException" />, when the releases run after the lock
     ///     is free.
     /// </summary>
@@ -962,7 +945,7 @@ internal sealed class TransactionInternal
     ///     result: no send of the transaction reaches the graph, and each cell holds
     ///     its previous value.
     /// </remarks>
-    private Exception Discard(Exception transactionException)
+    private void Discard(Exception transactionException)
     {
         // Before each release and each discard. Thus, an action that one of those gives to a
         // different thread reads the correct answer.
@@ -1045,9 +1028,8 @@ internal sealed class TransactionInternal
             this.splitQueue = null;
         }
 
-        // A throw from a release comes after this exception, when the releases run after the
-        // lock is free. See RunAfterRelease.
-        return transactionException;
+        // A throw from a release comes after the exception of the transaction, when the releases
+        // run after the lock is free. See RunAfterRelease.
     }
 
     // Counts one more step of a chain of deferred work, and gives false at the limit. There, the
@@ -1094,9 +1076,9 @@ internal sealed class TransactionInternal
 
     // Removes from the two queues each entry after the counts at the start of a child, because
     // the child failed. Each post that goes kept no promise, thus its release runs, with the
-    // failure of the child as the cause, after the lock is free. Gives the exception to throw, as
-    // Discard does: the cause. A throw from a release comes after it. See RunAfterRelease.
-    private Exception DropChildWork(int firstPost, int firstSplit, Exception cause)
+    // failure of the child as the cause, after the lock is free. The caller throws the cause, as
+    // the caller of Discard does. A throw from a release comes after it. See RunAfterRelease.
+    private void DropChildWork(int firstPost, int firstSplit, Exception cause)
     {
         Queue<PostEntry>? posts = this.postQueue;
 
@@ -1131,8 +1113,6 @@ internal sealed class TransactionInternal
         {
             splits.RemoveRange(index: firstSplit, count: splits.Count - firstSplit);
         }
-
-        return cause;
     }
 
     // Puts the splits of one round in the sequence of their positions, and keeps the sequence of
