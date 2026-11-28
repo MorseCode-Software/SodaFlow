@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
@@ -220,6 +221,124 @@ public sealed class AsyncConcurrencyStrategyTests
 
         status.Dispose();
         l.Dispose();
+    }
+
+    // One cancel in many groups. Group 0 loses its running item and the item after it, thus its
+    // third item starts. Group 1 loses an item that waits, and its running item stays, thus
+    // nothing starts there. Each other group loses its running item, thus its second item starts.
+    [Test]
+    public async Task QueuePerGroup_ACancellationInManyGroupsStartsTheNextItemOfEachFreeGroup()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+
+        AsyncConcurrencyStrategyBase<string> strategy =
+            AsyncConcurrencyStrategy.QueuePerGroup<string>().Create(static v => v.Split('-')[0]);
+
+        using AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: strategy,
+                cancelMatching: cancelMatching);
+
+        string[] groups = ["g0", "g1", "g2", "g3"];
+        string[] suffixes = ["a", "b", "c"];
+
+        // The items of the groups alternate in the queue: each first item, then each second
+        // item, and then each third item.
+        foreach (string suffix in suffixes)
+        {
+            foreach (string group in groups)
+            {
+                source.Send(group + "-" + suffix);
+            }
+        }
+
+        TestUtil.WaitUntil(() => groups.All(g => op.HasStarted(g + "-a")));
+
+        cancelMatching.Send(["g0-a", "g0-b", "g1-b", "g2-a", "g3-a"]);
+
+        TestUtil.WaitUntil(() => op.HasStarted("g0-c") && op.HasStarted("g2-b") && op.HasStarted("g3-b"));
+
+        await Assert.That(op.HasStarted("g0-b")).IsFalse().Because("a canceled item does not start");
+        await Assert.That(op.HasStarted("g1-c")).IsFalse().Because("the running item of group 1 stays");
+
+        await Assert.That(op.HasStarted("g2-c") || op.HasStarted("g3-c"))
+            .IsFalse()
+            .Because("one item starts in each free group");
+    }
+
+    // The engine gives the canceled items that wait to OnCanceled in one call. Each group of
+    // them still runs an item, thus nothing starts. The call reads the group of each canceled
+    // item one time, and of each running item at most one time. Before, each canceled item
+    // walked the queue again. With 3 groups the strategy finds them with a linear search, and
+    // with 12 through a dictionary.
+    [Test]
+    [Arguments(3)]
+    [Arguments(12)]
+    public async Task QueuePerGroup_ACancelOfTheWaitingItemOfEachGroupReadsEachGroupOnce(int groupCount)
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        using IListener l = results.Listen(received.Add);
+        StrongBox<int> groupReads = new(0);
+
+        AsyncConcurrencyStrategyBase<string> strategy =
+            AsyncConcurrencyStrategy.QueuePerGroup<string>()
+                .Create(v =>
+                {
+                    Interlocked.Increment(ref groupReads.Value);
+                    return v.Split('-')[0];
+                });
+
+        using AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: strategy,
+                cancelMatching: cancelMatching);
+
+        string[] groups = [..Enumerable.Range(start: 0, count: groupCount).Select(static g => "g" + g)];
+        string[] suffixes = ["a", "b"];
+
+        foreach (string suffix in suffixes)
+        {
+            foreach (string group in groups)
+            {
+                source.Send(group + "-" + suffix);
+            }
+        }
+
+        TestUtil.WaitUntil(() => groups.All(g => op.HasStarted(g + "-a")));
+
+        Volatile.Write(location: ref groupReads.Value, value: 0);
+        cancelMatching.Send([..groups.Select(static g => g + "-b")]);
+        int readsInTheCancel = Volatile.Read(ref groupReads.Value);
+
+        await Assert.That(readsInTheCancel).IsLessThanOrEqualTo(groupCount * 2);
+
+        foreach (string group in groups)
+        {
+            op.Release(input: group + "-a", result: group);
+        }
+
+        TestUtil.WaitUntil(() => received.Count == groupCount);
+
+        await Assert.That(groups.Any(g => op.HasStarted(g + "-b")))
+            .IsFalse()
+            .Because("each item that waited was canceled");
     }
 
     [Test]

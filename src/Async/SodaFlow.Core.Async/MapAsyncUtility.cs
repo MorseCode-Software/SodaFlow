@@ -1974,36 +1974,81 @@ internal static class AsyncConcurrencyStrategyFactory
             IReadOnlyList<AsyncQueuedItem<TInput>> canceled,
             IReadOnlyList<AsyncTrackedItem<TInput>> tracked)
         {
-            // One item starts for each group that becomes free. The items of one call can be in
-            // more than one group, thus this reads the group of each one. A group with two of them
-            // gives one start, because the second test finds the first start in `started`.
-            List<AsyncToStart<TInput>> next = [];
-            List<TGroup> started = [];
+            // One item starts for each group of the canceled items that becomes free. With no
+            // tracked item, no item can start.
+            if (tracked.Count == 0)
+            {
+                return new AsyncStrategyStep<TInput, State>(state: state, start: AsyncToStart<TInput>.None);
+            }
+
+            // Each group of the canceled items, one time each, in the sequence of the canceled
+            // items. The starts keep that sequence.
+            GroupScans scans = new(capacity: canceled.Count, comparer: state.GroupComparer);
 
             // ReSharper disable once ForCanBeConvertedToForeach - Done for performance reasons.
             for (int i = 0; i < canceled.Count; i++)
             {
-                TGroup group = this.getGroup(canceled[i].Value);
-
-                if (started.Exists(other => state.GroupComparer.Equals(x: other, y: group))
-                    || this.IsBusy(tracked: tracked, state: state, group: group))
-                {
-                    continue;
-                }
-
-                AsyncTrackedItem<TInput>? first =
-                    this.FirstQueued(tracked: tracked, state: state, group: group);
-
-                if (first is null)
-                {
-                    continue;
-                }
-
-                started.Add(group);
-                next.Add(new AsyncToStart<TInput>(first.Item));
+                scans.Add(this.getGroup(canceled[i].Value));
             }
 
-            return new AsyncStrategyStep<TInput, State>(state: state, start: next);
+            // One walk of the queue finds, for each of these groups, a running item and the first
+            // item that waits. Before, each canceled item walked the queue two times. Each running
+            // item gives its group, because a running item makes its group busy. An item that
+            // waits gives its group only while a group has no answer. A busy group is a final
+            // answer, thus the walk stops when each group is busy.
+            int open = scans.Count;
+            int free = scans.Count;
+
+            for (int i = 0; i < tracked.Count && free > 0; i++)
+            {
+                AsyncTrackedItem<TInput> item = tracked[i];
+                bool running = item.Status == AsyncItemStatus.Running;
+
+                if (!running && (open == 0 || item.Status != AsyncItemStatus.Queued))
+                {
+                    continue;
+                }
+
+                int index = scans.IndexOf(this.getGroup(item.Item.Value));
+
+                if (index < 0)
+                {
+                    continue;
+                }
+
+                ref GroupScan scan = ref scans[index];
+                bool answered = scan.Busy || scan.First is not null;
+
+                if (running)
+                {
+                    if (!scan.Busy)
+                    {
+                        scan.Busy = true;
+                        free--;
+                    }
+                }
+                else if (scan.First is null)
+                {
+                    scan.First = item;
+                }
+
+                if (!answered)
+                {
+                    open--;
+                }
+            }
+
+            List<AsyncToStart<TInput>>? next = null;
+
+            for (int i = 0; i < scans.Count; i++)
+            {
+                if (scans[i] is { Busy: false, First: { } first })
+                {
+                    (next ??= []).Add(new AsyncToStart<TInput>(first.Item));
+                }
+            }
+
+            return new AsyncStrategyStep<TInput, State>(state: state, start: next ?? AsyncToStart<TInput>.None);
         }
 
         private bool IsBusy(IReadOnlyList<AsyncTrackedItem<TInput>> tracked, State state, TGroup group)
@@ -2039,6 +2084,74 @@ internal static class AsyncConcurrencyStrategyFactory
             }
 
             return null;
+        }
+
+        // What the walk of the queue in OnCanceled found for one group: a running item, and the
+        // first item that waits.
+        private struct GroupScan(in TGroup group)
+        {
+            public readonly TGroup Group = group;
+            public bool Busy;
+            public AsyncTrackedItem<TInput>? First;
+        }
+
+        // The groups of the canceled items of one OnCanceled call, one time each, in the sequence
+        // of their addition. A linear search of a large set of groups costs the square of the
+        // number of groups. Thus, above a small number, a dictionary with the comparer of the
+        // groups finds them.
+        private sealed class GroupScans(in int capacity, in IEqualityComparer<TGroup> comparer)
+        {
+            private const int LinearSearchLimit = 8;
+
+            private readonly IEqualityComparer<TGroup> comparer = comparer;
+            private readonly GroupScan[] scans = new GroupScan[capacity];
+            private Dictionary<TGroup, int>? indexes;
+
+            public int Count { get; private set; }
+
+            public ref GroupScan this[int index] => ref this.scans[index];
+
+            public void Add(TGroup group)
+            {
+                if (this.IndexOf(group) >= 0)
+                {
+                    return;
+                }
+
+                if (this.indexes is null && this.Count == LinearSearchLimit)
+                {
+                    this.indexes = new Dictionary<TGroup, int>(capacity: this.scans.Length, comparer: this.comparer);
+
+                    for (int i = 0; i < this.Count; i++)
+                    {
+                        this.indexes.Add(key: this.scans[i].Group, value: i);
+                    }
+                }
+
+                this.indexes?.Add(key: group, value: this.Count);
+                this.scans[this.Count] = new GroupScan(group);
+                this.Count++;
+            }
+
+            public int IndexOf(TGroup group)
+            {
+                if (this.indexes is not null)
+                {
+                    // ReSharper disable once CanSimplifyDictionaryTryGetValueWithGetValueOrDefault - GetValueOrDefault
+                    // does not exist on net472 and netstandard2.0, and this compiles for them as well.
+                    return this.indexes.TryGetValue(key: group, value: out int index) ? index : -1;
+                }
+
+                for (int i = 0; i < this.Count; i++)
+                {
+                    if (this.comparer.Equals(x: this.scans[i].Group, y: group))
+                    {
+                        return i;
+                    }
+                }
+
+                return -1;
+            }
         }
 
         /// <summary>

@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using TUnit.Assertions;
 using TUnit.Assertions.Enums;
 using TUnit.Assertions.Extensions;
 using TUnit.Core;
+using QueuedItem = SodaFlow.Async.AsyncMapBase.AsyncQueuedItem<int>;
+using TrackedItem = SodaFlow.Async.AsyncMapBase.AsyncTrackedItem<int>;
 
 namespace SodaFlow.Async.Tests;
 
@@ -189,6 +193,95 @@ public sealed class AsyncConcurrencyStrategyFactoryTests
         // The group is the text before the hyphen. Thus, "g1-a" and "g1-b" have one group, and
         // "g2-a" has a different group.
         static string GetGroup(string v) => v.Split('-')[0];
+    }
+
+    // OnCanceled against its rule, over random queues. The rule takes the groups of the canceled
+    // items in their sequence. Each group starts its first item that waits, if no item of the
+    // group runs.
+    // The random queues do not keep the rules of the pipeline. Thus, a call can
+    // start items, and more than eight groups in one call make the strategy use its dictionary.
+    // A call also reads the group of each canceled item and of each item of the queue at most
+    // one time.
+    [Test]
+    public async Task QueuePerGroup_OnCanceledStartsTheFirstWaitingItemOfEachFreeGroup()
+    {
+        Random random = new(Seed: 7);
+        StrongBox<int> reads = new(0);
+        int serial = 0;
+        int wrongStarts = 0;
+        int mostExtraReads = int.MinValue;
+        int dictionaryCalls = 0;
+        using AsyncItemCancellationSource cancellation = new();
+
+        AsyncMapBase.IStateManager<int> manager =
+            AsyncConcurrencyStrategyFactory.QueuePerGroup<object, int, int>(
+                    getGroup: v =>
+                    {
+                        reads.Value++;
+                        return v / 1000;
+                    },
+                    groupComparer: EqualityComparer<int>.Default)
+                .CreateStateManager();
+
+        for (int run = 0; run < 2000; run++)
+        {
+            int groupCount = random.Next(minValue: 1, maxValue: 20);
+
+            List<TrackedItem> tracked = [];
+
+            for (int i = random.Next(minValue: 0, maxValue: 30); i > 0; i--)
+            {
+                tracked.Add(
+                    new TrackedItem(
+                        item: NewItem(random.Next(groupCount)),
+                        status: random.Next(3) == 0 ? AsyncItemStatus.Running : AsyncItemStatus.Queued));
+            }
+
+            List<QueuedItem> canceled = [];
+
+            for (int i = random.Next(minValue: 0, maxValue: 15); i > 0; i--)
+            {
+                canceled.Add(NewItem(random.Next(groupCount)));
+            }
+
+            if (canceled.Select(static c => c.Value / 1000).Distinct().Count() > 8)
+            {
+                dictionaryCalls++;
+            }
+
+            reads.Value = 0;
+
+            IReadOnlyList<AsyncMapBase.AsyncToStart<int>> starts =
+                Transaction.Run(() => manager.OnCanceled(canceled: canceled, tracked: tracked));
+
+            if (!starts.Select(static s => s.Item).SequenceEqual(Expected(canceled: canceled, tracked: tracked)))
+            {
+                wrongStarts++;
+            }
+
+            mostExtraReads = Math.Max(val1: mostExtraReads, val2: reads.Value - canceled.Count - tracked.Count);
+        }
+
+        await Assert.That(dictionaryCalls).IsGreaterThan(100).Because("the dictionary needs a test also");
+        await Assert.That(wrongStarts).IsEqualTo(0);
+        await Assert.That(mostExtraReads).IsLessThanOrEqualTo(0);
+
+        return;
+
+        QueuedItem NewItem(int group) =>
+            new(
+                id: Guid.NewGuid(),
+                value: group * 1000 + serial++,
+                cancellation: cancellation,
+                reportCancelFailure: static e => throw e);
+
+        static IEnumerable<QueuedItem> Expected(IEnumerable<QueuedItem> canceled, IReadOnlyCollection<TrackedItem> tracked) =>
+            canceled
+                .Select(static c => c.Value / 1000)
+                .Distinct()
+                .Where(g => !tracked.Any(t => t.Status == AsyncItemStatus.Running && t.Item.Value / 1000 == g))
+                .SelectMany(g => tracked.Where(t => t.Status == AsyncItemStatus.Queued && t.Item.Value / 1000 == g).Take(1))
+                .Select(static t => t.Item);
     }
 
     [Test]
