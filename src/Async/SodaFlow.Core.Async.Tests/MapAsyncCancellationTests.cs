@@ -270,9 +270,10 @@ public sealed class MapAsyncCancellationTests
         await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
         await Assert.That(handled.Count).IsEqualTo(1);
 
-        // The operation gets a linked token. Thus, the source of the item wraps the AggregateException
-        // of the linked source in a second one.
-        await Assert.That(((AggregateException)handled.Single()).Flatten().InnerExceptions.Single())
+        // The strategy gives no token, thus the operation gets the token of the item. The throw
+        // comes in one AggregateException, from the source of the item. Before, a linked source
+        // wrapped it in a second one.
+        await Assert.That(((AggregateException)handled.Single()).InnerExceptions.Single())
             .IsSameReferenceAs(thrown);
     }
 
@@ -317,9 +318,10 @@ public sealed class MapAsyncCancellationTests
         await Assert.That(status.Items.Sample().Count).IsEqualTo(0).Because("each operation obeys its token");
         await Assert.That(handled.Count).IsEqualTo(1);
 
-        // The operation gets a linked token. Thus, the source of the item wraps the AggregateException
-        // of the linked source in a second one.
-        await Assert.That(((AggregateException)handled.Single()).Flatten().InnerExceptions.Single())
+        // The strategy gives no token, thus the operation gets the token of the item. The throw
+        // comes in one AggregateException, from the source of the item. Before, a linked source
+        // wrapped it in a second one.
+        await Assert.That(((AggregateException)handled.Single()).InnerExceptions.Single())
             .IsSameReferenceAs(thrown);
     }
 
@@ -345,5 +347,60 @@ public sealed class MapAsyncCancellationTests
         // ReSharper restore UseAwaitUsing
 
         return factory.FromValue(await canceled.Task.ConfigureAwait(false) + value);
+    }
+
+    // A disposal that is not in a callback sends its trigger in its transaction. The trigger reads
+    // the queue as it was at the start of that transaction, thus a value that the same transaction
+    // admits is not in it, and the trigger does not cancel that value. Such a disposal comes only
+    // from the body of a transaction: the code of a listener or of an operator runs in a callback,
+    // where a disposal posts its trigger. The body runs before the admission, and the disposal
+    // marks the pipeline as disposed at once. Thus, the admission refuses the value, whatever the
+    // order of the send and the disposal in the body.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task AValueThatTheTransactionOfADisposalSendsDoesNotStart(bool sendFirst)
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ConcurrentQueue<int> started = new();
+        ConcurrentQueue<int> received = new();
+        using IListener resultsListener = results.Listen(received.Enqueue);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: (v, factory, token) => CancelableOperation(
+                    value: v,
+                    factory: factory,
+                    started: started,
+                    thrown: null,
+                    token: token),
+                strategy: AsyncConcurrencyStrategyFactory.Parallel(0),
+                inputConverter: static v => v,
+                cancelOnDispose: true);
+
+        Transaction.RunVoid(() =>
+        {
+            if (sendFirst)
+            {
+                source.Send(1);
+            }
+
+            status.Dispose();
+
+            if (!sendFirst)
+            {
+                source.Send(1);
+            }
+        });
+
+        await Assert.That(started).IsEmpty().Because("the disposal came before the admission");
+        await Assert.That(status.Items.Sample().Count).IsEqualTo(0);
+        await Assert.That(received).IsEmpty();
     }
 }

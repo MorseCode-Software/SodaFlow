@@ -146,11 +146,15 @@ sample's benchmarks on .NET 10, at 1,000 and 10,000 orders, a fill on the page a
 time they took and the whole lifecycle of an order about two thirds; a tick, a fill off the page, and a page turn
 measure the same as before.
 
-The router costs something when a cell is made. In PerKeyCellBenchmarks, a state cell allocates 230 to 270 bytes
-more, about a quarter of the 930 bytes the change above saved. A collection with a state cell for each key takes 4 to
-16 percent more time to build at 100 keys and 7 to 19 percent more at 1,000, on both runtimes. At 10,000 keys it
-takes 9 to 18 percent more on .NET Framework 4.7.2 and 19 to 49 percent more on .NET 10, where the runs also vary
-the most; that cost is not profiled yet.
+The router costs something when a cell is made. In PerKeyCellBenchmarks, a state cell allocates 90 to 125 bytes
+more, about an eighth of the 930 bytes the change above saved. A collection with a state cell for each key takes the
+same time to build at 100 and 1,000 keys, within 4 percent either way on both runtimes. At 10,000 keys it takes up to
+6 percent more on .NET Framework 4.7.2 and 8 to 22 percent more on .NET 10, where the runs also vary the most.
+The share does not grow with the number of keys. At 100,000 keys the cells take up to 17 percent more on .NET 10 and 4
+percent more on .NET Framework 4.7.2, and at 1,000,000 keys up to 7 percent and 5 percent: on .NET 10, 4.9 s where they
+took 4.6 s. Cells on a filter view take within 2 percent of the time before at both sizes. At 1,000,000 keys, an edit of
+one key with a state cell on each key takes 2.7 µs on .NET 10 and 6.2 µs on .NET Framework 4.7.2, where it took 416 ms
+and 516 ms. Thus, at that size the extra time to make the cells is less than one edit took before.
 
 The edit streams of a collection now merge through the one node that a list merge gets in SodaFlow.Core 6.0.0. Before,
 they were folded into a chain of pairwise merges that started from a never-firing stream, so an edit crossed one node

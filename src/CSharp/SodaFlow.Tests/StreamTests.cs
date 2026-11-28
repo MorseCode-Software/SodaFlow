@@ -2346,12 +2346,16 @@ public sealed class StreamTests
         await Assert.That(task.IsCanceled).IsTrue();
     }
 
+    // The listener sends each decrement on a different thread. The test waits for each send before
+    // the next step, thus the counter goes up and down in a known sequence, with no delay.
     [Test]
     public async Task TestListenAsync()
     {
         CellSink<int> a = Cell.CreateSink(1);
         Cell<int> a1 = a.Map(static x => x + 1);
         Cell<int> a2 = a.Map(static x => x * 2);
+        List<int> results = [];
+        List<Task> decrements = [];
 
         (Cell<int> called, IListener l) =
             Transaction.Run(() =>
@@ -2369,30 +2373,32 @@ public sealed class StreamTests
                                 .Hold(0));
 
                 IListener lLocal =
-                    result.Listen(_ =>
+                    result.Listen(v =>
                     {
-                        Task.Run(async () =>
-                        {
-                            await Task.Delay(900);
-                            decrementStream.Send(Unit.Value);
-                        });
+                        results.Add(v);
+                        decrements.Add(Task.Run(() => decrementStream.Send(Unit.Value)));
                     });
 
                 return (calledLocal, lLocal);
             });
 
-        // ReSharper disable once UnusedVariable
+        await Task.WhenAll(decrements);
+
         List<int> calledResults = [];
         IListener l2 = called.Listen(calledResults.Add);
 
-        await Task.Delay(500);
         a.Send(2);
-        await Task.Delay(500);
+        await Task.WhenAll(decrements);
         a.Send(3);
-        await Task.Delay(2500);
+        await Task.WhenAll(decrements);
 
         l2.Dispose();
         l.Dispose();
+
+        await Assert.That(results).IsEquivalentTo(expected: [4, 7, 10], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(calledResults)
+            .IsEquivalentTo(expected: [0, 1, 0, 1, 0], ordering: CollectionOrdering.Matching);
     }
 
     [Test]
