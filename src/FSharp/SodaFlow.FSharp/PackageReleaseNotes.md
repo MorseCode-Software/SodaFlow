@@ -196,6 +196,13 @@ counts with a Stopwatch, which only measures time going by.
 Changed: the timer thread reads the next timer due with the set's own Min rather than LINQ's First, which allocated an
 enumerator every time the thread woke to see what was due. Which timer it finds, and when it fires, are unchanged.
 
+Changed: Stream.calm and Cell.calm, with calmS and calmC, no longer box a struct record or a struct union at each
+comparison. They passed F#'s generic = as a value from a function that was not inline, and for such a type FSharp.Core
+boxes both values of each comparison. They are now inline over calmWithCompare, so each caller compares with the = of
+its own type. The equality is the same, so NaN still never equals NaN and a NaN always gets through. On .NET 10, a send
+through calm of a struct record of two ints measures 416 to 368 bytes on a stream and 872 to 824 on a cell, the same as
+calmWithEqualityComparer with EqualityComparer.Default.
+
 Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
 build. Unlike the net8.0 builds of the C# packages, it is not marked as compatible with trimming and native AOT. The
