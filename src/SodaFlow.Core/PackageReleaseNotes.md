@@ -465,6 +465,13 @@ A throw from a release still comes after the exception that caused it, in one Ag
 posted actions fail in one transaction, their exceptions come first, together in one AggregateException, and the
 throws of the releases follow it; before, each release came right after its own posted action, in one flat list.
 
+Changed: a chain of releases has a limit. A release can post, and the release of that post can post again. Before,
+such a chain had no limit, and one with no end never returned. A transaction that a release opens now runs its own
+releases before it returns, so each step of such a chain is one level deeper on the thread. At 32 levels, a new
+transaction or Post on that thread throws DeferredChainLimitException before it starts. A Post refused there runs
+neither its action nor its release, and the exception comes out of the call that started the first transaction. Every
+release that is already waiting still runs.
+
 Changed: the queue behind Defer and Split is a list in order of arrival, sorted by position when a round of it runs,
 where it was a dictionary from a position to one delegate that joined every split at that position. The splits at one
 position still run in one transaction, in the order they were made, and the positions still run in order. That is what

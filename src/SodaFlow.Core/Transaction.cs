@@ -53,6 +53,33 @@ internal sealed class TransactionInternal
     /// </remarks>
     internal const int DeferredChainLimit = 100_000;
 
+    /// <summary>
+    ///     The largest depth of the after-release runs on one thread. At this
+    ///     depth, a new root transaction throws
+    ///     <see cref="DeferredChainLimitException" /> before its body runs.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         An after-release action, such as the release of a post, runs after
+    ///         the lock is free and can open a transaction. The after-release work of
+    ///         that transaction runs in the action, before the transaction
+    ///         returns. Thus, a release that posts again on each failure goes one
+    ///         level deeper on the stack each time. With no limit, a chain of about
+    ///         2,000 levels fills a stack of 1 MB, and the process ends.
+    ///     </para>
+    ///     <para>
+    ///         The limit refuses the next transaction, and it drops no work that is
+    ///         in a queue. A post that it refuses does not run its action or its
+    ///         release, and its caller gets the exception. Each release in a queue
+    ///         runs.
+    ///     </para>
+    ///     <para>
+    ///         The number is a decision and not a measurement. The library nests two
+    ///         levels at most, and a retry from a timer starts again at no depth. Thus, only a chain with no end comes to the limit.
+    ///     </para>
+    /// </remarks>
+    internal const int AfterReleaseDepthLimit = 32;
+
     // A coarse lock. SodaFlow holds it for the complete transaction.
     //
     // The library gives one transaction at a time across the process. This is a guarantee and not
@@ -73,6 +100,15 @@ internal sealed class TransactionInternal
     // cost eight bytes for each transaction. A thread-static list cost a TLS access for each
     // transaction, and on .NET Framework that measured more than the eight bytes.
     private static List<Action>? afterReleaseQueue;
+
+    // The depth of the after-release runs on this thread. See AfterReleaseDepthLimit.
+    [ThreadStatic] private static int afterReleaseDepth;
+
+    // The number of threads that are in an after-release run. A new root transaction reads the
+    // thread-static depth only where this is not zero. Thus, the usual transaction reads one static
+    // field and no TLS, which costs more on .NET Framework. A thread in a run counts itself before
+    // it runs an action, thus it always sees its own count.
+    private static int threadsInAfterRelease;
 
     // The largest queue that a transaction gives back as a spare. A spare stays alive for the
     // life of the process, thus a queue that a large transaction made must not stay. Above this
@@ -250,6 +286,12 @@ internal sealed class TransactionInternal
     {
         TransactionInternal? transaction = localTransaction;
 
+        if (transaction == null && threadsInAfterRelease != 0 && afterReleaseDepth >= AfterReleaseDepthLimit)
+        {
+            throw new DeferredChainLimitException(
+                DeferredChainLimitException.MessageForDepth(AfterReleaseDepthLimit));
+        }
+
         TResult? returnValue = default;
         Exception? exception = null;
         TransactionInternal? newTransaction = transaction;
@@ -363,15 +405,30 @@ internal sealed class TransactionInternal
     {
         List<Exception>? failures = null;
 
-        foreach (Action action in actions)
+        if (afterReleaseDepth++ == 0)
         {
-            try
+            Interlocked.Increment(ref threadsInAfterRelease);
+        }
+
+        try
+        {
+            foreach (Action action in actions)
             {
-                action();
+                try
+                {
+                    action();
+                }
+                catch (Exception e)
+                {
+                    (failures ??= []).Add(e);
+                }
             }
-            catch (Exception e)
+        }
+        finally
+        {
+            if (--afterReleaseDepth == 0)
             {
-                (failures ??= []).Add(e);
+                Interlocked.Decrement(ref threadsInAfterRelease);
             }
         }
 

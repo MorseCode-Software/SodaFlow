@@ -29,6 +29,16 @@ namespace SodaFlow;
 ///         that is complete.
 ///     </para>
 ///     <para>
+///         The release of a post makes a chain of a second type. A release runs
+///         after the transaction lock is free, and a transaction that it opens runs
+///         its own releases before it returns. Thus, a release that posts again on
+///         each failure goes one level deeper on the thread each time. At 32
+///         levels, a new transaction on that thread throws this exception before it
+///         starts. A post that throws it does not run its action or its release.
+///         The exception comes out through each level to the call that started the
+///         first transaction. To correct the cause, give the retry an end.
+///     </para>
+///     <para>
 ///         It is an <see cref="InvalidOperationException" />, as each other failure
 ///         of the library is.
 ///     </para>
@@ -63,4 +73,10 @@ public sealed class DeferredChainLimitException : InvalidOperationException
         $"{DefaultMessage} It made more deferred work {limit} times in sequence, which is the limit. A value "
         + "that goes back to its own source through Operational.Defer, Operational.Split, or Transaction.Post does "
         + "this when nothing stops it. A Calm or a filter in the chain gives it an end.";
+
+    // The message for a chain of releases that came to the given depth on one thread.
+    internal static string MessageForDepth(int limit) =>
+        $"{DefaultMessage} Work that runs after a transaction releases its lock opened a new transaction {limit} "
+        + "levels deep on one thread, which is the limit. A release of Transaction.Post that posts again on each "
+        + "failure does this when nothing stops it. A retry with an end, or after a delay, stops it.";
 }

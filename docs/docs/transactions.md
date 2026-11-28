@@ -183,6 +183,15 @@ deep the chain goes, not how much work there is: splitting a single list of a mi
 one lap. If you meet the exception, give the feedback an end, with a `Calm` so that an unchanged
 value stops, or a filter for the case that is finished.
 
+Releases make a chain of their own. A release runs after the transaction lock is free, and a
+transaction that it opens runs its own releases before it returns, so a release that posts again
+every time its action fails goes one level deeper on the thread each time. SodaFlow allows 32
+levels. At that depth, a new transaction or post on that thread throws
+`DeferredChainLimitException` before it starts, so that last post runs neither its action nor its
+release, and the exception comes out of the call that started the first transaction. Every release
+that is already waiting still runs. Nothing real comes close to that depth: give a retry a bound,
+and where you can, retry after a delay, which starts again from a timer.
+
 Sending into a sink from inside a listener is the classic mistake. The XML docs on `Listen` say
 it directly: neither `StreamSinkExtensionMethods.Send` nor `CellSinkExtensionMethods.Send` may
 be called from inside a handler. If you need that, `Post` it.

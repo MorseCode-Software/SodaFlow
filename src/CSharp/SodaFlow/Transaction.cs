@@ -126,6 +126,11 @@ public static class Transaction
     ///         <see cref="DeferredChainLimitException" /> from the call that started
     ///         the first transaction.
     ///     </para>
+    ///     <para>
+    ///         A release of a post that posts again makes a chain on the thread. At
+    ///         32 levels, this call throws <see cref="DeferredChainLimitException" />
+    ///         immediately, and the action does not run.
+    ///     </para>
     /// </remarks>
     /// <param name="action">
     ///     The action to run after the current transaction closes or immediately if
@@ -179,6 +184,13 @@ public static class Transaction
     ///         chain must have an end. A chain with no end throws
     ///         <see cref="DeferredChainLimitException" /> from the call that started
     ///         the first transaction.
+    ///     </para>
+    ///     <para>
+    ///         A release that posts again makes a chain on the thread, because a
+    ///         transaction that a release opens runs its own releases before it
+    ///         returns. At 32 levels, this call throws
+    ///         <see cref="DeferredChainLimitException" /> immediately. It then does
+    ///         not run <paramref name="action" /> or <paramref name="onFailure" />.
     ///     </para>
     /// </remarks>
     /// <param name="action">
