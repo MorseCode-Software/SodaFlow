@@ -15,6 +15,7 @@
         <Compile Include="ISearchViewModel.cs"/>
         <Compile Include="SearchViewModel.cs"/>
         <Compile Include="Catalog.cs"/>
+        <Compile Include="CatalogSearch.cs"/>
     </ItemGroup>
 
     <ItemGroup>

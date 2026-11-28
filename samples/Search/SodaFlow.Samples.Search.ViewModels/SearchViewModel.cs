@@ -106,7 +106,13 @@ public sealed class SearchViewModel : ISearchViewModel
         }
     }
 
-    public static ISearchViewModel Create(IBindableFactory bindableFactory) =>
+    /// <param name="bindableFactory">The bindable factory.</param>
+    /// <param name="search">
+    ///     Gives the entries that contain the text of a query. Each head gives
+    ///     <see cref="Catalog.SearchAsync" />, and a test can give a function that
+    ///     replies immediately.
+    /// </param>
+    public static ISearchViewModel Create(IBindableFactory bindableFactory, CatalogSearch search) =>
         Transaction.Run(() =>
         {
             CellSink<string> query = Cell.CreateSink(string.Empty);
@@ -133,8 +139,8 @@ public sealed class SearchViewModel : ISearchViewModel
                 searches.MapAsync(
                     results: found,
                     errors: failed,
-                    operation: static async (query, factory, token) =>
-                        factory.FromValue(await Catalog.SearchAsync(query: query, cancellationToken: token)),
+                    operation: async (query, factory, token) =>
+                        factory.FromValue(await search(query: query, cancellationToken: token)),
 
                     // The full concurrency policy is in one argument. A new keystroke replaces
                     // the search in operation, and the search that it replaces cannot publish.

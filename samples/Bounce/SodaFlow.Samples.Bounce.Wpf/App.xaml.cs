@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Samples.Bounce.ViewModels;
+using SodaFlow.Time;
 
 namespace SodaFlow.Samples.Bounce.Wpf;
 
@@ -38,10 +39,14 @@ internal sealed partial class App
     {
         base.OnStartup(e);
 
+        // The clock belongs to the startup and not to the view model. The timer system keeps a thread
+        // while the process runs, thus one timer system serves the full sample.
+        SecondsTimerSystem timers = new(handleException: static ex => Trace.WriteLine(ex));
+
         this.viewModel =
             BounceViewModel.Create(
                 bindableFactory: new BindableFactory(SynchronizationContextBindingScheduler.Capture()),
-                handleException: static ex => Trace.WriteLine(ex));
+                timers: timers);
 
         MainWindow window = new() { DataContext = this.viewModel };
 

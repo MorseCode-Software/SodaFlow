@@ -105,7 +105,7 @@ an ordinary cell behind an ordinary bindable property, and those do hold subscri
 | [`CollisionScene.cs`](SodaFlow.Samples.Bounce.ViewModels/CollisionScene.cs) | One cell for the whole world, advanced event by event. The only coupled scene. |
 | [`SceneView.cs`](SodaFlow.Samples.Bounce.Avalonia/SceneView.cs) | Sampling to draw, in about a hundred lines. |
 | [`IBounceViewModel.cs`](SodaFlow.Samples.Bounce.ViewModels/IBounceViewModel.cs) | What the views bind to. |
-| [`BounceViewModel.cs`](SodaFlow.Samples.Bounce.ViewModels/BounceViewModel.cs) | The shared clock, and the selection as a value rather than as control state. |
+| [`BounceViewModel.cs`](SodaFlow.Samples.Bounce.ViewModels/BounceViewModel.cs) | The selection as a value rather than as control state. The shared clock arrives from the head that starts the sample. |
 
 ## The selection is a value
 
