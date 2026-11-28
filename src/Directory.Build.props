@@ -5,6 +5,10 @@
         items it names, so a file added to a folder is not part of the build until someone lists it.
         That is the point: adding a file is not a build change until it is said to be one.
 
+        The one place where that hides a mistake is a test file that nobody lists: its tests do not
+        run, and everything stays green. The Verify-Compile-Items target of build.cake, which Build
+        depends on, fails on a tracked source file under src/ or samples/ that no item names.
+
         Set here, once, rather than in each project, which is where it used to be - the same line
         in all of them. A rule every project has to remember to repeat is one a new project can
         forget, and nothing would notice: the build still passes, it just starts globbing. Here it

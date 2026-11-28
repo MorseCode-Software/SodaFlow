@@ -126,6 +126,7 @@ Task("Restore")
 Task("Build")
     .Description("Builds the solution.")
     .IsDependentOn("Verify-Inspection-Settings")
+    .IsDependentOn("Verify-Compile-Items")
     .IsDependentOn("Restore")
     .Does(() =>
 {
@@ -550,6 +551,84 @@ Task("Verify-Inspection-Settings")
         "All {0} mirrored inspection settings match {1}.",
         mirroredInspectionSettings.Length,
         inspectionSettings.Path);
+});
+
+// EnableDefaultItems is false in each Directory.Build.props, thus a source file is built only when
+// an item names it. A library file that no item names usually breaks the build, because other code
+// uses it. A test file that no item names does not: its tests do not run, and the build, the tests,
+// and the inspection all pass. This target finds that file.
+//
+// It reads the files that git tracks, and not the disk, so that a scratch file that is not added
+// does not stop a local build. It reads the Include of each item in each tracked project, props, and
+// targets file, and needs nothing compiled. An Include with an MSBuild property in it is skipped: no
+// source item has one, and those that have one name built outputs.
+Task("Verify-Compile-Items")
+    .Description("Checks that an item names each tracked source file under src and samples.")
+    .Does(() =>
+{
+    var exitCode = StartProcess(
+        "git",
+        new ProcessSettings
+        {
+            Arguments = "-c core.quotepath=off ls-files -- src samples",
+            RedirectStandardOutput = true,
+        },
+        out IEnumerable<string> output);
+
+    if (exitCode != 0)
+    {
+        throw new Exception($"git ls-files exited with {exitCode}.");
+    }
+
+    var root = MakeAbsolute(Directory(".")).FullPath;
+    var tracked = output.Where(path => path.Length > 0).ToList();
+    var named = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    var projectExtensions = new[] { ".csproj", ".fsproj", ".props", ".targets" };
+
+    foreach (var project in tracked.Where(path =>
+                 projectExtensions.Contains(System.IO.Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)))
+    {
+        var projectPath = System.IO.Path.Combine(root, project);
+        var directory = System.IO.Path.GetDirectoryName(projectPath);
+
+        foreach (var include in XDocument.Load(projectPath).Descendants().Select(element => element.Attribute("Include")?.Value))
+        {
+            foreach (var part in (include ?? string.Empty).Split(';'))
+            {
+                var itemPath = part.Trim().Replace('\\', System.IO.Path.DirectorySeparatorChar);
+
+                if (itemPath.Length > 0 && !itemPath.Contains("$("))
+                {
+                    named.Add(System.IO.Path.GetFullPath(System.IO.Path.Combine(directory, itemPath)));
+                }
+            }
+        }
+    }
+
+    var sourceExtensions = new[] { ".cs", ".fs", ".fsi", ".xaml", ".axaml" };
+
+    var sources = tracked
+        .Where(path => sourceExtensions.Contains(System.IO.Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+        .ToList();
+
+    var unnamed = sources
+        .Where(path => !named.Contains(System.IO.Path.GetFullPath(System.IO.Path.Combine(root, path))))
+        .ToList();
+
+    foreach (var path in unnamed)
+    {
+        Error("  {0}", path);
+    }
+
+    if (unnamed.Count > 0)
+    {
+        throw new Exception(
+            $"{unnamed.Count} tracked source file(s) that no project item names, listed above. "
+            + "Default items are off, so each one is not built: add a Compile, Page, or AvaloniaXaml item "
+            + "for it to its project, or remove it.");
+    }
+
+    Information("An item names each of the {0} tracked source files under src and samples.", sources.Count);
 });
 
 // The whole of an inspection run, shared by the solution under src and by each sample. Extracted
