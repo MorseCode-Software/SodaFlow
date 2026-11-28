@@ -220,6 +220,11 @@ Maybe<int> port = settings.TryGetValue("port").Bind(s => s.TryParseInt32());
   overload.
 * `TryGetValue(key)` on `IReadOnlyDictionary<TKey, TValue>`.
 
+`TryParseUri` with no `UriKind` accepts only an absolute URI, as `Uri.TryCreate` does with
+`UriKind.Absolute`. On Linux and macOS, .NET counts a path that starts with `/`, such as `/a/b`, as
+an absolute `file:///a/b`, so it gives a value there and no value on Windows. Pass
+`UriKind.Relative` or `UriKind.RelativeOrAbsolute` when a path is what you expect.
+
 The overloads which take no `IFormatProvider` use the current culture, because the methods they
 wrap do. Pass `CultureInfo.InvariantCulture` for text that is not meant to follow the user's
 culture.
