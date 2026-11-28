@@ -829,7 +829,9 @@ public static class StringExtensionMethods
     /// <remarks>
     ///     Wraps <see cref="Uri.TryCreate(string,UriKind,out Uri)" /> with
     ///     <see cref="UriKind.Absolute" />. Use
-    ///     <see cref="TryParseUri(string,UriKind)" /> to accept a relative one.
+    ///     <see cref="TryParseUri(string,UriKind)" /> to accept a relative one. On
+    ///     each platform other than Windows, .NET reads a rooted path, such as
+    ///     <c>/a/b</c>, as an absolute file URI. Thus, there such a path gives a value.
     /// </remarks>
     [Pure]
     public static Maybe<Uri> TryParseUri(this string? value) => value.TryParseUri(UriKind.Absolute);
