@@ -498,6 +498,62 @@ public sealed class TimerTests
         return timers;
     }
 
+#if NET
+    // The reference assemblies of net472 do not have the read of the bytes that a thread allocated.
+    // Thus, this test is for the newer target only.
+    //
+    // The start hook of a timer system runs at the start of each transaction in the process. With
+    // no event due and a clock that does not move, it must allocate nothing. Other tests can have a
+    // timer system with an event due, and its hook can run in a transaction of this test. Thus, the
+    // test takes the smallest count of each side over several tries.
+    [Test]
+    public async Task AnEmptyTransactionWithNoEventDueAllocatesNothingMoreWithATimerSystem()
+    {
+        const int tries = 10;
+        long without = SmallestBytes(tries);
+
+        HandClock clock = new()
+        {
+            Now = new DateTime(year: 2026, month: 11, day: 28, hour: 0, minute: 0, second: 0, kind: DateTimeKind.Utc)
+        };
+
+        this.Keep(
+            new SystemClockTimerSystem(
+                now: () => clock.Now,
+                handleException: static _ =>
+                {
+                }));
+
+        long with = SmallestBytes(tries);
+
+        await Assert.That(with).IsEqualTo(without);
+
+        return;
+
+        static long SmallestBytes(int tries)
+        {
+            const int transactions = 100;
+            long smallest = long.MaxValue;
+
+            for (int i = 0; i < tries; i++)
+            {
+                long before = GC.GetAllocatedBytesForCurrentThread();
+
+                for (int j = 0; j < transactions; j++)
+                {
+                    Transaction.RunVoid(static () =>
+                    {
+                    });
+                }
+
+                smallest = Math.Min(val1: smallest, val2: GC.GetAllocatedBytesForCurrentThread() - before);
+            }
+
+            return smallest;
+        }
+    }
+#endif
+
     // A DateTime that a test moves by hand, for the clock constructor of SystemClockTimerSystem.
     // A clock with a resolution gives its value in steps. Time moves at the first transaction in
     // each step and holds its value through the others, so the updates of Time are one per step.
