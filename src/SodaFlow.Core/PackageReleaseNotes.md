@@ -173,6 +173,16 @@ does: Dispose marks the link stopped before it removes it, and a queued firing, 
 new listener gets, checks the mark first. ListenOnce and Once, which kept flags of their own to stop a second value, now
 rely on the same mark.
 
+Fixed: the updates of a switch no longer fire for its initial value. SwitchC and SwitchB listen to the value of the
+outer behavior and then to the value of the behavior that it selects, and the first selection sent the current value of
+that behavior on the output, in the transaction that built the switch. So Updates() of a SwitchC, and
+Operational.Updates of a SwitchB, gave that value to a listener in the same transaction, where the updates of each other
+cell give nothing for its initial value. A view model that builds its graph in one transaction saw one extra event, for
+example in a Merge or an Accum over those updates. The switch now keeps that value as its initial value only, and the
+first selection sends nothing more for it. An update in that transaction, of the outer behavior or of the selected one,
+still fires, and so does each later selection. Values() of a SwitchC, and Operational.Value of a SwitchB, still give the
+initial value one time. A switch built in one transaction and listened to in a later one behaves as before.
+
 Added: DependencyCycleException, an InvalidOperationException, is what a loop that closes on itself without a delay
 throws, where before it threw a bare System.Exception with the same message, which a caller could not catch apart from
 anything else and a test could only match by its text. The message is unchanged. The internal priority queue's

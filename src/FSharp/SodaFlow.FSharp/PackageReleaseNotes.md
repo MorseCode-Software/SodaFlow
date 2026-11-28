@@ -98,6 +98,9 @@ that reach this package, and its notes have the details of each:
   and the result was wrong until the first input updated again.
 - switchB and switchC no longer keep a switch that a failed transaction made. Before, the output went on following the
   behavior the transaction had switched to, although the outer cell still held the one from before the failure.
+- Cell.updates of a switchC, and Operational.updates of a switchB, no longer fire for the initial value of the switch in
+  the transaction that builds it. Before, a listener in that transaction got the current value of the selected cell or
+  behavior, as no other cell's updates do. Cell.values still gives the initial value.
 - listenOnce no longer calls the handler twice when the stream fires on another thread at the moment the listener is
   attached.
 - A step of the graph that threw in a failed transaction no longer runs again in a later one. The same fix stops a
