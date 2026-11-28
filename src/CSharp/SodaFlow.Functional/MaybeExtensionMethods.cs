@@ -40,20 +40,11 @@ public static class MaybeExtensionMethods
     /// </param>
     /// <returns>The contained values, in order, with the empty entries left out.</returns>
     /// <remarks>
-    ///     Lazy, like the LINQ operators it is built from: the source is not
-    ///     enumerated until the result is.
+    ///     Lazy, like the LINQ operators: the source is not enumerated until the
+    ///     result is.
     /// </remarks>
     [Pure]
-    public static IEnumerable<T> WhereSome<T>(this IEnumerable<Maybe<T>>? o) =>
-        (o ?? [])
-        .Select(static m =>
-            m.Match(
-                onSome: static v => new ValueAndHasValue<T>(value: v, hasValue: true),
-                onNone: static () => new ValueAndHasValue<T>(value: default, hasValue: false)))
-        .Where(static p => p.HasValue)
-        // ReSharper disable once NullableWarningSuppressionIsUsed - If HasValue is true, then Value will have a
-        // non-null value.
-        .Select(static p => p.Value!);
+    public static IEnumerable<T> WhereSome<T>(this IEnumerable<Maybe<T>>? o) => ValuesOf(o ?? []);
 
     /// <summary>
     ///     Turns a sequence of values that can be missing into a sequence that can be
@@ -75,18 +66,24 @@ public static class MaybeExtensionMethods
     [Pure]
     public static Maybe<IEnumerable<T>> AllSomeOrNone<T>(this IEnumerable<Maybe<T>>? o)
     {
-        ValueAndHasValue<T>[] rr =
-        [
-            .. (o ?? [])
-            .Select(static m =>
-                m.Match(
-                    onSome: static v => new ValueAndHasValue<T>(value: v, hasValue: true),
-                    onNone: static () => new ValueAndHasValue<T>(value: default, hasValue: false)))
-        ];
+        // The loop reads each entry, also after an entry with no value, as the code before did.
+        // Thus, a source with side effects sees one full enumeration in each case.
+        List<T> values = [];
+        bool each = true;
 
-        // ReSharper disable once NullableWarningSuppressionIsUsed - If HasValue is true, then Value will have a
-        // non-null value.
-        return rr.Any(static r => !r.HasValue) ? Maybe.None : Maybe.Some(rr.Select(static r => r.Value!));
+        foreach (Maybe<T> m in o ?? [])
+        {
+            if (m.TryGetValue(out T value))
+            {
+                values.Add(value);
+            }
+            else
+            {
+                each = false;
+            }
+        }
+
+        return each ? Maybe.Some<IEnumerable<T>>(values) : Maybe.None;
     }
 
     /// <summary>
@@ -420,9 +417,16 @@ public static class MaybeExtensionMethods
             ? Maybe.Some(f(arg1: v1, arg2: v2, arg3: v3, arg4: v4))
             : Maybe<TResult>.None;
 
-    private struct ValueAndHasValue<T>(T? value, bool hasValue)
+    // The iterator of WhereSome. An iterator runs only when its result is enumerated, thus
+    // WhereSome stays lazy.
+    private static IEnumerable<T> ValuesOf<T>(IEnumerable<Maybe<T>> o)
     {
-        public T? Value { get; } = value;
-        public bool HasValue { get; } = hasValue;
+        foreach (Maybe<T> m in o)
+        {
+            if (m.TryGetValue(out T value))
+            {
+                yield return value;
+            }
+        }
     }
 }
