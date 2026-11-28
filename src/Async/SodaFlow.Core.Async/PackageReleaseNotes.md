@@ -215,6 +215,14 @@ OnCompleted or OnCanceled has no caller to throw to: it fails the delivery, the 
 and when that fails too, both exceptions go to handleException in an AggregateException and the item stays in Items.
 Naming a queued item that a cancellation holds is still allowed, and its start still ends it as canceled.
 
+Changed: AsyncQueuedItem, AsyncToStart, AsyncTrackedItem, AsyncCompletion, AsyncStrategyStep, and AsyncStrategyResult,
+the types nested in AsyncMapBase that a strategy reads and returns, are public, where they were protected internal. A
+custom strategy in another assembly can now keep an item in its state, as the documentation of Admit and the async guide
+tell it to. The state type is a type argument of the base class of the strategy, and a protected type cannot appear
+there, so a strategy over Maybe<AsyncMapBase.AsyncQueuedItem<Unit>> failed with CS0122, and an F# strategy could not
+name the type in its base type at all. Only this package can make an item or a tracked item, because their constructors
+stay internal, and code that compiled before compiles the same.
+
 Added: a net8.0 build, beside the net472, net6.0, and netstandard2.0 builds. It compiles the same source. A project on
 .NET 8 or later now takes it in place of the net6.0 build, and a project on .NET 6 or .NET 7 still takes the net6.0
 build.

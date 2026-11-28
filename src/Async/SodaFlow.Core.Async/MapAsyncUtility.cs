@@ -563,20 +563,28 @@ internal sealed class AsyncItemCancellationSource : CancellationTokenSource
 ///     <see cref="AsyncMapExecutionManager{TInput,TResult,TStrategyInput}" />).
 ///     Its only purpose is to hold the small data types that the two parts send to
 ///     each other:
-///     <see cref="AsyncQueuedItem{TInput}" />, <see cref="AsyncToStart{TInput}" />
-///     , <see cref="AsyncOutcome{TResult}" />,
+///     <see cref="AsyncQueuedItem{TInput}" />, <see cref="AsyncToStart{TInput}" />,
+///     <see cref="AsyncTrackedItem{TInput}" />, <see cref="AsyncCompletion" />,
 ///     <see cref="AsyncStrategyStep{TInput,TState}" />, and
-///     <see cref="AsyncStrategyResult{TInput,TState}" />. They are nested types here, and
-///     not public top-level types. One class is not a subtype of the other.
-///     Without this shared base, one part or the two parts must make these types
-///     fully public to name them. With this base, the two parts get them through
-///     usual inheritance, and the types stay off the public surface of the
-///     library. Only code in this assembly, and code that subclasses
-///     <see cref="AsyncConcurrencyStrategy{TInput,TState}" /> to write a custom
-///     strategy, can see them. This base is not generic, because TInput and
-///     TResult belong to the nested types that use them, and not to each user of
-///     this base.
+///     <see cref="AsyncStrategyResult{TInput,TState}" />. The engine also keeps
+///     its internal <c>AsyncOutcome</c> here.
 /// </summary>
+/// <remarks>
+///     <para>
+///         The data types are public. A custom strategy keeps an item in its
+///         state, and its state type is a type argument of the base class of the
+///         strategy. A type argument in a base clause must be visible where the
+///         subclass is declared, and a protected type is not visible there. Thus,
+///         a protected type gives CS0122 for a state that holds an item.
+///     </para>
+///     <para>
+///         Only this assembly can make an item or a tracked item, because their
+///         constructors are internal. A strategy makes the steps, the results, and
+///         the values to start. This base is not generic, because
+///         TInput and TResult belong to the nested types that use them, and not to
+///         each user of this base.
+///     </para>
+/// </remarks>
 [PublicAPI]
 public abstract class AsyncMapBase
 {
@@ -604,7 +612,7 @@ public abstract class AsyncMapBase
     ///     strategy in the library compares the Id.
     /// </summary>
     [PublicAPI]
-    protected internal sealed class AsyncQueuedItem<TInput>
+    public sealed class AsyncQueuedItem<TInput>
     {
         private readonly Action<Exception> reportCancelFailure;
 
@@ -765,7 +773,7 @@ public abstract class AsyncMapBase
     ///     transaction of that call then fails, and no item of that list starts.
     /// </remarks>
     [PublicAPI]
-    protected internal sealed class AsyncToStart<TInput>
+    public sealed class AsyncToStart<TInput>
     {
         /// <summary>An empty list of items to start, for a decision that starts no items.</summary>
         public static readonly IReadOnlyList<AsyncToStart<TInput>> None = [];
@@ -802,7 +810,7 @@ public abstract class AsyncMapBase
     /// </summary>
     /// <typeparam name="TInput">The input type of the strategy.</typeparam>
     [PublicAPI]
-    protected internal sealed class AsyncTrackedItem<TInput>
+    public sealed class AsyncTrackedItem<TInput>
     {
         internal AsyncTrackedItem(AsyncQueuedItem<TInput> item, AsyncItemStatus status)
         {
@@ -841,7 +849,7 @@ public abstract class AsyncMapBase
     ///     </para>
     /// </summary>
     [PublicAPI]
-    protected internal sealed class AsyncCompletion
+    public sealed class AsyncCompletion
     {
         /// <summary>
         ///     The exception from the operation when <see cref="kind" /> is Failed, and
@@ -1034,7 +1042,7 @@ public abstract class AsyncMapBase
     ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.OnCanceled" />.
     /// </summary>
     [PublicAPI]
-    protected internal sealed class AsyncStrategyStep<TInput, TState>
+    public sealed class AsyncStrategyStep<TInput, TState>
     {
         /// <summary>Builds the answer of a strategy from its next state and the items to start.</summary>
         /// <param name="state">
@@ -1073,7 +1081,7 @@ public abstract class AsyncMapBase
     ///     gives an <see cref="AsyncStrategyStep{TInput,TState}" />.
     /// </summary>
     [PublicAPI]
-    protected internal sealed class AsyncStrategyResult<TInput, TState>
+    public sealed class AsyncStrategyResult<TInput, TState>
     {
         /// <summary>Builds the answer of a strategy from its next state and its two decisions.</summary>
         /// <param name="state">
