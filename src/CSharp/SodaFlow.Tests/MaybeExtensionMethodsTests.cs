@@ -122,6 +122,93 @@ public sealed class MaybeExtensionMethodsTests
         await Assert.That(m.WhereSome()).IsEquivalentTo(expected: [0, 0], ordering: CollectionOrdering.Matching);
     }
 
+    // WhereSome reads its source only when a caller enumerates the result.
+    [Test]
+    public async Task TestWhereSomeIsLazy()
+    {
+        int reads = 0;
+
+        IEnumerable<int> result = Source().WhereSome();
+
+        await Assert.That(reads).IsEqualTo(0);
+        await Assert.That(result).IsEquivalentTo(expected: [1, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(reads).IsEqualTo(3);
+
+        return;
+
+        IEnumerable<Maybe<int>> Source()
+        {
+            reads++;
+            yield return Maybe.Some(1);
+
+            reads++;
+            yield return Maybe<int>.None;
+
+            reads++;
+            yield return Maybe.Some(3);
+        }
+    }
+
+    // AllSomeOrNone reads its whole source one time, in the call, also after an entry with no
+    // value. A read of the result does not read the source again.
+    [Test]
+    public async Task TestAllSomeOrNoneReadsTheSourceOnceAndAtOnce()
+    {
+        int reads = 0;
+
+        Maybe<IEnumerable<int>> none = Source(withANone: true).AllSomeOrNone();
+
+        await Assert.That(reads).IsEqualTo(3);
+        await Assert.That(none).IsEqualTo(Maybe<IEnumerable<int>>.None);
+
+        reads = 0;
+
+        Maybe<IEnumerable<int>> all = Source(withANone: false).AllSomeOrNone();
+
+        await Assert.That(reads).IsEqualTo(3);
+
+        IEnumerable<int> values = all.Match<IEnumerable<int>>(onSome: static v => v, onNone: static () => []);
+
+        // The test reads the result two times on purpose: a second read must not read the source.
+        // ReSharper disable PossibleMultipleEnumeration
+        await Assert.That(values).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+        await Assert.That(values).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
+        // ReSharper restore PossibleMultipleEnumeration
+        await Assert.That(reads).IsEqualTo(3);
+
+        return;
+
+        IEnumerable<Maybe<int>> Source(bool withANone)
+        {
+            // ReSharper disable once AccessToModifiedClosure - The test sets the count to zero between the two calls.
+            reads++;
+            yield return Maybe.Some(1);
+
+            reads++;
+            yield return withANone ? Maybe<int>.None : Maybe.Some(2);
+
+            reads++;
+            yield return Maybe.Some(3);
+        }
+    }
+
+    // A Maybe of a nullable reference type can hold null as its value. That is a value, and
+    // WhereSome and AllSomeOrNone keep it.
+    [Test]
+    public async Task TestWhereSomeAndAllSomeOrNoneKeepAValueThatIsNull()
+    {
+        Maybe<string?>[] withANone = [Maybe.Some<string?>(null), Maybe<string?>.None, Maybe.Some<string?>("a")];
+        Maybe<string?>[] each = [Maybe.Some<string?>(null), Maybe.Some<string?>("a")];
+
+        await Assert.That(withANone.WhereSome())
+            .IsEquivalentTo(expected: [null, "a"], ordering: CollectionOrdering.Matching);
+
+        IEnumerable<string?> values =
+            each.AllSomeOrNone().Match<IEnumerable<string?>>(onSome: static v => v, onNone: static () => ["none"]);
+
+        await Assert.That(values).IsEquivalentTo(expected: [null, "a"], ordering: CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task TestAllSomeOrNoneWithSelectorAll()
     {
