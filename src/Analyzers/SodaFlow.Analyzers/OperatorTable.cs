@@ -424,6 +424,22 @@ internal static class OperatorTable
             "Status",
             "SwitchLatest",
             "UndeliveredError",
+            // The data of a custom strategy of MapAsync: an item, a value to start, a step, a result,
+            // and an end. Each holds what the pipeline or the strategy gave it, and reads no cell.
+            // Match and MatchVoid of an end run one of their functions in the call. Thus, each is in
+            // RunsInTheCall also, and the walk follows the function.
+            "AsyncStrategyResult",
+            "AsyncStrategyStep",
+            "AsyncToStart",
+            "Failed",
+            "Id",
+            "Match",
+            "MatchVoid",
+            "Next",
+            "None",
+            "Publish",
+            "StrategyToken",
+            "Succeeded",
             // The constructors of the library, each with the name of its type. Each keeps what it
             // gets, or makes an object of the library from it. The constructor of a timer system
             // also calls Start and Now of its implementation, and the walk follows those calls. The
@@ -449,6 +465,9 @@ internal static class OperatorTable
     ///     <c>Fold</c> and <c>FoldByIdentity</c> of a collection run <c>select</c>
     ///     and <c>add</c> over the items that the collection has at construction.
     ///     They keep <c>subtract</c> for an edit after the close.
+    ///     Each <c>Match</c> and <c>MatchVoid</c> of the library runs the function
+    ///     of the case that occurred, in the call. The public ones are of the end
+    ///     of a MapAsync item.
     /// </remarks>
     private static readonly ImmutableDictionary<string, ImmutableHashSet<string>> RunsInTheCall =
         ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
@@ -457,7 +476,9 @@ internal static class OperatorTable
             .Add(key: "WithCaptures", value: ImmutableHashSet<string>.Empty)
             .Add(key: "WithoutCaptures", value: ImmutableHashSet<string>.Empty)
             .Add(key: "Fold", value: ImmutableHashSet.Create("select", "add"))
-            .Add(key: "FoldByIdentity", value: ImmutableHashSet.Create("select", "add"));
+            .Add(key: "FoldByIdentity", value: ImmutableHashSet.Create("select", "add"))
+            .Add(key: "Match", value: ImmutableHashSet<string>.Empty)
+            .Add(key: "MatchVoid", value: ImmutableHashSet<string>.Empty);
 
     /// <summary>
     ///     True for a library method that runs its function one time in the call:
