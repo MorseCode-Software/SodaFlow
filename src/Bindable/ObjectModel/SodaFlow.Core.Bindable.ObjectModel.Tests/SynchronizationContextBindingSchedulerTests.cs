@@ -41,6 +41,58 @@ public sealed class SynchronizationContextBindingSchedulerTests
         await Assert.That(order).IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
+    // Capture reads the context of the thread that calls it. The test sets that context and puts
+    // back the previous one before its first await, because an await can continue on a different
+    // thread.
+    [Test]
+    public async Task CaptureTakesTheContextOfTheCurrentThread()
+    {
+        QueueingContext context = new();
+        SynchronizationContext? previous = SynchronizationContext.Current;
+        SynchronizationContextBindingScheduler scheduler;
+        SynchronizationContext.SetSynchronizationContext(context);
+
+        try
+        {
+            scheduler = SynchronizationContextBindingScheduler.Capture();
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+
+        List<int> order = [];
+        Transaction.RunVoid(() => scheduler.Post(() => order.Add(1)));
+        int items = context.Count;
+        context.RunNext();
+
+        await Assert.That(items).IsEqualTo(1);
+        await Assert.That(order).IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task CaptureOnAThreadWithNoContextThrows()
+    {
+        SynchronizationContext? previous = SynchronizationContext.Current;
+        Exception? thrown = null;
+        SynchronizationContext.SetSynchronizationContext(null);
+
+        try
+        {
+            SynchronizationContextBindingScheduler.Capture();
+        }
+        catch (InvalidOperationException e)
+        {
+            thrown = e;
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+
+        await Assert.That(thrown).IsNotNull();
+    }
+
     [Test]
     public async Task EachTransactionGetsItsOwnItem()
     {

@@ -14,6 +14,29 @@ public sealed class LazySampleTests
 {
     private static T Read<T>(LazySample<T> sample) => Cell.ConstantLazy(sample).Sample();
 
+    // A lazy sample gives the value at the end of its transaction. Thus, a send after the sample in
+    // the same transaction changes the value, for a behavior as for a cell.
+    [Test]
+    public async Task SampleLazyOfABehaviorGivesTheValueAtTheEndOfTheTransaction()
+    {
+        BehaviorSink<int> behavior = Behavior.CreateSink(1);
+        CellSink<int> cell = Cell.CreateSink(1);
+
+        (LazySample<int> FromBehavior, LazySample<int> FromCell) samples =
+            Transaction.Run(() =>
+            {
+                (LazySample<int> FromBehavior, LazySample<int> FromCell) taken =
+                    (FromBehavior: behavior.SampleLazy(), FromCell: cell.SampleLazy());
+
+                behavior.Send(2);
+                cell.Send(2);
+                return taken;
+            });
+
+        await Assert.That(Read(samples.FromBehavior)).IsEqualTo(2);
+        await Assert.That(Read(samples.FromCell)).IsEqualTo(2);
+    }
+
     [Test]
     public async Task DeferGivesTheValueOfItsFunction() =>
         await Assert.That(Read(LazySample.Defer(static () => 3))).IsEqualTo(3);
