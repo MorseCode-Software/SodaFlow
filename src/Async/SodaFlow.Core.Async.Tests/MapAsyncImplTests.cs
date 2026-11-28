@@ -1546,7 +1546,7 @@ public sealed class MapAsyncImplTests
         TestUtil.WaitUntil(() => op.HasStarted("a"));
         TestUtil.WaitUntil(() => status.IsRunning.Sample());
 
-        IReadOnlyList<AsyncItem<string>> items = status.Items.Sample();
+        AsyncItemsSnapshot<string> items = status.Items.Sample();
         await Assert.That(items.Count).IsEqualTo(2);
         await Assert.That(items.Any(static i => i is { Value: "a", Status: AsyncItemStatus.Running })).IsTrue();
         await Assert.That(items.Any(static i => i is { Value: "b", Status: AsyncItemStatus.Queued })).IsTrue();
@@ -1699,6 +1699,326 @@ public sealed class MapAsyncImplTests
             .ThrowsExactly<ArgumentNullException>();
     }
 
+    // Items is a view of the immutable entry array, and not a copy. A list that a caller holds
+    // keeps its contents after the subsequent updates of the queue.
+    [Test]
+    public async Task AListOfTheItemsKeepsItsContentsAfterSubsequentUpdates()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+        source.Send(2);
+
+        AsyncItemsSnapshot<int> held = status.Items.Sample();
+
+        // The end of 1 promotes 2, and a third value comes after it. Each changes the queue.
+        op.Release(input: 1, result: 1);
+        TestUtil.WaitUntil(() => op.HasStarted(2));
+        source.Send(3);
+
+        await Assert.That(Read(held)).IsEquivalentTo(
+            expected: [(1, AsyncItemStatus.Running), (2, AsyncItemStatus.Queued)],
+            ordering: CollectionOrdering.Matching);
+
+        await Assert.That(Snapshot(status)).IsEquivalentTo(
+            expected: [(2, AsyncItemStatus.Running), (3, AsyncItemStatus.Queued)],
+            ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
+    // The same, where the list is read before the updates. The first read makes the array of the
+    // items, and the list keeps that array. Thus, the updates do not change what it gives.
+    [Test]
+    public async Task AListOfTheItemsThatWasReadKeepsItsContentsAfterSubsequentUpdates()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        source.Send(1);
+        source.Send(2);
+
+        AsyncItemsSnapshot<int> held = status.Items.Sample();
+        List<(int Value, AsyncItemStatus Status)> before = Read(held);
+
+        op.Release(input: 1, result: 1);
+        TestUtil.WaitUntil(() => op.HasStarted(2));
+        source.Send(3);
+
+        await Assert.That(before).IsEquivalentTo(
+            expected: [(1, AsyncItemStatus.Running), (2, AsyncItemStatus.Queued)],
+            ordering: CollectionOrdering.Matching);
+
+        await Assert.That(Read(held)).IsEquivalentTo(expected: before, ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
+    // A list that a caller keeps after a read holds only its items. The first read releases the
+    // entry array, and an entry holds the item of the strategy. Thus, after the item leaves the
+    // queue, the held list does not keep that item.
+    [Test]
+    public async Task AListOfTheItemsThatWasReadDoesNotKeepTheEntriesOfThePipeline()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+        WeakItemsStrategy strategy = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: strategy,
+                inputConverter: static v => v);
+
+        source.Send(1);
+
+        AsyncItemsSnapshot<int> held = status.Items.Sample();
+        List<(int Value, AsyncItemStatus Status)> before = Read(held);
+
+        op.Release(input: 1, result: 1);
+        TestUtil.WaitUntil(() => status.Items.Sample().Count == 0);
+
+        // The finalizer step and the second collection also let the sweep of
+        // StreamListenerManager run. See StreamTests.
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        await Assert.That(strategy.FirstItem.IsAlive)
+            .IsFalse()
+            .Because("only the entry array of the held list could keep the item");
+
+        await Assert.That(Read(held)).IsEquivalentTo(expected: before, ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+    }
+
+#if NET
+    // The reference assemblies of net472 do not have the read of the bytes that a thread allocated.
+    // Thus, this test is for the newer target only. The view is the same code on each target.
+    //
+    // The first read of a list makes its array of the items, and each read after it uses that
+    // array. Thus, a second full read through the index allocates nothing. The test measures the
+    // first read also, to show that the measurement can see the array that it makes.
+    [Test]
+    public async Task ASecondReadOfTheItemsMakesNoNewArray()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        for (int v = 1; v <= 100; v++)
+        {
+            source.Send(v);
+        }
+
+        // A first list, read in full, so that the code of a read is ready before the measurement.
+        _ = SumByIndex(status.Items.Sample());
+
+        // A new value makes a new list, which no code read.
+        source.Send(101);
+
+        IReadOnlyList<AsyncItem<int>> list = status.Items.Sample();
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        long first = SumByIndex(list);
+        long firstBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        before = GC.GetAllocatedBytesForCurrentThread();
+        long second = SumByIndex(list);
+        long secondBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(firstBytes).IsGreaterThan(0).Because("the first read makes the array of the items");
+        await Assert.That(secondBytes).IsEqualTo(0).Because("the second read uses the same array");
+        await Assert.That(second).IsEqualTo(first);
+
+        status.Dispose();
+    }
+
+    private static long SumByIndex(IReadOnlyList<AsyncItem<int>> items)
+    {
+        long sum = 0;
+
+        // ReSharper disable once ForCanBeConvertedToForeach - The test reads each item by its index.
+        // ReSharper disable once LoopCanBeConvertedToQuery - The test reads each item by its index.
+        for (int i = 0; i < items.Count; i++)
+        {
+            sum += items[i].Value;
+        }
+
+        return sum;
+    }
+
+    // A foreach on the snapshot type uses the struct enumerator, thus it allocates nothing. The
+    // read before the measurement makes the array of the items.
+    [Test]
+    public async Task AForeachOnTheSnapshotTypeAllocatesNothing()
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        for (int v = 1; v <= 100; v++)
+        {
+            source.Send(v);
+        }
+
+        AsyncItemsSnapshot<int> snapshot = status.Items.Sample();
+        long byIndex = SumByIndex(snapshot);
+
+        // A first foreach, so that the code of the loop is ready before the measurement.
+        _ = SumByForeach(snapshot);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        long byForeach = SumByForeach(snapshot);
+        long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(bytes).IsEqualTo(0).Because("the enumerator of the snapshot type is a struct");
+        await Assert.That(byForeach).IsEqualTo(byIndex);
+
+        status.Dispose();
+    }
+
+    private static long SumByForeach(AsyncItemsSnapshot<int> items)
+    {
+        long sum = 0;
+
+        // ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator - The test reads through the struct enumerator of the type.
+        foreach (AsyncItem<int> item in items)
+        {
+            sum += item.Value;
+        }
+
+        return sum;
+    }
+#endif
+
+    // The snapshot gives the same items in the same sequence as the copy it replaces gave, through
+    // each path that Read uses. The cases: an empty queue, one item, a deep queue, and the queue
+    // after items end and leave it. A bad index throws as the index of an array through
+    // IReadOnlyList does, through the snapshot type and through that interface.
+    [Test]
+    public async Task TheItemsGiveEachItemInTheSequenceOfTheQueue()
+    {
+        const int depth = 100;
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v);
+
+        await Assert.That(Read(status.Items.Sample())).IsEmpty();
+
+        source.Send(1);
+
+        await Assert.That(Read(status.Items.Sample())).IsEquivalentTo(
+            expected: [(1, AsyncItemStatus.Running)],
+            ordering: CollectionOrdering.Matching);
+
+        for (int v = 2; v <= depth; v++)
+        {
+            source.Send(v);
+        }
+
+        List<(int, AsyncItemStatus)> deep = [(1, AsyncItemStatus.Running)];
+
+        for (int v = 2; v <= depth; v++)
+        {
+            deep.Add((v, AsyncItemStatus.Queued));
+        }
+
+        await Assert.That(Read(status.Items.Sample()))
+            .IsEquivalentTo(expected: deep, ordering: CollectionOrdering.Matching);
+
+        // 1 and 2 end. Each end removes its item, and promotes the next one.
+        op.Release(input: 1, result: 1);
+        TestUtil.WaitUntil(() => op.HasStarted(2));
+        op.Release(input: 2, result: 2);
+        TestUtil.WaitUntil(() => op.HasStarted(3));
+
+        List<(int, AsyncItemStatus)> afterTheEnds = [(3, AsyncItemStatus.Running)];
+
+        for (int v = 4; v <= depth; v++)
+        {
+            afterTheEnds.Add((v, AsyncItemStatus.Queued));
+        }
+
+        AsyncItemsSnapshot<int> items = status.Items.Sample();
+#pragma warning disable CA1859 // The test reads through the interface on purpose.
+        IReadOnlyList<AsyncItem<int>> list = items;
+#pragma warning restore CA1859 // The test reads through the interface on purpose.
+
+        await Assert.That(Read(items)).IsEquivalentTo(expected: afterTheEnds, ordering: CollectionOrdering.Matching);
+        await Assert.That(() => items[-1]).ThrowsExactly<ArgumentOutOfRangeException>();
+        await Assert.That(() => items[items.Count]).ThrowsExactly<ArgumentOutOfRangeException>();
+        await Assert.That(() => list[-1]).ThrowsExactly<ArgumentOutOfRangeException>();
+        await Assert.That(() => list[list.Count]).ThrowsExactly<ArgumentOutOfRangeException>();
+
+        status.Dispose();
+    }
+
     // A disposal in a callback posts its trigger, and the trigger records the cancel of each item.
     // The start of an item waits for the release of the lock, and reads that record again before it
     // calls the operation. Here, one transaction admits an item and then disposes of the pipeline in
@@ -1846,6 +2166,49 @@ public sealed class MapAsyncImplTests
         await Assert.That(reported[0]).IsSameReferenceAs(fault);
     }
 
+    // Reads a snapshot through each path: the index and a foreach on the snapshot type, and the
+    // index and an enumeration through IReadOnlyList. Fails where two paths disagree, or where
+    // Count does not agree with them.
+    private static List<(int Value, AsyncItemStatus Status)> Read(AsyncItemsSnapshot<int> items)
+    {
+        List<(int Value, AsyncItemStatus Status)> byIndex = [];
+
+        // ReSharper disable once ForCanBeConvertedToForeach - This reads each item by its index.
+        // ReSharper disable once LoopCanBeConvertedToQuery - This reads each item by its index.
+        for (int i = 0; i < items.Count; i++)
+        {
+            byIndex.Add((items[i].Value, items[i].Status));
+        }
+
+        List<(int Value, AsyncItemStatus Status)> byForeach = [];
+
+        // ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator - This reads through the struct enumerator of the type.
+        foreach (AsyncItem<int> item in items)
+        {
+            byForeach.Add((item.Value, item.Status));
+        }
+
+#pragma warning disable CA1859 // The test reads through the interface on purpose.
+        IReadOnlyList<AsyncItem<int>> list = items;
+#pragma warning restore CA1859 // The test reads through the interface on purpose.
+        List<(int Value, AsyncItemStatus Status)> byListIndex = [];
+
+        // ReSharper disable once ForCanBeConvertedToForeach - This reads each item by its index.
+        // ReSharper disable once LoopCanBeConvertedToQuery - This reads each item by its index.
+        for (int i = 0; i < list.Count; i++)
+        {
+            byListIndex.Add((list[i].Value, list[i].Status));
+        }
+
+        List<(int Value, AsyncItemStatus Status)> byEnumeration = [.. list.Select(static i => (i.Value, i.Status))];
+
+        return byIndex.SequenceEqual(byForeach)
+            && byIndex.SequenceEqual(byListIndex)
+            && byIndex.SequenceEqual(byEnumeration)
+                ? byIndex
+                : throw new InvalidOperationException("The paths that read the items disagree.");
+    }
+
     private static List<(int Value, AsyncItemStatus Status)> Snapshot(AsyncMapStatus<int> status) =>
         [.. status.Items.Sample().Select(static i => (i.Value, i.Status))];
 
@@ -1919,6 +2282,44 @@ public sealed class MapAsyncImplTests
             IReadOnlyList<AsyncTrackedItem<int>> tracked)
         {
             this.items.Add(incoming);
+
+            return new AsyncStrategyStep<int, object?>(state: state, start: [new AsyncToStart<int>(incoming)]);
+        }
+
+        protected internal override AsyncStrategyResult<int, object?> OnCompleted(
+            object? state,
+            AsyncQueuedItem<int> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, publish: true, next: AsyncToStart<int>.None);
+
+        protected internal override AsyncStrategyStep<int, object?> OnCanceled(
+            object? state,
+            IReadOnlyList<AsyncQueuedItem<int>> canceled,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, start: AsyncToStart<int>.None);
+    }
+
+    /// <summary>
+    ///     Starts each item immediately and keeps a weak reference to each item that it
+    ///     admits. Thus, a test can see whether other code keeps an item.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class WeakItemsStrategy : AsyncConcurrencyStrategy<int, object?>
+    {
+        // This state is global and is not the state of one MapAsync call, as in RecordingStrategy.
+        private readonly List<WeakReference> items = [];
+
+        public WeakReference FirstItem => this.items[0];
+
+        protected override object? CreateState() => null;
+
+        protected internal override AsyncStrategyStep<int, object?> Admit(
+            object? state,
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
+        {
+            this.items.Add(new WeakReference(incoming));
 
             return new AsyncStrategyStep<int, object?>(state: state, start: [new AsyncToStart<int>(incoming)]);
         }

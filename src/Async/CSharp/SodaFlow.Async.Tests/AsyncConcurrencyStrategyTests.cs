@@ -280,7 +280,7 @@ public sealed class AsyncConcurrencyStrategyTests
         // no value here holds such an item, and a cancellation starts nothing.
         // The closure below reads this cell and not `status`. A closure over `status` reads it after
         // the disposal at the end of this method.
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         IListener probe =
             Transaction.Run(() =>
@@ -353,7 +353,7 @@ public sealed class AsyncConcurrencyStrategyTests
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.SwitchLatest());
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -398,7 +398,7 @@ public sealed class AsyncConcurrencyStrategyTests
                 operation: op.Operation,
                 strategy: AsyncConcurrencyStrategy.SwitchLatest());
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         TestUtil.WaitUntil(() => op.HasStarted("a"));
@@ -533,7 +533,7 @@ public sealed class AsyncConcurrencyStrategyTests
                 operation: op.Operation,
                 strategy: new CancelAndStartStrategy());
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         Task<string> task = status.Execute("a");
 
@@ -616,7 +616,7 @@ public sealed class AsyncConcurrencyStrategyTests
                 strategy: strategy,
                 cancelAll: cancelAll);
 
-        Cell<IReadOnlyList<AsyncItem<string>>> tracked = status.Items;
+        Cell<AsyncItemsSnapshot<string>> tracked = status.Items;
 
         source.Send("a");
         source.Send("b");

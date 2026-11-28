@@ -1,8 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
@@ -85,6 +88,125 @@ public readonly struct AsyncItem<TInput>
 }
 
 /// <summary>
+///     The items that a MapAsync pipeline tracks at one update, Queued or Running.
+///     <see cref="AsyncMapStatus{TInput}.Items" /> gives one snapshot for each update.
+/// </summary>
+/// <remarks>
+///     <para>
+///         The snapshot makes its array of items at the first read that needs them,
+///         and keeps that array for each read after it. Thus, an update that no code
+///         reads costs no copy of the queue.
+///     </para>
+///     <para>
+///         Read the items through this type where you can. A foreach on a variable of
+///         this type uses a struct enumerator: it allocates nothing, and it costs what a
+///         foreach on an array costs. The index and <see cref="Count" /> do not go
+///         through an interface. A read through <see cref="IReadOnlyList{T}" /> gives
+///         the same items, but each call goes through the interface, and a foreach
+///         allocates an enumerator.
+///     </para>
+///     <para>
+///         The contents of a snapshot do not change after its update. A snapshot that
+///         you keep after a read holds only its items. One that you keep and never read
+///         also holds the internal records of the pipeline at that update.
+///     </para>
+/// </remarks>
+/// <typeparam name="TInput">The type of the input values.</typeparam>
+[PublicAPI]
+// ReSharper disable once InheritdocConsiderUsage
+public abstract class AsyncItemsSnapshot<TInput> : IReadOnlyList<AsyncItem<TInput>>
+{
+    // The items, from the first read that needs them. A read uses a plain read of this field,
+    // and not Volatile.Read. That is safe:
+    // - The exchange in Build puts the array here with a full fence, and the array does not
+    //   change after that. .NET does not move a read through a reference before the read of
+    //   that reference. Thus, a reader that gets the array also gets its items.
+    // - A reader that gets null calls Build. Build makes an equal array, or gives the array
+    //   that another build kept. Two threads can make an array at the same time. The exchange
+    //   keeps only the first array, and each reader then uses that one.
+    private AsyncItem<TInput>[]? items;
+
+    // private protected, and not protected: the execution manager in this assembly makes the
+    // one subclass. External code cannot make a snapshot.
+    private protected AsyncItemsSnapshot()
+    {
+    }
+
+    /// <summary>The number of items. This makes no copy of the items.</summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    public int Count => this.items?.Length ?? this.CountBeforeTheBuild();
+
+    /// <summary>The item at <paramref name="index" />.</summary>
+    /// <param name="index">The position of the item, from 0.</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     <paramref name="index" /> is not a position in the snapshot. The index of an
+    ///     array through <see cref="IReadOnlyList{T}" /> throws the same exception.
+    /// </exception>
+    // ReSharper disable once InheritdocConsiderUsage
+    public AsyncItem<TInput> this[int index]
+    {
+        get
+        {
+            AsyncItem<TInput>[] all = this.items ?? this.Build();
+
+            return (uint)index < (uint)all.Length
+                ? all[index]
+                : throw new ArgumentOutOfRangeException(paramName: nameof(index));
+        }
+    }
+
+    /// <summary>
+    ///     Gives an enumerator of the items. It is a struct, thus a foreach on this
+    ///     type allocates nothing.
+    /// </summary>
+    /// <returns>The enumerator.</returns>
+    public ImmutableArray<AsyncItem<TInput>>.Enumerator GetEnumerator() =>
+        ImmutableCollectionsMarshal.AsImmutableArray(this.items ?? this.Build()).GetEnumerator();
+
+    IEnumerator<AsyncItem<TInput>> IEnumerable<AsyncItem<TInput>>.GetEnumerator() =>
+        ((IEnumerable<AsyncItem<TInput>>)(this.items ?? this.Build())).GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<AsyncItem<TInput>>)this).GetEnumerator();
+
+    // The count of the source before the first build. Null after the release of the source.
+    private protected abstract int? CountOfTheSource();
+
+    // Makes the items from the source. Null after the release of the source.
+    private protected abstract AsyncItem<TInput>[]? MakeItems();
+
+    // Releases the source. Build calls this only after it set the items.
+    private protected abstract void ReleaseTheSource();
+
+    // Count before the first build. Where the source is gone, a build already set the items.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private int CountBeforeTheBuild() =>
+        // ReSharper disable once NullableWarningSuppressionIsUsed - A build sets the items before it releases the source.
+        this.CountOfTheSource() ?? Volatile.Read(ref this.items)!.Length;
+
+    // Not inlined. Thus, the read of the field in the index and in GetEnumerator stays small
+    // enough to inline into the caller, and only the first read calls this.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private AsyncItem<TInput>[] Build()
+    {
+        if (this.MakeItems() is not { } built)
+        {
+            // Another build kept its array, and then released the source.
+            // ReSharper disable once NullableWarningSuppressionIsUsed - A build sets the items before it releases the source.
+            return Volatile.Read(ref this.items)!;
+        }
+
+        AsyncItem<TInput>[] kept =
+            Interlocked.CompareExchange(location1: ref this.items, value: built, comparand: null) ?? built;
+
+        // The items are in place. Release the source, thus a snapshot that a caller keeps does
+        // not keep the internal records of the pipeline.
+        this.ReleaseTheSource();
+
+        return kept;
+    }
+}
+
+/// <summary>
 ///     The answer of a <see cref="MapAsyncOperation{TInput,TResult}" />: a result,
 ///     or a function that makes one. The pipeline calls such a function in the
 ///     transaction that sends the result. Make one with
@@ -163,7 +285,7 @@ public class AsyncMapStatus<TInput> : AsyncMapStatus
     // and it is in this assembly. This prevents a subclass by external code, as the base does.
     private protected AsyncMapStatus(
         Cell<bool> isRunning,
-        Cell<IReadOnlyList<AsyncItem<TInput>>> items,
+        Cell<AsyncItemsSnapshot<TInput>> items,
         Action dispose)
         : base(isRunning: isRunning, dispose: dispose) =>
         this.Items = items;
@@ -171,6 +293,7 @@ public class AsyncMapStatus<TInput> : AsyncMapStatus
     /// <summary>
     ///     Each value that the pipeline tracks now, Queued or Running. The sequence is
     ///     not specified, but each update is one snapshot that agrees with itself.
+    ///     See <see cref="AsyncItemsSnapshot{TInput}" /> for the cost of a read.
     /// </summary>
     /// <remarks>
     ///     An item enters this list in the transaction of the value that the pipeline
@@ -179,7 +302,7 @@ public class AsyncMapStatus<TInput> : AsyncMapStatus
     ///     cancellation stream. A Queued item leaves immediately after that
     ///     transaction. A Running item leaves when its operation ends.
     /// </remarks>
-    public Cell<IReadOnlyList<AsyncItem<TInput>>> Items { get; }
+    public Cell<AsyncItemsSnapshot<TInput>> Items { get; }
 }
 
 /// <summary>
@@ -209,7 +332,7 @@ public sealed class AsyncMapStatus<TInput, TResult> : AsyncMapStatus<TInput>
 
     internal AsyncMapStatus(
         Cell<bool> isRunning,
-        Cell<IReadOnlyList<AsyncItem<TInput>>> items,
+        Cell<AsyncItemsSnapshot<TInput>> items,
         Action dispose,
         Func<TInput, Task<TResult>> execute,
         Func<Cell<TInput>, Task<TResult>> executeCell,
@@ -2615,11 +2738,10 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             trackedCell.MapImpl(static entries =>
                 Array.Exists(array: entries, match: static e => e.Status == AsyncItemStatus.Running));
 
-        Cell<IReadOnlyList<AsyncItem<TInput>>> items =
-            trackedCell.MapImpl<IReadOnlyList<AsyncItem<TInput>>>(static entries =>
-                Array.ConvertAll(
-                    array: entries,
-                    converter: static e => new AsyncItem<TInput>(value: e.Value, status: e.Status)));
+        // A view of the entry array, and not a copy. Each update of the queue made a new array of
+        // AsyncItem here, also when no code read Items. See ItemsView.
+        Cell<AsyncItemsSnapshot<TInput>> items =
+            trackedCell.MapImpl<AsyncItemsSnapshot<TInput>>(static entries => new ItemsView(entries));
 
         return new AsyncMapStatus<TInput, TResult>(
             isRunning: isRunning,
@@ -4031,6 +4153,38 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             this.entries.Select(static entry => entry.Tracked).GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+    }
+
+    /// <summary>
+    ///     The queue of the pipeline, as a caller reads it through Items. It holds the
+    ///     entry array that the tracked cell has now, until the first build of the items.
+    ///     Then it releases the entry array. Thus, a snapshot that a caller keeps after a
+    ///     read holds only its items, and not the entries, with their cancellation
+    ///     sources and completions. See <see cref="AsyncItemsSnapshot{TInput}" />.
+    /// </summary>
+    /// <remarks>
+    ///     The entry array is immutable after the transaction that made it, as for
+    ///     <see cref="TrackedItems" />. Thus, a snapshot that a caller got earlier keeps
+    ///     its contents after a subsequent update.
+    /// </remarks>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class ItemsView(in Entry[] entries) : AsyncItemsSnapshot<TInput>
+    {
+        // The entry array, until the first build. The build sets the items first and then
+        // releases this. Volatile.Read below, thus a read of the items that comes after a read
+        // of null here finds them.
+        private Entry[]? entries = entries;
+
+        private protected override int? CountOfTheSource() => Volatile.Read(ref this.entries)?.Length;
+
+        private protected override AsyncItem<TInput>[]? MakeItems() =>
+            Volatile.Read(ref this.entries) is { } source
+                ? Array.ConvertAll(
+                    array: source,
+                    converter: static entry => new AsyncItem<TInput>(value: entry.Value, status: entry.Status))
+                : null;
+
+        private protected override void ReleaseTheSource() => Volatile.Write(location: ref this.entries, value: null);
     }
 
     private sealed class Mutation(in Guid[] remove, in Guid[] promote, in Entry[] add)
