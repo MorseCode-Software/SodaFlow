@@ -33,7 +33,10 @@ internal sealed partial class App
     {
         base.OnStartup(e);
 
-        this.viewModel = SearchViewModel.Create(new BindableFactory(SynchronizationContextBindingScheduler.Capture()));
+        this.viewModel =
+            SearchViewModel.Create(
+                bindableFactory: new BindableFactory(SynchronizationContextBindingScheduler.Capture()),
+                search: Catalog.SearchAsync);
 
         MainWindow window = new() { DataContext = this.viewModel };
 

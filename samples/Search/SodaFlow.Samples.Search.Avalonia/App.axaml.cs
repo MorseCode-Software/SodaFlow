@@ -34,7 +34,9 @@ internal sealed class App : Application
         if (this.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             ISearchViewModel viewModel =
-                SearchViewModel.Create(new BindableFactory(SynchronizationContextBindingScheduler.Capture()));
+                SearchViewModel.Create(
+                    bindableFactory: new BindableFactory(SynchronizationContextBindingScheduler.Capture()),
+                    search: Catalog.SearchAsync);
 
             // This code assigns the window and does not show it. The lifetime shows this window
             // after this method returns, thus the window has its data context before it is on

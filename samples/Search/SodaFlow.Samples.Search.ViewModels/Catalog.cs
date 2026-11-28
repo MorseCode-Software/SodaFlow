@@ -12,7 +12,12 @@ namespace SodaFlow.Samples.Search.ViewModels;
 ///     obeys its cancellation token, thus a cancellation stops the work and does
 ///     not only discard the result.
 /// </summary>
-internal static class Catalog
+/// <remarks>
+///     The view model does not call this. The startup of each head gives
+///     <see cref="SearchAsync" /> to <see cref="SearchViewModel.Create" />, thus a
+///     different source of entries needs no change in the view model.
+/// </remarks>
+public static class Catalog
 {
     private static readonly string[] Entries =
     [
