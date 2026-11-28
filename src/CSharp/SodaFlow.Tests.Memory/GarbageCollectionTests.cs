@@ -17,11 +17,9 @@ namespace SodaFlow.Tests.Memory;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The tests in <see cref="StreamTests" /> cover the same ground but count
-///         live objects with dotMemory, so they are all <c>[Ignore]</c>d and never
-///         run in CI. These assert the same invariants using only weak references
-///         and the node's own listener set, so they actually guard the cleanup
-///         machinery on each build.
+///         These tests assert the lifetime of streams, listeners, and nodes with
+///         weak references and the listener set of each node. Thus, they need no
+///         profiler, and they examine the cleanup on each build.
 ///     </para>
 ///     <para>
 ///         Two things are deliberately not asserted. First, that a node stays

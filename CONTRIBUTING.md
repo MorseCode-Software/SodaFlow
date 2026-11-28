@@ -37,11 +37,8 @@ public surface.
 ### Verifying it
 
 These invariants are enforced by `SodaFlow.Tests.Memory`, which asserts them using weak references, the listener set
-of the node, and the registry count of the manager, with no profiler required for most of them. If you change cleanup
-behavior, those tests are the specification.
-
-A separate set in the same project counts live objects with dotMemory. Those carry `[Skip("Requires dotMemory.")]`, so
-every run skips them, CI included. Remove the attribute locally to run one with dotMemory installed.
+of the node, and the registry count of the manager, with no profiler. If you change cleanup behavior, those tests are
+the specification.
 
 ## Conformance with the denotational semantics
 
