@@ -446,8 +446,8 @@ internal delegate MapAsyncDeliveryExceptionBase MapAsyncDeliveryExceptionFactory
 
 /// <summary>
 ///     The cancellation source of one tracked item, with a record of a cancel that
-///     committed. The two <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" />
-///     instances of one admitted value share one source.
+///     committed. The <see cref="AsyncMapBase.AsyncQueuedItem{TInput}" /> of one
+///     admitted value holds it.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -600,10 +600,8 @@ public abstract class AsyncMapBase
     ///     <see cref="AsyncConcurrencyStrategy{TInput,TState}.Admit" /> call. A
     ///     strategy always receives the same instance that it got before. Thus,
     ///     ReferenceEquals, or ==, is sufficient to identify an admitted value in its
-    ///     state. An equal <see cref="Id" /> gives the same answer, and it is also
-    ///     correct across the different instances that the execution engine keeps for
-    ///     each admitted value. For that cause the SwitchLatest strategy in the
-    ///     library compares the Id.
+    ///     state. An equal <see cref="Id" /> gives the same answer. The SwitchLatest
+    ///     strategy in the library compares the Id.
     /// </summary>
     [PublicAPI]
     protected internal sealed class AsyncQueuedItem<TInput>
@@ -629,12 +627,8 @@ public abstract class AsyncMapBase
         }
 
         /// <summary>
-        ///     The identity of this item. The pipeline assigns it at the admission, and it
-        ///     is the same across the different <see cref="AsyncQueuedItem{TInput}" />
-        ///     instances that the execution engine keeps for one admitted value. One
-        ///     instance has the type for the strategy, and the other has the type for the
-        ///     public <see cref="AsyncItem{TInput}" /> view. An equal ID means the same
-        ///     tracked value.
+        ///     The identity of this item. The pipeline assigns it at the admission, and no
+        ///     other admitted value has it. An equal ID means the same tracked value.
         /// </summary>
         public Guid Id { get; }
 
@@ -644,7 +638,8 @@ public abstract class AsyncMapBase
         /// <summary>
         ///     The source of the cancellation of this item, with the record of a cancel
         ///     that committed. <see cref="Cancel" /> cancels this source, and the
-        ///     execution engine links it into the token of the operation. It is
+        ///     execution engine gives its token to the operation. A token from the
+        ///     strategy is linked with it. It is
         ///     internal, because a strategy cancels through <see cref="Cancel" /> and
         ///     does not use this field.
         /// </summary>
@@ -2431,7 +2426,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         StreamInternal.CreateSinkImpl<Entry[]>(static (_, last) => last);
 
     // Report, as one delegate for the life of this manager. Each item holds it for a cancel that
-    // waits for a commit. See AsyncQueuedItem.Cancel.
+    // waits for a commit. See AsyncQueuedItem.Cancel. FireAndForget gives it to its continuation.
     private readonly Action<Exception> reportCancelFailure;
 
     private readonly StreamSink<TResult> results;
@@ -2593,7 +2588,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                             new(collection: pair.ToCancel, comparer: EqualityComparer<TInput>.Default);
 
                         this.CancelAfterCommit(
-                            entries: Array.FindAll(array: pair.Entries, match: e => targets.Contains(e.Item.Value)),
+                            entries: Array.FindAll(array: pair.Entries, match: e => targets.Contains(e.Value)),
                             trackedCell: trackedCell);
                     });
         }
@@ -2624,7 +2619,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             trackedCell.MapImpl<IReadOnlyList<AsyncItem<TInput>>>(static entries =>
                 Array.ConvertAll(
                     array: entries,
-                    converter: static e => new AsyncItem<TInput>(value: e.Item.Value, status: e.Status)));
+                    converter: static e => new AsyncItem<TInput>(value: e.Value, status: e.Status)));
 
         return new AsyncMapStatus<TInput, TResult>(
             isRunning: isRunning,
@@ -2694,11 +2689,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
                             Entry newEntry =
                                 new(
-                                    item: new AsyncQueuedItem<TInput>(
-                                        value: o,
-                                        id: newEntryId,
-                                        cancellation: cancellation,
-                                        reportCancelFailure: this.reportCancelFailure),
                                     tracked: new AsyncTrackedItem<TStrategyInput>(
                                         item: incoming,
                                         status: AsyncItemStatus.Queued),
@@ -2787,20 +2777,32 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     // This is the one limit in this class where the code starts a Task and does not wait for it.
     // StartOperation catches each exception and gives it to Report, which never throws. Thus, its
     // Task cannot fault. This continuation is a guard against a change that breaks that rule. It
-    // reads the exception, which marks the Task as observed, and it gives the exception to Report.
+    // reads the exception, which marks the Task as observed, and it gives the exception to report.
+    //
+    // A Task that ran to completion cannot fault, thus it gets no continuation. That is the usual
+    // condition when the operation ends before its first await. A Task that faulted before this
+    // call gets the continuation, which then runs at once. A test calls this method directly with
+    // each kind of Task, because StartOperation never faults.
     //
     // Before, this code threw a fault again in the continuation. That made an unobserved task
     // exception, which ends the process on .NET Framework where ThrowUnobservedTaskExceptions is
     // on.
-    private void FireAndForget(Task task) =>
+    internal static void FireAndForget(Task task, Action<Exception> report)
+    {
+        if (task.Status == TaskStatus.RanToCompletion)
+        {
+            return;
+        }
+
         task.ContinueWith(
             // ReSharper disable once NullableWarningSuppressionIsUsed - This continuation has
             // TaskContinuationOptions.OnlyOnFaulted set, so the task's Exception property will be non-null.
-            continuationAction: static (t, state) => (state as AsyncMapExecutionManager<TInput, TResult, TStrategyInput>)?.Report(t.Exception!.GetBaseException()),
-            state: this,
+            continuationAction: static (t, state) => (state as Action<Exception>)?.Invoke(t.Exception!.GetBaseException()),
+            state: report,
             cancellationToken: CancellationToken.None,
             continuationOptions: TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             scheduler: TaskScheduler.Default);
+    }
 
     // Gives an exception with no caller to handleException. A throw from that action is a defect
     // of the caller. It goes to the thread pool, where it ends the process, as a throw from the
@@ -2912,7 +2914,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             // ReSharper disable once LoopCanBePartlyConvertedToQuery - Done for performance reasons.
             foreach (Entry e in list)
             {
-                if (!remove.Contains(e.Item.Id))
+                if (!remove.Contains(e.Id))
                 {
                     kept[count++] = e;
                 }
@@ -3172,28 +3174,40 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         }
 
         // This code defers only the call of the operation. The transaction that promoted the
-        // entry gave it the Running status synchronously. Post prevents the start of asynchronous work,
-        // which is a side effect, in the transaction that processes the event. The post then holds
-        // the call until the transaction lock is free. A posted action runs in a transaction, and
-        // the code of an operation before its first await must not run with the lock. Code there
-        // that blocks stops each thread from opening a transaction, and code that waits for a
-        // transaction on a different thread never ends. AfterReleaseImpl runs the call on this
-        // thread, thus the operation starts inline, as before, and not on the thread pool. The
-        // trampoline keeps the sequence of the starts and the flushes on this thread. See
-        // AsyncMapTrampoline. StartOperation is a usual async Task method. FireAndForget is the one
-        // position where this code does not await its Task, and that is explicit and not a discard
-        // in an async void method.
-        TransactionInternal.PostImpl(() =>
-            TransactionInternal.AfterReleaseImpl(() =>
-                AsyncMapTrampoline.Run(
-                    step: static state =>
-                        state.Self.FireAndForget(
-                            state.Self.StartOperation(
-                                toStart: state.ToStart,
-                                value: state.Value,
-                                trackedCell: state.TrackedCell)),
-                    state: (Self: this, ToStart: toStart, Value: value, TrackedCell: trackedCell),
-                    report: static (state, failure) => state.Self.Report(failure))));
+        // entry gave it the Running status synchronously. An after-last action prevents the start of
+        // asynchronous work, which is a side effect, in the transaction that processes the event. It
+        // runs only when the transaction commits, and a transaction that fails runs its discard,
+        // which does nothing here. The code of an operation before its first await must not run with
+        // the lock. Code there that blocks stops each thread from opening a transaction, and code that
+        // waits for a transaction on a different thread never ends. Thus, the after-last action gives
+        // the call to AfterReleaseImpl, which holds it until the transaction lock is free.
+        // AfterReleaseImpl runs the call on this thread, thus the operation starts inline, as before,
+        // and not on the thread pool. The trampoline keeps the sequence of the starts and the flushes
+        // on this thread. See AsyncMapTrampoline. StartOperation is a usual async Task method.
+        // FireAndForget is the one position where this code does not await its Task, and that is
+        // explicit and not a discard in an async void method.
+        //
+        // Before, a posted action did this. A post runs in a child transaction of its own, after the
+        // after-last actions, and that transaction cost objects for each item. The start now goes to
+        // AfterReleaseImpl before the posts of this transaction run. A posted disposal records the
+        // cancel of each item in its post, which is before the release. StartOperation reads that
+        // record again before it calls the operation. Thus, an item that this transaction admits
+        // does not start after a disposal that this transaction posts. See
+        // AnItemThatTheTransactionOfAPostedDisposalAdmitsDoesNotStart.
+        TransactionInternal.CurrentTransaction().AfterLast(
+            commit: () =>
+                TransactionInternal.AfterReleaseImpl(() =>
+                    AsyncMapTrampoline.Run(
+                        step: static state =>
+                            FireAndForget(
+                                task: state.Self.StartOperation(
+                                    toStart: state.ToStart,
+                                    value: state.Value,
+                                    trackedCell: state.TrackedCell),
+                                report: state.Self.reportCancelFailure),
+                        state: (Self: this, ToStart: toStart, Value: value, TrackedCell: trackedCell),
+                        report: static (state, failure) => state.Self.Report(failure))),
+            discard: static () => { });
     }
 
     private async Task StartOperation(
@@ -3222,11 +3236,18 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             }
 
             // The operation monitors the token of the strategy, when there is one, such as an
-            // external timeout, and also the cancellation of this item. The two are linked.
-            CancellationTokenSource linked =
-                CancellationTokenSource.CreateLinkedTokenSource(
-                    token1: toStart.StrategyToken,
-                    token2: toStart.Item.Cancellation.Token);
+            // external timeout, and also the cancellation of this item. Where the strategy gives a
+            // token that can cancel, a linked source joins the two. Otherwise, the token of the
+            // item is sufficient, and this code makes no linked source. The library strategies
+            // give no token.
+            CancellationTokenSource? linked =
+                toStart.StrategyToken.CanBeCanceled
+                    ? CancellationTokenSource.CreateLinkedTokenSource(
+                        token1: toStart.StrategyToken,
+                        token2: toStart.Item.Cancellation.Token)
+                    : null;
+
+            CancellationToken token = linked?.Token ?? toStart.Item.Cancellation.Token;
 
             AsyncOutcome<MapAsyncResult<TResult>> pending;
             CancellationToken? tokenToCheck;
@@ -3251,13 +3272,13 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                                     input: state.Value,
                                     resultFactory: ResultFactory<TResult>.Instance,
                                     token: state.Token),
-                            state: (Operation: this.operation, Value: value, linked.Token))
+                            state: (Operation: this.operation, Value: value, Token: token))
                         .ConfigureAwait(false);
 
                 pending = AsyncOutcome<MapAsyncResult<TResult>>.Succeeded(operationResult);
-                tokenToCheck = linked.Token;
+                tokenToCheck = token;
             }
-            catch (OperationCanceledException) when (linked.IsCancellationRequested)
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
                 pending = AsyncOutcome<MapAsyncResult<TResult>>.Canceled();
                 tokenToCheck = null;
@@ -3265,7 +3286,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             catch (Exception ex)
             {
                 pending = AsyncOutcome<MapAsyncResult<TResult>>.Failed(ex);
-                tokenToCheck = linked.Token;
+                tokenToCheck = token;
             }
 
             try
@@ -3278,7 +3299,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
             }
             finally
             {
-                linked.Dispose();
+                linked?.Dispose();
             }
         }
         catch (Exception e)
@@ -3341,7 +3362,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
         foreach (Entry e in entries)
         {
-            e.Item.Cancellation.CommitCancel();
+            e.Cancellation.CommitCancel();
 
             if (e.Status != AsyncItemStatus.Queued)
             {
@@ -3384,7 +3405,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
                         return UnitInternal.Value;
                     },
-                    state: e.Item.Cancellation);
+                    state: e.Cancellation);
             }
             catch (Exception failure)
             {
@@ -3961,7 +3982,6 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
     private sealed class Entry(
         in TInput value,
-        in AsyncQueuedItem<TInput> item,
         in AsyncTrackedItem<TStrategyInput> tracked,
         in ExecuteCompletion<TResult>? completion)
     {
@@ -3969,20 +3989,25 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         // from the source stream. Flush answers it at the end of this item.
         public ExecuteCompletion<TResult>? Completion { get; } = completion;
 
+        // The initial TInput of this item. The item of the strategy holds the converted value.
         public TInput Value { get; } = value;
 
-        public AsyncQueuedItem<TInput> Item { get; } = item;
-
-        // The same item in the types of the strategy, with its status. This is what the queue
-        // that Admit and OnCompleted read is made of, and the status lives here alone.
+        // The item in the types of the strategy, with its status. This is what the queue that
+        // Admit and OnCompleted read is made of, and the status lives here alone. The entry has no
+        // item of its own in TInput: the id and the cancellation source come from this item, and
+        // the value from Value. Before, a second item held the same three, and cost an object for
+        // each admitted value.
         public AsyncTrackedItem<TStrategyInput> Tracked { get; } = tracked;
+
+        public Guid Id => this.Tracked.Item.Id;
+
+        public AsyncItemCancellationSource Cancellation => this.Tracked.Item.Cancellation;
 
         public AsyncItemStatus Status => this.Tracked.Status;
 
         public Entry WithStatus(AsyncItemStatus status) =>
             new(
                 value: this.Value,
-                item: this.Item,
                 tracked: this.Tracked.WithStatus(status),
                 completion: this.Completion);
     }
@@ -4040,7 +4065,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
             for (int i = 0; i < entries.Length; i++)
             {
-                this.positions[entries[i].Item.Id] = i;
+                this.positions[entries[i].Id] = i;
             }
         }
 
@@ -4056,7 +4081,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
 
             for (int i = 0; i < this.entries.Length; i++)
             {
-                if (this.entries[i].Item.Id == id)
+                if (this.entries[i].Id == id)
                 {
                     return i;
                 }

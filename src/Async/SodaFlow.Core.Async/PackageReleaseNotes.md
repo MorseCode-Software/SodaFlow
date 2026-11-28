@@ -54,6 +54,19 @@ more than a few items now builds one dictionary or set and looks each item up in
 the queue directly and allocates nothing, so the same cancellation takes 271 us and 543 us. AsyncQueueBenchmarks in
 SodaFlow.Benchmarks measures it. Item ids are still Guids, so nothing about AsyncQueuedItem changes.
 
+Each value that MapAsync admits allocates less: 6,160 bytes where it allocated 6,736, measured on .NET 10 with an
+operation that returns a Task that has already completed, for the Parallel strategy and the Queue strategy alike. Four
+costs go. The pipeline makes a linked cancellation source for the operation only when the strategy gives a token of its
+own, where it made one for every item. A start that has already completed gets no continuation to watch for a fault;
+one that has not still does, so a fault still reaches handleException. An item starts from an action that runs when
+the transaction that promoted it commits, where a posted action opened a transaction of its own for each start. And the
+queue keeps one copy of each item, where it kept two. The time of an admission does not change.
+
+One thing you can see follows from the first. When the strategy gives no token, which is so for each strategy in the
+library, the operation gets the item's own token. An exception from a callback registered on that token now reaches
+handleException in one AggregateException, where the linked source wrapped it in a second one. Flatten gives the same
+exceptions as before.
+
 Fixed: a listener that threw while the pipeline delivered an outcome could lose the result, blame the operation, and
 stop the pipeline. A delivery is one transaction that sends the result or the error and edits the queue, but it also
 completed the Execute task and disposed the item's cancellation source, and a listener that threw failed the transaction

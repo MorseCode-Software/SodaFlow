@@ -463,14 +463,14 @@ public sealed class AsyncConcurrencyStrategyTests
 
         await Assert.That(op.IsCanceled("a")).IsTrue();
 
-        // The token of the operation is a linked one. Thus, the throw comes in two
-        // AggregateException objects: one from the linked source, and one from the source of
-        // the item.
+        // The strategy gives no token, thus the operation gets the token of the item. The throw
+        // comes in one AggregateException, from the source of the item. Before, a linked source
+        // wrapped it in a second one.
         Exception only = handled.Single();
 
         await Assert.That(only).IsTypeOf<AggregateException>();
 
-        await Assert.That(((AggregateException)only).Flatten().InnerExceptions.Single())
+        await Assert.That(((AggregateException)only).InnerExceptions.Single())
             .IsSameReferenceAs(fromCallback);
 
         status.Dispose();
