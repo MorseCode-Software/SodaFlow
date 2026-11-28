@@ -27,6 +27,10 @@ namespace SodaFlow.Benchmarks;
 ///         view, the sign of the score changes at each edit. Thus, each edit moves
 ///         the key to the other end of the sort.
 ///     </para>
+///     <para>
+///         The view sorted by name gets the same name at each edit. Thus, no edit
+///         after the first moves the key, as at the usual update of a sorted view.
+///     </para>
 /// </remarks>
 [MemoryDiagnoser]
 [SimpleJob(RuntimeMoniker.Net472)]
@@ -53,12 +57,14 @@ public class PerKeyEditBenchmarks
     private Shape tenKeys = Shape.Build(where: Where.Collection, cellCount: 10, editedKeyCount: 10, listen: true);
     private Shape throughFilter = Shape.Build(where: Where.Filter, cellCount: 1, editedKeyCount: 1, listen: true);
     private Shape throughSort = Shape.Build(where: Where.Sort, cellCount: 1, editedKeyCount: 1, listen: true);
+    private Shape throughNameSort = Shape.Build(where: Where.ByName, cellCount: 1, editedKeyCount: 1, listen: true);
 
     private enum Where
     {
         Collection,
         Filter,
-        Sort
+        Sort,
+        ByName
     }
 
     /// <summary>How many keys have a state cell.</summary>
@@ -74,6 +80,7 @@ public class PerKeyEditBenchmarks
         this.tenKeys = Shape.Build(where: Where.Collection, cellCount: this.CellCount, editedKeyCount: 10, listen: true);
         this.throughFilter = Shape.Build(where: Where.Filter, cellCount: this.CellCount, editedKeyCount: 1, listen: true);
         this.throughSort = Shape.Build(where: Where.Sort, cellCount: this.CellCount, editedKeyCount: 1, listen: true);
+        this.throughNameSort = Shape.Build(where: Where.ByName, cellCount: this.CellCount, editedKeyCount: 1, listen: true);
         this.sortedKeyIsLast = false;
     }
 
@@ -86,6 +93,7 @@ public class PerKeyEditBenchmarks
         this.tenKeys.Release();
         this.throughFilter.Release();
         this.throughSort.Release();
+        this.throughNameSort.Release();
     }
 
     /// <summary>One edit of one key, with a listener on each cell of the collection.</summary>
@@ -113,6 +121,13 @@ public class PerKeyEditBenchmarks
         int score = ++this.nextScore;
         this.throughSort.Edit(this.sortedKeyIsLast ? score : -score);
     }
+
+    /// <summary>
+    ///     One edit of one key, with the cells on a sort by name. The edit changes
+    ///     the score and not the name, thus it does not move the key.
+    /// </summary>
+    [Benchmark(Description = "edit one key, cells through a sort that the edit does not move")]
+    public void EditOneKeyThroughASortItDoesNotMove() => this.throughNameSort.Edit(++this.nextScore);
 
     /// <summary>A collection, the state cells, their listeners if any, and one edit.</summary>
     private sealed class Shape
@@ -184,6 +199,11 @@ public class PerKeyEditBenchmarks
                     {
                         Where.Filter => collection.Filter(static (_, state) => !state.IsFrozen),
                         Where.Sort => collection.SortBy(static (_, state) => state.Score),
+                        Where.ByName => collection.SortBy(
+                            selector: static (_, state) => state.Name,
+                            sortComparer: StringComparer.Ordinal,
+                            keyComparer: Comparer<int>.Default,
+                            isDescending: false),
                         _ => collection
                     };
 
