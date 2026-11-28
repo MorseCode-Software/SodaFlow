@@ -2071,6 +2071,7 @@ public sealed class CollectionViewTests
         edits.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
 
         await Assert.That(projections).IsEqualTo(3);
+
         await Assert.That(mapped.Items.Sample())
             .IsEquivalentTo(expected: ["row 1", "row 2"], ordering: CollectionOrdering.Matching);
     }
@@ -2091,6 +2092,8 @@ public sealed class CollectionViewTests
 
         List<string> evicted = [];
 
+        // The test gives the arguments by position on purpose.
+        // ReSharper disable once ArgumentsStyleAnonymousFunction, ArgumentsStyleLiteral, ArgumentsStyleNamedExpression
         using MappedItems<string> mapped = collection.Map(static key => "row " + key, evicted.Add, 0);
 
         _ = mapped.Items.Sample();
