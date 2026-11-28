@@ -1089,6 +1089,64 @@ public sealed class EitherTests
                     onEighth: static (state, v) => state + v);
         }
     }
+
+    // The short form gives a marked value for each position, and the conversion at the assignment
+    // makes the either. Each marker is a readonly struct, thus the short form allocates nothing, as
+    // the First of the either does. See TheOverloadsWithAStateAllocateNothing in MaybeTests for the
+    // guard. The sum shows that each marker gets to its own position.
+    [Test]
+    [Arguments(10)]
+    public async Task TheShortFormOfEachPositionAllocatesNothing(int value)
+    {
+        const int calls = 1000;
+        long sum = MakeEach(value);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (int i = 0; i < calls; i++)
+        {
+            sum += MakeEach(value);
+        }
+
+        long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(bytes).IsEqualTo(0);
+        await Assert.That(sum).IsEqualTo((calls + 1) * ((8 * value) + 360));
+
+        return;
+
+        static int MakeEach(int value)
+        {
+            Either8 first = Either.First(value);
+            Either8 second = Either.Second(value);
+            Either8 third = Either.Third(value);
+            Either8 fourth = Either.Fourth(value);
+            Either8 fifth = Either.Fifth(value);
+            Either8 sixth = Either.Sixth(value);
+            Either8 seventh = Either.Seventh(value);
+            Either8 eighth = Either.Eighth(value);
+
+            return Read(first)
+                + Read(second)
+                + Read(third)
+                + Read(fourth)
+                + Read(fifth)
+                + Read(sixth)
+                + Read(seventh)
+                + Read(eighth);
+        }
+
+        static int Read(Either8 e) =>
+            e.Match(
+                onFirst: static v => v + 10,
+                onSecond: static v => v + 20,
+                onThird: static v => v + 30,
+                onFourth: static v => v + 40,
+                onFifth: static v => v + 50,
+                onSixth: static v => v + 60,
+                onSeventh: static v => v + 70,
+                onEighth: static v => v + 80);
+    }
 #endif
 
     private static int TestIt2(Either<Test1, Test2> e) => e.Match(onFirst: static _ => 1, onSecond: static _ => 2);
