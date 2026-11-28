@@ -2,18 +2,21 @@ using System;
 using System.Collections.Generic;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
+using SodaFlow.Functional;
 
 namespace SodaFlow.Benchmarks;
 
 /// <summary>
-///     The cost of a send into a sink with one listener, a fan-out of eight
-///     maps, and a chain of eight maps.
+///     The cost of one send through each of several small graphs.
 /// </summary>
 /// <remarks>
-///     Each stream that fires reads the listeners of its node one time. These
+///     The graphs are a sink with one listener, a fan-out of eight maps, a chain
+///     of eight maps, a FilterSome, and a Choose. Each stream that fires reads the listeners of its node one time. These
 ///     benchmarks measure that read with no cell in the graph. The fan-out and
 ///     the chain each fire nine streams for one send. Thus, they show the cost
-///     of each read more clearly than a lift does.
+///     of each read more clearly than a lift does. The FilterSome and the Choose
+///     are one node each. The cost of each above the sink with one listener is
+///     the cost of that node.
 /// </remarks>
 [MemoryDiagnoser]
 [SimpleJob(RuntimeMoniker.Net472)]
@@ -33,6 +36,8 @@ public class StreamSendBenchmarks
     private readonly StreamSink<int> single = Stream.CreateSink<int>();
     private readonly StreamSink<int> fanOut = Stream.CreateSink<int>();
     private readonly StreamSink<int> chain = Stream.CreateSink<int>();
+    private readonly StreamSink<Maybe<int>> filterSome = Stream.CreateSink<Maybe<int>>();
+    private readonly StreamSink<int> choose = Stream.CreateSink<int>();
     private readonly List<IListener> listeners = [];
 
     private int value;
@@ -57,6 +62,8 @@ public class StreamSendBenchmarks
         }
 
         this.listeners.Add(last.Listen(Handler));
+        this.listeners.Add(this.filterSome.FilterSome().Listen(Handler));
+        this.listeners.Add(this.choose.Choose(static x => Maybe.SomeIf(condition: (x & 1) == 0, value: x)).Listen(Handler));
     }
 
     /// <summary>Removes the listeners.</summary>
@@ -82,4 +89,12 @@ public class StreamSendBenchmarks
     /// <summary>Sends a value through a chain of eight maps to one listener.</summary>
     [Benchmark(Description = "send through a chain of eight maps")]
     public void Chain() => this.chain.Send(++this.value);
+
+    /// <summary>Sends a Maybe that holds a value through a FilterSome to one listener.</summary>
+    [Benchmark(Description = "send through a FilterSome")]
+    public void ThroughFilterSome() => this.filterSome.Send(Maybe.Some(++this.value));
+
+    /// <summary>Sends a value through a Choose that gives a value for each second value.</summary>
+    [Benchmark(Description = "send through a Choose, half of them chosen")]
+    public void ThroughChoose() => this.choose.Send(++this.value);
 }

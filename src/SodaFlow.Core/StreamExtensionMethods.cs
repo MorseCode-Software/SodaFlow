@@ -78,17 +78,7 @@ internal static class StreamExtensionMethodsInternal
         return result;
     }
 
-    internal static Stream<T> FilterSomeImpl<T, TMaybe>(this Stream<TMaybe> s, Action<TMaybe, Action<T>> matchSome)
-    {
-        Stream<T> @out = new(s.KeepListenersAlive);
-
-        return @out.UnsafeAttachListener(
-            s.Listen(target: @out.Node, action: new FilterSomeAction<T, TMaybe>(@out: @out, matchSome: matchSome)));
-    }
-
-    // This does not go through FilterSomeImpl. That method knows no optional type, thus it matches
-    // through a delegate that gets a closure for each firing. MaybeInternal is this assembly's own
-    // type, and TryGetValue reads it with no closure.
+    // MaybeInternal is the optional type of this assembly, and TryGetValue reads it with no closure.
     internal static Stream<T> FilterSomeInternal<T>(this Stream<MaybeInternal<T>> s)
     {
         Stream<T> @out = new(s.KeepListenersAlive);
@@ -97,34 +87,23 @@ internal static class StreamExtensionMethodsInternal
     }
 
     /// <summary>
-    ///     Maps and filters in one node. This is <c>s.MapImpl(f).FilterSomeImpl(matchSome)</c>
-    ///     with one stream, one node, and one listener, and not two of each.
+    ///     Maps and filters in one node. This is <c>s.MapImpl(f).FilterSomeInternal()</c>
+    ///     with one stream, one node, and one listener, and not two of each. It allocates
+    ///     nothing for a firing that gives no value.
     /// </summary>
     /// <remarks>
-    ///     A language surface gives its optional type through <paramref name="matchSome" />, as
-    ///     for <see cref="FilterSomeImpl{T,TMaybe}" />.
-    /// </remarks>
-    internal static Stream<TResult> ChooseImpl<T, TResult, TMaybe>(
-        this Stream<T> s,
-        Func<T, TMaybe> f,
-        Action<TMaybe, Action<TResult>> matchSome)
-    {
-        Stream<TResult> @out = new(s.KeepListenersAlive);
-
-        return @out.UnsafeAttachListener(
-            s.Listen(
-                target: @out.Node,
-                action: new ChooseAction<T, TResult, TMaybe>(@out: @out, f: f, matchSome: matchSome)));
-    }
-
-    /// <summary>
-    ///     The same as <see cref="ChooseImpl{T,TResult,TMaybe}" />, for a function that gives a
-    ///     <see cref="MaybeInternal{T}" />. It allocates nothing for a firing that gives no value.
-    /// </summary>
-    /// <remarks>
-    ///     The per-key cells of a collection are a map and then a filter. The map gives a value
-    ///     for one key and no value for each other key. One node for the two makes each such cell
-    ///     allocate approximately one kilobyte less, which is one quarter of its cost.
+    ///     <para>
+    ///         The per-key cells of a collection are a map and then a filter. The map gives a
+    ///         value for one key and no value for each other key. One node for the two makes each
+    ///         such cell allocate approximately one kilobyte less, which is one quarter of its
+    ///         cost.
+    ///     </para>
+    ///     <para>
+    ///         Each language surface gives its own <c>FilterSome</c> and <c>Choose</c> through
+    ///         this method. The surface changes its optional type to this one in
+    ///         <paramref name="f" />, which reads the value with no callback. A match delegate in
+    ///         its place gets a closure and a delegate at each firing.
+    ///     </para>
     /// </remarks>
     internal static Stream<TResult> ChooseInternal<T, TResult>(this Stream<T> s, Func<T, MaybeInternal<TResult>> f)
     {
@@ -195,16 +174,6 @@ internal static class StreamExtensionMethodsInternal
             this.merge.Fold(trans: trans, index: this.index, value: value);
     }
 
-    private sealed class FilterSomeAction<T, TMaybe>(in Stream<T> @out, in Action<TMaybe, Action<T>> matchSome)
-        : StreamAction<TMaybe>
-    {
-        private readonly Action<TMaybe, Action<T>> matchSome = matchSome;
-        private readonly Stream<T> @out = @out;
-
-        public override void Fire(TransactionInternal trans, TMaybe value) =>
-            this.matchSome(arg1: value, arg2: v => this.@out.Send(trans: trans, a: v));
-    }
-
     private sealed class FilterSomeInternalAction<T>(in Stream<T> @out) : StreamAction<MaybeInternal<T>>
     {
         private readonly Stream<T> @out = @out;
@@ -216,20 +185,6 @@ internal static class StreamExtensionMethodsInternal
                 this.@out.Send(trans: trans, a: v);
             }
         }
-    }
-
-    private sealed class ChooseAction<T, TResult, TMaybe>(
-        in Stream<TResult> @out,
-        in Func<T, TMaybe> f,
-        in Action<TMaybe, Action<TResult>> matchSome)
-        : StreamAction<T>
-    {
-        private readonly Func<T, TMaybe> f = f;
-        private readonly Action<TMaybe, Action<TResult>> matchSome = matchSome;
-        private readonly Stream<TResult> @out = @out;
-
-        public override void Fire(TransactionInternal trans, T value) =>
-            this.matchSome(arg1: this.f(value), arg2: v => this.@out.Send(trans: trans, a: v));
     }
 
     private sealed class ChooseInternalAction<T, TResult>(in Stream<TResult> @out, in Func<T, MaybeInternal<TResult>> f)
@@ -270,8 +225,6 @@ internal static class StreamExtensionMethodsInternal
     ///         and knows no optional type. Thus, each language surface gives its own:
     ///         <c>arm</c> makes the deadline that the timer system reads, and
     ///         <c>disarmed</c> is the value for no alarm.
-    ///         See <c>FilterSomeImpl</c> above, which takes its optional type in the
-    ///         same manner.
     ///     </para>
     ///     <para>
     ///         The cell of the last value is behind the stream by one transaction.
