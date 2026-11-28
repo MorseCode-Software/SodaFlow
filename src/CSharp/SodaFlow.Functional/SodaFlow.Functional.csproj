@@ -38,6 +38,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="AsyncActions.cs"/>
         <Compile Include="Either.cs"/>
         <Compile Include="EnumerableExtensionMethods.cs"/>
         <Compile Include="IEither.cs"/>

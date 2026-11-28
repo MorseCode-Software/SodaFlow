@@ -502,7 +502,9 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
     public Task MatchAsyncVoid(
         [InstantHandle] Func<T, Task> onSome,
         [InstantHandle] Func<Task> onNone) =>
-        this.MatchAsync(onSome: onSome.ToAsyncFunc(), onNone: onNone.ToAsyncFunc());
+        // ReSharper disable once NullableWarningSuppressionIsUsed - If hasValue is true, then value will have a
+        // non-null value.
+        this.hasValue ? AsyncActions.Run(action: onSome, value: this.value!) : AsyncActions.Run(onNone);
 
     /// <summary>
     ///     Runs an asynchronous action with the contained value when there is one, and
@@ -514,7 +516,9 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
     ///     value is there.
     /// </returns>
     public Task MatchSomeAsync([InstantHandle] Func<T, Task> onSome) =>
-        this.MatchAsyncVoid(onSome: onSome, onNone: static () => Task.FromResult(false));
+        // ReSharper disable once NullableWarningSuppressionIsUsed - If hasValue is true, then value will have a
+        // non-null value.
+        this.hasValue ? AsyncActions.Run(action: onSome, value: this.value!) : Task.CompletedTask;
 
     /// <summary>
     ///     Runs an asynchronous action when there is no value, and otherwise does
@@ -526,7 +530,7 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
     ///     value is there.
     /// </returns>
     public Task MatchNoneAsync([InstantHandle] Func<Task> onNone) =>
-        this.MatchAsyncVoid(onSome: static _ => Task.FromResult(false), onNone: onNone);
+        this.hasValue ? Task.CompletedTask : AsyncActions.Run(onNone);
 
     /// <summary>
     ///     Maps the value with the given function when there is one, and gives no
@@ -608,13 +612,12 @@ public readonly struct Maybe<T> : IMaybe, IEquatable<Maybe<T>>, IComparable<Mayb
         this.Upcast<IMaybe>().Match(onSome: onSome, onNone: onNone);
 
     Task IMaybe.MatchAsyncVoid(Func<object?, Task> onSome, Func<Task> onNone) =>
-        this.Upcast<IMaybe>().MatchAsync(onSome: onSome.ToAsyncFunc(), onNone: onNone.ToAsyncFunc());
+        this.hasValue ? AsyncActions.Run(action: onSome, value: this.value) : AsyncActions.Run(onNone);
 
     Task IMaybe.MatchSomeAsync(Func<object?, Task> onSome) =>
-        this.Upcast<IMaybe>().MatchAsyncVoid(onSome: onSome, onNone: static () => Task.FromResult(false));
+        this.hasValue ? AsyncActions.Run(action: onSome, value: this.value) : Task.CompletedTask;
 
-    Task IMaybe.MatchNoneAsync(Func<Task> onNone) =>
-        this.Upcast<IMaybe>().MatchAsyncVoid(onSome: static _ => Task.FromResult(false), onNone: onNone);
+    Task IMaybe.MatchNoneAsync(Func<Task> onNone) => this.hasValue ? Task.CompletedTask : AsyncActions.Run(onNone);
 
     #endregion
 

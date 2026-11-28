@@ -20,6 +20,11 @@ namespace SodaFlow.Benchmarks;
 ///         Each benchmark holds the first case. The map of the first case runs the
 ///         function, and the map of the last case makes the value again as it is.
 ///     </para>
+///     <para>
+///         The two constructions make the same value. One names the type of the
+///         either, and the other is the short form, a marked value that changes
+///         into the either at the return.
+///     </para>
 /// </remarks>
 [MemoryDiagnoser]
 [SimpleJob(RuntimeMoniker.Net472)]
@@ -34,6 +39,9 @@ public class EitherBenchmarks
     private readonly Eight eight = Eight.First(1);
 
     private int sum;
+
+    // ReSharper disable once ConvertToConstant.Local - A field keeps the JIT from folding the value into the call.
+    private readonly int value = 1;
 
     /// <summary>Reads the value of an Either of two through Match.</summary>
     [Benchmark(Baseline = true, Description = "Match, two cases")]
@@ -92,4 +100,12 @@ public class EitherBenchmarks
     /// <summary>Maps the eighth case of an Either of eight, which is not the case it holds.</summary>
     [Benchmark(Description = "MapEighth, eight cases")]
     public Eight MapEighthEight() => this.eight.MapEighth(static v => v + 1);
+
+    /// <summary>Makes an Either of two with the First of the either.</summary>
+    [Benchmark(Description = "First of the either, two cases")]
+    public Either<int, int> FirstOfTheEitherTwo() => Either<int, int>.First(this.value);
+
+    /// <summary>Makes the same Either of two with the short form, Either.First.</summary>
+    [Benchmark(Description = "Either.First, two cases")]
+    public Either<int, int> ShortFormFirstTwo() => Either.First(this.value);
 }

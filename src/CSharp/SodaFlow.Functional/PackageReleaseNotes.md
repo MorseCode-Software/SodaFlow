@@ -25,6 +25,21 @@ declares the parsed value now calls the generic Enum.IsDefined, which .NET 5 add
 allocated 24 bytes on .NET 6 and .NET 10, and now allocates nothing. The net472 and netstandard2.0 builds have no
 generic Enum.IsDefined, so they still box the value once for each parse that finds one.
 
+BREAKING: Either.EitherFirst<T> through Either.EitherEighth<T>, the types that Either.First through Either.Eighth give,
+are readonly structs, where each was a sealed class. Thus, Either<int, string> e = Either.First(42), the short form that
+the documentation recommends, no longer makes an object only to convert it at once. The conversions, the inference, and
+the target typing do not change, so code that uses the short form compiles as it is, and code that names a marker type
+compiles too, unless it compares a marker with null. A change from a class to a struct breaks binary compatibility, so
+an assembly that was compiled against an earlier version must be compiled again. A struct has a default value, so
+default(Either.EitherFirst<T>) now exists, and it converts to the first case with the default value of T; before, a null
+marker threw NullReferenceException at the conversion. The NoneType of Maybe.None was already a struct. The object was
+24 bytes. A test that makes each of the eight markers allocated 24 bytes for each on .NET 6 and on .NET 10, and .NET
+Framework has no stack allocation of objects. Fully optimized code on .NET 10 can avoid the object, because that JIT can
+put it on the stack once it inlines the conversion. Measured on .NET 10 with the JIT's stack allocation of objects
+turned off, a construction with Either.First took 5.2 to 6.7 ns and 24 bytes, and now takes no measurable time and
+allocates nothing, as a construction with Either<int, int>.First does. On .NET Framework 4.7.2, at full optimization,
+the same construction took 2.1 to 2.3 ns and 24 bytes, and now takes no measurable time and allocates nothing.
+
 Added: overloads of Match, MatchVoid, MatchSome, MatchNone, and Map on Maybe<T>, and of Match and MatchVoid on every
 Either, that take a state as their first argument and hand it to whichever function runs. A lambda that reads a local
 captures it, and the compiled code makes a closure for the local and a delegate for each lambda on every call. For a
@@ -73,15 +88,26 @@ MatchVoid wrapped each action in a closure, one per case, so a call on an Either
 MapFirst through MapEighth captured its function in a closure; and IEitherOfTwo.Match through IEitherOfEight.MatchVoid
 wrapped each function or action again. Each of them is now a switch on the case index, the shape Match already had,
 with the no-case throw in its default arm, so a default instance still throws from every member. Match, Swap, IsFirst,
-TryGetFirst, and ToString were already free. MatchAsyncVoid and the untyped MatchAsyncVoid keep their ToAsyncFunc
-wrappers, because those turn a synchronous throw into a faulted task. Every Either is also a readonly struct now, as
-Maybe<T> is, so a call on a readonly field or a static readonly value no longer copies the struct, which for an Either
-of eight is nine fields. Measured on an Either holding its first case, .NET 10: MatchVoid of two 22.6 ns and 176 bytes
-to 0.5 ns and nothing; MapFirst of two 7.3 ns and 24 bytes to 1.2 ns and nothing; MatchVoid of eight 82.0 ns and 704
-bytes to 43.6 ns and 512 bytes, where the bytes that remain are the benchmark's own eight delegates for lambdas that
-capture a counter; MapFirst of eight 16.8 ns and 88 bytes to 5.3 ns and nothing. On .NET Framework 4.7.2, MatchVoid of
-eight 130.3 ns and 1220 bytes to 41.4 ns and 514 bytes, and MapFirst of eight 32.8 ns and 88 bytes to 15.0 ns and
-nothing. EitherBenchmarks in SodaFlow.Benchmarks measures them.
+TryGetFirst, and ToString were already free. MatchAsyncVoid and the untyped MatchAsyncVoid are a switch too, and the
+paragraph after this one says how they still turn a synchronous throw into a faulted task. Every Either is also a
+readonly struct now, as Maybe<T> is, so a call on a readonly field or a static readonly value no longer copies the
+struct, which for an Either of eight is nine fields. Measured on an Either holding its first case, .NET 10: MatchVoid of
+two 22.6 ns and 176 bytes to 0.5 ns and nothing; MapFirst of two 7.3 ns and 24 bytes to 1.2 ns and nothing; MatchVoid of
+eight 82.0 ns and 704 bytes to 43.6 ns and 512 bytes, where the bytes that remain are the benchmark's own eight
+delegates for lambdas that capture a counter; MapFirst of eight 16.8 ns and 88 bytes to 5.3 ns and nothing. On .NET
+Framework 4.7.2, MatchVoid of eight 130.3 ns and 1220 bytes to 41.4 ns and 514 bytes, and MapFirst of eight 32.8 ns and
+88 bytes to 15.0 ns and nothing. EitherBenchmarks in SodaFlow.Benchmarks measures them.
+
+Fixed: the asynchronous matches without a result allocated for every action, also for the ones that did not run.
+MatchAsyncVoid on Maybe<T> and on every Either, MatchSomeAsync and MatchNoneAsync on Maybe<T>, and the untyped forms of
+each on IMaybe and on IEitherOfTwo through IEitherOfEight wrapped each action in ToAsyncFunc before the match chose
+one. That is a closure and a delegate, 88 bytes, for each action. Each now chooses the case first and gives only that
+action to one async method. That method still turns a throw of the action before it gives a task into a fault on the
+task that the call gives, so the call does not throw. MatchSomeAsync on no value and MatchNoneAsync on a value run
+nothing and give a completed task. A default Either still throws from the call. Measured on .NET 10 with static
+lambdas that give a completed task, for each call: MatchSomeAsync on no value, MatchNoneAsync on a value, and
+MatchAsyncVoid on a Maybe<T> or on an Either of two, 176 bytes to nothing; MatchAsyncVoid on an Either of eight, 704
+bytes to nothing.
 
 Fixed: the ToAsyncFunc overloads awaited the action without ConfigureAwait(false), so the continuation that gives
 Unit.Value went back to the caller's synchronization context. A caller on a single-threaded context, such as a UI
