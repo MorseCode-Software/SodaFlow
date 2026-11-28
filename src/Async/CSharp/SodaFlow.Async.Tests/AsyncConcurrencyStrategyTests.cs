@@ -546,6 +546,47 @@ public sealed class AsyncConcurrencyStrategyTests
         status.Dispose();
     }
 
+    // The documentation tells a strategy to keep an item in its state. This assembly is not a friend
+    // of SodaFlow.Core.Async, as the assembly of a user is not. The state type of the strategy below
+    // names AsyncQueuedItem in its base clause and in a record. Thus, this file compiles only where
+    // the item type is public.
+    [Test]
+    public async Task CustomStrategy_AStrategyThatKeepsAnItemInItsState_StartsItLater()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.Listen(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: new LatestWaitingStrategy());
+
+        source.Send("a");
+        TestUtil.WaitUntil(() => op.HasStarted("a"));
+
+        // b waits in the state, and c takes its place.
+        source.Send("b");
+        source.Send("c");
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => op.HasStarted("c"));
+        op.Release(input: "c", result: "C");
+
+        TestUtil.WaitUntil(() => received.Count == 2);
+        await Assert.That(received).IsEquivalentTo(expected: ["A", "C"], ordering: CollectionOrdering.Matching);
+        await Assert.That(op.HasStarted("b")).IsFalse().Because("c took the place of b before b started");
+
+        status.Dispose();
+        l.Dispose();
+    }
+
     [Test]
     public async Task Parallel_Queue_SwitchLatest_EachReturnTheSameCachedInstanceEveryCall()
     {
@@ -882,6 +923,64 @@ public sealed class AsyncConcurrencyStrategyTests
 
         protected override AsyncStrategyStep<Unit, Unit> OnCanceled(
             Unit state,
+            IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            new(state: state, start: AsyncToStart<Unit>.None);
+    }
+
+    /// <summary>The state of <see cref="LatestWaitingStrategy" />.</summary>
+    /// <param name="Running">True while an item runs.</param>
+    /// <param name="Waiting">The item that starts when the running item ends.</param>
+    private sealed record LatestWaitingState(bool Running, Maybe<AsyncMapBase.AsyncQueuedItem<Unit>> Waiting);
+
+    /// <summary>
+    ///     Runs one item at a time and keeps one item to start next, the latest.
+    ///     A new value cancels the item that waits and takes its place.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class LatestWaitingStrategy : AsyncConcurrencyStrategy<LatestWaitingState>
+    {
+        protected override LatestWaitingState CreateState() =>
+            new(Running: false, Waiting: Maybe<AsyncQueuedItem<Unit>>.None);
+
+        protected override AsyncStrategyStep<Unit, LatestWaitingState> Admit(
+            LatestWaitingState state,
+            AsyncQueuedItem<Unit> incoming,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked)
+        {
+            if (!state.Running)
+            {
+                return new AsyncStrategyStep<Unit, LatestWaitingState>(
+                    state: state with { Running = true },
+                    start: [new AsyncToStart<Unit>(incoming)]);
+            }
+
+            state.Waiting.MatchSome(static waiting => waiting.Cancel());
+
+            return new AsyncStrategyStep<Unit, LatestWaitingState>(
+                state: state with { Waiting = Maybe.Some(incoming) },
+                start: AsyncToStart<Unit>.None);
+        }
+
+        protected override AsyncStrategyResult<Unit, LatestWaitingState> OnCompleted(
+            LatestWaitingState state,
+            AsyncQueuedItem<Unit> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
+            state.Waiting.Match(
+                onSome: static waiting => new AsyncStrategyResult<Unit, LatestWaitingState>(
+                    state: new LatestWaitingState(Running: true, Waiting: Maybe<AsyncQueuedItem<Unit>>.None),
+                    publish: true,
+                    next: [new AsyncToStart<Unit>(waiting)]),
+                onNone: () => new AsyncStrategyResult<Unit, LatestWaitingState>(
+                    state: state with { Running = false },
+                    publish: true,
+                    next: AsyncToStart<Unit>.None));
+
+        // An item that waits and that a new value canceled is no longer in the state. Thus, a
+        // cancellation changes nothing here.
+        protected override AsyncStrategyStep<Unit, LatestWaitingState> OnCanceled(
+            LatestWaitingState state,
             IReadOnlyList<AsyncQueuedItem<Unit>> canceled,
             IReadOnlyList<AsyncTrackedItem<Unit>> tracked) =>
             new(state: state, start: AsyncToStart<Unit>.None);

@@ -16,10 +16,9 @@ open TUnit.Core
 // OnCanceled, and CreateState. A previous version of this file said that F# cannot do this. That
 // was incorrect, and the causes were more simple than a limit of the compiler:
 //   - This project had no ProjectReference to SodaFlow.Core.Async, and had only a
-//     reference through SodaFlow.FSharp.Async. The accessibility test in F# for the
-//     protected-internal types AsyncQueuedItem, AsyncToStart, AsyncOutcome, and
-//     AsyncStrategyResult needs that reference, and a reference through a second project is not
-//     sufficient.
+//     reference through SodaFlow.FSharp.Async. The nested types of AsyncMapBase, such as
+//     AsyncQueuedItem and AsyncToStart, need that reference, and a reference through a second
+//     project is not sufficient.
 //   - AsyncToStart<'T>, AsyncOutcome<'T>, and AsyncStrategyResult<'T> were readonly structs. Each
 //     struct has an implicit constructor with no parameter that no code can remove, and F# can
 //     call it with a bare default or with Unchecked.defaultof. That made an incorrect instance,
@@ -30,12 +29,9 @@ open TUnit.Core
 //     the short `type X = inherit Y` class syntax. That syntax did not always make a constructor
 //     that code out of the module can call. The three now use an explicit
 //     `type X() = inherit Y()`.
-//   - One more cause came from the move of these tests to F#, and C# has no equivalent. F#
-//     refuses the
-//     construction of a protected-internal type directly in an array literal, such as
-//     `[| Ctor(...) |]`, as if that literal were a closure. The correction is a `let` for the
-//     instance first, and only a reference to that local in the array. See Admit below, in the
-//     two strategies.
+//   - The nested types of AsyncMapBase are public. F# refuses the construction of a protected
+//     type directly in an array literal, such as `[| Ctor(...) |]`, as if that literal were a
+//     closure. Also, an F# strategy cannot name a protected type in its base type.
 
 /// Starts each item immediately, as parallelStrategy does. It operates on each 'TStrategyInput,
 /// and records the value at the admission and how each item ended. Thus, a test can show that a
@@ -179,6 +175,71 @@ type private StateCountingStrategy() =
         lock calls (fun () -> calls.Add(sprintf "canceled:%d" state))
         AsyncMapBase.AsyncStrategyStep<unit, int>(state + 100, AsyncMapBase.AsyncToStart<unit>.None)
 
+/// The state of LatestWaitingStrategy: true while an item runs, and the item that starts when the
+/// running item ends.
+type private LatestWaitingState =
+    { Running: bool
+      Waiting: AsyncMapBase.AsyncQueuedItem<unit> voption }
+
+/// Runs one item at a time and keeps one item to start next, the latest. A new value cancels the
+/// item that waits and takes its place. Its state names AsyncQueuedItem in its base type and in a
+/// record, as the documentation tells a strategy to do. This assembly is not a friend of
+/// SodaFlow.Core.Async.
+type private LatestWaitingStrategy() =
+    inherit AsyncConcurrencyStrategy<LatestWaitingState>()
+
+    override _.CreateState() = { Running = false; Waiting = ValueNone }
+
+    override _.Admit
+        (
+            state: LatestWaitingState,
+            incoming: AsyncMapBase.AsyncQueuedItem<unit>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
+        if not state.Running then
+            AsyncMapBase.AsyncStrategyStep<unit, LatestWaitingState>(
+                { state with Running = true },
+                [| AsyncMapBase.AsyncToStart<unit>(incoming) |]
+            )
+        else
+            state.Waiting |> ValueOption.iter (fun waiting -> waiting.Cancel())
+
+            AsyncMapBase.AsyncStrategyStep<unit, LatestWaitingState>(
+                { state with Waiting = ValueSome incoming },
+                AsyncMapBase.AsyncToStart<unit>.None
+            )
+
+    override _.OnCompleted
+        (
+            state: LatestWaitingState,
+            _item: AsyncMapBase.AsyncQueuedItem<unit>,
+            _completion: AsyncMapBase.AsyncCompletion,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
+        match state.Waiting with
+        | ValueSome waiting ->
+            AsyncMapBase.AsyncStrategyResult<unit, LatestWaitingState>(
+                { Running = true; Waiting = ValueNone },
+                true,
+                [| AsyncMapBase.AsyncToStart<unit>(waiting) |]
+            )
+        | ValueNone ->
+            AsyncMapBase.AsyncStrategyResult<unit, LatestWaitingState>(
+                { state with Running = false },
+                true,
+                AsyncMapBase.AsyncToStart<unit>.None
+            )
+
+    // An item that waits and that a new value canceled is no longer in the state. Thus, a
+    // cancellation changes nothing here.
+    override _.OnCanceled
+        (
+            state: LatestWaitingState,
+            _canceled: IReadOnlyList<AsyncMapBase.AsyncQueuedItem<unit>>,
+            _tracked: IReadOnlyList<AsyncMapBase.AsyncTrackedItem<unit>>
+        ) =
+        AsyncMapBase.AsyncStrategyStep<unit, LatestWaitingState>(state, AsyncMapBase.AsyncToStart<unit>.None)
+
 type ``MapAsync Tests``() =
 
     [<Test>]
@@ -206,6 +267,39 @@ type ``MapAsync Tests``() =
             waitUntil (fun () -> received.Count = 2)
 
             do! Expect.Sequence([ "B"; "A" ], received)
+
+            status.Dispose()
+            l |> unlistenL
+        }
+
+    [<Test>]
+    member _.``a custom strategy that keeps an item in its state starts it later``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let op = ControlledOperation<string, string>()
+            let received = List<string>()
+            let l = results |> listenS received.Add
+
+            let status =
+                source
+                |> mapAsync results errors unexpected op.Operation (LatestWaitingStrategy()) None None true
+
+            source |> sendS "a"
+            waitUntil (fun () -> op.HasStarted "a")
+
+            // b waits in the state, and c takes its place.
+            source |> sendS "b"
+            source |> sendS "c"
+
+            op.Release("a", "A")
+            waitUntil (fun () -> op.HasStarted "c")
+            op.Release("c", "C")
+
+            waitUntil (fun () -> received.Count = 2)
+            do! Expect.Sequence([ "A"; "C" ], received)
+            do! Expect.False(op.HasStarted "b")
 
             status.Dispose()
             l |> unlistenL
