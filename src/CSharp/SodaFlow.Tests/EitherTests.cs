@@ -1012,6 +1012,55 @@ public sealed class EitherTests
             .ThrowsExactly<InvalidOperationException>();
     }
 
+    // MatchAsyncVoid runs only the action of the case. An action that throws before it gives a task
+    // gives that throw as a fault on the task of the call, and the call itself does not throw. The
+    // actions of the other cases do not run. The interface forms do the same.
+    [Test]
+    public async Task MatchAsyncVoidGivesAThrowOfTheActionAsAFaultedTask()
+    {
+        Either<int, int> second = Either<int, int>.Second(2);
+        Either8 eighth = Either8.Eighth(8);
+        IEitherOfTwo secondUntyped = second;
+        IEitherOfEight eighthUntyped = eighth;
+
+        await AssertFaulted(second.MatchAsyncVoid(onFirst: Fail, onSecond: Throw));
+        await AssertFaulted(secondUntyped.MatchAsyncVoid(onFirst: Fail, onSecond: Throw));
+
+        await AssertFaulted(
+            eighth.MatchAsyncVoid(
+                onFirst: Fail,
+                onSecond: Fail,
+                onThird: Fail,
+                onFourth: Fail,
+                onFifth: Fail,
+                onSixth: Fail,
+                onSeventh: Fail,
+                onEighth: Throw));
+
+        await AssertFaulted(
+            eighthUntyped.MatchAsyncVoid(
+                onFirst: Fail,
+                onSecond: Fail,
+                onThird: Fail,
+                onFourth: Fail,
+                onFifth: Fail,
+                onSixth: Fail,
+                onSeventh: Fail,
+                onEighth: Throw));
+
+        return;
+
+        static Task Fail<T>(T _) => throw new InvalidOperationException("The action of a different case ran.");
+
+        static Task Throw<T>(T _) => throw new InvalidOperationException("the case");
+
+        static async Task AssertFaulted(Task task)
+        {
+            await Assert.That(task.IsFaulted).IsTrue();
+            await Assert.That(task.Exception?.InnerException?.Message).IsEqualTo("the case");
+        }
+    }
+
 #if NET
     // See TheOverloadsWithAStateAllocateNothing in MaybeTests for the guard, the purpose, and the
     // argument.
@@ -1146,6 +1195,50 @@ public sealed class EitherTests
                 onSixth: static v => v + 60,
                 onSeventh: static v => v + 70,
                 onEighth: static v => v + 80);
+    }
+
+    // MatchAsyncVoid picks the case first, and only the action of that case goes into an async
+    // method. An action that gives a completed task makes that method complete at once, with a task
+    // that the runtime keeps. Thus, with static lambdas, which the compiler caches, a call allocates
+    // nothing. See TheOverloadsWithAStateAllocateNothing in MaybeTests for the guard.
+    [Test]
+    public async Task MatchAsyncVoidWithStaticLambdasAllocatesNothing()
+    {
+        const int calls = 1000;
+        Either<int, int> second = Either<int, int>.Second(2);
+        Either8 eighth = Either8.Eighth(8);
+        int completed = CallEach(second: second, eighth: eighth);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (int i = 0; i < calls; i++)
+        {
+            completed += CallEach(second: second, eighth: eighth);
+        }
+
+        long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(bytes).IsEqualTo(0);
+        await Assert.That(completed).IsEqualTo((calls + 1) * 2);
+
+        return;
+
+        static int CallEach(Either<int, int> second, Either8 eighth) =>
+            Count(second.MatchAsyncVoid(onFirst: static _ => Fail(), onSecond: static _ => Task.CompletedTask))
+            + Count(
+                eighth.MatchAsyncVoid(
+                    onFirst: static _ => Fail(),
+                    onSecond: static _ => Fail(),
+                    onThird: static _ => Fail(),
+                    onFourth: static _ => Fail(),
+                    onFifth: static _ => Fail(),
+                    onSixth: static _ => Fail(),
+                    onSeventh: static _ => Fail(),
+                    onEighth: static _ => Task.CompletedTask));
+
+        static int Count(Task task) => task.Status == TaskStatus.RanToCompletion ? 1 : 0;
+
+        static Task Fail() => throw new InvalidOperationException("The action of a different case ran.");
     }
 #endif
 

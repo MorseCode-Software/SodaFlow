@@ -502,6 +502,48 @@ public sealed class MaybeTests
         await Assert.That(calls).IsEquivalentTo(expected: [2], ordering: CollectionOrdering.Matching);
     }
 
+    // Each asynchronous match without a result runs only the action of the case. An action that
+    // throws before it gives a task gives that throw as a fault on the task of the call, and the
+    // call itself does not throw. The action of the other case does not run.
+    [Test]
+    public async Task TheAsyncMatchesGiveAThrowOfTheActionAsAFaultedTask()
+    {
+        Maybe<int> some = Maybe.Some(1);
+        Maybe<int> none = Maybe.None;
+        IMaybe someUntyped = some;
+        IMaybe noneUntyped = none;
+
+        await AssertFaulted(task: some.MatchAsyncVoid(onSome: ThrowSome, onNone: Fail), message: "some");
+        await AssertFaulted(task: none.MatchAsyncVoid(onSome: _ => Fail(), onNone: ThrowNone), message: "none");
+        await AssertFaulted(task: some.MatchSomeAsync(ThrowSome), message: "some");
+        await AssertFaulted(task: none.MatchNoneAsync(ThrowNone), message: "none");
+        await AssertFaulted(task: someUntyped.MatchAsyncVoid(onSome: ThrowSomeUntyped, onNone: Fail), message: "some");
+        await AssertFaulted(task: noneUntyped.MatchAsyncVoid(onSome: _ => Fail(), onNone: ThrowNone), message: "none");
+        await AssertFaulted(task: someUntyped.MatchSomeAsync(ThrowSomeUntyped), message: "some");
+        await AssertFaulted(task: noneUntyped.MatchNoneAsync(ThrowNone), message: "none");
+
+        await Assert.That(none.MatchSomeAsync(_ => Fail()).Status).IsEqualTo(TaskStatus.RanToCompletion);
+        await Assert.That(some.MatchNoneAsync(Fail).Status).IsEqualTo(TaskStatus.RanToCompletion);
+        await Assert.That(noneUntyped.MatchSomeAsync(_ => Fail()).Status).IsEqualTo(TaskStatus.RanToCompletion);
+        await Assert.That(someUntyped.MatchNoneAsync(Fail).Status).IsEqualTo(TaskStatus.RanToCompletion);
+
+        return;
+
+        static Task Fail() => throw new InvalidOperationException("The action of the other case ran.");
+
+        static Task ThrowSome(int _) => throw new InvalidOperationException("some");
+
+        static Task ThrowSomeUntyped(object? _) => throw new InvalidOperationException("some");
+
+        static Task ThrowNone() => throw new InvalidOperationException("none");
+
+        static async Task AssertFaulted(Task task, string message)
+        {
+            await Assert.That(task.IsFaulted).IsTrue();
+            await Assert.That(task.Exception?.InnerException?.Message).IsEqualTo(message);
+        }
+    }
+
 #if NET
     // The reference assemblies of net472 do not have the read of the bytes that a thread allocated.
     // Thus, this test is for the newer target only. The overloads are the same code on each target.
@@ -568,6 +610,43 @@ public sealed class MaybeTests
 
             return result + some.Map(state: offset, f: static (state, v) => state * v).ValueOr(0);
         }
+    }
+
+    // A match picks the case first, and only the action of that case goes into an async method.
+    // An action that gives a completed task makes that method complete at once, with a task that
+    // the runtime keeps. Thus, with static lambdas, which the compiler caches, these calls allocate
+    // nothing. See TheOverloadsWithAStateAllocateNothing for the guard.
+    [Test]
+    public async Task TheAsyncMatchesWithStaticLambdasAllocateNothing()
+    {
+        const int calls = 1000;
+        Maybe<int> some = Maybe.Some(1);
+        Maybe<int> none = Maybe.None;
+        int completed = CallEach(some: some, none: none);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (int i = 0; i < calls; i++)
+        {
+            completed += CallEach(some: some, none: none);
+        }
+
+        long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(bytes).IsEqualTo(0);
+        await Assert.That(completed).IsEqualTo((calls + 1) * 4);
+
+        return;
+
+        static int CallEach(Maybe<int> some, Maybe<int> none) =>
+            Count(none.MatchSomeAsync(static _ => Task.CompletedTask))
+            + Count(some.MatchNoneAsync(static () => Task.CompletedTask))
+            + Count(some.MatchAsyncVoid(onSome: static _ => Task.CompletedTask, onNone: static () => Fail()))
+            + Count(none.MatchAsyncVoid(onSome: static _ => Fail(), onNone: static () => Task.CompletedTask));
+
+        static int Count(Task task) => task.Status == TaskStatus.RanToCompletion ? 1 : 0;
+
+        static Task Fail() => throw new InvalidOperationException("The action of the other case ran.");
     }
 #endif
 
