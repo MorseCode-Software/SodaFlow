@@ -34,8 +34,8 @@ dotnet docfx docs/docfx.json --serve
 That extracts API metadata, builds the site into `docs/_site`, and serves it at
 <http://localhost:8080>. Drop `--serve` to build without serving.
 
-Metadata extraction compiles the C# projects, so the first run takes a while and needs a
-working `dotnet restore` for the solution.
+Metadata extraction restores and compiles the C# projects itself, so the first run takes a while.
+There is no separate `dotnet restore` to run first.
 
 ## Layout
 
