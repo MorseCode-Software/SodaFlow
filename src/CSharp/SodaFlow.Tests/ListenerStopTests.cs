@@ -15,6 +15,26 @@ namespace SodaFlow.Tests;
 /// </summary>
 public sealed class ListenerStopTests
 {
+    // The listener that Append gives stops the two listeners. The two are at one rank, and their
+    // sequence is not a contract.
+    [Test]
+    public async Task TheListenerThatAppendGivesStopsTheTwoListeners()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        List<string> calls = [];
+
+        IListener both =
+            Listener.Append(
+                listener1: s.Listen(v => calls.Add("a" + v)),
+                listener2: s.Listen(v => calls.Add("b" + v)));
+
+        s.Send(1);
+        both.Dispose();
+        s.Send(2);
+
+        await Assert.That(calls).IsEquivalentTo(expected: ["a1", "b1"], ordering: CollectionOrdering.Any);
+    }
+
     // The two listeners are at one rank, and their sequence is not a contract. Thus, the test
     // requires one call, and not a call of a given listener.
     [Test]

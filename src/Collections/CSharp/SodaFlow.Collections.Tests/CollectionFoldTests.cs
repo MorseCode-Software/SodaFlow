@@ -86,6 +86,31 @@ public sealed class CollectionFoldTests
             .Because("an empty collection folds to zero");
     }
 
+    // FromAdds and FromRemoves make an edit of each value of a plain stream.
+    [Test]
+    public async Task TheEditsOfFromAddsAndFromRemovesMoveTheFold()
+    {
+        StreamSink<Item<ItemIdentity, ItemState>> adds = Stream.CreateSink<Item<ItemIdentity, ItemState>>();
+        StreamSink<int> removes = Stream.CreateSink<int>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: CollectionEdit<int, ItemIdentity, ItemState>
+                    .FromAdds(adds)
+                    .OrElse(CollectionEdit<int, ItemIdentity, ItemState>.FromRemoves(removes)),
+                initial: [TestUtil.Item(number: 1, name: "a", score: 10)]);
+
+        Cell<int> total = Transaction.Run(() => Total(collection));
+
+        adds.Send(TestUtil.Item(number: 2, name: "b", score: 5));
+        int afterTheAdd = Transaction.Run(total.Sample);
+        removes.Send(1);
+        int afterTheRemoval = Transaction.Run(total.Sample);
+
+        await Assert.That(afterTheAdd).IsEqualTo(15);
+        await Assert.That(afterTheRemoval).IsEqualTo(5);
+    }
+
     [Test]
     public async Task AnEditOfSeveralKeysInOneTransactionMovesTheFoldOneTime()
     {

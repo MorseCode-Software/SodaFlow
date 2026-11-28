@@ -1268,6 +1268,40 @@ public sealed class StreamTests
         }
     }
 
+    // The comparer and the function each say which value is the same as the last value that the
+    // stream sent. Under the function, 4 is far enough from 1, the last value sent, although it is
+    // near 3, the last value received.
+    [Test]
+    public async Task CalmWithAComparerOrAFunctionDropsTheValuesThatItFindsEqual()
+    {
+        StreamSink<string> words = Stream.CreateSink<string>();
+        StreamSink<int> numbers = Stream.CreateSink<int>();
+        List<string> calmWords = [];
+        List<int> calmNumbers = [];
+
+        using IListener wordListener = words.Calm(comparer: StringComparer.OrdinalIgnoreCase).Listen(calmWords.Add);
+
+        using IListener numberListener =
+            numbers.Calm(areEqual: static (a, b) => Math.Abs(a - b) < 3).Listen(calmNumbers.Add);
+
+        words.Send("a");
+        words.Send("A");
+        words.Send("b");
+        words.Send("B");
+        words.Send("a");
+
+        numbers.Send(1);
+        numbers.Send(2);
+        numbers.Send(3);
+        numbers.Send(4);
+        numbers.Send(8);
+        numbers.Send(9);
+        numbers.Send(1);
+
+        await Assert.That(calmWords).IsEquivalentTo(expected: ["a", "b", "a"], ordering: CollectionOrdering.Matching);
+        await Assert.That(calmNumbers).IsEquivalentTo(expected: [1, 4, 8, 1], ordering: CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task TestWideOverloadsMatchALiftOfAList()
     {
@@ -1298,6 +1332,18 @@ public sealed class StreamTests
         // lifted behavior has no stream of its own, thus SnapshotLatest on s reads it in each
         // transaction. Snapshot on s reads the initial value of a lifted cell until an input updates,
         // and each input starts with a different value.
+        Cell<string> lift6 =
+            c1.Lift(
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                c5: c5,
+                c6: c6,
+                f: static (v1, v2, v3, v4, v5, v6) => Join(v1, v2, v3, v4, v5, v6));
+
+        Check(name: "Updates of a Lift of six cells", actual: lift6.Updates(), expected: LiftCells(6).Updates());
+        Check(name: "Snapshot of a Lift of six cells", actual: s.Snapshot(lift6), expected: s.Snapshot(LiftCells(6)));
+
         Cell<string> lift7 =
             c1.Lift(
                 c2: c2,
@@ -1326,6 +1372,47 @@ public sealed class StreamTests
         Check(name: "Snapshot of a Lift of eight cells", actual: s.Snapshot(lift8), expected: s.Snapshot(LiftCells(8)));
 
         Check(
+            name: "Lift of three behaviors",
+            actual: s.SnapshotLatest(b1.Lift(b2: b2, b3: b3, f: static (v1, v2, v3) => Join(v1, v2, v3))),
+            expected: s.SnapshotLatest(LiftBehaviors(3)));
+
+        Check(
+            name: "Lift of four behaviors",
+            actual: s.SnapshotLatest(
+                b1.Lift(b2: b2, b3: b3, b4: b4, f: static (v1, v2, v3, v4) => Join(v1, v2, v3, v4))),
+            expected: s.SnapshotLatest(LiftBehaviors(4)));
+
+        Check(
+            name: "Lift of five behaviors",
+            actual: s.SnapshotLatest(
+                b1.Lift(
+                    b2: b2,
+                    b3: b3,
+                    b4: b4,
+                    b5: b5,
+                    f: static (v1, v2, v3, v4, v5) => Join(v1, v2, v3, v4, v5))),
+            expected: s.SnapshotLatest(LiftBehaviors(5)));
+
+        Check(
+            name: "Lift of six behaviors",
+            actual: s.SnapshotLatest(
+                b1.Lift(
+                    b2: b2,
+                    b3: b3,
+                    b4: b4,
+                    b5: b5,
+                    b6: b6,
+                    f: static (v1, v2, v3, v4, v5, v6) => Join(v1, v2, v3, v4, v5, v6))),
+            expected: s.SnapshotLatest(LiftBehaviors(6)));
+
+        // The list of all the behaviors is a read-only collection, thus it uses the overload for a
+        // collection. The reference uses the overload for a sequence.
+        Check(
+            name: "Lift of a collection of behaviors",
+            actual: s.SnapshotLatest(behaviors.Lift(f: static values => string.Join(separator: ",", values: values))),
+            expected: s.SnapshotLatest(LiftBehaviors(8)));
+
+        Check(
             name: "Lift of seven behaviors",
             actual: s.SnapshotLatest(
                 b1.Lift(
@@ -1351,6 +1438,46 @@ public sealed class StreamTests
                     b8: b8,
                     f: static (v1, v2, v3, v4, v5, v6, v7, v8) => Join(v1, v2, v3, v4, v5, v6, v7, v8))),
             expected: s.SnapshotLatest(LiftBehaviors(8)));
+
+        Check(
+            name: "Snapshot of three cells",
+            actual: s.Snapshot(c1: c1, c2: c2, c3: c3, f: static (a, v1, v2, v3) => $"{a}:{Join(v1, v2, v3)}"),
+            expected: s.Snapshot(c: LiftCells(3), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "Snapshot of four cells",
+            actual: s.Snapshot(
+                c1: c1,
+                c2: c2,
+                c3: c3,
+                c4: c4,
+                f: static (a, v1, v2, v3, v4) => $"{a}:{Join(v1, v2, v3, v4)}"),
+            expected: s.Snapshot(c: LiftCells(4), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "Snapshot of one behavior with no function",
+            actual: s.Snapshot(LiftBehaviors(2)),
+            expected: s.Snapshot(b: LiftBehaviors(2), f: static (_, v) => v));
+
+        Check(
+            name: "Snapshot of two behaviors",
+            actual: s.Snapshot(b1: b1, b2: b2, f: static (a, v1, v2) => $"{a}:{Join(v1, v2)}"),
+            expected: s.Snapshot(b: LiftBehaviors(2), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "Snapshot of three behaviors",
+            actual: s.Snapshot(b1: b1, b2: b2, b3: b3, f: static (a, v1, v2, v3) => $"{a}:{Join(v1, v2, v3)}"),
+            expected: s.Snapshot(b: LiftBehaviors(3), f: static (a, v) => $"{a}:{v}"));
+
+        Check(
+            name: "Snapshot of four behaviors",
+            actual: s.Snapshot(
+                b1: b1,
+                b2: b2,
+                b3: b3,
+                b4: b4,
+                f: static (a, v1, v2, v3, v4) => $"{a}:{Join(v1, v2, v3, v4)}"),
+            expected: s.Snapshot(b: LiftBehaviors(4), f: static (a, v) => $"{a}:{v}"));
 
         Check(
             name: "Snapshot of five cells",

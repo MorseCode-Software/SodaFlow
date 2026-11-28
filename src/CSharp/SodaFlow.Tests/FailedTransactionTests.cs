@@ -121,6 +121,43 @@ public sealed class FailedTransactionTests
         }
     }
 
+    // A merge of three or more streams keeps a slot for each input, and a different type does that
+    // work from the merge of two. A failed transaction must clear the slots. A merge that kept the
+    // value of s1 from the failed transaction gives 6 and not 5.
+    [Test]
+    public async Task AMergeOfThreeStreamsFiresAfterATransactionThatFailedWhileItCombined()
+    {
+        for (int depth = 0; depth < 6; depth++)
+        {
+            StreamSink<int> s1 = Stream.CreateSink<int>();
+            StreamSink<int> s2 = Stream.CreateSink<int>();
+            StreamSink<int> s3 = Stream.CreateSink<int>();
+            Stream<int>[] inputs = [s1, s2, s3];
+            Stream<int> merged = inputs.Merge(f: static (x, y) => x + y);
+
+            Stream<int> chain = s1;
+
+            for (int i = 0; i < depth; i++)
+            {
+                chain = chain.Map(static x => x);
+            }
+
+            Fail(
+                s: chain.Map<int, int>(static _ => throw new InvalidOperationException("abort")),
+                send: () => s1.Send(1));
+
+            List<int> @out = [];
+            IListener l = merged.Listen(@out.Add);
+            s2.Send(5);
+            s3.Send(6);
+            l.Dispose();
+
+            await Assert.That(@out)
+                .IsEquivalentTo(expected: [5, 6], ordering: CollectionOrdering.Matching)
+                .Because($"the throw is at depth {depth}");
+        }
+    }
+
     // The throw comes after the lift. The update of b comes first. Thus, a lift that kept the value
     // of a from the transaction that failed gives 22 and not 21.
     [Test]

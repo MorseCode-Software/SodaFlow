@@ -20,6 +20,33 @@ public sealed class BehaviorTests
         await Assert.That(b.AsBehavior()).IsSameReferenceAs(b);
     }
 
+    // The switch follows the behavior that the cell selects, and a send to a behavior that is not
+    // selected changes nothing.
+    [Test]
+    public async Task SwitchBOnACellOfBehaviorsFollowsTheSelectedBehavior()
+    {
+        BehaviorSink<int> first = Behavior.CreateSink(1);
+        BehaviorSink<int> second = Behavior.CreateSink(10);
+        CellSink<Behavior<int>> selected = Cell.CreateSink<Behavior<int>>(first);
+        Behavior<int> switched = Transaction.Run(selected.SwitchB);
+        List<int> seen = [Read()];
+
+        first.Send(2);
+        seen.Add(Read());
+        selected.Send(second);
+        seen.Add(Read());
+        first.Send(3);
+        seen.Add(Read());
+        second.Send(11);
+        seen.Add(Read());
+
+        await Assert.That(seen).IsEquivalentTo(expected: [1, 2, 10, 10, 11], ordering: CollectionOrdering.Matching);
+
+        return;
+
+        int Read() => Transaction.Run(switched.Sample);
+    }
+
     [Test]
     public async Task TestHold()
     {
