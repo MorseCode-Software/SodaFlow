@@ -595,7 +595,8 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     {
         private readonly Stream<T> @out = @out;
 
-        protected override void Consume(TransactionInternal trans, T value) =>
+        // Values gives the initial value too, thus this sends each value.
+        protected override void Consume(TransactionInternal trans, T value, bool onlyTheInitialValue) =>
             this.@out.Send(trans: trans, a: value);
     }
 }

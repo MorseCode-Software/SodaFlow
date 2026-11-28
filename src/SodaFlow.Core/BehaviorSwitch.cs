@@ -46,8 +46,15 @@ internal sealed class BehaviorSwitch<T, T2>(
             InitialValue: initialValue);
     }
 
-    protected override void Consume(TransactionInternal trans, T2 value) =>
-        trans.Last(new Selection(trans: trans, @switch: this, source: this.select(value)));
+    // The first selection, from the initial value of the outer behavior, is the initial
+    // selection. Its initial value is the initial value of the output, which the hold already
+    // has. Thus, it does not send that value, and Updates of the switch does not fire in the
+    // transaction that builds it, as Updates of each other cell does not. Before, it sent the
+    // value. An update in that transaction, of the outer behavior or of the selected one, still
+    // goes to the output, as does each later selection.
+    protected override void Consume(TransactionInternal trans, T2 value, bool onlyTheInitialValue) =>
+        trans.Last(
+            new Selection(trans: trans, @switch: this, source: this.select(value), initial: onlyTheInitialValue));
 
     // The new behavior gets its listener now, thus its value goes to the output in this
     // transaction. The previous listener stays until the commit. A transaction that fails
@@ -61,9 +68,11 @@ internal sealed class BehaviorSwitch<T, T2>(
     private sealed class Selection(
         in TransactionInternal trans,
         in BehaviorSwitch<T, T2> @switch,
-        in Behavior<T> source)
+        in Behavior<T> source,
+        in bool initial)
         : ValueListener<T>(trans: trans, source: source, target: @switch.@out.Node), ILastAction
     {
+        private readonly bool initial = initial;
         private readonly BehaviorSwitch<T, T2> @switch = @switch;
 
         // The set stops the previous listener, which the mutable listener holds. The keep-alive
@@ -76,7 +85,14 @@ internal sealed class BehaviorSwitch<T, T2>(
 
         void ILastAction.Discard() => this.Dispose();
 
-        protected override void Consume(TransactionInternal trans, T value) =>
+        protected override void Consume(TransactionInternal trans, T value, bool onlyTheInitialValue)
+        {
+            if (this.initial && onlyTheInitialValue)
+            {
+                return;
+            }
+
             this.@switch.@out.Send(trans: trans, a: value);
+        }
     }
 }

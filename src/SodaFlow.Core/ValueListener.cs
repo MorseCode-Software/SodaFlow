@@ -19,6 +19,11 @@ namespace SodaFlow;
 // listen in a loop reads the behavior after the loop has its definition, for the same cause. A
 // transaction that fails before the send runs discards the send and clears the value. An
 // arrival queues the send only when no value waits.
+//
+// Consume also gets whether the value is only the initial value: no update arrived in the
+// transaction before the send. Value sends the initial value, as Values says. The first
+// selection of a switch does not: the switch already holds that value as its initial value, and
+// a send would be a firing of Updates in the transaction that builds the switch.
 internal abstract class ValueListener<T> : StreamAction<T>
 {
     // The action of the link that gives the consumer its rank. The node of the arrivals never
@@ -29,6 +34,9 @@ internal abstract class ValueListener<T> : StreamAction<T>
     private readonly Node target;
     private T? accum;
     private bool accumValid;
+
+    // True while each arrival of the transaction was the initial value.
+    private bool onlyTheInitialValue;
 
     protected ValueListener(TransactionInternal trans, Behavior<T> source, Node target)
     {
@@ -45,18 +53,27 @@ internal abstract class ValueListener<T> : StreamAction<T>
 
     protected Behavior<T> Source { get; }
 
-    protected abstract void Consume(TransactionInternal trans, T value);
+    protected abstract void Consume(TransactionInternal trans, T value, bool onlyTheInitialValue);
 
     /// <inheritdoc />
+    // The arrival of one update.
+    public override void Fire(TransactionInternal trans, T value) =>
+        this.Arrive(trans: trans, value: value, initial: false);
+
     // The arrival of one update, or of the initial value.
-    public override void Fire(TransactionInternal trans, T value)
+    private void Arrive(TransactionInternal trans, T value, bool initial)
     {
         this.accum = value;
 
         if (!this.accumValid)
         {
             this.accumValid = true;
+            this.onlyTheInitialValue = initial;
             trans.Prioritized(new SendEntry(this));
+        }
+        else
+        {
+            this.onlyTheInitialValue &= initial;
         }
     }
 
@@ -64,13 +81,15 @@ internal abstract class ValueListener<T> : StreamAction<T>
     {
         // ReSharper disable once NullableWarningSuppressionIsUsed - accum has a value when a send is queued.
         T value = this.accum!;
+        bool initial = this.onlyTheInitialValue;
         this.Clear();
-        this.Consume(trans: trans, value: value);
+        this.Consume(trans: trans, value: value, onlyTheInitialValue: initial);
     }
 
     private void Clear()
     {
         this.accumValid = false;
+        this.onlyTheInitialValue = false;
         this.accum = default;
     }
 
@@ -79,7 +98,7 @@ internal abstract class ValueListener<T> : StreamAction<T>
         private readonly ValueListener<T> listener = listener;
 
         public override void Execute(TransactionInternal trans) =>
-            this.listener.Fire(trans: trans, value: this.listener.Source.SampleNoTransaction());
+            this.listener.Arrive(trans: trans, value: this.listener.Source.SampleNoTransaction(), initial: true);
     }
 
     private sealed class SendEntry(in ValueListener<T> listener) : TransactionInternal.Entry(listener.target)
