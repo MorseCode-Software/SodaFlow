@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace SodaFlow.Bindable.ObjectModel;
 
-public static partial class BindableCoreExtensionMethods
+internal static partial class BindableCoreExtensionMethods
 {
     /// <summary>
     ///     Shows a <see cref="Cell{T}" /> as a property that the view can set and

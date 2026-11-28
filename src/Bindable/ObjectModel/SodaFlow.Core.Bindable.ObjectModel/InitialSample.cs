@@ -2,7 +2,7 @@ using System;
 
 namespace SodaFlow.Bindable.ObjectModel;
 
-public static partial class BindableCoreExtensionMethods
+internal static partial class BindableCoreExtensionMethods
 {
     /// <summary>
     ///     The value of a cell when the transaction that builds a bindable closes.

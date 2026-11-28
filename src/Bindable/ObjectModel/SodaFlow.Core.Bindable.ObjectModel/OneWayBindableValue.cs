@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace SodaFlow.Bindable.ObjectModel;
 
-public static partial class BindableCoreExtensionMethods
+internal static partial class BindableCoreExtensionMethods
 {
     /// <summary>
     ///     Projects a <see cref="Cell{T}" /> onto

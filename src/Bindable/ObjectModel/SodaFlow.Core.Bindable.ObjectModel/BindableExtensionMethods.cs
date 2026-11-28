@@ -5,10 +5,11 @@ namespace SodaFlow.Bindable.ObjectModel;
 
 /// <summary>
 ///     The constructions of each bindable, for the factories of the two language
-///     surfaces. Each implementation is a private nested type. Thus, the public
-///     surface is the four interfaces only.
+///     surfaces. Each implementation is a nested type that is not public. Thus, a
+///     caller sees a bindable only through its interfaces. The language packages
+///     get to this class through InternalsVisibleTo.
 /// </summary>
-public static partial class BindableCoreExtensionMethods
+internal static partial class BindableCoreExtensionMethods
 {
     /// <summary>Shows a cell as a bindable property that a caller cannot write.</summary>
     internal static IOneWayBindableValue<T> ToOneWayImpl<T>(
