@@ -54,6 +54,14 @@ more than a few items now builds one dictionary or set and looks each item up in
 the queue directly and allocates nothing, so the same cancellation takes 271 us and 543 us. AsyncQueueBenchmarks in
 SodaFlow.Benchmarks measures it. Item ids are still Guids, so nothing about AsyncQueuedItem changes.
 
+Fixed: with QueuePerGroup, a cancellation that ends many waiting items at once cost time that grew with the square of
+the number of groups. For each canceled item, the strategy searched the queue again for a running item of its group and
+for the next item to start, and it allocated a closure for each item. It now finds each group once and makes one pass
+over the queue, with a dictionary when the cancellation covers more than a few groups. With 1,000 groups, each running
+one item with one more waiting, a cancelMatching of the 1,000 waiting items read the group of an item 501,500 times and
+took 5.3 to 7.1 ms on .NET 10; it now reads 2,000 and takes 0.5 to 1.1 ms. Which items start does not change. A
+cancellation of a running item reaches the strategy on its own, and it still reads the group of each running item.
+
 Each value that MapAsync admits allocates less: 6,160 bytes where it allocated 6,736, measured on .NET 10 with an
 operation that returns a Task that has already completed, for the Parallel strategy and the Queue strategy alike. Four
 costs go. The pipeline makes a linked cancellation source for the operation only when the strategy gives a token of its
