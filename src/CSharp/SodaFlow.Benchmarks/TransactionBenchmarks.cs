@@ -1,3 +1,4 @@
+using System;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
 
@@ -18,6 +19,17 @@ namespace SodaFlow.Benchmarks;
 ///         of one entry: the queue operation, and what the queue operation took
 ///         before it ran, such as a lock.
 ///     </para>
+///     <para>
+///         The last three cases send through the chain and post one action with a
+///         release, in one transaction. The first of them commits: the posted action
+///         runs after the commit. In the second, the body throws after the post. In
+///         the third, the body also sends to a sink whose listener throws, and that
+///         throw comes while the transaction propagates. A failed
+///         transaction discards its sends, runs the release of the post, and gives
+///         back none of its queues to the next transaction. Thus, the difference
+///         between the three is the cost of the failure path, with the cost of the
+///         throw in it.
+///     </para>
 /// </remarks>
 [MemoryDiagnoser]
 [SimpleJob(RuntimeMoniker.Net472)]
@@ -30,11 +42,16 @@ public class TransactionBenchmarks
 {
     private const int ChainLength = 32;
 
+    // One exception for each failed transaction, thus the cases do not measure its construction.
+    private static readonly InvalidOperationException Failure = new("The benchmark fails this transaction.");
+
     private readonly StreamSink<int> sink = Stream.CreateSink<int>();
     private readonly StreamSink<int> chainSource = Stream.CreateSink<int>();
+    private readonly StreamSink<int> failingSink = Stream.CreateSink<int>();
 
     private IListener? listener;
     private IListener? chainListener;
+    private IListener? failingListener;
 
     /// <summary>Gives the sink one listener, and builds the chain of maps with one listener at its end.</summary>
     [GlobalSetup]
@@ -56,6 +73,8 @@ public class TransactionBenchmarks
             chain.Listen(static _ =>
             {
             });
+
+        this.failingListener = this.failingSink.Listen(static _ => throw Failure);
     }
 
     /// <summary>Removes the listeners.</summary>
@@ -64,6 +83,7 @@ public class TransactionBenchmarks
     {
         this.listener?.Dispose();
         this.chainListener?.Dispose();
+        this.failingListener?.Dispose();
     }
 
     /// <summary>Opens a transaction that does nothing, and closes it.</summary>
@@ -80,4 +100,59 @@ public class TransactionBenchmarks
     /// <summary>Sends one value through the chain of maps to its listener, with no transaction open.</summary>
     [Benchmark(Description = "send through a chain of maps")]
     public void SendThroughChain() => this.chainSource.Send(1);
+
+    /// <summary>Sends through the chain and posts an action with a release, in one transaction that commits.</summary>
+    [Benchmark(Description = "send and post, commit")]
+    public void SendAndPostThenCommit() =>
+        Transaction.RunVoid(() =>
+        {
+            this.chainSource.Send(1);
+            PostWithARelease();
+        });
+
+    /// <summary>The same, where the body throws after the post.</summary>
+    [Benchmark(Description = "send and post, the body throws")]
+    public void SendAndPostThenTheBodyThrows()
+    {
+        try
+        {
+            Transaction.RunVoid(() =>
+            {
+                this.chainSource.Send(1);
+                PostWithARelease();
+
+                throw Failure;
+            });
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    /// <summary>The same, where a listener throws while the transaction propagates.</summary>
+    [Benchmark(Description = "send and post, a listener throws")]
+    public void SendAndPostThenAListenerThrows()
+    {
+        try
+        {
+            Transaction.RunVoid(() =>
+            {
+                this.chainSource.Send(1);
+                PostWithARelease();
+                this.failingSink.Send(1);
+            });
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private static void PostWithARelease() =>
+        Transaction.Post(
+            action: static () =>
+            {
+            },
+            onFailure: static _ =>
+            {
+            });
 }

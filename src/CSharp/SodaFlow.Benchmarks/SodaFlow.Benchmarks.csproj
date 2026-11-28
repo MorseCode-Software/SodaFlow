@@ -36,6 +36,7 @@
 
     <ItemGroup>
         <Compile Include="AsyncAdmissionBenchmarks.cs"/>
+        <Compile Include="AsyncCompletionBenchmarks.cs"/>
         <Compile Include="AsyncQueueBenchmarks.cs"/>
         <Compile Include="BindableRefreshBenchmarks.cs"/>
         <Compile Include="BindableValueBenchmarks.cs"/>
