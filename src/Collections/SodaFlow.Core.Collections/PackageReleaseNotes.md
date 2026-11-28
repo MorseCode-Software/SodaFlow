@@ -186,6 +186,16 @@ because keys tied on the first level keep their second-level sequence. Measured 
 order over 100,000 items: the toggle took 84.5 ms and allocated 13.7 MB before and takes 2.3 µs and 4.2 KB after on
 .NET 10, and took 182.3 ms before and takes 4.0 µs after on .NET Framework 4.7.2.
 
+An update under a sort that reads the state costs less, and costs least when it leaves the sort value alone, as a price
+change on a list sorted by name does. The sort stage removed the key and added it again at every such update, which
+copied a path through each of its two trees twice. It now adds the key once at its new sort value, and when the comparer
+finds that value equal to the one filed, it keeps the set it holds and copies nothing; the reversed view and the window
+of Take and Slice keep themselves in the same case. What the stage reports is unchanged. Measured in
+PerKeyEditBenchmarks, one edit of one key in 10,000 items with 100 to 10,000 per-key cells listened to: an edit that
+does not move the key took 5.2 to 5.7 µs and 7.7 KB before and takes 3.7 to 4.1 µs and 4.8 KB after on .NET 10, and took
+14.2 to 14.4 µs and 8.5 KB before and takes 10.3 to 10.6 µs and 5.5 KB after on .NET Framework 4.7.2. An edit that moves
+the key allocates 0.8 KB less and is 4 to 8 percent faster on both.
+
 Changed: a view stage, which is what Filter, SortBy, Take, and the other view operations build, is made of two nodes
 fewer and allocates about 3.5 KB less, 16 percent of what it allocated. The stage lifted the criteria, the keys above
 it, and the store into one cell and read that cell in its snapshot; the snapshot now reads the three cells itself. The
