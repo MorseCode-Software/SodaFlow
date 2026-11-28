@@ -25,6 +25,20 @@ declares the parsed value now calls the generic Enum.IsDefined, which .NET 5 add
 allocated 24 bytes on .NET 6 and .NET 10, and now allocates nothing. The net472 and netstandard2.0 builds have no
 generic Enum.IsDefined, so they still box the value once for each parse that finds one.
 
+BREAKING: Either.EitherFirst<T> through Either.EitherEighth<T>, the types that Either.First through Either.Eighth give,
+are readonly structs, where each was a sealed class. Thus, Either<int, string> e = Either.First(42), the short form that
+the documentation recommends, no longer makes an object only to convert it at once. The conversions, the inference, and
+the target typing do not change, so code that uses the short form compiles as it is, and code that names a marker type
+compiles too, unless it compares a marker with null. A change from a class to a struct breaks binary compatibility, so
+an assembly that was compiled against an earlier version must be compiled again. A struct has a default value, so
+default(Either.EitherFirst<T>) now exists, and it converts to the first case with the default value of T; before, a null
+marker threw NullReferenceException at the conversion. The NoneType of Maybe.None was already a struct. The object was
+24 bytes. A test that makes each of the eight markers allocated 24 bytes for each on .NET 6 and on .NET 10, and .NET
+Framework has no stack allocation of objects. Fully optimized code on .NET 10 can avoid the object, because that JIT can
+put it on the stack once it inlines the conversion. Measured on .NET 10 with the JIT's stack allocation of objects
+turned off, a construction with Either.First took 5.2 to 6.7 ns and 24 bytes, and now takes no measurable time and
+allocates nothing, as a construction with Either<int, int>.First does.
+
 Added: overloads of Match, MatchVoid, MatchSome, MatchNone, and Map on Maybe<T>, and of Match and MatchVoid on every
 Either, that take a state as their first argument and hand it to whichever function runs. A lambda that reads a local
 captures it, and the compiled code makes a closure for the local and a delegate for each lambda on every call. For a
