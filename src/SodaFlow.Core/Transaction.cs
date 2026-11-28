@@ -1204,10 +1204,9 @@ internal sealed class TransactionInternal
     /// <remarks>
     ///     <para>
     ///         A queue goes back clear. An entry in a spare keeps its objects alive,
-    ///         and the next transaction runs it. An after-last action can add a last
-    ///         action, which no drain runs. Thus, the last queue can hold an entry here.
-    ///         The after-last queue is empty here, because its drain runs until it is
-    ///         empty, and it goes back clear also.
+    ///         and the next transaction runs it. The last queue and the after-last
+    ///         queue are empty here, because Close drains the two until both are
+    ///         empty. That includes a last action that an after-last action adds.
     ///         The list of targets holds each target of this transaction, because
     ///         Close reads it and does not clear it. The sample loop in Close gives
     ///         back each sample list after it ran.
