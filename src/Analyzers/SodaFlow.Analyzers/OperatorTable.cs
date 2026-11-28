@@ -657,8 +657,10 @@ internal static class OperatorTable
     /// <summary>
     ///     The comparers that the library calls only at an update of an input,
     ///     which comes after the close. A calm cell compares each new value with
-    ///     the last, and a one-way bindable compares at each refresh. A read in
-    ///     such a comparer is not a read in the block.
+    ///     the last, and a one-way bindable compares at each refresh. A MapAsync
+    ///     pipeline compares each value of <c>cancelMatching</c> with the input of
+    ///     each tracked item, when that stream fires. A read in such a comparer is
+    ///     not a read in the block.
     /// </summary>
     /// <remarks>
     ///     The analyzer does not read this table. The completeness test in the
@@ -669,7 +671,8 @@ internal static class OperatorTable
     public static readonly ImmutableDictionary<string, ImmutableHashSet<string>> ComparersAtAnUpdate =
         ImmutableDictionary<string, ImmutableHashSet<string>>.Empty
             .Add(key: "Calm", value: ImmutableHashSet.Create("comparer"))
-            .Add(key: "CreateOneWay", value: ImmutableHashSet.Create("comparer"));
+            .Add(key: "CreateOneWay", value: ImmutableHashSet.Create("comparer"))
+            .Add(key: "MapAsync", value: ImmutableHashSet.Create("cancelMatchingComparer"));
 
     /// <summary>
     ///     True for a parameter that gets a comparer which the library calls when

@@ -1382,8 +1382,8 @@ internal static class AsyncStreamUtility
     /// </param>
     /// <param name="cancelMatching">
     ///     This is optional. Each send cancels the tracked operations, Queued or
-    ///     Running, whose input value is in the collection of that send. This uses the
-    ///     default equality comparer for TInput. The limits of
+    ///     Running, whose input value is in the collection of that send, as
+    ///     <paramref name="cancelMatchingComparer" /> compares them. The limits of
     ///     <paramref name="cancelAll" /> also apply here.
     /// </param>
     /// <param name="cancelOnDispose">
@@ -1399,6 +1399,13 @@ internal static class AsyncStreamUtility
     ///     usually not important, because the pipeline never publishes a canceled
     ///     outcome and an operation that obeys its token makes none. An operation that
     ///     ignores its token makes one, and with false that output is the purpose.
+    /// </param>
+    /// <param name="cancelMatchingComparer">
+    ///     This is optional. It compares a value of
+    ///     <paramref name="cancelMatching" /> with the input of each tracked
+    ///     operation. The default is <see cref="EqualityComparer{TInput}.Default" />.
+    ///     It is code of the caller, and it runs in the transaction of the send. A
+    ///     throw from it fails that transaction and cancels nothing.
     /// </param>
     /// <returns>
     ///     An <see cref="AsyncMapStatus{TInput}" />. IsRunning is a Cell&lt;bool&gt;
@@ -1425,7 +1432,8 @@ internal static class AsyncStreamUtility
         Func<TInput, TStrategyInput> inputConverter,
         Stream<UnitInternal>? cancelAll = null,
         Stream<IReadOnlyCollection<TInput>>? cancelMatching = null,
-        bool cancelOnDispose = true)
+        bool cancelOnDispose = true,
+        IEqualityComparer<TInput>? cancelMatchingComparer = null)
     {
         ThrowHelper.ThrowIfNull(argument: source, paramName: nameof(source));
         ThrowHelper.ThrowIfNull(argument: results, paramName: nameof(results));
@@ -1445,7 +1453,8 @@ internal static class AsyncStreamUtility
             operation: operation,
             cancelAll: cancelAll,
             cancelMatching: cancelMatching,
-            cancelOnDispose: cancelOnDispose).Attach(source);
+            cancelOnDispose: cancelOnDispose,
+            cancelMatchingComparer: cancelMatchingComparer ?? EqualityComparer<TInput>.Default).Attach(source);
     }
 }
 
@@ -1453,7 +1462,7 @@ internal static class AsyncStreamUtility
 ///     The face of a strategy that is not generic over <c>TState</c>. It is the
 ///     type that
 ///     <see
-///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool,IEqualityComparer{TInput})" />
 ///     and its overloads accept. This keeps the <c>TState</c> of a strategy out of
 ///     each MapAsync signature. A caller and the execution engine see only
 ///     <see cref="AsyncConcurrencyStrategyBase{TInput}" />, and never
@@ -1493,7 +1502,7 @@ public abstract class AsyncConcurrencyStrategyBase<TInput>
 ///     safely, at the same time. The
 ///     execution engine (see
 ///     <see
-///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool,IEqualityComparer{TInput})" />
 ///     ) holds the <typeparamref name="TState" /> of each call, and it is the only
 ///     code that gives that state back to the strategy. <see cref="Admit" /> and
 ///     <see cref="OnCompleted" /> cannot use the result sink, the error sink, or a
@@ -1529,7 +1538,7 @@ public abstract class AsyncConcurrencyStrategy<TInput, TState>
     ///     Makes the first scheduling state of one MapAsync call. The engine calls this
     ///     one time for each call. See
     ///     <see
-    ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool,IEqualityComparer{TInput})" />
     ///     Thus, two pipelines with the same strategy instance never read the state of
     ///     the other, also when the two run at the same time.
     /// </summary>
@@ -2346,7 +2355,7 @@ internal static class AsyncMapTrampoline
 ///     and this class does the operations in that answer. This code makes one
 ///     instance for each MapAsync call (see
 ///     <see
-///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool)" />
+///         cref="AsyncStreamUtility.MapAsyncImpl{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncDeliveryExceptionFactory,MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{UnitInternal},Stream{IReadOnlyCollection{TInput}},bool,IEqualityComparer{TInput})" />
 ///     ), and that instance holds the one state of the call. This code makes that
 ///     state at the start and never shares it between two calls. Thus, more than
 ///     one call can use the same strategy instance safely, at the same time. This
@@ -2381,6 +2390,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
     private readonly Stream<UnitInternal>? cancelAll;
 
     private readonly Stream<IReadOnlyCollection<TInput>>? cancelMatching;
+    private readonly IEqualityComparer<TInput> cancelMatchingComparer;
 
     // This code sets this at the setup, and only Dispose reads it. See the cancelOnDispose
     // parameter of MapAsync. No code changes it after Attach, thus it needs no transaction and no
@@ -2507,7 +2517,8 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         MapAsyncOperation<TInput, TResult> operation,
         Stream<UnitInternal>? cancelAll,
         Stream<IReadOnlyCollection<TInput>>? cancelMatching,
-        bool cancelOnDispose)
+        bool cancelOnDispose,
+        IEqualityComparer<TInput> cancelMatchingComparer)
     {
         this.inputConverter = inputConverter;
         this.stateManager = strategy.CreateStateManager();
@@ -2519,6 +2530,7 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
         this.cancelAll = cancelAll;
         this.cancelMatching = cancelMatching;
         this.cancelOnDispose = cancelOnDispose;
+        this.cancelMatchingComparer = cancelMatchingComparer;
         this.reportCancelFailure = this.Report;
     }
 
@@ -2577,15 +2589,14 @@ internal sealed class AsyncMapExecutionManager<TInput, TResult, TStrategyInput> 
                         }
 
                         // This compares against the initial TInput value of each tracked Entry,
-                        // which is Entry.Value, with the default equality comparer for TInput.
+                        // which is Entry.Value, with the comparer that the caller gave.
                         // cancelMatching uses TInput and not TStrategyInput, thus this code needs
                         // no conversion.
                         //
                         // The selection runs here, in the transaction, and not with the cancel
-                        // after it. It calls the equality of TInput, which is code of the caller.
+                        // after it. It calls the comparer, which is code of the caller.
                         // A throw from that code here fails the transaction and cancels nothing.
-                        HashSet<TInput> targets =
-                            new(collection: pair.ToCancel, comparer: EqualityComparer<TInput>.Default);
+                        HashSet<TInput> targets = new(collection: pair.ToCancel, comparer: this.cancelMatchingComparer);
 
                         this.CancelAfterCommit(
                             entries: Array.FindAll(array: pair.Entries, match: e => targets.Contains(e.Value)),

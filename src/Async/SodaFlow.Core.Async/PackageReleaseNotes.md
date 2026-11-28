@@ -128,6 +128,11 @@ that transaction, so a listener in the same transaction could find the Task comp
 the same. Where that transaction fails, the release of the admission cancels the Task, as it already did for a value
 that the strategy starts.
 
+Added: MapAsyncImpl takes an optional cancelMatchingComparer, which the pipeline gives to the set it builds from each
+send of cancelMatching, where it always used EqualityComparer<TInput>.Default. Null keeps that default. SodaFlow.Async
+gives it as the last parameter of each MapAsync overload, and SodaFlow.FSharp.Async as
+mapAsyncWithCancelMatchingComparer and mapAsyncWithInputConverterAndCancelMatchingComparer.
+
 Changed: an Execute in a transaction whose body throws now cancels its Task and admits nothing. Execute defers its value
 into the post queue of the open transaction, with a release that cancels the Task. SodaFlow.Core 6.0.0 makes a throw
 from the body of a transaction fail that transaction, where it used to close it, so the post is discarded and the

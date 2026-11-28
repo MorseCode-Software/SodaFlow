@@ -37,7 +37,7 @@ public static class AsyncStreamExtensions
     ///     This overload changes each input to <see cref="Unit" /> before the
     ///     strategy, thus it needs no converter. See the canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool,IEqualityComparer{TInput})" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -74,6 +74,11 @@ public static class AsyncStreamExtensions
     ///     True when a disposal also cancels the tracked
     ///     items. The default is true.
     /// </param>
+    /// <param name="cancelMatchingComparer">
+    ///     This is optional. It compares a value of
+    ///     <paramref name="cancelMatching" /> with the input of each tracked
+    ///     operation. The default is <see cref="EqualityComparer{T}.Default" />.
+    /// </param>
     /// <returns>
     ///     An <see cref="AsyncMapStatus{TInput,TResult}" /> that gives the Queued
     ///     items, the Running items, and Execute. A disposal of it stops the pipeline.
@@ -92,7 +97,8 @@ public static class AsyncStreamExtensions
         AsyncConcurrencyStrategyBase<Unit> strategy,
         Stream<Unit>? cancelAll = null,
         Stream<IReadOnlyCollection<TInput>>? cancelMatching = null,
-        bool cancelOnDispose = true) =>
+        bool cancelOnDispose = true,
+        IEqualityComparer<TInput>? cancelMatchingComparer = null) =>
         source.MapAsyncImpl(
             results: results,
             errors: errors,
@@ -103,14 +109,15 @@ public static class AsyncStreamExtensions
             inputConverter: static _ => Unit.Value,
             cancelAll: ToUnitInternalStream(cancelAll),
             cancelMatching: cancelMatching,
-            cancelOnDispose: cancelOnDispose);
+            cancelOnDispose: cancelOnDispose,
+            cancelMatchingComparer: cancelMatchingComparer);
 
     /// <summary>
     ///     For a strategy that reads the input. Here <typeparamref name="TInput" /> is
     ///     the <typeparamref name="TStrategyInput" /> of the strategy or a subtype of
     ///     it, thus this overload needs no converter. See the canonical
     ///     <see
-    ///         cref="MapAsync{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool)" />
+    ///         cref="MapAsync{TInput,TResult,TStrategyInput}(Stream{TInput},StreamSink{TResult},StreamSink{Exception},Action{Exception},MapAsyncOperation{TInput,TResult},AsyncConcurrencyStrategyBase{TStrategyInput},Func{TInput,TStrategyInput},Stream{Unit},Stream{IReadOnlyCollection{TInput}},bool,IEqualityComparer{TInput})" />
     ///     overload for the full parameter contract.
     /// </summary>
     /// <typeparam name="TInput">The type in the source stream.</typeparam>
@@ -156,6 +163,11 @@ public static class AsyncStreamExtensions
     ///     True when a disposal also cancels the tracked
     ///     items. The default is true.
     /// </param>
+    /// <param name="cancelMatchingComparer">
+    ///     This is optional. It compares a value of
+    ///     <paramref name="cancelMatching" /> with the input of each tracked
+    ///     operation. The default is <see cref="EqualityComparer{T}.Default" />.
+    /// </param>
     /// <returns>
     ///     An <see cref="AsyncMapStatus{TInput,TResult}" /> that gives the Queued
     ///     items, the Running items, and Execute. A disposal of it stops the pipeline.
@@ -174,7 +186,8 @@ public static class AsyncStreamExtensions
         AsyncConcurrencyStrategyBase<TStrategyInput> strategy,
         Stream<Unit>? cancelAll = null,
         Stream<IReadOnlyCollection<TInput>>? cancelMatching = null,
-        bool cancelOnDispose = true)
+        bool cancelOnDispose = true,
+        IEqualityComparer<TInput>? cancelMatchingComparer = null)
         where TInput : TStrategyInput =>
         source.MapAsyncImpl(
             results: results,
@@ -186,7 +199,8 @@ public static class AsyncStreamExtensions
             inputConverter: static v => v,
             cancelAll: ToUnitInternalStream(cancelAll),
             cancelMatching: cancelMatching,
-            cancelOnDispose: cancelOnDispose);
+            cancelOnDispose: cancelOnDispose,
+            cancelMatchingComparer: cancelMatchingComparer);
 
     /// <summary>
     ///     The fully general shape. Each other MapAsync overload is this overload with
@@ -274,8 +288,8 @@ public static class AsyncStreamExtensions
     /// </param>
     /// <param name="cancelMatching">
     ///     This is optional. Each send cancels the tracked operations, Queued or
-    ///     Running, whose input value is in the collection of that send. This uses the
-    ///     default equality comparer for TInput. The limits of
+    ///     Running, whose input value is in the collection of that send, as
+    ///     <paramref name="cancelMatchingComparer" /> compares them. The limits of
     ///     <paramref name="cancelAll" /> also apply here.
     /// </param>
     /// <param name="cancelOnDispose">
@@ -290,6 +304,15 @@ public static class AsyncStreamExtensions
     ///     usually not important, because the pipeline never publishes a canceled
     ///     outcome and an operation that obeys its token makes none. An operation that
     ///     ignores its token makes one, and with false that output is the purpose.
+    /// </param>
+    /// <param name="cancelMatchingComparer">
+    ///     This is optional. It compares a value of
+    ///     <paramref name="cancelMatching" /> with the input of each tracked
+    ///     operation. The default is <see cref="EqualityComparer{T}.Default" />. Give
+    ///     one where two inputs are the same request but are not equal. Examples are
+    ///     a record that holds a time and a key, and a query string compared without
+    ///     case. It runs in the transaction of the send, and a throw from it fails
+    ///     that transaction and cancels nothing.
     /// </param>
     /// <returns>
     ///     An <see cref="AsyncMapStatus{TInput,TResult}" />. IsRunning is a Cell&lt;
@@ -314,7 +337,8 @@ public static class AsyncStreamExtensions
         Func<TInput, TStrategyInput> inputConverter,
         Stream<Unit>? cancelAll = null,
         Stream<IReadOnlyCollection<TInput>>? cancelMatching = null,
-        bool cancelOnDispose = true) =>
+        bool cancelOnDispose = true,
+        IEqualityComparer<TInput>? cancelMatchingComparer = null) =>
         source.MapAsyncImpl(
             results: results,
             errors: errors,
@@ -325,7 +349,8 @@ public static class AsyncStreamExtensions
             inputConverter: inputConverter,
             cancelAll: ToUnitInternalStream(cancelAll),
             cancelMatching: cancelMatching,
-            cancelOnDispose: cancelOnDispose);
+            cancelOnDispose: cancelOnDispose,
+            cancelMatchingComparer: cancelMatchingComparer);
 
     // SodaFlow.Core.Async takes its cancelAll as a Stream<UnitInternal>, because Core has no
     // public type of its own for a value that a caller does not use. This code maps and does not
