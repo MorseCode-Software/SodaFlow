@@ -50,6 +50,8 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\Async\CSharp\SodaFlow.Async\SodaFlow.Async.csproj"/>
+        <ProjectReference Include="..\..\Bindable\ObjectModel\CSharp\SodaFlow.Bindable.ObjectModel\SodaFlow.Bindable.ObjectModel.csproj"/>
         <ProjectReference Include="..\..\Collections\CSharp\SodaFlow.Collections\SodaFlow.Collections.csproj"/>
         <ProjectReference Include="..\SodaFlow.Functional\SodaFlow.Functional.csproj"/>
         <ProjectReference Include="..\SodaFlow\SodaFlow.csproj"/>
