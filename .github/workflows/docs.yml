@@ -41,12 +41,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
-        with:
-          # 6.0 for the net6.0 target the docs are generated against. DocFX runs on the SDK that
-          # global.json selects, the 10.0 SDK of the image, from the net10.0 build of the tool. Thus,
-          # it needs no SDK from this step.
-          dotnet-version: 6.0.x
+      # No setup-dotnet step. DocFX runs on the SDK that global.json selects, the 10.0 SDK of the
+      # image, from the net10.0 build of the tool. The net6.0 target the docs are generated against
+      # takes its reference pack from NuGet, as the restore of DocFX gets it, so it needs no 6.0 SDK.
 
       - name: Restore tools
         run: dotnet tool restore
