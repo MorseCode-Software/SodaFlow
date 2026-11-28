@@ -115,9 +115,10 @@ TimerSchedulingBenchmarks, with 1,000 timers waiting: setting a timer and cancel
 600 bytes and takes 313 ns and 96 bytes. On .NET Framework 4.7.2 the same arms go from 571 ns to 496 ns and from
 762 ns to 708 ns.
 
-The timer system's hook also allocates nothing in a transaction with no alarm due, where before it allocated a list
-and an enumerator on every transaction in the process, and it no longer takes the implementation's lock when no timer
-is set. With the cheaper send in SodaFlow.Core 6.0.0, an empty transaction with a SecondsTimerSystem alive measures
+The timer system's hook also allocates nothing in a transaction with no alarm due while the clock has not moved, where
+before it allocated a list and an enumerator on every transaction in the process, and it no longer takes the
+implementation's lock when no timer is set. A clock that moved makes the hook send the new time, and that send
+allocates. With the cheaper send in SodaFlow.Core 6.0.0, an empty transaction with a SecondsTimerSystem alive measures
 350 to 296 ns and 1157 to 880 bytes on .NET 10. What remains is mostly the committed send that moves Time, which every
 behavior derived from it depends on.
 

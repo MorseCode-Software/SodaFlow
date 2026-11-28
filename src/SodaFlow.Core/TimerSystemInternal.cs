@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SodaFlow;
 
@@ -130,6 +129,9 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
 
         // This runs at the start of each transaction in the process, and most of them have no
         // event due. That path allocates nothing here: the list exists only when events are due.
+        // No lambda in this method or in TakeDueEvents captures a variable. C# makes the closure of
+        // a captured variable when control enters its scope, not when the lambda runs. Thus, a
+        // capture here cost a closure at each start, also with no event due.
         while (this.TakeDueEvents(t) is { } events)
         {
             T eventTime = events[0].Time;
@@ -148,13 +150,17 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
             // handler. Before, it left the hook, and failed the transaction that started.
             try
             {
-                TransactionInternal.RunVoidImpl(() =>
-                {
-                    foreach (Event ev in events)
+                TransactionInternal.Apply(
+                    code: static (_, _, due) =>
                     {
-                        ev.Alarm.SendImpl(ev.Time);
-                    }
-                });
+                        foreach (Event ev in due)
+                        {
+                            ev.Alarm.SendImpl(ev.Time);
+                        }
+
+                        return UnitInternal.Value;
+                    },
+                    state: events);
             }
             catch (Exception e)
             {
@@ -192,8 +198,9 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
     // The earliest events at or before t, which are all at one time, removed from the set. Null
     // where no event is due. The set is in the sequence of time, thus these are its first events.
     // Count and Min are properties of the set. FirstOrDefault is the LINQ method, which boxes the
-    // enumerator of the set at each call, and this runs at each start of a transaction. The LINQ
-    // below runs only when events are due, which is rare.
+    // enumerator of the set at each call, and this runs at each start of a transaction. The loop
+    // below runs only when events are due, which is rare. It is a loop and not TakeWhile, because
+    // the lambda of TakeWhile captured first, and that closure came at each call.
     private List<Event>? TakeDueEvents(T t)
     {
         lock (this.eventQueue)
@@ -212,8 +219,18 @@ internal sealed class TimerSystemInternal<T, TTimer> : IDisposable
                 return null;
             }
 
-            List<Event> events =
-                [.. this.eventQueue.TakeWhile(ev => this.comparer.Compare(x: ev.Time, y: first.Time) == 0)];
+            List<Event> events = [];
+
+            // ReSharper disable once ForeachCanBeConvertedToQueryUsingAnotherGetEnumerator - TakeWhile makes a closure.
+            foreach (Event ev in this.eventQueue)
+            {
+                if (this.comparer.Compare(x: ev.Time, y: first.Time) != 0)
+                {
+                    break;
+                }
+
+                events.Add(ev);
+            }
 
             foreach (Event ev in events)
             {
