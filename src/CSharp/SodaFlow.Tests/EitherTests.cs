@@ -1160,7 +1160,7 @@ public sealed class EitherTests
         long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
 
         await Assert.That(bytes).IsEqualTo(0);
-        await Assert.That(sum).IsEqualTo((calls + 1) * ((8 * value) + 360));
+        await Assert.That(sum).IsEqualTo((calls + 1) * (8 * value + 360));
 
         return;
 

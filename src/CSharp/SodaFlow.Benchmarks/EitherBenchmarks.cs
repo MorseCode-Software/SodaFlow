@@ -40,6 +40,7 @@ public class EitherBenchmarks
 
     private int sum;
 
+    // ReSharper disable once ConvertToConstant.Local - A field keeps the JIT from folding the value into the call.
     private readonly int value = 1;
 
     /// <summary>Reads the value of an Either of two through Match.</summary>
