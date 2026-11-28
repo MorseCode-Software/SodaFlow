@@ -49,6 +49,7 @@
         <Compile Include="DebounceTests.cs"/>
         <Compile Include="DenotationalSemanticsTests.cs"/>
         <Compile Include="EitherTests.cs"/>
+        <Compile Include="LazyExtensionMethodsTests.cs"/>
         <Compile Include="LazySampleTests.cs"/>
         <Compile Include="ListenerStopTests.cs"/>
         <Compile Include="EnumerableExtensionMethodsTests.cs"/>

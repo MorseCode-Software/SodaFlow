@@ -1665,6 +1665,32 @@ public static class Shapes
             return S.Hold(x);
         });
 
+    // S15821. S202 with the form of Map that takes a mode. The mode changes no state of the loop.
+    public static Cell<int> LazyMapWithAModeRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = new Lazy<int>(() => 1).Map(v => v + l.Sample(), LazyThreadSafetyMode.PublicationOnly).Value;
+            return S.Hold(x);
+        });
+
+    // S15822. S203 with the form of Map that takes a mode. The block only keeps it.
+    public static Cell<int> LazyMapWithAModeKept() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            Kept.Add(new Lazy<int>(() => l.Sample()).Map(v => v + 1, LazyThreadSafetyMode.PublicationOnly));
+            return S.Hold(0);
+        });
+
+    // S15823. S207 with the form of Lift that takes a mode.
+    public static Cell<int> LazyLiftWithAModeRead() =>
+        Cell.Loop<int>().WithoutCaptures(l =>
+        {
+            int x = new Lazy<int>(() => 1)
+                .Lift(new Lazy<int>(() => l.Sample()), (a, b) => a + b, LazyThreadSafetyMode.PublicationOnly)
+                .Value;
+            return S.Hold(x);
+        });
+
     // S208. A Lazy in a list.
     public static Cell<int> LazyInAListRead() =>
         Cell.Loop<int>().WithoutCaptures(l =>

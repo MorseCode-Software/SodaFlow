@@ -146,6 +146,8 @@ internal sealed partial class LoopReadAnalyzerTests
             ["LazyMapRead"] = ["SF1001"],
             ["LazyMapSamplesAMadeCell"] = ["SF1004"],
             ["LazyLiftRead"] = ["SF1001"],
+            ["LazyMapWithAModeRead"] = ["SF1001"],
+            ["LazyLiftWithAModeRead"] = ["SF1001"],
             ["LazyInAListRead"] = ["SF1001"],
             ["LazyOfAFunctionCalled"] = ["SF1001"],
             ["LazyOfAMadeFunctionCalled"] = ["SF1001"],
