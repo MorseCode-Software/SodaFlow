@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using SodaFlow.Bindable.ObjectModel;
 using SodaFlow.Samples.Bounce.ViewModels;
+using SodaFlow.Time;
 
 namespace SodaFlow.Samples.Bounce.Avalonia;
 
@@ -34,10 +35,14 @@ internal sealed class App : Application
     {
         if (this.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // The clock belongs to the startup and not to the view model. The timer system keeps a thread
+            // while the process runs, thus one timer system serves the full sample.
+            SecondsTimerSystem timers = new(handleException: static ex => Trace.WriteLine(ex));
+
             IBounceViewModel viewModel =
                 BounceViewModel.Create(
                     bindableFactory: new BindableFactory(SynchronizationContextBindingScheduler.Capture()),
-                    handleException: static ex => Trace.WriteLine(ex));
+                    timers: timers);
 
             // This code assigns the window and does not show it. The lifetime shows this window
             // after this method returns, thus the window has its data context before it is on

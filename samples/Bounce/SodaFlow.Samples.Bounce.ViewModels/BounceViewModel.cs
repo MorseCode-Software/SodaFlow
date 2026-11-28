@@ -16,14 +16,15 @@ namespace SodaFlow.Samples.Bounce.ViewModels;
 ///         function of that time. It holds a background thread that fires the
 ///         alarms of the bounces. That thread runs while the process runs. For
 ///         that cause there is one timer system, and not one timer system for each
-///         scene.
+///         scene. The startup of each head makes it and gives it to
+///         <see cref="Create" />, thus the view model does not make a clock.
 ///     </para>
 ///     <para>
-///         <see cref="SecondsTimerSystem" /> measures the time in seconds from its
-///         construction, and that is necessary for a simulation.
-///         <see cref="SystemClockTimerSystem" /> is the second timer system in the
-///         library, and it gives a <see cref="DateTime" /> for a schedule on true
-///         calendar times.
+///         The heads give a <see cref="SecondsTimerSystem" />. It measures the
+///         time in seconds from its construction, and that is necessary for a
+///         simulation. <see cref="SystemClockTimerSystem" /> is the second timer
+///         system in the library, and it gives a <see cref="DateTime" /> for a
+///         schedule on true calendar times.
 ///     </para>
 ///     <para>
 ///         See which parts of this are bindable and which parts are not. The balls
@@ -120,18 +121,14 @@ public sealed class BounceViewModel : IBounceViewModel
     }
 
     /// <param name="bindableFactory">The bindable factory.</param>
-    /// <param name="handleException">
-    ///     This receives each exception from a wait on a timer and from a timer that
-    ///     fires. A timer callback does not run on a call stack of the caller, thus
-    ///     there is no other destination for its exception.
+    /// <param name="timers">
+    ///     The clock of all the scenes. The caller owns it, thus a test can give a
+    ///     clock that it moves.
     /// </param>
-    public static IBounceViewModel Create(IBindableFactory bindableFactory, Action<Exception> handleException)
-    {
-        SecondsTimerSystem timers = new(handleException);
-
+    public static IBounceViewModel Create(IBindableFactory bindableFactory, ITimerSystem<double> timers) =>
         // There is one transaction for the full construction, thus each scene starts at the same
         // moment and not at the time of its own construction.
-        return Transaction.Run(() =>
+        Transaction.Run(() =>
         {
             // The checkbox and the slider are two values, and the physics uses one value: the
             // multiplier of a bounce. A state with no damping is the same as a multiplier of one,
@@ -205,5 +202,4 @@ public sealed class BounceViewModel : IBounceViewModel
                 })
                 .Captures;
         });
-    }
 }
