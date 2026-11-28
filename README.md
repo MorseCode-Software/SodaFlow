@@ -34,6 +34,17 @@ dotnet build src/SodaFlow.slnx
 dotnet test  src/CSharp/SodaFlow.Tests/SodaFlow.Tests.csproj
 ```
 
+A test project runs its tests on each framework it targets. To run them on one framework, name the
+project and the framework:
+
+```
+dotnet test --project src/CSharp/SodaFlow.Tests/SodaFlow.Tests.csproj -f net6.0
+```
+
+Give `-f` with a project and not with the solution. Not every test project targets every framework:
+the analyzer tests target .NET 10 only, so `dotnet test --solution src/SodaFlow.slnx -f net6.0` stops
+with a build error before any test runs.
+
 The full CI build — restore, build, test with coverage, pack, inspect — lives in `build.cake` and
 runs locally with `dotnet tool restore && dotnet cake`. GitHub Actions runs the same targets; see
 `.github/workflows/build.yml`.
