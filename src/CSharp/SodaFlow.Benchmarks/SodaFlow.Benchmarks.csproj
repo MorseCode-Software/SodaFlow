@@ -43,6 +43,7 @@
         <Compile Include="ClockResolutionBenchmarks.cs"/>
         <Compile Include="DeepFirstEntryBenchmarks.cs"/>
         <Compile Include="DeferredWorkBenchmarks.cs"/>
+        <Compile Include="DemandLinkBenchmarks.cs"/>
         <Compile Include="EditStreamMergeBenchmarks.cs"/>
         <Compile Include="EitherBenchmarks.cs"/>
         <Compile Include="FilterCriteriaBenchmarks.cs"/>

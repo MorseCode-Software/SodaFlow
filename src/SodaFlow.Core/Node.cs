@@ -94,6 +94,11 @@ internal abstract class Node
     // reader that holds a transaction can read it without the lock. See EnsureBiggerThan.
     protected bool HasListeners;
 
+    // True on a demand node. This is a field and not a virtual call, because an input reads it for
+    // each target of each firing. The field takes no space, because it fills the padding after the
+    // bool above.
+    private protected bool UnlinksOnDemand;
+
     internal int Rank;
 
     internal Node()
@@ -101,6 +106,23 @@ internal abstract class Node
     }
 
     protected Node(int rank) => this.Rank = rank;
+
+    /// <summary>
+    ///     An input of this node fires. A demand node with no listener unlinks from
+    ///     its inputs at the end of the transaction. This also applies to a node
+    ///     that does not send, such as a filter that drops the value.
+    /// </summary>
+    internal void InputFiring(TransactionInternal trans)
+    {
+        if (this.UnlinksOnDemand && !this.HasListeners)
+        {
+            this.FiredWithNoListener(trans);
+        }
+    }
+
+    private protected virtual void FiredWithNoListener(TransactionInternal trans)
+    {
+    }
 
     internal int AddEntry(TransactionInternal.Entry entry)
     {
@@ -249,6 +271,9 @@ internal abstract class Node
         // attached link of a stream, and not a weak handle to the stream. See
         // StreamNode<T>.Attach.
         internal abstract bool IsAlive { get; }
+
+        /// <summary>The action of this link, or null when the collector removed it.</summary>
+        internal abstract object? ReachableAction { get; }
     }
 }
 
@@ -294,14 +319,36 @@ internal class Node<T> : Node
     internal Target Link(TransactionInternal trans, object action, Node target)
     {
         Target t = new(action: action, source: this, node: target, isActivated: trans.ActivatedTargets);
+        this.AddLink(trans: trans, t: t);
 
+        return t;
+    }
+
+    /// <summary>
+    ///     Adds a link that a demand node removed back to this node. The link keeps
+    ///     its target object, thus a link again allocates nothing.
+    /// </summary>
+    /// <param name="trans">The current transaction.</param>
+    /// <param name="t">The link that <see cref="Target.Unlisten" /> stopped.</param>
+    internal void Relink(TransactionInternal trans, Target t)
+    {
+        t.Restart(trans.ActivatedTargets);
+        this.AddLink(trans: trans, t: t);
+    }
+
+    private void AddLink(TransactionInternal trans, Target t)
+    {
         if (!trans.ActivatedTargets)
         {
             trans.AddTargetToActivate(t);
         }
 
+        bool first;
+
         lock (ListenersLock)
         {
+            first = !this.HasListeners;
+
             if (this.listeners != null)
             {
                 this.listeners.Add(t);
@@ -322,13 +369,17 @@ internal class Node<T> : Node
             Volatile.Write(location: ref this.listenersSnapshot, value: null);
         }
 
+        // A demand node links its inputs again before the new target gets its rank.
+        if (first)
+        {
+            this.FirstListenerLinked(trans);
+        }
+
         // No lock on the ranks. Each caller holds a transaction, and a transaction holds the
         // transaction lock. Thus, no two walks run at the same time, and no code reads a rank on
         // a different thread. ListenersLock stays, because an unlisten can run with no
         // transaction open.
-        EnsureBiggerThan(trans: trans, node: target, limit: this.Rank);
-
-        return t;
+        EnsureBiggerThan(trans: trans, node: t.Node, limit: this.Rank);
     }
 
     // Send calls this for each stream that fires. Thus, a read of a current snapshot does not get
@@ -354,6 +405,31 @@ internal class Node<T> : Node
 
     internal void RemoveListener(Target target)
     {
+        if (this.RemoveListenerCore(target))
+        {
+            this.LastListenerRemoved();
+        }
+    }
+
+    /// <summary>
+    ///     A link to this node that had no listener. Only a demand node does
+    ///     something here. See <see cref="DemandStreamNode{T}" />.
+    /// </summary>
+    private protected virtual void FirstListenerLinked(TransactionInternal trans)
+    {
+    }
+
+    /// <summary>
+    ///     The removal of the last listener of this node. Only a demand node does
+    ///     something here. See <see cref="DemandStreamNode{T}" />.
+    /// </summary>
+    private protected virtual void LastListenerRemoved()
+    {
+    }
+
+    // True when this removal took the last listener.
+    private bool RemoveListenerCore(Target target)
+    {
         lock (ListenersLock)
         {
             if (this.listeners == null)
@@ -363,12 +439,14 @@ internal class Node<T> : Node
                     this.firstListener = null;
                     this.HasListeners = false;
                     Volatile.Write(location: ref this.listenersSnapshot, value: null);
+
+                    return true;
                 }
 
-                return;
+                return false;
             }
 
-            this.listeners.Remove(target);
+            bool removed = this.listeners.Remove(target);
             this.HasListeners = this.listeners.Count > 0;
             Volatile.Write(location: ref this.listenersSnapshot, value: null);
 
@@ -379,6 +457,8 @@ internal class Node<T> : Node
                 this.listeners = [.. this.listeners];
                 this.listenersCapacity = this.listeners.Count;
             }
+
+            return removed && !this.HasListeners;
         }
     }
 
@@ -439,8 +519,19 @@ internal class Node<T> : Node
 
         internal override bool IsAlive => this.Action.TryGetTarget(out _);
 
+        internal override object? ReachableAction => this.Action.TryGetTarget(out object? action) ? action : null;
+
         /// <summary>Gets a value that is true after <see cref="Unlisten" />.</summary>
         internal bool IsStopped => this.stopped;
+
+        // The start of a link again. The unlink and the link again each occur in a transaction, and
+        // the queue of a transaction is empty at its end. Thus, no firing that a transaction queued
+        // before the stop reads the flag after this.
+        internal void Restart(bool isActivated)
+        {
+            this.IsActivated = isActivated;
+            this.stopped = false;
+        }
 
         public void Unlisten()
         {
@@ -481,25 +572,37 @@ internal class Node<T> : Node
 // holds its output, and the memory test AliveOperatorStreamsSurviveTheSweep holds each shape.
 // A first listener that is not a target, such as the composite listener of a lift of a list, keeps
 // the handle.
-internal sealed class StreamNode<T> : Node<T>, StreamListenerManager.IEntry
+internal class StreamNode<T> : Node<T>, StreamListenerManager.IEntry
 {
     private GCHandle streamHandle;
 
     // The first attached listener sits in a field, because a stream in a chain has exactly one.
-    // The list is for the second and later.
-    private IListenerWithWeakReference? firstAttached;
-    private List<IListenerWithWeakReference>? moreAttached;
+    // The list is for the second and later. A demand node links them again and changes them.
+    private protected IListenerWithWeakReference? FirstAttached;
+    private protected List<IListenerWithWeakReference>? MoreAttached;
 
     public bool IsStreamAlive =>
-        this.firstAttached is Node.Target target
+        this.FirstAttached is Node.Target target
             ? target.IsAlive
             : this.streamHandle is { IsAllocated: true, Target: not null };
+
+    /// <summary>
+    ///     The stream of this node sends a value. A demand node with no listener
+    ///     unlinks from its inputs at the end of the transaction.
+    /// </summary>
+    internal void Sending(TransactionInternal trans)
+    {
+        if (!this.HasListeners)
+        {
+            this.FiredWithNoListener(trans);
+        }
+    }
 
     // The stream is complete when this runs, because a caller attaches a listener to a stream
     // that exists. Thus, the registry cannot find an incomplete stream through the handle.
     internal void Attach(object stream, IListenerWithWeakReference listener)
     {
-        if (this.firstAttached == null)
+        if (this.FirstAttached == null)
         {
             // The listener and the handle go in before the registration, and not after it. The
             // sweep reads them out of any lock after it finds the node in the registry. Before,
@@ -507,7 +610,7 @@ internal sealed class StreamNode<T> : Node<T>, StreamListenerManager.IEntry
             // and read the stream as dead. Its release then stopped the listener that the store
             // put there after that: the link of a live stream. The registration takes the
             // registry lock, which the sweep holds, thus the sweep sees the two stores.
-            this.firstAttached = listener;
+            this.FirstAttached = listener;
 
             if (listener is not Node.Target)
             {
@@ -518,8 +621,8 @@ internal sealed class StreamNode<T> : Node<T>, StreamListenerManager.IEntry
         }
         else
         {
-            this.moreAttached ??= [];
-            this.moreAttached.Add(listener);
+            this.MoreAttached ??= [];
+            this.MoreAttached.Add(listener);
         }
     }
 
@@ -527,17 +630,17 @@ internal sealed class StreamNode<T> : Node<T>, StreamListenerManager.IEntry
     // listeners, which disconnects this node from the nodes above it.
     public void Release()
     {
-        this.firstAttached?.Unlisten();
-        this.firstAttached = null;
+        this.FirstAttached?.Unlisten();
+        this.FirstAttached = null;
 
-        if (this.moreAttached != null)
+        if (this.MoreAttached != null)
         {
-            foreach (IListenerWithWeakReference l in this.moreAttached)
+            foreach (IListenerWithWeakReference l in this.MoreAttached)
             {
                 l.Unlisten();
             }
 
-            this.moreAttached = null;
+            this.MoreAttached = null;
         }
 
         if (this.streamHandle.IsAllocated)

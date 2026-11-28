@@ -59,7 +59,12 @@ internal static class StreamExtensionMethodsInternal
         }
 
         ListMerge<T> merge =
-            new(@out: new Stream<T>(KeepListenersAliveInternal.Combine(roots)), count: inputs.Count, f: f);
+            new(
+                @out: new Stream<T>(
+                    keepListenersAlive: KeepListenersAliveInternal.Combine(roots),
+                    node: new DemandStreamNode<T>()),
+                count: inputs.Count,
+                f: f);
 
         Stream<T> result = merge.Out;
 
@@ -80,7 +85,7 @@ internal static class StreamExtensionMethodsInternal
 
     internal static Stream<T> FilterSomeImpl<T, TMaybe>(this Stream<TMaybe> s, Action<TMaybe, Action<T>> matchSome)
     {
-        Stream<T> @out = new(s.KeepListenersAlive);
+        Stream<T> @out = new(keepListenersAlive: s.KeepListenersAlive, node: new DemandStreamNode<T>());
 
         return @out.UnsafeAttachListener(
             s.Listen(target: @out.Node, action: new FilterSomeAction<T, TMaybe>(@out: @out, matchSome: matchSome)));
@@ -91,7 +96,7 @@ internal static class StreamExtensionMethodsInternal
     // type, and TryGetValue reads it with no closure.
     internal static Stream<T> FilterSomeInternal<T>(this Stream<MaybeInternal<T>> s)
     {
-        Stream<T> @out = new(s.KeepListenersAlive);
+        Stream<T> @out = new(keepListenersAlive: s.KeepListenersAlive, node: new DemandStreamNode<T>());
 
         return @out.UnsafeAttachListener(s.Listen(target: @out.Node, action: new FilterSomeInternalAction<T>(@out)));
     }
@@ -109,7 +114,7 @@ internal static class StreamExtensionMethodsInternal
         Func<T, TMaybe> f,
         Action<TMaybe, Action<TResult>> matchSome)
     {
-        Stream<TResult> @out = new(s.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive: s.KeepListenersAlive, node: new DemandStreamNode<TResult>());
 
         return @out.UnsafeAttachListener(
             s.Listen(
@@ -128,7 +133,7 @@ internal static class StreamExtensionMethodsInternal
     /// </remarks>
     internal static Stream<TResult> ChooseInternal<T, TResult>(this Stream<T> s, Func<T, MaybeInternal<TResult>> f)
     {
-        Stream<TResult> @out = new(s.KeepListenersAlive);
+        Stream<TResult> @out = new(keepListenersAlive: s.KeepListenersAlive, node: new DemandStreamNode<TResult>());
 
         return @out.UnsafeAttachListener(
             s.Listen(target: @out.Node, action: new ChooseInternalAction<T, TResult>(@out: @out, f: f)));

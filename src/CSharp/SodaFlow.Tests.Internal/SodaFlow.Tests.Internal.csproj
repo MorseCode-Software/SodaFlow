@@ -46,6 +46,7 @@
         <Compile Include="ApplyInNewTransactionTests.cs"/>
         <Compile Include="CalmTests.cs"/>
         <Compile Include="CellTests.cs"/>
+        <Compile Include="DemandLinkingTests.cs"/>
         <Compile Include="GenerationalRegistryTests.cs"/>
         <Compile Include="LastPhaseTests.cs"/>
         <Compile Include="LazySampleTests.cs"/>

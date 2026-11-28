@@ -52,6 +52,13 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     // value that reads itself, as a lazy sample reports.
     private bool forcingDerivedInitialValue;
 
+    // Three transaction ids: the last change of the committed value, the pending update, and the
+    // force of the initial value. A derived behavior that is unlinked keeps its value for one version
+    // of its inputs. Ids only increase, thus a new version is never an earlier one.
+    private long version;
+    private long pendingVersion;
+    private long forcedVersion;
+
     internal Behavior(T value) => this.valueProperty = value;
 
     internal Behavior(Stream<T> stream, T initialValue)
@@ -116,16 +123,12 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
         }
 
         this.valueUpdate = MaybeInternal.Some(a);
+        this.pendingVersion = trans2.Id;
     }
 
     // A derived behavior gives the set of its derivation, and does not make its stream for that.
     internal IKeepListenersAlive KeepListenersAlive =>
         this.derivation?.KeepListenersAlive ?? this.Updates().KeepListenersAlive;
-
-    // A derived behavior follows the stream of its updates after a caller asks for it, as a hold
-    // follows its stream. See DerivedCore.
-    internal void Follow(TransactionInternal trans, Stream<T> updates) =>
-        updates.Listen(target: Node<T>.Null, trans: trans, action: this, suppressEarlierFirings: false);
 
     // The update of a derived behavior arrives on the null rank, after all the ranked entries. The
     // firing of a held stream arrived there through the link of the hold. Thus, a lift or a
@@ -169,6 +172,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
         if (this.valueUpdate.TryGetValue(out T v))
         {
             this.ValueProperty = v;
+            this.version = this.pendingVersion;
         }
 
         this.valueUpdate = MaybeInternal<T>.None;
@@ -203,6 +207,9 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
         if (this.lazyInitialValue != null || this.derivedInitialValuePending)
         {
             this.UsingInitialValue = true;
+
+            // A value that the failed transaction read from this behavior is stale.
+            this.version = this.forcedVersion;
         }
     }
 
@@ -210,7 +217,56 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     // and the current value when it did not. A lazy sample reads this in the sample phase.
     T ISampleSource<T>.Read() => this.PendingOrCurrent();
 
-    internal T PendingOrCurrent() => this.valueUpdate.TryGetValue(out T v) ? v : this.SampleNoTransaction();
+    // The committed value, where the behavior has one. A derivation that unlinks keeps it for the
+    // first read. Thus, that read gives the same value, and the function does not run again.
+    internal MaybeInternal<T> Committed =>
+        this.UsingInitialValue || this.derivedInitialValuePending || this.valueUpdate.HasValue()
+            ? MaybeInternal<T>.None
+            : MaybeInternal.Some(this.valueProperty);
+
+    internal T PendingOrCurrent() =>
+        this.derivation is { IsUnlinked: true } ? this.PullDerived(derivation: this.derivation, pending: true)
+        : this.valueUpdate.TryGetValue(out T v) ? v
+        : this.SampleNoTransaction();
+
+    /// <summary>
+    ///     A number that changes when the committed value changes. For a derived
+    ///     behavior, it is the largest version of its inputs, or a larger one.
+    /// </summary>
+    internal long Version =>
+        this.derivation is not null ? Math.Max(val1: this.version, val2: this.derivation.SourceVersion) : this.version;
+
+    /// <summary>True when this behavior has an update in this transaction.</summary>
+    internal bool HasPendingUpdate =>
+        this.derivation is { IsUnlinked: true } ? this.derivation.SourcesHavePending : this.valueUpdate.HasValue();
+
+    /// <summary>
+    ///     The derivation links again. The stored value is stale, thus it comes
+    ///     from the inputs, and the links give each change after this.
+    /// </summary>
+    internal void EnterLinked()
+    {
+        // ReSharper disable once NullableWarningSuppressionIsUsed - Only a derivation links again, and it binds this behavior.
+        this.ValueProperty = this.PullDerived(derivation: this.derivation!, pending: false);
+        this.valueUpdate = MaybeInternal<T>.None;
+        this.derivedInitialValuePending = false;
+    }
+
+    // The function of a derivation runs in a callback, as it does when it forces the initial value.
+    private T PullDerived(IDerivation<T> derivation, bool pending)
+    {
+        TransactionInternal trans = TransactionInternal.CurrentTransaction();
+        trans.InCallback++;
+
+        try
+        {
+            return derivation.Pull(pending);
+        }
+        finally
+        {
+            trans.InCallback--;
+        }
+    }
 
     // A static lambda with the behavior as the state. A lambda that captured this allocated a
     // delegate for each sample made when no transaction was open, such as a two-way value's refresh.
@@ -250,6 +306,11 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
 
     internal virtual T SampleNoTransaction()
     {
+        if (this.derivation is { IsUnlinked: true })
+        {
+            return this.PullDerived(derivation: this.derivation, pending: false);
+        }
+
         this.EnsureValueIsCreated();
 
         return this.ValueProperty;
@@ -278,6 +339,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
 
         // Each caller runs in a transaction: the sample phase, or a read through SampleImpl.
         TransactionInternal trans = TransactionInternal.CurrentTransaction();
+        this.forcedVersion = trans.Id;
 
         // A transaction must not change the internal parts of SodaFlow.
         trans.InCallback++;
@@ -342,7 +404,9 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     /// </remarks>
     internal Stream<T> Value(TransactionInternal trans1)
     {
-        Stream<T> @out = new(this.Updates().KeepListenersAlive);
+        // A demand node. Without it, the link from the updates stays after the last listener of this
+        // stream goes, until a sweep. Then a derived behavior never unlinks.
+        Stream<T> @out = new(keepListenersAlive: this.Updates().KeepListenersAlive, node: new DemandStreamNode<T>());
         return @out.UnsafeAttachListener(new ValueStream(trans: trans1, source: this, @out: @out));
     }
 
@@ -591,7 +655,7 @@ public class Behavior<T> : ISampleSource<T>, ILastAction, IStreamAction<T>, ISam
     }
 
     private sealed class ValueStream(in TransactionInternal trans, in Behavior<T> source, in Stream<T> @out)
-        : ValueListener<T>(trans: trans, source: source, target: @out.Node)
+        : ValueListener<T>(trans: trans, source: source, target: @out.Node, giveInitial: true)
     {
         private readonly Stream<T> @out = @out;
 

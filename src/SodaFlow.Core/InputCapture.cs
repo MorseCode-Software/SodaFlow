@@ -16,7 +16,7 @@
 /// </remarks>
 /// <typeparam name="T">The type of the captured value.</typeparam>
 // ReSharper disable once InheritdocConsiderUsage - The type documents itself.
-internal sealed class InputCapture<T> : StreamAction<T>
+internal sealed class InputCapture<T> : StreamAction<T>, IDemandOwner
 {
     private OnceGate? gate;
     private CaptureSlot<T> slot;
@@ -49,6 +49,11 @@ internal sealed class InputCapture<T> : StreamAction<T>
 
     /// <summary>Clears the slot without a read of the input.</summary>
     internal void Clear() => this.slot.Clear();
+
+    // The node of a lift finds the lift through its first capture.
+    void IDemandOwner.Relinking(TransactionInternal trans) => (this.gate as IDemandOwner)?.Relinking(trans);
+
+    void IDemandOwner.Unlinked(TransactionInternal trans) => (this.gate as IDemandOwner)?.Unlinked(trans);
 
     public override void Fire(TransactionInternal trans, T value)
     {

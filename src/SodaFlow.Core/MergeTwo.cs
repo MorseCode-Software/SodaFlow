@@ -28,7 +28,7 @@ internal sealed class MergeTwo<T> : OnceGate
     private MergeTwo(IKeepListenersAlive keepListenersAlive, Func<T, T, T> f)
     {
         this.f = f;
-        this.@out = new Stream<T>(keepListenersAlive);
+        this.@out = new Stream<T>(keepListenersAlive: keepListenersAlive, node: new DemandStreamNode<T>());
     }
 
     internal override Node Node => this.@out.Node;

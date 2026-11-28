@@ -50,6 +50,9 @@ internal static class ListenerInternal
 {
     internal static readonly IListener EmptyImpl = EmptyListener.Instance;
 
+    // The listener that a lift of no inputs keeps on the stream of its updates.
+    internal static readonly IListenerInternal EmptyInternal = EmptyListener.Instance;
+
     internal static IListenerInternal CreateCompositeImpl<T>(IReadOnlyList<T> listeners)
         where T : IListener =>
         new CompositeListener<T>(listeners);

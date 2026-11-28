@@ -1500,6 +1500,71 @@ public sealed class GarbageCollectionTests
         return false;
     }
 
+    // A merge that unlinked and linked again records its new links for the sweep. Thus, the sweep
+    // releases those links after the collector removes the merge, and the inputs keep no dead target.
+    [Test]
+    public async Task TheSweepReleasesTheLinksOfAMergeThatLinkedAgain()
+    {
+        StreamSink<int> a = Stream.CreateSink<int>();
+        StreamSink<int> b = Stream.CreateSink<int>();
+
+        RelinkAndDrop(a: a, b: b);
+        Collect();
+        StreamListenerManager.Sweep();
+
+        // A collection also starts the cleanup thread. That thread can remove the dead stream from the
+        // registry before the sweep above, and release it on its own thread immediately after. Thus,
+        // the check waits for that release, up to a limit. A link that leaks stays, and the check then
+        // fails.
+        SpinWait.SpinUntil(
+            condition: () => a.Node.GetListenersCopy().Count == 0 && b.Node.GetListenersCopy().Count == 0,
+            timeout: TimeSpan.FromSeconds(10));
+
+        await Assert.That(a.Node.GetListenersCopy().Count).IsEqualTo(0);
+        await Assert.That(b.Node.GetListenersCopy().Count).IsEqualTo(0);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void RelinkAndDrop(Stream<int> a, Stream<int> b)
+    {
+        Stream<int> merged = a.OrElse(b);
+        merged.Listen(static _ => { }).Dispose();
+
+        // The unlink waits for the next transaction. The listen below then links the merge again.
+        Transaction.RunVoid(static () => { });
+
+        // The handle holds the merge, thus the two go to the collector together after this method.
+        IListener held = merged.Listen(static _ => { });
+        GC.KeepAlive(held);
+    }
+
+    // The link of an input holds its action only through a weak reference. Thus, the lift of a list
+    // holds the action of each input. A collection must not stop the updates of an input after the
+    // first.
+    [Test]
+    public async Task AListLiftGetsTheUpdatesOfEachInputAfterACollection()
+    {
+        CellSink<int> a = Cell.CreateSink(1);
+        CellSink<int> b = Cell.CreateSink(2);
+        CellSink<int> c = Cell.CreateSink(3);
+        List<int> received = [];
+
+        using IListener listener = ListenToAListLift(a: a, b: b, c: c, received: received);
+        Collect();
+        b.Send(20);
+        c.Send(30);
+
+        await Assert.That(received).IsEquivalentTo(expected: [24, 51], ordering: CollectionOrdering.Matching);
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static IListener ListenToAListLift(Cell<int> a, Cell<int> b, Cell<int> c, ICollection<int> received)
+    {
+        Cell<int> sum = new[] { a, b, c }.Lift(static values => values[0] + values[1] + values[2]);
+
+        return sum.Updates().Listen(received.Add);
+    }
+
     private static void Collect()
     {
         // Each generation, and a finalizer step in between. Stream has no finalizer. This said it
