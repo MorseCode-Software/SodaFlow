@@ -160,18 +160,20 @@ public static class Transaction
     ///     </para>
     ///     <para>
     ///         A throw from <paramref name="onFailure" /> does not replace the
-    ///         exception that caused it. The caller gets an AggregateException with
-    ///         that exception first, and the throw from the release after it.
+    ///         exception that caused it. In the AggregateException that the caller
+    ///         gets, that exception comes before the throw from the release. Do not
+    ///         use other parts of the structure of that AggregateException.
     ///     </para>
     ///     <para>
     ///         <paramref name="onFailure" /> runs on the same thread after the
     ///         transaction lock is free, with no transaction open, before the call
-    ///         that opened the transaction returns. Thus, it runs after the other
-    ///         posted actions of that transaction. It can send and post, and each
-    ///         send or post opens a transaction of its own. A transaction on a
-    ///         different thread can run between the release of the lock and this
-    ///         action. Thus, this action can see the cells after that transaction, and
-    ///         state outside the graph can change before this action runs.
+    ///         that opened the transaction returns. It can send and post, and each
+    ///         send or post opens a transaction of its own. Do not use its position
+    ///         in the sequence of the other posted actions of that transaction. A
+    ///         transaction on a different thread can run between the release of the
+    ///         lock and this action. Thus, this action can see the cells after that
+    ///         transaction, and state outside the graph can change before this action
+    ///         runs. Use this action only to release the code that waits.
     ///     </para>
     ///     <para>
     ///         Each posted action runs in a transaction of its own, after the
