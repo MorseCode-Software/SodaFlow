@@ -874,23 +874,15 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     /// <returns>A task that completes at the end of the selected action.</returns>
     public Task MatchAsyncVoid(
         [InstantHandle] Func<T1, Task> onFirst,
-        [InstantHandle] Func<T2, Task> onSecond)
-    {
-        switch (this.valueType)
+        [InstantHandle] Func<T2, Task> onSecond) =>
+        this.valueType switch
         {
-            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
-            // a value.
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1!);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2!);
-
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds a value.
+            1 => AsyncActions.Run(action: onFirst, value: this.value1!),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2!),
             // ReSharper restore NullableWarningSuppressionIsUsed
-            default:
-                throw Either.NoCase();
-        }
-    }
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the first case, and passes each other
@@ -1031,20 +1023,13 @@ public readonly struct Either<T1, T2> : IEitherOfTwo, IEquatable<Either<T1, T2>>
     Task<T> IEitherOfTwo.MatchAsync<T>(Func<object?, Task<T>> onFirst, Func<object?, Task<T>> onSecond) =>
         this.Upcast<IEitherOfTwo>().Match(onFirst: onFirst, onSecond: onSecond);
 
-    Task IEitherOfTwo.MatchAsyncVoid(Func<object?, Task> onFirst, Func<object?, Task> onSecond)
-    {
-        switch (this.valueType)
+    Task IEitherOfTwo.MatchAsyncVoid(Func<object?, Task> onFirst, Func<object?, Task> onSecond) =>
+        this.valueType switch
         {
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2);
-
-            default:
-                throw Either.NoCase();
-        }
-    }
+            1 => AsyncActions.Run(action: onFirst, value: this.value1),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2),
+            _ => throw Either.NoCase()
+        };
 
     #endregion
 
@@ -1468,26 +1453,16 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     public Task MatchAsyncVoid(
         [InstantHandle] Func<T1, Task> onFirst,
         [InstantHandle] Func<T2, Task> onSecond,
-        [InstantHandle] Func<T3, Task> onThird)
-    {
-        switch (this.valueType)
+        [InstantHandle] Func<T3, Task> onThird) =>
+        this.valueType switch
         {
-            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
-            // a value.
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1!);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2!);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3!);
-
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds a value.
+            1 => AsyncActions.Run(action: onFirst, value: this.value1!),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2!),
+            3 => AsyncActions.Run(action: onThird, value: this.value3!),
             // ReSharper restore NullableWarningSuppressionIsUsed
-            default:
-                throw Either.NoCase();
-        }
-    }
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the first case, and passes each other
@@ -1675,23 +1650,14 @@ public readonly struct Either<T1, T2, T3> : IEitherOfThree, IEquatable<Either<T1
     Task IEitherOfThree.MatchAsyncVoid(
         Func<object?, Task> onFirst,
         Func<object?, Task> onSecond,
-        Func<object?, Task> onThird)
-    {
-        switch (this.valueType)
+        Func<object?, Task> onThird) =>
+        this.valueType switch
         {
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3);
-
-            default:
-                throw Either.NoCase();
-        }
-    }
+            1 => AsyncActions.Run(action: onFirst, value: this.value1),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2),
+            3 => AsyncActions.Run(action: onThird, value: this.value3),
+            _ => throw Either.NoCase()
+        };
 
     #endregion
 
@@ -2186,29 +2152,17 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
         [InstantHandle] Func<T1, Task> onFirst,
         [InstantHandle] Func<T2, Task> onSecond,
         [InstantHandle] Func<T3, Task> onThird,
-        [InstantHandle] Func<T4, Task> onFourth)
-    {
-        switch (this.valueType)
+        [InstantHandle] Func<T4, Task> onFourth) =>
+        this.valueType switch
         {
-            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
-            // a value.
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1!);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2!);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3!);
-
-            case 4:
-                return AsyncActions.Run(action: onFourth, value: this.value4!);
-
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds a value.
+            1 => AsyncActions.Run(action: onFirst, value: this.value1!),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2!),
+            3 => AsyncActions.Run(action: onThird, value: this.value3!),
+            4 => AsyncActions.Run(action: onFourth, value: this.value4!),
             // ReSharper restore NullableWarningSuppressionIsUsed
-            default:
-                throw Either.NoCase();
-        }
-    }
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the first case, and passes each other
@@ -2494,26 +2448,15 @@ public readonly struct Either<T1, T2, T3, T4> : IEitherOfFour, IEquatable<Either
         Func<object?, Task> onFirst,
         Func<object?, Task> onSecond,
         Func<object?, Task> onThird,
-        Func<object?, Task> onFourth)
-    {
-        switch (this.valueType)
+        Func<object?, Task> onFourth) =>
+        this.valueType switch
         {
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3);
-
-            case 4:
-                return AsyncActions.Run(action: onFourth, value: this.value4);
-
-            default:
-                throw Either.NoCase();
-        }
-    }
+            1 => AsyncActions.Run(action: onFirst, value: this.value1),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2),
+            3 => AsyncActions.Run(action: onThird, value: this.value3),
+            4 => AsyncActions.Run(action: onFourth, value: this.value4),
+            _ => throw Either.NoCase()
+        };
 
     #endregion
 
@@ -3104,32 +3047,18 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
         [InstantHandle] Func<T2, Task> onSecond,
         [InstantHandle] Func<T3, Task> onThird,
         [InstantHandle] Func<T4, Task> onFourth,
-        [InstantHandle] Func<T5, Task> onFifth)
-    {
-        switch (this.valueType)
+        [InstantHandle] Func<T5, Task> onFifth) =>
+        this.valueType switch
         {
-            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
-            // a value.
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1!);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2!);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3!);
-
-            case 4:
-                return AsyncActions.Run(action: onFourth, value: this.value4!);
-
-            case 5:
-                return AsyncActions.Run(action: onFifth, value: this.value5!);
-
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds a value.
+            1 => AsyncActions.Run(action: onFirst, value: this.value1!),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2!),
+            3 => AsyncActions.Run(action: onThird, value: this.value3!),
+            4 => AsyncActions.Run(action: onFourth, value: this.value4!),
+            5 => AsyncActions.Run(action: onFifth, value: this.value5!),
             // ReSharper restore NullableWarningSuppressionIsUsed
-            default:
-                throw Either.NoCase();
-        }
-    }
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the first case, and passes each other
@@ -3499,29 +3428,16 @@ public readonly struct Either<T1, T2, T3, T4, T5> : IEitherOfFive, IEquatable<Ei
         Func<object?, Task> onSecond,
         Func<object?, Task> onThird,
         Func<object?, Task> onFourth,
-        Func<object?, Task> onFifth)
-    {
-        switch (this.valueType)
+        Func<object?, Task> onFifth) =>
+        this.valueType switch
         {
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3);
-
-            case 4:
-                return AsyncActions.Run(action: onFourth, value: this.value4);
-
-            case 5:
-                return AsyncActions.Run(action: onFifth, value: this.value5);
-
-            default:
-                throw Either.NoCase();
-        }
-    }
+            1 => AsyncActions.Run(action: onFirst, value: this.value1),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2),
+            3 => AsyncActions.Run(action: onThird, value: this.value3),
+            4 => AsyncActions.Run(action: onFourth, value: this.value4),
+            5 => AsyncActions.Run(action: onFifth, value: this.value5),
+            _ => throw Either.NoCase()
+        };
 
     #endregion
 
@@ -4196,35 +4112,19 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
         [InstantHandle] Func<T3, Task> onThird,
         [InstantHandle] Func<T4, Task> onFourth,
         [InstantHandle] Func<T5, Task> onFifth,
-        [InstantHandle] Func<T6, Task> onSixth)
-    {
-        switch (this.valueType)
+        [InstantHandle] Func<T6, Task> onSixth) =>
+        this.valueType switch
         {
-            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
-            // a value.
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1!);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2!);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3!);
-
-            case 4:
-                return AsyncActions.Run(action: onFourth, value: this.value4!);
-
-            case 5:
-                return AsyncActions.Run(action: onFifth, value: this.value5!);
-
-            case 6:
-                return AsyncActions.Run(action: onSixth, value: this.value6!);
-
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds a value.
+            1 => AsyncActions.Run(action: onFirst, value: this.value1!),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2!),
+            3 => AsyncActions.Run(action: onThird, value: this.value3!),
+            4 => AsyncActions.Run(action: onFourth, value: this.value4!),
+            5 => AsyncActions.Run(action: onFifth, value: this.value5!),
+            6 => AsyncActions.Run(action: onSixth, value: this.value6!),
             // ReSharper restore NullableWarningSuppressionIsUsed
-            default:
-                throw Either.NoCase();
-        }
-    }
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the first case, and passes each other
@@ -4689,32 +4589,17 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6> : IEitherOfSix, IEquatable
         Func<object?, Task> onThird,
         Func<object?, Task> onFourth,
         Func<object?, Task> onFifth,
-        Func<object?, Task> onSixth)
-    {
-        switch (this.valueType)
+        Func<object?, Task> onSixth) =>
+        this.valueType switch
         {
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3);
-
-            case 4:
-                return AsyncActions.Run(action: onFourth, value: this.value4);
-
-            case 5:
-                return AsyncActions.Run(action: onFifth, value: this.value5);
-
-            case 6:
-                return AsyncActions.Run(action: onSixth, value: this.value6);
-
-            default:
-                throw Either.NoCase();
-        }
-    }
+            1 => AsyncActions.Run(action: onFirst, value: this.value1),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2),
+            3 => AsyncActions.Run(action: onThird, value: this.value3),
+            4 => AsyncActions.Run(action: onFourth, value: this.value4),
+            5 => AsyncActions.Run(action: onFifth, value: this.value5),
+            6 => AsyncActions.Run(action: onSixth, value: this.value6),
+            _ => throw Either.NoCase()
+        };
 
     #endregion
 
@@ -5473,38 +5358,20 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
         [InstantHandle] Func<T4, Task> onFourth,
         [InstantHandle] Func<T5, Task> onFifth,
         [InstantHandle] Func<T6, Task> onSixth,
-        [InstantHandle] Func<T7, Task> onSeventh)
-    {
-        switch (this.valueType)
+        [InstantHandle] Func<T7, Task> onSeventh) =>
+        this.valueType switch
         {
-            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
-            // a value.
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1!);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2!);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3!);
-
-            case 4:
-                return AsyncActions.Run(action: onFourth, value: this.value4!);
-
-            case 5:
-                return AsyncActions.Run(action: onFifth, value: this.value5!);
-
-            case 6:
-                return AsyncActions.Run(action: onSixth, value: this.value6!);
-
-            case 7:
-                return AsyncActions.Run(action: onSeventh, value: this.value7!);
-
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds a value.
+            1 => AsyncActions.Run(action: onFirst, value: this.value1!),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2!),
+            3 => AsyncActions.Run(action: onThird, value: this.value3!),
+            4 => AsyncActions.Run(action: onFourth, value: this.value4!),
+            5 => AsyncActions.Run(action: onFifth, value: this.value5!),
+            6 => AsyncActions.Run(action: onSixth, value: this.value6!),
+            7 => AsyncActions.Run(action: onSeventh, value: this.value7!),
             // ReSharper restore NullableWarningSuppressionIsUsed
-            default:
-                throw Either.NoCase();
-        }
-    }
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the first case, and passes each other
@@ -6065,35 +5932,18 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7>
         Func<object?, Task> onFourth,
         Func<object?, Task> onFifth,
         Func<object?, Task> onSixth,
-        Func<object?, Task> onSeventh)
-    {
-        switch (this.valueType)
+        Func<object?, Task> onSeventh) =>
+        this.valueType switch
         {
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3);
-
-            case 4:
-                return AsyncActions.Run(action: onFourth, value: this.value4);
-
-            case 5:
-                return AsyncActions.Run(action: onFifth, value: this.value5);
-
-            case 6:
-                return AsyncActions.Run(action: onSixth, value: this.value6);
-
-            case 7:
-                return AsyncActions.Run(action: onSeventh, value: this.value7);
-
-            default:
-                throw Either.NoCase();
-        }
-    }
+            1 => AsyncActions.Run(action: onFirst, value: this.value1),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2),
+            3 => AsyncActions.Run(action: onThird, value: this.value3),
+            4 => AsyncActions.Run(action: onFourth, value: this.value4),
+            5 => AsyncActions.Run(action: onFifth, value: this.value5),
+            6 => AsyncActions.Run(action: onSixth, value: this.value6),
+            7 => AsyncActions.Run(action: onSeventh, value: this.value7),
+            _ => throw Either.NoCase()
+        };
 
     #endregion
 
@@ -6951,41 +6801,21 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
         [InstantHandle] Func<T5, Task> onFifth,
         [InstantHandle] Func<T6, Task> onSixth,
         [InstantHandle] Func<T7, Task> onSeventh,
-        [InstantHandle] Func<T8, Task> onEighth)
-    {
-        switch (this.valueType)
+        [InstantHandle] Func<T8, Task> onEighth) =>
+        this.valueType switch
         {
-            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds
-            // a value.
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1!);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2!);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3!);
-
-            case 4:
-                return AsyncActions.Run(action: onFourth, value: this.value4!);
-
-            case 5:
-                return AsyncActions.Run(action: onFifth, value: this.value5!);
-
-            case 6:
-                return AsyncActions.Run(action: onSixth, value: this.value6!);
-
-            case 7:
-                return AsyncActions.Run(action: onSeventh, value: this.value7!);
-
-            case 8:
-                return AsyncActions.Run(action: onEighth, value: this.value8!);
-
+            // ReSharper disable NullableWarningSuppressionIsUsed - The case number tells which field holds a value.
+            1 => AsyncActions.Run(action: onFirst, value: this.value1!),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2!),
+            3 => AsyncActions.Run(action: onThird, value: this.value3!),
+            4 => AsyncActions.Run(action: onFourth, value: this.value4!),
+            5 => AsyncActions.Run(action: onFifth, value: this.value5!),
+            6 => AsyncActions.Run(action: onSixth, value: this.value6!),
+            7 => AsyncActions.Run(action: onSeventh, value: this.value7!),
+            8 => AsyncActions.Run(action: onEighth, value: this.value8!),
             // ReSharper restore NullableWarningSuppressionIsUsed
-            default:
-                throw Either.NoCase();
-        }
-    }
+            _ => throw Either.NoCase()
+        };
 
     /// <summary>
     ///     Transforms the value if this holds the first case, and passes each other
@@ -7648,38 +7478,19 @@ public readonly struct Either<T1, T2, T3, T4, T5, T6, T7, T8>
         Func<object?, Task> onFifth,
         Func<object?, Task> onSixth,
         Func<object?, Task> onSeventh,
-        Func<object?, Task> onEighth)
-    {
-        switch (this.valueType)
+        Func<object?, Task> onEighth) =>
+        this.valueType switch
         {
-            case 1:
-                return AsyncActions.Run(action: onFirst, value: this.value1);
-
-            case 2:
-                return AsyncActions.Run(action: onSecond, value: this.value2);
-
-            case 3:
-                return AsyncActions.Run(action: onThird, value: this.value3);
-
-            case 4:
-                return AsyncActions.Run(action: onFourth, value: this.value4);
-
-            case 5:
-                return AsyncActions.Run(action: onFifth, value: this.value5);
-
-            case 6:
-                return AsyncActions.Run(action: onSixth, value: this.value6);
-
-            case 7:
-                return AsyncActions.Run(action: onSeventh, value: this.value7);
-
-            case 8:
-                return AsyncActions.Run(action: onEighth, value: this.value8);
-
-            default:
-                throw Either.NoCase();
-        }
-    }
+            1 => AsyncActions.Run(action: onFirst, value: this.value1),
+            2 => AsyncActions.Run(action: onSecond, value: this.value2),
+            3 => AsyncActions.Run(action: onThird, value: this.value3),
+            4 => AsyncActions.Run(action: onFourth, value: this.value4),
+            5 => AsyncActions.Run(action: onFifth, value: this.value5),
+            6 => AsyncActions.Run(action: onSixth, value: this.value6),
+            7 => AsyncActions.Run(action: onSeventh, value: this.value7),
+            8 => AsyncActions.Run(action: onEighth, value: this.value8),
+            _ => throw Either.NoCase()
+        };
 
     #endregion
 

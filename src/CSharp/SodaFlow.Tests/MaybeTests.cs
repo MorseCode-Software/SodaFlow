@@ -514,22 +514,24 @@ public sealed class MaybeTests
         IMaybe noneUntyped = none;
 
         await AssertFaulted(task: some.MatchAsyncVoid(onSome: ThrowSome, onNone: Fail), message: "some");
-        await AssertFaulted(task: none.MatchAsyncVoid(onSome: _ => Fail(), onNone: ThrowNone), message: "none");
+        await AssertFaulted(task: none.MatchAsyncVoid(onSome: static _ => Fail(), onNone: ThrowNone), message: "none");
         await AssertFaulted(task: some.MatchSomeAsync(ThrowSome), message: "some");
         await AssertFaulted(task: none.MatchNoneAsync(ThrowNone), message: "none");
         await AssertFaulted(task: someUntyped.MatchAsyncVoid(onSome: ThrowSomeUntyped, onNone: Fail), message: "some");
-        await AssertFaulted(task: noneUntyped.MatchAsyncVoid(onSome: _ => Fail(), onNone: ThrowNone), message: "none");
+        await AssertFaulted(task: noneUntyped.MatchAsyncVoid(onSome: FailUntyped, onNone: ThrowNone), message: "none");
         await AssertFaulted(task: someUntyped.MatchSomeAsync(ThrowSomeUntyped), message: "some");
         await AssertFaulted(task: noneUntyped.MatchNoneAsync(ThrowNone), message: "none");
 
-        await Assert.That(none.MatchSomeAsync(_ => Fail()).Status).IsEqualTo(TaskStatus.RanToCompletion);
+        await Assert.That(none.MatchSomeAsync(static _ => Fail()).Status).IsEqualTo(TaskStatus.RanToCompletion);
         await Assert.That(some.MatchNoneAsync(Fail).Status).IsEqualTo(TaskStatus.RanToCompletion);
-        await Assert.That(noneUntyped.MatchSomeAsync(_ => Fail()).Status).IsEqualTo(TaskStatus.RanToCompletion);
+        await Assert.That(noneUntyped.MatchSomeAsync(static _ => Fail()).Status).IsEqualTo(TaskStatus.RanToCompletion);
         await Assert.That(someUntyped.MatchNoneAsync(Fail).Status).IsEqualTo(TaskStatus.RanToCompletion);
 
         return;
 
         static Task Fail() => throw new InvalidOperationException("The action of the other case ran.");
+
+        static Task FailUntyped(object? _) => Fail();
 
         static Task ThrowSome(int _) => throw new InvalidOperationException("some");
 
