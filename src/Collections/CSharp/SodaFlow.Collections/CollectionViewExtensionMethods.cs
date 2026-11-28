@@ -605,6 +605,47 @@ public static class CollectionViewExtensionMethods
 
     /// <summary>
     ///     One object for each key, in the order of this collection, thus a list can
+    ///     bind to a stable object. This overload releases nothing when it removes
+    ///     an object. For objects that hold resources, such as bindables, use the
+    ///     overload that takes <c>onEvicted</c>.
+    /// </summary>
+    /// <inheritdoc
+    ///     cref="Map{TKey,TIdentity,TState,TResult}(ReactiveCollection{TKey,TIdentity,TState},Func{TKey,TResult},Action{TResult},int)"
+    ///     path="/remarks" />
+    /// <typeparam name="TKey">The type of the keys.</typeparam>
+    /// <typeparam name="TIdentity">The type of the immutable part of an item.</typeparam>
+    /// <typeparam name="TState">The type of the mutable part of an item.</typeparam>
+    /// <typeparam name="TResult">The type of the object for each key.</typeparam>
+    /// <param name="collection">The collection or view to project.</param>
+    /// <param name="project">
+    ///     Builds the object for one key. It runs one time for each
+    ///     key that this code keeps.
+    /// </param>
+    /// <param name="retainedBeyondTheView">
+    ///     The number of keys that left to keep objects for. The default is correct
+    ///     for a screen with pages across a large collection. Use a larger value when
+    ///     a move back to a page is frequent and a new build of a row is expensive,
+    ///     and a smaller value when the objects are large.
+    /// </param>
+    /// <returns>
+    ///     The projected objects and the path to release them. Bind to <c>Items</c>,
+    ///     and dispose this object with the other resources of the caller.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static MappedItems<TResult> Map<TKey, TIdentity, TState, TResult>(
+        this ReactiveCollection<TKey, TIdentity, TState> collection,
+        Func<TKey, TResult> project,
+        int retainedBeyondTheView = MappedItems.DefaultRetainedBeyondTheView)
+        where TKey : notnull
+        where TIdentity : notnull =>
+        CollectionViewUtility.MapImpl(
+            collection: collection,
+            project: project,
+            retainedBeyondTheView: retainedBeyondTheView,
+            onEvicted: null);
+
+    /// <summary>
+    ///     One object for each key, in the order of this collection, thus a list can
     ///     bind to a stable object.
     /// </summary>
     /// <remarks>
@@ -647,16 +688,16 @@ public static class CollectionViewExtensionMethods
     ///     Builds the object for one key. It runs one time for each
     ///     key that this code keeps.
     /// </param>
+    /// <param name="onEvicted">
+    ///     This receives an object whose key this code removed, and it is the position
+    ///     to release the resources of that object. A projection that builds bindables
+    ///     must dispose them here, or they continue after the rows that held them.
+    /// </param>
     /// <param name="retainedBeyondTheView">
     ///     The number of keys that left to keep objects for. The default is correct
     ///     for a screen with pages across a large collection. Use a larger value when
     ///     a move back to a page is frequent and a new build of a row is expensive,
     ///     and a smaller value when the objects are large.
-    /// </param>
-    /// <param name="onEvicted">
-    ///     This receives an object whose key this code removed, and it is the position
-    ///     to release the resources of that object. A projection that builds bindables
-    ///     must dispose them here, or they continue after the rows that held them.
     /// </param>
     /// <returns>
     ///     The projected objects and the path to release them. Bind to <c>Items</c>,
@@ -666,8 +707,8 @@ public static class CollectionViewExtensionMethods
     public static MappedItems<TResult> Map<TKey, TIdentity, TState, TResult>(
         this ReactiveCollection<TKey, TIdentity, TState> collection,
         Func<TKey, TResult> project,
-        int retainedBeyondTheView = MappedItems.DefaultRetainedBeyondTheView,
-        Action<TResult>? onEvicted = null)
+        Action<TResult> onEvicted,
+        int retainedBeyondTheView = MappedItems.DefaultRetainedBeyondTheView)
         where TKey : notnull
         where TIdentity : notnull =>
         CollectionViewUtility.MapImpl(

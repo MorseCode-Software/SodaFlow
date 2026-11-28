@@ -5,12 +5,21 @@ SodaFlow.Collections.Core 3.0.0, where before they clamped it to zero and gave a
 to show for the error. The Cell<int> overloads still clamp, because a throw there would fail whichever transaction moved
 the cell.
 
-No change in this package's API. This release raises the dependency floor, so that a new install gets
-SodaFlow.Collections.Core 3.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy changed shape; that is
-why this is a major version. In SodaFlow.Collections.Core 3.0.0, a per-key cell made during a transaction that then
-fails no longer keeps an item from a discarded snapshot, a request for a per-key cell from outside a transaction can no
-longer deadlock with one from inside, and making a cell for each key of a large collection no longer takes time that
-grows with the square of the number of keys. That package's notes have the details.
+BREAKING: Map has two overloads, where it had one with an optional onEvicted that could be null. One takes no onEvicted,
+for a projection whose objects hold nothing to release. The other requires onEvicted, and takes it before
+retainedBeyondTheView. A call that gives onEvicted by name compiles as it is, with either overload. A call that gave
+onEvicted: null, or default, now goes to the overload that requires a release, and code with nullable annotations warns
+on it; drop the argument. A call that gave both arguments by position, as Map(project, limit, release), has to give them
+in the new order, Map(project, release, limit), or give them by name. The public surface no longer shows a null for the
+release, as the map and mapWith of the F# package already do not. What the two overloads do is what the one did with a
+release and without one.
+
+Apart from the two overloads of Map, this package's API does not change. This release raises the dependency floor, so
+that a new install gets SodaFlow.Collections.Core 3.0.0 and with it SodaFlow.Core 6.0.0, whose SampleLazy and HoldLazy
+changed shape; that is why this is a major version. In SodaFlow.Collections.Core 3.0.0, a per-key cell made during a
+transaction that then fails no longer keeps an item from a discarded snapshot, a request for a per-key cell from outside
+a transaction can no longer deadlock with one from inside, and making a cell for each key of a large collection no
+longer takes time that grows with the square of the number of keys. That package's notes have the details.
 
 Changed, through SodaFlow.Collections.Core 3.0.0: an order with three levels or more, from ThenBy and the methods with
 it, holds each sort value as an object, where each level made a deeper generic type before. A level whose sort value is
