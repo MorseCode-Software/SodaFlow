@@ -34,7 +34,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="JetBrains.dotMemoryUnit" Version="3.2.20220510"/>
         <PackageReference Include="TUnit" Version="1.66.27"/>
     </ItemGroup>
 
@@ -43,7 +42,6 @@
         <Compile Include="..\..\TestParallelism.cs" Link="TestParallelism.cs"/>
         <Compile Include="..\..\TestUnobservedTaskExceptions.cs" Link="TestUnobservedTaskExceptions.cs"/>
         <Compile Include="GarbageCollectionTests.cs"/>
-        <Compile Include="StreamTests.cs"/>
         <Compile Include="TimerGarbageCollectionTests.cs"/>
     </ItemGroup>
 
