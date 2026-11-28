@@ -318,6 +318,27 @@ public sealed class GarbageCollectionTests
             .Because("the sweep should stop the links of a collected map and lift");
     }
 
+    // A transaction that commits gives its list of links to activate to the next transaction. Each
+    // link holds its source node and its target node. Thus, the list must go back empty, or the
+    // spare keeps the graph of the transaction before alive after nothing else holds it.
+    [Test]
+    public async Task TheGraphOfACommittedTransactionDoesNotStayAliveAfterItIsDropped()
+    {
+        WeakReference source = CreateASinkAndAMapOfIt();
+
+        // The registry holds the link until a sweep stops it. The cleanup thread can also do the
+        // sweep a short time after this one returns.
+        for (int attempt = 0; attempt < 100 && source.IsAlive; attempt++)
+        {
+            Collect();
+            StreamListenerManager.Sweep();
+            await Task.Delay(millisecondsDelay: 10, cancellationToken: CancellationToken.None);
+            Collect();
+        }
+
+        await Assert.That(source.IsAlive).IsFalse().Because("nothing should hold the sink or its map");
+    }
+
     // The stream of the updates of a derived cell holds the derivation, and the derivation lets the
     // cell go when the stream comes. A listener on that stream must keep the link from the
     // source after the garbage collector removes the cell, and must not keep the cell.
@@ -1433,6 +1454,17 @@ public sealed class GarbageCollectionTests
         }
 
         return (Map: new WeakReference(map), Lift: new WeakReference(lift));
+    }
+
+    // The map links the sink in a transaction of its own, which gives its list of links back at
+    // Close.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference CreateASinkAndAMapOfIt()
+    {
+        StreamSink<int> s = Stream.CreateSink<int>();
+        _ = s.Map(static v => v + 1);
+
+        return new WeakReference(s.Node);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

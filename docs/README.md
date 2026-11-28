@@ -2,17 +2,30 @@
 
 The SodaFlow for .NET documentation site. Built with [DocFX](https://dotnet.github.io/docfx/)
 and published to GitHub Pages by [`.github/workflows/docs.yml`](../.github/workflows/docs.yml)
-on every push to `main`.
+when a push to `main` changes a file that the site is built from: anything under `docs/`, `src/`,
+or `logo/`, the tool manifest in `.config/dotnet-tools.json`, or the workflow itself.
 
 ## Build it locally
 
-DocFX is pinned as a local .NET tool, so restore it once:
+Run each command from the repository root. DocFX is pinned as a local .NET tool, so restore it
+once:
 
 ```bash
 dotnet tool restore
 ```
 
-Then, from the repository root:
+Every C# project under `src/` runs the loop analyzer, and DocFX loads each project with its
+analyzers but does not build them. So build the analyzer first, in Release, because that is the
+configuration DocFX loads the projects in:
+
+```bash
+dotnet build src/Analyzers/SodaFlow.Analyzers/SodaFlow.Analyzers.csproj --configuration Release
+```
+
+Without it, DocFX gives `FailedToResolveAnalyzer` warnings, and a build with `--warningsAsErrors`,
+which is how the workflow runs it, fails.
+
+Then build the site:
 
 ```bash
 dotnet docfx docs/docfx.json --serve

@@ -1699,6 +1699,153 @@ public sealed class MapAsyncImplTests
             .ThrowsExactly<ArgumentNullException>();
     }
 
+    // A disposal in a callback posts its trigger, and the trigger records the cancel of each item.
+    // The start of an item waits for the release of the lock, and reads that record again before it
+    // calls the operation. Here, one transaction admits an item and then disposes of the pipeline in
+    // a listener on the updates of the queue, thus the start of the item is queued before the
+    // trigger. The operation must not start after the disposal, and the item must end.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task AnItemThatTheTransactionOfAPostedDisposalAdmitsDoesNotStart(bool parallel)
+    {
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+        List<int> received = [];
+        using IListener resultsListener = results.Listen(received.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: parallel
+                    ? AsyncConcurrencyStrategyFactory.Parallel(0)
+                    : AsyncConcurrencyStrategyFactory.Queue<int>(),
+                inputConverter: static v => v,
+                cancelOnDispose: true);
+
+        // A listener callback, thus the disposal posts its trigger and does not send it.
+        using IListener disposes =
+            status.Items.Updates()
+                .Listen(items =>
+                {
+                    if (items.Count > 0)
+                    {
+                        status.Dispose();
+                    }
+                });
+
+        source.Send(1);
+
+        // The start runs on this thread after the release, thus it ran when the send returns.
+        await Assert.That(op.HasStarted(1)).IsFalse().Because("the disposal canceled the item before its start");
+
+        TestUtil.WaitUntil(() => status.Items.Sample().Count == 0);
+
+        await Assert.That(received).IsEmpty();
+    }
+
+    // A strategy can give a token of its own with an item to start. The operation then gets one
+    // token that each of the two cancels: the token of the strategy, and the cancel of the item.
+    // Each cancel ends the item, and the item publishes nothing.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task TheTokenOfTheOperationObeysTheTokenOfTheStrategyAndTheItem(bool cancelTheStrategyToken)
+    {
+        using CancellationTokenSource strategySource = new();
+        StreamSink<int> source = Stream.CreateSink<int>();
+        StreamSink<int> results = Stream.CreateSink<int>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        ControlledOperation<int, int> op = new();
+        StrategyTokenStrategy strategy = new(strategySource.Token);
+        List<int> received = [];
+        List<Exception> failed = [];
+        using IListener resultsListener = results.Listen(received.Add);
+        using IListener errorsListener = errors.Listen(failed.Add);
+
+        AsyncMapStatus<int> status =
+            source.MapAsyncImpl(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                createDeliveryException: TestDeliveryException.Create,
+                operation: op.Operation,
+                strategy: strategy,
+                inputConverter: static v => v);
+
+        source.Send(1);
+        TestUtil.WaitUntil(() => op.HasStarted(1));
+
+        if (cancelTheStrategyToken)
+        {
+            // ReSharper disable once MethodHasAsyncOverload - CancelAsync arrived in .NET 8, and this
+            // compiles for net472 as well.
+            strategySource.Cancel();
+        }
+        else
+        {
+            strategy.FirstItem.Cancel();
+        }
+
+        TestUtil.WaitUntil(() => status.Items.Sample().Count == 0);
+
+        await Assert.That(received).IsEmpty();
+        await Assert.That(failed).IsEmpty();
+
+        status.Dispose();
+    }
+
+    // The pipeline does not wait for the Task of a start. A fault of that Task must reach the
+    // report, which also marks the Task as observed. That holds for a Task that faults after the
+    // call, and for a Task that faulted before it. A Task that ran to completion gets no
+    // continuation, and a check of the status that also skips a faulted Task fails here.
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task FireAndForgetGivesTheFaultOfTheTaskToTheReport(bool faultedBeforeTheCall)
+    {
+        InvalidOperationException fault = new("The Task faults.");
+        TaskCompletionSource<bool> gate = new();
+        List<Exception> reported = [];
+
+        if (faultedBeforeTheCall)
+        {
+            gate.SetException(fault);
+        }
+
+        AsyncMapExecutionManager<int, int, int>.FireAndForget(
+            task: gate.Task,
+            report: e =>
+            {
+                lock (reported)
+                {
+                    reported.Add(e);
+                }
+            });
+
+        if (!faultedBeforeTheCall)
+        {
+            gate.SetException(fault);
+        }
+
+        TestUtil.WaitUntil(() =>
+        {
+            lock (reported)
+            {
+                return reported.Count > 0;
+            }
+        });
+
+        await Assert.That(reported.Count).IsEqualTo(1);
+        await Assert.That(reported[0]).IsSameReferenceAs(fault);
+    }
+
     private static List<(int Value, AsyncItemStatus Status)> Snapshot(AsyncMapStatus<int> status) =>
         [.. status.Items.Sample().Select(static i => (i.Value, i.Status))];
 
@@ -1774,6 +1921,47 @@ public sealed class MapAsyncImplTests
             this.items.Add(incoming);
 
             return new AsyncStrategyStep<int, object?>(state: state, start: [new AsyncToStart<int>(incoming)]);
+        }
+
+        protected internal override AsyncStrategyResult<int, object?> OnCompleted(
+            object? state,
+            AsyncQueuedItem<int> item,
+            AsyncCompletion completion,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, publish: true, next: AsyncToStart<int>.None);
+
+        protected internal override AsyncStrategyStep<int, object?> OnCanceled(
+            object? state,
+            IReadOnlyList<AsyncQueuedItem<int>> canceled,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked) =>
+            new(state: state, start: AsyncToStart<int>.None);
+    }
+
+    /// <summary>
+    ///     Starts each item immediately with a token of its own, and keeps each item
+    ///     that it admits.
+    /// </summary>
+    // ReSharper disable once InheritdocConsiderUsage
+    private sealed class StrategyTokenStrategy(in CancellationToken token) : AsyncConcurrencyStrategy<int, object?>
+    {
+        // This state is global and is not the state of one MapAsync call, as in RecordingStrategy.
+        private readonly List<AsyncQueuedItem<int>> items = [];
+        private readonly CancellationToken token = token;
+
+        public AsyncQueuedItem<int> FirstItem => this.items[0];
+
+        protected override object? CreateState() => null;
+
+        protected internal override AsyncStrategyStep<int, object?> Admit(
+            object? state,
+            AsyncQueuedItem<int> incoming,
+            IReadOnlyList<AsyncTrackedItem<int>> tracked)
+        {
+            this.items.Add(incoming);
+
+            return new AsyncStrategyStep<int, object?>(
+                state: state,
+                start: [new AsyncToStart<int>(item: incoming, strategyToken: this.token)]);
         }
 
         protected internal override AsyncStrategyResult<int, object?> OnCompleted(

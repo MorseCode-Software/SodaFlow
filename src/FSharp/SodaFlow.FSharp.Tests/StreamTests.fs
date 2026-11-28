@@ -1381,14 +1381,18 @@ type ``Stream Tests``() =
             do! Expect.Equal(1, count.Value)
         }
 
+    // The listener sends each decrement on a different thread. The test waits for each send before
+    // the next step, thus the counter goes up and down in a known sequence, with no delay.
     [<Test>]
     member _.``Test Listen Async``() =
         task {
             let a = sinkC 1
             let a1 = a |> mapC ((+) 1)
             let a2 = a |> mapC ((*) 2)
+            let results = List<_>()
+            let decrements = List<Task>()
 
-            let struct (called, struct (_, l)) =
+            let struct (called, l) =
                 loopC (fun calledLoop ->
                     let result = (a1, a2) |> lift2C (+)
                     let incrementStream = result |> valuesC |> mapToS ()
@@ -1400,29 +1404,26 @@ type ``Stream Tests``() =
                         |> snapshotC calledLoop (+)
                         |> holdS 0
 
-                    let results = List<_>()
-
                     let l =
                         result
                         |> listenC (fun v ->
-                            async {
-                                do! Async.Sleep 900
-                                results.Add v
-                                decrementStream |> sendS ()
-                            }
-                            |> Async.Start)
+                            results.Add v
+                            decrements.Add(async { decrementStream |> sendS () } |> Async.StartAsVoidTask))
 
-                    struct (called, struct (results, l)))
+                    struct (called, l))
+
+            do! Task.WhenAll decrements
 
             let calledResults = List<_>()
             let l2 = called |> listenC calledResults.Add
-            do! Async.Sleep 500
             a |> sendC 2
-            do! Async.Sleep 500
+            do! Task.WhenAll decrements
             a |> sendC 3
-            do! Async.Sleep 2500
+            do! Task.WhenAll decrements
             l2 |> unlistenL
             l |> unlistenL
+            do! Expect.Sequence([ 4; 7; 10 ], results)
+            do! Expect.Sequence([ 0; 1; 0; 1; 0 ], calledResults)
         }
 
     [<Test>]
