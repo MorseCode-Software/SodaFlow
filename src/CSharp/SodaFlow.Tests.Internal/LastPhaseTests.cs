@@ -193,9 +193,10 @@ public sealed class LastPhaseTests
         await Assert.That(posted).IsTrue();
     }
 
-    // An after-last action can add a last action, and no drain runs that action. A transaction
-    // that commits gives its last queue to the next transaction. Thus, the queue must go back
-    // empty, or the next transaction runs the action of a different transaction.
+    // An after-last action can add a last action, and the drain after the after-last actions runs
+    // that action in its own transaction. A transaction that commits gives its last queue to the
+    // next transaction. Thus, the queue must go back empty, or the next transaction runs the
+    // action a second time.
     [Test]
     public async Task ALastActionThatAnAfterLastActionAddsDoesNotRunInTheNextTransaction()
     {
@@ -209,6 +210,8 @@ public sealed class LastPhaseTests
             return UnitInternal.Value;
         });
 
+        await Assert.That(runs).IsEqualTo(1);
+
         // This transaction takes the last queue that the transaction above gave back.
         TransactionInternal.Apply(static (trans, _) =>
         {
@@ -217,7 +220,7 @@ public sealed class LastPhaseTests
             return UnitInternal.Value;
         });
 
-        await Assert.That(runs).IsEqualTo(0);
+        await Assert.That(runs).IsEqualTo(1);
     }
 
     // An after-last action can queue a last action. That last action commits in the same
