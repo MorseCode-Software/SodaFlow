@@ -187,9 +187,10 @@ public static class Either
     /// <remarks>
     ///     Has nothing usable of its own. Code changes it implicitly into an either
     ///     which has this type in its first position.
+    ///     It is a struct, thus the short form allocates nothing.
     /// </remarks>
     [PublicAPI]
-    public sealed class EitherFirst<T>
+    public readonly struct EitherFirst<T>
     {
         internal EitherFirst(T value) => this.Value = value;
 
@@ -204,9 +205,10 @@ public static class Either
     /// <remarks>
     ///     Has nothing usable of its own. Code changes it implicitly into an either
     ///     which has this type in its second position.
+    ///     It is a struct, thus the short form allocates nothing.
     /// </remarks>
     [PublicAPI]
-    public sealed class EitherSecond<T>
+    public readonly struct EitherSecond<T>
     {
         internal EitherSecond(T value) => this.Value = value;
 
@@ -221,9 +223,10 @@ public static class Either
     /// <remarks>
     ///     Has nothing usable of its own. Code changes it implicitly into an either
     ///     which has this type in its third position.
+    ///     It is a struct, thus the short form allocates nothing.
     /// </remarks>
     [PublicAPI]
-    public sealed class EitherThird<T>
+    public readonly struct EitherThird<T>
     {
         internal EitherThird(T value) => this.Value = value;
 
@@ -238,9 +241,10 @@ public static class Either
     /// <remarks>
     ///     Has nothing usable of its own. Code changes it implicitly into an either
     ///     which has this type in its fourth position.
+    ///     It is a struct, thus the short form allocates nothing.
     /// </remarks>
     [PublicAPI]
-    public sealed class EitherFourth<T>
+    public readonly struct EitherFourth<T>
     {
         internal EitherFourth(T value) => this.Value = value;
 
@@ -255,9 +259,10 @@ public static class Either
     /// <remarks>
     ///     Has nothing usable of its own. Code changes it implicitly into an either
     ///     which has this type in its fifth position.
+    ///     It is a struct, thus the short form allocates nothing.
     /// </remarks>
     [PublicAPI]
-    public sealed class EitherFifth<T>
+    public readonly struct EitherFifth<T>
     {
         internal EitherFifth(T value) => this.Value = value;
 
@@ -272,9 +277,10 @@ public static class Either
     /// <remarks>
     ///     Has nothing usable of its own. Code changes it implicitly into an either
     ///     which has this type in its sixth position.
+    ///     It is a struct, thus the short form allocates nothing.
     /// </remarks>
     [PublicAPI]
-    public sealed class EitherSixth<T>
+    public readonly struct EitherSixth<T>
     {
         internal EitherSixth(T value) => this.Value = value;
 
@@ -289,9 +295,10 @@ public static class Either
     /// <remarks>
     ///     Has nothing usable of its own. Code changes it implicitly into an either
     ///     which has this type in its seventh position.
+    ///     It is a struct, thus the short form allocates nothing.
     /// </remarks>
     [PublicAPI]
-    public sealed class EitherSeventh<T>
+    public readonly struct EitherSeventh<T>
     {
         internal EitherSeventh(T value) => this.Value = value;
 
@@ -306,9 +313,10 @@ public static class Either
     /// <remarks>
     ///     Has nothing usable of its own. Code changes it implicitly into an either
     ///     which has this type in its eighth position.
+    ///     It is a struct, thus the short form allocates nothing.
     /// </remarks>
     [PublicAPI]
-    public sealed class EitherEighth<T>
+    public readonly struct EitherEighth<T>
     {
         internal EitherEighth(T value) => this.Value = value;
 
