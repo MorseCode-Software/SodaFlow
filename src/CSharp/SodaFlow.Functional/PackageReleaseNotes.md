@@ -37,7 +37,8 @@ marker threw NullReferenceException at the conversion. The NoneType of Maybe.Non
 Framework has no stack allocation of objects. Fully optimized code on .NET 10 can avoid the object, because that JIT can
 put it on the stack once it inlines the conversion. Measured on .NET 10 with the JIT's stack allocation of objects
 turned off, a construction with Either.First took 5.2 to 6.7 ns and 24 bytes, and now takes no measurable time and
-allocates nothing, as a construction with Either<int, int>.First does.
+allocates nothing, as a construction with Either<int, int>.First does. On .NET Framework 4.7.2, at full optimization,
+the same construction took 2.1 to 2.3 ns and 24 bytes, and now takes no measurable time and allocates nothing.
 
 Added: overloads of Match, MatchVoid, MatchSome, MatchNone, and Map on Maybe<T>, and of Match and MatchVoid on every
 Either, that take a state as their first argument and hand it to whichever function runs. A lambda that reads a local
