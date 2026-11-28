@@ -154,20 +154,20 @@ public sealed class BounceViewModel : IBounceViewModel
             return Stream.Loop<int>()
                 .WithCaptures(activatedLoop =>
                 {
-                    IScene simple = new SimpleScene(timers: timers, restarts: ActivatedAt(0));
+                    IScene simple = SimpleScene.Create(timers: timers, restarts: ActivatedAt(0));
 
                     IScene walls =
-                        new WallsScene(timers: timers, restitution: restitution, restarts: ActivatedAt(1));
+                        WallsScene.Create(timers: timers, restitution: restitution, restarts: ActivatedAt(1));
 
                     IScene grab =
-                        new GrabScene(timers: timers, restitution: restitution, restarts: ActivatedAt(2));
+                        GrabScene.Create(timers: timers, restitution: restitution, restarts: ActivatedAt(2));
 
                     // This scene damps at the walls, as the other two scenes do, but it does not
                     // damp at the impacts between balls. Those impacts stay elastic at each
                     // position of the slider, because the conservation is the purpose of the
                     // scene. See CollisionScene.Reflected.
                     IScene ricochets =
-                        new CollisionScene(timers: timers, restitution: restitution, restarts: ActivatedAt(3));
+                        CollisionScene.Create(timers: timers, restitution: restitution, restarts: ActivatedAt(3));
 
                     IScene[] scenes = [simple, walls, grab, ricochets];
 

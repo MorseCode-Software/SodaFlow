@@ -41,43 +41,46 @@ internal sealed class WallsScene : IScene
     ///     Fires when the tab of this scene becomes the selected
     ///     tab.
     /// </param>
-    internal WallsScene(ITimerSystem<double> timers, Cell<double> restitution, Stream<Unit> restarts)
-    {
-        double now = timers.Time.Sample();
-
-        // Below one each ball stops, and this scene has no pointer for a user to hold a ball
-        // that stopped. Thus, the selection of the tab starts the scene again. The restart is an
-        // input that the axes accept, and it is the input for a throw in the adjacent scene.
-        Stream<double> restarted = restarts.Snapshot(b: timers.Time, f: static (_, time) => time);
-
-        Ball[] balls = new Ball[Arrangement.Starts.Count];
-
-        for (int i = 0; i < balls.Length; i++)
+    internal static IScene Create(ITimerSystem<double> timers, Cell<double> restitution, Stream<Unit> restarts) =>
+        Transaction.Run(() =>
         {
-            Arrangement.Start start = Arrangement.Starts[i];
+            double now = timers.Time.Sample();
 
-            balls[i] =
-                new Ball(
-                    x: BouncingAxis.Create(
-                        timers: timers,
-                        initial: start.InitialX(now: now),
-                        min: start.Radius,
-                        max: Arrangement.Width - start.Radius,
-                        restarts: restarted.Map(time => start.InitialX(now: time)),
-                        restitution: restitution),
-                    y: BouncingAxis.Create(
-                        timers: timers,
-                        initial: start.InitialY(now: now),
-                        min: start.Radius,
-                        max: Arrangement.Height - start.Radius,
-                        restarts: restarted.Map(time => start.InitialY(now: time)),
-                        restitution: restitution),
-                    radius: start.Radius,
-                    color: start.Color);
-        }
+            // Below one each ball stops, and this scene has no pointer for a user to hold a ball
+            // that stopped. Thus, the selection of the tab starts the scene again. The restart is an
+            // input that the axes accept, and it is the input for a throw in the adjacent scene.
+            Stream<double> restarted = restarts.Snapshot(b: timers.Time, f: static (_, time) => time);
 
-        this.Balls = balls;
-    }
+            Ball[] balls = new Ball[Arrangement.Starts.Count];
+
+            for (int i = 0; i < balls.Length; i++)
+            {
+                Arrangement.Start start = Arrangement.Starts[i];
+
+                balls[i] =
+                    new Ball(
+                        x: BouncingAxis.Create(
+                            timers: timers,
+                            initial: start.InitialX(now: now),
+                            min: start.Radius,
+                            max: Arrangement.Width - start.Radius,
+                            restarts: restarted.Map(time => start.InitialX(now: time)),
+                            restitution: restitution),
+                        y: BouncingAxis.Create(
+                            timers: timers,
+                            initial: start.InitialY(now: now),
+                            min: start.Radius,
+                            max: Arrangement.Height - start.Radius,
+                            restarts: restarted.Map(time => start.InitialY(now: time)),
+                            restitution: restitution),
+                        radius: start.Radius,
+                        color: start.Color);
+            }
+
+            return new WallsScene(balls: balls);
+        });
+
+    private WallsScene(IReadOnlyList<Ball> balls) => this.Balls = balls;
 
     /// <inheritdoc />
     public string Name => "Several balls";

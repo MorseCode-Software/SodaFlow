@@ -166,53 +166,53 @@ internal sealed class CollisionScene : IScene
     ///     wall, and one ball against a second ball.
     /// </param>
     /// <param name="restarts">Fires when a user selects the tab of this scene.</param>
-    internal CollisionScene(
-        ITimerSystem<double> timers,
-        Cell<double> restitution,
-        Stream<Unit> restarts)
-    {
-        double now = timers.Time.Sample();
-
-        Cell<IReadOnlyList<Body>> world =
-            Cell.Loop<IReadOnlyList<Body>>()
-                .WithoutCaptures(bodies =>
-                {
-                    // This alarm is set for the next event, and it is not set when no event
-                    // occurs. No code reschedules it. The world gives the target, thus a new
-                    // world gives a new target.
-                    Cell<Maybe<double>> nextEvent = bodies.Map(NextEventTime);
-
-                    // The two lambdas give the list as their return type. Step and Initial
-                    // give arrays, and a stream of arrays is not a stream of lists.
-                    Stream<IReadOnlyList<Body>> stepped =
-                        timers
-                            .At(nextEvent)
-                            .Snapshot(
-                                c1: bodies,
-                                c2: restitution,
-                                f: static IReadOnlyList<Body> (time, w, e) =>
-                                    Step(world: w, time: time, restitution: e));
-
-                    return restarts
-                        .Snapshot(b: timers.Time, f: static IReadOnlyList<Body> (_, time) => Initial(time))
-                        .OrElse(stepped)
-                        .Hold(Initial(now));
-                });
-
-        Ball[] balls = new Ball[Arrangement.Starts.Count];
-
-        for (int i = 0; i < balls.Length; i++)
+    internal static IScene Create(ITimerSystem<double> timers, Cell<double> restitution, Stream<Unit> restarts) =>
+        Transaction.Run(() =>
         {
-            balls[i] =
-                new Ball(
-                    x: Position(timers: timers, world: world, index: i, horizontal: true),
-                    y: Position(timers: timers, world: world, index: i, horizontal: false),
-                    radius: Arrangement.Starts[i].Radius,
-                    color: Arrangement.Starts[i].Color);
-        }
+            double now = timers.Time.Sample();
 
-        this.Balls = balls;
-    }
+            Cell<IReadOnlyList<Body>> world =
+                Cell.Loop<IReadOnlyList<Body>>()
+                    .WithoutCaptures(bodies =>
+                    {
+                        // This alarm is set for the next event, and it is not set when no event
+                        // occurs. No code reschedules it. The world gives the target, thus a new
+                        // world gives a new target.
+                        Cell<Maybe<double>> nextEvent = bodies.Map(NextEventTime);
+
+                        // The two lambdas give the list as their return type. Step and Initial
+                        // give arrays, and a stream of arrays is not a stream of lists.
+                        Stream<IReadOnlyList<Body>> stepped =
+                            timers
+                                .At(nextEvent)
+                                .Snapshot(
+                                    c1: bodies,
+                                    c2: restitution,
+                                    f: static IReadOnlyList<Body> (time, w, e) =>
+                                        Step(world: w, time: time, restitution: e));
+
+                        return restarts
+                            .Snapshot(b: timers.Time, f: static IReadOnlyList<Body> (_, time) => Initial(time))
+                            .OrElse(stepped)
+                            .Hold(Initial(now));
+                    });
+
+            Ball[] balls = new Ball[Arrangement.Starts.Count];
+
+            for (int i = 0; i < balls.Length; i++)
+            {
+                balls[i] =
+                    new Ball(
+                        x: Position(timers: timers, world: world, index: i, horizontal: true),
+                        y: Position(timers: timers, world: world, index: i, horizontal: false),
+                        radius: Arrangement.Starts[i].Radius,
+                        color: Arrangement.Starts[i].Color);
+            }
+
+            return new CollisionScene(balls: balls);
+        });
+
+    private CollisionScene(IReadOnlyList<Ball> balls) => this.Balls = balls;
 
     /// <inheritdoc />
     public string Name => "Ricochets";

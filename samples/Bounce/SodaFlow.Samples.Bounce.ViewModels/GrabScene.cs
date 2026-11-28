@@ -42,108 +42,124 @@ internal sealed class GrabScene : IInteractiveScene
     ///     Fires when the tab of this scene becomes the selected
     ///     tab.
     /// </param>
-    internal GrabScene(ITimerSystem<double> timers, Cell<double> restitution, Stream<Unit> restarts)
-    {
-        double now = timers.Time.Sample();
-
-        Stream<double> restarted = restarts.Snapshot(b: timers.Time, f: static (_, time) => time);
-
-        this.held = Cell.CreateSink(Maybe<int>.None);
-        this.pointer = Cell.CreateSink(new Point(X: 0.0, Y: 0.0));
-        this.released = Stream.CreateSink<Unit>();
-
-        // The positions of the pointer, with a time at each move. Accum keeps the last two
-        // positions, and a velocity uses only those two.
-        Cell<PointerTrail> trail =
-            this.pointer
-                .Updates()
-                .Snapshot(b: timers.Time, f: static (p, time) => p with { Time = time })
-                .Accum(
-                    initialState: PointerTrail.Empty,
-                    f: static (p, previous) => previous.Add(time: p.Time, x: p.X, y: p.Y));
-
-        // The ball at the release, and the time of the release. The snapshot of held reads the
-        // value from the start of the transaction. Thus, Release can clear that value in the
-        // transaction that reports it.
-        Stream<Throw> thrown =
-            this.released
-                .Snapshot(c1: this.held, c2: trail, f: static (_, index, t) => new Grabbed(Index: index, Trail: t))
-                .Snapshot(
-                    b: timers.Time,
-                    f: static (grabbed, time) =>
-                        grabbed.Index.Match(
-                            onSome: index => Maybe.Some(new Throw(Index: index, Trail: grabbed.Trail, Time: time)),
-                            onNone: static () => Maybe<Throw>.None))
-                .FilterSome();
-
-        Ball[] balls = new Ball[Arrangement.Starts.Count];
-
-        for (int i = 0; i < balls.Length; i++)
+    internal static IInteractiveScene Create(
+        ITimerSystem<double> timers,
+        Cell<double> restitution,
+        Stream<Unit> restarts) =>
+        Transaction.Run(() =>
         {
-            int index = i;
-            Arrangement.Start start = Arrangement.Starts[index];
-            double minX = start.Radius;
-            double maxX = Arrangement.Width - start.Radius;
-            double minY = start.Radius;
-            double maxY = Arrangement.Height - start.Radius;
+            double now = timers.Time.Sample();
 
-            Stream<Throw> mine = thrown.Filter(t => t.Index == index);
+            Stream<double> restarted = restarts.Snapshot(b: timers.Time, f: static (_, time) => time);
 
-            // While a user holds a ball, its free flight continues and no user sees it. The
-            // throw replaces that flight, thus the screen does not show the flight in that
-            // interval.
-            Behavior<double> freeX =
-                BouncingAxis.Create(
-                    timers: timers,
-                    initial: start.InitialX(now: now),
-                    min: minX,
-                    max: maxX,
-                    // A throw and a new start are the same type of event, which is a flight from
-                    // other code. Thus, the two come on one stream, and no code tells the axis
-                    // about two streams.
-                    restarts: mine
-                        .Map(t =>
-                            new Flight(
-                                StartTime: t.Time,
-                                Position: Clamp(value: t.Trail.X, min: minX, max: maxX),
-                                Velocity: t.Trail.VelocityX,
-                                Acceleration: 0.0))
-                        .OrElse(restarted.Map(time => start.InitialX(now: time))),
-                    restitution: restitution);
+            CellSink<Maybe<int>> held = Cell.CreateSink(Maybe<int>.None);
+            CellSink<Point> pointer = Cell.CreateSink(new Point(X: 0.0, Y: 0.0));
+            StreamSink<Unit> released = Stream.CreateSink<Unit>();
 
-            Behavior<double> freeY =
-                BouncingAxis.Create(
-                    timers: timers,
-                    initial: start.InitialY(now: now),
-                    min: minY,
-                    max: maxY,
-                    restarts: mine
-                        .Map(t =>
-                            new Flight(
-                                StartTime: t.Time,
-                                Position: Clamp(value: t.Trail.Y, min: minY, max: maxY),
-                                Velocity: t.Trail.VelocityY,
-                                Acceleration: Arrangement.Gravity))
-                        .OrElse(restarted.Map(time => start.InitialY(now: time))),
-                    restitution: restitution);
+            // The positions of the pointer, with a time at each move. Accum keeps the last two
+            // positions, and a velocity uses only those two.
+            Cell<PointerTrail> trail =
+                pointer
+                    .Updates()
+                    .Snapshot(b: timers.Time, f: static (p, time) => p with { Time = time })
+                    .Accum(
+                        initialState: PointerTrail.Empty,
+                        f: static (p, previous) => previous.Add(time: p.Time, x: p.X, y: p.Y));
 
-            Cell<bool> isHeld =
-                this.held.Map(m => m.Match(onSome: h => h == index, onNone: static () => false));
+            // The ball at the release, and the time of the release. The snapshot of held reads the
+            // value from the start of the transaction. Thus, Release can clear that value in the
+            // transaction that reports it.
+            Stream<Throw> thrown =
+                released
+                    .Snapshot(c1: held, c2: trail, f: static (_, index, t) => new Grabbed(Index: index, Trail: t))
+                    .Snapshot(
+                        b: timers.Time,
+                        f: static (grabbed, time) =>
+                            grabbed.Index.Match(
+                                onSome: index => Maybe.Some(new Throw(Index: index, Trail: grabbed.Trail, Time: time)),
+                                onNone: static () => Maybe<Throw>.None))
+                    .FilterSome();
 
-            Behavior<double> pointerX =
-                this.pointer.Map(p => Clamp(value: p.X, min: minX, max: maxX)).AsBehavior();
+            Ball[] balls = new Ball[Arrangement.Starts.Count];
 
-            Behavior<double> pointerY =
-                this.pointer.Map(p => Clamp(value: p.Y, min: minY, max: maxY)).AsBehavior();
+            for (int i = 0; i < balls.Length; i++)
+            {
+                int index = i;
+                Arrangement.Start start = Arrangement.Starts[index];
+                double minX = start.Radius;
+                double maxX = Arrangement.Width - start.Radius;
+                double minY = start.Radius;
+                double maxY = Arrangement.Height - start.Radius;
 
-            balls[index] =
-                new Ball(
-                    x: isHeld.Map(h => h ? pointerX : freeX).SwitchB(),
-                    y: isHeld.Map(h => h ? pointerY : freeY).SwitchB(),
-                    radius: start.Radius,
-                    color: start.Color);
-        }
+                Stream<Throw> mine = thrown.Filter(t => t.Index == index);
 
+                // While a user holds a ball, its free flight continues and no user sees it. The
+                // throw replaces that flight, thus the screen does not show the flight in that
+                // interval.
+                Behavior<double> freeX =
+                    BouncingAxis.Create(
+                        timers: timers,
+                        initial: start.InitialX(now: now),
+                        min: minX,
+                        max: maxX,
+                        // A throw and a new start are the same type of event, which is a flight from
+                        // other code. Thus, the two come on one stream, and no code tells the axis
+                        // about two streams.
+                        restarts: mine
+                            .Map(t =>
+                                new Flight(
+                                    StartTime: t.Time,
+                                    Position: Clamp(value: t.Trail.X, min: minX, max: maxX),
+                                    Velocity: t.Trail.VelocityX,
+                                    Acceleration: 0.0))
+                            .OrElse(restarted.Map(time => start.InitialX(now: time))),
+                        restitution: restitution);
+
+                Behavior<double> freeY =
+                    BouncingAxis.Create(
+                        timers: timers,
+                        initial: start.InitialY(now: now),
+                        min: minY,
+                        max: maxY,
+                        restarts: mine
+                            .Map(t =>
+                                new Flight(
+                                    StartTime: t.Time,
+                                    Position: Clamp(value: t.Trail.Y, min: minY, max: maxY),
+                                    Velocity: t.Trail.VelocityY,
+                                    Acceleration: Arrangement.Gravity))
+                            .OrElse(restarted.Map(time => start.InitialY(now: time))),
+                        restitution: restitution);
+
+                Cell<bool> isHeld =
+                    held.Map(m => m.Match(onSome: h => h == index, onNone: static () => false));
+
+                Behavior<double> pointerX =
+                    pointer.Map(p => Clamp(value: p.X, min: minX, max: maxX)).AsBehavior();
+
+                Behavior<double> pointerY =
+                    pointer.Map(p => Clamp(value: p.Y, min: minY, max: maxY)).AsBehavior();
+
+                balls[index] =
+                    new Ball(
+                        x: isHeld.Map(h => h ? pointerX : freeX).SwitchB(),
+                        y: isHeld.Map(h => h ? pointerY : freeY).SwitchB(),
+                        radius: start.Radius,
+                        color: start.Color);
+            }
+
+            return new GrabScene(held: held, pointer: pointer, released: released, balls: balls);
+        });
+
+    private GrabScene(
+        CellSink<Maybe<int>> held,
+        CellSink<Point> pointer,
+        StreamSink<Unit> released,
+        IReadOnlyList<Ball> balls)
+    {
+        this.held = held;
+        this.pointer = pointer;
+        this.released = released;
         this.Balls = balls;
     }
 
@@ -206,13 +222,16 @@ internal sealed class GrabScene : IInteractiveScene
     /// </summary>
     private Maybe<int> BallAt(double x, double y)
     {
+        // One transaction reads all the balls, as for a frame. Thus, each distance is from the
+        // same instant.
+        IReadOnlyList<(double X, double Y)> positions = this.SamplePositions();
         Maybe<int> found = Maybe<int>.None;
         double best = double.MaxValue;
 
-        for (int i = 0; i < this.Balls.Count; i++)
+        for (int i = 0; i < positions.Count; i++)
         {
             Ball ball = this.Balls[i];
-            (double ballX, double ballY) = ball.SampleAt();
+            (double ballX, double ballY) = positions[i];
             double dx = ballX - x;
             double dy = ballY - y;
             double distance = dx * dx + dy * dy;

@@ -22,34 +22,40 @@ internal sealed class SimpleScene : IScene
 
     private const double BallRadius = 18.0;
 
+    private const double Size = 320.0;
+
     /// <param name="timers">The clock for the position of each ball.</param>
     /// <param name="restarts">
     ///     Fires when the tab of this scene becomes the selected
     ///     tab.
     /// </param>
-    internal SimpleScene(ITimerSystem<double> timers, Stream<Unit> restarts)
-    {
-        double now = timers.Time.Sample();
+    internal static IScene Create(ITimerSystem<double> timers, Stream<Unit> restarts) =>
+        Transaction.Run(() =>
+        {
+            double now = timers.Time.Sample();
 
-        this.Balls =
-        [
-            new Ball(
-                // No force moves the ball horizontally, and a constant is a correct behavior.
-                x: Behavior.Constant(this.Width / 2.0),
-                y: BouncingAxis.Create(
-                    timers: timers,
-                    initial: Initial(now),
-                    min: BallRadius,
-                    max: this.Height - BallRadius,
-                    restarts: restarts.Snapshot(b: timers.Time, f: static (_, time) => Initial(time)),
+            return new SimpleScene(
+                balls:
+                [
+                    new Ball(
+                        // No force moves the ball horizontally, and a constant is a correct behavior.
+                        x: Behavior.Constant(Size / 2.0),
+                        y: BouncingAxis.Create(
+                            timers: timers,
+                            initial: Initial(now),
+                            min: BallRadius,
+                            max: Size - BallRadius,
+                            restarts: restarts.Snapshot(b: timers.Time, f: static (_, time) => Initial(time)),
 
-                    // This is elastic and there is no control for it, because this scene is
-                    // the smallest scene that shows the idea.
-                    restitution: Cell.Constant(1.0)),
-                radius: BallRadius,
-                color: "#E2574C")
-        ];
-    }
+                            // This is elastic and there is no control for it, because this scene is
+                            // the smallest scene that shows the idea.
+                            restitution: Cell.Constant(1.0)),
+                        radius: BallRadius,
+                        color: "#E2574C")
+                ]);
+        });
+
+    private SimpleScene(IReadOnlyList<Ball> balls) => this.Balls = balls;
 
     /// <inheritdoc />
     public string Name => "One ball";
@@ -60,10 +66,10 @@ internal sealed class SimpleScene : IScene
         + "a moment solved from the equation rather than noticed by a frame.";
 
     /// <inheritdoc />
-    public double Width => 320.0;
+    public double Width => Size;
 
     /// <inheritdoc />
-    public double Height => 320.0;
+    public double Height => Size;
 
     /// <inheritdoc />
     public IReadOnlyList<Ball> Balls { get; }
