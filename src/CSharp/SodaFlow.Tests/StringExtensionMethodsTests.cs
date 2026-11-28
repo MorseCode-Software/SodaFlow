@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using SodaFlow.Functional;
 using TUnit.Assertions;
@@ -175,7 +176,15 @@ public sealed class StringExtensionMethodsTests
         await Assert.That("https://example.com/a".TryParseUri())
             .IsEqualTo(Maybe.Some(new Uri("https://example.com/a")));
 
-        await Assert.That("/a/b".TryParseUri()).IsEqualTo(Maybe<Uri>.None);
+        // On Windows, a rooted path is not an absolute URI. On each other platform, .NET reads it as
+        // an absolute file URI. The net472 target has no OperatingSystem.IsWindows, thus the test
+        // asks RuntimeInformation.
+        Maybe<Uri> rootedPath =
+            RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? Maybe<Uri>.None
+                : Maybe.Some(new Uri("file:///a/b"));
+
+        await Assert.That("/a/b".TryParseUri()).IsEqualTo(rootedPath);
 
         await Assert.That("/a/b".TryParseUri(UriKind.Relative))
             .IsEqualTo(Maybe.Some(new Uri(uriString: "/a/b", uriKind: UriKind.Relative)));
