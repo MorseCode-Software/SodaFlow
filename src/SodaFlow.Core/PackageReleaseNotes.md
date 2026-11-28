@@ -77,6 +77,11 @@ ns and 1,800 to 928 bytes, and through a chain of 32 maps 2,618 to 2,077 ns and 
 a state cell for each of 1,000 keys builds for 1,610 KB where it built for 1,980 KB, and for each of 10,000 keys for
 15,997 KB where it built for 19,484 KB. An empty transaction allocates what it did.
 
+The queue of the actions that run after the last actions goes to the next transaction in the same way. A binding
+scheduler uses it in each transaction that gives a batch to its context, and so does each item that MapAsync starts.
+Measured on .NET 10: a send that a binding scheduler delivers one way on a synchronization context, 408 to 383 ns and
+792 to 632 bytes. Each admission to a MapAsync pipeline allocates 160 bytes less.
+
 A transaction whose first entry in the priority queue has a deep rank no longer walks every empty bucket below that
 rank. The queue starts each transaction empty with its floor at zero, so a send whose only listener sat at rank one
 thousand, as the second source of a merge with a deep stream does, walked a thousand buckets before it ran. The empty
