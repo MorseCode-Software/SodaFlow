@@ -627,6 +627,47 @@ type ``MapAsync Tests``() =
             l |> unlistenL
         }
 
+    // A comparer that ignores case finds "b" equal to the input "B", and the send cancels that item.
+    [<Test>]
+    member _.``cancelMatching with a comparer cancels the inputs that the comparer finds equal``() =
+        task {
+            let source = sinkS<string> ()
+            let results = sinkS<string> ()
+            let errors = sinkS<exn> ()
+            let cancelMatching = sinkS<IReadOnlyCollection<string>> ()
+            let op = ControlledOperation<string, string>()
+            let received = List<string>()
+            let l = results |> listenS received.Add
+
+            let status =
+                source
+                |> mapAsyncWithCancelMatchingComparer
+                    StringComparer.OrdinalIgnoreCase
+                    results
+                    errors
+                    unexpected
+                    op.Operation
+                    (parallelStrategy ())
+                    None
+                    (Some cancelMatching)
+                    true
+
+            source |> sendS "a"
+            source |> sendS "B"
+            waitUntil (fun () -> op.HasStarted "a" && op.HasStarted "B")
+
+            cancelMatching |> sendS ([| "b" |] :> IReadOnlyCollection<string>)
+            waitUntil (fun () -> status.Items |> sampleC |> Seq.exists (fun item -> item.Value = "B") |> not)
+
+            op.Release("a", "A")
+            op.Release("B", "B")
+            waitUntil (fun () -> status.Items |> sampleC |> Seq.isEmpty)
+            do! Expect.Sequence([ "A" ], received)
+
+            status.Dispose()
+            l |> unlistenL
+        }
+
     [<Test>]
     member _.``cancelOnDispose true cancels an in-flight item``() =
         task {

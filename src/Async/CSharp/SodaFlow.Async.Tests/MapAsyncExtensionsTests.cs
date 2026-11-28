@@ -239,6 +239,84 @@ public sealed class MapAsyncExtensionsTests
         l.Dispose();
     }
 
+    // A comparer that ignores case finds "b" equal to the input "B", and the send cancels that item.
+    [Test]
+    public async Task CancelMatching_WithAComparer_CancelsTheInputsThatTheComparerFindsEqual()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.Listen(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelMatching: cancelMatching,
+                cancelMatchingComparer: StringComparer.OrdinalIgnoreCase);
+
+        source.Send("a");
+        source.Send("B");
+        TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("B"));
+
+        cancelMatching.Send(["b"]);
+        TestUtil.WaitUntil(() => !Transaction.Run(status.Items.Sample).Any(static item => item.Value == "B"));
+
+        op.Release(input: "a", result: "A");
+        op.Release(input: "B", result: "B");
+        TestUtil.WaitUntil(() => !Transaction.Run(status.Items.Sample).Any());
+
+        await Assert.That(received).IsEquivalentTo(expected: ["A"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        l.Dispose();
+    }
+
+    // With no comparer, the default comparer of string finds "b" and "B" different, and the send
+    // cancels nothing.
+    [Test]
+    public async Task CancelMatching_WithNoComparer_UsesTheDefaultComparer()
+    {
+        StreamSink<string> source = Stream.CreateSink<string>();
+        StreamSink<string> results = Stream.CreateSink<string>();
+        StreamSink<Exception> errors = Stream.CreateSink<Exception>();
+        StreamSink<IReadOnlyCollection<string>> cancelMatching = Stream.CreateSink<IReadOnlyCollection<string>>();
+        ControlledOperation<string, string> op = new();
+        List<string> received = [];
+        IListener l = results.Listen(received.Add);
+
+        AsyncMapStatus<string> status =
+            source.MapAsync(
+                results: results,
+                errors: errors,
+                handleException: TestUtil.Unexpected,
+                operation: op.Operation,
+                strategy: AsyncConcurrencyStrategy.Parallel(),
+                cancelMatching: cancelMatching);
+
+        source.Send("a");
+        source.Send("B");
+        TestUtil.WaitUntil(() => op.HasStarted("a") && op.HasStarted("B"));
+
+        cancelMatching.Send(["b"]);
+
+        op.Release(input: "a", result: "A");
+        TestUtil.WaitUntil(() => received.Count == 1);
+        op.Release(input: "B", result: "B");
+        TestUtil.WaitUntil(() => received.Count == 2);
+
+        await Assert.That(received).IsEquivalentTo(expected: ["A", "B"], ordering: CollectionOrdering.Matching);
+
+        status.Dispose();
+        l.Dispose();
+    }
+
     [Test]
     public async Task CancelAll_EndsARunningItemAndStopsTrackingIt()
     {

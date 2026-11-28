@@ -237,6 +237,116 @@ let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitI
 // C#. Give None, None, and true for the usual condition.
 
 /// <summary>
+///     This is <c>mapAsync</c> with the comparer that <paramref name="cancelMatching" /> uses. See
+///     <c>mapAsync</c> for the other parameters.
+/// </summary>
+/// <param name="cancelMatchingComparer">
+///     Compares a value of <paramref name="cancelMatching" /> with the input of each tracked
+///     operation. <c>mapAsync</c> gives <c>EqualityComparer.Default</c>. Give a comparer where two
+///     inputs are the same request but are not equal. Examples are a record that holds a time and a
+///     key, and a query string compared without case. It runs in the transaction of the send, and a
+///     throw from it fails that transaction and cancels nothing.
+/// </param>
+/// <param name="results">The destination of the return value of each operation that succeeded.</param>
+/// <param name="errors">The destination of each operation with an error.</param>
+/// <param name="handleException">
+///     Gets each exception that has no caller and that <paramref name="errors" /> cannot receive.
+///     A throw from it ends the process.
+/// </param>
+/// <param name="operation">The asynchronous work for each input.</param>
+/// <param name="strategy">The control of operations that overlap.</param>
+/// <param name="cancelAll"><c>Some</c> stream that cancels each tracked operation, or <c>None</c>.</param>
+/// <param name="cancelMatching">
+///     <c>Some</c> stream that cancels the tracked operations whose input is in each collection
+///     that it sends, as <paramref name="cancelMatchingComparer" /> compares them, or <c>None</c>.
+/// </param>
+/// <param name="cancelOnDispose">True when a disposal also cancels the tracked items.</param>
+/// <param name="source">The stream of inputs.</param>
+/// <returns>The status of the pipeline. See <c>mapAsync</c>.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let mapAsyncWithCancelMatchingComparer
+    (cancelMatchingComparer: IEqualityComparer<'TInput>)
+    (results: StreamSink<'TResult>)
+    (errors: StreamSink<exn>)
+    (handleException: exn -> unit)
+    (operation: 'TInput -> ResultFactory<'TResult> -> CancellationToken -> Task<MapAsyncResult<'TResult>>)
+    (strategy: AsyncConcurrencyStrategyBase<unit>)
+    (cancelAll: Stream<unit> option)
+    (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
+    (cancelOnDispose: bool)
+    (source: Stream<'TInput>)
+    : AsyncMapStatus<'TInput, 'TResult> =
+    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, unit>(
+        source,
+        results,
+        errors,
+        Action<exn> handleException,
+        deliveryExceptionFactory,
+        MapAsyncOperation<_, _> operation,
+        strategy,
+        Func<_, _>(fun (_: 'TInput) -> ()),
+        (cancelAll |> toUnitInternalStream),
+        (cancelMatching |> Option.toObj),
+        cancelOnDispose,
+        cancelMatchingComparer
+    )
+
+/// <summary>
+///     This is <c>mapAsyncWithInputConverter</c> with the comparer that
+///     <paramref name="cancelMatching" /> uses. See <c>mapAsyncWithCancelMatchingComparer</c> for
+///     the comparer and <c>mapAsyncWithInputConverter</c> for the other parameters.
+/// </summary>
+/// <param name="cancelMatchingComparer">
+///     Compares a value of <paramref name="cancelMatching" /> with the input of each tracked
+///     operation. <c>mapAsyncWithInputConverter</c> gives <c>EqualityComparer.Default</c>.
+/// </param>
+/// <param name="results">The destination of the return value of each operation that succeeded.</param>
+/// <param name="errors">The destination of each operation with an error.</param>
+/// <param name="handleException">
+///     Gets each exception that has no caller and that <paramref name="errors" /> cannot receive.
+///     A throw from it ends the process.
+/// </param>
+/// <param name="operation">The asynchronous work for each input.</param>
+/// <param name="strategy">The control of operations that overlap.</param>
+/// <param name="inputConverter">Makes the value that the strategy reads from each input.</param>
+/// <param name="cancelAll"><c>Some</c> stream that cancels each tracked operation, or <c>None</c>.</param>
+/// <param name="cancelMatching">
+///     <c>Some</c> stream that cancels the tracked operations whose input is in each collection
+///     that it sends, as <paramref name="cancelMatchingComparer" /> compares them, or <c>None</c>.
+/// </param>
+/// <param name="cancelOnDispose">True when a disposal also cancels the tracked items.</param>
+/// <param name="source">The stream of inputs.</param>
+/// <returns>The status of the pipeline. See <c>mapAsync</c>.</returns>
+[<MethodImpl(MethodImplOptions.NoInlining)>]
+let mapAsyncWithInputConverterAndCancelMatchingComparer
+    (cancelMatchingComparer: IEqualityComparer<'TInput>)
+    (results: StreamSink<'TResult>)
+    (errors: StreamSink<exn>)
+    (handleException: exn -> unit)
+    (operation: 'TInput -> ResultFactory<'TResult> -> CancellationToken -> Task<MapAsyncResult<'TResult>>)
+    (strategy: AsyncConcurrencyStrategyBase<'TStrategyInput>)
+    (inputConverter: 'TInput -> 'TStrategyInput)
+    (cancelAll: Stream<unit> option)
+    (cancelMatching: Stream<IReadOnlyCollection<'TInput>> option)
+    (cancelOnDispose: bool)
+    (source: Stream<'TInput>)
+    : AsyncMapStatus<'TInput, 'TResult> =
+    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, 'TStrategyInput>(
+        source,
+        results,
+        errors,
+        Action<exn> handleException,
+        deliveryExceptionFactory,
+        MapAsyncOperation<_, _> operation,
+        strategy,
+        Func<_, _> inputConverter,
+        (cancelAll |> toUnitInternalStream),
+        (cancelMatching |> Option.toObj),
+        cancelOnDispose,
+        cancelMatchingComparer
+    )
+
+/// <summary>
 ///     Runs <paramref name="operation" /> for each send of <paramref name="source" />. It sends a
 ///     value that succeeded to <paramref name="results" /> and a value with an error to
 ///     <paramref name="errors" />, and <paramref name="strategy" /> selects the time of each run.
@@ -315,19 +425,17 @@ let mapAsync
     (cancelOnDispose: bool)
     (source: Stream<'TInput>)
     : AsyncMapStatus<'TInput, 'TResult> =
-    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, unit>(
-        source,
-        results,
-        errors,
-        Action<exn> handleException,
-        deliveryExceptionFactory,
-        MapAsyncOperation<_, _> operation,
-        strategy,
-        Func<_, _>(fun (_: 'TInput) -> ()),
-        (cancelAll |> toUnitInternalStream),
-        (cancelMatching |> Option.toObj),
+    mapAsyncWithCancelMatchingComparer
+        EqualityComparer<'TInput>.Default
+        results
+        errors
+        handleException
+        operation
+        strategy
+        cancelAll
+        cancelMatching
         cancelOnDispose
-    )
+        source
 
 /// <summary>
 ///     This is <c>mapAsync</c> for a strategy that reads the input, such as
@@ -378,19 +486,18 @@ let mapAsyncWithInputConverter
     (cancelOnDispose: bool)
     (source: Stream<'TInput>)
     : AsyncMapStatus<'TInput, 'TResult> =
-    AsyncStreamUtility.MapAsyncImpl<'TInput, 'TResult, 'TStrategyInput>(
-        source,
-        results,
-        errors,
-        Action<exn> handleException,
-        deliveryExceptionFactory,
-        MapAsyncOperation<_, _> operation,
-        strategy,
-        Func<_, _> inputConverter,
-        (cancelAll |> toUnitInternalStream),
-        (cancelMatching |> Option.toObj),
+    mapAsyncWithInputConverterAndCancelMatchingComparer
+        EqualityComparer<'TInput>.Default
+        results
+        errors
+        handleException
+        operation
+        strategy
+        inputConverter
+        cancelAll
+        cancelMatching
         cancelOnDispose
-    )
+        source
 
 // The C# wrapper adds the same overload for Maybe<'T>, in AsyncMapStatusExtensions. This assembly
 // adds it as an optional type extension, thus it is in scope where this module is open. An
