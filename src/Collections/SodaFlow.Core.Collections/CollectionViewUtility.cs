@@ -1897,13 +1897,18 @@ internal static class CollectionViewUtility
     ///         below, reads the move as an update that also moved the key.
     ///     </para>
     ///     <para>
-    ///         An order that cannot move a key at a state edit omits the removal and
-    ///         the add, which are four tree operations to put the key at its current
-    ///         position. Each caller comes here at each state edit to a key that it
-    ///         holds, thus this is the incremental path. An order that makes its sort
-    ///         value from the key or from the identity can never move a key at a state
-    ///         edit. The order of the root is such an order, and so is each filter
-    ///         directly above it.
+    ///         An order that cannot move a key at a state edit omits the sort, which
+    ///         copies a path through each of two trees. Each caller comes here at each
+    ///         state edit to a key that it holds, thus this is the incremental path. An
+    ///         order that makes its sort value from the key or from the identity can
+    ///         never move a key at a state edit. The order of the root is such an
+    ///         order, and so is each filter directly above it.
+    ///     </para>
+    ///     <para>
+    ///         An order that reads the state sorts the key again with one add, and
+    ///         does not remove the key first. The add keeps the set when the comparer
+    ///         finds the new sort value equal to the filed sort value. That is the
+    ///         usual update, and it then copies no tree and searches for no position.
     ///     </para>
     ///     <para>
     ///         This code always sorts in the order of <paramref name="keys" />, and
@@ -1948,7 +1953,16 @@ internal static class CollectionViewUtility
             return false;
         }
 
-        keys = keys.Remove(key).Add(key: key, snapshot: snapshot);
+        OrderedKeys<TKey, TIdentity, TState> filed = keys;
+        keys = keys.Add(key: key, snapshot: snapshot);
+
+        if (ReferenceEquals(objA: keys, objB: filed))
+        {
+            operations.Add(new ViewUpdate<TKey>(key: key, index: fromIndex));
+
+            return false;
+        }
+
         int toIndex = keys.IndexOfInternal(key);
 
         if (fromIndex != toIndex)

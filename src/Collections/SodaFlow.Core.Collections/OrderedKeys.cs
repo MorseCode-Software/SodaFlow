@@ -77,7 +77,16 @@ public abstract class OrderedKeys<TKey, TIdentity, TState> : IReadOnlyList<TKey>
     /// </summary>
     /// <param name="key">The key to add.</param>
     /// <param name="snapshot">The collection that gives the sort value.</param>
-    /// <returns>The set with the key in it.</returns>
+    /// <returns>
+    ///     The set with the key in it. For a key that the set holds, this is the
+    ///     same set when the comparer finds the new sort value equal to the
+    ///     filed sort value.
+    /// </returns>
+    /// <remarks>
+    ///     This method moves a key that the set holds to its new sort value, and
+    ///     does not add it a second time. A stage sorts a key again with one call
+    ///     to this method.
+    /// </remarks>
     internal abstract OrderedKeys<TKey, TIdentity, TState> Add(
         TKey key,
         CollectionSnapshot<TKey, TIdentity, TState> snapshot);
@@ -1352,22 +1361,36 @@ file sealed class SortedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKeys<TK
     {
         // This throws an exception for a key that the snapshot does not hold. See
         // ProjectedKeyOrder.Project.
-        SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: this.order.Project(key: key, snapshot: snapshot));
+        TSortKey sortValue = this.order.Project(key: key, snapshot: snapshot);
 
         // This code sorts a key in the set again, and does not add it a second time. The map holds
         // one entry for each key and the ordering holds one entry for each sort value. An add of a
         // key in the set, at a different value, leaves the previous entry in the ordering with no
         // key. The set then counts that entry, gives the key two times, and does not agree with its
-        // own map. No stage does that now, because a second sort removes the key before it adds the
-        // key, but this type did not give that rule.
-        ImmutableSortedSet<SortedEntry<TKey, TSortKey>> ordering =
-            this.byKey.TryGet(key: key, value: out SortedEntry<TKey, TSortKey>? filed)
-                ? this.entries.Remove(filed)
-                : this.entries;
+        // own map. A second sort of a stage comes here with a key that is in the set.
+        if (!this.byKey.TryGet(key: key, value: out SortedEntry<TKey, TSortKey>? filed))
+        {
+            SortedEntry<TKey, TSortKey> added = new(key: key, sortValue: sortValue);
+
+            return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
+                order: this.order,
+                entries: this.entries.Add(added),
+                byKey: this.byKey.Add(key: key, value: added));
+        }
+
+        // A value that the comparer finds equal puts the key at the same position. Each read of a
+        // sort value goes through this comparer, thus the filed entry can stay. The usual update
+        // does not change the sort value, and this keeps the two trees with no copy.
+        if (this.SortComparer.Compare(x: filed.SortValue, y: sortValue) == 0)
+        {
+            return this;
+        }
+
+        SortedEntry<TKey, TSortKey> entry = new(key: key, sortValue: sortValue);
 
         return new SortedKeys<TKey, TIdentity, TState, TSortKey>(
             order: this.order,
-            entries: ordering.Add(entry),
+            entries: this.entries.Remove(filed).Add(entry),
             byKey: this.byKey.SetItem(key: key, value: entry));
     }
 
@@ -1526,10 +1549,14 @@ file sealed class ReversedKeys<TKey, TIdentity, TState, TSortKey> : OrderedKeys<
 
     internal override OrderedKeys<TKey, TIdentity, TState> Add(
         TKey key,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot) =>
-        new ReversedKeys<TKey, TIdentity, TState, TSortKey>(
-            source: this.Source.AddSorted(key: key, snapshot: snapshot),
-            order: this.order);
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+    {
+        SortedKeys<TKey, TIdentity, TState, TSortKey> source = this.Source.AddSorted(key: key, snapshot: snapshot);
+
+        return ReferenceEquals(objA: source, objB: this.Source)
+            ? this
+            : new ReversedKeys<TKey, TIdentity, TState, TSortKey>(source: source, order: this.order);
+    }
 
     internal override OrderedKeys<TKey, TIdentity, TState> Remove(TKey key)
     {
@@ -1704,11 +1731,14 @@ internal sealed class RangeKeys<TKey, TIdentity, TState> : OrderedKeys<TKey, TId
 
     internal override OrderedKeys<TKey, TIdentity, TState> Add(
         TKey key,
-        CollectionSnapshot<TKey, TIdentity, TState> snapshot) =>
-        new RangeKeys<TKey, TIdentity, TState>(
-            source: this.source.Add(key: key, snapshot: snapshot),
-            offset: this.offset,
-            limit: this.limit);
+        CollectionSnapshot<TKey, TIdentity, TState> snapshot)
+    {
+        OrderedKeys<TKey, TIdentity, TState> source = this.source.Add(key: key, snapshot: snapshot);
+
+        return ReferenceEquals(objA: source, objB: this.source)
+            ? this
+            : new RangeKeys<TKey, TIdentity, TState>(source: source, offset: this.offset, limit: this.limit);
+    }
 
     internal override OrderedKeys<TKey, TIdentity, TState> Remove(TKey key) =>
         new RangeKeys<TKey, TIdentity, TState>(source: this.source.Remove(key), offset: this.offset, limit: this.limit);
