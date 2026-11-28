@@ -20,13 +20,23 @@ internal sealed class EntryPriorityQueue
     // list and does not touch this rank.
     private int minRank = int.MaxValue;
 
+    // The number of entries in the buckets of the entries array. Only the checks keep it. It lets
+    // CheckQueue walk only the ranks from minRank to maxRank and still find an entry outside them.
+    private int rankedCount;
+
     // The checks below run in a debug build only. A release build removes each call, thus the
     // hot path pays nothing for them. Before, a false constant guarded them, and no build ran
     // them.
+    //
+    // The checks walk only the ranks from minRank to maxRank. All transactions share the entries
+    // array, and it never gets shorter. Thus, a walk of the full array made each operation cost
+    // time for the deepest rank that the process ever queued.
     [Conditional("DEBUG")]
     private void CheckQueue()
     {
-        for (int i = 0; i < this.entries.Length; i++)
+        int found = 0;
+
+        for (int i = this.minRank; i <= this.maxRank; i++)
         {
             HeadAndTail? e = this.entries[i];
 
@@ -59,8 +69,23 @@ internal sealed class EntryPriorityQueue
                     throw new InvalidOperationException("Entry was not marked as being in a priority queue.");
                 }
 
+                found++;
                 current = current.PqNext;
             }
+        }
+
+        if (found != this.rankedCount)
+        {
+            throw new InvalidOperationException("An entry was outside the range of ranks of the queue.");
+        }
+    }
+
+    [Conditional("DEBUG")]
+    private void CountRanked(TransactionInternal.Entry e, int change)
+    {
+        if (e.PqRank != Node.NullRank)
+        {
+            this.rankedCount += change;
         }
     }
 
@@ -112,6 +137,7 @@ internal sealed class EntryPriorityQueue
         }
 
         e.InPq = true;
+        this.CountRanked(e: e, change: 1);
 
         HeadAndTail? entry;
 
@@ -228,6 +254,7 @@ internal sealed class EntryPriorityQueue
         }
 
         e.InPq = false;
+        this.CountRanked(e: e, change: -1);
 
         // ReSharper disable once NullableWarningSuppressionIsUsed - e.InPq would be false if the entry was not able
         // to be found in the queue.
@@ -261,9 +288,11 @@ internal sealed class EntryPriorityQueue
     [Conditional("DEBUG")]
     private void CheckNoSmallerRankThan(TransactionInternal.Entry result)
     {
-        // ReSharper disable once LoopCanBePartlyConvertedToQuery
-        foreach (HeadAndTail? bucket in this.entries)
+        // CheckQueue below finds an entry outside these ranks.
+        for (int i = this.minRank; i <= this.maxRank; i++)
         {
+            HeadAndTail? bucket = this.entries[i];
+
             if (bucket == null)
             {
                 continue;
