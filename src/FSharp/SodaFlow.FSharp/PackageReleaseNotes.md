@@ -158,6 +158,11 @@ of the async still reaches the result, as long as you hold the async.
 Changed: choose builds one node instead of a map followed by a filter. It fires the same values in the same transactions
 and costs about half as much to build.
 
+Changed: filterSome and choose allocate 96 bytes less per firing. They gave SodaFlow.Core a match delegate, and each
+firing built a closure and a delegate to send the value, even for a firing of None. They now go through one node of
+SodaFlow.Core that reads the option with no callback, so a filterSome or a choose allocates per send what a filter or a
+map of the same shape allocates; the C# notes have the measurement, which is the same node.
+
 Fixed: TimerSystem could send its Time behavior backward. Timers fire on more than one thread, the implementation's
 own and any thread whose transaction start runs the timers that are due, and each one queues its event after it lets
 go of the implementation's lock. The events then reached a first-in, first-out queue out of order, so alarms at 10 and

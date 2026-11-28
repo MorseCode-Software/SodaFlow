@@ -133,9 +133,13 @@ Operational.Defer and Operational.Split allocate less with SodaFlow.Core 6.0.0, 
 in a list where it kept a dictionary. On .NET 10 a defer measures 1,376 bytes to 1,208, and a defer from each of 8 split
 elements 8,720 to 7,208; the core notes have the rest.
 
-FilterSome and Choose on a stream of Maybe<T> allocate nothing per firing with SodaFlow.Functional 4.0.0. They call
-MatchSome, which allocated two closures per call and now reads the fields; the Functional notes have the measurement.
-Nothing in this package changed for it.
+Changed: FilterSome and Choose allocate 96 bytes less per firing. They gave SodaFlow.Core a match delegate, and each
+firing built a closure and a delegate to send the value, even for a firing with no value. They now go through one node
+of SodaFlow.Core that reads the Maybe<T> with no callback, so a FilterSome or a Choose allocates per send what a Filter
+or a Map of the same shape allocates. Measured in StreamSendBenchmarks on .NET 10: a send through a FilterSome 464 to
+368 bytes, and a send through a Choose that gives a value for half of its inputs 424 to 328 bytes; .NET Framework 4.7.2
+saves the same 96 bytes, and the time does not change measurably on either. They no longer call MatchSome, which also
+stopped allocating in SodaFlow.Functional 4.0.0; the Functional notes have that measurement.
 
 This release also raises the dependency floor, so that a new install gets SodaFlow.Core 6.0.0. That release has fixes
 that reach this package, and its notes have the details of each:
