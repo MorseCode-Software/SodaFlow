@@ -2036,6 +2036,70 @@ public sealed class CollectionViewTests
         await Assert.That(evicted).IsEquivalentTo(expected: ["row 2"], ordering: CollectionOrdering.Matching);
     }
 
+    // The overload without onEvicted keeps the limit. Its objects hold no resources, thus a key
+    // that left loses its object with no release, and the object is built again when the key
+    // comes back.
+    [Test]
+    public async Task AMapWithNoReleaseRemovesTheObjectOfAKeyThatLeft()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20));
+
+        int projections = 0;
+
+        using MappedItems<string> mapped =
+            collection.Map(
+                project: key =>
+                {
+                    projections++;
+
+                    return "row " + key;
+                },
+                retainedBeyondTheView: 0);
+
+        _ = mapped.Items.Sample();
+
+        await Assert.That(projections).IsEqualTo(2);
+
+        edits.Send(TestUtil.Remove(2));
+        edits.Send(TestUtil.Add(TestUtil.Item(number: 2, name: "two", score: 20)));
+
+        await Assert.That(projections).IsEqualTo(3);
+        await Assert.That(mapped.Items.Sample())
+            .IsEquivalentTo(expected: ["row 1", "row 2"], ordering: CollectionOrdering.Matching);
+    }
+
+    // The release is the third argument of the other overload, and a call can give it in its
+    // position. The limit comes after it.
+    [Test]
+    public async Task AMapGivesTheObjectOfAKeyThatLeftToAReleaseInItsPosition()
+    {
+        StreamSink<CollectionEdit<int, ItemIdentity, ItemState>> edits =
+            Stream.CreateSink<CollectionEdit<int, ItemIdentity, ItemState>>();
+
+        ReactiveCollection<int, ItemIdentity, ItemState> collection =
+            Create(
+                edits: edits,
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20));
+
+        List<string> evicted = [];
+
+        using MappedItems<string> mapped = collection.Map(static key => "row " + key, evicted.Add, 0);
+
+        _ = mapped.Items.Sample();
+
+        edits.Send(TestUtil.Remove(2));
+
+        await Assert.That(evicted).IsEquivalentTo(expected: ["row 2"], ordering: CollectionOrdering.Matching);
+    }
+
     [Test]
     public async Task DisposingAMapReleasesWhatItStillHolds()
     {
