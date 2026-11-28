@@ -481,6 +481,58 @@ public sealed class StreamTests
         await Assert.That(@out).IsEquivalentTo(expected: Array.Empty<int>(), ordering: CollectionOrdering.Matching);
     }
 
+#if NET
+    // See TheOverloadsWithAStateAllocateNothing in MaybeTests for the guard.
+    //
+    // Each pair is two graphs of one node that fire the same values to one listener. A send costs
+    // the same bytes for its transaction in each graph. Thus, the two costs are equal unless one
+    // node allocates at each firing. A FilterSome or a Choose that matched through a delegate got
+    // a closure and a delegate at each firing. That was 96 bytes more than the other graph.
+    [Test]
+    public async Task FilterSomeAndChooseAllocateWhatAFilterAndAMapAllocate()
+    {
+        await Assert.That(BytesForEachSend(build: static s => s.FilterSome(), value: Maybe.Some(1)))
+            .IsEqualTo(BytesForEachSend(build: static s => s.Filter(static m => m.HasValue()), value: Maybe.Some(1)));
+
+        await Assert.That(BytesForEachSend(build: static s => s.FilterSome(), value: Maybe<int>.None))
+            .IsEqualTo(BytesForEachSend(build: static s => s.Filter(static m => m.HasValue()), value: Maybe<int>.None));
+
+        await Assert.That(BytesForEachSend(build: static s => s.Choose(Maybe.Some), value: 1))
+            .IsEqualTo(BytesForEachSend(build: static s => s.Map(static v => v), value: 1));
+
+        await Assert.That(BytesForEachSend(build: static s => s.Choose(static _ => Maybe<int>.None), value: 1))
+            .IsEqualTo(BytesForEachSend(build: static s => s.Filter(static _ => false), value: 1));
+    }
+
+    private static long BytesForEachSend<TIn, TOut>(Func<Stream<TIn>, Stream<TOut>> build, TIn value)
+    {
+        const int sends = 1000;
+        StreamSink<TIn> sink = Stream.CreateSink<TIn>();
+
+        IListener l = build(sink).Listen(static _ =>
+        {
+        });
+
+        // The first sends make the spare queues of the transaction and compile the code.
+        for (int i = 0; i < sends; i++)
+        {
+            sink.Send(value);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+
+        for (int i = 0; i < sends; i++)
+        {
+            sink.Send(value);
+        }
+
+        long bytes = GC.GetAllocatedBytesForCurrentThread() - before;
+        l.Dispose();
+
+        return bytes / sends;
+    }
+#endif
+
     [Test]
     public async Task TestLoopStream()
     {

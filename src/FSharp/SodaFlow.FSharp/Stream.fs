@@ -1298,6 +1298,11 @@ let private toOption (m: MaybeInternal<_>) =
     | true, v -> Some v
     | _ -> None
 
+let private toMaybeInternal (o: 'T option) =
+    match o with
+    | Some v -> MaybeInternal.Some v
+    | None -> MaybeInternal<'T>.None
+
 /// <summary>
 ///     Merges two streams of different types into one stream of pairs.
 /// </summary>
@@ -1525,7 +1530,7 @@ let filter predicate (stream: Stream<_>) = stream.FilterImpl(Func<_, _> predicat
 /// <returns>A stream firing the value in each <c>Some</c>, and not firing for <c>None</c>.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let filterSome (stream: Stream<_>) =
-    StreamExtensionMethodsInternal.FilterSomeImpl(stream, Action<_, _>(fun o a -> o |> Option.iter a.Invoke))
+    StreamExtensionMethodsInternal.ChooseInternal(stream, Func<_, _> toMaybeInternal)
 
 /// <summary>
 ///     Transforms the firings with a function that can give no value, and fires only the values
@@ -1544,7 +1549,7 @@ let filterSome (stream: Stream<_>) =
 /// </remarks>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let choose f (stream: Stream<_>) =
-    StreamExtensionMethodsInternal.ChooseImpl(stream, Func<_, _> f, Action<_, _>(fun o a -> o |> Option.iter a.Invoke))
+    StreamExtensionMethodsInternal.ChooseInternal(stream, Func<_, _>(fun value -> toMaybeInternal (f value)))
 
 /// <summary>
 ///     Lets firings through only while a behavior holds true.

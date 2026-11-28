@@ -77,6 +77,28 @@ let private listenAndDropWithMap () =
     s |> sendS 7
     out
 
+#if NET
+// The bytes that one send allocates, after the first sends make the spare queues of the
+// transaction and compile the code. The reference assemblies of net472 do not have the read of
+// the bytes that a thread allocated.
+let private bytesForEachSend (build: Stream<'TIn> -> Stream<'TOut>) (value: 'TIn) =
+    let sends = 1000
+    let s = sinkS ()
+    let l = build s |> listenS ignore
+
+    for _ in 1..sends do
+        s |> sendS value
+
+    let before = GC.GetAllocatedBytesForCurrentThread()
+
+    for _ in 1..sends do
+        s |> sendS value
+
+    let bytes = GC.GetAllocatedBytesForCurrentThread() - before
+    l |> unlistenL
+    bytes / int64 sends
+#endif
+
 // The map counts each value that gets to it. A listener that stays on the sink keeps the map alive,
 // thus a send after a collection shows that listener as a count.
 [<MethodImpl(MethodImplOptions.NoInlining)>]
@@ -453,6 +475,35 @@ type ``Stream Tests``() =
             l |> unlistenL
             do! Expect.Sequence(List<int>(), out)
         }
+
+#if NET
+    // Each pair is two graphs of one node that fire the same values to one listener, as in the C#
+    // test of the same name. The two costs are equal unless one node allocates at each firing.
+    [<Test>]
+    member _.``FilterSome And Choose Allocate What A Filter And A Map Allocate``() =
+        task {
+            do!
+                Expect.Equal(
+                    bytesForEachSend (filterS Option.isSome) (Some 1),
+                    bytesForEachSend filterSomeS (Some 1)
+                )
+
+            do!
+                Expect.Equal(
+                    bytesForEachSend (filterS Option.isSome) Option<int>.None,
+                    bytesForEachSend filterSomeS Option<int>.None
+                )
+
+            // The function of each graph makes one option at each firing.
+            do! Expect.Equal(bytesForEachSend (mapS Some) 1, bytesForEachSend (chooseS Some) 1)
+
+            do!
+                Expect.Equal(
+                    bytesForEachSend (filterS (fun (_: int) -> false)) 1,
+                    bytesForEachSend (chooseS (fun (_: int) -> Option<int>.None)) 1
+                )
+        }
+#endif
 
     [<Test>]
     member _.``Test Loop Stream``() =

@@ -1946,6 +1946,11 @@ public static class StreamExtensionMethods
     private static Maybe<T> ToMaybe<T>(MaybeInternal<T> m) =>
         m.TryGetValue(out T value) ? Maybe.Some(value) : Maybe<T>.None;
 
+    // The two lambdas capture nothing. Thus, the compiler makes each delegate one time, and a call
+    // allocates nothing. SodaFlow.Functional does not show its own TryGetValue to this assembly.
+    private static MaybeInternal<T> ToMaybeInternal<T>(Maybe<T> m) =>
+        m.Match(onSome: static value => MaybeInternal.Some(value), onNone: static () => MaybeInternal<T>.None);
+
     /// <summary>
     ///     Return a stream that only outputs events for which the predicate returns
     ///     <code>true</code>.
@@ -2205,8 +2210,7 @@ public static class StreamExtensionMethods
     ///     values.
     /// </returns>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static Stream<T> FilterSome<T>(this Stream<Maybe<T>> s) =>
-        s.FilterSomeImpl<T, Maybe<T>>(static (m, a) => m.MatchSome(a));
+    public static Stream<T> FilterSome<T>(this Stream<Maybe<T>> s) => s.ChooseInternal(ToMaybeInternal);
 
     /// <summary>
     ///     Transform the stream values with a function which can give no value, and
@@ -2233,7 +2237,7 @@ public static class StreamExtensionMethods
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     public static Stream<TResult> Choose<T, TResult>(this Stream<T> s, Func<T, Maybe<TResult>> f) =>
-        s.ChooseImpl<T, TResult, Maybe<TResult>>(f: f, matchSome: static (m, a) => m.MatchSome(a));
+        s.ChooseInternal<T, TResult>(value => ToMaybeInternal(f(value)));
 
     /// <summary>
     ///     Fires the last value after a time with no other value. Each firing moves
