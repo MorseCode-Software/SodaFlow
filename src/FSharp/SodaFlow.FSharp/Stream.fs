@@ -1644,6 +1644,10 @@ let calmWithCompare compare (stream: Stream<_>) = stream.CalmImpl(Func<_, _, _> 
 let calmWithEqualityComparer (equalityComparer: IEqualityComparer<_>) (stream: Stream<_>) =
     stream.CalmImpl(Func<_, _, _>(fun x y -> equalityComparer.Equals(x, y)))
 
+// This is inline, thus each caller compares with the = of its own type. A copy that is not inline
+// compares with the generic =, which boxes the two values of a struct record or a struct union.
+// The body calls only calmWithCompare, which is public. Thus, the copy in the assembly of a
+// caller needs no internal member of SodaFlow.Core.
 /// <summary>
 ///     Suppresses firings equal, by F#'s structural equality, to the last one that got through.
 /// </summary>
@@ -1656,8 +1660,8 @@ let calmWithEqualityComparer (equalityComparer: IEqualityComparer<_>) (stream: S
 ///     Uses <c>=</c>, so for a type without meaningful structural equality use
 ///     the alternative <c>calmWithCompare</c>.
 /// </remarks>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let calm (stream: Stream<_>) = stream.CalmImpl(Func<_, _, _> (=))
+let inline calm (stream: Stream<'a>) =
+    calmWithCompare (fun (x: 'a) y -> x = y) stream
 
 /// <summary>
 ///     Folds state across firings into a cell, with an initial state computed on first use.

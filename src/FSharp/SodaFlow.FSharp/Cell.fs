@@ -370,6 +370,7 @@ let calmWithCompare compare (cell: Cell<_>) = cell.CalmImpl(Func<_, _, _> compar
 let calmWithEqualityComparer (equalityComparer: IEqualityComparer<_>) (cell: Cell<_>) =
     cell.CalmImpl(Func<_, _, _>(fun x y -> equalityComparer.Equals(x, y)))
 
+// See Stream.calm for the cause of inline.
 /// <summary>
 ///     Suppresses updates equal, by F#'s structural equality, to the last one that got through.
 /// </summary>
@@ -382,8 +383,8 @@ let calmWithEqualityComparer (equalityComparer: IEqualityComparer<_>) (cell: Cel
 ///     Uses <c>=</c>, so for a type without meaningful structural equality use
 ///     the alternative <c>calmWithCompare</c>.
 /// </remarks>
-[<MethodImpl(MethodImplOptions.NoInlining)>]
-let calm (cell: Cell<_>) = cell.CalmImpl(Func<_, _, _> (=))
+let inline calm (cell: Cell<'a>) =
+    calmWithCompare (fun (x: 'a) y -> x = y) cell
 
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let private liftAllCollection f (cells: IReadOnlyCollection<'Cell>) =

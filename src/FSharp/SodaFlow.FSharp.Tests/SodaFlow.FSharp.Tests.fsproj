@@ -44,6 +44,7 @@
         <Compile Include="LoopTests.fs"/>
         <Compile Include="PerformanceTests.fs"/>
         <Compile Include="StreamTests.fs"/>
+        <Compile Include="CalmTests.fs"/>
         <Compile Include="TimerTests.fs"/>
         <Compile Include="TransactionTests.fs"/>
     </ItemGroup>
