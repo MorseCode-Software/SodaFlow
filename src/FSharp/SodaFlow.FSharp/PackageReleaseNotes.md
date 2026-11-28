@@ -56,9 +56,10 @@ or a later send. Before, the timer was accepted and never fired, and the caller 
 could not come. A cell with no time sets nothing and passes as before. A custom ITimerSystemImplementation<'T>
 should do the same after its Stop.
 
-The timer system's hook also allocates nothing in a transaction with no alarm due, where before it allocated a list
-and an enumerator on every transaction in the process, and it no longer takes the implementation's lock when no timer
-is set. The C# notes have the measurement; the F# hook has the same shape.
+The timer system's hook also allocates nothing in a transaction with no alarm due while the clock has not moved, where
+before it allocated a list and an enumerator on every transaction in the process, and it no longer takes the
+implementation's lock when no timer is set. A clock that moved makes the hook send the new time, and that send
+allocates. The C# notes have the measurement; the F# hook has the same shape.
 
 BREAKING: SimpleTimer<'T> is no longer public. It is the handle that TimerSystemImplementationBase<'T> gives from
 SetTimer, and every caller already reached it as an ITimer. Its documentation said not to make one, and nothing outside
