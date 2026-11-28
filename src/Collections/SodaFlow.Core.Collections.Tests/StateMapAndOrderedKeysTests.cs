@@ -654,10 +654,10 @@ public sealed class OrderedKeysTests
         OrderedKeys<int, ItemIdentity, ItemState> keys =
             Empty(isDescending: false, snapshot: before).Add(key: 1, snapshot: before).Add(key: 2, snapshot: before);
 
-        // The stages never do this, because a second sort removes the key before it adds the key.
-        // The type does not give that rule. An add of one key two times, at two different sort
-        // values, puts two entries in the ordering for one entry in the map. That is the one path
-        // to a difference between the two structures, thus this test holds it.
+        // A second sort of a stage does this, with no removal before the add. An add of one key two
+        // times, at two different sort values, can put two entries in the ordering for one entry in
+        // the map. That is the one path to a difference between the two structures, thus this test
+        // holds it.
         CollectionSnapshot<int, ItemIdentity, ItemState> after =
             Snapshot(
                 TestUtil.Item(number: 1, name: "one", score: 99),
@@ -668,6 +668,98 @@ public sealed class OrderedKeysTests
         await AssertConsistent(keys);
         await Assert.That(keys.Count).IsEqualTo(2);
         await Assert.That(TestUtil.Keys(keys)).IsEquivalentTo(expected: [2, 1], ordering: CollectionOrdering.Matching);
+    }
+
+    /// <summary>
+    ///     An add of a key that the set holds, at a sort value that the comparer
+    ///     finds equal, keeps the set. A sorted set, a set read from its end, and a
+    ///     window each answer themselves.
+    /// </summary>
+    [Test]
+    public async Task AnAddOfAFiledKeyAtAnEqualSortValueAnswersTheSameSet()
+    {
+        CollectionSnapshot<int, ItemIdentity, ItemState> before =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        // The name changes and the score does not change. Thus, the sort by score finds the same value.
+        CollectionSnapshot<int, ItemIdentity, ItemState> renamed =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "renamed", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        OrderedKeys<int, ItemIdentity, ItemState> sorted =
+            ByScore(isDescending: false).CreateFrom(keys: [1, 2, 3], snapshot: before);
+
+        OrderedKeys<int, ItemIdentity, ItemState> reversed = Reverse(order: ByScore(isDescending: true), keys: sorted);
+
+        OrderedKeys<int, ItemIdentity, ItemState> window =
+            new RangeKeys<int, ItemIdentity, ItemState>(source: sorted, offset: 1, limit: 2);
+
+        await Assert.That(ReferenceEquals(objA: sorted.Add(key: 2, snapshot: renamed), objB: sorted)).IsTrue();
+        await Assert.That(ReferenceEquals(objA: reversed.Add(key: 2, snapshot: renamed), objB: reversed)).IsTrue();
+        await Assert.That(ReferenceEquals(objA: window.Add(key: 2, snapshot: renamed), objB: window)).IsTrue();
+
+        // A comparer that finds two different values equal also keeps the set.
+        KeyOrder<int, ItemIdentity, ItemState> byNameWithNoCase =
+            KeyOrder<int, ItemIdentity, ItemState>.By(
+                selector: ByName,
+                sortComparer: StringComparer.OrdinalIgnoreCase,
+                keyComparer: Comparer<int>.Default,
+                isDescending: false);
+
+        OrderedKeys<int, ItemIdentity, ItemState> byName = byNameWithNoCase.CreateFrom(keys: [1, 2, 3], snapshot: before);
+
+        CollectionSnapshot<int, ItemIdentity, ItemState> capitals =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "ONE", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        OrderedKeys<int, ItemIdentity, ItemState> kept = byName.Add(key: 1, snapshot: capitals);
+
+        await Assert.That(ReferenceEquals(objA: kept, objB: byName)).IsTrue();
+        await AssertConsistent(kept);
+    }
+
+    /// <summary>
+    ///     The set files a new sort value also when the key keeps its position. A
+    ///     set that kept the previous value puts a subsequent key at an incorrect
+    ///     position.
+    /// </summary>
+    [Test]
+    public async Task AnAddOfAFiledKeyAtANewSortValueInTheSamePositionFilesTheNewValue()
+    {
+        CollectionSnapshot<int, ItemIdentity, ItemState> before =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 20),
+                TestUtil.Item(number: 3, name: "three", score: 30));
+
+        OrderedKeys<int, ItemIdentity, ItemState> keys =
+            ByScore(isDescending: false).CreateFrom(keys: [1, 2], snapshot: before);
+
+        // Key 2 goes from 20 to 15, and it stays after key 1.
+        CollectionSnapshot<int, ItemIdentity, ItemState> after =
+            Snapshot(
+                TestUtil.Item(number: 1, name: "one", score: 10),
+                TestUtil.Item(number: 2, name: "two", score: 15),
+                TestUtil.Item(number: 3, name: "three", score: 17));
+
+        OrderedKeys<int, ItemIdentity, ItemState> refiled = keys.Add(key: 2, snapshot: after);
+
+        await Assert.That(ReferenceEquals(objA: refiled, objB: keys)).IsFalse();
+        await Assert.That(refiled.IndexOfInternal(2)).IsEqualTo(1);
+        await AssertConsistent(refiled);
+
+        // Key 3, at 17, is after 15. It is before the previous value of key 2, which was 20.
+        OrderedKeys<int, ItemIdentity, ItemState> withThree = refiled.Add(key: 3, snapshot: after);
+
+        await Assert.That(TestUtil.Keys(withThree))
+            .IsEquivalentTo(expected: [1, 2, 3], ordering: CollectionOrdering.Matching);
     }
 
     /// <summary>The items 1 to <paramref name="count" />, each with a score of ten times its number.</summary>

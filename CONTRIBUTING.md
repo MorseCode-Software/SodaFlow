@@ -94,6 +94,10 @@ Each stage keeps its own ordered key set and applies the operations from above.
 | `SortBy` | Add or drop | Re-file, O(log n) | Re-file, O(log n) |
 | `Take` | Re-window | Forwarded if inside the window | Re-window |
 
+A re-file is one add of the key at its new sort value, with no removal first. When the comparer finds the new value
+equal to the one filed, the add returns the key set it was given, so the usual update, one that leaves the sort value
+alone, copies neither tree and needs no second position lookup.
+
 `ViewUpdate` is what makes chaining work. A stage that saw no positional consequence still has to tell the stage below
 that an item changed, because that stage may sort or filter on exactly the state that just moved.
 
