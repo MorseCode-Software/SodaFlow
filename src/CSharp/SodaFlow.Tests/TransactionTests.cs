@@ -364,6 +364,143 @@ public sealed class TransactionTests
         await Assert.That(aggregate?.InnerExceptions[1]).IsSameReferenceAs(fromRelease);
     }
 
+    // A release runs after the transaction lock is free, with no transaction open. Thus, a send
+    // from it opens a transaction of its own and arrives. Before, the release of a posted action
+    // that threw ran in the drain of the first transaction, which had sent its values, and the
+    // send went nowhere.
+    [Test]
+    public async Task TheReleaseOfAPostedActionThatThrowsCanSend()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+        using IListener listener = sink.Listen(seen.Add);
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                    Transaction.Post(
+                        action: static () => throw new InvalidOperationException("post"),
+                        onFailure: _ => sink.Send(5))))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(seen).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
+    }
+
+    // The same where the body of the transaction throws. Before, the release ran while the failed
+    // transaction was open, and the send went into it.
+    [Test]
+    public async Task TheReleaseOfAPostThatAFailedBodyDropsCanSend()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+        using IListener listener = sink.Listen(seen.Add);
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    Transaction.Post(
+                        action: static () =>
+                        {
+                        },
+                        onFailure: _ => sink.Send(5));
+
+                    throw new InvalidOperationException("body");
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(seen).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
+    }
+
+    // The same with no transaction open, where the posted action runs at once and throws. Before,
+    // the release ran in the transaction of that action, which then failed, and the send went with
+    // it.
+    [Test]
+    public async Task TheReleaseOfAPostWithNoTransactionOpenCanSend()
+    {
+        StreamSink<int> sink = Stream.CreateSink<int>();
+        List<int> seen = [];
+        using IListener listener = sink.Listen(seen.Add);
+
+        await Assert.That(() =>
+                Transaction.Post(
+                    action: static () => throw new InvalidOperationException("post"),
+                    onFailure: _ => sink.Send(5)))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(seen).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
+    }
+
+    // A release runs after the drain, thus after the posted actions that come after the one that
+    // threw. Before, it ran in place, before them.
+    [Test]
+    public async Task AReleaseRunsAfterThePostedActionsAfterIt()
+    {
+        List<string> order = [];
+
+        await Assert.That(() =>
+                Transaction.RunVoid(() =>
+                {
+                    Transaction.Post(
+                        action: static () => throw new InvalidOperationException("post"),
+                        onFailure: _ => order.Add("release"));
+
+                    Transaction.Post(() => order.Add("second post"));
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+
+        await Assert.That(order)
+            .IsEquivalentTo(expected: ["second post", "release"], ordering: CollectionOrdering.Matching);
+    }
+
+    // With no transaction open, a throw from the release comes out after the throw of the posted
+    // action, in one AggregateException, as in each other path.
+    [Test]
+    public async Task APostWithNoTransactionOpenKeepsTheThrowFromItsRelease()
+    {
+        InvalidOperationException thrown = new("post");
+        NotSupportedException fromRelease = new("the release fails");
+
+        AggregateException? aggregate =
+            await Assert.That(() =>
+                    Transaction.Post(action: () => throw thrown, onFailure: _ => throw fromRelease))
+                .ThrowsExactly<AggregateException>();
+
+        await Assert.That(aggregate?.InnerExceptions.Count).IsEqualTo(2);
+        await Assert.That(aggregate?.InnerExceptions[0]).IsSameReferenceAs(thrown);
+        await Assert.That(aggregate?.InnerExceptions[1]).IsSameReferenceAs(fromRelease);
+    }
+
+    // Two posted actions throw in one drain, and the release of each throws. The throws of the
+    // drain come out first, in one AggregateException, and the throws of the releases come after
+    // that one, because the releases run after the lock is free. Before, each throw of a release
+    // came after the throw of its own posted action, in one flat AggregateException.
+    [Test]
+    public async Task TheThrowsOfTheReleasesComeAfterTheThrowsOfTheDrain()
+    {
+        InvalidOperationException first = new("first post");
+        InvalidOperationException second = new("second post");
+        NotSupportedException firstRelease = new("first release");
+        NotSupportedException secondRelease = new("second release");
+
+        AggregateException? aggregate =
+            await Assert.That(() =>
+                    Transaction.RunVoid(() =>
+                    {
+                        Transaction.Post(action: () => throw first, onFailure: _ => throw firstRelease);
+                        Transaction.Post(action: () => throw second, onFailure: _ => throw secondRelease);
+                    }))
+                .ThrowsExactly<AggregateException>();
+
+        await Assert.That(aggregate?.InnerExceptions.Count).IsEqualTo(3);
+
+        AggregateException? drain = aggregate?.InnerExceptions[0] as AggregateException;
+
+        await Assert.That(drain?.InnerExceptions.Count).IsEqualTo(2);
+        await Assert.That(drain?.InnerExceptions[0]).IsSameReferenceAs(first);
+        await Assert.That(drain?.InnerExceptions[1]).IsSameReferenceAs(second);
+        await Assert.That(aggregate?.InnerExceptions[1]).IsSameReferenceAs(firstRelease);
+        await Assert.That(aggregate?.InnerExceptions[2]).IsSameReferenceAs(secondRelease);
+    }
+
     // The posted action here does not throw. A listener throws while its transaction propagates
     // the send, which is the other cause of a failure of that transaction.
     [Test]

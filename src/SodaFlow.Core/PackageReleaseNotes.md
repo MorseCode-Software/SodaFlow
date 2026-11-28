@@ -453,6 +453,18 @@ that fails now has the queues put back to where they were, and the release of ea
 exception as its cause. A release that throws comes out after that exception, in one AggregateException, as it does for
 the first transaction.
 
+Changed: the release of a Post, the action that runs where the posted action does not complete, now runs after the
+transaction lock is free, on the same thread, with no transaction open, before the call that opened the transaction
+returns. Before, it ran in place: in a transaction that had already sent its values, or in the one that was failing, so
+a send from a release went nowhere, and a Post from it ran only where that transaction still drained. Now a send or a
+Post from a release opens a transaction of its own and arrives. A release now runs after the other posted actions of
+that transaction, where it ran before the ones after it. A transaction on another thread can now run between the
+release of the lock and the release, which it could not before: a release that reads cells can see that transaction's
+values, and a release that undoes state outside the graph can find that state already changed.
+A throw from a release still comes after the exception that caused it, in one AggregateException. Where two or more
+posted actions fail in one transaction, their exceptions come first, together in one AggregateException, and the
+throws of the releases follow it; before, each release came right after its own posted action, in one flat list.
+
 Changed: the queue behind Defer and Split is a list in order of arrival, sorted by position when a round of it runs,
 where it was a dictionary from a position to one delegate that joined every split at that position. The splits at one
 position still run in one transaction, in the order they were made, and the positions still run in order. That is what
