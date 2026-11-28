@@ -165,6 +165,17 @@ done, a single exception is rethrown as it is, and several come out together in 
 `AggregateException`, in the order the actions were posted. The elements of `Operational.Split`
 follow the same rule: one element whose listeners throw does not stop the elements after it.
 
+An action that a failed transaction drops never runs, which matters when something waits for it:
+a `TaskCompletionSource`, or a callback into another library. For that case, `Post` takes a
+second action, a release: `Transaction.Post(action, onFailure)` in C#, and
+`Transaction.postWithFailureHandler onFailure action` in F#. The release runs once, only if the
+action does not run or throws, with the exception behind the failure. It runs after the
+transaction lock is free, with no transaction open, so a send or a post from it arrives. If it
+throws, its exception comes after the one that caused it. Nothing else about it is fixed: a
+transaction on another thread can run first, and its place among the other posted actions can
+change. Use a release to free whatever waits, and not to read cells or to undo state outside the
+graph.
+
 A posted action that fails also takes with it whatever it deferred in turn. The actions it posted
 do not run, and if one was posted with a release, the release runs with the exception that failed
 the action. A value it pushed through `Operational.Defer` or `Operational.Split` does not arrive.
