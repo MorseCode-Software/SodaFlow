@@ -150,6 +150,9 @@ that reach this package, and its notes have the details of each:
   and the result was wrong until the first input updated again.
 - SwitchB and SwitchC no longer keep a switch that a failed transaction made. Before, the output went on following the
   behavior the transaction had switched to, although the outer cell still held the one from before the failure.
+- Updates() of a SwitchC, and Operational.Updates of a SwitchB, no longer fire for the initial value of the switch in
+  the transaction that builds it. Before, a listener in that transaction got the current value of the selected cell or
+  behavior, as no other cell's updates do. Values() still gives the initial value.
 - ListenOnce no longer calls the handler twice when the stream fires on another thread at the moment the listener is
   attached.
 - A step of the graph that threw in a failed transaction no longer runs again in a later one. The same fix stops a
