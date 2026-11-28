@@ -267,7 +267,10 @@ let private toUnitInternalStream (cancelAll: Stream<unit> option) : Stream<UnitI
 ///     token lets <paramref name="cancelAll" />, <paramref name="cancelMatching" />, and
 ///     <paramref name="cancelOnDispose" /> stop work that started. An operation that ignores the
 ///     token continues to its end, and the cancellation then only stops the publication of its
-///     result.
+///     result. An item that starts at its admission starts on the thread that sent its input. An
+///     item that waits starts on the thread that ended an earlier item, usually a thread of the
+///     pool. Thus, the operation must not depend on a synchronization context that it captured,
+///     and must move work to a different thread itself.
 /// </param>
 /// <param name="strategy">
 ///     The control of operations that overlap. It holds no state of its own, and more than one
@@ -345,7 +348,10 @@ let mapAsync
 ///     Gets each exception that has no caller and that <paramref name="errors" /> cannot receive.
 ///     A throw from it ends the process.
 /// </param>
-/// <param name="operation">The asynchronous work for each input.</param>
+/// <param name="operation">
+///     The asynchronous work for each input. It can start on a thread other than the thread of
+///     the send. Thus, it must not depend on a synchronization context that it captured.
+/// </param>
 /// <param name="strategy">The control of operations that overlap.</param>
 /// <param name="inputConverter">
 ///     Changes each <c>'TInput</c> to the <c>'TStrategyInput</c> of the strategy, before the

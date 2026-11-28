@@ -319,6 +319,22 @@ transaction, it would hold the lock that every thread needs to start a transacti
 there would stall all of them, and waiting there on another thread that needs a transaction would
 deadlock. It runs after the lock is released, so neither can happen.
 
+**An operation can start on a different thread from the send.** Which transaction starts an item
+depends on the strategy. An item that starts as soon as it is admitted, as every item does under
+`Parallel` and `SwitchLatest` and the first one does under `Queue`, starts on the thread that sent
+its value. An item that the strategy holds back, as `Queue`, `QueuePerGroup`, or a custom strategy
+does with the items behind a running one, starts when an earlier item ends, on the thread that ended
+it. That is usually a thread-pool thread, because the pipeline does not return to the caller's
+context after an operation. So an operation sees the caller's `SynchronizationContext` only when it
+started on the sending thread: code that needs the UI thread would work for the first queued item
+and fail for the ones after it.
+
+Don't rely on a captured context in an operation. If the work needs a particular thread, the
+operation moves it there itself, with a scheduler or a dispatcher it was given. Most often the
+better shape is to keep that work out of the operation: return a value, and let the code that
+listens to `results` do the rest, for example a bindable value that the binding scheduler delivers
+on the UI thread.
+
 **Everywhere else, do not use it.** Code that has a value for a pipeline sends that value on the
 pipeline's source stream and reads the results stream. That is a pipeline's interface, and it keeps
 the identity of a single value out of code that has no business tracking it. Reaching for `Execute`

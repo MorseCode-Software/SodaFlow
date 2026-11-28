@@ -60,7 +60,11 @@ public static class AsyncStreamExtensions
     ///     <paramref name="errors" /> cannot receive. A throw from it ends the
     ///     process.
     /// </param>
-    /// <param name="operation">The asynchronous work for each input.</param>
+    /// <param name="operation">
+    ///     The asynchronous work for each input. It can start on a thread other than
+    ///     the thread of the send. Thus, it must not depend on a synchronization
+    ///     context that it captured.
+    /// </param>
     /// <param name="strategy">The control of operations that overlap.</param>
     /// <param name="cancelAll">
     ///     This is optional. Each send cancels each tracked
@@ -142,7 +146,11 @@ public static class AsyncStreamExtensions
     ///     <paramref name="errors" /> cannot receive. A throw from it ends the
     ///     process.
     /// </param>
-    /// <param name="operation">The asynchronous work for each input.</param>
+    /// <param name="operation">
+    ///     The asynchronous work for each input. It can start on a thread other than
+    ///     the thread of the send. Thus, it must not depend on a synchronization
+    ///     context that it captured.
+    /// </param>
     /// <param name="strategy">The control of operations that overlap.</param>
     /// <param name="cancelAll">
     ///     This is optional. Each send cancels each tracked
@@ -253,6 +261,11 @@ public static class AsyncStreamExtensions
     ///     <paramref name="cancelOnDispose" /> stop work that started. An operation
     ///     that ignores the token continues to its end, and the cancellation then only
     ///     stops the publication of its result. There is no overload with no token.
+    ///     An item that starts at its admission starts on the thread that sent its
+    ///     input. An item that waits starts on the thread that ended an earlier item,
+    ///     usually a thread of the pool. Thus, the operation must not depend on a
+    ///     synchronization context that it captured, and must move work to a different
+    ///     thread itself.
     /// </param>
     /// <param name="strategy">
     ///     The control of requests that overlap. A strategy instance holds no state of

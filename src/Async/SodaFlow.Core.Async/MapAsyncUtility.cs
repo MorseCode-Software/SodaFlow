@@ -1361,6 +1361,11 @@ internal static class AsyncStreamUtility
     ///     <paramref name="cancelOnDispose" /> stop work that started. An operation
     ///     that ignores the token continues to its end, and the cancellation then only
     ///     stops the publication of its result. There is no overload with no token.
+    ///     An item that starts at its admission starts on the thread that sent its
+    ///     input. An item that waits starts on the thread that ended an earlier item,
+    ///     usually a thread of the pool. Thus, the operation must not depend on a
+    ///     synchronization context that it captured, and must move work to a different
+    ///     thread itself.
     /// </param>
     /// <param name="strategy">
     ///     The control of requests that overlap. A strategy instance holds no state of
