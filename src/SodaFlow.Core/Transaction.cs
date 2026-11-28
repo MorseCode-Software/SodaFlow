@@ -549,7 +549,11 @@ internal sealed class TransactionInternal
     ///     run, in each condition. The same rules as for a last action apply: the
     ///     action must not send, sample, or queue a prioritized action. An action
     ///     that throws fails the transaction, and the actions after it in the
-    ///     queue do not run. Their discard actions run in the failure path.
+    ///     queue do not run. Their discard actions run in the failure path. This
+    ///     action can queue a last action. That last action commits in the same
+    ///     Close, after the after-last actions that are in the queue. A throw from
+    ///     that commit fails the transaction, as a throw from an after-last action
+    ///     does.
     /// </remarks>
     internal void AfterLast(Action commit, Action discard) =>
         (this.afterLastQueue ??= TakeQueue(ref spareAfterLastQueue))
@@ -747,13 +751,29 @@ internal sealed class TransactionInternal
             // these actions too.
             this.outcome?.MarkCommitted();
 
-            // The same for the after-last queue. An after-last action can add an after-last action.
+            // An after-last action can queue a last action, and that last action can queue an
+            // after-last action. This loop runs each of them, until the two queues are empty. The
+            // outcome stays committed. Before, a last action that an after-last action queued
+            // did not commit and did not discard: no drain came after it, and the check below
+            // does not read the last queue. In the usual condition, the after-last queue empties
+            // and the last queue is empty, thus the loop costs one more test of each count.
+            // The largest count of each queue includes this loop, because an action in it can add
+            // to either queue.
             int afterLastPeak = 0;
 
-            while (this.afterLastQueue?.Count > 0)
+            while (this.afterLastQueue?.Count > 0 || this.lastQueue?.Count > 0)
             {
-                afterLastPeak = Math.Max(val1: afterLastPeak, val2: this.afterLastQueue.Count);
-                this.afterLastQueue.Dequeue().Commit();
+                while (this.afterLastQueue?.Count > 0)
+                {
+                    afterLastPeak = Math.Max(val1: afterLastPeak, val2: this.afterLastQueue.Count);
+                    this.afterLastQueue.Dequeue().Commit();
+                }
+
+                while (this.lastQueue?.Count > 0)
+                {
+                    lastPeak = Math.Max(val1: lastPeak, val2: this.lastQueue.Count);
+                    this.lastQueue.Dequeue().Commit();
+                }
             }
 
             // A last action runs after the drain, thus work that it queues on this transaction has
@@ -1138,10 +1158,9 @@ internal sealed class TransactionInternal
     /// <remarks>
     ///     <para>
     ///         A queue goes back clear. An entry in a spare keeps its objects alive,
-    ///         and the next transaction runs it. An after-last action can add a last
-    ///         action, which no drain runs. Thus, the last queue can hold an entry here.
-    ///         The after-last queue is empty here, because its drain runs until it is
-    ///         empty, and it goes back clear also.
+    ///         and the next transaction runs it. The last queue and the after-last
+    ///         queue are empty here, because Close drains the two until both are
+    ///         empty. That includes a last action that an after-last action adds.
     ///         The list of targets holds each target of this transaction, because
     ///         Close reads it and does not clear it. The sample loop in Close gives
     ///         back each sample list after it ran.
