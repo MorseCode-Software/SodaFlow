@@ -67,12 +67,11 @@ application outside this repository would:
 ```xml
 <PackageReference Include="SodaFlow" Version="5.0.1" />
 <PackageReference Include="SodaFlow.Async" Version="5.0.0" />
-<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.3" />
+<PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.4" />
 ```
 
-That is Search. Counter and Bounce take the first and the third. Accounts takes `SodaFlow` and
-`SodaFlow.Collections` 2.0.0, and `SodaFlow.Bindable.ObjectModel` at 4.0.4, because it relies on
-commands that check their enablement when they send.
+That is Search. Counter and Bounce take the first and the third. Accounts takes `SodaFlow`,
+`SodaFlow.Collections` 2.0.0, and `SodaFlow.Bindable.ObjectModel`.
 
 Project references into `src/` would have been easier to set up and worse to live with: a sample
 would then break the moment anyone changed a library API, and it would break in whatever branch
