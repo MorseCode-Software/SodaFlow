@@ -40,7 +40,7 @@ let map (f: 'T -> 'TResult) (sample: LazySample<'T>) = sample.MapImpl(Func<'T, '
 /// <param name="sample2">The second sample.</param>
 /// <returns>A lazy sample of the result.</returns>
 [<MethodImpl(MethodImplOptions.NoInlining)>]
-let lift2 (f: 'T1 -> 'T2 -> 'TResult) (sample: LazySample<'T1>) (sample2: LazySample<'T2>) =
+let lift2 (f: 'T1 -> 'T2 -> 'TResult) (sample: LazySample<'T1>, sample2: LazySample<'T2>) =
     LazySampleInternal.LiftImpl(sample, sample2, Func<_, _, _> f)
 
 /// <summary>
@@ -54,9 +54,7 @@ let lift2 (f: 'T1 -> 'T2 -> 'TResult) (sample: LazySample<'T1>) (sample2: LazySa
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let lift3
     (f: 'T1 -> 'T2 -> 'T3 -> 'TResult)
-    (sample: LazySample<'T1>)
-    (sample2: LazySample<'T2>)
-    (sample3: LazySample<'T3>)
+    (sample: LazySample<'T1>, sample2: LazySample<'T2>, sample3: LazySample<'T3>)
     =
     LazySampleInternal.LiftImpl(sample, sample2, sample3, Func<_, _, _, _> f)
 
@@ -72,10 +70,7 @@ let lift3
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let lift4
     (f: 'T1 -> 'T2 -> 'T3 -> 'T4 -> 'TResult)
-    (sample: LazySample<'T1>)
-    (sample2: LazySample<'T2>)
-    (sample3: LazySample<'T3>)
-    (sample4: LazySample<'T4>)
+    (sample: LazySample<'T1>, sample2: LazySample<'T2>, sample3: LazySample<'T3>, sample4: LazySample<'T4>)
     =
     LazySampleInternal.LiftImpl(sample, sample2, sample3, sample4, Func<_, _, _, _, _> f)
 
@@ -92,11 +87,13 @@ let lift4
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let lift5
     (f: 'T1 -> 'T2 -> 'T3 -> 'T4 -> 'T5 -> 'TResult)
-    (sample: LazySample<'T1>)
-    (sample2: LazySample<'T2>)
-    (sample3: LazySample<'T3>)
-    (sample4: LazySample<'T4>)
-    (sample5: LazySample<'T5>)
+    (
+        sample: LazySample<'T1>,
+        sample2: LazySample<'T2>,
+        sample3: LazySample<'T3>,
+        sample4: LazySample<'T4>,
+        sample5: LazySample<'T5>
+    )
     =
     LazySampleInternal.LiftImpl(sample, sample2, sample3, sample4, sample5, Func<_, _, _, _, _, _> f)
 
@@ -114,12 +111,14 @@ let lift5
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let lift6
     (f: 'T1 -> 'T2 -> 'T3 -> 'T4 -> 'T5 -> 'T6 -> 'TResult)
-    (sample: LazySample<'T1>)
-    (sample2: LazySample<'T2>)
-    (sample3: LazySample<'T3>)
-    (sample4: LazySample<'T4>)
-    (sample5: LazySample<'T5>)
-    (sample6: LazySample<'T6>)
+    (
+        sample: LazySample<'T1>,
+        sample2: LazySample<'T2>,
+        sample3: LazySample<'T3>,
+        sample4: LazySample<'T4>,
+        sample5: LazySample<'T5>,
+        sample6: LazySample<'T6>
+    )
     =
     LazySampleInternal.LiftImpl(sample, sample2, sample3, sample4, sample5, sample6, Func<_, _, _, _, _, _, _> f)
 
@@ -138,13 +137,15 @@ let lift6
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let lift7
     (f: 'T1 -> 'T2 -> 'T3 -> 'T4 -> 'T5 -> 'T6 -> 'T7 -> 'TResult)
-    (sample: LazySample<'T1>)
-    (sample2: LazySample<'T2>)
-    (sample3: LazySample<'T3>)
-    (sample4: LazySample<'T4>)
-    (sample5: LazySample<'T5>)
-    (sample6: LazySample<'T6>)
-    (sample7: LazySample<'T7>)
+    (
+        sample: LazySample<'T1>,
+        sample2: LazySample<'T2>,
+        sample3: LazySample<'T3>,
+        sample4: LazySample<'T4>,
+        sample5: LazySample<'T5>,
+        sample6: LazySample<'T6>,
+        sample7: LazySample<'T7>
+    )
     =
     LazySampleInternal.LiftImpl(
         sample,
@@ -173,14 +174,16 @@ let lift7
 [<MethodImpl(MethodImplOptions.NoInlining)>]
 let lift8
     (f: 'T1 -> 'T2 -> 'T3 -> 'T4 -> 'T5 -> 'T6 -> 'T7 -> 'T8 -> 'TResult)
-    (sample: LazySample<'T1>)
-    (sample2: LazySample<'T2>)
-    (sample3: LazySample<'T3>)
-    (sample4: LazySample<'T4>)
-    (sample5: LazySample<'T5>)
-    (sample6: LazySample<'T6>)
-    (sample7: LazySample<'T7>)
-    (sample8: LazySample<'T8>)
+    (
+        sample: LazySample<'T1>,
+        sample2: LazySample<'T2>,
+        sample3: LazySample<'T3>,
+        sample4: LazySample<'T4>,
+        sample5: LazySample<'T5>,
+        sample6: LazySample<'T6>,
+        sample7: LazySample<'T7>,
+        sample8: LazySample<'T8>
+    )
     =
     LazySampleInternal.LiftImpl(
         sample,
