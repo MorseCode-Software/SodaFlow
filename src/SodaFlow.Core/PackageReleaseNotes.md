@@ -379,6 +379,12 @@ the start of each transaction, the scheduling with its timer thread, and the clo
 keeps its public types and passes their members to it, with its own optional type for At, as Debounce already did.
 Before, each package had a copy, and the two drifted.
 
+Changed: the start hook of a timer system allocates nothing in a transaction with no alarm due, as the C# and F# notes
+say. Two functions in the hook kept a variable of the hook, and C# makes the object that holds such a variable when the
+code reaches the variable, not when the function runs. Thus, the hook allocated 56 bytes at the start of every
+transaction in the process, also with no alarm due. Measured on .NET 10, an empty transaction with a SecondsTimerSystem
+alive: 343 to 321 ns and 448 to 392 bytes.
+
 Fixed: a transaction that fails no longer moves an alarm. The timer system's At listens to the cell that holds the
 deadline, and its listener canceled the timer of the old deadline and set one for the new deadline while the transaction
 was still open. When something later in that transaction threw, the cell kept its old deadline, but the timers had
