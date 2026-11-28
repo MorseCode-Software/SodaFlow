@@ -35,7 +35,7 @@
             their own application.
         -->
         <PackageReference Include="SodaFlow" Version="5.0.1"/>
-        <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.3"/>
+        <PackageReference Include="SodaFlow.Bindable.ObjectModel" Version="4.0.4"/>
     </ItemGroup>
 
 </Project>
