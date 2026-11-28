@@ -925,6 +925,104 @@ public sealed class BehaviorTests
                 ordering: CollectionOrdering.Matching);
     }
 
+    // Each case builds a switch and listens to its updates in one transaction, and sends nothing.
+    // The updates of a cell do not fire for its initial value, thus the updates of a switch must
+    // not fire either. Before, the first selection sent the value of the selected cell, and each
+    // case gave [1].
+    [Test]
+    public async Task TheUpdatesOfASwitchDoNotFireInTheTransactionThatBuildsIt()
+    {
+        CellSink<int> inner = Cell.CreateSink(1);
+        BehaviorSink<int> innerBehavior = Behavior.CreateSink(1);
+
+        await Assert.That(UpdatesInTheTransactionThatBuilds(() => Cell.Constant<Cell<int>>(inner).SwitchC().Updates()))
+            .IsEmpty();
+
+        await Assert.That(UpdatesInTheTransactionThatBuilds(() => Cell.CreateSink<Cell<int>>(inner).SwitchC().Updates()))
+            .IsEmpty();
+
+        await Assert.That(
+                UpdatesInTheTransactionThatBuilds(() => Behavior.Constant<Cell<int>>(inner).SwitchC().Updates()))
+            .IsEmpty();
+
+        await Assert.That(
+                UpdatesInTheTransactionThatBuilds(() =>
+                    Operational.Updates(Cell.Constant<Behavior<int>>(innerBehavior).SwitchB())))
+            .IsEmpty();
+
+        await Assert.That(
+                UpdatesInTheTransactionThatBuilds(() =>
+                    Operational.Updates(Behavior.Constant<Behavior<int>>(innerBehavior).SwitchB())))
+            .IsEmpty();
+
+        // The case that the switch must match.
+        await Assert.That(UpdatesInTheTransactionThatBuilds(() => inner.Map(static x => x + 1).Updates()))
+            .IsEmpty();
+    }
+
+    // The values of a switch give its initial value one time, in the transaction that builds it,
+    // as the values of each other cell do.
+    [Test]
+    public async Task TheValuesOfASwitchGiveItsInitialValueOneTime()
+    {
+        CellSink<int> inner = Cell.CreateSink(1);
+        BehaviorSink<int> innerBehavior = Behavior.CreateSink(1);
+
+        await Assert.That(UpdatesInTheTransactionThatBuilds(() => Cell.Constant<Cell<int>>(inner).SwitchC().Values()))
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
+
+        await Assert.That(
+                UpdatesInTheTransactionThatBuilds(() =>
+                    Operational.Value(Cell.Constant<Behavior<int>>(innerBehavior).SwitchB())))
+            .IsEquivalentTo(expected: [1], ordering: CollectionOrdering.Matching);
+    }
+
+    // An update in the transaction that builds a switch is an update of the switch, of the
+    // selected cell or of the outer cell, and the updates of the switch give it.
+    [Test]
+    public async Task AnUpdateInTheTransactionThatBuildsASwitchFires()
+    {
+        CellSink<int> inner = Cell.CreateSink(1);
+        CellSink<int> other = Cell.CreateSink(7);
+        CellSink<Cell<int>> outer = Cell.CreateSink<Cell<int>>(inner);
+
+        List<int> fromTheInner = [];
+
+        using IListener innerListener =
+            Transaction.Run(() =>
+            {
+                IListener l = Cell.Constant<Cell<int>>(inner).SwitchC().Updates().Listen(fromTheInner.Add);
+                inner.Send(5);
+
+                return l;
+            });
+
+        await Assert.That(fromTheInner).IsEquivalentTo(expected: [5], ordering: CollectionOrdering.Matching);
+
+        List<int> fromTheOuter = [];
+
+        using IListener outerListener =
+            Transaction.Run(() =>
+            {
+                IListener l = outer.SwitchC().Updates().Listen(fromTheOuter.Add);
+                outer.Send(other);
+
+                return l;
+            });
+
+        await Assert.That(fromTheOuter).IsEquivalentTo(expected: [7], ordering: CollectionOrdering.Matching);
+    }
+
+    // Builds the stream and listens to it in one transaction, and sends nothing.
+    private static List<int> UpdatesInTheTransactionThatBuilds(Func<Stream<int>> build)
+    {
+        List<int> seen = [];
+
+        using IListener l = Transaction.Run(() => build().Listen(seen.Add));
+
+        return seen;
+    }
+
     private sealed class Sc2(int initialValue)
     {
         public readonly CellSink<int> C = Cell.CreateSink(initialValue);
